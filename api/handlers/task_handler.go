@@ -17,9 +17,11 @@ import (
 )
 
 const (
-	TasksPath = "/v3/apps/{appGUID}/tasks"
-	TaskRoot  = "/v3/tasks"
-	TaskPath  = TaskRoot + "/{taskGUID}"
+	TasksPath                = "/v3/apps/{appGUID}/tasks"
+	TaskRoot                 = "/v3/tasks"
+	TaskPath                 = TaskRoot + "/{taskGUID}"
+	TaskCancelPath           = TaskRoot + "/{taskGUID}/actions/cancel"
+	TaskCancelPathDeprecated = TaskRoot + "/{taskGUID}/cancel"
 )
 
 //counterfeiter:generate -o fake -fake-name CFTaskRepository . CFTaskRepository
@@ -27,6 +29,7 @@ type CFTaskRepository interface {
 	CreateTask(context.Context, authorization.Info, repositories.CreateTaskMessage) (repositories.TaskRecord, error)
 	GetTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
 	ListTasks(context.Context, authorization.Info, repositories.ListTaskMessage) ([]repositories.TaskRecord, error)
+	CancelTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
 }
 
 type TaskHandler struct {
@@ -67,8 +70,7 @@ func (h *TaskHandler) taskGetHandler(ctx context.Context, logger logr.Logger, au
 func (h *TaskHandler) taskListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	tasks, err := h.taskRepo.ListTasks(ctx, authInfo, repositories.ListTaskMessage{})
 	if err != nil {
-		logger.Error(err, "failed to list tasks")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
@@ -85,19 +87,20 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 
 	appRecord, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Info("Error finding App", "App GUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding app", "appGUID", appGUID)
 	}
 
 	if !appRecord.IsStaged {
-		logger.Info("App is not staged", "App GUID", appGUID)
-		return nil, apierrors.NewUnprocessableEntityError(nil, "Task must have a droplet. Assign current droplet to app.")
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(nil, "Task must have a droplet. Assign current droplet to app."),
+			"app is not staged", "App GUID", appGUID,
+		)
 	}
 
 	taskRecord, err := h.taskRepo.CreateTask(ctx, authInfo, payload.ToMessage(appRecord))
 	if err != nil {
-		logger.Error(err, "Failed to create task")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to create task")
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
@@ -111,11 +114,26 @@ func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger
 		AppGUIDs: []string{appGUID},
 	})
 	if err != nil {
-		logger.Error(err, "failed to list tasks")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
+}
+
+func (h *TaskHandler) cancelTaskHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	vars := mux.Vars(r)
+	taskGUID := vars["taskGUID"]
+
+	if _, err := h.taskRepo.GetTask(ctx, authInfo, taskGUID); err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding task", "taskGUID", taskGUID)
+	}
+
+	taskRecord, err := h.taskRepo.CancelTask(ctx, authInfo, taskGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to cancel task")
+	}
+
+	return NewHandlerResponse(http.StatusAccepted).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
 func (h *TaskHandler) RegisterRoutes(router *mux.Router) {
@@ -123,4 +141,6 @@ func (h *TaskHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(TaskRoot).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.taskListHandler))
 	router.Path(TasksPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.taskCreateHandler))
 	router.Path(TasksPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appTaskListHandler))
+	router.Path(TaskCancelPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.cancelTaskHandler))
+	router.Path(TaskCancelPathDeprecated).Methods("PUT").HandlerFunc(h.handlerWrapper.Wrap(h.cancelTaskHandler))
 }

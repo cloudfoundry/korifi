@@ -107,6 +107,10 @@ var _ = Describe("TaskHandler", func() {
                 },
                 "droplet": {
                   "href": "https://api.example.org/v3/droplets/the-droplet-guid"
+                },
+                "cancel": {
+                  "href": "https://api.example.org/v3/tasks/the-task-guid/actions/cancel",
+                  "method": "POST"
                 }
               }
             }`))
@@ -189,7 +193,7 @@ var _ = Describe("TaskHandler", func() {
 		})
 	})
 
-	Describe("Listing tasks", func() {
+	Describe("GET /v3/tasks", func() {
 		var (
 			expectedBody string
 			reqPath      string
@@ -264,6 +268,10 @@ var _ = Describe("TaskHandler", func() {
                         "app": {
                           "href": "%[1]s/v3/apps/app1"
                         },
+                        "cancel": {
+                          "href": "%[1]s/v3/tasks/guid-1/actions/cancel",
+                          "method": "POST"
+                        },
                         "droplet": {
                           "href": "%[1]s/v3/droplets/droplet-1"
                         }
@@ -295,6 +303,10 @@ var _ = Describe("TaskHandler", func() {
                         },
                         "app": {
                           "href": "%[1]s/v3/apps/app2"
+                        },
+                        "cancel": {
+                          "href": "%[1]s/v3/tasks/guid-2/actions/cancel",
+                          "method": "POST"
                         },
                         "droplet": {
                           "href": "%[1]s/v3/droplets/droplet-2"
@@ -426,6 +438,10 @@ var _ = Describe("TaskHandler", func() {
                 },
                 "droplet": {
                   "href": "https://api.example.org/v3/droplets/droplet-guid"
+                },
+                "cancel": {
+                  "href": "https://api.example.org/v3/tasks/task-guid/actions/cancel",
+                  "method": "POST"
                 }
               }
             }`))
@@ -449,6 +465,150 @@ var _ = Describe("TaskHandler", func() {
 			It("returns a 404 Not Found", func() {
 				expectNotFoundError("Task")
 			})
+		})
+	})
+
+	Describe("POST /v3/tasks/:taskGUID/actions/cancel", func() {
+		BeforeEach(func() {
+			taskRepo.CancelTaskReturns(repositories.TaskRecord{
+				Name:              "task-name",
+				GUID:              "task-guid",
+				Command:           "echo hello",
+				AppGUID:           "app-guid",
+				DropletGUID:       "droplet-guid",
+				SequenceID:        314,
+				CreationTimestamp: time.Date(2022, 6, 21, 11, 11, 55, 0, time.UTC),
+				MemoryMB:          123,
+				DiskMB:            234,
+				State:             "stateful",
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/tasks/task-guid/actions/cancel", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("gets the task", func() {
+			Expect(taskRepo.GetTaskCallCount()).To(Equal(1))
+			_, actualAuthInfo, taskGUID := taskRepo.GetTaskArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(taskGUID).To(Equal("task-guid"))
+		})
+
+		When("getting the task fails with forbidden error", func() {
+			BeforeEach(func() {
+				taskRepo.GetTaskReturns(repositories.TaskRecord{}, apierrors.NewForbiddenError(nil, repositories.TaskResourceType))
+			})
+
+			It("returns a Not Found Error", func() {
+				expectNotFoundError("Task not found")
+			})
+		})
+
+		When("getting the task fails with other error", func() {
+			BeforeEach(func() {
+				taskRepo.GetTaskReturns(repositories.TaskRecord{}, errors.New("task-get"))
+			})
+
+			It("returns an Internal Server Error", func() {
+				expectUnknownError()
+			})
+		})
+
+		It("cancels the task", func() {
+			Expect(taskRepo.CancelTaskCallCount()).To(Equal(1))
+			_, actualAuthInfo, taskGUID := taskRepo.CancelTaskArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(taskGUID).To(Equal("task-guid"))
+		})
+
+		It("returns the cancelled task", func() {
+			Expect(rr.Code).To(Equal(http.StatusAccepted))
+			Expect(rr.Body).To(MatchJSON(`{
+              "name": "task-name",
+              "guid": "task-guid",
+              "command": "echo hello",
+              "sequence_id": 314,
+              "created_at": "2022-06-21T11:11:55Z",
+              "updated_at": "2022-06-21T11:11:55Z",
+              "memory_in_mb": 123,
+              "disk_in_mb": 234,
+              "droplet_guid": "droplet-guid",
+              "state": "stateful",
+              "relationships": {
+                "app": {
+                  "data": {
+                    "guid": "app-guid"
+                  }
+                }
+              },
+              "result": {
+                "failure_reason": null
+              },
+              "links": {
+                "self": {
+                  "href": "https://api.example.org/v3/tasks/task-guid"
+                },
+                "app": {
+                  "href": "https://api.example.org/v3/apps/app-guid"
+                },
+                "droplet": {
+                  "href": "https://api.example.org/v3/droplets/droplet-guid"
+                },
+                "cancel": {
+                  "href": "https://api.example.org/v3/tasks/task-guid/actions/cancel",
+                  "method": "POST"
+                }
+              }
+            }`))
+		})
+
+		When("cancelling the task fails", func() {
+			BeforeEach(func() {
+				taskRepo.CancelTaskReturns(repositories.TaskRecord{}, errors.New("task-cancel"))
+			})
+
+			It("returns an Internal Server Error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("cancelling the task is forbidden", func() {
+			BeforeEach(func() {
+				taskRepo.CancelTaskReturns(repositories.TaskRecord{}, apierrors.NewForbiddenError(nil, repositories.TaskResourceType))
+			})
+
+			It("returns an forbidden error", func() {
+				expectNotAuthorizedError()
+			})
+		})
+	})
+
+	Describe("PUT /v3/tasks/:taskGUID/cancel", func() {
+		BeforeEach(func() {
+			taskRepo.CancelTaskReturns(repositories.TaskRecord{
+				Name:              "task-name",
+				GUID:              "task-guid",
+				Command:           "echo hello",
+				AppGUID:           "app-guid",
+				DropletGUID:       "droplet-guid",
+				SequenceID:        314,
+				CreationTimestamp: time.Date(2022, 6, 21, 11, 11, 55, 0, time.UTC),
+				MemoryMB:          123,
+				DiskMB:            234,
+				State:             "stateful",
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "PUT", "/v3/tasks/task-guid/cancel", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("cancels the task", func() {
+			Expect(taskRepo.CancelTaskCallCount()).To(Equal(1))
+			_, actualAuthInfo, taskGUID := taskRepo.CancelTaskArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(taskGUID).To(Equal("task-guid"))
 		})
 	})
 })

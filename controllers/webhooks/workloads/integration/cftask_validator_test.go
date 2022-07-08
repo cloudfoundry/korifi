@@ -137,7 +137,7 @@ var _ = Describe("CFTask Update", func() {
 				Expect(ok).To(BeTrue())
 
 				Expect(validationErr.Type).To(Equal(workloads.CancelationNotPossibleErrorType))
-				Expect(validationErr.Message).To(ContainSubstring("it has already terminated"))
+				Expect(validationErr.Message).To(ContainSubstring("cannot be canceled"))
 			})
 		})
 
@@ -152,7 +152,7 @@ var _ = Describe("CFTask Update", func() {
 				Expect(ok).To(BeTrue())
 
 				Expect(validationErr.Type).To(Equal(workloads.CancelationNotPossibleErrorType))
-				Expect(validationErr.Message).To(ContainSubstring("it has already terminated"))
+				Expect(validationErr.Message).To(ContainSubstring("cannot be canceled"))
 			})
 		})
 

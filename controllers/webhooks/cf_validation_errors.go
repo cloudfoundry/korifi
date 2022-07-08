@@ -23,6 +23,10 @@ func (v ValidationError) Error() string {
 	return "ValidationError-" + v.Type + ": " + v.Message
 }
 
+func (v ValidationError) GetMessage() string {
+	return v.Message
+}
+
 func (v ValidationError) ExportJSONError() error {
 	bytes, err := json.Marshal(v)
 	if err != nil { // This (probably) can't fail, untested

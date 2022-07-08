@@ -20,10 +20,13 @@ import (
 
 var _ = Describe("TaskRepository", func() {
 	var (
-		taskRepo *repositories.TaskRepo
-		org      *korifiv1alpha1.CFOrg
-		space    *korifiv1alpha1.CFSpace
-		cfApp    *korifiv1alpha1.CFApp
+		taskRepo            *repositories.TaskRepo
+		org                 *korifiv1alpha1.CFOrg
+		space               *korifiv1alpha1.CFSpace
+		cfApp               *korifiv1alpha1.CFApp
+		dummyTaskController func(*korifiv1alpha1.CFTask)
+		controllerSync      *sync.WaitGroup
+		killController      chan bool
 	)
 
 	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
@@ -45,16 +48,64 @@ var _ = Describe("TaskRepository", func() {
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 
 		cfApp = createApp(space.Name)
+
+		dummyTaskController = func(cft *korifiv1alpha1.CFTask) {}
+		killController = make(chan bool)
+	})
+
+	JustBeforeEach(func() {
+		tasksWatch, err := k8sClient.Watch(
+			ctx,
+			&korifiv1alpha1.CFTaskList{},
+			client.InNamespace(space.Name),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		DeferCleanup(func() {
+			tasksWatch.Stop()
+		})
+		watchChan := tasksWatch.ResultChan()
+
+		controllerSync = &sync.WaitGroup{}
+		controllerSync.Add(1)
+
+		go func() {
+			defer GinkgoRecover()
+			defer controllerSync.Done()
+
+			timer := time.NewTimer(2 * time.Second)
+			defer timer.Stop()
+
+			for {
+				select {
+				case e := <-watchChan:
+					cft, ok := e.Object.(*korifiv1alpha1.CFTask)
+					if !ok {
+						time.Sleep(100 * time.Millisecond)
+						continue
+					}
+
+					dummyTaskController(cft)
+				case <-timer.C:
+					return
+
+				case <-killController:
+					return
+				}
+			}
+		}()
+	})
+
+	AfterEach(func() {
+		close(killController)
+		controllerSync.Wait()
 	})
 
 	Describe("CreateTask", func() {
 		var (
-			createMessage       repositories.CreateTaskMessage
-			taskRecord          repositories.TaskRecord
-			createErr           error
-			dummyTaskController func(*korifiv1alpha1.CFTask)
-			killController      chan bool
-			controllerSync      *sync.WaitGroup
+			createMessage repositories.CreateTaskMessage
+			taskRecord    repositories.TaskRecord
+			createErr     error
 		)
 
 		BeforeEach(func() {
@@ -65,9 +116,6 @@ var _ = Describe("TaskRepository", func() {
 				cft.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
 				setStatusAndUpdate(cft, korifiv1alpha1.TaskInitializedConditionType)
 			}
-			controllerSync = &sync.WaitGroup{}
-			controllerSync.Add(1)
-			killController = make(chan bool)
 			createMessage = repositories.CreateTaskMessage{
 				Command:   "  echo    hello  ",
 				SpaceGUID: space.Name,
@@ -76,50 +124,7 @@ var _ = Describe("TaskRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			tasksWatch, err := k8sClient.Watch(
-				ctx,
-				&korifiv1alpha1.CFTaskList{},
-				client.InNamespace(space.Name),
-			)
-			Expect(err).NotTo(HaveOccurred())
-
-			defer tasksWatch.Stop()
-			watchChan := tasksWatch.ResultChan()
-
-			go func() {
-				defer GinkgoRecover()
-				defer controllerSync.Done()
-
-				timer := time.NewTimer(2 * time.Second)
-				defer timer.Stop()
-
-				for {
-					select {
-					case e := <-watchChan:
-						cft, ok := e.Object.(*korifiv1alpha1.CFTask)
-						if !ok {
-							time.Sleep(100 * time.Millisecond)
-							continue
-						}
-
-						dummyTaskController(cft)
-						return
-
-					case <-timer.C:
-						return
-
-					case <-killController:
-						return
-					}
-				}
-			}()
-
 			taskRecord, createErr = taskRepo.CreateTask(ctx, authInfo, createMessage)
-		})
-
-		AfterEach(func() {
-			close(killController)
-			controllerSync.Wait()
 		})
 
 		It("returns forbidden error", func() {
@@ -151,7 +156,7 @@ var _ = Describe("TaskRepository", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("did not get initialized")))
+					Expect(createErr).To(MatchError(ContainSubstring("did not get the Initialized condition")))
 				})
 			})
 		})
@@ -409,6 +414,82 @@ var _ = Describe("TaskRepository", func() {
 						Expect(listErr).NotTo(HaveOccurred())
 						Expect(listedTasks).To(BeEmpty())
 					})
+				})
+			})
+		})
+	})
+
+	Describe("Cancel Task", func() {
+		var (
+			taskGUID   string
+			cancelErr  error
+			taskRecord repositories.TaskRecord
+		)
+
+		BeforeEach(func() {
+			dummyTaskController = func(cft *korifiv1alpha1.CFTask) {
+				if cft.Spec.Canceled {
+					setStatusAndUpdate(cft, korifiv1alpha1.TaskCanceledConditionType)
+				}
+			}
+
+			taskGUID = generateGUID()
+			cfTask := &korifiv1alpha1.CFTask{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      taskGUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFTaskSpec{
+					Command: []string{"echo", "hello"},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
+
+			cfTask.Status.Conditions = []metav1.Condition{}
+			cfTask.Status.SequenceID = 6
+			cfTask.Status.MemoryMB = 256
+			cfTask.Status.DiskQuotaMB = 128
+			cfTask.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
+			setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
+		})
+
+		JustBeforeEach(func() {
+			taskRecord, cancelErr = taskRepo.CancelTask(ctx, authInfo, taskGUID)
+		})
+
+		It("returns forbidden", func() {
+			Expect(cancelErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("cancels the task", func() {
+				Expect(cancelErr).NotTo(HaveOccurred())
+				Expect(taskRecord.Name).To(Equal(taskGUID))
+				Expect(taskRecord.GUID).NotTo(BeEmpty())
+				Expect(taskRecord.Command).To(Equal("echo hello"))
+				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
+				Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
+				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
+				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
+				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
+				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
+				Expect(taskRecord.State).To(Equal(repositories.TaskStateCanceling))
+			})
+
+			When("the status is not updated within the timeout", func() {
+				BeforeEach(func() {
+					dummyTaskController = func(*korifiv1alpha1.CFTask) {}
+				})
+
+				It("returns a timeout error", func() {
+					Expect(cancelErr).To(MatchError(ContainSubstring("did not get the Canceled condition")))
 				})
 			})
 		})

@@ -26,6 +26,20 @@ var _ = Describe("Tasks", func() {
 		deleteSpace(spaceGUID)
 	})
 
+	eventuallyTaskShouldHaveState := func(taskGUID, expectedState string) {
+		Eventually(func(g Gomega) {
+			var task taskResource
+			getResp, err := certClient.R().
+				SetPathParam("taskGUID", taskGUID).
+				SetResult(&task).
+				Get("/v3/tasks/{taskGUID}")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(getResp).To(HaveRestyStatusCode(http.StatusOK))
+			g.Expect(task.GUID).To(Equal(taskGUID))
+			g.Expect(task.State).To(Equal(expectedState))
+		}).Should(Succeed())
+	}
+
 	Describe("Create a task", func() {
 		JustBeforeEach(func() {
 			var err error
@@ -79,17 +93,7 @@ var _ = Describe("Tasks", func() {
 		})
 
 		It("succeeds", func() {
-			Eventually(func(g Gomega) {
-				var task taskResource
-				getResp, err := certClient.R().
-					SetPathParam("taskGUID", createdTask.GUID).
-					SetResult(&task).
-					Get("/v3/tasks/{taskGUID}")
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(getResp).To(HaveRestyStatusCode(http.StatusOK))
-				g.Expect(task.GUID).To(Equal(createdTask.GUID))
-				g.Expect(task.State).To(Equal("SUCCEEDED"))
-			}).Should(Succeed())
+			eventuallyTaskShouldHaveState(createdTask.GUID, "SUCCEEDED")
 		})
 	})
 
@@ -174,6 +178,83 @@ var _ = Describe("Tasks", func() {
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(guids[0])}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(guids[1])}),
 			))
+		})
+	})
+
+	Describe("cancelling a task", func() {
+		var (
+			returnedTask   taskResource
+			cancelResp     *resty.Response
+			partialRequest *resty.Request
+			command        string
+		)
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+			command = "sleep 100"
+		})
+
+		JustBeforeEach(func() {
+			resp, err := certClient.R().
+				SetBody(taskResource{
+					Command: command,
+				}).
+				SetPathParam("appGUID", appGUID).
+				SetResult(&createdTask).
+				Post("/v3/apps/{appGUID}/tasks")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+			partialRequest = certClient.R().
+				SetPathParam("taskGUID", createdTask.GUID).
+				SetResult(&returnedTask)
+		})
+
+		When("using the new API", func() {
+			JustBeforeEach(func() {
+				var err error
+				cancelResp, err = partialRequest.Post("/v3/tasks/{taskGUID}/actions/cancel")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("cancels the task", func() {
+				Expect(cancelResp).To(HaveRestyStatusCode(http.StatusAccepted))
+				Expect(returnedTask.GUID).To(Equal(createdTask.GUID))
+				eventuallyTaskShouldHaveState(createdTask.GUID, "FAILED")
+			})
+		})
+
+		When("the task has completed", func() {
+			BeforeEach(func() {
+				command = "true"
+			})
+
+			JustBeforeEach(func() {
+				eventuallyTaskShouldHaveState(createdTask.GUID, "SUCCEEDED")
+				var err error
+				cancelResp, err = partialRequest.Post("/v3/tasks/{taskGUID}/actions/cancel")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("is not possible to cancel the task", func() {
+				Expect(cancelResp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+				Expect(cancelResp).To(HaveRestyBody(ContainSubstring("CF-UnprocessableEntity")))
+				Expect(cancelResp).To(HaveRestyBody(ContainSubstring("Task state is SUCCEEDED and therefore cannot be canceled")))
+			})
+		})
+
+		When("using the deprecated API", func() {
+			JustBeforeEach(func() {
+				var err error
+				cancelResp, err = partialRequest.Put("/v3/tasks/{taskGUID}/cancel")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("cancels the task", func() {
+				Expect(cancelResp).To(HaveRestyStatusCode(http.StatusAccepted))
+				Expect(returnedTask.GUID).To(Equal(createdTask.GUID))
+				eventuallyTaskShouldHaveState(createdTask.GUID, "FAILED")
+			})
 		})
 	})
 })

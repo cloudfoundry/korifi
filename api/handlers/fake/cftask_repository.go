@@ -11,6 +11,21 @@ import (
 )
 
 type CFTaskRepository struct {
+	CancelTaskStub        func(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
+	cancelTaskMutex       sync.RWMutex
+	cancelTaskArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	cancelTaskReturns struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}
+	cancelTaskReturnsOnCall map[int]struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}
 	CreateTaskStub        func(context.Context, authorization.Info, repositories.CreateTaskMessage) (repositories.TaskRecord, error)
 	createTaskMutex       sync.RWMutex
 	createTaskArgsForCall []struct {
@@ -58,6 +73,72 @@ type CFTaskRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CFTaskRepository) CancelTask(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.TaskRecord, error) {
+	fake.cancelTaskMutex.Lock()
+	ret, specificReturn := fake.cancelTaskReturnsOnCall[len(fake.cancelTaskArgsForCall)]
+	fake.cancelTaskArgsForCall = append(fake.cancelTaskArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.CancelTaskStub
+	fakeReturns := fake.cancelTaskReturns
+	fake.recordInvocation("CancelTask", []interface{}{arg1, arg2, arg3})
+	fake.cancelTaskMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFTaskRepository) CancelTaskCallCount() int {
+	fake.cancelTaskMutex.RLock()
+	defer fake.cancelTaskMutex.RUnlock()
+	return len(fake.cancelTaskArgsForCall)
+}
+
+func (fake *CFTaskRepository) CancelTaskCalls(stub func(context.Context, authorization.Info, string) (repositories.TaskRecord, error)) {
+	fake.cancelTaskMutex.Lock()
+	defer fake.cancelTaskMutex.Unlock()
+	fake.CancelTaskStub = stub
+}
+
+func (fake *CFTaskRepository) CancelTaskArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.cancelTaskMutex.RLock()
+	defer fake.cancelTaskMutex.RUnlock()
+	argsForCall := fake.cancelTaskArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFTaskRepository) CancelTaskReturns(result1 repositories.TaskRecord, result2 error) {
+	fake.cancelTaskMutex.Lock()
+	defer fake.cancelTaskMutex.Unlock()
+	fake.CancelTaskStub = nil
+	fake.cancelTaskReturns = struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFTaskRepository) CancelTaskReturnsOnCall(i int, result1 repositories.TaskRecord, result2 error) {
+	fake.cancelTaskMutex.Lock()
+	defer fake.cancelTaskMutex.Unlock()
+	fake.CancelTaskStub = nil
+	if fake.cancelTaskReturnsOnCall == nil {
+		fake.cancelTaskReturnsOnCall = make(map[int]struct {
+			result1 repositories.TaskRecord
+			result2 error
+		})
+	}
+	fake.cancelTaskReturnsOnCall[i] = struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *CFTaskRepository) CreateTask(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateTaskMessage) (repositories.TaskRecord, error) {
@@ -261,6 +342,8 @@ func (fake *CFTaskRepository) ListTasksReturnsOnCall(i int, result1 []repositori
 func (fake *CFTaskRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.cancelTaskMutex.RLock()
+	defer fake.cancelTaskMutex.RUnlock()
 	fake.createTaskMutex.RLock()
 	defer fake.createTaskMutex.RUnlock()
 	fake.getTaskMutex.RLock()

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -17,6 +18,20 @@ type ApiError interface {
 	HttpStatus() int
 	Unwrap() error
 	Error() string
+}
+
+// LogAndReturn logs api errors at the info level and other errors at the
+// error level since api errors are expected recoverable conditions.
+// It returns the error for convenience.
+func LogAndReturn(logger logr.Logger, err error, msg string, keysAndValues ...interface{}) error {
+	if _, ok := err.(ApiError); ok {
+		keysAndValues = append(keysAndValues, "err", err)
+		logger.Info(msg, keysAndValues...)
+	} else {
+		logger.Error(err, msg, keysAndValues...)
+	}
+
+	return err
 }
 
 type apiError struct {
