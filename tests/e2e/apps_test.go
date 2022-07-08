@@ -469,6 +469,5 @@ var _ = Describe("Apps", func() {
 				},
 			})))
 		})
-
 	})
 })
