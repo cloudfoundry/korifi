@@ -189,8 +189,8 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 	}
 
 	taskRecords := []TaskRecord{}
-	for _, t := range tasks {
-		taskRecords = append(taskRecords, taskToRecord(&t))
+	for i := range tasks {
+		taskRecords = append(taskRecords, taskToRecord(&tasks[i]))
 	}
 
 	return taskRecords, nil
