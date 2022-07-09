@@ -1,0 +1,9 @@
+resources:
+- manifests.yaml
+- service.yaml
+
+patchesStrategicMerge:
+- patches/object_selector_patch.yaml
+
+configurations:
+- kustomizeconfig.yaml

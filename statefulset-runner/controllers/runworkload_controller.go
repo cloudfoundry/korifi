@@ -52,6 +52,7 @@ const (
 	EnvCFInstanceIP         = "CF_INSTANCE_IP"
 	EnvCFInstanceGUID       = "CF_INSTANCE_GUID"
 	EnvCFInstanceInternalIP = "CF_INSTANCE_INTERNAL_IP"
+	EnvCFInstanceIndex      = "CF_INSTANCE_INDEX"
 
 	// StatefulSet Keys
 	AnnotationVersion     = "korifi.cloudfoundry.org/version"
@@ -64,7 +65,7 @@ const (
 	LabelRunWorkloadGUID = "korifi.cloudfoundry.org/run-workload-guid"
 	LabelProcessType     = "korifi.cloudfoundry.org/process-type"
 
-	ApplicationContainerName = "app"
+	ApplicationContainerName = "application"
 
 	LivenessFailureThreshold  = 4
 	ReadinessFailureThreshold = 1
