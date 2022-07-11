@@ -111,7 +111,7 @@ func main() {
 	buildRepo := repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
-	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions)
+	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions, createTimeout)
 	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory, config.RootNamespace)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,

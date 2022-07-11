@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -35,7 +36,7 @@ var _ = Describe("ServiceBinding Handler", func() {
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions)
 		serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, clientFactory, nsPermissions)
-		serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, clientFactory, nsPermissions)
+		serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, clientFactory, nsPermissions, time.Second)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 

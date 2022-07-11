@@ -3,6 +3,8 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -27,17 +29,20 @@ type ServiceBindingRepo struct {
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 	namespaceRetriever   NamespaceRetriever
+	timeout              time.Duration
 }
 
 func NewServiceBindingRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
+	timeout time.Duration,
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
 		userClientFactory:    userClientFactory,
 		namespacePermissions: namespacePermissions,
 		namespaceRetriever:   namespaceRetriever,
+		timeout:              timeout,
 	}
 }
 
@@ -114,6 +119,36 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		}
 
 		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
+	}
+
+	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
+	defer cancelFn()
+	watch, err := userClient.Watch(timeoutCtx, &korifiv1alpha1.CFServiceBindingList{},
+		client.InNamespace(cfServiceBinding.Namespace),
+		client.MatchingFields{"metadata.name": cfServiceBinding.Name},
+	)
+	if err != nil {
+		return ServiceBindingRecord{}, fmt.Errorf("failed to set up watch on service binding: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
+	}
+
+	conditionReady := false
+	var createdServiceBinding *korifiv1alpha1.CFServiceBinding
+	for res := range watch.ResultChan() {
+		var ok bool
+		createdServiceBinding, ok = res.Object.(*korifiv1alpha1.CFServiceBinding)
+		if !ok {
+			// should never happen, but avoids panic above
+			continue
+		}
+		if meta.IsStatusConditionTrue(createdServiceBinding.Status.Conditions, VCAPServicesSecretAvailableCondition) {
+			watch.Stop()
+			conditionReady = true
+			break
+		}
+	}
+
+	if !conditionReady {
+		return ServiceBindingRecord{}, fmt.Errorf("service binding did not get Condition `VCAPServicesSecretAvailable`: 'True' within timeout period %d ms", r.timeout.Milliseconds())
 	}
 
 	return cfServiceBindingToRecord(cfServiceBinding), err

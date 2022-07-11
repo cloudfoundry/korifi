@@ -2,6 +2,9 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -15,33 +18,92 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("ServiceBindingRepo", func() {
 	var (
-		repo                *repositories.ServiceBindingRepo
-		testCtx             context.Context
-		org                 *korifiv1alpha1.CFOrg
-		space               *korifiv1alpha1.CFSpace
-		appGUID             string
-		serviceInstanceGUID string
+		repo                          *repositories.ServiceBindingRepo
+		testCtx                       context.Context
+		org                           *korifiv1alpha1.CFOrg
+		space                         *korifiv1alpha1.CFSpace
+		appGUID                       string
+		serviceInstanceGUID           string
+		doBindingControllerSimulation bool
+		bindingName                   *string
+		done                          chan bool
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms)
+		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms, time.Second)
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
 		serviceInstanceGUID = prefixedGUID("service-instance")
+		doBindingControllerSimulation = true
+		bindingName = nil
+		done = make(chan bool, 1)
+	})
+
+	waitForServiceBinding := func(anchorNamespace string, done chan bool) (*korifiv1alpha1.CFServiceBinding, error) {
+		for {
+			select {
+			case <-done:
+				return nil, fmt.Errorf("waitForCFOrg was 'signalled' to stop polling")
+			default:
+			}
+
+			var serviceBindingList korifiv1alpha1.CFServiceBindingList
+			err := k8sClient.List(ctx, &serviceBindingList, client.InNamespace(anchorNamespace))
+			if err != nil {
+				return nil, fmt.Errorf("waitForServiceBinding failed")
+			}
+
+			if len(serviceBindingList.Items) > 1 {
+				return nil, fmt.Errorf("waitForCFOrg found multiple anchors")
+			}
+			if len(serviceBindingList.Items) == 1 {
+				return &serviceBindingList.Items[0], nil
+			}
+
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+
+	simulateServiceBindingController := func(anchorNamespace string, done chan bool) {
+		defer GinkgoRecover()
+
+		serviceBinding, err := waitForServiceBinding(anchorNamespace, done)
+		if err != nil {
+			return
+		}
+
+		meta.SetStatusCondition(&(serviceBinding.Status.Conditions), metav1.Condition{
+			Type:    repositories.VCAPServicesSecretAvailableCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  "blah",
+			Message: "blah",
+		})
+		Expect(
+			k8sClient.Status().Update(ctx, serviceBinding),
+		).To(Succeed())
+	}
+
+	JustBeforeEach(func() {
+		if doBindingControllerSimulation {
+			go simulateServiceBindingController(space.Name, done)
+		}
+	})
+	AfterEach(func() {
+		done <- true
 	})
 
 	Describe("CreateServiceBinding", func() {
 		var (
-			bindingName *string
-			record      repositories.ServiceBindingRecord
-			createErr   error
+			record    repositories.ServiceBindingRecord
+			createErr error
 		)
 		BeforeEach(func() {
 			bindingName = nil
@@ -60,7 +122,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
-
 			It("creates a new CFServiceBinding resource and returns a record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
@@ -100,6 +161,16 @@ var _ = Describe("ServiceBindingRepo", func() {
 				))
 			})
 
+			When("the service binding doesn't become ready in time", func() {
+				BeforeEach(func() {
+					doBindingControllerSimulation = false
+				})
+
+				It("returns an error", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("service binding did not get Condition `VCAPServicesSecretAvailable`: 'True'")))
+				})
+			})
+
 			When("The service binding has a name", func() {
 				BeforeEach(func() {
 					tempName := "some-name-for-a-binding"
@@ -109,12 +180,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				It("creates the binding with the specified name", func() {
 					Expect(record.Name).To(Equal(bindingName))
 				})
-			})
-		})
-
-		When("the user doesn't have permission to create CFServiceBindings in the Space", func() {
-			It("returns a Forbidden error", func() {
-				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
