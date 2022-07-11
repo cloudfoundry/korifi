@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	eiriniLabelVersionKey = "korifi.cloudfoundry.org/version"
-	cfProcessGuidKey      = "korifi.cloudfoundry.org/guid"
+	LabelVersionKey  = "korifi.cloudfoundry.org/version"
+	cfProcessGuidKey = "korifi.cloudfoundry.org/guid"
 )
 
 var _ = Describe("PodRepository", func() {
@@ -170,15 +170,15 @@ var _ = Describe("PodRepository", func() {
 				}))
 			})
 
-			When("the 'oci' container is missing in one of the Pods", func() {
+			When("the 'app' container is missing in one of the Pods", func() {
 				BeforeEach(func() {
 					podWrong := createPodDef("pod-wrong", spaceGUID, appGUID, processGUID, "0", "1")
-					podWrong.Spec.Containers[0].Name = "not-oci"
+					podWrong.Spec.Containers[0].Name = "not-app"
 					Expect(k8sClient.Create(ctx, podWrong)).To(Succeed())
 				})
 
 				It("fails", func() {
-					Expect(listStatsErr).To(MatchError("container \"opi\" not found"))
+					Expect(listStatsErr).To(MatchError("container \"application\" not found"))
 				})
 			})
 
@@ -370,14 +370,14 @@ func createPodDef(name, namespace, appGUID, processGUID, index, version string) 
 			Namespace: namespace,
 			Labels: map[string]string{
 				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
-				eiriniLabelVersionKey:            version,
+				LabelVersionKey:                  version,
 				cfProcessGuidKey:                 processGUID,
 			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  "opi",
+					Name:  "application",
 					Image: "some-image",
 					Env: []corev1.EnvVar{
 						{

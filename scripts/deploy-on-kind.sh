@@ -111,8 +111,12 @@ function clean_up_img_refs() {
   unset IMG_API
   make set-image-ref
 
-  cd kpack-image-builder
+  cd "${ROOT_DIR}/kpack-image-builder"
   unset IMG_KIB
+  make set-image-ref
+
+  cd "${ROOT_DIR}/statefulset-runner"
+  unset IMG_SSR
   make set-image-ref
 }
 trap clean_up_img_refs EXIT
@@ -301,9 +305,31 @@ function deploy_kpack_image_builder() {
   kubectl rollout status deployment/korifi-kpack-build-controller-manager -w -n korifi-kpack-build-system
 }
 
+function deploy_statefulset_runner() {
+  if [[ -n "${api_only}" ]]; then return 0; fi
+
+  pushd "${ROOT_DIR}/statefulset-runner" >/dev/null
+  {
+    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
+    echo "${PWD}"
+    make generate
+    IMG_SSR=${IMG_SSR:-"korifi-statefulset-runner:$(uuidgen)"}
+    export IMG_SSR
+    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
+      make docker-build
+    fi
+    kind load docker-image --name "${cluster}" "${IMG_SSR}"
+    make deploy
+  }
+  popd >/dev/null
+
+  kubectl rollout status deployment/korifi-statefulset-runner-controller-manager -w -n korifi-statefulset-runner-system
+}
+
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
 deploy_korifi_controllers
 deploy_korifi_api
 deploy_kpack_image_builder
+deploy_statefulset_runner

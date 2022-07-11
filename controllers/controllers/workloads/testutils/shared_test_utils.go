@@ -159,7 +159,7 @@ func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dr
 	return &korifiv1alpha1.BuildDropletStatus{
 		Registry: korifiv1alpha1.Registry{
 			Image:            "image/registry/url",
-			ImagePullSecrets: nil,
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "some-image-pull-secret"}},
 		},
 		Stack:        "cflinuxfs3",
 		ProcessTypes: dropletProcessTypes,
@@ -240,7 +240,7 @@ func UpdateCFBuildWithDropletStatus(cfbuild *korifiv1alpha1.CFBuild) {
 	cfbuild.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 		Registry: korifiv1alpha1.Registry{
 			Image:            "my-image",
-			ImagePullSecrets: nil,
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "some-image-pull-secret"}},
 		},
 		Stack: "cflinuxfs3",
 		ProcessTypes: []korifiv1alpha1.ProcessType{

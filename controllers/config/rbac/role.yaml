@@ -97,18 +97,6 @@ rules:
 - apiGroups:
   - eirini.cloudfoundry.org
   resources:
-  - lrps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - eirini.cloudfoundry.org
-  resources:
   - lrps/status
   verbs:
   - patch
@@ -459,6 +447,24 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runworkloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runworkloads/status
+  verbs:
+  - patch
 - apiGroups:
   - kpack.io
   resources:

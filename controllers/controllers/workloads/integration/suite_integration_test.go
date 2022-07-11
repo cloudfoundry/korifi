@@ -240,7 +240,7 @@ func createClusterRole(ctx context.Context, k8sClient client.Client, name string
 	return role
 }
 
-func createClusterRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, annotations map[string]string) rbacv1.RoleBinding {
+func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, annotations map[string]string) rbacv1.RoleBinding {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        roleBindingName,

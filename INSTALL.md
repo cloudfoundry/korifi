@@ -251,6 +251,7 @@ Just apply the files in the release:
 kubectl apply -f korifi-api.yml
 kubectl apply -f korifi-controllers.yml
 kubectl apply -f korifi-kpack-image-builder.yml
+kubectl apply -f korifi-statefulset-runner.yml
 ```
 
 ## TLS certificates
