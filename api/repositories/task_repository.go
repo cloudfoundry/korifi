@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
@@ -41,6 +42,7 @@ type TaskRecord struct {
 	MemoryMB          int64
 	DiskMB            int64
 	State             string
+	FailureReason     string
 }
 
 type CreateTaskMessage struct {
@@ -259,7 +261,7 @@ func splitCommand(command string) []string {
 }
 
 func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
-	return TaskRecord{
+	taskRecord := TaskRecord{
 		Name:              task.Name,
 		GUID:              task.Name,
 		Command:           strings.Join(task.Spec.Command, " "),
@@ -271,6 +273,17 @@ func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 		DropletGUID:       task.Status.DropletRef.Name,
 		State:             toRecordState(task),
 	}
+
+	failedCond := meta.FindStatusCondition(task.Status.Conditions, korifiv1alpha1.TaskFailedConditionType)
+	if failedCond != nil && failedCond.Status == metav1.ConditionTrue {
+		taskRecord.FailureReason = failedCond.Message
+
+		if failedCond.Message == workloads.TaskCanceledReason {
+			taskRecord.FailureReason = "task was canceled"
+		}
+	}
+
+	return taskRecord
 }
 
 func toRecordState(task *korifiv1alpha1.CFTask) string {

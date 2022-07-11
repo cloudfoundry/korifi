@@ -512,7 +512,7 @@ var _ = Describe("CFTask Controller", func() {
 			canceledCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)
 			Expect(canceledCondition).NotTo(BeNil())
 			Expect(canceledCondition.Status).To(Equal(metav1.ConditionTrue))
-			Expect(canceledCondition.Reason).To(Equal("task_canceled"))
+			Expect(canceledCondition.Reason).To(Equal("taskCanceled"))
 		})
 
 		When("the task is not completed", func() {
@@ -529,7 +529,7 @@ var _ = Describe("CFTask Controller", func() {
 				failedCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskFailedConditionType)
 				Expect(failedCondition).NotTo(BeNil())
 				Expect(failedCondition.Status).To(Equal(metav1.ConditionTrue))
-				Expect(failedCondition.Reason).To(Equal("task_canceled"))
+				Expect(failedCondition.Reason).To(Equal("taskCanceled"))
 			})
 		})
 
