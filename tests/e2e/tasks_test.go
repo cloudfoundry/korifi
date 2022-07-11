@@ -41,11 +41,17 @@ var _ = Describe("Tasks", func() {
 	}
 
 	Describe("Create a task", func() {
+		var command string
+
+		BeforeEach(func() {
+			command = "echo hello"
+		})
+
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().
 				SetBody(taskResource{
-					Command: "echo hello",
+					Command: command,
 				}).
 				SetPathParam("appGUID", appGUID).
 				SetResult(&createdTask).
@@ -61,6 +67,16 @@ var _ = Describe("Tasks", func() {
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 				Expect(createdTask.State).ToNot(BeEmpty())
+			})
+
+			When("the task fails", func() {
+				BeforeEach(func() {
+					command = "false"
+				})
+
+				It("is eventually marked as failed", func() {
+					eventuallyTaskShouldHaveState(createdTask.GUID, "FAILED")
+				})
 			})
 		})
 

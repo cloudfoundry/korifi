@@ -37,6 +37,8 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 )
 
+const TaskCanceledReason = "taskCanceled"
+
 //counterfeiter:generate -o fake -fake-name SeqIdGenerator . SeqIdGenerator
 type SeqIdGenerator interface {
 	Generate() (int64, error)
@@ -275,14 +277,14 @@ func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifi
 	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
 		Type:   korifiv1alpha1.TaskCanceledConditionType,
 		Status: metav1.ConditionTrue,
-		Reason: "task_canceled",
+		Reason: TaskCanceledReason,
 	})
 
 	if !meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType) {
 		meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
 			Type:   korifiv1alpha1.TaskFailedConditionType,
 			Status: metav1.ConditionTrue,
-			Reason: "task_canceled",
+			Reason: TaskCanceledReason,
 		})
 	}
 

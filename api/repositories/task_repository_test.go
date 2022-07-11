@@ -273,6 +273,26 @@ var _ = Describe("TaskRepository", func() {
 				It("returns the failed task", func() {
 					Expect(getErr).NotTo(HaveOccurred())
 					Expect(taskRecord.State).To(Equal(repositories.TaskStateFailed))
+					Expect(taskRecord.FailureReason).To(Equal("bar"))
+				})
+			})
+
+			When("the task was canceled", func() {
+				BeforeEach(func() {
+					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
+					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
+						Type:    korifiv1alpha1.TaskFailedConditionType,
+						Status:  metav1.ConditionTrue,
+						Reason:  "Error",
+						Message: "taskCanceled",
+					})
+					Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+				})
+
+				It("returns the failed task", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(taskRecord.State).To(Equal(repositories.TaskStateFailed))
+					Expect(taskRecord.FailureReason).To(Equal("task was canceled"))
 				})
 			})
 		})

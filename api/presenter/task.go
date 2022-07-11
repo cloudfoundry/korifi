@@ -40,6 +40,12 @@ type TaskLinks struct {
 }
 
 func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse {
+	result := TaskResult{}
+
+	if responseTask.FailureReason != "" {
+		result.FailureReason = &responseTask.FailureReason
+	}
+
 	return TaskResponse{
 		Name:        responseTask.Name,
 		GUID:        responseTask.GUID,
@@ -51,6 +57,7 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse
 		MemoryMB:    responseTask.MemoryMB,
 		DiskMB:      responseTask.DiskMB,
 		State:       responseTask.State,
+		Result:      result,
 		Relationships: Relationships{
 			"app": Relationship{
 				Data: &RelationshipData{

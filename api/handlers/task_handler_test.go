@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -380,8 +382,10 @@ var _ = Describe("TaskHandler", func() {
 	})
 
 	Describe("GET /v3/tasks/:task-guid", func() {
+		var taskRecord repositories.TaskRecord
+
 		BeforeEach(func() {
-			taskRepo.GetTaskReturns(repositories.TaskRecord{
+			taskRecord = repositories.TaskRecord{
 				Name:              "task-name",
 				GUID:              "task-guid",
 				Command:           "echo hello",
@@ -392,7 +396,11 @@ var _ = Describe("TaskHandler", func() {
 				MemoryMB:          123,
 				DiskMB:            234,
 				State:             "stateful",
-			}, nil)
+			}
+
+			taskRepo.GetTaskStub = func(context.Context, authorization.Info, string) (repositories.TaskRecord, error) {
+				return taskRecord, nil
+			}
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/tasks/task-guid", nil)
@@ -445,6 +453,16 @@ var _ = Describe("TaskHandler", func() {
                 }
               }
             }`))
+		})
+
+		When("there FailureReason is set", func() {
+			BeforeEach(func() {
+				taskRecord.FailureReason = "bar"
+			})
+
+			It("propagates to the response body", func() {
+				Expect(rr.Body.String()).To(ContainSubstring(`"failure_reason":"bar"`))
+			})
 		})
 
 		When("the task does not exist", func() {
