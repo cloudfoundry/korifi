@@ -15,3 +15,17 @@ func (p TaskCreate) ToMessage(appRecord repositories.AppRecord) repositories.Cre
 		AppGUID:   appRecord.GUID,
 	}
 }
+
+type TaskList struct {
+	SequenceIDs []int64 `schema:"sequence_ids"`
+}
+
+func (t *TaskList) ToMessage() repositories.ListTaskMessage {
+	return repositories.ListTaskMessage{
+		SequenceIDs: t.SequenceIDs,
+	}
+}
+
+func (t *TaskList) SupportedKeys() []string {
+	return []string{"sequence_ids"}
+}

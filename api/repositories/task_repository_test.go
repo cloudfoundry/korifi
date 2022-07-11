@@ -30,6 +30,10 @@ var _ = Describe("TaskRepository", func() {
 	)
 
 	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
+		if task.Status.Conditions == nil {
+			task.Status.Conditions = []metav1.Condition{}
+		}
+
 		for _, cond := range conditionTypes {
 			meta.SetStatusCondition(&(task.Status.Conditions), metav1.Condition{
 				Type:    cond,
@@ -38,7 +42,17 @@ var _ = Describe("TaskRepository", func() {
 				Message: "bar",
 			})
 		}
+
 		ExpectWithOffset(1, k8sClient.Status().Update(ctx, task)).To(Succeed())
+	}
+
+	defaultStatusValues := func(task *korifiv1alpha1.CFTask, seqId int64, dropletId string) *korifiv1alpha1.CFTask {
+		task.Status.SequenceID = seqId
+		task.Status.MemoryMB = 256
+		task.Status.DiskQuotaMB = 128
+		task.Status.DropletRef.Name = dropletId
+
+		return task
 	}
 
 	BeforeEach(func() {
@@ -110,11 +124,10 @@ var _ = Describe("TaskRepository", func() {
 
 		BeforeEach(func() {
 			dummyTaskController = func(cft *korifiv1alpha1.CFTask) {
-				cft.Status.SequenceID = 6
-				cft.Status.MemoryMB = 256
-				cft.Status.DiskQuotaMB = 128
-				cft.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
-				setStatusAndUpdate(cft, korifiv1alpha1.TaskInitializedConditionType)
+				setStatusAndUpdate(
+					defaultStatusValues(cft, 6, cfApp.Spec.CurrentDropletRef.Name),
+					korifiv1alpha1.TaskInitializedConditionType,
+				)
 			}
 			createMessage = repositories.CreateTaskMessage{
 				Command:   "  echo    hello  ",
@@ -196,12 +209,7 @@ var _ = Describe("TaskRepository", func() {
 			}
 			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
 
-			cfTask.Status.Conditions = []metav1.Condition{}
-			cfTask.Status.SequenceID = 6
-			cfTask.Status.MemoryMB = 256
-			cfTask.Status.DiskQuotaMB = 128
-			cfTask.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
-			setStatusAndUpdate(cfTask)
+			setStatusAndUpdate(defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name))
 		})
 
 		JustBeforeEach(func() {
@@ -225,7 +233,10 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the task is ready", func() {
 				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType)
+					setStatusAndUpdate(
+						defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name),
+						korifiv1alpha1.TaskInitializedConditionType,
+					)
 				})
 
 				It("returns the task", func() {
@@ -425,6 +436,42 @@ var _ = Describe("TaskRepository", func() {
 					})
 				})
 
+				When("app guid and sequence IDs are passed as a filter", func() {
+					BeforeEach(func() {
+						setStatusAndUpdate(
+							defaultStatusValues(task2, 2, cfApp2.Spec.CurrentDropletRef.Name),
+							korifiv1alpha1.TaskInitializedConditionType,
+						)
+
+						task21 := &korifiv1alpha1.CFTask{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      prefixedGUID("task21"),
+								Namespace: space2.Name,
+							},
+							Spec: korifiv1alpha1.CFTaskSpec{
+								Command: []string{"echo", "hello"},
+								AppRef: corev1.LocalObjectReference{
+									Name: cfApp2.Name,
+								},
+							},
+						}
+						Expect(k8sClient.Create(context.Background(), task21)).To(Succeed())
+						setStatusAndUpdate(
+							defaultStatusValues(task21, 21, cfApp2.Spec.CurrentDropletRef.Name),
+							korifiv1alpha1.TaskInitializedConditionType,
+						)
+
+						listTaskMsg.AppGUIDs = []string{cfApp2.Name}
+						listTaskMsg.SequenceIDs = []int64{2}
+					})
+
+					It("returns the tasks filtered by sequence ID", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(listedTasks).To(HaveLen(1))
+						Expect(listedTasks[0].Name).To(Equal(task2.Name))
+					})
+				})
+
 				When("filtering by a non-existant app guid", func() {
 					BeforeEach(func() {
 						listTaskMsg.AppGUIDs = []string{"does-not-exist"}
@@ -468,7 +515,6 @@ var _ = Describe("TaskRepository", func() {
 			}
 			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
 
-			cfTask.Status.Conditions = []metav1.Condition{}
 			cfTask.Status.SequenceID = 6
 			cfTask.Status.MemoryMB = 256
 			cfTask.Status.DiskQuotaMB = 128

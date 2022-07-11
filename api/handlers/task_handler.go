@@ -110,9 +110,21 @@ func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger
 	vars := mux.Vars(r)
 	appGUID := vars["appGUID"]
 
-	tasks, err := h.taskRepo.ListTasks(ctx, authInfo, repositories.ListTaskMessage{
-		AppGUIDs: []string{appGUID},
-	})
+	if err := r.ParseForm(); err != nil {
+		logger.Error(err, "Unable to parse request query parameters")
+		return nil, err
+	}
+
+	taskListFilter := new(payloads.TaskList)
+	err := payloads.Decode(taskListFilter, r.Form)
+	if err != nil {
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
+	}
+
+	taskListMessage := taskListFilter.ToMessage()
+	taskListMessage.AppGUIDs = []string{appGUID}
+	tasks, err := h.taskRepo.ListTasks(ctx, authInfo, taskListMessage)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}

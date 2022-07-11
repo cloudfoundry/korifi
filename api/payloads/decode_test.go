@@ -19,7 +19,7 @@ var _ = Describe("Decode", func() {
 	BeforeEach(func() {
 		payloadObject = DecodeTestPayload{}
 		decodeInput = map[string][]string{
-			"key": {"value"},
+			"key": {"3"},
 		}
 	})
 
@@ -29,7 +29,25 @@ var _ = Describe("Decode", func() {
 
 	It("decodes into the payload object", func() {
 		Expect(decodeErr).NotTo(HaveOccurred())
-		Expect(payloadObject.Key).To(Equal("value"))
+		Expect(payloadObject.Key).To(Equal(3))
+	})
+
+	When("the input cannot be converted", func() {
+		BeforeEach(func() {
+			decodeInput = map[string][]string{
+				"key": {"asd"},
+			}
+		})
+
+		It("returns a message parse error", func() {
+			Expect(decodeErr).To(HaveOccurred())
+			invalidRequestErr, ok := decodeErr.(apierrors.MessageParseError)
+			Expect(ok).To(BeTrue())
+			Expect(invalidRequestErr.Detail()).To(ContainSubstring(`invalid request body`))
+			Expect(invalidRequestErr.Title()).To(Equal("CF-MessageParseError"))
+			Expect(invalidRequestErr.Code()).To(Equal(1001))
+			Expect(invalidRequestErr.HttpStatus()).To(Equal(http.StatusBadRequest))
+		})
 	})
 
 	When("the input is invalid", func() {
@@ -64,7 +82,7 @@ var _ = Describe("Decode", func() {
 })
 
 type DecodeTestPayload struct {
-	Key string `schema:"key,required"`
+	Key int `schema:"key,required"`
 }
 
 func (p *DecodeTestPayload) SupportedKeys() []string {

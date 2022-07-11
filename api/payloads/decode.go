@@ -17,18 +17,27 @@ func Decode(payloadObject keyedPayload, src map[string][]string) error {
 		return nil
 	}
 
-	switch err.(type) {
+	switch typedErr := err.(type) {
 	case schema.MultiError:
-		multiError := err.(schema.MultiError)
-		for _, v := range multiError {
-			_, ok := v.(schema.UnknownKeyError)
-			if ok {
-				return apierrors.NewUnknownKeyError(err, payloadObject.SupportedKeys())
+		for _, v := range typedErr {
+			if handledErr := handleSingleError(v, payloadObject); handledErr != nil {
+				return handledErr
 			}
 		}
 
 		return fmt.Errorf("unable to decode request query parameters: %w", err)
 	default:
 		return fmt.Errorf("unable to decode request query parameters: %w", err)
+	}
+}
+
+func handleSingleError(err error, payloadObject keyedPayload) error {
+	switch err.(type) {
+	case schema.UnknownKeyError:
+		return apierrors.NewUnknownKeyError(err, payloadObject.SupportedKeys())
+	case schema.ConversionError:
+		return apierrors.NewMessageParseError(err)
+	default:
+		return nil
 	}
 }
