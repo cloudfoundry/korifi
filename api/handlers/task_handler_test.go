@@ -369,6 +369,44 @@ var _ = Describe("TaskHandler", func() {
 				Expect(listMsg.AppGUIDs).To(ConsistOf("the-app-guid"))
 			})
 
+			When("filtering tasks by sequence ID", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/the-app-guid/tasks?sequence_ids=1,2", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("provides a list task message with the sequence ids to the repository", func() {
+					Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
+					_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
+					Expect(listMsg.SequenceIDs).To(ConsistOf(int64(1), int64(2)))
+				})
+
+				When("the sequence_ids parameter cannot be parsed to ints", func() {
+					BeforeEach(func() {
+						var err error
+						req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/the-app-guid/tasks?sequence_ids=asdf", nil)
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("returns a bad request error", func() {
+						expectBadRequestError()
+					})
+				})
+			})
+
+			When("the query string contains unsupported keys", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/the-app-guid/tasks?whatever=1", nil)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unknown key error", func() {
+					expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'sequence_ids'")
+				})
+			})
+
 			When("listing tasks fails", func() {
 				BeforeEach(func() {
 					taskRepo.ListTasksReturns(nil, errors.New("list-err"))

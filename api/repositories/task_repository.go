@@ -52,7 +52,8 @@ type CreateTaskMessage struct {
 }
 
 type ListTaskMessage struct {
-	AppGUIDs []string
+	AppGUIDs    []string
+	SequenceIDs []int64
 }
 
 func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
@@ -187,7 +188,7 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		if err != nil {
 			return nil, fmt.Errorf("failed to list tasks in namespace %s: %w", ns, apierrors.FromK8sError(err, TaskResourceType))
 		}
-		tasks = append(tasks, filter(taskList.Items, msg.AppGUIDs)...)
+		tasks = append(tasks, filterBySequenceIDs(filterByAppGUIDs(taskList.Items, msg.AppGUIDs), msg.SequenceIDs)...)
 	}
 
 	taskRecords := []TaskRecord{}
@@ -234,7 +235,7 @@ func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, 
 	return taskToRecord(task), nil
 }
 
-func filter(tasks []korifiv1alpha1.CFTask, appGUIDs []string) []korifiv1alpha1.CFTask {
+func filterByAppGUIDs(tasks []korifiv1alpha1.CFTask, appGUIDs []string) []korifiv1alpha1.CFTask {
 	if len(appGUIDs) == 0 {
 		return tasks
 	}
@@ -247,6 +248,26 @@ func filter(tasks []korifiv1alpha1.CFTask, appGUIDs []string) []korifiv1alpha1.C
 	var res []korifiv1alpha1.CFTask
 	for _, t := range tasks {
 		if guidMap[t.Spec.AppRef.Name] {
+			res = append(res, t)
+		}
+	}
+
+	return res
+}
+
+func filterBySequenceIDs(tasks []korifiv1alpha1.CFTask, sequenceIDs []int64) []korifiv1alpha1.CFTask {
+	if len(sequenceIDs) == 0 {
+		return tasks
+	}
+
+	seqIdMap := map[int64]bool{}
+	for _, seqId := range sequenceIDs {
+		seqIdMap[seqId] = true
+	}
+
+	var res []korifiv1alpha1.CFTask
+	for _, t := range tasks {
+		if seqIdMap[t.Status.SequenceID] {
 			res = append(res, t)
 		}
 	}
