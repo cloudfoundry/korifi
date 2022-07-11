@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
@@ -26,12 +27,6 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		ctx = context.Background()
 
 		orgNamespace = "test-org-" + uuid.NewString()
-		Expect(k8sClient.Create(ctx, &v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: orgNamespace,
-			},
-		})).To(Succeed())
-
 		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      orgNamespace,
@@ -41,6 +36,22 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 				DisplayName: orgNamespace,
 			},
 		})).To(Succeed())
+
+		Expect(k8sClient.Create(ctx, &v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   orgNamespace,
+				Labels: map[string]string{korifiv1alpha1.OrgNameLabel: orgNamespace},
+			},
+		})).To(Succeed())
+
+		// Ensure that the client used by the validating webhook has the CFOrg in its cache.
+		// In practice this will always be the case because...
+		//   1. The controllers and webhooks share the same client
+		//   2. The CFSpace is created in the namespace that the CFOrgReconciler creates
+		//   3. To create the namespace, the CFOrgReconciler has to first fetch the CFOrg (ensuring it's in the cache)
+		Eventually(func() error {
+			return internalWebhookK8sClient.Get(ctx, types.NamespacedName{Name: orgNamespace, Namespace: rootNamespace}, new(korifiv1alpha1.CFOrg))
+		}).Should(Succeed())
 	})
 
 	Describe("creating a space", func() {
@@ -58,7 +69,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 			Expect(err).To(Succeed())
 		})
 
-		When("a corresponding CFOrg does not exit", func() {
+		When("a corresponding CFOrg does not exist", func() {
 			BeforeEach(func() {
 				cfSpace.ObjectMeta.Namespace = "not-an-org"
 				Expect(k8sClient.Create(ctx, &v1.Namespace{
