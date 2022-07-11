@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -253,6 +254,10 @@ func NewPackageBitsAlreadyUploadedError(cause error) PackageBitsAlreadyUploadedE
 }
 
 func FromK8sError(err error, resourceType string) error {
+	if webhookValidationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+		return NewUnprocessableEntityError(err, webhookValidationError.GetMessage())
+	}
+
 	switch {
 	case k8serrors.IsUnauthorized(err):
 		return NewInvalidAuthError(err)

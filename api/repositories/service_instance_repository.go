@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -89,9 +88,6 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 	cfServiceInstance := message.toCFServiceInstance()
 	err = userClient.Create(ctx, &cfServiceInstance)
 	if err != nil {
-		if webhookError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			return ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, webhookError.Error())
-		}
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 

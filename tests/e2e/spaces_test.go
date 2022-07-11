@@ -78,7 +78,7 @@ var _ = Describe("Spaces", func() {
 			It("returns an unprocessable entity error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 				Expect(createErr.Errors).To(ConsistOf(cfErr{
-					Detail: fmt.Sprintf(`ValidationError-DuplicateNameError: Space '%s' already exists. Name must be unique per organization.`, spaceName),
+					Detail: fmt.Sprintf(`Space '%s' already exists. Name must be unique per organization.`, spaceName),
 					Title:  "CF-UnprocessableEntity",
 					Code:   10008,
 				}))

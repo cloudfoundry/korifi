@@ -7,7 +7,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
@@ -315,9 +314,6 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 
 	err = userClient.Create(ctx, &cfRoute)
 	if err != nil {
-		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
-		}
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 
@@ -370,9 +366,6 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 
 	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil {
-		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
-		}
 		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
@@ -410,9 +403,6 @@ func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 
 	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
 	if err != nil {
-		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			return RouteRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
-		}
 		return RouteRecord{}, fmt.Errorf("failed to remove destination from route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 

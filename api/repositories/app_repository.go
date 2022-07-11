@@ -220,9 +220,8 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 	if err != nil {
 		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
 			if validationError.Type == webhooks.DuplicateNameErrorType {
-				return AppRecord{}, apierrors.NewUniquenessError(err, validationError.Error())
+				return AppRecord{}, apierrors.NewUniquenessError(err, validationError.GetMessage())
 			}
-			return AppRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
 		}
 
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)

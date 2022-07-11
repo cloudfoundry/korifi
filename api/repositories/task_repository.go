@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -221,9 +220,6 @@ func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, 
 
 	err = userClient.Patch(ctx, task, client.MergeFrom(originalTask))
 	if err != nil {
-		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			return TaskRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.GetMessage())
-		}
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
 
