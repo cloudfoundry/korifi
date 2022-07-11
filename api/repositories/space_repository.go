@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,10 +93,7 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 		},
 	})
 	if err != nil {
-		if webhookError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			return SpaceRecord{}, apierrors.NewUnprocessableEntityError(err, webhookError.Error())
-		}
-		return SpaceRecord{}, err
+		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
 	return SpaceRecord{

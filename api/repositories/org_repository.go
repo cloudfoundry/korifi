@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -88,10 +87,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 	})
 
 	if err != nil {
-		if webhookError, ok := webhooks.WebhookErrorToValidationError(err); ok { // untested
-			return OrgRecord{}, apierrors.NewUnprocessableEntityError(err, webhookError.Error())
-		}
-		return OrgRecord{}, err
+		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
 	return OrgRecord{

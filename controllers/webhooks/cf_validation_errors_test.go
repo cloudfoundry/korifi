@@ -24,9 +24,16 @@ var _ = Describe("CFWebhookValidationError", func() {
 			Message: validationErrorMessage,
 		}
 	})
+
 	Describe("Error", func() {
 		It("returns a formatted error string", func() {
 			Expect(validationErr.Error()).To(Equal("ValidationError-" + validationErr.Type + ": " + validationErr.Message))
+		})
+	})
+
+	Describe("GetMessage", func() {
+		It("returns the user-facing message", func() {
+			Expect(validationErr.GetMessage()).To(Equal("some validation error message"))
 		})
 	})
 

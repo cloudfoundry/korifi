@@ -108,9 +108,8 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	if err != nil {
 		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
 			if validationError.Type == services.ServiceBindingErrorType {
-				return ServiceBindingRecord{}, apierrors.NewUniquenessError(err, validationError.Error())
+				return ServiceBindingRecord{}, apierrors.NewUniquenessError(err, validationError.GetMessage())
 			}
-			return ServiceBindingRecord{}, apierrors.NewUnprocessableEntityError(err, validationError.Error())
 		}
 
 		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
