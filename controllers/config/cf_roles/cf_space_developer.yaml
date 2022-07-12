@@ -86,6 +86,7 @@ rules:
     - list
     - create
     - delete
+    - watch
 
 - apiGroups:
   - korifi.cloudfoundry.org
