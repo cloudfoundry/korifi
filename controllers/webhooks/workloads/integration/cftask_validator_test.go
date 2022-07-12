@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -132,7 +131,6 @@ var _ = Describe("CFTask Update", func() {
 
 			It("fails", func() {
 				Expect(updateErr).To(HaveOccurred())
-				fmt.Printf("updateErr = %+v\n", updateErr)
 				validationErr, ok := webhooks.WebhookErrorToValidationError(updateErr)
 				Expect(ok).To(BeTrue())
 

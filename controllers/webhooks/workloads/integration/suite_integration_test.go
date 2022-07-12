@@ -31,9 +31,10 @@ import (
 )
 
 var (
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	cancel                   context.CancelFunc
+	testEnv                  *envtest.Environment
+	k8sClient                client.Client
+	internalWebhookK8sClient client.Client
 )
 
 const rootNamespace = "cf"
@@ -96,6 +97,8 @@ var _ = BeforeSuite(func() {
 		MetricsBindAddress: "0",
 	})
 	Expect(err).NotTo(HaveOccurred())
+
+	internalWebhookK8sClient = mgr.GetClient()
 
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
