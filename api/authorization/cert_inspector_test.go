@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/pem"
+	"errors"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -57,7 +58,7 @@ var _ = Describe("CertInspector", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(inspectorErr).To(MatchError("failed to decode cert PEM"))
+			Expect(inspectorErr).To(Equal(apierrors.NewInvalidAuthError(errors.New("failed to decode cert PEM"))))
 		})
 	})
 
@@ -78,7 +79,10 @@ var _ = Describe("CertInspector", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(inspectorErr).To(MatchError(ContainSubstring("failed to parse certificate")))
+			Expect(inspectorErr).To(SatisfyAll(
+				matchers.WrapErrorAssignableToTypeOf(apierrors.InvalidAuthError{})),
+				MatchError(ContainSubstring("failed to parse certificate")),
+			)
 		})
 	})
 })
