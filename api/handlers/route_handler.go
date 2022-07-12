@@ -78,21 +78,18 @@ func (h *RouteHandler) routeGetHandler(ctx context.Context, logger logr.Logger, 
 
 func (h *RouteHandler) routeGetListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	routeListFilter := new(payloads.RouteList)
 	err := payloads.Decode(routeListFilter, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	routes, err := h.lookupRouteAndDomainList(ctx, authInfo, routeListFilter.ToMessage())
 	if err != nil {
-		logger.Error(err, "Failed to fetch routes from Kubernetes")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch routes from Kubernetes")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteList(routes, h.serverURL, *r.URL)), nil
@@ -113,37 +110,43 @@ func (h *RouteHandler) routeGetDestinationsHandler(ctx context.Context, logger l
 func (h *RouteHandler) routeCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.RouteCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	spaceGUID := payload.Relationships.Space.Data.GUID
 	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch space from Kubernetes", "spaceGUID", spaceGUID)
-		return nil, apierrors.AsUnprocessableEntity(
-			err,
-			"Invalid space. Ensure that the space exists and you have access to it.",
-			apierrors.NotFoundError{},
-			apierrors.ForbiddenError{},
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(
+				err,
+				"Invalid space. Ensure that the space exists and you have access to it.",
+				apierrors.NotFoundError{},
+				apierrors.ForbiddenError{},
+			),
+			"Failed to fetch space from Kubernetes",
+			"spaceGUID", spaceGUID,
 		)
 	}
 
 	domainGUID := payload.Relationships.Domain.Data.GUID
 	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch domain from Kubernetes", "Domain GUID", domainGUID)
-		return nil, apierrors.AsUnprocessableEntity(
-			err,
-			"Invalid domain. Ensure that the domain exists and you have access to it.",
-			apierrors.NotFoundError{},
+		return nil, apierrors.LogAndReturn(logger,
+			apierrors.AsUnprocessableEntity(
+				err,
+				"Invalid domain. Ensure that the domain exists and you have access to it.",
+				apierrors.NotFoundError{},
+			),
+			"Failed to fetch space from Kubernetes",
+			"spaceGUID", spaceGUID,
 		)
 	}
 
 	createRouteMessage := payload.ToMessage(domain.Namespace, domain.Name)
 	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
 	if err != nil {
-		logger.Error(err, "Failed to create route", "Route Host", payload.Host)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create route", "Route Host", payload.Host)
 	}
 
 	responseRouteRecord = responseRouteRecord.UpdateDomainRef(domain)
@@ -154,7 +157,7 @@ func (h *RouteHandler) routeCreateHandler(ctx context.Context, logger logr.Logge
 func (h *RouteHandler) routeAddDestinationsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var destinationCreatePayload payloads.DestinationListCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &destinationCreatePayload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	vars := mux.Vars(r)
@@ -169,8 +172,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(ctx context.Context, logger l
 
 	responseRouteRecord, err := h.routeRepo.AddDestinationsToRoute(ctx, authInfo, destinationListCreateMessage)
 	if err != nil {
-		logger.Error(err, "Failed to add destination on route", "Route GUID", routeRecord.GUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to add destination on route", "Route GUID", routeRecord.GUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(responseRouteRecord, h.serverURL)), nil
@@ -195,8 +197,7 @@ func (h *RouteHandler) routeDeleteDestinationHandler(ctx context.Context, logger
 
 	_, err = h.routeRepo.RemoveDestinationFromRoute(r.Context(), authInfo, message)
 	if err != nil {
-		logger.Error(err, "Failed to remove destination from route", "Route GUID", routeRecord.GUID, "Destination GUID", destinationGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to remove destination from route", "Route GUID", routeRecord.GUID, "Destination GUID", destinationGUID)
 	}
 
 	return NewHandlerResponse(http.StatusNoContent), nil
@@ -216,8 +217,7 @@ func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logge
 		SpaceGUID: routeRecord.SpaceGUID,
 	})
 	if err != nil {
-		logger.Error(err, "Failed to delete route", "routeGUID", routeGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to delete route", "routeGUID", routeGUID)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
@@ -237,14 +237,12 @@ func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 func (h *RouteHandler) lookupRouteAndDomain(ctx context.Context, logger logr.Logger, authInfo authorization.Info, routeGUID string) (repositories.RouteRecord, error) {
 	route, err := h.routeRepo.GetRoute(ctx, authInfo, routeGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
-		return repositories.RouteRecord{}, apierrors.ForbiddenAsNotFound(err)
+		return repositories.RouteRecord{}, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 	}
 
 	domain, err := h.domainRepo.GetDomain(ctx, authInfo, route.Domain.GUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch domain from Kubernetes", "DomainGUID", route.Domain.GUID)
-		return repositories.RouteRecord{}, apierrors.ForbiddenAsNotFound(err)
+		return repositories.RouteRecord{}, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch domain from Kubernetes", "DomainGUID", route.Domain.GUID)
 	}
 
 	route = route.UpdateDomainRef(domain)
@@ -266,7 +264,6 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo au
 		if !has {
 			domainRecord, err = h.domainRepo.GetDomain(ctx, authInfo, currentDomainGUID)
 			if err != nil {
-				// err = errors.New("resource not found for route's specified domain ref")
 				return []repositories.RouteRecord{}, err
 			}
 			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord

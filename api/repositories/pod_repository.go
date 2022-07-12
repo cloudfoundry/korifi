@@ -365,7 +365,7 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, 
 		logReadCloser, err = k8sClient.CoreV1().Pods(message.SpaceGUID).GetLogs(pod.Name, &corev1.PodLogOptions{Timestamps: true, TailLines: &message.Limit}).Stream(ctx)
 		if err != nil {
 			// untested
-			logger.Error(err, fmt.Sprintf("failed to fetch logs for pod: %s", pod.Name))
+			logger.Info(fmt.Sprintf("failed to fetch logs for pod: %s", pod.Name), "err", err)
 			continue
 		}
 

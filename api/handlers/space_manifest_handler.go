@@ -69,12 +69,11 @@ func (h *SpaceManifestHandler) applyManifestHandler(ctx context.Context, logger 
 	spaceGUID := vars["spaceGUID"]
 	var manifest payloads.Manifest
 	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	if err := h.manifestApplier.Apply(ctx, authInfo, spaceGUID, manifest); err != nil {
-		logger.Error(err, "Error applying manifest")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error applying manifest")
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).
@@ -86,8 +85,7 @@ func (h *SpaceManifestHandler) diffManifestHandler(ctx context.Context, logger l
 	spaceGUID := vars["spaceGUID"]
 
 	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
-		logger.Error(err, "failed to get space", "guid", spaceGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get space", "guid", spaceGUID)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithBody(map[string]interface{}{"diff": []string{}}), nil

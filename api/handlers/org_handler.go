@@ -57,15 +57,13 @@ func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDom
 func (h *OrgHandler) orgCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.OrgCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		logger.Info("invalid-payload-for-create-org", "err", err)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "invalid-payload-for-create-org")
 	}
 
 	org := payload.ToMessage()
 	record, err := h.orgRepo.CreateOrg(ctx, authInfo, org)
 	if err != nil {
-		logger.Error(err, "Failed to create org", "Org Name", payload.Name)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create org", "Org Name", payload.Name)
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateOrg(record, h.apiBaseURL)), nil
@@ -80,8 +78,7 @@ func (h *OrgHandler) orgDeleteHandler(ctx context.Context, logger logr.Logger, a
 	}
 	err := h.orgRepo.DeleteOrg(ctx, authInfo, deleteOrgMessage)
 	if err != nil {
-		logger.Error(err, "Failed to delete org", "OrgGUID", orgGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to delete org", "OrgGUID", orgGUID)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(orgGUID, presenter.OrgDeleteOperation, h.apiBaseURL)), nil
@@ -92,8 +89,7 @@ func (h *OrgHandler) orgListHandler(ctx context.Context, logger logr.Logger, aut
 
 	orgs, err := h.orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{Names: names})
 	if err != nil {
-		logger.Error(err, "failed to fetch orgs")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to fetch orgs")
 	}
 
 	resp := NewHandlerResponse(http.StatusOK).WithBody(presenter.ForOrgList(orgs, h.apiBaseURL, *r.URL))
@@ -110,26 +106,22 @@ func (h *OrgHandler) orgListDomainHandler(ctx context.Context, logger logr.Logge
 	orgGUID := vars["guid"]
 
 	if _, err := h.orgRepo.GetOrg(ctx, authInfo, orgGUID); err != nil {
-		logger.Error(err, "Unable to get organization")
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
 	}
 
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	domainListFilter := new(payloads.DomainList)
 	err := payloads.Decode(domainListFilter, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	domainList, err := h.domainRepo.ListDomains(ctx, authInfo, domainListFilter.ToMessage())
 	if err != nil {
-		logger.Error(err, "Failed to fetch domain(s) from Kubernetes")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch domain(s) from Kubernetes")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.apiBaseURL, *r.URL)), nil

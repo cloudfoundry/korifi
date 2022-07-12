@@ -76,8 +76,7 @@ func (h *ProcessHandler) processGetHandler(ctx context.Context, logger logr.Logg
 
 	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
@@ -89,8 +88,7 @@ func (h *ProcessHandler) processGetSidecarsHandler(ctx context.Context, logger l
 
 	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
@@ -116,13 +114,12 @@ func (h *ProcessHandler) processScaleHandler(ctx context.Context, logger logr.Lo
 
 	var payload payloads.ProcessScale
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	processRecord, err := h.processScaler.ScaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
 	if err != nil {
-		logger.Error(err, "Failed due to error from Kubernetes", "processGUID", processGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed due to error from Kubernetes", "processGUID", processGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(processRecord, h.serverURL)), nil
@@ -134,8 +131,7 @@ func (h *ProcessHandler) processGetStatsHandler(ctx context.Context, logger logr
 
 	records, err := h.processStatsFetcher.FetchStats(ctx, authInfo, processGUID)
 	if err != nil {
-		logger.Error(err, "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
@@ -143,21 +139,18 @@ func (h *ProcessHandler) processGetStatsHandler(ctx context.Context, logger logr
 
 func (h *ProcessHandler) processListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	processListFilter := new(payloads.ProcessList)
 	err := payloads.Decode(processListFilter, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	processList, err := h.processRepo.ListProcesses(ctx, authInfo, processListFilter.ToMessage())
 	if err != nil {
-		logger.Error(err, "Failed to fetch processes(s) from Kubernetes")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch processes(s) from Kubernetes")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessList(processList, h.serverURL, *r.URL)), nil
@@ -169,19 +162,17 @@ func (h *ProcessHandler) processPatchHandler(ctx context.Context, logger logr.Lo
 
 	var payload payloads.ProcessPatch
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
 	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
-		logger.Error(err, "Failed to get process from Kubernetes", "ProcessGUID", processGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process from Kubernetes", "ProcessGUID", processGUID)
 	}
 
 	updatedProcess, err := h.processRepo.PatchProcess(ctx, authInfo, payload.ToProcessPatchMessage(processGUID, process.SpaceGUID))
 	if err != nil {
-		logger.Error(err, "Failed to patch process from Kubernetes", "ProcessGUID", processGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch process from Kubernetes", "ProcessGUID", processGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(updatedProcess, h.serverURL)), nil

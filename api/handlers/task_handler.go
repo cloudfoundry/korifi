@@ -61,7 +61,7 @@ func (h *TaskHandler) taskGetHandler(ctx context.Context, logger logr.Logger, au
 
 	taskRecord, err := h.taskRepo.GetTask(ctx, authInfo, taskGUID)
 	if err != nil {
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get task", "taskGUID", taskGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
@@ -82,7 +82,7 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 
 	var payload payloads.TaskCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	appRecord, err := h.appRepo.GetApp(ctx, authInfo, appGUID)

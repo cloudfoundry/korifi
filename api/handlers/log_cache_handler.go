@@ -60,21 +60,22 @@ func (h *LogCacheHandler) logCacheInfoHandler(ctx context.Context, logger logr.L
 
 func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	logReadPayload := new(payloads.LogRead)
 	err := payloads.Decode(logReadPayload, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	v := validator.New()
 	if logReadPayloadErr := v.Struct(logReadPayload); logReadPayloadErr != nil {
-		logger.Error(logReadPayloadErr, "Error validating log read request query parameters")
-		return nil, apierrors.NewUnprocessableEntityError(logReadPayloadErr, "error validating log read query parameters")
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(logReadPayloadErr, "error validating log read query parameters"),
+			"Error validating log read request query parameters",
+		)
 	}
 
 	vars := mux.Vars(r)

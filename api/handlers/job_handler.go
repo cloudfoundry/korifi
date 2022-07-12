@@ -46,8 +46,11 @@ func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, auth
 	jobType, resourceGUID, match := parseJobGUID(jobGUID)
 
 	if !match {
-		logger.Info("Invalid Job GUID")
-		return nil, apierrors.NewNotFoundError(fmt.Errorf("invalid job guid: %s", jobGUID), JobResourceType)
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewNotFoundError(fmt.Errorf("invalid job guid: %s", jobGUID), JobResourceType),
+			"Invalid Job GUID",
+		)
 	}
 
 	var jobResponse presenter.JobResponse
@@ -58,8 +61,11 @@ func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, auth
 	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix:
 		jobResponse = presenter.ForDeleteJob(jobGUID, jobType, h.serverURL)
 	default:
-		logger.Info(fmt.Sprintf("Invalid Job type: %s", jobType))
-		return nil, apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", jobType), JobResourceType)
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", jobType), JobResourceType),
+			fmt.Sprintf("Invalid Job type: %s", jobType),
+		)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(jobResponse), nil

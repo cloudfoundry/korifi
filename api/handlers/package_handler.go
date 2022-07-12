@@ -78,8 +78,7 @@ func (h PackageHandler) packageGetHandler(ctx context.Context, logger logr.Logge
 	packageGUID := mux.Vars(r)["guid"]
 	record, err := h.packageRepo.GetPackage(ctx, authInfo, packageGUID)
 	if err != nil {
-		logger.Info("Error fetching package with repository", "error", err.Error())
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
@@ -87,21 +86,18 @@ func (h PackageHandler) packageGetHandler(ctx context.Context, logger logr.Logge
 
 func (h PackageHandler) packageListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	packageListQueryParameters := new(payloads.PackageListQueryParameters)
 	err := payloads.Decode(packageListQueryParameters, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	records, err := h.packageRepo.ListPackages(ctx, authInfo, packageListQueryParameters.ToMessage())
 	if err != nil {
-		logger.Error(err, "Error fetching package with repository", "error")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository", "error")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackageList(records, h.serverURL, *r.URL)), nil
@@ -110,24 +106,27 @@ func (h PackageHandler) packageListHandler(ctx context.Context, logger logr.Logg
 func (h PackageHandler) packageCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.PackageCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	appRecord, err := h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		logger.Info("Error finding App", "App GUID", payload.Relationships.App.Data.GUID)
-		return nil, apierrors.AsUnprocessableEntity(
-			err,
-			"App is invalid. Ensure it exists and you have access to it.",
-			apierrors.NotFoundError{},
-			apierrors.ForbiddenError{},
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(
+				err,
+				"App is invalid. Ensure it exists and you have access to it.",
+				apierrors.NotFoundError{},
+				apierrors.ForbiddenError{},
+			),
+			"Error finding App",
+			"App GUID", payload.Relationships.App.Data.GUID,
 		)
 	}
 
 	record, err := h.packageRepo.CreatePackage(r.Context(), authInfo, payload.ToMessage(appRecord))
 	if err != nil {
-		logger.Info("Error creating package with repository", "error", err.Error())
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error creating package with repository")
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForPackage(record, h.serverURL)), nil
@@ -137,33 +136,28 @@ func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Lo
 	packageGUID := mux.Vars(r)["guid"]
 	err := r.ParseForm()
 	if err != nil { // untested - couldn't find a way to trigger this branch
-		logger.Info("Error parsing multipart form", "error", err.Error())
-		return nil, apierrors.NewInvalidRequestError(err, "Unable to parse body as multipart form")
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewInvalidRequestError(err, "Unable to parse body as multipart form"), "Error parsing multipart form")
 	}
 
 	bitsFile, _, err := r.FormFile("bits")
 	if err != nil {
-		logger.Info("Error reading form file \"bits\"", "error", err.Error())
-		return nil, apierrors.NewUnprocessableEntityError(err, "Upload must include bits")
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(err, "Upload must include bits"), "Error reading form file \"bits\"")
 	}
 	defer bitsFile.Close()
 
 	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
-		logger.Info("Error fetching package with repository", "error", err.Error())
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
 	}
 
 	if record.State != repositories.PackageStateAwaitingUpload {
-		logger.Info("Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
-		return nil, apierrors.NewPackageBitsAlreadyUploadedError(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewPackageBitsAlreadyUploadedError(err), "Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
 	}
 
 	imageRef := path.Join(h.registryBase, packageGUID)
 	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, imageRef, bitsFile, record.SpaceGUID)
 	if err != nil {
-		logger.Info("Error calling uploadSourceImage", "error", err.Error())
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error calling uploadSourceImage")
 	}
 
 	record, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.UpdatePackageSourceMessage{
@@ -173,8 +167,7 @@ func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Lo
 		RegistrySecretName: h.registrySecretName,
 	})
 	if err != nil {
-		logger.Info("Error calling UpdatePackageSource", "error", err.Error())
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error calling UpdatePackageSource")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
@@ -182,30 +175,26 @@ func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Lo
 
 func (h PackageHandler) packageListDropletsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	packageListDropletsQueryParams := new(payloads.PackageListDropletsQueryParameters)
 	err := payloads.Decode(packageListDropletsQueryParams, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	packageGUID := mux.Vars(r)["guid"]
 	_, err = h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
-		logger.Error(err, "Error fetching package with repository")
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
 	}
 
 	dropletListMessage := packageListDropletsQueryParams.ToMessage([]string{packageGUID})
 
 	dropletList, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, dropletListMessage)
 	if err != nil {
-		logger.Error(err, "Error fetching droplet list with repository")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error fetching droplet list with repository")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDropletList(dropletList, h.serverURL, *r.URL)), nil

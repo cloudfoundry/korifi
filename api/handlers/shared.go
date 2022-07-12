@@ -19,12 +19,9 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-
-var Logger = ctrl.Log.WithName("Shared Handler Functions")
 
 type DecoderValidator struct {
 	validator  *validator.Validate
@@ -53,14 +50,11 @@ func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object
 		switch {
 		case errors.As(err, &unmarshalTypeError):
 			titler := cases.Title(language.AmericanEnglish)
-			Logger.Error(err, fmt.Sprintf("Request body contains an invalid value for the %q field (should be of type %v)", titler.String(unmarshalTypeError.Field), unmarshalTypeError.Type))
 			return apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("%v must be a %v", titler.String(unmarshalTypeError.Field), unmarshalTypeError.Type))
 		case strings.HasPrefix(err.Error(), "json: unknown field"):
 			// check whether the message matches an "unknown field" error. If so, 422. Else, 400
-			Logger.Error(err, fmt.Sprintf("Unknown field in JSON body: %T: %q", err, err.Error()))
 			return apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("invalid request body: %s", err.Error()))
 		default:
-			Logger.Error(err, fmt.Sprintf("Unable to parse the JSON body: %T: %q", err, err.Error()))
 			return apierrors.NewMessageParseError(err)
 		}
 	}
@@ -74,7 +68,6 @@ func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object
 	decoder.KnownFields(false) // TODO: change this to true once we've added all manifest fields to payloads.Manifest
 	err := decoder.Decode(object)
 	if err != nil {
-		Logger.Error(err, fmt.Sprintf("Unable to parse the YAML body: %T: %q", err, err.Error()))
 		return apierrors.NewMessageParseError(err)
 	}
 

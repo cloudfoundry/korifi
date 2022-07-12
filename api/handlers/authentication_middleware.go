@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/correlation"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,8 +49,8 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 
 		authInfo, err := a.authInfoParser.Parse(r.Header.Get(headers.Authorization))
 		if err != nil {
-			logger.Error(err, "failed to parse auth info")
-			presentError(w, err)
+			logger.Info("failed to parse auth info", "err", err)
+			presentError(logger, w, err)
 			return
 		}
 
@@ -57,8 +58,7 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 
 		_, err = a.identityProvider.GetIdentity(r.Context(), authInfo)
 		if err != nil {
-			logger.Error(err, "failed to get identity")
-			presentError(w, err)
+			presentError(logger, w, apierrors.LogAndReturn(logger, err, "failed to get identity"))
 			return
 		}
 

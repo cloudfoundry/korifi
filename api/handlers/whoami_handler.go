@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"github.com/go-logr/logr"
@@ -39,9 +40,7 @@ func NewWhoAmI(identityProvider IdentityProvider, apiBaseURL url.URL) *WhoAmIHan
 func (h *WhoAmIHandler) whoAmIHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	identity, err := h.identityProvider.GetIdentity(r.Context(), authInfo)
 	if err != nil {
-		logger.Info("failed to get identity", "err", err)
-
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get identity")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForWhoAmI(identity)), nil
