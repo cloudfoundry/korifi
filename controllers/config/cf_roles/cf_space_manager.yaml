@@ -59,3 +59,11 @@ rules:
   verbs:
   - get
   - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cftasks
+  verbs:
+  - get
+  - list
