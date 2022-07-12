@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -25,17 +26,17 @@ func NewCertInspector(restConfig *rest.Config) *CertInspector {
 func (c *CertInspector) WhoAmI(ctx context.Context, certPEM []byte) (Identity, error) {
 	certBlock, rst := pem.Decode(certPEM)
 	if certBlock == nil {
-		return Identity{}, fmt.Errorf("failed to decode cert PEM")
+		return Identity{}, apierrors.NewInvalidAuthError(errors.New("failed to decode cert PEM"))
 	}
 
 	cert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
-		return Identity{}, fmt.Errorf("failed to parse certificate: %w", err)
+		return Identity{}, apierrors.NewInvalidAuthError(fmt.Errorf("failed to parse certificate: %w", err))
 	}
 
 	keyBlock, _ := pem.Decode(rst)
 	if keyBlock == nil {
-		return Identity{}, fmt.Errorf("failed to decode key PEM")
+		return Identity{}, apierrors.NewInvalidAuthError(errors.New("failed to decode key PEM"))
 	}
 
 	config := rest.AnonymousClientConfig(c.restConfig)
