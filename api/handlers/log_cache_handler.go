@@ -30,10 +30,11 @@ type AppLogsReader interface {
 // LogCacheHandler implements the minimal set of log-cache API endpoints/features necessary
 // to support the "cf push" workfloh.handlerWrapper.
 type LogCacheHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-	appRepo        CFAppRepository
-	buildRepo      CFBuildRepository
-	appLogsReader  AppLogsReader
+	authenticatedHandlerWrapper   *AuthAwareHandlerFuncWrapper
+	unauthenticatedHandlerWrapper *AuthAwareHandlerFuncWrapper
+	appRepo                       CFAppRepository
+	buildRepo                     CFBuildRepository
+	appLogsReader                 AppLogsReader
 }
 
 func NewLogCacheHandler(
@@ -42,18 +43,19 @@ func NewLogCacheHandler(
 	appLogsReader AppLogsReader,
 ) *LogCacheHandler {
 	return &LogCacheHandler{
-		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
-		appRepo:        appRepo,
-		buildRepo:      buildRepository,
-		appLogsReader:  appLogsReader,
+		authenticatedHandlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
+		unauthenticatedHandlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
+		appRepo:                       appRepo,
+		buildRepo:                     buildRepository,
+		appLogsReader:                 appLogsReader,
 	}
 }
 
-func (h *LogCacheHandler) logCacheInfoHandler(w http.ResponseWriter, r *http.Request) {
-	writeResponse(w, http.StatusOK, map[string]interface{}{
+func (h *LogCacheHandler) logCacheInfoHandler(ctx context.Context, logger logr.Logger, _ authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
 		"version":   logCacheVersion,
 		"vm_uptime": "0",
-	})
+	}), nil
 }
 
 func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
@@ -81,13 +83,13 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 	var logs []repositories.LogRecord
 	logs, err = h.appLogsReader.Read(ctx, logger, authInfo, appGUID, *logReadPayload)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to read app logs", "appGUID", appGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForLogs(logs)), nil
 }
 
 func (h *LogCacheHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(LogCacheInfoPath).Methods("GET").HandlerFunc(h.logCacheInfoHandler)
-	router.Path(LogCacheReadPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.logCacheReadHandler))
+	router.Path(LogCacheInfoPath).Methods("GET").HandlerFunc(h.unauthenticatedHandlerWrapper.Wrap(h.logCacheInfoHandler))
+	router.Path(LogCacheReadPath).Methods("GET").HandlerFunc(h.authenticatedHandlerWrapper.Wrap(h.logCacheReadHandler))
 }

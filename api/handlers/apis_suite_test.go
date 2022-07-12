@@ -11,12 +11,15 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/correlation"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -25,11 +28,12 @@ const (
 )
 
 var (
-	rr        *httptest.ResponseRecorder
-	router    *mux.Router
-	serverURL *url.URL
-	ctx       context.Context
-	authInfo  authorization.Info
+	rr            *httptest.ResponseRecorder
+	router        *mux.Router
+	serverURL     *url.URL
+	ctx           context.Context
+	authInfo      authorization.Info
+	correlationID string
 )
 
 func TestApis(t *testing.T) {
@@ -37,9 +41,14 @@ func TestApis(t *testing.T) {
 	RunSpecs(t, "Apis Suite")
 }
 
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter)))
+})
+
 var _ = BeforeEach(func() {
 	authInfo = authorization.Info{Token: "a-token"}
-	ctx = authorization.NewContext(context.Background(), &authInfo)
+	correlationID = generateGUID("corrID")
+	ctx = correlation.ContextWithId(authorization.NewContext(context.Background(), &authInfo), correlationID)
 	rr = httptest.NewRecorder()
 	router = mux.NewRouter()
 

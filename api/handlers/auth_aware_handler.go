@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -41,12 +42,27 @@ func (r *HandlerResponse) WithBody(body interface{}) *HandlerResponse {
 
 type AuthAwareHandlerFunc func(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error)
 
+type AuthInfoProvider func(ctx context.Context) (authorization.Info, bool)
+
 type AuthAwareHandlerFuncWrapper struct {
-	logger logr.Logger
+	logger           logr.Logger
+	authInfoProvider AuthInfoProvider
 }
 
 func NewAuthAwareHandlerFuncWrapper(logger logr.Logger) *AuthAwareHandlerFuncWrapper {
-	return &AuthAwareHandlerFuncWrapper{logger: logger}
+	return &AuthAwareHandlerFuncWrapper{
+		logger:           logger,
+		authInfoProvider: authorization.InfoFromContext,
+	}
+}
+
+func NewUnauthenticatedHandlerFuncWrapper(logger logr.Logger) *AuthAwareHandlerFuncWrapper {
+	return &AuthAwareHandlerFuncWrapper{
+		logger: logger,
+		authInfoProvider: func(ctx context.Context) (authorization.Info, bool) {
+			return authorization.Info{}, true
+		},
+	}
 }
 
 func (h *AuthAwareHandlerFuncWrapper) Wrap(delegate AuthAwareHandlerFunc) http.HandlerFunc {
@@ -54,7 +70,7 @@ func (h *AuthAwareHandlerFuncWrapper) Wrap(delegate AuthAwareHandlerFunc) http.H
 		ctx := r.Context()
 
 		logger := correlation.AddCorrelationIDToLogger(ctx, h.logger)
-		authInfo, ok := authorization.InfoFromContext(r.Context())
+		authInfo, ok := h.authInfoProvider(r.Context())
 		if !ok {
 			logger.Error(nil, "unable to get auth info")
 			presentError(w, nil)
