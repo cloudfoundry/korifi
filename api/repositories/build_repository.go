@@ -88,13 +88,13 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
 	userClient, err := b.userClientFactory.BuildClient(authInfo)
 	if err != nil { // Untested
-		return BuildRecord{}, apierrors.NewUnknownError(err)
+		return BuildRecord{}, err
 	}
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
 	})
 	if err != nil { // Untested
-		return BuildRecord{}, apierrors.NewUnknownError(err)
+		return BuildRecord{}, err
 	}
 
 	listOpts := &client.ListOptions{Namespace: spaceGUID, LabelSelector: labelSelector}
@@ -124,7 +124,7 @@ func orderBuilds(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
 func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Info, spaceGUID string, buildGUID string) ([]LogRecord, error) {
 	userClient, err := b.userClientFactory.BuildK8sClient(authInfo)
 	if err != nil { // Untested
-		return []LogRecord{}, apierrors.NewUnknownError(err)
+		return []LogRecord{}, err
 	}
 	logWriter := new(strings.Builder)
 	err = NewBuildLogsClient(userClient).GetImageLogs(ctx, logWriter, buildGUID, spaceGUID)
