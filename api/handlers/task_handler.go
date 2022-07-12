@@ -115,8 +115,13 @@ func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger
 		return nil, err
 	}
 
+	_, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding app", "appGUID", appGUID)
+	}
+
 	taskListFilter := new(payloads.TaskList)
-	err := payloads.Decode(taskListFilter, r.Form)
+	err = payloads.Decode(taskListFilter, r.Form)
 	if err != nil {
 		logger.Error(err, "Unable to decode request query parameters")
 		return nil, err
