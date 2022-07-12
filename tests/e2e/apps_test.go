@@ -142,10 +142,22 @@ var _ = Describe("Apps", func() {
 			resp, err = certClient.R().Delete("/v3/apps/" + appGUID)
 		})
 
+		It("succeeds with a job redirect", func() {
+			Expect(resp).To(SatisfyAll(
+				HaveRestyStatusCode(http.StatusAccepted),
+				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/app.delete~"+appGUID)),
+			))
+
+			jobURL := resp.Header().Get("Location")
+			Eventually(func(g Gomega) {
+				resp, err = certClient.R().Get(jobURL)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(string(resp.Body())).To(ContainSubstring("COMPLETE"))
+			}).Should(Succeed())
+		})
+
 		It("successfully deletes the app", func() {
 			var result resource
-			Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
-			Expect(err).NotTo(HaveOccurred())
 			Eventually(func(g Gomega) {
 				resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID)
 				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
