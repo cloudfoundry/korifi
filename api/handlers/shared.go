@@ -12,7 +12,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 
 	"code.cloudfoundry.org/bytefmt"
-	"github.com/go-http-utils/headers"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -223,20 +222,6 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 	case RoleName(""):
 	default:
 		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
-	}
-}
-
-func writeResponse(w http.ResponseWriter, status int, responseBody interface{}) {
-	w.Header().Set(headers.ContentType, "application/json")
-	w.WriteHeader(status)
-
-	encoder := json.NewEncoder(w)
-	encoder.SetEscapeHTML(false)
-
-	err := encoder.Encode(responseBody)
-	if err != nil {
-		Logger.Error(err, "failed to encode and write response")
-		return
 	}
 }
 

@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -45,6 +46,26 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 		_, _, actualAuthInfo, actualReq := delegate.ArgsForCall(0)
 		Expect(actualAuthInfo).To(Equal(authInfo))
 		Expect(actualReq.URL.Path).To(Equal("/foo"))
+	})
+
+	Describe("logging the correlationID", func() {
+		var buf *bytes.Buffer
+
+		BeforeEach(func() {
+			buf = new(bytes.Buffer)
+			GinkgoWriter.TeeTo(buf)
+		})
+
+		AfterEach(func() {
+			GinkgoWriter.ClearTeeWriters()
+		})
+
+		It("passes a logger with correlation id set to the delegate", func() {
+			Expect(delegate.CallCount()).To(Equal(1))
+			_, logger, _, _ := delegate.ArgsForCall(0)
+			logger.Info("bar")
+			Expect(buf.String()).To(ContainSubstring(correlationID))
+		})
 	})
 
 	It("returns whatever the delegate returns", func() {
@@ -152,6 +173,25 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 
 		It("presents the error", func() {
 			expectUnprocessableEntityError("bar")
+		})
+	})
+
+	When("using the unauthenticated wrapper", func() {
+		BeforeEach(func() {
+			ctx = context.Background()
+			wrapper := apis.NewUnauthenticatedHandlerFuncWrapper(logf.Log.WithName("test"))
+			wrappedFunc = wrapper.Wrap(delegate.Spy)
+		})
+
+		It("passes empty auth.Info to the auth aware delegate", func() {
+			Expect(delegate.CallCount()).To(Equal(1))
+			_, _, actualAuthInfo, actualReq := delegate.ArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authorization.Info{}))
+			Expect(actualReq.URL.Path).To(Equal("/foo"))
+		})
+
+		It("returns whatever the delegate returns", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 		})
 	})
 })
