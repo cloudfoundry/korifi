@@ -331,28 +331,4 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		})
 	})
 
-	When("generating RunWorkload CPU weight parameters", func() {
-		BeforeEach(func() {
-			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			runWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, "")
-		})
-
-		DescribeTable("matches expected output",
-			func(processMemoryMB int64, outputCTPUWeight uint8) {
-				cfProcess.Spec.MemoryMB = processMemoryMB
-
-				_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
-				Expect(reconcileErr).To(Succeed())
-
-				Expect(fakeClient.CreateCallCount()).To(BeNumerically(">=", 1))
-				_, createObj, _ := fakeClient.CreateArgsForCall(0)
-				createdRunWorkload, ok := createObj.(*korifiv1alpha1.RunWorkload)
-				Expect(ok).To(BeTrue(), "client Create() object cooerce to eirini.RunWorkload failed")
-				Expect(createdRunWorkload.Spec.CPUWeight).To(Equal(outputCTPUWeight))
-			},
-			Entry("Memory is zero", int64(0), uint8(100*128/8192)),
-			Entry("Memory is less than 8192", int64(4096), uint8(100*4096/8192)),
-			Entry("Memory is greater than 8192", int64(16384), uint8(100)),
-		)
-	})
 })

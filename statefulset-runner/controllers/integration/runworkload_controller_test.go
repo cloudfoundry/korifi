@@ -47,7 +47,7 @@ var _ = Describe("RunWorkloadsController", func() {
 				Instances:        5,
 				MemoryMiB:        5,
 				DiskMiB:          100,
-				CPUWeight:        2,
+				CPUWeight:        0,
 			},
 		}
 	})
@@ -110,25 +110,79 @@ var _ = Describe("RunWorkloadsController", func() {
 			}).Should(Succeed())
 		})
 
-		JustBeforeEach(func() {
-			actualRunWorkload := new(korifiv1alpha1.RunWorkload)
-			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: runWorkload.Name, Namespace: namespaceName}, actualRunWorkload)).To(Succeed())
+		When("the calculated RunWorkload cpu limit is too low", func() {
+			JustBeforeEach(func() {
+				actualRunWorkload := new(korifiv1alpha1.RunWorkload)
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: runWorkload.Name, Namespace: namespaceName}, actualRunWorkload)).To(Succeed())
 
-				actualRunWorkload.Spec.Instances = 2
-				actualRunWorkload.Spec.MemoryMiB = 10
-				g.Expect(k8sClient.Update(ctx, actualRunWorkload)).To(Succeed())
-			}).Should(Succeed())
+					actualRunWorkload.Spec.Instances = 2
+					actualRunWorkload.Spec.MemoryMiB = 1024
+					g.Expect(k8sClient.Update(ctx, actualRunWorkload)).To(Succeed())
+				}).Should(Succeed())
+			})
+
+			It("updates the StatefulSet with calculated CPU requests/limits", func() {
+				Eventually(func(g Gomega) {
+					statefulSet := new(appsv1.StatefulSet)
+					statefulSetName := controllers.GetStatefulSetName(*runWorkload)
+					Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulSetName, Namespace: namespaceName}, statefulSet)).To(Succeed())
+					g.Expect(*statefulSet.Spec.Replicas).To(Equal(int32(2)))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1Gi"))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("100m"))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("1024m"))
+				}).Should(Succeed())
+			})
 		})
 
-		It("updates the StatefulSet", func() {
-			Eventually(func(g Gomega) {
-				statefulSet := new(appsv1.StatefulSet)
-				statefulSetName := controllers.GetStatefulSetName(*runWorkload)
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulSetName, Namespace: namespaceName}, statefulSet)).To(Succeed())
-				g.Expect(*statefulSet.Spec.Replicas).To(Equal(int32(2)))
-				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("10Mi"))
-			}).Should(Succeed())
+		When("the calculated RunWorkload cpu request is too low", func() {
+			JustBeforeEach(func() {
+				actualRunWorkload := new(korifiv1alpha1.RunWorkload)
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: runWorkload.Name, Namespace: namespaceName}, actualRunWorkload)).To(Succeed())
+
+					actualRunWorkload.Spec.Instances = 2
+					actualRunWorkload.Spec.MemoryMiB = 25
+					g.Expect(k8sClient.Update(ctx, actualRunWorkload)).To(Succeed())
+				}).Should(Succeed())
+			})
+
+			It("updates the StatefulSet with calculated CPU requests/limits", func() {
+				Eventually(func(g Gomega) {
+					statefulSet := new(appsv1.StatefulSet)
+					statefulSetName := controllers.GetStatefulSetName(*runWorkload)
+					Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulSetName, Namespace: namespaceName}, statefulSet)).To(Succeed())
+					g.Expect(*statefulSet.Spec.Replicas).To(Equal(int32(2)))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("25Mi"))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("5m"))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("1024m"))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the RunWorkload cpu is calculated", func() {
+			JustBeforeEach(func() {
+				actualRunWorkload := new(korifiv1alpha1.RunWorkload)
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: runWorkload.Name, Namespace: namespaceName}, actualRunWorkload)).To(Succeed())
+
+					actualRunWorkload.Spec.Instances = 2
+					actualRunWorkload.Spec.MemoryMiB = 10240
+					g.Expect(k8sClient.Update(ctx, actualRunWorkload)).To(Succeed())
+				}).Should(Succeed())
+			})
+
+			It("updates the StatefulSet with calculated CPU requests/limits", func() {
+				Eventually(func(g Gomega) {
+					statefulSet := new(appsv1.StatefulSet)
+					statefulSetName := controllers.GetStatefulSetName(*runWorkload)
+					Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulSetName, Namespace: namespaceName}, statefulSet)).To(Succeed())
+					g.Expect(*statefulSet.Spec.Replicas).To(Equal(int32(2)))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("10Gi"))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1"))
+					g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("2"))
+				}).Should(Succeed())
+			})
 		})
 	})
 })

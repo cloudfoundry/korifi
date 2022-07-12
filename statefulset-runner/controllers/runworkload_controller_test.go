@@ -408,9 +408,9 @@ var _ = Describe("RunWorkload Reconcile", func() {
 					GUID:      "test-sts",
 					Version:   "1",
 					Instances: 2,
-					MemoryMiB: 10,
+					MemoryMiB: 10240,
 					DiskMiB:   10,
-					CPUWeight: 4,
+					CPUWeight: 0,
 				},
 			}
 
@@ -432,10 +432,11 @@ var _ = Describe("RunWorkload Reconcile", func() {
 										Limits: map[corev1.ResourceName]resource.Quantity{
 											corev1.ResourceMemory:           controllers.MebibyteQuantity(512),
 											corev1.ResourceEphemeralStorage: controllers.MebibyteQuantity(512),
+											corev1.ResourceCPU:              controllers.ToCPUMillicores(2048),
 										},
 										Requests: map[corev1.ResourceName]resource.Quantity{
 											corev1.ResourceMemory: controllers.MebibyteQuantity(512),
-											corev1.ResourceCPU:    controllers.ToCPUMillicores(3),
+											corev1.ResourceCPU:    controllers.ToCPUMillicores(1024),
 										},
 									},
 								},

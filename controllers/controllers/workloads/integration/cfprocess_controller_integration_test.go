@@ -163,7 +163,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(runWorkload.Spec.AppGUID).To(Equal(cfApp.Name), "runWorkload app GUID does not match CFApp")
 				g.Expect(runWorkload.Spec.Ports).To(Equal(cfProcess.Spec.Ports), "runWorkload ports do not match")
 				g.Expect(runWorkload.Spec.Instances).To(Equal(int32(cfProcess.Spec.DesiredInstances)), "runWorkload desired instances does not match CFApp")
-				g.Expect(runWorkload.Spec.CPUWeight).NotTo(BeZero(), "expected cpu to be nonzero")
 				g.Expect(runWorkload.Spec.Env).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal("test-env-key"),

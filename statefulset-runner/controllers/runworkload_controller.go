@@ -385,23 +385,51 @@ func StatefulSetLabelSelector(runWorkload *korifiv1alpha1.RunWorkload) *metav1.L
 
 func getContainerResources(cpuWeight uint8, memoryMiB, diskMiB int64) corev1.ResourceRequirements {
 	memory := MebibyteQuantity(memoryMiB)
-	cpu := ToCPUMillicores(cpuWeight)
+	cpuRequest := ToCPUMillicores(int64(cpuWeight))
+	cpuLimit := *resource.NewScaledQuantity(int64(0), resource.Milli)
+	// Note: cpuWeight will always be 0 until the feature to pass in a custom cpuWeight is implemented
+	if cpuWeight == 0 {
+		cpuRequest, cpuLimit = calculateDefaultCPUResourceMillicores(memoryMiB)
+	}
 	ephemeralStorage := MebibyteQuantity(diskMiB)
 
-	return corev1.ResourceRequirements{
+	resourceRequirements := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceMemory:           memory,
 			corev1.ResourceEphemeralStorage: ephemeralStorage,
 		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceMemory: memory,
-			corev1.ResourceCPU:    cpu,
+			corev1.ResourceCPU:    cpuRequest,
 		},
 	}
+	if cpuWeight == 0 {
+		resourceRequirements.Limits[corev1.ResourceCPU] = cpuLimit
+	}
+
+	return resourceRequirements
 }
 
-func ToCPUMillicores(cpuPercentage uint8) resource.Quantity {
-	return *resource.NewScaledQuantity(int64(cpuPercentage), resource.Milli)
+func calculateDefaultCPUResourceMillicores(memoryMiB int64) (resource.Quantity, resource.Quantity) {
+	const (
+		cpuRequestRatio         int64 = 1024
+		cpuRequestMinMillicores int64 = 5
+		cpuLimitRatio           int64 = 2
+		cpuLimitMinMillicores   int64 = 1024
+	)
+	cpuRequestMillicores := int64(100) * memoryMiB / cpuRequestRatio
+	if cpuRequestMillicores < cpuRequestMinMillicores {
+		cpuRequestMillicores = cpuRequestMinMillicores
+	}
+	cpuLimitMillicores := cpuRequestMillicores * cpuLimitRatio
+	if cpuLimitMillicores < cpuLimitMinMillicores {
+		cpuLimitMillicores = cpuLimitMinMillicores
+	}
+	return ToCPUMillicores(cpuRequestMillicores), ToCPUMillicores(cpuLimitMillicores)
+}
+
+func ToCPUMillicores(cpuPercentage int64) resource.Quantity {
+	return *resource.NewScaledQuantity(cpuPercentage, resource.Milli)
 }
 
 func CreateLivenessProbe(runWorkload korifiv1alpha1.RunWorkload) *corev1.Probe {

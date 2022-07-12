@@ -21,7 +21,6 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
-	"math"
 	"sort"
 	"strconv"
 
@@ -233,7 +232,7 @@ func (r *CFProcessReconciler) generateRunWorkload(actualRunWorkload *korifiv1alp
 		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
-	desiredRunWorkload.Spec.CPUWeight = calculateCPUWeight(cfProcess.Spec.MemoryMB)
+	desiredRunWorkload.Spec.CPUWeight = 0
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredRunWorkload, r.Scheme)
 	if err != nil {
@@ -241,17 +240,6 @@ func (r *CFProcessReconciler) generateRunWorkload(actualRunWorkload *korifiv1alp
 	}
 
 	return &desiredRunWorkload, err
-}
-
-func calculateCPUWeight(memoryMB int64) uint8 {
-	const (
-		MIN_CPU_PROXY = 128
-		MAX_CPU_PROXY = 8192
-	)
-	if memoryMB >= MAX_CPU_PROXY {
-		return 100
-	}
-	return uint8(100 * math.Max(float64(memoryMB), float64(MIN_CPU_PROXY)) / MAX_CPU_PROXY)
 }
 
 func generateRunWorkloadName(cfAppRev string, processGUID string) string {
