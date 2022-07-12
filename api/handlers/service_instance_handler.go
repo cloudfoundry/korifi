@@ -62,20 +62,23 @@ func NewServiceInstanceHandler(
 func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.ServiceInstanceCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	spaceGUID := payload.Relationships.Space.Data.GUID
 	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch namespace from Kubernetes", "spaceGUID", spaceGUID)
-		return nil, apierrors.AsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.", apierrors.NotFoundError{}, apierrors.ForbiddenError{})
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.", apierrors.NotFoundError{}, apierrors.ForbiddenError{}),
+			"Failed to fetch namespace from Kubernetes",
+			"spaceGUID", spaceGUID,
+		)
 	}
 
 	serviceInstanceRecord, err := h.serviceInstanceRepo.CreateServiceInstance(ctx, authInfo, payload.ToServiceInstanceCreateMessage())
 	if err != nil {
-		logger.Error(err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL)), nil
@@ -83,8 +86,7 @@ func (h *ServiceInstanceHandler) serviceInstanceCreateHandler(ctx context.Contex
 
 func (h *ServiceInstanceHandler) serviceInstanceListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	for k := range r.Form {
@@ -96,14 +98,12 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(ctx context.Context,
 	listFilter := new(payloads.ServiceInstanceList)
 	err := payloads.Decode(listFilter, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	serviceInstanceList, err := h.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
-		logger.Error(err, "Failed to list service instance")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service instance")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL)), nil
@@ -115,8 +115,7 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(ctx context.Contex
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, serviceInstanceGUID)
 	if err != nil {
-		logger.Error(err, "failed to get service instance")
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance")
 	}
 
 	err = h.serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, repositories.DeleteServiceInstanceMessage{
@@ -124,8 +123,7 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(ctx context.Contex
 		SpaceGUID: serviceInstance.SpaceGUID,
 	})
 	if err != nil {
-		logger.Error(err, "error when deleting service instance", "guid", serviceInstanceGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service instance", "guid", serviceInstanceGUID)
 	}
 
 	return NewHandlerResponse(http.StatusNoContent), nil

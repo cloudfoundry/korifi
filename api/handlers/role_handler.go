@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
@@ -60,7 +61,7 @@ func NewRoleHandler(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValida
 func (h *RoleHandler) roleCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.RoleCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	role := payload.ToMessage()
@@ -68,8 +69,7 @@ func (h *RoleHandler) roleCreateHandler(ctx context.Context, logger logr.Logger,
 
 	record, err := h.roleRepo.CreateRole(ctx, authInfo, role)
 	if err != nil {
-		logger.Error(err, "Failed to create role", "Role Type", role.Type, "Space", role.Space, "User", role.User)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create role", "Role Type", role.Type, "Space", role.Space, "User", role.User)
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateRole(record, h.apiBaseURL)), nil

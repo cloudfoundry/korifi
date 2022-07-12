@@ -49,8 +49,12 @@ func (h *DropletHandler) dropletGetHandler(ctx context.Context, logger logr.Logg
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.DropletResourceType), "guid", dropletGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.ForbiddenAsNotFound(err),
+			fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.DropletResourceType),
+			"guid", dropletGUID,
+		)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil

@@ -98,8 +98,7 @@ func (h *AppHandler) appGetHandler(ctx context.Context, logger logr.Logger, auth
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }
@@ -108,20 +107,22 @@ func (h *AppHandler) appGetHandler(ctx context.Context, logger logr.Logger, auth
 func (h *AppHandler) appCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.AppCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
 	spaceGUID := payload.Relationships.Space.Data.GUID
 	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch space from Kubernetes", "spaceGUID", spaceGUID)
-		return nil, apierrors.AsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.", apierrors.NotFoundError{}, apierrors.ForbiddenError{})
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err, "Invalid space. Ensure that the space exists and you have access to it.", apierrors.NotFoundError{}, apierrors.ForbiddenError{}),
+			"spaceGUID", spaceGUID,
+		)
 	}
 
 	appRecord, err := h.appRepo.CreateApp(ctx, authInfo, payload.ToAppCreateMessage())
 	if err != nil {
-		logger.Error(err, "Failed to create app", "App Name", payload.Name)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create app", "App Name", payload.Name)
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForApp(appRecord, h.serverURL)), nil
@@ -130,21 +131,18 @@ func (h *AppHandler) appCreateHandler(ctx context.Context, logger logr.Logger, a
 func (h *AppHandler) appListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
 
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	appListFilter := new(payloads.AppList)
 	err := payloads.Decode(appListFilter, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	appList, err := h.appRepo.ListApps(ctx, authInfo, appListFilter.ToMessage())
 	if err != nil {
-		logger.Error(err, "Failed to fetch app(s) from Kubernetes")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app(s) from Kubernetes")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForAppList(appList, h.serverURL, *r.URL)), nil
@@ -156,24 +154,30 @@ func (h *AppHandler) appSetCurrentDropletHandler(ctx context.Context, logger log
 
 	var payload payloads.AppSetCurrentDroplet
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	dropletGUID := payload.Data.GUID
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
-		logger.Error(err, "Error fetching droplet")
-		return nil, apierrors.AsUnprocessableEntity(err, invalidDropletMsg, apierrors.ForbiddenError{}, apierrors.NotFoundError{})
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err, invalidDropletMsg, apierrors.ForbiddenError{}, apierrors.NotFoundError{}),
+			"Error fetching droplet",
+		)
 	}
 
 	if droplet.AppGUID != appGUID {
-		return nil, apierrors.NewUnprocessableEntityError(fmt.Errorf("droplet %s does not belong to app %s", droplet.GUID, appGUID), invalidDropletMsg)
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(fmt.Errorf("droplet %s does not belong to app %s", droplet.GUID, appGUID), invalidDropletMsg),
+			invalidDropletMsg,
+		)
 	}
 
 	currentDroplet, err := h.appRepo.SetCurrentDroplet(ctx, authInfo, repositories.SetCurrentDropletMessage{
@@ -182,8 +186,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(ctx context.Context, logger log
 		SpaceGUID:   app.SpaceGUID,
 	})
 	if err != nil {
-		logger.Error(err, "Error setting current droplet")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error setting current droplet")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForCurrentDroplet(currentDroplet, h.serverURL)), nil
@@ -195,19 +198,21 @@ func (h *AppHandler) appGetCurrentDropletHandler(ctx context.Context, logger log
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	if app.DropletGUID == "" {
-		logger.Info("App does not have a current droplet assigned", "appGUID", app.GUID)
-		return nil, apierrors.DropletForbiddenAsNotFound(apierrors.NewNotFoundError(err, repositories.DropletResourceType))
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.DropletForbiddenAsNotFound(apierrors.NewNotFoundError(nil, repositories.DropletResourceType)),
+			"App does not have a current droplet assigned",
+			"appGUID", app.GUID,
+		)
 	}
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, app.DropletGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch droplet from Kubernetes", "dropletGUID", app.DropletGUID)
-		return nil, apierrors.DropletForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.DropletForbiddenAsNotFound(err), "Failed to fetch droplet from Kubernetes", "dropletGUID", app.DropletGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil
@@ -219,12 +224,10 @@ func (h *AppHandler) appStartHandler(ctx context.Context, logger logr.Logger, au
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 	if app.DropletGUID == "" {
-		logger.Info("App droplet not set before start", "AppGUID", appGUID)
-		return nil, apierrors.NewUnprocessableEntityError(err, "Assign a droplet before starting this app.")
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(err, "Assign a droplet before starting this app."), "App droplet not set before start", "AppGUID", appGUID)
 	}
 
 	app, err = h.appRepo.SetAppDesiredState(ctx, authInfo, repositories.SetAppDesiredStateMessage{
@@ -233,8 +236,7 @@ func (h *AppHandler) appStartHandler(ctx context.Context, logger logr.Logger, au
 		DesiredState: AppStartedState,
 	})
 	if err != nil {
-		logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
@@ -246,8 +248,7 @@ func (h *AppHandler) appStopHandler(ctx context.Context, logger logr.Logger, aut
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	app, err = h.appRepo.SetAppDesiredState(ctx, authInfo, repositories.SetAppDesiredStateMessage{
@@ -256,8 +257,7 @@ func (h *AppHandler) appStopHandler(ctx context.Context, logger logr.Logger, aut
 		DesiredState: AppStoppedState,
 	})
 	if err != nil {
-		logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
@@ -269,8 +269,7 @@ func (h *AppHandler) getProcessesForAppHandler(ctx context.Context, logger logr.
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	fetchProcessesForAppMessage := repositories.ListProcessesMessage{
@@ -280,8 +279,7 @@ func (h *AppHandler) getProcessesForAppHandler(ctx context.Context, logger logr.
 
 	processList, err := h.processRepo.ListProcesses(ctx, authInfo, fetchProcessesForAppMessage)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app Process(es) from Kubernetes")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app Process(es) from Kubernetes")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessList(processList, h.serverURL, *r.URL)), nil
@@ -293,14 +291,12 @@ func (h *AppHandler) getRoutesForAppHandler(ctx context.Context, logger logr.Log
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	routes, err := h.lookupAppRouteAndDomainList(ctx, authInfo, app.GUID, app.SpaceGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch route or domains from Kubernetes")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch route or domains from Kubernetes")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteList(routes, h.serverURL, *r.URL)), nil
@@ -313,13 +309,12 @@ func (h *AppHandler) appScaleProcessHandler(ctx context.Context, logger logr.Log
 
 	var payload payloads.ProcessScale
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
 	processRecord, err := h.appProcessScaler.ScaleAppProcess(ctx, authInfo, appGUID, processType, payload.ToRecord())
 	if err != nil {
-		logger.Error(err, "Failed due to error from Kubernetes", "appGUID", appGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed due to error from Kubernetes", "appGUID", appGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(processRecord, h.serverURL)), nil
@@ -331,13 +326,16 @@ func (h *AppHandler) appRestartHandler(ctx context.Context, logger logr.Logger, 
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	if app.DropletGUID == "" {
-		logger.Info("App droplet not set before start", "AppGUID", appGUID)
-		return nil, apierrors.NewUnprocessableEntityError(fmt.Errorf("app %s has no droplet set", app.GUID), "Assign a droplet before starting this app.")
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(fmt.Errorf("app %s has no droplet set", app.GUID), "Assign a droplet before starting this app."),
+			"App droplet not set before start",
+			"AppGUID", appGUID,
+		)
 	}
 
 	if app.State == repositories.StartedState {
@@ -347,8 +345,7 @@ func (h *AppHandler) appRestartHandler(ctx context.Context, logger logr.Logger, 
 			DesiredState: AppStoppedState,
 		})
 		if err != nil {
-			logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-			return nil, err
+			return nil, apierrors.LogAndReturn(logger, err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
 		}
 	}
 
@@ -358,8 +355,7 @@ func (h *AppHandler) appRestartHandler(ctx context.Context, logger logr.Logger, 
 		DesiredState: AppStartedState,
 	})
 	if err != nil {
-		logger.Error(err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
@@ -371,8 +367,7 @@ func (h *AppHandler) appDeleteHandler(ctx context.Context, logger logr.Logger, a
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	err = h.appRepo.DeleteApp(ctx, authInfo, repositories.DeleteAppMessage{
@@ -380,8 +375,7 @@ func (h *AppHandler) appDeleteHandler(ctx context.Context, logger logr.Logger, a
 		SpaceGUID: app.SpaceGUID,
 	})
 	if err != nil {
-		logger.Error(err, "Failed to delete app", "AppGUID", appGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to delete app", "AppGUID", appGUID)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(appGUID, presenter.AppDeleteOperation, h.serverURL)), nil
@@ -422,19 +416,17 @@ func (h *AppHandler) appPatchEnvVarsHandler(ctx context.Context, logger logr.Log
 
 	var payload payloads.AppPatchEnvVars
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	envVarsRecord, err := h.appRepo.PatchAppEnvVars(ctx, authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
 	if err != nil {
-		logger.Error(err, "Error updating app environment variables")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error updating app environment variables")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForAppEnvVars(envVarsRecord, h.serverURL)), nil
@@ -446,8 +438,7 @@ func (h *AppHandler) appGetEnvHandler(ctx context.Context, logger logr.Logger, a
 
 	appEnvRecord, err := h.appRepo.GetAppEnv(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app environment variables", "AppGUID", appGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app environment variables", "AppGUID", appGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForAppEnv(appEnvRecord)), nil
@@ -460,14 +451,12 @@ func (h *AppHandler) getProcessByTypeForAppHander(ctx context.Context, logger lo
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
 	process, err := h.processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, appGUID, processType, app.SpaceGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch process from Kubernetes", "AppGUID", appGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch process from Kubernetes", "AppGUID", appGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil

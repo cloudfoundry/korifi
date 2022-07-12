@@ -52,15 +52,18 @@ func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRe
 func (h *SpaceHandler) spaceCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.SpaceCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		logger.Error(err, "Failed to decode and validate payload")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate payload")
 	}
 
 	space := payload.ToMessage(h.imageRegistrySecretName)
 	record, err := h.spaceRepo.CreateSpace(ctx, authInfo, space)
 	if err != nil {
-		logger.Error(err, "Failed to create space", "Space Name", space.Name)
-		return nil, apierrors.AsUnprocessableEntity(err, "Invalid organization. Ensure the organization exists and you have access to it.", apierrors.NotFoundError{})
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err, "Invalid organization. Ensure the organization exists and you have access to it.", apierrors.NotFoundError{}),
+			"Failed to create space",
+			"Space Name", space.Name,
+		)
 	}
 
 	spaceResponse := presenter.ForCreateSpace(record, h.apiBaseURL)
@@ -76,8 +79,7 @@ func (h *SpaceHandler) spaceListHandler(ctx context.Context, logger logr.Logger,
 		Names:             names,
 	})
 	if err != nil {
-		logger.Error(err, "Failed to fetch spaces")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch spaces")
 	}
 
 	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL, *r.URL)
@@ -90,8 +92,7 @@ func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logge
 
 	spaceRecord, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
-		logger.Error(err, "Failed to fetch space", "SpaceGUID", spaceGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch space", "SpaceGUID", spaceGUID)
 	}
 
 	deleteSpaceMessage := repositories.DeleteSpaceMessage{
@@ -100,8 +101,7 @@ func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logge
 	}
 	err = h.spaceRepo.DeleteSpace(ctx, authInfo, deleteSpaceMessage)
 	if err != nil {
-		logger.Error(err, "Failed to delete space", "SpaceGUID", spaceGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to delete space", "SpaceGUID", spaceGUID)
 	}
 
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteOperation, h.apiBaseURL)), nil

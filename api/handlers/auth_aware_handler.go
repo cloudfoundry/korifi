@@ -73,25 +73,27 @@ func (h *AuthAwareHandlerFuncWrapper) Wrap(delegate AuthAwareHandlerFunc) http.H
 		authInfo, ok := h.authInfoProvider(r.Context())
 		if !ok {
 			logger.Error(nil, "unable to get auth info")
-			presentError(w, nil)
+			presentError(h.logger, w, nil)
 			return
 		}
 
 		handlerResponse, err := delegate(ctx, logger, authInfo, r)
 		if err != nil {
 			logger.Info("handler returned error", "error", err)
-			presentError(w, err)
+			presentError(h.logger, w, err)
 			return
 		}
 
-		handlerResponse.writeTo(w)
+		if err := handlerResponse.writeTo(w); err != nil {
+			_ = apierrors.LogAndReturn(logger, err, "failed to write result to the HTTP response", "handlerResponse", handlerResponse, "method", r.Method, "URL", r.URL)
+		}
 	}
 }
 
-func presentError(w http.ResponseWriter, err error) {
+func presentError(logger logr.Logger, w http.ResponseWriter, err error) {
 	var apiError apierrors.ApiError
 	if errors.As(err, &apiError) {
-		NewHandlerResponse(apiError.HttpStatus()).
+		writeErr := NewHandlerResponse(apiError.HttpStatus()).
 			WithBody(presenter.ErrorsResponse{
 				Errors: []presenter.PresentedError{
 					{
@@ -102,20 +104,25 @@ func presentError(w http.ResponseWriter, err error) {
 				},
 			}).
 			writeTo(w)
+
+		if writeErr != nil {
+			_ = apierrors.LogAndReturn(logger, writeErr, "failed to write error to the HTTP response")
+		}
+
 		return
 	}
 
-	presentError(w, apierrors.NewUnknownError(err))
+	presentError(logger, w, apierrors.NewUnknownError(err))
 }
 
-func (response *HandlerResponse) writeTo(w http.ResponseWriter) {
+func (response *HandlerResponse) writeTo(w http.ResponseWriter) error {
 	for k, v := range response.headers {
 		w.Header().Set(k, v)
 	}
 
 	if response.body == nil {
 		w.WriteHeader(response.httpStatus)
-		return
+		return nil
 	}
 
 	w.Header().Set(headers.ContentType, "application/json")
@@ -126,6 +133,8 @@ func (response *HandlerResponse) writeTo(w http.ResponseWriter) {
 
 	err := encoder.Encode(response.body)
 	if err != nil {
-		Logger.Error(err, "failed to encode and write response")
+		return fmt.Errorf("failed to encode and write response: %w", err)
 	}
+
+	return nil
 }

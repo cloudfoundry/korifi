@@ -57,8 +57,7 @@ func (h *BuildHandler) buildGetHandler(ctx context.Context, logger logr.Logger, 
 
 	build, err := h.buildRepo.GetBuild(ctx, authInfo, buildGUID)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.BuildResourceType), "guid", buildGUID)
-		return nil, apierrors.ForbiddenAsNotFound(err)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.BuildResourceType), "guid", buildGUID)
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuild(build, h.serverURL)), nil
@@ -67,16 +66,19 @@ func (h *BuildHandler) buildGetHandler(ctx context.Context, logger logr.Logger, 
 func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.BuildCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	packageRecord, err := h.packageRepo.GetPackage(r.Context(), authInfo, payload.Package.GUID)
 	if err != nil {
-		logger.Info("Error finding Package", "Package GUID", payload.Package.GUID)
-		return nil, apierrors.AsUnprocessableEntity(err,
-			"Unable to use package. Ensure that the package exists and you have access to it.",
-			apierrors.ForbiddenError{},
-			apierrors.NotFoundError{},
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err,
+				"Unable to use package. Ensure that the package exists and you have access to it.",
+				apierrors.ForbiddenError{},
+				apierrors.NotFoundError{},
+			),
+			"Error finding Package", "Package GUID", payload.Package.GUID,
 		)
 	}
 
@@ -84,8 +86,7 @@ func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logge
 
 	record, err := h.buildRepo.CreateBuild(r.Context(), authInfo, buildCreateMessage)
 	if err != nil {
-		logger.Info("Error creating build with repository", "error", err.Error())
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Error creating build with repository")
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForBuild(record, h.serverURL)), nil

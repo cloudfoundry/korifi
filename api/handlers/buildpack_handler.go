@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
@@ -43,21 +44,18 @@ func NewBuildpackHandler(
 
 func (h *BuildpackHandler) buildpackListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	buildpackListFilter := new(payloads.BuildpackList)
 	err := payloads.Decode(buildpackListFilter, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	buildpacks, err := h.buildpackRepo.ListBuildpacks(ctx, authInfo)
 	if err != nil {
-		logger.Error(err, "Failed to fetch buildpacks from Kubernetes")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch buildpacks from Kubernetes")
 	}
 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil

@@ -52,30 +52,31 @@ func NewServiceBindingHandler(serverURL url.URL, serviceBindingRepo CFServiceBin
 func (h *ServiceBindingHandler) createHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.ServiceBindingCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("failed to get %s", repositories.AppResourceType))
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to get %s", repositories.AppResourceType))
 	}
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("failed to get %s", repositories.ServiceInstanceResourceType))
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to get %s", repositories.ServiceInstanceResourceType))
 	}
 
 	if app.SpaceGUID != serviceInstance.SpaceGUID {
-		logger.Info("App and ServiceInstance in different spaces", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
-		return nil, apierrors.NewUnprocessableEntityError(err, "The service instance and the app are in different spaces")
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(nil, "The service instance and the app are in different spaces"),
+			"App and ServiceInstance in different spaces", "App GUID", app.GUID,
+			"ServiceInstance GUID", serviceInstance.GUID,
+		)
 	}
 
 	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
 	if err != nil {
-		logger.Error(err, "failed to create ServiceBinding", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "failed to create ServiceBinding", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
 	}
 
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
@@ -87,8 +88,7 @@ func (h *ServiceBindingHandler) deleteHandler(ctx context.Context, logger logr.L
 
 	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
 	if err != nil {
-		logger.Error(err, "error when deleting service binding", "guid", serviceBindingGUID)
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service binding", "guid", serviceBindingGUID)
 	}
 
 	return NewHandlerResponse(http.StatusNoContent), nil
@@ -96,21 +96,18 @@ func (h *ServiceBindingHandler) deleteHandler(ctx context.Context, logger logr.L
 
 func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
-		return nil, apierrors.NewUnprocessableEntityError(err, "unable to parse query")
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(err, "unable to parse query"), "Unable to parse request query parameters")
 	}
 
 	listFilter := new(payloads.ServiceBindingList)
 	err := payloads.Decode(listFilter, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(ctx, authInfo, listFilter.ToMessage())
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("failed to list %s", repositories.ServiceBindingResourceType))
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to list %s", repositories.ServiceBindingResourceType))
 	}
 
 	var appRecords []repositories.AppRecord
@@ -123,8 +120,7 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 
 		appRecords, err = h.appRepo.ListApps(ctx, authInfo, listAppsMessage)
 		if err != nil {
-			logger.Error(err, fmt.Sprintf("failed to list %s", repositories.AppResourceType))
-			return nil, err
+			return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to list %s", repositories.AppResourceType))
 		}
 	}
 
