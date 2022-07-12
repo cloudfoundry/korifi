@@ -369,6 +369,36 @@ var _ = Describe("TaskHandler", func() {
 				Expect(listMsg.AppGUIDs).To(ConsistOf("the-app-guid"))
 			})
 
+			When("the app does not exist", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
+				})
+
+				It("returns a Not Found Error", func() {
+					expectNotFoundError("App not found")
+				})
+			})
+
+			When("the user cannot see the app", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
+				})
+
+				It("returns a Not Found error", func() {
+					expectNotFoundError("App not found")
+				})
+			})
+
+			When("getting the app fails", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
+				})
+
+				It("returns an Internal Server Error", func() {
+					expectUnknownError()
+				})
+			})
+
 			When("filtering tasks by sequence ID", func() {
 				BeforeEach(func() {
 					var err error
