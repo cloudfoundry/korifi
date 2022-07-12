@@ -25,7 +25,8 @@ type ApiError interface {
 // error level since api errors are expected recoverable conditions.
 // It returns the error for convenience.
 func LogAndReturn(logger logr.Logger, err error, msg string, keysAndValues ...interface{}) error {
-	if _, ok := err.(ApiError); ok {
+	var apiError ApiError
+	if errors.As(err, &apiError) {
 		keysAndValues = append(keysAndValues, "err", err)
 		logger.Info(msg, keysAndValues...)
 	} else {
@@ -103,10 +104,18 @@ func NewMessageParseError(cause error) MessageParseError {
 	}
 }
 
+// UnknownError is a generic wrapper over an error Korifi cannot recover from.
+// Unknown errors should be only used by the presentation layer to present such
+// an error to the user. Other components (handlers, repositories, etc.) should
+// simply return the incoming error, it would be mapped to `UnknownError` by
+// the presentation layer
 type UnknownError struct {
 	apiError
 }
 
+// NewUnknownError creates an UnknownError. One should generally not create
+// unknown errors as generic errors are automatically presented as unknown
+// errors to the user
 func NewUnknownError(cause error) UnknownError {
 	return UnknownError{
 		apiError{
