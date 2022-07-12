@@ -25,25 +25,24 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		orgName = "my-org"
 	)
 	var (
-		testCtx             context.Context
-		rootNamespace       *v1.Namespace
-		orgGUID             string
-		cfOrg               korifiv1alpha1.CFOrg
-		imageRegistrySecret *v1.Secret
-		role1               *rbacv1.ClusterRole
-		role2               *rbacv1.ClusterRole
-		rules1              []rbacv1.PolicyRule
-		rules2              []rbacv1.PolicyRule
-		username            string
-		roleBinding         rbacv1.RoleBinding
-		roleBinding2        rbacv1.RoleBinding
+		testCtx                                      context.Context
+		rootNamespace                                *v1.Namespace
+		orgGUID                                      string
+		cfOrg                                        korifiv1alpha1.CFOrg
+		imageRegistrySecret                          *v1.Secret
+		role                                         *rbacv1.ClusterRole
+		rules                                        []rbacv1.PolicyRule
+		username                                     string
+		roleBinding                                  rbacv1.RoleBinding
+		roleBindingWithPropagateAnnotationSetToFalse rbacv1.RoleBinding
+		roleBindingWithMissingPropagateAnnotation    rbacv1.RoleBinding
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
 		rootNamespace = createNamespace(testCtx, k8sClient, PrefixedGUID("root-ns"))
 		imageRegistrySecret = createSecret(testCtx, k8sClient, packageRegistrySecretName, rootNamespace.Name)
-		rules1 = []rbacv1.PolicyRule{
+		rules = []rbacv1.PolicyRule{
 			{
 				Verbs:         []string{"use"},
 				APIGroups:     []string{"policy"},
@@ -51,22 +50,15 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				ResourceNames: []string{"eirini-workloads-app-psp"},
 			},
 		}
-		role1 = createClusterRole(testCtx, k8sClient, PrefixedGUID("clusterrole"), rules1)
-		rules2 = []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"patch"},
-				APIGroups: []string{"eirini.cloudfoundry.org"},
-				Resources: []string{"tasks/status"},
-			},
-		}
-		role2 = createClusterRole(testCtx, k8sClient, PrefixedGUID("role"), rules2)
+		role = createClusterRole(testCtx, k8sClient, PrefixedGUID("clusterrole"), rules)
 
 		username = PrefixedGUID("user")
-		roleBinding = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role1.Name, rootNamespace.Name, map[string]string{})
+		roleBinding = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role.Name, rootNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
 
 		username2 := PrefixedGUID("user2")
-		annotations := map[string]string{"cloudfoundry.org/propagate-cf-role": "false"}
-		roleBinding2 = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding2"), username2, role1.Name, rootNamespace.Name, annotations)
+		roleBindingWithPropagateAnnotationSetToFalse = createRoleBinding(testCtx, k8sClient, PrefixedGUID("rb-propagate-annotation-false"), username2, role.Name, rootNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "false"})
+
+		roleBindingWithMissingPropagateAnnotation = createRoleBinding(testCtx, k8sClient, PrefixedGUID("rb-missing-propagate-annotation"), username2, role.Name, rootNamespace.Name, nil)
 
 		orgGUID = PrefixedGUID("cf-org")
 		cfOrg = korifiv1alpha1.CFOrg{
@@ -118,17 +110,24 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
-		It("propagates the role-bindings from root-ns to org namespace", func() {
+		It("propagates the role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to \"true\" from root-ns to org namespace", func() {
 			Eventually(func(g Gomega) error {
 				var createdRoleBinding rbacv1.RoleBinding
 				return k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBinding.Name}, &createdRoleBinding)
 			}).Should(Succeed())
 		})
 
-		It("does not propagate role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to false", func() {
+		It("does not propagate role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to \"false\"", func() {
 			Consistently(func(g Gomega) bool {
 				var newRoleBinding rbacv1.RoleBinding
-				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBinding2.Name}, &newRoleBinding))
+				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBindingWithPropagateAnnotationSetToFalse.Name}, &newRoleBinding))
+			}, time.Second).Should(BeTrue())
+		})
+
+		It("does not propagate role-bindings with missing annotation \"cloudfoundry.org/propagate-cf-role\"", func() {
+			Consistently(func(g Gomega) bool {
+				var newRoleBinding rbacv1.RoleBinding
+				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBindingWithMissingPropagateAnnotation.Name}, &newRoleBinding))
 			}, time.Second).Should(BeTrue())
 		})
 
@@ -161,7 +160,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 	})
 
 	When("role-bindings are added/updated in root-ns after CFOrg creation", func() {
-		var roleBinding3 rbacv1.RoleBinding
+		var newlyCreatedRoleBinding rbacv1.RoleBinding
 		BeforeEach(func() {
 			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -170,7 +169,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
-			roleBinding3 = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role2.Name, rootNamespace.Name, map[string]string{})
+			newlyCreatedRoleBinding = createRoleBinding(testCtx, k8sClient, PrefixedGUID("newly-created-role-binding"), PrefixedGUID("new-user"), role.Name, rootNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
 		})
 
 		It("propagates the new role-binding to org namespace", func() {
@@ -185,7 +184,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 					}),
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(roleBinding3.Name),
+							"Name": Equal(newlyCreatedRoleBinding.Name),
 						}),
 					}),
 				))

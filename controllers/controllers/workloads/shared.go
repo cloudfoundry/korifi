@@ -117,36 +117,36 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 
 	parentRoleBindingMap := make(map[string]struct{})
 	for _, binding := range roleBindings.Items {
-		if binding.Annotations[korifiv1alpha1.PropagateRoleBindingAnnotation] == "false" {
-			continue
-		}
+		if binding.Annotations[korifiv1alpha1.PropagateRoleBindingAnnotation] == "true" {
 
-		parentRoleBindingMap[binding.Name] = struct{}{}
+			parentRoleBindingMap[binding.Name] = struct{}{}
 
-		newRoleBinding := &rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      binding.Name,
-				Namespace: orgOrSpace.GetName(),
-			},
-		}
-
-		result, err = controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
-			newRoleBinding.Labels = binding.Labels
-			if newRoleBinding.Labels == nil {
-				newRoleBinding.Labels = map[string]string{}
+			newRoleBinding := &rbacv1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      binding.Name,
+					Namespace: orgOrSpace.GetName(),
+				},
 			}
-			newRoleBinding.Labels[korifiv1alpha1.PropagatedFromLabel] = orgOrSpace.GetNamespace()
-			newRoleBinding.Annotations = binding.Annotations
-			newRoleBinding.Subjects = binding.Subjects
-			newRoleBinding.RoleRef = binding.RoleRef
-			return nil
-		})
-		if err != nil {
-			log.Error(err, fmt.Sprintf("Error creating/patching role-bindings %s/%s", newRoleBinding.Namespace, newRoleBinding.Name))
-			return err
-		}
 
-		log.Info(fmt.Sprintf("Role Binding %s/%s %s", newRoleBinding.Namespace, newRoleBinding.Name, result))
+			result, err = controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
+				newRoleBinding.Labels = binding.Labels
+				if newRoleBinding.Labels == nil {
+					newRoleBinding.Labels = map[string]string{}
+				}
+				newRoleBinding.Labels[korifiv1alpha1.PropagatedFromLabel] = orgOrSpace.GetNamespace()
+				newRoleBinding.Annotations = binding.Annotations
+				newRoleBinding.Subjects = binding.Subjects
+				newRoleBinding.RoleRef = binding.RoleRef
+				return nil
+			})
+			if err != nil {
+				log.Error(err, fmt.Sprintf("Error creating/patching role-bindings %s/%s", newRoleBinding.Namespace, newRoleBinding.Name))
+				return err
+			}
+
+			log.Info(fmt.Sprintf("Role Binding %s/%s %s", newRoleBinding.Namespace, newRoleBinding.Name, result))
+
+		}
 	}
 
 	propagatedRoleBindings := new(rbacv1.RoleBindingList)
