@@ -1,6 +1,8 @@
 package apierrors_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -9,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var _ = Describe("FromK8sError", func() {
@@ -241,6 +244,64 @@ var _ = Describe("AsUnprocessibleEntity", func() {
 
 		It("returns it", func() {
 			Expect(actualErr).To(Equal(err))
+		})
+	})
+})
+
+var _ = Describe("LogAndReturn", func() {
+	var (
+		originalErr error
+		logBuf      *bytes.Buffer
+		logEntry    map[string]interface{}
+	)
+
+	BeforeEach(func() {
+		logBuf = new(bytes.Buffer)
+	})
+
+	JustBeforeEach(func() {
+		logger := zap.New(zap.WriteTo(logBuf))
+		returnedErr := apierrors.LogAndReturn(logger, originalErr, "some message", "some-key", "some-value")
+		Expect(returnedErr).To(Equal(originalErr))
+		Expect(json.Unmarshal(logBuf.Bytes(), &logEntry)).To(Succeed())
+	})
+
+	When("the erorr is not an ApiError", func() {
+		BeforeEach(func() {
+			originalErr = errors.New("not-api-error")
+		})
+
+		It("logs an error", func() {
+			Expect(logEntry["level"]).To(Equal("error"))
+			Expect(logEntry["msg"]).To(Equal("some message"))
+			Expect(logEntry["some-key"]).To(Equal("some-value"))
+			Expect(logEntry["error"]).To(Equal("not-api-error"))
+		})
+	})
+
+	When("the error is an ApiError", func() {
+		BeforeEach(func() {
+			originalErr = apierrors.NewForbiddenError(errors.New("cause-err"), "my-resource")
+		})
+
+		It("logs an info", func() {
+			Expect(logEntry["level"]).To(Equal("info"))
+			Expect(logEntry["msg"]).To(Equal("some message"))
+			Expect(logEntry["some-key"]).To(Equal("some-value"))
+			Expect(logEntry["err"]).To(Equal("cause-err"))
+		})
+	})
+
+	When("the error is a wrapped ApiError", func() {
+		BeforeEach(func() {
+			originalErr = fmt.Errorf("wrapping: %w", apierrors.NewForbiddenError(errors.New("cause-err"), "my-resource"))
+		})
+
+		It("logs an info", func() {
+			Expect(logEntry["level"]).To(Equal("info"))
+			Expect(logEntry["msg"]).To(Equal("some message"))
+			Expect(logEntry["some-key"]).To(Equal("some-value"))
+			Expect(logEntry["err"]).To(Equal("wrapping: cause-err"))
 		})
 	})
 })
