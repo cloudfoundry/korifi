@@ -409,7 +409,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 
 		It("returns a NoContent status", func() {
 			Expect(rr.Code).To(Equal(http.StatusNoContent))
-			Expect(rr.Body.String()).To(ContainSubstring(`{}`))
+			Expect(rr.Body.String()).To(BeEmpty())
 		})
 
 		It("invokes DeleteServiceBinding on the repository", func() {

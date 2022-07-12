@@ -91,7 +91,7 @@ func (h *ServiceBindingHandler) deleteHandler(ctx context.Context, logger logr.L
 		return nil, err
 	}
 
-	return NewHandlerResponse(http.StatusNoContent).WithBody(map[string]interface{}{}), nil
+	return NewHandlerResponse(http.StatusNoContent), nil
 }
 
 func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
