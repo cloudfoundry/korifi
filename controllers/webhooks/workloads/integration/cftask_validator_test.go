@@ -176,10 +176,6 @@ func setStatusCondition(cftask *korifiv1alpha1.CFTask, conditionType string) {
 		Reason:  "foo",
 		Message: "bar",
 	})
-	cftask.Status.MemoryMB = 1
-	cftask.Status.DiskQuotaMB = 2
-	cftask.Status.DropletRef = corev1.LocalObjectReference{Name: "bob"}
-	cftask.Status.SequenceID = 3
 	Expect(k8sClient.Status().Patch(context.Background(), cftask, client.MergeFrom(clone))).To(Succeed())
 
 	// the status update clears any unapplied changes to the rest of the object, so reset spec changes:

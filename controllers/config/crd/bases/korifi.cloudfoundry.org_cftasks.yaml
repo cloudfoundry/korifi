@@ -143,12 +143,6 @@ spec:
               sequenceId:
                 format: int64
                 type: integer
-            required:
-            - conditions
-            - diskQuotaMB
-            - dropletRef
-            - memoryMB
-            - sequenceId
             type: object
         type: object
     served: true
