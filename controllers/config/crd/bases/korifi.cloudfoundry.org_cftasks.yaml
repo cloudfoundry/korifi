@@ -50,8 +50,6 @@ spec:
                 items:
                   type: string
                 type: array
-            required:
-            - canceled
             type: object
           status:
             description: CFTaskStatus defines the observed state of CFTask
