@@ -37,9 +37,10 @@ type CFTaskSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Command  []string                    `json:"command,omitempty"`
-	AppRef   corev1.LocalObjectReference `json:"appRef,omitempty"`
-	Canceled bool                        `json:"canceled"`
+	Command []string                    `json:"command,omitempty"`
+	AppRef  corev1.LocalObjectReference `json:"appRef,omitempty"`
+	// +optional
+	Canceled bool `json:"canceled"`
 }
 
 // CFTaskStatus defines the observed state of CFTask
