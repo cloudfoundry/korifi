@@ -47,12 +47,17 @@ type CFTaskSpec struct {
 type CFTaskStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 
-	SequenceID  int64                       `json:"sequenceId"`
-	MemoryMB    int64                       `json:"memoryMB"`
-	DiskQuotaMB int64                       `json:"diskQuotaMB"`
-	DropletRef  corev1.LocalObjectReference `json:"dropletRef"`
+	// +optional
+	SequenceID int64 `json:"sequenceId"`
+	// +optional
+	MemoryMB int64 `json:"memoryMB"`
+	// +optional
+	DiskQuotaMB int64 `json:"diskQuotaMB"`
+	// +optional
+	DropletRef corev1.LocalObjectReference `json:"dropletRef"`
 }
 
 //+kubebuilder:object:root=true
