@@ -287,12 +287,19 @@ var _ = Describe("Routes", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("can delete a route", func() {
+		It("succeeds with a job redirect", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 			Expect(resp).To(HaveRestyHeaderWithValue("Location", SatisfyAll(
 				HavePrefix(apiServerRoot),
 				ContainSubstring("/v3/jobs/route.delete~"+routeGUID),
 			)))
+
+			jobURL := resp.Header().Get("Location")
+			Eventually(func(g Gomega) {
+				jobResp, err := client.R().Get(jobURL)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+			}).Should(Succeed())
 		})
 
 		It("frees up the deleted route's name for reuse", func() {
