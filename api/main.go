@@ -278,6 +278,10 @@ func main() {
 			taskRepo,
 			decoderValidator,
 		),
+
+		handlers.NewOAuthToken(
+			*serverURL,
+		),
 	}
 
 	router := mux.NewRouter()

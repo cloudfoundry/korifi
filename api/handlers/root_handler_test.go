@@ -62,11 +62,13 @@ var _ = Describe("RootHandler", func() {
 					},
 					"network_policy_v0": nil,
 					"network_policy_v1": nil,
-					"login":             nil,
-					"uaa":               nil,
-					"credhub":           nil,
-					"routing":           nil,
-					"logging":           nil,
+					"login": {
+						Link: presenter.Link{HRef: defaultServerURL},
+					},
+					"uaa":     nil,
+					"credhub": nil,
+					"routing": nil,
+					"logging": nil,
 					"log_cache": {
 						Link: presenter.Link{HRef: defaultServerURL},
 					},
