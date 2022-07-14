@@ -6,6 +6,7 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/eirini-controller v0.7.0
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
+	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/buildpacks/lifecycle v0.14.1
 	github.com/buildpacks/pack v0.27.0
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74

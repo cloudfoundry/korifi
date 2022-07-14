@@ -25,7 +25,7 @@ func GetRootResponse(serverURL string) RootResponse {
 			"cloud_controller_v3": {Link: Link{HRef: serverURL + "/v3"}, Meta: APILinkMeta{Version: V3APIVersion}},
 			"network_policy_v0":   nil,
 			"network_policy_v1":   nil,
-			"login":               nil,
+			"login":               {Link: Link{HRef: serverURL}},
 			"uaa":                 nil,
 			"credhub":             nil,
 			"routing":             nil,

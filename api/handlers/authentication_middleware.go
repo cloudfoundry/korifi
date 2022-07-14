@@ -34,6 +34,7 @@ func NewAuthenticationMiddleware(authInfoParser AuthInfoParser, identityProvider
 			"/":            struct{}{},
 			"/v3":          struct{}{},
 			"/api/v1/info": struct{}{},
+			"/oauth/token": struct{}{},
 		},
 	}
 }
