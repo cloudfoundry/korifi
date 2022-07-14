@@ -1,8 +1,0 @@
-cfProcessDefaults:
-  memoryMB: 1024
-  diskQuotaMB: 1024
-cfRootNamespace: cf
-packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
-taskTTL: 5s
-workloads_tls_secret_name: korifi-workloads-ingress-cert
-workloads_tls_secret_namespace: korifi-controllers-system
