@@ -134,6 +134,12 @@ Bind `$ADMIN_USERNAME` to the admin role:
 kubectl create rolebinding --namespace=$ROOT_NAMESPACE default-admin-binding --clusterrole=korifi-controllers-admin --user=$ADMIN_USERNAME
 ```
 
+Set annotation `cloudfoundry.org/propagate-cf-role` to `true` on the admin role binding. 
+This allows the role binding to be propagated to all `cf` managed namespaces (i.e. cforgs & cfspaces)
+```sh
+kubectl annotate rolebinding --namespace=$ROOT_NAMESPACE default-admin-binding cloudfoundry.org/propagate-cf-role="true"
+```
+
 ### Container registry credentials
 
 Use the following command to create a `Secret` that Korifi will use to connect to your container registry:
@@ -210,7 +216,7 @@ kubectl apply -f dependencies/contour-1.19.1.yaml
 [`eirini-controller`](https://github.com/cloudfoundry/eirini-controller#what-is-eirini-controller) is responsible for running Korifi's workloads.
 
 ```sh
-EIRINI_VERSION=0.3.0
+EIRINI_VERSION=0.8.0
 helm install eirini-controller https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz \
   --set "workloads.default_namespace=$ROOT_NAMESPACE" \
   --set "controller.registry_secret_name=image-registry-credentials" \
