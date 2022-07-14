@@ -21,7 +21,6 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
-	"math"
 	"sort"
 	"strconv"
 
@@ -233,7 +232,10 @@ func (r *CFProcessReconciler) generateRunWorkload(actualRunWorkload *korifiv1alp
 		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
-	desiredRunWorkload.Spec.CPUWeight = calculateCPUWeight(cfProcess.Spec.MemoryMB)
+	// Note: CPURequestMillicores will always calculate the default based on Memory and
+	//       the CPULimitMillicores will always be 0 until the feature to pass in custom CPU values is implemented
+	desiredRunWorkload.Spec.CPURequestMillicores = calculateDefaultCPURequestMillicores(cfProcess.Spec.MemoryMB)
+	desiredRunWorkload.Spec.CPULimitMillicores = 0
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredRunWorkload, r.Scheme)
 	if err != nil {
@@ -243,15 +245,16 @@ func (r *CFProcessReconciler) generateRunWorkload(actualRunWorkload *korifiv1alp
 	return &desiredRunWorkload, err
 }
 
-func calculateCPUWeight(memoryMB int64) uint8 {
+func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 	const (
-		MIN_CPU_PROXY = 128
-		MAX_CPU_PROXY = 8192
+		cpuRequestRatio         int64 = 1024
+		cpuRequestMinMillicores int64 = 5
 	)
-	if memoryMB >= MAX_CPU_PROXY {
-		return 100
+	cpuRequestMillicores := int64(100) * memoryMiB / cpuRequestRatio
+	if cpuRequestMillicores < cpuRequestMinMillicores {
+		cpuRequestMillicores = cpuRequestMinMillicores
 	}
-	return uint8(100 * math.Max(float64(memoryMB), float64(MIN_CPU_PROXY)) / MAX_CPU_PROXY)
+	return cpuRequestMillicores
 }
 
 func generateRunWorkloadName(cfAppRev string, processGUID string) string {
