@@ -215,6 +215,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	taskTTL, err := controllerConfig.ParseTaskTTL()
+	if err != nil {
+		setupLog.Error(err, "failed to parse task TTL", "controller", "CFTask", "taskTTL", controllerConfig.TaskTTL)
+		os.Exit(1)
+
+	}
 	if err = workloadscontrollers.NewCFTaskReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
@@ -222,6 +228,7 @@ func main() {
 		ctrl.Log.WithName("controllers").WithName("CFTask"),
 		workloadscontrollers.NewSequenceId(clockwork.NewRealClock()),
 		controllerConfig.CFProcessDefaults,
+		taskTTL,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CFTask")
 		os.Exit(1)

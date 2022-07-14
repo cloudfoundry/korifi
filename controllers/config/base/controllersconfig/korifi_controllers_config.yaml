@@ -3,5 +3,8 @@ cfProcessDefaults:
   diskQuotaMB: 1024
 cfRootNamespace: cf
 packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
+# taskTTL should be series of numbers and units (d: days, h: hours, m: minutes, s: seconds)
+# with no spaces, e.g. 5d12h45m. Default is 30 days
+taskTTL: 30d
 workloads_tls_secret_name: korifi-workloads-ingress-cert
 workloads_tls_secret_namespace: korifi-controllers-system

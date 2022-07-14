@@ -19,6 +19,7 @@ package workloads
 import (
 	"context"
 	"errors"
+	"time"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	"github.com/go-logr/logr"
@@ -52,6 +53,7 @@ type CFTaskReconciler struct {
 	logger            logr.Logger
 	seqIdGenerator    SeqIdGenerator
 	cfProcessDefaults config.CFProcessDefaults
+	taskTTLDuration   time.Duration
 }
 
 func NewCFTaskReconciler(
@@ -61,6 +63,7 @@ func NewCFTaskReconciler(
 	logger logr.Logger,
 	seqIdGenerator SeqIdGenerator,
 	cfProcessDefaults config.CFProcessDefaults,
+	taskTTLDuration time.Duration,
 ) *CFTaskReconciler {
 	return &CFTaskReconciler{
 		k8sClient:         client,
@@ -69,6 +72,7 @@ func NewCFTaskReconciler(
 		logger:            logger,
 		seqIdGenerator:    seqIdGenerator,
 		cfProcessDefaults: cfProcessDefaults,
+		taskTTLDuration:   taskTTLDuration,
 	}
 }
 
@@ -87,6 +91,15 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, nil
 		}
 		r.logger.Info("error-getting-cftask", "error", err)
+		return ctrl.Result{}, err
+	}
+
+	if r.alreadyExpired(cfTask) {
+		r.logger.Info("deleting-expired-task", "namespace", cfTask.Namespace, "name", cfTask.Name)
+		err := r.k8sClient.Delete(ctx, cfTask)
+		if err != nil {
+			r.logger.Error(err, "error-deleting-task")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -302,5 +315,44 @@ func (r *CFTaskReconciler) updateStatusAndReturn(ctx context.Context, cfTask *ko
 		r.logger.Error(statusErr, "unable to patch CFTask status")
 		return ctrl.Result{}, statusErr
 	}
-	return ctrl.Result{}, reconcileErr
+
+	if reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
+	}
+
+	return ctrl.Result{RequeueAfter: r.computeRequeueAfter(cfTask)}, nil
+}
+
+func (r *CFTaskReconciler) computeRequeueAfter(cfTask *korifiv1alpha1.CFTask) time.Duration {
+	completeTime, isCompleted := getCompletionTime(cfTask)
+	if !isCompleted {
+		return 0
+	}
+
+	return time.Until(completeTime.Add(r.taskTTLDuration))
+}
+
+func (r *CFTaskReconciler) alreadyExpired(cfTask *korifiv1alpha1.CFTask) bool {
+	completeTime, isCompleted := getCompletionTime(cfTask)
+
+	if !isCompleted {
+		return false
+	}
+
+	return !time.Now().Before(completeTime.Add(r.taskTTLDuration))
+}
+
+func getCompletionTime(cfTask *korifiv1alpha1.CFTask) (metav1.Time, bool) {
+	succeededCondition := meta.FindStatusCondition(cfTask.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType)
+	failedCondition := meta.FindStatusCondition(cfTask.Status.Conditions, korifiv1alpha1.TaskFailedConditionType)
+
+	if succeededCondition == nil && failedCondition == nil {
+		return metav1.Time{}, false
+	}
+
+	if succeededCondition != nil {
+		return succeededCondition.LastTransitionTime, true
+	}
+
+	return failedCondition.LastTransitionTime, true
 }

@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -211,6 +212,33 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 					g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)).To(BeTrue())
 				})
 			})
+		})
+	})
+
+	Describe("CFTask TTL", func() {
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+
+			updatedTask := cfTask.DeepCopy()
+			meta.SetStatusCondition(&updatedTask.Status.Conditions, metav1.Condition{
+				Type:               korifiv1alpha1.TaskSucceededConditionType,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "succeeded",
+				Message:            "succeeded",
+			})
+			Expect(k8sClient.Status().Patch(ctx, updatedTask, client.MergeFrom(cfTask))).To(Succeed())
+		})
+
+		It("it can get the task shortly after completion", func() {
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+		})
+
+		It("deletes the task after it expires", func() {
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 		})
 	})
 })
