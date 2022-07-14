@@ -108,8 +108,18 @@ var _ = Describe("Tasks", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("succeeds", func() {
+		It("succeeds and is cleaned up after its TTL", func() {
 			eventuallyTaskShouldHaveState(createdTask.GUID, "SUCCEEDED")
+
+			Eventually(func(g Gomega) {
+				var task taskResource
+				getResp, err := certClient.R().
+					SetPathParam("taskGUID", createdTask.GUID).
+					SetResult(&task).
+					Get("/v3/tasks/{taskGUID}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(getResp).To(HaveRestyStatusCode(http.StatusNotFound))
+			}).Should(Succeed())
 		})
 	})
 

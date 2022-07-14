@@ -161,6 +161,7 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("controllers").WithName("CFTask"),
 		NewSequenceId(clockwork.NewRealClock()),
 		cfProcessDefaults,
+		2*time.Second,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

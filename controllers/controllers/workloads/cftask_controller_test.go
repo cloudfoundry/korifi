@@ -3,6 +3,7 @@ package workloads_test
 import (
 	"context"
 	"errors"
+	"time"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -43,6 +44,7 @@ var _ = Describe("CFTask Controller", func() {
 		cfTask             korifiv1alpha1.CFTask
 		eiriniTask         eiriniv1.Task
 		eiriniTaskGetError error
+		taskTTL            time.Duration
 	)
 
 	BeforeEach(func() {
@@ -55,6 +57,7 @@ var _ = Describe("CFTask Controller", func() {
 		seqIdGenerator.GenerateReturns(314, nil)
 		logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		taskTTL = 5 * time.Minute
 		taskReconciler = *workloads.NewCFTaskReconciler(
 			k8sClient,
 			scheme.Scheme,
@@ -65,6 +68,7 @@ var _ = Describe("CFTask Controller", func() {
 				MemoryMB:    256,
 				DiskQuotaMB: 128,
 			},
+			taskTTL,
 		)
 
 		cftaskGetError = nil
@@ -249,13 +253,17 @@ var _ = Describe("CFTask Controller", func() {
 					Expect(startedCondition.Message).To(Equal("eirini task started"))
 					Expect(startedCondition.LastTransitionTime).To(Equal(now))
 				})
+
+				It("does not requeue the task", func() {
+					Expect(result.RequeueAfter).To(BeZero())
+				})
 			})
 
 			When("the eirini task has succeeded", func() {
 				var now metav1.Time
 
 				BeforeEach(func() {
-					now = metav1.Now()
+					now = metav1.NewTime(time.Now().Add(-2 * time.Second))
 
 					meta.SetStatusCondition(&eiriniTask.Status.Conditions, metav1.Condition{
 						Type:               eiriniv1.TaskSucceededConditionType,
@@ -274,13 +282,21 @@ var _ = Describe("CFTask Controller", func() {
 					Expect(succeededCondition.Message).To(Equal("eirini task succeeded"))
 					Expect(succeededCondition.LastTransitionTime).To(Equal(now))
 				})
+
+				It("requeues the task adding TTL", func() {
+					nowPlusTTL := now.Add(taskTTL)
+					Expect(result.RequeueAfter).ToNot(BeZero())
+					currentPlusRequeueAfter := time.Now().Add(result.RequeueAfter)
+
+					Expect(currentPlusRequeueAfter).To(BeTemporally("~", nowPlusTTL, time.Second))
+				})
 			})
 
 			When("the eirini task has failed", func() {
 				var now metav1.Time
 
 				BeforeEach(func() {
-					now = metav1.Now()
+					now = metav1.NewTime(time.Now().Add(-2 * time.Second))
 
 					meta.SetStatusCondition(&eiriniTask.Status.Conditions, metav1.Condition{
 						Type:               eiriniv1.TaskFailedConditionType,
@@ -298,6 +314,14 @@ var _ = Describe("CFTask Controller", func() {
 					Expect(failedCondition.Reason).To(Equal("eirini-task-failed"))
 					Expect(failedCondition.Message).To(Equal("eirini task failed"))
 					Expect(failedCondition.LastTransitionTime).To(Equal(now))
+				})
+
+				It("requeues the task adding TTL", func() {
+					nowPlusTTL := now.Add(taskTTL)
+					Expect(result.RequeueAfter).ToNot(BeZero())
+					currentPlusRequeueAfter := time.Now().Add(result.RequeueAfter)
+
+					Expect(currentPlusRequeueAfter).To(BeTemporally("~", nowPlusTTL, time.Second))
 				})
 			})
 		})
@@ -572,6 +596,25 @@ var _ = Describe("CFTask Controller", func() {
 			It("sets the canceled condition on the korifi task", func() {
 				Expect(meta.IsStatusConditionTrue(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)).To(BeTrue())
 			})
+		})
+	})
+
+	Describe("task expiration", func() {
+		BeforeEach(func() {
+			meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+				Type:               korifiv1alpha1.TaskSucceededConditionType,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * taskTTL)),
+				Reason:             "succeeded",
+				Message:            "succeeded",
+			})
+		})
+
+		It("deletes the task", func() {
+			Expect(k8sClient.DeleteCallCount()).To(Equal(1))
+			_, deletedObject, _ := k8sClient.DeleteArgsForCall(0)
+			Expect(deletedObject.GetNamespace()).To(Equal("the-task-namespace"))
+			Expect(deletedObject.GetName()).To(Equal(cfTask.Name))
 		})
 	})
 })
