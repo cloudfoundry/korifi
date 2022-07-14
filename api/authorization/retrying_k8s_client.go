@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/correlation"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -79,7 +80,7 @@ func (a AuthRetryingClient) DeleteAllOf(ctx context.Context, obj client.Object, 
 
 func (a AuthRetryingClient) retryOnForbidden(ctx context.Context, fn func() error, op string) error {
 	count := 0
-	return retry.OnError(a.backoff, k8serrors.IsForbidden, func() error {
+	return retry.OnError(a.backoff, isForbidden, func() error {
 		logger := correlation.AddCorrelationIDToLogger(ctx, a.logger)
 		err := fn()
 		if err != nil {
@@ -88,4 +89,20 @@ func (a AuthRetryingClient) retryOnForbidden(ctx context.Context, fn func() erro
 		}
 		return err
 	})
+}
+
+// isForbidden returns true for forbidden errors that are NOT korifi webhook
+// validation errors, false otherwise upon webhook validation errors it makes
+// no sense to retry the operation as the webhook is expected to consistently
+// return the same validation error
+func isForbidden(err error) bool {
+	if !k8serrors.IsForbidden(err) {
+		return false
+	}
+
+	if _, isValidationErr := webhooks.WebhookErrorToValidationError(err); isValidationErr {
+		return false
+	}
+
+	return true
 }

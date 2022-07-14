@@ -2,14 +2,19 @@ package authorization_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	"github.com/onsi/gomega/gstruct"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -38,7 +43,7 @@ var _ = Describe("RetryingK8sClient", func() {
 		var err error
 
 		JustBeforeEach(func() {
-			err = retryingClient.Get(ctx, types.NamespacedName{}, &v1.Pod{})
+			err = retryingClient.Get(ctx, types.NamespacedName{}, &corev1.Pod{})
 		})
 
 		It("calls the client once", func() {
@@ -73,9 +78,33 @@ var _ = Describe("RetryingK8sClient", func() {
 				k8sClient.GetReturns(k8serrors.NewForbidden(schema.GroupResource{}, "foo", errors.New("bar")))
 			})
 
-			It("does something", func() {
+			It("retries configured backoff steps times", func() {
 				Expect(k8serrors.IsForbidden(err)).To(BeTrue(), err)
 				Expect(k8sClient.GetCallCount()).To(Equal(5))
+			})
+		})
+
+		When("it returns a webhook validation error", func() {
+			var webhookValidationError k8serrors.StatusError
+			BeforeEach(func() {
+				validationErrBytes, marshalErr := json.Marshal(webhooks.ValidationError{
+					Type:    "oh-no",
+					Message: "anyway",
+				})
+				Expect(marshalErr).NotTo(HaveOccurred())
+
+				webhookValidationError = k8serrors.StatusError{
+					ErrStatus: metav1.Status{
+						Reason: metav1.StatusReason(string(validationErrBytes)),
+						Code:   http.StatusForbidden,
+					},
+				}
+				k8sClient.GetReturns(&webhookValidationError)
+			})
+
+			It("fails immediately", func() {
+				Expect(err).To(gstruct.PointTo(Equal(webhookValidationError)))
+				Expect(k8sClient.GetCallCount()).To(Equal(1))
 			})
 		})
 	})
@@ -86,7 +115,7 @@ var _ = Describe("RetryingK8sClient", func() {
 		})
 
 		It("retries", func() {
-			err := retryingClient.Create(ctx, &v1.Pod{})
+			err := retryingClient.Create(ctx, &corev1.Pod{})
 			Expect(k8serrors.IsForbidden(err)).To(BeTrue(), err)
 			Expect(k8sClient.CreateCallCount()).To(Equal(5))
 		})
@@ -98,7 +127,7 @@ var _ = Describe("RetryingK8sClient", func() {
 		})
 
 		It("retries", func() {
-			err := retryingClient.Update(ctx, &v1.Pod{})
+			err := retryingClient.Update(ctx, &corev1.Pod{})
 			Expect(k8serrors.IsForbidden(err)).To(BeTrue(), err)
 			Expect(k8sClient.UpdateCallCount()).To(Equal(5))
 		})
@@ -110,7 +139,7 @@ var _ = Describe("RetryingK8sClient", func() {
 		})
 
 		It("retries", func() {
-			err := retryingClient.List(ctx, &v1.PodList{})
+			err := retryingClient.List(ctx, &corev1.PodList{})
 			Expect(k8serrors.IsForbidden(err)).To(BeTrue(), err)
 			Expect(k8sClient.ListCallCount()).To(Equal(5))
 		})
@@ -122,7 +151,7 @@ var _ = Describe("RetryingK8sClient", func() {
 		})
 
 		It("retries", func() {
-			err := retryingClient.Patch(ctx, &v1.Pod{}, client.MergeFrom(&v1.Pod{}))
+			err := retryingClient.Patch(ctx, &corev1.Pod{}, client.MergeFrom(&corev1.Pod{}))
 			Expect(k8serrors.IsForbidden(err)).To(BeTrue(), err)
 			Expect(k8sClient.PatchCallCount()).To(Equal(5))
 		})
@@ -134,7 +163,7 @@ var _ = Describe("RetryingK8sClient", func() {
 		})
 
 		It("retries", func() {
-			err := retryingClient.Delete(ctx, &v1.Pod{})
+			err := retryingClient.Delete(ctx, &corev1.Pod{})
 			Expect(k8serrors.IsForbidden(err)).To(BeTrue(), err)
 			Expect(k8sClient.DeleteCallCount()).To(Equal(5))
 		})
@@ -146,7 +175,7 @@ var _ = Describe("RetryingK8sClient", func() {
 		})
 
 		It("retries", func() {
-			err := retryingClient.DeleteAllOf(ctx, &v1.Pod{})
+			err := retryingClient.DeleteAllOf(ctx, &corev1.Pod{})
 			Expect(k8serrors.IsForbidden(err)).To(BeTrue(), err)
 			Expect(k8sClient.DeleteAllOfCallCount()).To(Equal(5))
 		})
