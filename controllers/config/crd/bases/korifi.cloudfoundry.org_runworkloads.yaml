@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
   name: runworkloads.korifi.cloudfoundry.org
 spec:
@@ -90,6 +90,7 @@ spec:
                           required:
                           - key
                           type: object
+                          x-kubernetes-map-type: atomic
                         fieldRef:
                           description: 'Selects a field of the pod: supports metadata.name,
                             metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`,
@@ -107,6 +108,7 @@ spec:
                           required:
                           - fieldPath
                           type: object
+                          x-kubernetes-map-type: atomic
                         resourceFieldRef:
                           description: 'Selects a resource of the container: only
                             resources limits and requests (limits.cpu, limits.memory,
@@ -131,6 +133,7 @@ spec:
                           required:
                           - resource
                           type: object
+                          x-kubernetes-map-type: atomic
                         secretKeyRef:
                           description: Selects a key of a secret in the pod's namespace
                           properties:
@@ -149,6 +152,7 @@ spec:
                           required:
                           - key
                           type: object
+                          x-kubernetes-map-type: atomic
                       type: object
                   required:
                   - name
@@ -184,6 +188,7 @@ spec:
                         TODO: Add other useful fields. apiVersion, kind, uid?'
                       type: string
                   type: object
+                  x-kubernetes-map-type: atomic
                 type: array
               instances:
                 default: 1
@@ -228,9 +233,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

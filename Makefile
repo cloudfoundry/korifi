@@ -178,7 +178,7 @@ set-image-ref-api: manifests-api install-kustomize
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
 
 KUSTOMIZE = $(shell pwd)/controllers/bin/kustomize
 install-kustomize: ## Download kustomize locally if necessary.
