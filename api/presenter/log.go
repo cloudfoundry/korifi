@@ -16,6 +16,7 @@ type LogCacheReadResponseEnvelopes struct {
 type LogCacheReadResponseBatch struct {
 	Timestamp int64                   `json:"timestamp"`
 	Log       LogCacheReadResponseLog `json:"log"`
+	Tags      map[string]string       `json:"tags,omitempty"`
 }
 
 type LogCacheReadResponseLog struct {
@@ -32,6 +33,7 @@ func ForLogs(logRecords []repositories.LogRecord) LogCacheReadResponse {
 				Payload: []byte(logRecord.Message),
 				Type:    loggregator_v2.Log_OUT,
 			},
+			Tags: logRecord.Tags,
 		}
 
 		envelopes = append(envelopes, batch)
