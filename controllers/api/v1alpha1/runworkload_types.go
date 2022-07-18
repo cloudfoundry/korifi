@@ -45,9 +45,8 @@ type RunWorkloadSpec struct {
 	MemoryMiB int64 `json:"memoryMiB"`
 	// +kubebuilder:validation:Minimum:=1
 	// +kubebuilder:validation:Required
-	DiskMiB int64 `json:"diskMiB"`
-	// +kubebuilder:validation:Format:=uint8
-	CPUWeight uint8 `json:"cpuWeight"`
+	DiskMiB       int64 `json:"diskMiB"`
+	CPUMillicores int64 `json:"cpuMillicores"`
 }
 
 type Healthcheck struct {

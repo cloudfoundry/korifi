@@ -43,8 +43,8 @@ spec:
                 items:
                   type: string
                 type: array
-              cpuWeight:
-                format: uint8
+              cpuMillicores:
+                format: int64
                 type: integer
               diskMiB:
                 format: int64
@@ -204,7 +204,7 @@ spec:
             required:
             - GUID
             - appGUID
-            - cpuWeight
+            - cpuMillicores
             - diskMiB
             - health
             - image

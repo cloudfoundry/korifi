@@ -178,14 +178,18 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 	})
 
 	It("should set memory request", func() {
-		actualLimit := statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory()
-		Expect(actualLimit.String()).To(Equal("1Gi"))
+		actualRequest := statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory()
+		Expect(actualRequest.String()).To(Equal("1Gi"))
 	})
 
 	It("should set cpu request", func() {
-		expectedLimit := resource.NewScaledQuantity(2, resource.Milli)
-		actualLimit := statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu()
-		Expect(actualLimit).To(Equal(expectedLimit))
+		expectedRequest := resource.NewScaledQuantity(5, resource.Milli)
+		actualRequest := statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu()
+		Expect(actualRequest).To(Equal(expectedRequest))
+	})
+
+	It("should not set cpu limit", func() {
+		Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
 	})
 
 	It("should set disk limit", func() {
@@ -405,12 +409,12 @@ var _ = Describe("RunWorkload Reconcile", func() {
 					Namespace: testNamespace,
 				},
 				Spec: korifiv1alpha1.RunWorkloadSpec{
-					GUID:      "test-sts",
-					Version:   "1",
-					Instances: 2,
-					MemoryMiB: 10,
-					DiskMiB:   10,
-					CPUWeight: 4,
+					GUID:          "test-sts",
+					Version:       "1",
+					Instances:     2,
+					MemoryMiB:     10,
+					DiskMiB:       10,
+					CPUMillicores: 10,
 				},
 			}
 
@@ -432,10 +436,11 @@ var _ = Describe("RunWorkload Reconcile", func() {
 										Limits: map[corev1.ResourceName]resource.Quantity{
 											corev1.ResourceMemory:           controllers.MebibyteQuantity(512),
 											corev1.ResourceEphemeralStorage: controllers.MebibyteQuantity(512),
+											corev1.ResourceCPU:              *resource.NewScaledQuantity(20, resource.Milli),
 										},
 										Requests: map[corev1.ResourceName]resource.Quantity{
 											corev1.ResourceMemory: controllers.MebibyteQuantity(512),
-											corev1.ResourceCPU:    controllers.ToCPUMillicores(3),
+											corev1.ResourceCPU:    *resource.NewScaledQuantity(10, resource.Milli),
 										},
 									},
 								},

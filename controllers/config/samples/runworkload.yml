@@ -27,5 +27,5 @@ spec:
   - name: image-registry-credentials
   memoryMiB: 50
   diskMiB: 50
-  cpuWeight: 2
+  cpuMillicores: 5
   processType: web

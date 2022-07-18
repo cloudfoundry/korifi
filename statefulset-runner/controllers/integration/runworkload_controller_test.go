@@ -47,7 +47,7 @@ var _ = Describe("RunWorkloadsController", func() {
 				Instances:        5,
 				MemoryMiB:        5,
 				DiskMiB:          100,
-				CPUWeight:        2,
+				CPUMillicores:    5,
 			},
 		}
 	})
@@ -117,6 +117,7 @@ var _ = Describe("RunWorkloadsController", func() {
 
 				actualRunWorkload.Spec.Instances = 2
 				actualRunWorkload.Spec.MemoryMiB = 10
+				actualRunWorkload.Spec.CPUMillicores = 1024
 				g.Expect(k8sClient.Update(ctx, actualRunWorkload)).To(Succeed())
 			}).Should(Succeed())
 		})
@@ -128,6 +129,8 @@ var _ = Describe("RunWorkloadsController", func() {
 				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulSetName, Namespace: namespaceName}, statefulSet)).To(Succeed())
 				g.Expect(*statefulSet.Spec.Replicas).To(Equal(int32(2)))
 				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("10Mi"))
+				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1024m"))
+				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
 			}).Should(Succeed())
 		})
 	})

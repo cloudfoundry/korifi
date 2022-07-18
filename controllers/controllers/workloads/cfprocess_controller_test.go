@@ -167,14 +167,14 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 						},
 					},
 					Spec: korifiv1alpha1.RunWorkloadSpec{
-						GUID:        testProcessGUID,
-						ProcessType: testProcessType,
-						AppGUID:     testAppGUID,
-						Image:       "test-image-ref",
-						Instances:   0,
-						MemoryMiB:   100,
-						DiskMiB:     100,
-						CPUWeight:   0,
+						GUID:          testProcessGUID,
+						ProcessType:   testProcessType,
+						AppGUID:       testAppGUID,
+						Image:         "test-image-ref",
+						Instances:     0,
+						MemoryMiB:     100,
+						DiskMiB:       100,
+						CPUMillicores: 5,
 					},
 					Status: korifiv1alpha1.RunWorkloadStatus{
 						ReadyReplicas: 0,
@@ -338,7 +338,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		})
 
 		DescribeTable("matches expected output",
-			func(processMemoryMB int64, outputCTPUWeight uint8) {
+			func(processMemoryMB, outputCTPURequestMillicores int64) {
 				cfProcess.Spec.MemoryMB = processMemoryMB
 
 				_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
@@ -347,12 +347,12 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				Expect(fakeClient.CreateCallCount()).To(BeNumerically(">=", 1))
 				_, createObj, _ := fakeClient.CreateArgsForCall(0)
 				createdRunWorkload, ok := createObj.(*korifiv1alpha1.RunWorkload)
-				Expect(ok).To(BeTrue(), "client Create() object cooerce to eirini.RunWorkload failed")
-				Expect(createdRunWorkload.Spec.CPUWeight).To(Equal(outputCTPUWeight))
+				Expect(ok).To(BeTrue(), "client Create() object coerce to eirini.RunWorkload failed")
+				Expect(createdRunWorkload.Spec.CPUMillicores).To(Equal(outputCTPURequestMillicores))
 			},
-			Entry("Memory is zero", int64(0), uint8(100*128/8192)),
-			Entry("Memory is less than 8192", int64(4096), uint8(100*4096/8192)),
-			Entry("Memory is greater than 8192", int64(16384), uint8(100)),
+			Entry("Memory is 1024MiB", int64(1024), int64(100)),
+			Entry("Memory is 25MiB", int64(25), int64(5)),
+			Entry("Memory is 10GiB", int64(10240), int64(1000)),
 		)
 	})
 })

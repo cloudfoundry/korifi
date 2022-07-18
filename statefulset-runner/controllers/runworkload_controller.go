@@ -273,7 +273,7 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 					Type: corev1.SeccompProfileTypeRuntimeDefault,
 				},
 			},
-			Resources:      getContainerResources(runWorkload.Spec.CPUWeight, runWorkload.Spec.MemoryMiB, runWorkload.Spec.DiskMiB),
+			Resources:      getContainerResources(runWorkload.Spec.CPUMillicores, runWorkload.Spec.MemoryMiB, runWorkload.Spec.DiskMiB),
 			LivenessProbe:  livenessProbe,
 			ReadinessProbe: readinessProbe,
 		},
@@ -383,25 +383,22 @@ func StatefulSetLabelSelector(runWorkload *korifiv1alpha1.RunWorkload) *metav1.L
 	}
 }
 
-func getContainerResources(cpuWeight uint8, memoryMiB, diskMiB int64) corev1.ResourceRequirements {
+func getContainerResources(cpuMillicores, memoryMiB, diskMiB int64) corev1.ResourceRequirements {
 	memory := MebibyteQuantity(memoryMiB)
-	cpu := ToCPUMillicores(cpuWeight)
+	cpuRequest := *resource.NewScaledQuantity(cpuMillicores, resource.Milli)
 	ephemeralStorage := MebibyteQuantity(diskMiB)
 
-	return corev1.ResourceRequirements{
+	resourceRequirements := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceMemory:           memory,
 			corev1.ResourceEphemeralStorage: ephemeralStorage,
 		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceMemory: memory,
-			corev1.ResourceCPU:    cpu,
+			corev1.ResourceCPU:    cpuRequest,
 		},
 	}
-}
-
-func ToCPUMillicores(cpuPercentage uint8) resource.Quantity {
-	return *resource.NewScaledQuantity(int64(cpuPercentage), resource.Milli)
+	return resourceRequirements
 }
 
 func CreateLivenessProbe(runWorkload korifiv1alpha1.RunWorkload) *corev1.Probe {
