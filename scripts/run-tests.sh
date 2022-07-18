@@ -57,6 +57,9 @@ else
   source "$SCRIPT_DIR/account-creation.sh" "$SCRIPT_DIR"
 
   extra_args+=("--slow-spec-threshold=30s")
+
+  echo "waiting for ClusterBuilder to be ready..."
+  kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
 fi
 
 if [[ -z "$NON_RECURSIVE_TEST" ]]; then
