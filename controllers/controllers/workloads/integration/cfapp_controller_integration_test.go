@@ -495,7 +495,9 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), cfRoute)).To(Succeed())
+		})
 
+		JustBeforeEach(func() {
 			Expect(k8sClient.Delete(context.Background(), cfApp))
 		})
 
@@ -526,6 +528,34 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				ProcessType: "worked",
 				Protocol:    "http1",
 			}))
+		})
+
+		When("the app is referenced by tasks", func() {
+			var taskGUID string
+			BeforeEach(func() {
+				taskGUID = PrefixedGUID("task")
+				cfTask := korifiv1alpha1.CFTask{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      taskGUID,
+						Namespace: namespaceGUID,
+					},
+					Spec: korifiv1alpha1.CFTaskSpec{
+						Command: []string{"sleep", "1000"},
+						AppRef: corev1.LocalObjectReference{
+							Name: cfAppGUID,
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), &cfTask)).To(Succeed())
+			})
+
+			It("deletes the referencing tasks", func() {
+				Eventually(func(g Gomega) {
+					tasksList := korifiv1alpha1.CFTaskList{}
+					g.Expect(k8sClient.List(context.Background(), &tasksList, client.InNamespace(namespaceGUID))).To(Succeed())
+					g.Expect(tasksList.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
 		})
 	})
 })
