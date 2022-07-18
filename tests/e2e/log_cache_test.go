@@ -6,6 +6,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("LogCache", func() {
@@ -36,6 +37,9 @@ var _ = Describe("LogCache", func() {
 			Expect(httpError).NotTo(HaveOccurred())
 			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Envelopes.Batch).NotTo(BeEmpty())
+			Expect(result.Envelopes.Batch).To(ContainElements(MatchFields(IgnoreExtras, Fields{
+				"Tags": HaveKeyWithValue("source_type", "STG"),
+			})))
 		})
 	})
 })

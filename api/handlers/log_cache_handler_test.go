@@ -78,10 +78,16 @@ var _ = Describe("LogCacheHandler", func() {
 				{
 					Message:   "BuildMessage1",
 					Timestamp: time.Now().UnixNano(),
+					Tags: map[string]string{
+						"source_type": "STG",
+					},
 				},
 				{
 					Message:   "BuildMessage2",
 					Timestamp: time.Now().UnixNano(),
+					Tags: map[string]string{
+						"source_type": "STG",
+					},
 				},
 			}
 
@@ -118,6 +124,9 @@ var _ = Describe("LogCacheHandler", func() {
 							"log": {
 								"payload": "%[2]s",
 								"type": 0
+							},
+							"tags": {
+								"source_type": "STG"
 							}
 						},
 						{
@@ -125,6 +134,9 @@ var _ = Describe("LogCacheHandler", func() {
 							"log": {
 								"payload": "%[4]s",
 								"type": 0
+							},
+							"tags": {
+								"source_type": "STG"
 							}
 						},
 						{
