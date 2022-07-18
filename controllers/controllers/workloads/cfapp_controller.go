@@ -7,6 +7,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
@@ -278,12 +279,12 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *korifiv1alph
 		return ctrl.Result{}, nil
 	}
 
-	cfRoutes, err := r.getCFRoutes(ctx, cfApp.Name, cfApp.Namespace)
+	err := r.finalizeCFAppRoutes(ctx, cfApp)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err = r.removeRouteDestinations(ctx, cfApp.Name, cfRoutes)
+	err = r.finalizeCFAppTasks(ctx, cfApp)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -291,12 +292,43 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *korifiv1alph
 	originalCFApp := cfApp.DeepCopy()
 	controllerutil.RemoveFinalizer(cfApp, finalizerName)
 
-	if err = r.Client.Patch(ctx, cfApp, client.MergeFrom(originalCFApp)); err != nil {
+	if err := r.Client.Patch(ctx, cfApp, client.MergeFrom(originalCFApp)); err != nil {
 		r.Log.Error(err, "Failed to remove finalizer on cfApp")
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *CFAppReconciler) finalizeCFAppRoutes(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
+	cfRoutes, err := r.getCFRoutes(ctx, cfApp.Name, cfApp.Namespace)
+	if err != nil {
+		return err
+	}
+
+	err = r.removeRouteDestinations(ctx, cfApp.Name, cfRoutes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *CFAppReconciler) finalizeCFAppTasks(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
+	tasksList := korifiv1alpha1.CFTaskList{}
+	err := r.Client.List(ctx, &tasksList, client.InNamespace(cfApp.Namespace), client.MatchingFields{shared.IndexAppTasks: cfApp.Name})
+	if err != nil {
+		return err
+	}
+
+	for _, t := range tasksList.Items {
+		err = r.Client.Delete(ctx, &t)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []korifiv1alpha1.CFRoute) error {

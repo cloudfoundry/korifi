@@ -24,6 +24,19 @@ type CFClient struct {
 	createReturnsOnCall map[int]struct {
 		result1 error
 	}
+	DeleteStub        func(context.Context, client.Object, ...client.DeleteOption) error
+	deleteMutex       sync.RWMutex
+	deleteArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Object
+		arg3 []client.DeleteOption
+	}
+	deleteReturns struct {
+		result1 error
+	}
+	deleteReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetStub        func(context.Context, types.NamespacedName, client.Object) error
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
@@ -150,6 +163,69 @@ func (fake *CFClient) CreateReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.createReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFClient) Delete(arg1 context.Context, arg2 client.Object, arg3 ...client.DeleteOption) error {
+	fake.deleteMutex.Lock()
+	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
+	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Object
+		arg3 []client.DeleteOption
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteStub
+	fakeReturns := fake.deleteReturns
+	fake.recordInvocation("Delete", []interface{}{arg1, arg2, arg3})
+	fake.deleteMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFClient) DeleteCallCount() int {
+	fake.deleteMutex.RLock()
+	defer fake.deleteMutex.RUnlock()
+	return len(fake.deleteArgsForCall)
+}
+
+func (fake *CFClient) DeleteCalls(stub func(context.Context, client.Object, ...client.DeleteOption) error) {
+	fake.deleteMutex.Lock()
+	defer fake.deleteMutex.Unlock()
+	fake.DeleteStub = stub
+}
+
+func (fake *CFClient) DeleteArgsForCall(i int) (context.Context, client.Object, []client.DeleteOption) {
+	fake.deleteMutex.RLock()
+	defer fake.deleteMutex.RUnlock()
+	argsForCall := fake.deleteArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFClient) DeleteReturns(result1 error) {
+	fake.deleteMutex.Lock()
+	defer fake.deleteMutex.Unlock()
+	fake.DeleteStub = nil
+	fake.deleteReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFClient) DeleteReturnsOnCall(i int, result1 error) {
+	fake.deleteMutex.Lock()
+	defer fake.deleteMutex.Unlock()
+	fake.DeleteStub = nil
+	if fake.deleteReturnsOnCall == nil {
+		fake.deleteReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -465,6 +541,8 @@ func (fake *CFClient) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
+	fake.deleteMutex.RLock()
+	defer fake.deleteMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	fake.listMutex.RLock()

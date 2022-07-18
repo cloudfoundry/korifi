@@ -12,6 +12,7 @@ const (
 	IndexRouteDestinationAppName           = "destinationAppName"
 	IndexServiceBindingAppGUID             = "serviceBindingAppGUID"
 	IndexServiceBindingServiceInstanceGUID = "serviceBindingServiceInstanceGUID"
+	IndexAppTasks                          = "appTasks"
 )
 
 func SetupIndexWithManager(mgr manager.Manager) error {
@@ -29,6 +30,15 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 	if err != nil {
 		return err
 	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFTask{}, IndexAppTasks, func(object client.Object) []string {
+		task := object.(*korifiv1alpha1.CFTask)
+		return []string{task.Spec.AppRef.Name}
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

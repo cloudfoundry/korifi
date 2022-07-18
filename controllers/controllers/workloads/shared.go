@@ -29,6 +29,7 @@ type CFClient interface {
 	Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error
 	Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error
 	Status() client.StatusWriter
+	Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error
 }
 
 // This is a helper function for updating local copy of status conditions

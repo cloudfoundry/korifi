@@ -51,6 +51,8 @@ var _ = Describe("CFAppReconciler", func() {
 		cfRoutePatchErr  error
 		cfRouteListErr   error
 		cfProcessListErr error
+		cfTaskListErr    error
+		cfTaskDeleteErr  error
 
 		secret    *v1.Secret
 		secretErr error
@@ -146,6 +148,15 @@ var _ = Describe("CFAppReconciler", func() {
 			},
 		}
 
+		cfTaskListErr = nil
+		cfTaskList := korifiv1alpha1.CFTaskList{
+			Items: []korifiv1alpha1.CFTask{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cfTaskGUID",
+					Namespace: defaultNamespace,
+				},
+			}},
+		}
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 			switch list := list.(type) {
 			case *korifiv1alpha1.CFProcessList:
@@ -154,6 +165,9 @@ var _ = Describe("CFAppReconciler", func() {
 			case *korifiv1alpha1.CFRouteList:
 				cfRouteList.DeepCopyInto(list)
 				return cfRouteListErr
+			case *korifiv1alpha1.CFTaskList:
+				cfTaskList.DeepCopyInto(list)
+				return cfTaskListErr
 			default:
 				panic("TestClient List provided a weird obj")
 			}
@@ -167,6 +181,16 @@ var _ = Describe("CFAppReconciler", func() {
 				return cfAppPatchErr
 			default:
 				panic("TestClient Patch provided an unexpected object type")
+			}
+		}
+
+		cfTaskDeleteErr = nil
+		fakeClient.DeleteStub = func(ctx context.Context, object client.Object, option ...client.DeleteOption) error {
+			switch object.(type) {
+			case *korifiv1alpha1.CFTask:
+				return cfTaskDeleteErr
+			default:
+				panic("TestClient Delete provided an unexpected object type")
 			}
 		}
 
@@ -192,12 +216,12 @@ var _ = Describe("CFAppReconciler", func() {
 		}
 	})
 
+	JustBeforeEach(func() {
+		reconcileResult, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
+	})
+
 	When("a CFApp is created and CFAppReconciler Reconcile function is called", func() {
 		When("on the happy path", func() {
-			BeforeEach(func() {
-				reconcileResult, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
-			})
-
 			It("returns an empty result and does not return error", func() {
 				Expect(reconcileResult).To(Equal(ctrl.Result{}))
 				Expect(reconcileErr).NotTo(HaveOccurred())
@@ -223,7 +247,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
 					cfAppError = errors.New(failsOnPurposeErrorMessage)
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -234,7 +257,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("fetch CFApp returns a NotFoundError", func() {
 				BeforeEach(func() {
 					cfAppError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should NOT return an error", func() {
@@ -245,7 +267,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
 					fakeStatusWriter.UpdateReturns(errors.New(failsOnPurposeErrorMessage))
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -256,7 +277,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("fetch vcap services Secret returns an error", func() {
 				BeforeEach(func() {
 					secretErr = errors.New(failsOnPurposeErrorMessage)
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -268,7 +288,6 @@ var _ = Describe("CFAppReconciler", func() {
 				BeforeEach(func() {
 					secretErr = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
 					fakeClient.CreateReturns(errors.New(failsOnPurposeErrorMessage))
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should return an error", func() {
@@ -284,10 +303,6 @@ var _ = Describe("CFAppReconciler", func() {
 		})
 
 		When("on the happy path", func() {
-			BeforeEach(func() {
-				reconcileResult, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
-			})
-
 			It("returns an empty result and does not return error", func() {
 				Expect(reconcileResult).To(Equal(ctrl.Result{}))
 				Expect(reconcileErr).NotTo(HaveOccurred())
@@ -330,7 +345,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("fetch CFApp returns an error", func() {
 				BeforeEach(func() {
 					cfAppError = errors.New(failsOnPurposeErrorMessage)
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -341,7 +355,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("fetch CFApp returns a NotFoundError", func() {
 				BeforeEach(func() {
 					cfAppError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should NOT return an error", func() {
@@ -352,7 +365,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("fetch CFBuild returns an error", func() {
 				BeforeEach(func() {
 					cfBuildErr = errors.New(failsOnPurposeErrorMessage)
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -371,7 +383,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("Droplet status on CFBuild is nil", func() {
 				BeforeEach(func() {
 					cfBuild.Status.Droplet = nil
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -390,7 +401,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("Label value doesnt conform to the syntax", func() {
 				BeforeEach(func() {
 					cfBuild.Status.Droplet.ProcessTypes[0].Type = "#web"
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -401,7 +411,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("fetch matching CFProcess returns error", func() {
 				BeforeEach(func() {
 					cfProcessListErr = errors.New(failsOnPurposeErrorMessage)
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -420,7 +429,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("create CFProcess returns an error", func() {
 				BeforeEach(func() {
 					fakeClient.CreateReturns(errors.New(failsOnPurposeErrorMessage))
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -439,7 +447,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
 					fakeStatusWriter.UpdateReturns(errors.New(failsOnPurposeErrorMessage))
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -450,7 +457,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("patch status returns an error", func() {
 				BeforeEach(func() {
 					fakeStatusWriter.PatchReturns(errors.New(failsOnPurposeErrorMessage))
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("should returns an error", func() {
@@ -462,7 +468,6 @@ var _ = Describe("CFAppReconciler", func() {
 				BeforeEach(func() {
 					cfApp.ObjectMeta.Finalizers = []string{}
 					cfAppPatchErr = errors.New("failed to patch CFApp")
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("return the error", func() {
@@ -480,10 +485,6 @@ var _ = Describe("CFAppReconciler", func() {
 		})
 
 		When("on the happy path", func() {
-			BeforeEach(func() {
-				reconcileResult, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
-			})
-
 			It("returns an empty result and does not return error", func() {
 				Expect(reconcileResult).To(Equal(ctrl.Result{}))
 				Expect(reconcileErr).NotTo(HaveOccurred())
@@ -505,7 +506,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("fetching CFRoutes return an error", func() {
 				BeforeEach(func() {
 					cfRouteListErr = errors.New("failed to list CFRoute")
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("return the error", func() {
@@ -516,7 +516,6 @@ var _ = Describe("CFAppReconciler", func() {
 			When("patching cfRoute returns an error", func() {
 				BeforeEach(func() {
 					cfRoutePatchErr = errors.New("failed to patch CFRoute")
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("return the error", func() {
@@ -524,10 +523,29 @@ var _ = Describe("CFAppReconciler", func() {
 				})
 			})
 
+			When("listing the app tasks fails", func() {
+				BeforeEach(func() {
+					cfTaskListErr = errors.New("failed to list CFTask")
+				})
+
+				It("return the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to list CFTask"))
+				})
+			})
+
+			When("deleting an app task fails", func() {
+				BeforeEach(func() {
+					cfTaskDeleteErr = errors.New("failed to delete CFTask")
+				})
+
+				It("return the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to delete CFTask"))
+				})
+			})
+
 			When("patching cfApp returns an error", func() {
 				BeforeEach(func() {
 					cfAppPatchErr = errors.New("failed to patch CFApp")
-					_, reconcileErr = cfAppReconciler.Reconcile(ctx, req)
 				})
 
 				It("return the error", func() {
