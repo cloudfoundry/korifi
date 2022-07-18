@@ -167,14 +167,14 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 						},
 					},
 					Spec: korifiv1alpha1.RunWorkloadSpec{
-						GUID:                 testProcessGUID,
-						ProcessType:          testProcessType,
-						AppGUID:              testAppGUID,
-						Image:                "test-image-ref",
-						Instances:            0,
-						MemoryMiB:            100,
-						DiskMiB:              100,
-						CPURequestMillicores: 5,
+						GUID:          testProcessGUID,
+						ProcessType:   testProcessType,
+						AppGUID:       testAppGUID,
+						Image:         "test-image-ref",
+						Instances:     0,
+						MemoryMiB:     100,
+						DiskMiB:       100,
+						CPUMillicores: 5,
 					},
 					Status: korifiv1alpha1.RunWorkloadStatus{
 						ReadyReplicas: 0,
@@ -348,7 +348,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				_, createObj, _ := fakeClient.CreateArgsForCall(0)
 				createdRunWorkload, ok := createObj.(*korifiv1alpha1.RunWorkload)
 				Expect(ok).To(BeTrue(), "client Create() object coerce to eirini.RunWorkload failed")
-				Expect(createdRunWorkload.Spec.CPURequestMillicores).To(Equal(outputCTPURequestMillicores))
+				Expect(createdRunWorkload.Spec.CPUMillicores).To(Equal(outputCTPURequestMillicores))
 			},
 			Entry("Memory is 1024MiB", int64(1024), int64(100)),
 			Entry("Memory is 25MiB", int64(25), int64(5)),

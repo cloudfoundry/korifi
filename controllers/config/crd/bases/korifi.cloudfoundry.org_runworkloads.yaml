@@ -43,10 +43,7 @@ spec:
                 items:
                   type: string
                 type: array
-              cpuLimitMillicores:
-                format: int64
-                type: integer
-              cpuRequestMillicores:
+              cpuMillicores:
                 format: int64
                 type: integer
               diskMiB:
@@ -207,8 +204,7 @@ spec:
             required:
             - GUID
             - appGUID
-            - cpuLimitMillicores
-            - cpuRequestMillicores
+            - cpuMillicores
             - diskMiB
             - health
             - image

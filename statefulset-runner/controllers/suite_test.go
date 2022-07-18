@@ -41,12 +41,11 @@ func createRunWorkload(namespace, name string) *korifiv1alpha1.RunWorkload {
 				Endpoint:  "/healthz",
 				TimeoutMs: uint(60000),
 			},
-			Ports:                []int32{8888, 9999},
-			Instances:            1,
-			MemoryMiB:            1024,
-			DiskMiB:              2048,
-			CPURequestMillicores: 5,
-			CPULimitMillicores:   0,
+			Ports:         []int32{8888, 9999},
+			Instances:     1,
+			MemoryMiB:     1024,
+			DiskMiB:       2048,
+			CPUMillicores: 5,
 		},
 	}
 }

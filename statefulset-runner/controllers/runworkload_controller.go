@@ -273,7 +273,7 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 					Type: corev1.SeccompProfileTypeRuntimeDefault,
 				},
 			},
-			Resources:      getContainerResources(runWorkload.Spec.CPURequestMillicores, runWorkload.Spec.CPULimitMillicores, runWorkload.Spec.MemoryMiB, runWorkload.Spec.DiskMiB),
+			Resources:      getContainerResources(runWorkload.Spec.CPUMillicores, runWorkload.Spec.MemoryMiB, runWorkload.Spec.DiskMiB),
 			LivenessProbe:  livenessProbe,
 			ReadinessProbe: readinessProbe,
 		},
@@ -383,9 +383,9 @@ func StatefulSetLabelSelector(runWorkload *korifiv1alpha1.RunWorkload) *metav1.L
 	}
 }
 
-func getContainerResources(cpuRequestMillicores, CPULimitMillicores int64, memoryMiB, diskMiB int64) corev1.ResourceRequirements {
+func getContainerResources(cpuMillicores, memoryMiB, diskMiB int64) corev1.ResourceRequirements {
 	memory := MebibyteQuantity(memoryMiB)
-	cpuRequest := *resource.NewScaledQuantity(cpuRequestMillicores, resource.Milli)
+	cpuRequest := *resource.NewScaledQuantity(cpuMillicores, resource.Milli)
 	ephemeralStorage := MebibyteQuantity(diskMiB)
 
 	resourceRequirements := corev1.ResourceRequirements{
@@ -397,11 +397,6 @@ func getContainerResources(cpuRequestMillicores, CPULimitMillicores int64, memor
 			corev1.ResourceMemory: memory,
 			corev1.ResourceCPU:    cpuRequest,
 		},
-	}
-	// Note: CPULimitMillicores will always be 0 until the feature to pass in a custom CPU limit is implemented
-	if CPULimitMillicores != 0 {
-		cpuLimit := *resource.NewScaledQuantity(CPULimitMillicores, resource.Milli)
-		resourceRequirements.Limits[corev1.ResourceCPU] = cpuLimit
 	}
 	return resourceRequirements
 }

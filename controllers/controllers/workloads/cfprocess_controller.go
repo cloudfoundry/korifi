@@ -232,10 +232,7 @@ func (r *CFProcessReconciler) generateRunWorkload(actualRunWorkload *korifiv1alp
 		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
-	// Note: CPURequestMillicores will always calculate the default based on Memory and
-	//       the CPULimitMillicores will always be 0 until the feature to pass in custom CPU values is implemented
-	desiredRunWorkload.Spec.CPURequestMillicores = calculateDefaultCPURequestMillicores(cfProcess.Spec.MemoryMB)
-	desiredRunWorkload.Spec.CPULimitMillicores = 0
+	desiredRunWorkload.Spec.CPUMillicores = calculateDefaultCPURequestMillicores(cfProcess.Spec.MemoryMB)
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredRunWorkload, r.Scheme)
 	if err != nil {
@@ -250,11 +247,11 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 		cpuRequestRatio         int64 = 1024
 		cpuRequestMinMillicores int64 = 5
 	)
-	cpuRequestMillicores := int64(100) * memoryMiB / cpuRequestRatio
-	if cpuRequestMillicores < cpuRequestMinMillicores {
-		cpuRequestMillicores = cpuRequestMinMillicores
+	cpuMillicores := int64(100) * memoryMiB / cpuRequestRatio
+	if cpuMillicores < cpuRequestMinMillicores {
+		cpuMillicores = cpuRequestMinMillicores
 	}
-	return cpuRequestMillicores
+	return cpuMillicores
 }
 
 func generateRunWorkloadName(cfAppRev string, processGUID string) string {

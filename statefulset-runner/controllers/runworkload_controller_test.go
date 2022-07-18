@@ -409,13 +409,12 @@ var _ = Describe("RunWorkload Reconcile", func() {
 					Namespace: testNamespace,
 				},
 				Spec: korifiv1alpha1.RunWorkloadSpec{
-					GUID:                 "test-sts",
-					Version:              "1",
-					Instances:            2,
-					MemoryMiB:            10,
-					DiskMiB:              10,
-					CPURequestMillicores: 10,
-					CPULimitMillicores:   20,
+					GUID:          "test-sts",
+					Version:       "1",
+					Instances:     2,
+					MemoryMiB:     10,
+					DiskMiB:       10,
+					CPUMillicores: 10,
 				},
 			}
 
