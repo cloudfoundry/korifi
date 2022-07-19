@@ -34,12 +34,14 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 		statefulSet *appsv1.StatefulSet
 		runWorkload *korifiv1alpha1.RunWorkload
 		reconciler  *controllers.RunWorkloadReconciler
+		pdb         *fake.PDB
 	)
 
 	BeforeEach(func() {
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		pdb = new(fake.PDB)
 		runWorkload = createRunWorkload("some-namespace", "guid_1234")
-		reconciler = controllers.NewRunWorkloadReconciler(nil, scheme.Scheme, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+		reconciler = controllers.NewRunWorkloadReconciler(nil, scheme.Scheme, pdb, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	})
 
 	JustBeforeEach(func() {
@@ -290,16 +292,19 @@ var _ = Describe("RunWorkload Reconcile", func() {
 		req                          ctrl.Request
 		runworkload                  *korifiv1alpha1.RunWorkload
 		statefulSet                  *v1.StatefulSet
+		fakePDB                      *fake.PDB
 		getRunworkloadError          error
 		getStatefulSetError          error
 		createStatefulSetError       error
 		updateRunworkloadStatusError error
+		updatePDBError               error
 	)
 
 	BeforeEach(func() {
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		runworkload = createRunWorkload("some-namespace", "guid_1234")
 		statefulSet = &v1.StatefulSet{}
+		fakePDB = new(fake.PDB)
 
 		ctx = context.Background()
 		req = ctrl.Request{
@@ -349,7 +354,12 @@ var _ = Describe("RunWorkload Reconcile", func() {
 			return updateRunworkloadStatusError
 		}
 
-		reconciler = controllers.NewRunWorkloadReconciler(fakeClient, scheme.Scheme, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+		updatePDBError = nil
+		fakePDB.UpdateStub = func(ctx context.Context, set *v1.StatefulSet) error {
+			return updatePDBError
+		}
+
+		reconciler = controllers.NewRunWorkloadReconciler(fakeClient, scheme.Scheme, fakePDB, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	})
 
 	JustBeforeEach(func() {
@@ -453,6 +463,16 @@ var _ = Describe("RunWorkload Reconcile", func() {
 
 		It("scales instances", func() {
 			Expect(fakeClient.PatchCallCount()).To(Equal(1))
+		})
+
+		When("updating the pod disruption budget fails", func() {
+			BeforeEach(func() {
+				updatePDBError = errors.New("boom")
+			})
+
+			It("returns an error", func() {
+				Expect(reconcileErr).To(MatchError("boom"))
+			})
 		})
 	})
 })

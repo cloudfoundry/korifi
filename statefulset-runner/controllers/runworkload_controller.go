@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
@@ -31,13 +33,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
-	"code.cloudfoundry.org/eirini-controller/util"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -74,17 +73,25 @@ const (
 	PodAffinityTermWeight = 100
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+//counterfeiter:generate -o ../fake -fake-name PDB . PDB
+type PDB interface {
+	Update(ctx context.Context, statefulSet *appsv1.StatefulSet) error
+}
+
 // RunWorkloadReconciler reconciles a RunWorkload object
 type RunWorkloadReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	pdb    PDB
 	Log    logr.Logger
 }
 
-func NewRunWorkloadReconciler(c client.Client, scheme *runtime.Scheme, log logr.Logger) *RunWorkloadReconciler {
+func NewRunWorkloadReconciler(c client.Client, scheme *runtime.Scheme, pdb PDB, log logr.Logger) *RunWorkloadReconciler {
 	return &RunWorkloadReconciler{
 		Client: c,
 		Scheme: scheme,
+		pdb:    pdb,
 		Log:    log,
 	}
 }
@@ -93,6 +100,7 @@ func NewRunWorkloadReconciler(c client.Client, scheme *runtime.Scheme, log logr.
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runworkloads/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runworkloads/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;patch;get;list;watch
+//+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;update;deletecollection
 
 func (r *RunWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var runWorkload korifiv1alpha1.RunWorkload
@@ -136,6 +144,12 @@ func (r *RunWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		r.Log.Info("Error when fetching StatefulSet", "StatefulSet.Name", statefulSet.Name, "StatefulSet.Namespace", statefulSet.Namespace, "error", err.Error())
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	err = r.pdb.Update(ctx, updatedStatefulSet)
+	if err != nil {
+		r.Log.Error(err, "Error when creating or updating pod disruption budget")
+		return ctrl.Result{}, err
 	}
 
 	runWorkload.Status.ReadyReplicas = updatedStatefulSet.Status.ReadyReplicas
@@ -193,16 +207,16 @@ func truncateString(str string, num int) string {
 	return str
 }
 
-func GetStatefulSetName(runWorkLoad korifiv1alpha1.RunWorkload) string {
-	nameSuffix, err := util.Hash(fmt.Sprintf("%s-%s", runWorkLoad.Spec.GUID, runWorkLoad.Spec.Version))
+func GetStatefulSetName(runWorkLoad korifiv1alpha1.RunWorkload) (string, error) {
+	nameSuffix, err := hash(fmt.Sprintf("%s-%s", runWorkLoad.Spec.GUID, runWorkLoad.Spec.Version))
 	if err != nil {
-		panic(errors.Wrap(err, "failed to generate hash"))
+		return "", fmt.Errorf("failed to generate hash for statefulset name: %w", err)
 	}
 
 	namePrefix := fmt.Sprintf("%s-%s", runWorkLoad.Spec.AppGUID, runWorkLoad.Namespace)
 	namePrefix = sanitizeName(namePrefix, runWorkLoad.Spec.GUID)
 
-	return fmt.Sprintf("%s-%s", namePrefix, nameSuffix)
+	return fmt.Sprintf("%s-%s", namePrefix, nameSuffix), nil
 }
 
 func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) (*appsv1.StatefulSet, error) {
@@ -279,9 +293,14 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 		},
 	}
 
+	statefulsetName, err := GetStatefulSetName(runWorkload)
+	if err != nil {
+		return nil, err
+	}
+
 	statefulSet := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      GetStatefulSetName(runWorkload),
+			Name:      statefulsetName,
 			Namespace: runWorkload.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -319,7 +338,7 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 		},
 	}
 
-	err := controllerutil.SetOwnerReference(&runWorkload, statefulSet, r.Scheme)
+	err = controllerutil.SetOwnerReference(&runWorkload, statefulSet, r.Scheme)
 	if err != nil {
 		r.Log.Error(err, "failed to set OwnerRef on StatefulSet")
 		return nil, err
@@ -462,4 +481,18 @@ func tcpSocketAction(runWorkload korifiv1alpha1.RunWorkload) *corev1.TCPSocketAc
 
 func toSeconds(millis uint) int32 {
 	return int32(millis / 1000) //nolint:gomnd
+}
+
+func hash(s string) (string, error) {
+	const MaxHashLength = 10
+
+	sha := sha256.New()
+
+	if _, err := sha.Write([]byte(s)); err != nil {
+		return "", fmt.Errorf("failed to calculate sha: %w", err)
+	}
+
+	hashValue := hex.EncodeToString(sha.Sum(nil))
+
+	return hashValue[:MaxHashLength], nil
 }

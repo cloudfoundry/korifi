@@ -94,6 +94,7 @@ var _ = BeforeSuite(func() {
 	runWorkloadReconciler := NewRunWorkloadReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
+		NewPDBUpdater(k8sManager.GetClient()),
 		ctrl.Log.WithName("statefulset-runner").WithName("RunWorkload"),
 	)
 	err = (runWorkloadReconciler).SetupWithManager(k8sManager)

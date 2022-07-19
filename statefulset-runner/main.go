@@ -91,6 +91,7 @@ func main() {
 	if err = controllers.NewRunWorkloadReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
+		controllers.NewPDBUpdater(mgr.GetClient()),
 		ctrl.Log.WithName("controllers").WithName("RunWorkloadReconciler"),
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RunWorkload")
