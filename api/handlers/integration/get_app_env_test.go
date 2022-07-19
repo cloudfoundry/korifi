@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/actions"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 	var namespace *corev1.Namespace
 
 	BeforeEach(func() {
-		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions)
+		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions, conditions.NewCFAppConditionAwaiter(2*time.Second))
 		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
 		processRepo := repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)

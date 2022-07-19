@@ -41,13 +41,20 @@ type AppRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
+	appConditionAwaiter  ConditionAwaiter
 }
 
-func NewAppRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *AppRepo {
+func NewAppRepo(
+	namespaceRetriever NamespaceRetriever,
+	userClientFactory authorization.UserK8sClientFactory,
+	authPerms *authorization.NamespacePermissions,
+	appConditionAwaiter ConditionAwaiter,
+) *AppRepo {
 	return &AppRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
+		appConditionAwaiter:  appConditionAwaiter,
 	}
 }
 
@@ -419,6 +426,11 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
 	if err != nil {
 		return CurrentDropletRecord{}, fmt.Errorf("failed to set app droplet: %w", apierrors.FromK8sError(err, AppResourceType))
+	}
+
+	_, err = f.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, workloads.StatusConditionStaged)
+	if err != nil {
+		return CurrentDropletRecord{}, fmt.Errorf("failed to await the app staged condition: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
 	return CurrentDropletRecord{

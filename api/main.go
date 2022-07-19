@@ -104,7 +104,7 @@ func main() {
 	spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPermissions, createTimeout)
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
-	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions)
+	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions, conditions.NewCFAppConditionAwaiter(createTimeout))
 	dropletRepo := repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	routeRepo := repositories.NewRouteRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	domainRepo := repositories.NewDomainRepo(userClientFactory, namespaceRetriever, config.RootNamespace)

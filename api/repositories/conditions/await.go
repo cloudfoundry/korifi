@@ -34,6 +34,23 @@ func (c cfTaskAwaitConfig) conditions() func(runtime.Object) ([]metav1.Condition
 	}
 }
 
+type cfAppAwaitConfig struct{}
+
+func (c cfAppAwaitConfig) watchObjectList() client.ObjectList {
+	return &korifiv1alpha1.CFAppList{}
+}
+
+func (c cfAppAwaitConfig) conditions() func(runtime.Object) ([]metav1.Condition, bool) {
+	return func(obj runtime.Object) ([]metav1.Condition, bool) {
+		cfApp, ok := obj.(*korifiv1alpha1.CFApp)
+		if !ok {
+			return nil, false
+		}
+
+		return cfApp.Status.Conditions, true
+	}
+}
+
 type Awaiter struct {
 	timeout time.Duration
 	config  awaitConfig
@@ -43,6 +60,13 @@ func NewCFTaskConditionAwaiter(timeout time.Duration) *Awaiter {
 	return &Awaiter{
 		timeout: timeout,
 		config:  cfTaskAwaitConfig{},
+	}
+}
+
+func NewCFAppConditionAwaiter(timeout time.Duration) *Awaiter {
+	return &Awaiter{
+		timeout: timeout,
+		config:  cfAppAwaitConfig{},
 	}
 }
 

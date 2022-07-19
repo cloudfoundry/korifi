@@ -63,6 +63,7 @@ rules:
   - patch
   - delete
   - list
+  - watch
 
 - apiGroups:
   - korifi.cloudfoundry.org
