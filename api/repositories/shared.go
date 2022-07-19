@@ -1,10 +1,13 @@
 package repositories
 
 import (
+	"context"
 	"errors"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -13,6 +16,10 @@ const (
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
+type ConditionAwaiter interface {
+	AwaitCondition(ctx context.Context, userClient client.WithWatch, object client.Object, conditionType string) (runtime.Object, error)
+}
 
 // getTimeLastUpdatedTimestamp takes the ObjectMeta from a CR and extracts the last updated time from its list of ManagedFields
 // Returns an error if the list is empty or the time could not be extracted

@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
@@ -137,7 +138,12 @@ func main() {
 		reporegistry.NewImageBuilder(),
 		reporegistry.NewImagePusher(remote.Write),
 	)
-	taskRepo := repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPermissions, createTimeout)
+	taskRepo := repositories.NewTaskRepo(
+		userClientFactory,
+		namespaceRetriever,
+		nsPermissions,
+		conditions.NewCFTaskConditionAwaiter(createTimeout),
+	)
 
 	processScaler := actions.NewProcessScaler(appRepo, processRepo)
 	processStats := actions.NewProcessStats(processRepo, podRepo, appRepo)

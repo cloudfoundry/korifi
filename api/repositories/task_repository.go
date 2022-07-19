@@ -76,20 +76,20 @@ type TaskRepo struct {
 	userClientFactory    authorization.UserK8sClientFactory
 	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
-	timeout              time.Duration
+	taskConditionAwaiter ConditionAwaiter
 }
 
 func NewTaskRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	nsRetriever NamespaceRetriever,
 	namespacePermissions *authorization.NamespacePermissions,
-	timeout time.Duration,
+	taskConditionAwaiter ConditionAwaiter,
 ) *TaskRepo {
 	return &TaskRepo{
 		userClientFactory:    userClientFactory,
 		namespaceRetriever:   nsRetriever,
 		namespacePermissions: namespacePermissions,
-		timeout:              timeout,
+		taskConditionAwaiter: taskConditionAwaiter,
 	}
 }
 
@@ -140,30 +140,17 @@ func (r *TaskRepo) GetTask(ctx context.Context, authInfo authorization.Info, tas
 }
 
 func (r *TaskRepo) awaitCondition(ctx context.Context, userClient client.WithWatch, task *korifiv1alpha1.CFTask, conditionType string) (*korifiv1alpha1.CFTask, error) {
-	watch, err := userClient.Watch(ctx, &korifiv1alpha1.CFTaskList{}, client.InNamespace(task.Namespace), client.MatchingFields{"metadata.name": task.Name})
+	awaitedObject, err := r.taskConditionAwaiter.AwaitCondition(ctx, userClient, task, conditionType)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, TaskResourceType)
 	}
-	defer watch.Stop()
 
-	timer := time.NewTimer(r.timeout)
-	defer timer.Stop()
-
-	for {
-		select {
-		case e := <-watch.ResultChan():
-			updatedTask, ok := e.Object.(*korifiv1alpha1.CFTask)
-			if !ok {
-				continue
-			}
-
-			if meta.IsStatusConditionTrue(updatedTask.Status.Conditions, conditionType) {
-				return updatedTask, nil
-			}
-		case <-timer.C:
-			return nil, fmt.Errorf("task did not get the %s condition within timeout period %d ms", conditionType, r.timeout.Milliseconds())
-		}
+	awaitedTask, ok := awaitedObject.(*korifiv1alpha1.CFTask)
+	if !ok {
+		return nil, fmt.Errorf("%v is not a CFTask", awaitedObject)
 	}
+
+	return awaitedTask, nil
 }
 
 func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, msg ListTaskMessage) ([]TaskRecord, error) {

@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
@@ -56,7 +57,7 @@ var _ = Describe("TaskRepository", func() {
 	}
 
 	BeforeEach(func() {
-		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPerms, 2*time.Second)
+		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPerms, conditions.NewCFTaskConditionAwaiter(2*time.Second))
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
