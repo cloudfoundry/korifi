@@ -84,8 +84,8 @@ cloud.google.com/go/storage v1.16.0/go.mod h1:ieKBmUyzcftN5tbxwnXClMKH00CfcQ+xL6
 cloud.google.com/go/storage v1.22.1/go.mod h1:S8N1cAStu7BOeFfE8KAQzmyyLkK8p/vmRq6kuBTW58Y=
 code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5 h1:tM5+dn2C9xZw1RzgI6WTQW1rGqdUimKB3RFbyu4h6Hc=
 code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5/go.mod h1:v4VVB6oBMz/c9fRY6vZrwr5xKRWOH5NPDjQZlPk0Gbs=
-code.cloudfoundry.org/eirini-controller v0.8.0 h1:c8NDWjPpdTLXf1Z8VJ6zvKV3LiC1dHK6E3HU+8xTPF4=
-code.cloudfoundry.org/eirini-controller v0.8.0/go.mod h1:p9NFgbPsnPX+9n8ebgjiZwkrmfmY56WruUe0MzKYQKM=
+code.cloudfoundry.org/eirini-controller v0.9.0 h1:w3pz/odmx9f9DeBtQKCEd4TAYojmponC7Arhq+EpeNs=
+code.cloudfoundry.org/eirini-controller v0.9.0/go.mod h1:PSAu7MRm0WHkFGuhFYgvYpsuYp8WjI+uon8E1omcplY=
 code.cloudfoundry.org/go-diodes v0.0.0-20180905200951-72629b5276e3/go.mod h1:Jzi+ccHgo/V/PLQUaQ6hnZcC1c4BS790gx21LRRui4g=
 code.cloudfoundry.org/go-loggregator/v8 v8.0.5 h1:p1rrGxTwUqLjlUVtbjTAvKOSGNmPuBja8LeQOQgRrBc=
 code.cloudfoundry.org/go-loggregator/v8 v8.0.5/go.mod h1:mLlJ1ZyG6gVvBEtYypvbztRvFeCtBsTxE9tt+85tS6Y=
@@ -1856,8 +1856,8 @@ github.com/prometheus/common v0.28.0/go.mod h1:vu+V0TpY+O6vW9J44gczi3Ap/oXXR10b+
 github.com/prometheus/common v0.29.0/go.mod h1:vu+V0TpY+O6vW9J44gczi3Ap/oXXR10b+M/gUGO4Hls=
 github.com/prometheus/common v0.30.0/go.mod h1:vu+V0TpY+O6vW9J44gczi3Ap/oXXR10b+M/gUGO4Hls=
 github.com/prometheus/common v0.32.1/go.mod h1:vu+V0TpY+O6vW9J44gczi3Ap/oXXR10b+M/gUGO4Hls=
-github.com/prometheus/common v0.36.0 h1:78hJTing+BLYLjhXE+Z2BubeEymH5Lr0/Mt8FKkxxYo=
-github.com/prometheus/common v0.36.0/go.mod h1:phzohg0JFMnBEFGxTDbfu3QyL5GI8gTQJFhYO5B3mfA=
+github.com/prometheus/common v0.37.0 h1:ccBbHCgIiT9uSoFY0vX8H3zsNR5eLt17/RQLUvn8pXE=
+github.com/prometheus/common v0.37.0/go.mod h1:phzohg0JFMnBEFGxTDbfu3QyL5GI8gTQJFhYO5B3mfA=
 github.com/prometheus/procfs v0.0.0-20180125133057-cb4147076ac7/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/prometheus/procfs v0.0.0-20181204211112-1dc9a6cbc91a/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=

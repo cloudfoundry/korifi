@@ -216,7 +216,7 @@ kubectl apply -f dependencies/contour-1.19.1.yaml
 [`eirini-controller`](https://github.com/cloudfoundry/eirini-controller#what-is-eirini-controller) is responsible for running Korifi's workloads.
 
 ```sh
-EIRINI_VERSION=0.8.0
+EIRINI_VERSION=0.9.0
 helm install eirini-controller https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz \
   --set "workloads.default_namespace=$ROOT_NAMESPACE" \
   --set "controller.registry_secret_name=image-registry-credentials" \
