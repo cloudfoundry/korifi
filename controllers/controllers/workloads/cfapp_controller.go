@@ -321,8 +321,8 @@ func (r *CFAppReconciler) finalizeCFAppTasks(ctx context.Context, cfApp *korifiv
 		return err
 	}
 
-	for _, t := range tasksList.Items {
-		err = r.Client.Delete(ctx, &t)
+	for i := range tasksList.Items {
+		err = r.Client.Delete(ctx, &tasksList.Items[i])
 		if err != nil {
 			return err
 		}
