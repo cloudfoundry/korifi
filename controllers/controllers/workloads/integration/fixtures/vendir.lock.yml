@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bump go packages
-      sha: bc26c2f6a16ad7cdb59d4945408cdb9b7f2c2bef
+      commitTitle: Regenerate CRDs with controller-gen@v0.9.2...
+      sha: e25dea19f7f08ce00b36c329092b5c0c122aabd6
       tags:
-      - v0.6.0
+      - v0.9.0
     path: eirini-controller
   path: vendor
 kind: LockConfig
