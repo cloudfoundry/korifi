@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"net/http"
+	"net/url"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -9,8 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/golang-jwt/jwt"
 	"github.com/gorilla/mux"
-	"net/http"
-	"net/url"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -25,7 +26,7 @@ type OAuthTokenHandler struct {
 
 func NewOAuthToken(apiBaseURL url.URL) *OAuthTokenHandler {
 	return &OAuthTokenHandler{
-		handlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("OAuthTokenHandler")), //NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("OAuthTokenHandler")),
+		handlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("OAuthTokenHandler")),
 		apiBaseURL:     apiBaseURL,
 	}
 }
