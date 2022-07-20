@@ -27,7 +27,6 @@ var _ = Describe("TaskRepository", func() {
 		cfApp               *korifiv1alpha1.CFApp
 		dummyTaskController func(*korifiv1alpha1.CFTask)
 		controllerSync      *sync.WaitGroup
-		killController      chan bool
 	)
 
 	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
@@ -65,20 +64,21 @@ var _ = Describe("TaskRepository", func() {
 		cfApp = createApp(space.Name)
 
 		dummyTaskController = func(cft *korifiv1alpha1.CFTask) {}
-		killController = make(chan bool)
 	})
 
 	JustBeforeEach(func() {
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
+		DeferCleanup(func() {
+			cancel()
+		})
+
 		tasksWatch, err := k8sClient.Watch(
-			ctx,
+			ctxWithTimeout,
 			&korifiv1alpha1.CFTaskList{},
 			client.InNamespace(space.Name),
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		DeferCleanup(func() {
-			tasksWatch.Stop()
-		})
 		watchChan := tasksWatch.ResultChan()
 
 		controllerSync = &sync.WaitGroup{}
@@ -88,31 +88,19 @@ var _ = Describe("TaskRepository", func() {
 			defer GinkgoRecover()
 			defer controllerSync.Done()
 
-			timer := time.NewTimer(2 * time.Second)
-			defer timer.Stop()
-
-			for {
-				select {
-				case e := <-watchChan:
-					cft, ok := e.Object.(*korifiv1alpha1.CFTask)
-					if !ok {
-						time.Sleep(100 * time.Millisecond)
-						continue
-					}
-
-					dummyTaskController(cft)
-				case <-timer.C:
-					return
-
-				case <-killController:
-					return
+			for e := range watchChan {
+				cft, ok := e.Object.(*korifiv1alpha1.CFTask)
+				if !ok {
+					time.Sleep(100 * time.Millisecond)
+					continue
 				}
+
+				dummyTaskController(cft)
 			}
 		}()
 	})
 
 	AfterEach(func() {
-		close(killController)
 		controllerSync.Wait()
 	})
 
