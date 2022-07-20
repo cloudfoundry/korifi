@@ -25,7 +25,7 @@ var _ = Describe("Await", func() {
 	)
 
 	BeforeEach(func() {
-		awaiter = conditions.NewCFTaskConditionAwaiter(time.Second)
+		awaiter = conditions.NewCFTaskConditionAwaiter(100 * time.Millisecond)
 		awaitedObject = nil
 		awaitErr = nil
 
@@ -58,7 +58,6 @@ var _ = Describe("Await", func() {
 				defer GinkgoRecover()
 				defer wg.Done()
 
-				time.Sleep(500 * time.Millisecond)
 				taskCopy := task.DeepCopy()
 				taskCopy.Status = korifiv1alpha1.CFTaskStatus{
 					Conditions: []metav1.Condition{{
@@ -79,15 +78,13 @@ var _ = Describe("Await", func() {
 		})
 
 		It("succeeds and returns the updated object", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(awaitErr).NotTo(HaveOccurred())
-				g.Expect(awaitedObject).NotTo(BeNil())
+			Expect(awaitErr).NotTo(HaveOccurred())
+			Expect(awaitedObject).NotTo(BeNil())
 
-				awaitedTask, ok := awaitedObject.(*korifiv1alpha1.CFTask)
-				g.Expect(ok).To(BeTrue())
-				g.Expect(awaitedTask.Name).To(Equal(task.Name))
-				g.Expect(meta.IsStatusConditionTrue(awaitedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
-			}).Should(Succeed())
+			awaitedTask, ok := awaitedObject.(*korifiv1alpha1.CFTask)
+			Expect(ok).To(BeTrue())
+			Expect(awaitedTask.Name).To(Equal(task.Name))
+			Expect(meta.IsStatusConditionTrue(awaitedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
 		})
 	})
 })
