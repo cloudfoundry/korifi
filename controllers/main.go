@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -117,129 +118,132 @@ func main() {
 	}
 
 	// Setup with manager
+	
+	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
+		if err = (workloadscontrollers.NewCFAppReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFApp"),
+			controllerConfig,
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFApp")
+			os.Exit(1)
+		}
 
-	if err = (workloadscontrollers.NewCFAppReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFApp"),
-		controllerConfig,
-	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFApp")
-		os.Exit(1)
-	}
+		if err = (workloadscontrollers.NewCFBuildReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFBuild"),
+			controllerConfig,
+			env.NewBuilder(mgr.GetClient()),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
+			os.Exit(1)
+		}
 
-	if err = (workloadscontrollers.NewCFBuildReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFBuild"),
-		controllerConfig,
-		env.NewBuilder(mgr.GetClient()),
-	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
-		os.Exit(1)
-	}
+		if err = (networkingcontrollers.NewCFDomainReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
+			os.Exit(1)
+		}
 
-	if err = (networkingcontrollers.NewCFDomainReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
-		os.Exit(1)
-	}
+		if err = (workloadscontrollers.NewCFPackageReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFPackage"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
+			os.Exit(1)
+		}
 
-	if err = (workloadscontrollers.NewCFPackageReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFPackage"),
-	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
-		os.Exit(1)
-	}
+		if err = (workloadscontrollers.NewCFProcessReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFProcess"),
+			env.NewBuilder(mgr.GetClient()),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
+			os.Exit(1)
+		}
 
-	if err = (workloadscontrollers.NewCFProcessReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFProcess"),
-		env.NewBuilder(mgr.GetClient()),
-	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
-		os.Exit(1)
-	}
+		if err = (networkingcontrollers.NewCFRouteReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFRoute"),
+			controllerConfig,
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
+			os.Exit(1)
+		}
 
-	if err = (networkingcontrollers.NewCFRouteReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFRoute"),
-		controllerConfig,
-	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
-		os.Exit(1)
-	}
+		if err = (servicescontrollers.NewCFServiceInstanceReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
+			os.Exit(1)
+		}
 
-	if err = (servicescontrollers.NewCFServiceInstanceReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
-	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
-		os.Exit(1)
-	}
+		if err = (servicescontrollers.NewCFServiceBindingReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
+			env.NewBuilder(mgr.GetClient()),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
+			os.Exit(1)
+		}
 
-	if err = (servicescontrollers.NewCFServiceBindingReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
-		env.NewBuilder(mgr.GetClient()),
-	)).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
-		os.Exit(1)
-	}
+		if err = workloadscontrollers.NewCFOrgReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFOrg"),
+			controllerConfig.PackageRegistrySecretName,
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFOrg")
+			os.Exit(1)
+		}
 
-	if err = workloadscontrollers.NewCFOrgReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFOrg"),
-		controllerConfig.PackageRegistrySecretName,
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFOrg")
-		os.Exit(1)
-	}
+		if err = workloadscontrollers.NewCFSpaceReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFSpace"),
+			controllerConfig.PackageRegistrySecretName,
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
+			os.Exit(1)
+		}
 
-	if err = workloadscontrollers.NewCFSpaceReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFSpace"),
-		controllerConfig.PackageRegistrySecretName,
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
-		os.Exit(1)
-	}
+		var taskTTL time.Duration
+		taskTTL, err = controllerConfig.ParseTaskTTL()
+		if err != nil {
+			setupLog.Error(err, "failed to parse task TTL", "controller", "CFTask", "taskTTL", controllerConfig.TaskTTL)
+			os.Exit(1)
 
-	taskTTL, err := controllerConfig.ParseTaskTTL()
-	if err != nil {
-		setupLog.Error(err, "failed to parse task TTL", "controller", "CFTask", "taskTTL", controllerConfig.TaskTTL)
-		os.Exit(1)
+		}
+		if err = workloadscontrollers.NewCFTaskReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			mgr.GetEventRecorderFor("cftask-controller"),
+			ctrl.Log.WithName("controllers").WithName("CFTask"),
+			workloadscontrollers.NewSequenceId(clockwork.NewRealClock()),
+			controllerConfig.CFProcessDefaults,
+			taskTTL,
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFTask")
+			os.Exit(1)
+		}
+		//+kubebuilder:scaffold:builder
 
-	}
-	if err = workloadscontrollers.NewCFTaskReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		mgr.GetEventRecorderFor("cftask-controller"),
-		ctrl.Log.WithName("controllers").WithName("CFTask"),
-		workloadscontrollers.NewSequenceId(clockwork.NewRealClock()),
-		controllerConfig.CFProcessDefaults,
-		taskTTL,
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CFTask")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
-
-	// Setup Index with Manager
-	err = shared.SetupIndexWithManager(mgr)
-	if err != nil {
-		setupLog.Error(err, "unable to setup index on manager")
-		os.Exit(1)
+		// Setup Index with Manager
+		err = shared.SetupIndexWithManager(mgr)
+		if err != nil {
+			setupLog.Error(err, "unable to setup index on manager")
+			os.Exit(1)
+		}
 	}
 
 	// Setup webhooks with manager
@@ -326,6 +330,11 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
 			os.Exit(1)
 		}
+
+		if err := mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
+			setupLog.Error(err, "unable to set up ready check")
+			os.Exit(1)
+		}
 	} else {
 		setupLog.Info("Skipping webhook setup because ENABLE_WEBHOOKS set to false.")
 	}
@@ -335,10 +344,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
