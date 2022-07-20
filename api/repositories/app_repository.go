@@ -41,14 +41,14 @@ type AppRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
-	appConditionAwaiter  ConditionAwaiter
+	appConditionAwaiter  ConditionAwaiter[*korifiv1alpha1.CFApp]
 }
 
 func NewAppRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserK8sClientFactory,
 	authPerms *authorization.NamespacePermissions,
-	appConditionAwaiter ConditionAwaiter,
+	appConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFApp],
 ) *AppRepo {
 	return &AppRepo{
 		namespaceRetriever:   namespaceRetriever,

@@ -43,7 +43,7 @@ var _ = Describe("AppRepository", func() {
 	BeforeEach(func() {
 		testCtx = context.Background()
 
-		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, conditions.NewCFAppConditionAwaiter(2*time.Second))
+		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](2*time.Second))
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))

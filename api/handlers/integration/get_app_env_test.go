@@ -23,7 +23,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 	var namespace *corev1.Namespace
 
 	BeforeEach(func() {
-		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions, conditions.NewCFAppConditionAwaiter(2*time.Second))
+		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions, conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](2*time.Second))
 		domainRepo := repositories.NewDomainRepo(clientFactory, namespaceRetriever, rootNamespace)
 		processRepo := repositories.NewProcessRepo(namespaceRetriever, clientFactory, nsPermissions)
 		routeRepo := repositories.NewRouteRepo(namespaceRetriever, clientFactory, nsPermissions)

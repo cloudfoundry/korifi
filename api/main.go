@@ -104,7 +104,8 @@ func main() {
 	spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPermissions, createTimeout)
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
-	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions, conditions.NewCFAppConditionAwaiter(createTimeout))
+	cfAppConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](createTimeout)
+	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions, cfAppConditionAwaiter)
 	dropletRepo := repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	routeRepo := repositories.NewRouteRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	domainRepo := repositories.NewDomainRepo(userClientFactory, namespaceRetriever, config.RootNamespace)
@@ -142,7 +143,7 @@ func main() {
 		userClientFactory,
 		namespaceRetriever,
 		nsPermissions,
-		conditions.NewCFTaskConditionAwaiter(createTimeout),
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](createTimeout),
 	)
 
 	processScaler := actions.NewProcessScaler(appRepo, processRepo)

@@ -17,8 +17,8 @@ const (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
-type ConditionAwaiter interface {
-	AwaitCondition(ctx context.Context, userClient client.WithWatch, object client.Object, conditionType string) (runtime.Object, error)
+type ConditionAwaiter[T runtime.Object] interface {
+	AwaitCondition(ctx context.Context, userClient client.WithWatch, object client.Object, conditionType string) (T, error)
 }
 
 // getTimeLastUpdatedTimestamp takes the ObjectMeta from a CR and extracts the last updated time from its list of ManagedFields

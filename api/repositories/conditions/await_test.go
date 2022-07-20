@@ -11,22 +11,20 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Await", func() {
 	var (
-		awaiter *conditions.Awaiter
-		task    *korifiv1alpha1.CFTask
-
-		awaitedObject runtime.Object
-		awaitErr      error
+		awaiter     *conditions.Awaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList, *korifiv1alpha1.CFTaskList]
+		task        *korifiv1alpha1.CFTask
+		awaitedTask *korifiv1alpha1.CFTask
+		awaitErr    error
 	)
 
 	BeforeEach(func() {
-		awaiter = conditions.NewCFTaskConditionAwaiter(100 * time.Millisecond)
-		awaitedObject = nil
+		awaiter = conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](100 * time.Millisecond)
+		awaitedTask = nil
 		awaitErr = nil
 
 		task = &korifiv1alpha1.CFTask{
@@ -34,14 +32,13 @@ var _ = Describe("Await", func() {
 				Namespace: namespace,
 				Name:      "my-task",
 			},
-			Spec: korifiv1alpha1.CFTaskSpec{},
 		}
 
 		Expect(k8sClient.Create(context.Background(), task)).To(Succeed())
 	})
 
 	JustBeforeEach(func() {
-		awaitedObject, awaitErr = awaiter.AwaitCondition(context.Background(), k8sClient, task, korifiv1alpha1.TaskInitializedConditionType)
+		awaitedTask, awaitErr = awaiter.AwaitCondition(context.Background(), k8sClient, task, korifiv1alpha1.TaskInitializedConditionType)
 	})
 
 	It("returns an error as the condition never becomes true", func() {
@@ -59,15 +56,11 @@ var _ = Describe("Await", func() {
 				defer wg.Done()
 
 				taskCopy := task.DeepCopy()
-				taskCopy.Status = korifiv1alpha1.CFTaskStatus{
-					Conditions: []metav1.Condition{{
-						Type:               korifiv1alpha1.TaskInitializedConditionType,
-						Status:             metav1.ConditionTrue,
-						Reason:             "initialized",
-						Message:            "initialized",
-						LastTransitionTime: metav1.Now(),
-					}},
-				}
+				meta.SetStatusCondition(&taskCopy.Status.Conditions, metav1.Condition{
+					Type:   korifiv1alpha1.TaskInitializedConditionType,
+					Status: metav1.ConditionTrue,
+					Reason: "initialized",
+				})
 
 				Expect(k8sClient.Status().Patch(context.Background(), taskCopy, client.MergeFrom(task))).To(Succeed())
 			}()
@@ -79,10 +72,8 @@ var _ = Describe("Await", func() {
 
 		It("succeeds and returns the updated object", func() {
 			Expect(awaitErr).NotTo(HaveOccurred())
-			Expect(awaitedObject).NotTo(BeNil())
+			Expect(awaitedTask).NotTo(BeNil())
 
-			awaitedTask, ok := awaitedObject.(*korifiv1alpha1.CFTask)
-			Expect(ok).To(BeTrue())
 			Expect(awaitedTask.Name).To(Equal(task.Name))
 			Expect(meta.IsStatusConditionTrue(awaitedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
 		})

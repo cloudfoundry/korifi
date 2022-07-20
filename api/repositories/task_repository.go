@@ -76,14 +76,14 @@ type TaskRepo struct {
 	userClientFactory    authorization.UserK8sClientFactory
 	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
-	taskConditionAwaiter ConditionAwaiter
+	taskConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFTask]
 }
 
 func NewTaskRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	nsRetriever NamespaceRetriever,
 	namespacePermissions *authorization.NamespacePermissions,
-	taskConditionAwaiter ConditionAwaiter,
+	taskConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFTask],
 ) *TaskRepo {
 	return &TaskRepo{
 		userClientFactory:    userClientFactory,
@@ -140,14 +140,9 @@ func (r *TaskRepo) GetTask(ctx context.Context, authInfo authorization.Info, tas
 }
 
 func (r *TaskRepo) awaitCondition(ctx context.Context, userClient client.WithWatch, task *korifiv1alpha1.CFTask, conditionType string) (*korifiv1alpha1.CFTask, error) {
-	awaitedObject, err := r.taskConditionAwaiter.AwaitCondition(ctx, userClient, task, conditionType)
+	awaitedTask, err := r.taskConditionAwaiter.AwaitCondition(ctx, userClient, task, conditionType)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, TaskResourceType)
-	}
-
-	awaitedTask, ok := awaitedObject.(*korifiv1alpha1.CFTask)
-	if !ok {
-		return nil, fmt.Errorf("%v is not a CFTask", awaitedObject)
 	}
 
 	return awaitedTask, nil

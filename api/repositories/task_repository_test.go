@@ -57,7 +57,7 @@ var _ = Describe("TaskRepository", func() {
 	}
 
 	BeforeEach(func() {
-		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPerms, conditions.NewCFTaskConditionAwaiter(2*time.Second))
+		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPerms, conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](2*time.Second))
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
