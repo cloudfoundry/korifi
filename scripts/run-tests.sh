@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
+source "${SCRIPT_DIR}/common.sh"
 
-getTestDir() {
+function getTestDir() {
   for arg in "$@"; do
-    if [[ -d "$arg" ]]; then
-      echo "$arg"
+    if [[ -d "${arg}" ]]; then
+      echo "${arg}"
       return
     fi
   done
@@ -19,23 +19,23 @@ ENVTEST_ASSETS_DIR="${SCRIPT_DIR}/../testbin"
 mkdir -p "${ENVTEST_ASSETS_DIR}"
 
 extra_args=()
-if [[ -n "$GINKGO_NODES" ]]; then
+if [[ -n "${GINKGO_NODES:-}" ]]; then
   extra_args+=("--procs=${GINKGO_NODES}")
 fi
 
-if ! egrep -q e2e <(echo "$@"); then
+if ! grep -q e2e <(echo "$@"); then
   grepFlags="-sq"
-  if [[ -z "$NON_RECURSIVE_TEST" ]]; then
+
+  if [[ -z "${NON_RECURSIVE_TEST:-}" ]]; then
     grepFlags+="r"
   fi
-  if grep "$grepFlags" sigs.k8s.io/controller-runtime/pkg/envtest -- "$(getTestDir "$@")"/*; then
-    test -f "${ENVTEST_ASSETS_DIR}/setup-envtest.sh" || curl -sSLo "${ENVTEST_ASSETS_DIR}/setup-envtest.sh" https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
-    source "${ENVTEST_ASSETS_DIR}/setup-envtest.sh"
-    fetch_envtest_tools "${ENVTEST_ASSETS_DIR}"
-    setup_envtest_env "${ENVTEST_ASSETS_DIR}"
-  fi
-  extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
 
+  if grep "${grepFlags}" sigs.k8s.io/controller-runtime/pkg/envtest -- "$(getTestDir "$@")"/*; then
+    go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+    source <(setup-envtest use -p env --bin-dir "${ENVTEST_ASSETS_DIR}")
+  fi
+
+  extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
 else
   export ROOT_NAMESPACE="${ROOT_NAMESPACE:-cf}"
 
@@ -43,7 +43,7 @@ else
     export APP_FQDN=vcap.me
   fi
 
-  export KUBECONFIG="${KUBECONFIG:-$HOME/kube/e2e.yml}"
+  export KUBECONFIG="${KUBECONFIG:-${HOME}/kube/e2e.yml}"
 
   if [ -z "${SKIP_DEPLOY}" ]; then
     "${SCRIPT_DIR}/deploy-on-kind.sh" -l -d e2e
@@ -54,7 +54,7 @@ else
   fi
 
   # creates user keys/certs and service accounts and exports vars for them
-  source "$SCRIPT_DIR/account-creation.sh" "$SCRIPT_DIR"
+  source "$SCRIPT_DIR/account-creation.sh" "${SCRIPT_DIR}"
 
   extra_args+=("--slow-spec-threshold=30s")
 
@@ -62,19 +62,19 @@ else
   kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
 fi
 
-if [[ -z "$NON_RECURSIVE_TEST" ]]; then
+if [[ -z "${NON_RECURSIVE_TEST:-}" ]]; then
   extra_args+=("-r")
 fi
 
-if [[ -n "$UNTIL_IT_FAILS" ]]; then
+if [[ -n "${UNTIL_IT_FAILS:-}" ]]; then
   extra_args+=("--until-it-fails")
 fi
 
-if [[ -n "$SEED" ]]; then
+if [[ -n "${SEED:-}" ]]; then
   extra_args+=("--seed=${SEED}")
 fi
 
-if [[ -z "$NO_RACE" ]]; then
+if [[ -z "${NO_RACE:-}" ]]; then
   extra_args+=("--race")
 fi
 
