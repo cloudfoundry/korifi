@@ -85,3 +85,7 @@ type CFAppList struct {
 func init() {
 	SchemeBuilder.Register(&CFApp{}, &CFAppList{})
 }
+
+func (a CFApp) StatusConditions() []metav1.Condition {
+	return a.Status.Conditions
+}

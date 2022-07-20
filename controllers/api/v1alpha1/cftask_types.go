@@ -84,3 +84,7 @@ type CFTaskList struct {
 func init() {
 	SchemeBuilder.Register(&CFTask{}, &CFTaskList{})
 }
+
+func (t CFTask) StatusConditions() []metav1.Condition {
+	return t.Status.Conditions
+}

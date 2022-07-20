@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
@@ -41,7 +43,7 @@ var _ = Describe("AppRepository", func() {
 	BeforeEach(func() {
 		testCtx = context.Background()
 
-		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms)
+		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](2*time.Second))
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
@@ -87,23 +89,29 @@ var _ = Describe("AppRepository", func() {
 						Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 					},
 				}))
-				Expect(app.IsStaged).To(BeTrue())
+				Expect(app.IsStaged).To(BeFalse())
 			})
 
-			When("the app has no staged condition", func() {
+			When("the app has staged condition true", func() {
 				BeforeEach(func() {
-					cfApp.Status.Conditions = []metav1.Condition{}
+					cfApp.Status.Conditions = []metav1.Condition{{
+						Type:               workloads.StatusConditionStaged,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.Now(),
+						Reason:             "staged",
+						Message:            "staged",
+					}}
 					Expect(k8sClient.Status().Update(testCtx, cfApp)).To(Succeed())
 					Eventually(func(g Gomega) {
 						app := korifiv1alpha1.CFApp{}
 						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
-						g.Expect(app.Status.Conditions).To(BeEmpty())
+						g.Expect(app.Status.Conditions).NotTo(BeEmpty())
 					}).Should(Succeed())
 				})
 
-				It("sets IsStaged to false", func() {
+				It("sets IsStaged to true", func() {
 					Expect(getErr).ToNot(HaveOccurred())
-					Expect(app.IsStaged).To(BeFalse())
+					Expect(app.IsStaged).To(BeTrue())
 				})
 			})
 
@@ -708,15 +716,48 @@ var _ = Describe("AppRepository", func() {
 
 			currentDropletRecord CurrentDropletRecord
 			setDropletErr        error
+			dummyAppController   func()
+			dummyControllerSync  sync.WaitGroup
 		)
 
 		BeforeEach(func() {
 			dropletGUID = generateGUID()
 			appGUID = cfApp.Name
 			createDropletCR(testCtx, k8sClient, dropletGUID, cfApp.Name, space.Name)
+
+			dummyControllerSync.Add(1)
+			dummyAppController = func() {
+				defer GinkgoRecover()
+				defer dummyControllerSync.Done()
+
+				Eventually(func(g Gomega) {
+					theApp := &korifiv1alpha1.CFApp{}
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfApp), theApp)).To(Succeed())
+					g.Expect(theApp.Spec.CurrentDropletRef.Name).NotTo(BeEmpty())
+
+					theAppCopy := theApp.DeepCopy()
+					theAppCopy.Status = korifiv1alpha1.CFAppStatus{
+						Conditions: []metav1.Condition{{
+							Type:               workloads.StatusConditionStaged,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Now(),
+							Reason:             "staged",
+							Message:            "staged",
+						}},
+						ObservedDesiredState: "STOPPED",
+					}
+					g.Expect(k8sClient.Status().Patch(context.Background(), theAppCopy, client.MergeFrom(theApp))).To(Succeed())
+				}).Should(Succeed())
+			}
+		})
+
+		AfterEach(func() {
+			dummyControllerSync.Wait()
 		})
 
 		JustBeforeEach(func() {
+			go dummyAppController()
+
 			currentDropletRecord, setDropletErr = appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
 				AppGUID:     appGUID,
 				DropletGUID: dropletGUID,
@@ -751,6 +792,19 @@ var _ = Describe("AppRepository", func() {
 
 				It("errors", func() {
 					Expect(setDropletErr).To(MatchError(ContainSubstring("not found")))
+				})
+			})
+
+			When("the app does not get the staged condition", func() {
+				BeforeEach(func() {
+					dummyAppController = func() {
+						defer GinkgoRecover()
+						defer dummyControllerSync.Done()
+					}
+				})
+
+				It("returns an error", func() {
+					Expect(setDropletErr).To(MatchError(ContainSubstring("did not get the Staged condition")))
 				})
 			})
 		})
@@ -929,8 +983,6 @@ var _ = Describe("AppRepository", func() {
 			}
 
 			Expect(k8sClient.Create(testCtx, secret)).To(Succeed())
-
-			appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms)
 		})
 
 		JustBeforeEach(func() {
@@ -1131,12 +1183,7 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:    workloads.StatusConditionStaged,
-		Status:  metav1.ConditionTrue,
-		Reason:  "appStaged",
-		Message: "",
-	})
+	cfApp.Status.Conditions = []metav1.Condition{}
 	cfApp.Status.ObservedDesiredState = "STOPPED"
 	Expect(k8sClient.Status().Update(context.Background(), cfApp)).To(Succeed())
 
