@@ -10,8 +10,10 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,20 +55,23 @@ var _ = Describe("RunWorkloadsController", func() {
 	})
 
 	When("RunWorkload is created", func() {
+		var statefulsetName string
+		var err error
+
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(ctx, runWorkload)).To(Succeed())
+			statefulsetName, err = controllers.GetStatefulSetName(*runWorkload)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("creates the statefulset", func() {
 			statefulset := new(appsv1.StatefulSet)
-			statefulsetName := controllers.GetStatefulSetName(*runWorkload)
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulsetName, Namespace: namespaceName}, statefulset)).To(Succeed())
 			}).Should(Succeed())
 		})
 		It("the created statefulset contains an owner reference to our runworkload", func() {
 			statefulset := new(appsv1.StatefulSet)
-			statefulsetName := controllers.GetStatefulSetName(*runWorkload)
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulsetName, Namespace: namespaceName}, statefulset)).To(Succeed())
 			}).Should(Succeed())
@@ -76,10 +81,17 @@ var _ = Describe("RunWorkloadsController", func() {
 			Expect(statefulset.OwnerReferences[0].Name).To(Equal(runWorkload.Name))
 		})
 
+		It("creates the pod disruption budget", func() {
+			pdb := new(policyv1.PodDisruptionBudget)
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulsetName, Namespace: namespaceName}, pdb)).To(Succeed())
+			}).Should(Succeed())
+			Expect(*pdb.Spec.MinAvailable).To(Equal(intstr.FromString("50%")))
+		})
+
 		When("some external process is updating the StatefulSet", func() {
 			JustBeforeEach(func() {
 				statefulset := new(appsv1.StatefulSet)
-				statefulsetName := controllers.GetStatefulSetName(*runWorkload)
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulsetName, Namespace: namespaceName}, statefulset)).To(Succeed())
 				}).Should(Succeed())
@@ -104,7 +116,8 @@ var _ = Describe("RunWorkloadsController", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, runWorkload)).To(Succeed())
 			statefulset := new(appsv1.StatefulSet)
-			statefulsetName := controllers.GetStatefulSetName(*runWorkload)
+			statefulsetName, err := controllers.GetStatefulSetName(*runWorkload)
+			Expect(err).NotTo(HaveOccurred())
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulsetName, Namespace: namespaceName}, statefulset)).To(Succeed())
 			}).Should(Succeed())
@@ -125,7 +138,8 @@ var _ = Describe("RunWorkloadsController", func() {
 		It("updates the StatefulSet", func() {
 			Eventually(func(g Gomega) {
 				statefulSet := new(appsv1.StatefulSet)
-				statefulSetName := controllers.GetStatefulSetName(*runWorkload)
+				statefulSetName, err := controllers.GetStatefulSetName(*runWorkload)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulSetName, Namespace: namespaceName}, statefulSet)).To(Succeed())
 				g.Expect(*statefulSet.Spec.Replicas).To(Equal(int32(2)))
 				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("10Mi"))
