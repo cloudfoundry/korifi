@@ -119,7 +119,7 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	if isFinalizing(cfOrg) {
+	if !cfOrg.GetDeletionTimestamp().IsZero() {
 		return finalize(ctx, r.client, r.log, cfOrg, orgFinalizerName)
 	}
 
