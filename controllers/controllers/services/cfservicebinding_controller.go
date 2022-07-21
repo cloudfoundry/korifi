@@ -37,6 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	CFServiceBindingFinalizerName = "cfServiceBinding.korifi.cloudfoundry.org"
+)
+
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 //counterfeiter:generate -o fake -fake-name VCAPServicesSecretBuilder . VCAPServicesSecretBuilder
 type VCAPServicesSecretBuilder interface {
@@ -76,6 +80,12 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			r.log.Error(err, "unable to fetch CFServiceBinding", req.Name, req.Namespace)
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	err = r.addFinalizer(ctx, cfServiceBinding)
+	if err != nil {
+		r.log.Error(err, "Error adding finalizer")
+		return ctrl.Result{}, err
 	}
 
 	cfApp := new(korifiv1alpha1.CFApp)
@@ -160,6 +170,11 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		r.log.Error(err, "failed to patch vcap services secret", "CFServiceBinding", cfServiceBinding)
 	}
+
+	if !cfServiceBinding.ObjectMeta.DeletionTimestamp.IsZero() {
+		return r.finalizeCFServiceBinding(ctx, cfServiceBinding)
+	}
+
 	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 		Type:    VCAPServicesSecretAvailableCondition,
 		Status:  metav1.ConditionTrue,
@@ -185,6 +200,40 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		r.log.Error(err, "Error calling Create on servicebinding.io ServiceBinding")
 		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *CFServiceBindingReconciler) addFinalizer(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) error {
+	if controllerutil.ContainsFinalizer(cfServiceBinding, CFServiceBindingFinalizerName) {
+		return nil
+	}
+
+	originalCFServiceBinding := cfServiceBinding.DeepCopy()
+	controllerutil.AddFinalizer(cfServiceBinding, CFServiceBindingFinalizerName)
+
+	err := r.Client.Patch(ctx, cfServiceBinding, client.MergeFrom(originalCFServiceBinding))
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error adding finalizer to CFServiceBinding/%s", cfServiceBinding.Name))
+		return err
+	}
+
+	r.log.Info(fmt.Sprintf("Finalizer added to CFServiceBinding/%s", cfServiceBinding.Name))
+	return nil
+}
+
+func (r *CFServiceBindingReconciler) finalizeCFServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+	r.log.Info(fmt.Sprintf("Reconciling deletion of CFServiceBinding/%s", cfServiceBinding.Name))
+
+	if controllerutil.ContainsFinalizer(cfServiceBinding, CFServiceBindingFinalizerName) {
+		originalCFServiceBinding := cfServiceBinding.DeepCopy()
+		controllerutil.RemoveFinalizer(cfServiceBinding, CFServiceBindingFinalizerName)
+
+		if err := r.Client.Patch(ctx, cfServiceBinding, client.MergeFrom(originalCFServiceBinding)); err != nil {
+			r.log.Error(err, "Failed to remove finalizer")
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{}, nil

@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	FinalizerName = "cfRoute.korifi.cloudfoundry.org"
+	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
 )
 
 // CFRouteReconciler reconciles a CFRoute object to create Contour resources
@@ -164,12 +164,12 @@ func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *CFRouteReconciler) addFinalizer(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
-	if controllerutil.ContainsFinalizer(cfRoute, FinalizerName) {
+	if controllerutil.ContainsFinalizer(cfRoute, CFRouteFinalizerName) {
 		return nil
 	}
 
 	originalCFRoute := cfRoute.DeepCopy()
-	controllerutil.AddFinalizer(cfRoute, FinalizerName)
+	controllerutil.AddFinalizer(cfRoute, CFRouteFinalizerName)
 
 	err := r.Client.Patch(ctx, cfRoute, client.MergeFrom(originalCFRoute))
 	if err != nil {
@@ -184,7 +184,7 @@ func (r *CFRouteReconciler) addFinalizer(ctx context.Context, cfRoute *korifiv1a
 func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFRoute/%s", cfRoute.Name))
 
-	if !controllerutil.ContainsFinalizer(cfRoute, FinalizerName) {
+	if !controllerutil.ContainsFinalizer(cfRoute, CFRouteFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -201,7 +201,7 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifi
 		}
 	}
 
-	controllerutil.RemoveFinalizer(cfRoute, FinalizerName)
+	controllerutil.RemoveFinalizer(cfRoute, CFRouteFinalizerName)
 	if err := r.Client.Update(ctx, cfRoute); err != nil {
 		r.Log.Error(err, "Failed to remove finalizer")
 		return ctrl.Result{}, err

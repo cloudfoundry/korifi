@@ -118,7 +118,7 @@ func main() {
 	}
 
 	// Setup with manager
-	
+
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
 		if err = (workloadscontrollers.NewCFAppReconciler(
 			mgr.GetClient(),
@@ -343,7 +343,6 @@ func main() {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
-
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

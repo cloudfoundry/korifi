@@ -254,6 +254,18 @@ var _ = Describe("CFServiceBinding", func() {
 			}))
 		})
 
+		FIt("sets the `cfServiceBinding.korifi.cloudfoundry.org` finalizer", func() {
+			Eventually(func(g Gomega) []string {
+				updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
+				g.Expect(
+					k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
+				).To(Succeed())
+				return updatedCFServiceBinding.ObjectMeta.Finalizers
+			}).Should(ConsistOf([]string{
+				"cfServiceBinding.korifi.cloudfoundry.org",
+			}))
+		})
+
 		When("multiple CFServiceBindings exist for the same CFApp", func() {
 			var (
 				secretData2           map[string]string
@@ -434,6 +446,10 @@ var _ = Describe("CFServiceBinding", func() {
 				})
 			})
 		})
+	})
+
+	When("a new CFServiceBinding is Created", func() {
+		
 	})
 })
 

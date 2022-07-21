@@ -76,6 +76,11 @@ func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1
 
 	serviceEnvs := []ServiceDetails{}
 	for _, currentServiceBinding := range serviceBindings.Items {
+		// If finalizing do not append
+		if !currentServiceBinding.ObjectMeta.DeletionTimestamp.IsZero() {
+			continue
+		}
+
 		var serviceEnv ServiceDetails
 		serviceEnv, err = buildSingleServiceEnv(ctx, b.client, currentServiceBinding)
 		if err != nil {
