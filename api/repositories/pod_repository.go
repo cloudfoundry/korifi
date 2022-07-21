@@ -135,7 +135,9 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 
 		if CPUquantity, ok := metricsMap["cpu"]; ok {
 			value := float64(CPUquantity.ScaledValue(resource.Nano))
-			percentage := value / 1e7
+			// CF tracks CPU usage as a percentage of cores used.
+			// Convert the number of nanoCPU to CPU for greatest accuracy.
+			percentage := value / 1e9
 			records[index].Usage.CPU = &percentage
 		}
 
