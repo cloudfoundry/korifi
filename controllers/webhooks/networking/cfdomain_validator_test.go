@@ -3,6 +3,7 @@ package networking_test
 import (
 	"context"
 	"errors"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/fake"
@@ -140,17 +141,17 @@ var _ = Describe("CFDomainValidator", func() {
 
 	Describe("ValidateUpdate", func() {
 		var (
-			updatedDomain *korifiv1alpha1.CFDomain
-			oldDomainCR   korifiv1alpha1.CFDomain
+			updatedCFDomain *korifiv1alpha1.CFDomain
+			oldCFDomain     korifiv1alpha1.CFDomain
 		)
 		BeforeEach(func() {
-			oldDomainCR = createCFDomain(requestDomainName)
-			updatedDomain = oldDomainCR.DeepCopy()
-			updatedDomain.Spec.Name = "this-is-updated-domain-name"
+			oldCFDomain = createCFDomain(requestDomainName)
+			updatedCFDomain = oldCFDomain.DeepCopy()
+			updatedCFDomain.Spec.Name = "this-is-updated-domain-name"
 		})
 
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateUpdate(ctx, &oldDomainCR, updatedDomain)
+			retErr = validatingWebhook.ValidateUpdate(ctx, &oldCFDomain, updatedCFDomain)
 		})
 
 		It("returns an error", func() {
@@ -158,6 +159,16 @@ var _ = Describe("CFDomainValidator", func() {
 				Type:    webhooks.ImmutableFieldErrorType,
 				Message: "'CFDomain.Spec.Name' field is immutable",
 			}))
+		})
+
+		When("the domain is being deleted", func() {
+			BeforeEach(func() {
+				updatedCFDomain.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
 		})
 	})
 })

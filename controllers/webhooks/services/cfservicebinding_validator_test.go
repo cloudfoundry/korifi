@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -127,6 +128,16 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 		It("allows the DisplayName to change", func() {
 			Expect(retErr).NotTo(HaveOccurred())
+		})
+
+		When("the service binding is being deleted", func() {
+			BeforeEach(func() {
+				updatedServiceBinding.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
 		})
 
 		When("the AppRef name changes", func() {
