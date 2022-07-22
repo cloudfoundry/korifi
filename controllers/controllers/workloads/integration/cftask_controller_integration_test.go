@@ -25,6 +25,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		cfTask    *korifiv1alpha1.CFTask
 		cfApp     *korifiv1alpha1.CFApp
 		cfDroplet *korifiv1alpha1.CFBuild
+		envSecret *corev1.Secret
 	)
 
 	BeforeEach(func() {
@@ -63,6 +64,19 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		})
 		Expect(k8sClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
 
+		envSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testutils.PrefixedGUID("env-secret"),
+				Namespace: ns,
+			},
+			StringData: map[string]string{
+				"BOB":  "flemming",
+				"FAST": "show",
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+		Expect(k8sClient.Create(ctx, envSecret)).To(Succeed())
+
 		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: ns,
@@ -73,8 +87,9 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				CurrentDropletRef: corev1.LocalObjectReference{
 					Name: cfDroplet.Name,
 				},
-				DesiredState: "STOPPED",
-				DisplayName:  "app",
+				DesiredState:  "STOPPED",
+				DisplayName:   "app",
+				EnvSecretName: envSecret.Name,
 			},
 		}
 		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
@@ -181,6 +196,45 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(tasks.Items[0].Spec.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
 			Expect(tasks.Items[0].Spec.DiskMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
 			Expect(tasks.Items[0].Spec.CPUMillis).To(BeEquivalentTo(75))
+
+			// refresh the VCAPServicesSecretName
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+
+			Expect(tasks.Items[0].Spec.Environment).To(ConsistOf(
+				corev1.EnvVar{
+					Name: "BOB",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: envSecret.Name,
+							},
+							Key: "BOB",
+						},
+					},
+				},
+				corev1.EnvVar{
+					Name: "FAST",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: envSecret.Name,
+							},
+							Key: "FAST",
+						},
+					},
+				},
+				corev1.EnvVar{
+					Name: "VCAP_SERVICES",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: cfApp.Status.VCAPServicesSecretName,
+							},
+							Key: "VCAP_SERVICES",
+						},
+					},
+				},
+			))
 		})
 
 		When("the eirini task status condition changes", func() {

@@ -24,6 +24,7 @@ import (
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,6 +54,7 @@ type CFTaskReconciler struct {
 	recorder          record.EventRecorder
 	logger            logr.Logger
 	seqIdGenerator    SeqIdGenerator
+	envBuilder        EnvBuilder
 	cfProcessDefaults config.CFProcessDefaults
 	taskTTLDuration   time.Duration
 }
@@ -63,6 +65,7 @@ func NewCFTaskReconciler(
 	recorder record.EventRecorder,
 	logger logr.Logger,
 	seqIdGenerator SeqIdGenerator,
+	envBuilder EnvBuilder,
 	cfProcessDefaults config.CFProcessDefaults,
 	taskTTLDuration time.Duration,
 ) *CFTaskReconciler {
@@ -72,6 +75,7 @@ func NewCFTaskReconciler(
 		recorder:          recorder,
 		logger:            logger,
 		seqIdGenerator:    seqIdGenerator,
+		envBuilder:        envBuilder,
 		cfProcessDefaults: cfProcessDefaults,
 		taskTTLDuration:   taskTTLDuration,
 	}
@@ -130,7 +134,13 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
 
-	eiriniTask, err := r.createOrPatchEiriniTask(ctx, cfTask, cfDroplet, webProcess)
+	env, err := r.envBuilder.BuildEnv(ctx, cfApp)
+	if err != nil {
+		r.logger.Error(err, "failed to build env")
+		return r.updateStatusAndReturn(ctx, cfTask, err)
+	}
+
+	eiriniTask, err := r.createOrPatchEiriniTask(ctx, cfTask, cfDroplet, webProcess, env)
 	if err != nil {
 		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
@@ -236,7 +246,7 @@ func (r *CFTaskReconciler) getWebProcess(ctx context.Context, cfApp *korifiv1alp
 	return processList.Items[0], err
 }
 
-func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess) (*eiriniv1.Task, error) {
+func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess, env []corev1.EnvVar) (*eiriniv1.Task, error) {
 	eiriniTask := &eiriniv1.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
@@ -256,6 +266,7 @@ func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *
 		eiriniTask.Spec.MemoryMB = r.cfProcessDefaults.MemoryMB
 		eiriniTask.Spec.DiskMB = r.cfProcessDefaults.DiskQuotaMB
 		eiriniTask.Spec.CPUMillis = calculateDefaultCPURequestMillicores(webProcess.Spec.MemoryMB)
+		eiriniTask.Spec.Environment = env
 
 		if err := ctrl.SetControllerReference(cfTask, eiriniTask, r.scheme); err != nil {
 			r.logger.Error(err, "failed to set owner ref")
