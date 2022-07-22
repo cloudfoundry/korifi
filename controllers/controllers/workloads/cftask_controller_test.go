@@ -33,6 +33,7 @@ var _ = Describe("CFTask Controller", func() {
 		statusWriter       *fake.StatusWriter
 		eventRecorder      *fake.EventRecorder
 		seqIdGenerator     *workloadsfake.SeqIdGenerator
+		envBuilder         *workloadsfake.EnvBuilder
 		result             controllerruntime.Result
 		err                error
 		req                controllerruntime.Request
@@ -56,6 +57,8 @@ var _ = Describe("CFTask Controller", func() {
 		eventRecorder = new(fake.EventRecorder)
 		seqIdGenerator = new(workloadsfake.SeqIdGenerator)
 		seqIdGenerator.GenerateReturns(314, nil)
+		envBuilder = new(workloadsfake.EnvBuilder)
+		envBuilder.BuildEnvReturns([]corev1.EnvVar{{Name: "FOO", Value: "bar"}}, nil)
 		logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		taskTTL = 5 * time.Minute
@@ -65,6 +68,7 @@ var _ = Describe("CFTask Controller", func() {
 			eventRecorder,
 			logger,
 			seqIdGenerator,
+			envBuilder,
 			config.CFProcessDefaults{
 				MemoryMB:    256,
 				DiskQuotaMB: 128,
@@ -186,8 +190,11 @@ var _ = Describe("CFTask Controller", func() {
 
 	Describe("task creation", func() {
 		It("creates an eirini.Task correctly", func() {
-			Expect(k8sClient.CreateCallCount()).To(Equal(1))
+			Expect(envBuilder.BuildEnvCallCount()).To(Equal(1))
+			_, envApp := envBuilder.BuildEnvArgsForCall(0)
+			Expect(envApp.Name).To(Equal("the-app-guid"))
 
+			Expect(k8sClient.CreateCallCount()).To(Equal(1))
 			_, obj, _ := k8sClient.CreateArgsForCall(0)
 			eiriniTask, ok := obj.(*eiriniv1.Task)
 			Expect(ok).To(BeTrue())
@@ -200,6 +207,7 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(eiriniTask.Spec.MemoryMB).To(BeEquivalentTo(256))
 			Expect(eiriniTask.Spec.DiskMB).To(BeEquivalentTo(128))
 			Expect(eiriniTask.Spec.CPUMillis).To(BeEquivalentTo(50))
+			Expect(eiriniTask.Spec.Environment).To(ConsistOf(corev1.EnvVar{Name: "FOO", Value: "bar"}))
 
 			eiriniTaskOwner := metav1.GetControllerOf(eiriniTask)
 			Expect(eiriniTaskOwner).NotTo(BeNil())
@@ -548,6 +556,16 @@ var _ = Describe("CFTask Controller", func() {
 		When("when the app doesn't have exactly one web process", func() {
 			BeforeEach(func() {
 				processList = nil
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("building the environment fails", func() {
+			BeforeEach(func() {
+				envBuilder.BuildEnvReturns(nil, errors.New("oops"))
 			})
 
 			It("returns an error", func() {
