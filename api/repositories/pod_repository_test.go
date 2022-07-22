@@ -108,7 +108,7 @@ var _ = Describe("PodRepository", func() {
 				Instances:   2,
 			}
 
-			cpu, err = resource.ParseQuantity("423730n")
+			cpu, err = resource.ParseQuantity("123m")
 			Expect(err).NotTo(HaveOccurred())
 			mem, err = resource.ParseQuantity("19177472")
 			Expect(err).NotTo(HaveOccurred())
@@ -156,7 +156,7 @@ var _ = Describe("PodRepository", func() {
 						"State": Equal("RUNNING"),
 						"Usage": MatchFields(IgnoreExtras, Fields{
 							"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
-							"CPU":  PointTo(Equal(0.042373)),
+							"CPU":  PointTo(Equal(0.123)),
 							"Mem":  PointTo(Equal(mem.Value())),
 							"Disk": PointTo(Equal(disk.Value())),
 						}),
@@ -230,7 +230,7 @@ var _ = Describe("PodRepository", func() {
 							"State": Equal("RUNNING"),
 							"Usage": MatchFields(IgnoreExtras, Fields{
 								"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
-								"CPU":  PointTo(Equal(0.042373)),
+								"CPU":  PointTo(Equal(0.123)),
 								"Mem":  PointTo(Equal(mem.Value())),
 								"Disk": PointTo(Equal(disk.Value())),
 							}),
@@ -282,7 +282,7 @@ var _ = Describe("PodRepository", func() {
 							"State": Equal("RUNNING"),
 							"Usage": MatchFields(IgnoreExtras, Fields{
 								"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
-								"CPU":  PointTo(Equal(0.042373)),
+								"CPU":  PointTo(Equal(0.123)),
 								"Mem":  PointTo(Equal(mem.Value())),
 								"Disk": PointTo(Equal(disk.Value())),
 							}),
@@ -299,7 +299,7 @@ var _ = Describe("PodRepository", func() {
 							"State": Equal("STARTING"),
 							"Usage": MatchFields(IgnoreExtras, Fields{
 								"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
-								"CPU":  PointTo(Equal(0.042373)),
+								"CPU":  PointTo(Equal(0.123)),
 								"Mem":  PointTo(Equal(mem.Value())),
 								"Disk": PointTo(Equal(disk.Value())),
 							}),
