@@ -19,6 +19,7 @@ package workloads
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
@@ -123,7 +124,13 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	eiriniTask, err := r.createOrPatchEiriniTask(ctx, cfTask, cfDroplet)
+	webProcess, err := r.getWebProcess(ctx, cfApp)
+	if err != nil {
+		r.logger.Error(err, "failed to get web processes")
+		return r.updateStatusAndReturn(ctx, cfTask, err)
+	}
+
+	eiriniTask, err := r.createOrPatchEiriniTask(ctx, cfTask, cfDroplet, webProcess)
 	if err != nil {
 		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
@@ -211,7 +218,25 @@ func (r *CFTaskReconciler) getDroplet(ctx context.Context, cfTask *korifiv1alpha
 	return cfDroplet, nil
 }
 
-func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) (*eiriniv1.Task, error) {
+func (r *CFTaskReconciler) getWebProcess(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (korifiv1alpha1.CFProcess, error) {
+	var processList korifiv1alpha1.CFProcessList
+	err := r.k8sClient.List(ctx, &processList, client.InNamespace(cfApp.Namespace), client.MatchingLabels{
+		korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
+		korifiv1alpha1.CFProcessTypeLabelKey: "web",
+	})
+	if err != nil {
+		r.logger.Error(err, "failed to list app processes")
+		return korifiv1alpha1.CFProcess{}, err
+	}
+	if len(processList.Items) != 1 {
+		r.logger.Error(nil, "expected exactly one web process", "processes", processList)
+		return korifiv1alpha1.CFProcess{}, fmt.Errorf("expected exactly one web process, found %d", len(processList.Items))
+	}
+
+	return processList.Items[0], err
+}
+
+func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess) (*eiriniv1.Task, error) {
 	eiriniTask := &eiriniv1.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
@@ -230,6 +255,7 @@ func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *
 		eiriniTask.Spec.Image = cfDroplet.Status.Droplet.Registry.Image
 		eiriniTask.Spec.MemoryMB = r.cfProcessDefaults.MemoryMB
 		eiriniTask.Spec.DiskMB = r.cfProcessDefaults.DiskQuotaMB
+		eiriniTask.Spec.CPUMillis = calculateDefaultCPURequestMillicores(webProcess.Spec.MemoryMB)
 
 		if err := ctrl.SetControllerReference(cfTask, eiriniTask, r.scheme); err != nil {
 			r.logger.Error(err, "failed to set owner ref")
@@ -239,7 +265,7 @@ func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *
 		return nil
 	})
 	if err != nil {
-		r.logger.Info("error-creating-or-pathcing-eirini-task", "error", err, "opResult", opResult)
+		r.logger.Info("error-creating-or-patching-eirini-task", "error", err, "opResult", opResult)
 		return nil, err
 	}
 

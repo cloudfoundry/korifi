@@ -53,8 +53,8 @@ spec:
                 items:
                   type: string
                 type: array
-              cpuWeight:
-                format: uint8
+              cpuMillis:
+                format: int64
                 type: integer
               diskMB:
                 format: int64

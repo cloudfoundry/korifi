@@ -79,6 +79,28 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		}
 		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 
+		cfProcess := &korifiv1alpha1.CFProcess{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns,
+				Name:      testutils.PrefixedGUID("web-process"),
+				Labels: map[string]string{
+					korifiv1alpha1.CFProcessTypeLabelKey: "web",
+					korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
+				},
+			},
+			Spec: korifiv1alpha1.CFProcessSpec{
+				AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
+				ProcessType: "web",
+				Command:     "echo hello",
+				MemoryMB:    768,
+				HealthCheck: korifiv1alpha1.HealthCheck{
+					Type: "process",
+				},
+				Ports: []int32{8080},
+			},
+		}
+		Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
+
 		cfTask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: ns,
@@ -158,6 +180,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(tasks.Items[0].Spec.Image).To(Equal("registry.io/my/image"))
 			Expect(tasks.Items[0].Spec.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
 			Expect(tasks.Items[0].Spec.DiskMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
+			Expect(tasks.Items[0].Spec.CPUMillis).To(BeEquivalentTo(75))
 		})
 
 		When("the eirini task status condition changes", func() {
