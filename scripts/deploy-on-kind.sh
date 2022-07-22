@@ -329,7 +329,47 @@ function deploy_statefulset_runner() {
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
-deploy_korifi_controllers
-deploy_korifi_api
-deploy_kpack_image_builder
-deploy_statefulset_runner
+
+cat <<EOF
+****************************************************
+Building and deploying Korifi components in parallel
+
+Logs will be shown when complete
+****************************************************
+EOF
+
+tmp="$(mktemp -d)"
+trap "rm -rf $tmp" EXIT
+deploy_korifi_controllers &>"$tmp/controllers" &
+deploy_korifi_api &>"$tmp/api" &
+deploy_kpack_image_builder &>"$tmp/kip" &
+deploy_statefulset_runner &>"$tmp/stsr" &
+wait
+
+cat <<EOF
+***********
+Controllers
+***********
+EOF
+cat "$tmp/controllers"
+
+cat <<EOF
+***********
+API
+***********
+EOF
+cat "$tmp/api"
+
+cat <<EOF
+***********
+Kpack Image Builder
+***********
+EOF
+cat "$tmp/kip"
+
+cat <<EOF
+***********
+Stateful Set Runner
+***********
+EOF
+cat "$tmp/stsr"
