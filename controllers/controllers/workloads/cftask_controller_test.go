@@ -45,6 +45,7 @@ var _ = Describe("CFTask Controller", func() {
 		eiriniTask         eiriniv1.Task
 		eiriniTaskGetError error
 		taskTTL            time.Duration
+		processList        []korifiv1alpha1.CFProcess
 	)
 
 	BeforeEach(func() {
@@ -115,6 +116,10 @@ var _ = Describe("CFTask Controller", func() {
 			case *korifiv1alpha1.CFApp:
 				Expect(namespacedName.Name).To(Equal("the-app-guid"))
 				*t = korifiv1alpha1.CFApp{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      namespacedName.Name,
+						Namespace: namespacedName.Namespace,
+					},
 					Spec: korifiv1alpha1.CFAppSpec{
 						CurrentDropletRef: corev1.LocalObjectReference{Name: dropletRef},
 					},
@@ -137,6 +142,29 @@ var _ = Describe("CFTask Controller", func() {
 				*t = eiriniTask
 
 				return eiriniTaskGetError
+			}
+
+			return nil
+		}
+
+		processList = []korifiv1alpha1.CFProcess{{
+			Spec: korifiv1alpha1.CFProcessSpec{MemoryMB: 512},
+		}}
+
+		k8sClient.ListStub = func(_ context.Context, l client.ObjectList, options ...client.ListOption) error {
+			switch t := l.(type) {
+			case *korifiv1alpha1.CFProcessList:
+				Expect(options).To(ConsistOf(
+					client.InNamespace("the-task-namespace"),
+					client.MatchingLabels{
+						korifiv1alpha1.CFProcessTypeLabelKey: "web",
+						korifiv1alpha1.CFAppGUIDLabelKey:     "the-app-guid",
+					},
+				))
+
+				*t = korifiv1alpha1.CFProcessList{
+					Items: processList,
+				}
 			}
 
 			return nil
@@ -169,8 +197,9 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(eiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
 			Expect(eiriniTask.Spec.Image).To(Equal("the-image"))
 			Expect(eiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
-			Expect(eiriniTask.Spec.MemoryMB).To(BeNumerically("==", 256))
-			Expect(eiriniTask.Spec.DiskMB).To(BeNumerically("==", 128))
+			Expect(eiriniTask.Spec.MemoryMB).To(BeEquivalentTo(256))
+			Expect(eiriniTask.Spec.DiskMB).To(BeEquivalentTo(128))
+			Expect(eiriniTask.Spec.CPUMillis).To(BeEquivalentTo(50))
 
 			eiriniTaskOwner := metav1.GetControllerOf(eiriniTask)
 			Expect(eiriniTaskOwner).NotTo(BeNil())
@@ -503,6 +532,26 @@ var _ = Describe("CFTask Controller", func() {
 				Expect(eventType).To(Equal("Warning"))
 				Expect(reason).To(Equal("dropletBuildStatusNotSet"))
 				Expect(message).To(ContainSubstring("Current droplet %s from app %s does not have a droplet image"))
+			})
+		})
+
+		When("it fails to retrieve the app's web process", func() {
+			BeforeEach(func() {
+				k8sClient.ListReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("when the app doesn't have exactly one web process", func() {
+			BeforeEach(func() {
+				processList = nil
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
