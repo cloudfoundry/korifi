@@ -73,7 +73,7 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if isFinalizing(cfRoute) {
+	if !cfRoute.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFRoute(ctx, cfRoute)
 	}
 
@@ -459,10 +459,6 @@ func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, l
 	}
 
 	return &serviceList, nil
-}
-
-func isFinalizing(cfRoute *korifiv1alpha1.CFRoute) bool {
-	return cfRoute.ObjectMeta.DeletionTimestamp != nil && !cfRoute.ObjectMeta.DeletionTimestamp.IsZero()
 }
 
 func generateServiceName(destination *korifiv1alpha1.Destination) string {

@@ -88,6 +88,10 @@ func (v *CFTaskValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Obj
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
 	}
 
+	if !newTask.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
 	cftasklog.Info("validate task update", "namespace", newTask.Namespace, "name", newTask.Name)
 
 	oldTask, ok := oldObj.(*v1alpha1.CFTask)

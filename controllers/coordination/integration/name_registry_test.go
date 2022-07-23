@@ -82,6 +82,11 @@ var _ = Describe("Name Registry", func() {
 			Expect(nameRegistry.DeregisterName(ctx, ns1.Name, name)).To(Succeed())
 		})
 
+		It("can re-register a deleted name", func() {
+			Expect(nameRegistry.DeregisterName(ctx, ns1.Name, name)).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+		})
+
 		When("the name is locked", func() {
 			BeforeEach(func() {
 				Expect(nameRegistry.TryLockName(ctx, ns1.Name, name)).To(Succeed())
@@ -92,15 +97,10 @@ var _ = Describe("Name Registry", func() {
 			})
 		})
 
-		It("can re-register a deleted name", func() {
-			Expect(nameRegistry.DeregisterName(ctx, ns1.Name, name)).To(Succeed())
-			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
-		})
-
 		When("the name doesn't exist", func() {
-			It("returns a not found error", func() {
+			It("does not return an error", func() {
 				err := nameRegistry.DeregisterName(ctx, ns1.Name, "nope")
-				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				Expect(k8serrors.IsNotFound(err)).To(BeFalse())
 			})
 		})
 	})

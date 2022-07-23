@@ -88,12 +88,16 @@ func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Obje
 }
 
 func (v *CFDomainValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) error {
-	oldDomain, ok := oldObj.(*korifiv1alpha1.CFDomain)
+	domain, ok := obj.(*korifiv1alpha1.CFDomain)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
 	}
 
-	domain, ok := obj.(*korifiv1alpha1.CFDomain)
+	if !domain.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
+	oldDomain, ok := oldObj.(*korifiv1alpha1.CFDomain)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
 	}

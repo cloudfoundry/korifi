@@ -176,13 +176,6 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 	return nil
 }
 
-func isFinalizing(orgOrSpace client.Object) bool {
-	if orgOrSpace.GetDeletionTimestamp() != nil && !orgOrSpace.GetDeletionTimestamp().IsZero() {
-		return true
-	}
-	return false
-}
-
 func finalize(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object, finalizerName string) (ctrl.Result, error) {
 	log.Info(fmt.Sprintf("Reconciling deletion of %s", orgOrSpace.GetName()))
 

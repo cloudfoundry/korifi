@@ -69,12 +69,16 @@ func (v *CFOrgValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 }
 
 func (v *CFOrgValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
-	oldOrg, ok := oldObj.(*korifiv1alpha1.CFOrg)
+	org, ok := obj.(*korifiv1alpha1.CFOrg)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
 	}
 
-	org, ok := obj.(*korifiv1alpha1.CFOrg)
+	if !org.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
+	oldOrg, ok := oldObj.(*korifiv1alpha1.CFOrg)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
 	}

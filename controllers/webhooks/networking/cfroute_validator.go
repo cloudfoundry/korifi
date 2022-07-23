@@ -96,6 +96,10 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
+	if !route.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
 	oldRoute, ok := oldObj.(*korifiv1alpha1.CFRoute)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))

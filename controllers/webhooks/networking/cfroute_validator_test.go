@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	controllerfake "code.cloudfoundry.org/korifi/controllers/fake"
@@ -353,6 +354,16 @@ var _ = Describe("CFRouteValidator", func() {
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(rootNamespace))
 			Expect(oldName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+		})
+
+		When("the route is being deleted", func() {
+			BeforeEach(func() {
+				updatedCFRoute.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
 		})
 
 		When("the hostname is updated", func() {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -69,7 +70,7 @@ func (r NameRegistry) DeregisterName(ctx context.Context, namespace, name string
 			Namespace: namespace,
 		},
 	}
-	if err := r.client.Delete(ctx, lease); err != nil {
+	if err := r.client.Delete(ctx, lease); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("deleting a lease failed: %w", err)
 	}
 

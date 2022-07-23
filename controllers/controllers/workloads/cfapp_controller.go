@@ -78,7 +78,7 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	if isFinalizing(cfApp) {
+	if !cfApp.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFApp(ctx, cfApp)
 	}
 

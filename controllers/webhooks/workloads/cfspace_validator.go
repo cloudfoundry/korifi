@@ -67,12 +67,16 @@ func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 }
 
 func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
-	oldSpace, ok := oldObj.(*korifiv1alpha1.CFSpace)
+	space, ok := obj.(*korifiv1alpha1.CFSpace)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	space, ok := obj.(*korifiv1alpha1.CFSpace)
+	if !space.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
+	oldSpace, ok := oldObj.(*korifiv1alpha1.CFSpace)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}

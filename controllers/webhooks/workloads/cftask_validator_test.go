@@ -3,6 +3,7 @@ package workloads_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -102,6 +103,16 @@ var _ = Describe("CFTaskValidator", func() {
 
 		It("allows the request", func() {
 			Expect(retErr).NotTo(HaveOccurred())
+		})
+
+		When("the task is being deleted", func() {
+			BeforeEach(func() {
+				updatedCFTask.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
 		})
 	})
 

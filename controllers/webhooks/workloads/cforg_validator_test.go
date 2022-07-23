@@ -3,6 +3,7 @@ package workloads_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -143,6 +144,16 @@ var _ = Describe("CFOrgValidator", func() {
 			Expect(actualNamespace).To(Equal(cfOrg.Namespace))
 			Expect(oldName).To(Equal(cfOrg.Spec.DisplayName))
 			Expect(newName).To(Equal(updatedCFOrg.Spec.DisplayName))
+		})
+
+		When("the org is being deleted", func() {
+			BeforeEach(func() {
+				updatedCFOrg.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
 		})
 
 		When("the new org name is a duplicate", func() {

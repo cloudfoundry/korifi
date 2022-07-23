@@ -2,6 +2,7 @@ package workloads_test
 
 import (
 	"context"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -12,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -134,6 +136,16 @@ var _ = Describe("CFSpaceValidation", func() {
 			Expect(actualNamespace).To(Equal(cfSpace.Namespace))
 			Expect(oldName).To(Equal(cfSpace.Spec.DisplayName))
 			Expect(newName).To(Equal(updatedCFSpace.Spec.DisplayName))
+		})
+
+		When("the space is being deleted", func() {
+			BeforeEach(func() {
+				updatedCFSpace.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
 		})
 
 		When("the new space name already exists in the namespace", func() {
