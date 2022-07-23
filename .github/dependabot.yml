@@ -31,7 +31,17 @@ updates:
     interval: "daily"
 
 - package-ecosystem: "docker"
+  directory: "/kpack-image-builder/remote-debug"
+  schedule:
+    interval: "daily"
+
+- package-ecosystem: "docker"
   directory: "/statefulset-runner"
+  schedule:
+    interval: "daily"
+
+- package-ecosystem: "docker"
+  directory: "/statefulset-runner/remote-debug"
   schedule:
     interval: "daily"
 

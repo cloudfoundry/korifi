@@ -15,13 +15,16 @@ COPY kpack-image-builder/controllers/ kpack-image-builder/controllers/
 COPY kpack-image-builder/main.go kpack-image-builder/main.go
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager kpack-image-builder/main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags=all="-N -l" -o manager kpack-image-builder/main.go
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+# Get Delve from a GOPATH not from a Go Modules project
+WORKDIR /go/src/
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+FROM ubuntu
 WORKDIR /
 COPY --from=builder /workspace/manager .
-USER 65532:65532
+COPY --from=builder /go/bin/dlv .
+EXPOSE 8080 8081 9443 40000
 
-ENTRYPOINT ["/manager"]
+CMD ["/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "exec", "/manager", '--continue', "--accept-multiclient"]

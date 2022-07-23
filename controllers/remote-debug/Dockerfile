@@ -7,17 +7,17 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY api/repositories api/repositories/
 COPY api/apierrors api/apierrors/
 COPY api/authorization api/authorization/
 COPY api/config api/config/
 COPY api/correlation api/correlation/
+COPY api/repositories api/repositories/
 COPY controllers/api controllers/api/
+COPY controllers/config/config.go controllers/config/
 COPY controllers/controllers controllers/controllers/
 COPY controllers/coordination controllers/coordination/
-COPY controllers/webhooks controllers/webhooks/
-COPY controllers/config/config.go controllers/config/
 COPY controllers/main.go controllers/
+COPY controllers/webhooks controllers/webhooks/
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags=all="-N -l" -o manager controllers/main.go
@@ -30,7 +30,6 @@ FROM ubuntu
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /go/bin/dlv .
-
 EXPOSE 8080 8081 9443 40000
 
 CMD ["/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "exec", "/manager", '--continue', "--accept-multiclient"]
