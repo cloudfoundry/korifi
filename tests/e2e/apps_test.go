@@ -435,10 +435,10 @@ var _ = Describe("Apps", func() {
 
 	Describe("Fetch app env", func() {
 		var (
-			result       map[string]interface{}
-			instanceGUID string
-			instanceName string
-			bindingGUID  string
+			result                      map[string]interface{}
+			instanceGUID, instanceGUID2 string
+			instanceName, instanceName2 string
+			bindingGUID, bindingGUID2   string
 		)
 
 		BeforeEach(func() {
@@ -450,6 +450,9 @@ var _ = Describe("Apps", func() {
 			instanceName = generateGUID("service-instance")
 			instanceGUID = createServiceInstance(space1GUID, instanceName)
 			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+			instanceName2 = generateGUID("service-instance")
+			instanceGUID2 = createServiceInstance(space1GUID, instanceName2)
+			bindingGUID2 = createServiceBinding(appGUID, instanceGUID2)
 		})
 
 		JustBeforeEach(func() {
@@ -478,8 +481,55 @@ var _ = Describe("Apps", func() {
 						"instance_guid": instanceGUID,
 						"binding_name":  nil,
 					},
+					map[string]interface{}{
+						"syslog_drain_url": nil,
+						"tags":             []interface{}{},
+						"instance_name":    instanceName2,
+						"binding_guid":     bindingGUID2,
+						"credentials": map[string]interface{}{
+							"type": "user-provided",
+						},
+						"volume_mounts": []interface{}{},
+						"label":         "user-provided",
+						"name":          instanceName2,
+						"instance_guid": instanceGUID2,
+						"binding_name":  nil,
+					},
 				},
 			})))
+		})
+
+		When("a deleted service binding changes the app env", func() {
+			BeforeEach(func() {
+				_, err := certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID2)
+				Expect(err).To(Succeed())
+			})
+
+			It("returns the updated app environment", func() {
+				Eventually(func(g Gomega) {
+					_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
+					Expect(err).To(Succeed())
+					g.Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
+					g.Expect(result).To(HaveKeyWithValue("system_env_json", HaveKeyWithValue("VCAP_SERVICES", map[string]interface{}{
+						"user-provided": []interface{}{
+							map[string]interface{}{
+								"syslog_drain_url": nil,
+								"tags":             []interface{}{},
+								"instance_name":    instanceName,
+								"binding_guid":     bindingGUID,
+								"credentials": map[string]interface{}{
+									"type": "user-provided",
+								},
+								"volume_mounts": []interface{}{},
+								"label":         "user-provided",
+								"name":          instanceName,
+								"instance_guid": instanceGUID,
+								"binding_name":  nil,
+							},
+						},
+					})))
+				}).Should(Succeed())
+			})
 		})
 	})
 })
