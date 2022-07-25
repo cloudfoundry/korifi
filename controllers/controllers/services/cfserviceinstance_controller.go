@@ -76,7 +76,7 @@ func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if isFinalizing(cfServiceInstance) {
+	if !cfServiceInstance.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFServiceInstance(ctx, cfServiceInstance)
 	}
 
@@ -174,8 +174,4 @@ func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Cont
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func isFinalizing(cfServiceInstance *korifiv1alpha1.CFServiceInstance) bool {
-	return cfServiceInstance.ObjectMeta.DeletionTimestamp != nil && !cfServiceInstance.ObjectMeta.DeletionTimestamp.IsZero()
 }

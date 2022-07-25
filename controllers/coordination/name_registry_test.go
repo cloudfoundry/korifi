@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 
+	"code.cloudfoundry.org/korifi/controllers/coordination"
+	"code.cloudfoundry.org/korifi/controllers/coordination/fake"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-
-	"code.cloudfoundry.org/korifi/controllers/coordination"
-	"code.cloudfoundry.org/korifi/controllers/coordination/fake"
 )
 
 var _ = Describe("NameRegistry", func() {
@@ -95,6 +95,16 @@ var _ = Describe("NameRegistry", func() {
 			lease := obj.(*coordinationv1.Lease)
 			Expect(lease.Namespace).To(Equal(namespace))
 			Expect(lease.Name).To(HavePrefix("n-"))
+		})
+
+		When("the lease does not exist", func() {
+			BeforeEach(func() {
+				client.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "some-name"))
+			})
+
+			It("does not return an error", func() {
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 
 		When("deleting the lease fails", func() {

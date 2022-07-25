@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -127,6 +128,16 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			Expect(actualNamespace).To(Equal(serviceInstance.Namespace))
 			Expect(oldName).To(Equal(serviceInstance.Spec.DisplayName))
 			Expect(newName).To(Equal(updatedServiceInstance.Spec.DisplayName))
+		})
+
+		When("the service instance is being deleted", func() {
+			BeforeEach(func() {
+				updatedServiceInstance.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
 		})
 
 		When("the new serviceInstance name is a duplicate", func() {

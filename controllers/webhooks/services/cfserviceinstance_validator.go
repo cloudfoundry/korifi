@@ -59,14 +59,18 @@ func (v *CFServiceInstanceValidator) ValidateCreate(ctx context.Context, obj run
 }
 
 func (v *CFServiceInstanceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
-	oldServiceInstance, ok := oldObj.(*korifiv1alpha1.CFServiceInstance)
-	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", oldObj))
-	}
-
 	serviceInstance, ok := obj.(*korifiv1alpha1.CFServiceInstance)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
+	}
+
+	if !serviceInstance.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
+	oldServiceInstance, ok := oldObj.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", oldObj))
 	}
 
 	duplicateErrorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)

@@ -60,14 +60,18 @@ func (v *CFAppValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 }
 
 func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
-	oldApp, ok := oldObj.(*korifiv1alpha1.CFApp)
-	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
-	}
-
 	app, ok := obj.(*korifiv1alpha1.CFApp)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
+	}
+
+	if !app.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
+	oldApp, ok := oldObj.(*korifiv1alpha1.CFApp)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
 	}
 
 	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)

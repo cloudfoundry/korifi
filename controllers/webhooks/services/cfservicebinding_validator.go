@@ -62,14 +62,18 @@ func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runt
 }
 
 func (v *CFServiceBindingValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
-	oldServiceBinding, ok := oldObj.(*korifiv1alpha1.CFServiceBinding)
-	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", oldObj))
-	}
-
 	serviceBinding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
+	}
+
+	if !serviceBinding.GetDeletionTimestamp().IsZero() {
+		return nil
+	}
+
+	oldServiceBinding, ok := oldObj.(*korifiv1alpha1.CFServiceBinding)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", oldObj))
 	}
 
 	if oldServiceBinding.Spec.AppRef.Name != serviceBinding.Spec.AppRef.Name {

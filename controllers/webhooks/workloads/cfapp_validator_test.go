@@ -2,6 +2,7 @@ package workloads_test
 
 import (
 	"context"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -125,6 +126,16 @@ var _ = Describe("CFAppValidator", func() {
 			Expect(actualNamespace).To(Equal(cfApp.Namespace))
 			Expect(oldName).To(Equal(cfApp.Spec.DisplayName))
 			Expect(newName).To(Equal(updatedCFApp.Spec.DisplayName))
+		})
+
+		When("the app is being deleted", func() {
+			BeforeEach(func() {
+				updatedCFApp.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
 		})
 
 		When("the new app name is a duplicate", func() {

@@ -107,7 +107,7 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	if isFinalizing(cfSpace) {
+	if !cfSpace.GetDeletionTimestamp().IsZero() {
 		return finalize(ctx, r.client, r.log, cfSpace, spaceFinalizerName)
 	}
 
