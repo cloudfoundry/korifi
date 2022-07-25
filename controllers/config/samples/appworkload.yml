@@ -1,6 +1,6 @@
 ---
 apiVersion: korifi.cloudfoundry.org/v1alpha1
-kind: RunWorkload
+kind: AppWorkload
 metadata:
   name: 99dcda7d-1fa1-4a91-b437-fbdba20et56y
   namespace: cf

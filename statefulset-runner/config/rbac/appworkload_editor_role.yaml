@@ -1,13 +1,13 @@
-# permissions for end users to edit runworkloads.
+# permissions for end users to edit appworkloads.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: runworkload-editor-role
+  name: appworkload-editor-role
 rules:
 - apiGroups:
   - ext.cloudfoundry.org
   resources:
-  - runworkloads
+  - appworkloads
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - ext.cloudfoundry.org
   resources:
-  - runworkloads/status
+  - appworkloads/status
   verbs:
   - get

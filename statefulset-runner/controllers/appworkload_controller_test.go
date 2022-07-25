@@ -25,28 +25,28 @@ import (
 )
 
 const (
-	testRunworkloadGUID = "test-runworkload-guid"
+	testAppWorkloadGUID = "test-appworkload-guid"
 	testNamespace       = "test-ns"
 )
 
-var _ = Describe("RunWorkload to StatefulSet Converter", func() {
+var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	var (
 		statefulSet *appsv1.StatefulSet
-		runWorkload *korifiv1alpha1.RunWorkload
-		reconciler  *controllers.RunWorkloadReconciler
+		appWorkload *korifiv1alpha1.AppWorkload
+		reconciler  *controllers.AppWorkloadReconciler
 		pdb         *fake.PDB
 	)
 
 	BeforeEach(func() {
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		pdb = new(fake.PDB)
-		runWorkload = createRunWorkload("some-namespace", "guid_1234")
-		reconciler = controllers.NewRunWorkloadReconciler(nil, scheme.Scheme, pdb, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+		appWorkload = createAppWorkload("some-namespace", "guid_1234")
+		reconciler = controllers.NewAppWorkloadReconciler(nil, scheme.Scheme, pdb, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	})
 
 	JustBeforeEach(func() {
 		var err error
-		statefulSet, err = reconciler.Convert(*runWorkload)
+		statefulSet, err = reconciler.Convert(*appWorkload)
 
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -69,13 +69,13 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 		Entry("Version", controllers.AnnotationVersion, "version_1234"),
 	)
 
-	It("should be owned by the RunWorkload", func() {
+	It("should be owned by the AppWorkload", func() {
 		Expect(statefulSet.OwnerReferences).To(HaveLen(1))
-		Expect(statefulSet.OwnerReferences[0].Kind).To(Equal("RunWorkload"))
+		Expect(statefulSet.OwnerReferences[0].Kind).To(Equal("AppWorkload"))
 	})
 
-	It("should base the name and namspace on the runworkload", func() {
-		Expect(statefulSet.Namespace).To(Equal(runWorkload.Namespace))
+	It("should base the name and namspace on the appworkload", func() {
+		Expect(statefulSet.Namespace).To(Equal(appWorkload.Namespace))
 		Expect(statefulSet.Name).To(ContainSubstring("premium-app-guid-1234"))
 	})
 
@@ -122,15 +122,15 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 	})
 
 	It("should set the image", func() {
-		Expect(statefulSet.Spec.Template.Spec.Containers[0].Image).To(Equal(runWorkload.Spec.Image))
+		Expect(statefulSet.Spec.Template.Spec.Containers[0].Image).To(Equal(appWorkload.Spec.Image))
 	})
 
 	It("copy the image pull secrets", func() {
-		Expect(statefulSet.Spec.Template.Spec.ImagePullSecrets).To(ContainElements(runWorkload.Spec.ImagePullSecrets))
+		Expect(statefulSet.Spec.Template.Spec.ImagePullSecrets).To(ContainElements(appWorkload.Spec.ImagePullSecrets))
 	})
 
 	It("should set the command", func() {
-		Expect(statefulSet.Spec.Template.Spec.Containers[0].Command).To(ContainElements(runWorkload.Spec.Command))
+		Expect(statefulSet.Spec.Template.Spec.Containers[0].Command).To(ContainElements(appWorkload.Spec.Command))
 	})
 
 	It("should set imagePullPolicy to Always", func() {
@@ -142,8 +142,8 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(controllers.LabelAppGUID, "premium_app_guid_1234"))
 	})
 
-	It("should set runworkload guid as a label on the statefulset only", func() {
-		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelRunWorkloadGUID, "guid_1234"))
+	It("should set appworkload guid as a label on the statefulset only", func() {
+		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelAppWorkloadGUID, "guid_1234"))
 	})
 
 	It("should set process_type as a label", func() {
@@ -247,7 +247,7 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 
 	When("the app has environment set", func() {
 		BeforeEach(func() {
-			runWorkload.Spec.Env = []corev1.EnvVar{
+			appWorkload.Spec.Env = []corev1.EnvVar{
 				{
 					Name: "bobs",
 					ValueFrom: &corev1.EnvVarSource{
@@ -281,53 +281,53 @@ var _ = Describe("RunWorkload to StatefulSet Converter", func() {
 	})
 })
 
-var _ = Describe("RunWorkload Reconcile", func() {
+var _ = Describe("AppWorkload Reconcile", func() {
 	var (
 		fakeClient                   *fake.Client
 		fakeStatusWriter             *fake.StatusWriter
-		reconciler                   *controllers.RunWorkloadReconciler
+		reconciler                   *controllers.AppWorkloadReconciler
 		reconcileResult              ctrl.Result
 		reconcileErr                 error
 		ctx                          context.Context
 		req                          ctrl.Request
-		runworkload                  *korifiv1alpha1.RunWorkload
+		appWorkload                  *korifiv1alpha1.AppWorkload
 		statefulSet                  *v1.StatefulSet
 		fakePDB                      *fake.PDB
-		getRunworkloadError          error
+		getAppWorkloadError          error
 		getStatefulSetError          error
 		createStatefulSetError       error
-		updateRunworkloadStatusError error
+		updateAppWorkloadStatusError error
 		updatePDBError               error
 	)
 
 	BeforeEach(func() {
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		runworkload = createRunWorkload("some-namespace", "guid_1234")
+		appWorkload = createAppWorkload("some-namespace", "guid_1234")
 		statefulSet = &v1.StatefulSet{}
 		fakePDB = new(fake.PDB)
 
 		ctx = context.Background()
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{
-				Name:      testRunworkloadGUID,
+				Name:      testAppWorkloadGUID,
 				Namespace: testNamespace,
 			},
 		}
 
-		getRunworkloadError = nil
+		getAppWorkloadError = nil
 		getStatefulSetError = apierrors.NewNotFound(schema.GroupResource{
 			Group:    "v1",
 			Resource: "StatefulSet",
 		}, "some-resource")
 		createStatefulSetError = nil
-		updateRunworkloadStatusError = nil
+		updateAppWorkloadStatusError = nil
 
 		fakeClient = new(fake.Client)
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
 			switch obj := obj.(type) {
-			case *korifiv1alpha1.RunWorkload:
-				runworkload.DeepCopyInto(obj)
-				return getRunworkloadError
+			case *korifiv1alpha1.AppWorkload:
+				appWorkload.DeepCopyInto(obj)
+				return getAppWorkloadError
 			case *v1.StatefulSet:
 				if getStatefulSetError == nil {
 					statefulSet.DeepCopyInto(obj)
@@ -351,7 +351,7 @@ var _ = Describe("RunWorkload Reconcile", func() {
 		fakeClient.StatusReturns(fakeStatusWriter)
 
 		fakeStatusWriter.UpdateStub = func(ctx context.Context, obj client.Object, option ...client.UpdateOption) error {
-			return updateRunworkloadStatusError
+			return updateAppWorkloadStatusError
 		}
 
 		updatePDBError = nil
@@ -359,14 +359,14 @@ var _ = Describe("RunWorkload Reconcile", func() {
 			return updatePDBError
 		}
 
-		reconciler = controllers.NewRunWorkloadReconciler(fakeClient, scheme.Scheme, fakePDB, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+		reconciler = controllers.NewAppWorkloadReconciler(fakeClient, scheme.Scheme, fakePDB, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	})
 
 	JustBeforeEach(func() {
 		reconcileResult, reconcileErr = reconciler.Reconcile(ctx, req)
 	})
 
-	When("the Runworkload is being created", func() {
+	When("the appworkload is being created", func() {
 		It("returns an empty result and does not return error", func() {
 			Expect(reconcileResult).To(Equal(ctrl.Result{}))
 			Expect(reconcileErr).NotTo(HaveOccurred())
@@ -389,11 +389,11 @@ var _ = Describe("RunWorkload Reconcile", func() {
 		})
 	})
 
-	When("the Runworkload is being deleted", func() {
+	When("the appworkload is being deleted", func() {
 		BeforeEach(func() {
-			getRunworkloadError = apierrors.NewNotFound(schema.GroupResource{
+			getAppWorkloadError = apierrors.NewNotFound(schema.GroupResource{
 				Group:    "v1alpha1",
-				Resource: "RunWorkload",
+				Resource: "AppWorkload",
 			}, "some-resource")
 		})
 
@@ -403,13 +403,13 @@ var _ = Describe("RunWorkload Reconcile", func() {
 		})
 	})
 
-	When("the Runworkload is being updated", func() {
+	When("the appworkload is being updated", func() {
 		BeforeEach(func() {
 			//nolint
 			var replicas int32
 			replicas = 1
 
-			runworkload = &korifiv1alpha1.RunWorkload{
+			appWorkload = &korifiv1alpha1.AppWorkload{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "",
 					APIVersion: "",
@@ -418,7 +418,7 @@ var _ = Describe("RunWorkload Reconcile", func() {
 					Name:      "test-sts",
 					Namespace: testNamespace,
 				},
-				Spec: korifiv1alpha1.RunWorkloadSpec{
+				Spec: korifiv1alpha1.AppWorkloadSpec{
 					GUID:          "test-sts",
 					Version:       "1",
 					Instances:     2,

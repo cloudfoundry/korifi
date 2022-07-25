@@ -24,8 +24,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// RunWorkloadSpec defines the desired state of RunWorkload
-type RunWorkloadSpec struct {
+// AppWorkloadSpec defines the desired state of AppWorkload
+type AppWorkloadSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -57,32 +57,32 @@ type Healthcheck struct {
 	TimeoutMs uint `json:"timeoutMs"`
 }
 
-// RunWorkloadStatus defines the observed state of RunWorkload
-type RunWorkloadStatus struct {
+// AppWorkloadStatus defines the observed state of AppWorkload
+type AppWorkloadStatus struct {
 	ReadyReplicas int32 `json:"readyReplicas"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// RunWorkload is the Schema for the runworkloads API
-type RunWorkload struct {
+// AppWorkload is the Schema for the appworkloads API
+type AppWorkload struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RunWorkloadSpec   `json:"spec,omitempty"`
-	Status RunWorkloadStatus `json:"status,omitempty"`
+	Spec   AppWorkloadSpec   `json:"spec,omitempty"`
+	Status AppWorkloadStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// RunWorkloadList contains a list of RunWorkload
-type RunWorkloadList struct {
+// AppWorkloadList contains a list of AppWorkload
+type AppWorkloadList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []RunWorkload `json:"items"`
+	Items           []AppWorkload `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&RunWorkload{}, &RunWorkloadList{})
+	SchemeBuilder.Register(&AppWorkload{}, &AppWorkloadList{})
 }

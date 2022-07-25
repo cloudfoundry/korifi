@@ -43,14 +43,14 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		cfBuild     *korifiv1alpha1.CFBuild
 		cfProcess   *korifiv1alpha1.CFProcess
 		cfApp       *korifiv1alpha1.CFApp
-		runWorkload *korifiv1alpha1.RunWorkload
+		appWorkload *korifiv1alpha1.AppWorkload
 		routes      []korifiv1alpha1.CFRoute
 
 		cfBuildError         error
 		cfAppError           error
 		cfProcessError       error
-		runWorkloadError     error
-		runWorkloadListError error
+		appWorkloadError     error
+		appWorkloadListError error
 		routeListError       error
 
 		cfProcessReconciler *CFProcessReconciler
@@ -73,9 +73,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		cfProcess = BuildCFProcessCRObject(testProcessGUID, testNamespace, testAppGUID, testProcessType, testProcessCommand)
 		cfProcessError = nil
 
-		runWorkload = nil
-		runWorkloadError = nil
-		runWorkloadListError = nil
+		appWorkload = nil
+		appWorkloadError = nil
+		appWorkloadListError = nil
 
 		fakeClient.GetStub = func(_ context.Context, name types.NamespacedName, obj client.Object) error {
 			// cast obj to find its kind
@@ -89,11 +89,11 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
-			case *korifiv1alpha1.RunWorkload:
-				if runWorkload != nil && runWorkloadError == nil {
-					runWorkload.DeepCopyInto(obj)
+			case *korifiv1alpha1.AppWorkload:
+				if appWorkload != nil && appWorkloadError == nil {
+					appWorkload.DeepCopyInto(obj)
 				}
-				return runWorkloadError
+				return appWorkloadError
 			default:
 				panic("TestClient Get provided a weird obj")
 			}
@@ -101,13 +101,13 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 			switch listObj := list.(type) {
-			case *korifiv1alpha1.RunWorkloadList:
-				runWorkloadList := korifiv1alpha1.RunWorkloadList{Items: []korifiv1alpha1.RunWorkload{}}
-				if runWorkload != nil {
-					runWorkloadList.Items = append(runWorkloadList.Items, *runWorkload)
+			case *korifiv1alpha1.AppWorkloadList:
+				appWorkloadList := korifiv1alpha1.AppWorkloadList{Items: []korifiv1alpha1.AppWorkload{}}
+				if appWorkload != nil {
+					appWorkloadList.Items = append(appWorkloadList.Items, *appWorkload)
 				}
-				runWorkloadList.DeepCopyInto(listObj)
-				return runWorkloadListError
+				appWorkloadList.DeepCopyInto(listObj)
+				return appWorkloadListError
 			case *korifiv1alpha1.CFRouteList:
 				routeList := korifiv1alpha1.CFRouteList{Items: routes}
 
@@ -149,7 +149,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
 			})
 
-			It("does not attempt to create any new RunWorkloads", func() {
+			It("does not attempt to create any new AppWorkloads", func() {
 				Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
 			})
 		})
@@ -157,7 +157,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		When("the CFApp is updated from desired state STARTED to STOPPED", func() {
 			BeforeEach(func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
-				runWorkload = &korifiv1alpha1.RunWorkload{
+				appWorkload = &korifiv1alpha1.AppWorkload{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:         testProcessGUID,
 						GenerateName: "",
@@ -166,7 +166,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 							korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
 						},
 					},
-					Spec: korifiv1alpha1.RunWorkloadSpec{
+					Spec: korifiv1alpha1.AppWorkloadSpec{
 						GUID:          testProcessGUID,
 						ProcessType:   testProcessType,
 						AppGUID:       testAppGUID,
@@ -176,13 +176,13 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 						DiskMiB:       100,
 						CPUMillicores: 5,
 					},
-					Status: korifiv1alpha1.RunWorkloadStatus{
+					Status: korifiv1alpha1.AppWorkloadStatus{
 						ReadyReplicas: 0,
 					},
 				}
 			})
 
-			It("deletes any existing RunWorkloads for the CFApp", func() {
+			It("deletes any existing AppWorkloads for the CFApp", func() {
 				Expect(fakeClient.DeleteCallCount()).To(Equal(1), "Client.Delete call count mismatch")
 			})
 		})
@@ -192,7 +192,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			BeforeEach(func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-				runWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
+				appWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, "some-guid")
 
 				routes = []korifiv1alpha1.CFRoute{
 					{
@@ -246,8 +246,8 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 			It("chooses the oldest matching route", func() {
 				_, obj, _ := fakeClient.CreateArgsForCall(0)
-				returnedRunWorkload := obj.(*korifiv1alpha1.RunWorkload)
-				Expect(returnedRunWorkload.Spec.Env).To(ContainElements(
+				returnedAppWorkload := obj.(*korifiv1alpha1.AppWorkload)
+				Expect(returnedAppWorkload.Spec.Env).To(ContainElements(
 					Equal(corev1.EnvVar{Name: "PORT", Value: strconv.Itoa(testPort)}),
 					Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: strconv.Itoa(testPort)}),
 				))
@@ -309,7 +309,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				})
 			})
 
-			When("building the RunWorkload environment fails", func() {
+			When("building the AppWorkload environment fails", func() {
 				BeforeEach(func() {
 					envBuilder.BuildEnvReturns(nil, errors.New("build-env-err"))
 				})
@@ -319,9 +319,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				})
 			})
 
-			When("fetch RunWorkloadList returns an error", func() {
+			When("fetch AppWorkloadList returns an error", func() {
 				BeforeEach(func() {
-					runWorkloadListError = errors.New(failsOnPurposeErrorMessage)
+					appWorkloadListError = errors.New(failsOnPurposeErrorMessage)
 				})
 
 				It("returns an error", func() {
@@ -331,10 +331,10 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		})
 	})
 
-	When("generating RunWorkload CPU weight parameters", func() {
+	When("generating AppWorkload CPU weight parameters", func() {
 		BeforeEach(func() {
 			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			runWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, "")
+			appWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, "")
 		})
 
 		DescribeTable("matches expected output",
@@ -346,9 +346,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 
 				Expect(fakeClient.CreateCallCount()).To(BeNumerically(">=", 1))
 				_, createObj, _ := fakeClient.CreateArgsForCall(0)
-				createdRunWorkload, ok := createObj.(*korifiv1alpha1.RunWorkload)
-				Expect(ok).To(BeTrue(), "client Create() object coerce to eirini.RunWorkload failed")
-				Expect(createdRunWorkload.Spec.CPUMillicores).To(Equal(outputCTPURequestMillicores))
+				createdAppWorkload, ok := createObj.(*korifiv1alpha1.AppWorkload)
+				Expect(ok).To(BeTrue(), "client Create() object coerce to eirini.AppWorkload failed")
+				Expect(createdAppWorkload.Spec.CPUMillicores).To(Equal(outputCTPURequestMillicores))
 			},
 			Entry("Memory is 1024MiB", int64(1024), int64(100)),
 			Entry("Memory is 25MiB", int64(25), int64(5)),
