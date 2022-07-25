@@ -10,7 +10,7 @@ resources:
   controller: true
   domain: cloudfoundry.org
   group: korifi
-  kind: RunWorkload
+  kind: AppWorkload
   path: code.cloudfoundry.org/korifi/statefulset-runner/api/v1alpha1
   version: v1alpha1
 - group: ""

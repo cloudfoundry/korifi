@@ -11,18 +11,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestRunWorkloadsController(t *testing.T) {
+func TestAppWorkloadsController(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Suite")
 }
 
-func createRunWorkload(namespace, name string) *korifiv1alpha1.RunWorkload {
-	return &korifiv1alpha1.RunWorkload{
+func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
+	return &korifiv1alpha1.AppWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: korifiv1alpha1.RunWorkloadSpec{
+		Spec: korifiv1alpha1.AppWorkloadSpec{
 			AppGUID:          "premium_app_guid_1234",
 			GUID:             "guid_1234",
 			Version:          "version_1234",

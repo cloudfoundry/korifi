@@ -60,7 +60,7 @@ func NewCFProcessReconciler(client client.Client, scheme *runtime.Scheme, log lo
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses/finalizers,verbs=update
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runworkloads,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
 func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -90,13 +90,13 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if cfApp.Spec.DesiredState == korifiv1alpha1.StartedState {
-		err = r.createOrPatchRunWorkload(ctx, cfApp, cfProcess, cfAppRev)
+		err = r.createOrPatchAppWorkload(ctx, cfApp, cfProcess, cfAppRev)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	err = r.cleanUpRunWorkloads(ctx, cfProcess, cfApp.Spec.DesiredState, cfAppRev)
+	err = r.cleanUpAppWorkloads(ctx, cfProcess, cfApp.Spec.DesiredState, cfAppRev)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -104,7 +104,7 @@ func (r *CFProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return ctrl.Result{}, nil
 }
 
-func (r *CFProcessReconciler) createOrPatchRunWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfAppRev string) error {
+func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfAppRev string) error {
 	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.Client.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
 	if err != nil {
@@ -130,23 +130,23 @@ func (r *CFProcessReconciler) createOrPatchRunWorkload(ctx context.Context, cfAp
 		return err
 	}
 
-	actualRunWorkload := &korifiv1alpha1.RunWorkload{
+	actualAppWorkload := &korifiv1alpha1.AppWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfProcess.Namespace,
-			Name:      generateRunWorkloadName(cfAppRev, cfProcess.Name),
+			Name:      generateAppWorkloadName(cfAppRev, cfProcess.Name),
 		},
 	}
 
-	var desiredRunWorkload *korifiv1alpha1.RunWorkload
-	desiredRunWorkload, err = r.generateRunWorkload(actualRunWorkload, cfApp, cfProcess, cfBuild, appPort, envVars)
+	var desiredAppWorkload *korifiv1alpha1.AppWorkload
+	desiredAppWorkload, err = r.generateAppWorkload(actualAppWorkload, cfApp, cfProcess, cfBuild, appPort, envVars)
 	if err != nil { // untested
-		r.Log.Error(err, "Error when initializing RunWorkload")
+		r.Log.Error(err, "Error when initializing AppWorkload")
 		return err
 	}
 
-	_, err = controllerutil.CreateOrPatch(ctx, r.Client, actualRunWorkload, runWorkloadMutateFunction(actualRunWorkload, desiredRunWorkload))
+	_, err = controllerutil.CreateOrPatch(ctx, r.Client, actualAppWorkload, appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload))
 	if err != nil {
-		r.Log.Error(err, "Error calling CreateOrPatch on RunWorkload")
+		r.Log.Error(err, "Error calling CreateOrPatch on AppWorkload")
 		return err
 	}
 	return nil
@@ -168,18 +168,18 @@ func (r *CFProcessReconciler) setOwnerRef(ctx context.Context, cfProcess *korifi
 	return nil
 }
 
-func (r *CFProcessReconciler) cleanUpRunWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState, cfAppRev string) error {
-	runWorkloadsForProcess, err := r.fetchRunWorkloadsForProcess(ctx, cfProcess)
+func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState, cfAppRev string) error {
+	appWorkloadsForProcess, err := r.fetchAppWorkloadsForProcess(ctx, cfProcess)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch RunWorkloads for Process %s/%s", cfProcess.Namespace, cfProcess.Name))
+		r.Log.Error(err, fmt.Sprintf("Error when trying to fetch AppWorkloads for Process %s/%s", cfProcess.Namespace, cfProcess.Name))
 		return err
 	}
 
-	for i, currentRunWorkload := range runWorkloadsForProcess {
-		if desiredState == korifiv1alpha1.StoppedState || currentRunWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] != cfAppRev {
-			err := r.Client.Delete(ctx, &runWorkloadsForProcess[i])
+	for i, currentAppWorkload := range appWorkloadsForProcess {
+		if desiredState == korifiv1alpha1.StoppedState || currentAppWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] != cfAppRev {
+			err := r.Client.Delete(ctx, &appWorkloadsForProcess[i])
 			if err != nil {
-				r.Log.Info(fmt.Sprintf("Error occurred deleting RunWorkload: %s, %s", currentRunWorkload.Name, err))
+				r.Log.Info(fmt.Sprintf("Error occurred deleting AppWorkload: %s, %s", currentAppWorkload.Name, err))
 				return err
 			}
 		}
@@ -187,59 +187,59 @@ func (r *CFProcessReconciler) cleanUpRunWorkloads(ctx context.Context, cfProcess
 	return nil
 }
 
-func runWorkloadMutateFunction(actualrunWorkload, desiredrunWorkload *korifiv1alpha1.RunWorkload) controllerutil.MutateFn {
+func appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload *korifiv1alpha1.AppWorkload) controllerutil.MutateFn {
 	return func() error {
-		actualrunWorkload.ObjectMeta.Labels = desiredrunWorkload.ObjectMeta.Labels
-		actualrunWorkload.ObjectMeta.Annotations = desiredrunWorkload.ObjectMeta.Annotations
-		actualrunWorkload.ObjectMeta.OwnerReferences = desiredrunWorkload.ObjectMeta.OwnerReferences
-		actualrunWorkload.Spec = desiredrunWorkload.Spec
+		actualAppWorkload.ObjectMeta.Labels = desiredAppWorkload.ObjectMeta.Labels
+		actualAppWorkload.ObjectMeta.Annotations = desiredAppWorkload.ObjectMeta.Annotations
+		actualAppWorkload.ObjectMeta.OwnerReferences = desiredAppWorkload.ObjectMeta.OwnerReferences
+		actualAppWorkload.Spec = desiredAppWorkload.Spec
 		return nil
 	}
 }
 
-func (r *CFProcessReconciler) generateRunWorkload(actualRunWorkload *korifiv1alpha1.RunWorkload, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPort int, envVars []corev1.EnvVar) (*korifiv1alpha1.RunWorkload, error) {
-	var desiredRunWorkload korifiv1alpha1.RunWorkload
-	actualRunWorkload.DeepCopyInto(&desiredRunWorkload)
+func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alpha1.AppWorkload, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPort int, envVars []corev1.EnvVar) (*korifiv1alpha1.AppWorkload, error) {
+	var desiredAppWorkload korifiv1alpha1.AppWorkload
+	actualAppWorkload.DeepCopyInto(&desiredAppWorkload)
 
-	desiredRunWorkload.Labels = make(map[string]string)
-	desiredRunWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
+	desiredAppWorkload.Labels = make(map[string]string)
+	desiredAppWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
 	cfAppRevisionKeyValue := korifiv1alpha1.CFAppRevisionKeyDefault
 	if cfApp.Annotations != nil {
 		if foundValue, has := cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey]; has {
 			cfAppRevisionKeyValue = foundValue
 		}
 	}
-	desiredRunWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
-	desiredRunWorkload.Labels[korifiv1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
-	desiredRunWorkload.Labels[korifiv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
+	desiredAppWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
+	desiredAppWorkload.Labels[korifiv1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
+	desiredAppWorkload.Labels[korifiv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
 
-	desiredRunWorkload.Spec.GUID = cfProcess.Name
-	desiredRunWorkload.Spec.Version = cfAppRevisionKeyValue
-	desiredRunWorkload.Spec.DiskMiB = cfProcess.Spec.DiskQuotaMB
-	desiredRunWorkload.Spec.MemoryMiB = cfProcess.Spec.MemoryMB
-	desiredRunWorkload.Spec.ProcessType = cfProcess.Spec.ProcessType
-	desiredRunWorkload.Spec.Command = commandForProcess(cfProcess, cfApp)
-	desiredRunWorkload.Spec.AppGUID = cfApp.Name
-	desiredRunWorkload.Spec.Image = cfBuild.Status.Droplet.Registry.Image
-	desiredRunWorkload.Spec.ImagePullSecrets = cfBuild.Status.Droplet.Registry.ImagePullSecrets
-	desiredRunWorkload.Spec.Ports = cfProcess.Spec.Ports
-	desiredRunWorkload.Spec.Instances = int32(cfProcess.Spec.DesiredInstances)
+	desiredAppWorkload.Spec.GUID = cfProcess.Name
+	desiredAppWorkload.Spec.Version = cfAppRevisionKeyValue
+	desiredAppWorkload.Spec.DiskMiB = cfProcess.Spec.DiskQuotaMB
+	desiredAppWorkload.Spec.MemoryMiB = cfProcess.Spec.MemoryMB
+	desiredAppWorkload.Spec.ProcessType = cfProcess.Spec.ProcessType
+	desiredAppWorkload.Spec.Command = commandForProcess(cfProcess, cfApp)
+	desiredAppWorkload.Spec.AppGUID = cfApp.Name
+	desiredAppWorkload.Spec.Image = cfBuild.Status.Droplet.Registry.Image
+	desiredAppWorkload.Spec.ImagePullSecrets = cfBuild.Status.Droplet.Registry.ImagePullSecrets
+	desiredAppWorkload.Spec.Ports = cfProcess.Spec.Ports
+	desiredAppWorkload.Spec.Instances = int32(cfProcess.Spec.DesiredInstances)
 
-	desiredRunWorkload.Spec.Env = generateEnvVars(appPort, envVars)
-	desiredRunWorkload.Spec.Health = korifiv1alpha1.Healthcheck{
+	desiredAppWorkload.Spec.Env = generateEnvVars(appPort, envVars)
+	desiredAppWorkload.Spec.Health = korifiv1alpha1.Healthcheck{
 		Type:      string(cfProcess.Spec.HealthCheck.Type),
 		Port:      int32(appPort),
 		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
-	desiredRunWorkload.Spec.CPUMillicores = calculateDefaultCPURequestMillicores(cfProcess.Spec.MemoryMB)
+	desiredAppWorkload.Spec.CPUMillicores = calculateDefaultCPURequestMillicores(cfProcess.Spec.MemoryMB)
 
-	err := controllerutil.SetOwnerReference(cfProcess, &desiredRunWorkload, r.Scheme)
+	err := controllerutil.SetOwnerReference(cfProcess, &desiredAppWorkload, r.Scheme)
 	if err != nil {
 		return nil, err
 	}
 
-	return &desiredRunWorkload, err
+	return &desiredAppWorkload, err
 }
 
 func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
@@ -254,27 +254,27 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 	return cpuMillicores
 }
 
-func generateRunWorkloadName(cfAppRev string, processGUID string) string {
+func generateAppWorkloadName(cfAppRev string, processGUID string) string {
 	h := sha1.New()
 	h.Write([]byte(cfAppRev))
 	appRevHash := h.Sum(nil)
-	runWorkloadName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
-	return runWorkloadName
+	appWorkloadName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
+	return appWorkloadName
 }
 
-func (r *CFProcessReconciler) fetchRunWorkloadsForProcess(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) ([]korifiv1alpha1.RunWorkload, error) {
-	allRunWorkloads := &korifiv1alpha1.RunWorkloadList{}
-	err := r.Client.List(ctx, allRunWorkloads, client.InNamespace(cfProcess.Namespace))
+func (r *CFProcessReconciler) fetchAppWorkloadsForProcess(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) ([]korifiv1alpha1.AppWorkload, error) {
+	allAppWorkloads := &korifiv1alpha1.AppWorkloadList{}
+	err := r.Client.List(ctx, allAppWorkloads, client.InNamespace(cfProcess.Namespace))
 	if err != nil {
-		return []korifiv1alpha1.RunWorkload{}, err
+		return []korifiv1alpha1.AppWorkload{}, err
 	}
-	var runWorkloadsForProcess []korifiv1alpha1.RunWorkload
-	for _, currentRunWorkload := range allRunWorkloads.Items {
-		if processGUID, has := currentRunWorkload.Labels[korifiv1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
-			runWorkloadsForProcess = append(runWorkloadsForProcess, currentRunWorkload)
+	var appWorkloadsForProcess []korifiv1alpha1.AppWorkload
+	for _, currentAppWorkload := range allAppWorkloads.Items {
+		if processGUID, has := currentAppWorkload.Labels[korifiv1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
+			appWorkloadsForProcess = append(appWorkloadsForProcess, currentAppWorkload)
 		}
 	}
-	return runWorkloadsForProcess, err
+	return appWorkloadsForProcess, err
 }
 
 func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, cfApp *korifiv1alpha1.CFApp) (int, error) {

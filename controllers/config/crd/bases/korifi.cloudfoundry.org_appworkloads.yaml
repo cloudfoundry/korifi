@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
-  name: runworkloads.korifi.cloudfoundry.org
+  name: appworkloads.korifi.cloudfoundry.org
 spec:
   group: korifi.cloudfoundry.org
   names:
-    kind: RunWorkload
-    listKind: RunWorkloadList
-    plural: runworkloads
-    singular: runworkload
+    kind: AppWorkload
+    listKind: AppWorkloadList
+    plural: appworkloads
+    singular: appworkload
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: RunWorkload is the Schema for the runworkloads API
+        description: AppWorkload is the Schema for the appworkloads API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,7 +33,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: RunWorkloadSpec defines the desired state of RunWorkload
+            description: AppWorkloadSpec defines the desired state of AppWorkload
             properties:
               GUID:
                 type: string
@@ -220,7 +220,7 @@ spec:
             - version
             type: object
           status:
-            description: RunWorkloadStatus defines the observed state of RunWorkload
+            description: AppWorkloadStatus defines the observed state of AppWorkload
             properties:
               readyReplicas:
                 format: int32

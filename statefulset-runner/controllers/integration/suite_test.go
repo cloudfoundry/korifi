@@ -48,7 +48,7 @@ var (
 	testEnv   *envtest.Environment
 )
 
-func TestRunWorkloadsController(t *testing.T) {
+func TestAppWorkloadsController(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	SetDefaultEventuallyTimeout(10 * time.Second)
@@ -91,13 +91,13 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	runWorkloadReconciler := NewRunWorkloadReconciler(
+	appWorkloadReconciler := NewAppWorkloadReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		NewPDBUpdater(k8sManager.GetClient()),
-		ctrl.Log.WithName("statefulset-runner").WithName("RunWorkload"),
+		ctrl.Log.WithName("statefulset-runner").WithName("AppWorkload"),
 	)
-	err = (runWorkloadReconciler).SetupWithManager(k8sManager)
+	err = (appWorkloadReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

@@ -88,13 +88,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.NewRunWorkloadReconciler(
+	if err = controllers.NewAppWorkloadReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		controllers.NewPDBUpdater(mgr.GetClient()),
-		ctrl.Log.WithName("controllers").WithName("RunWorkloadReconciler"),
+		ctrl.Log.WithName("controllers").WithName("AppWorkloadReconciler"),
 	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RunWorkload")
+		setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
 		os.Exit(1)
 	}
 	if err = v1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {

@@ -61,7 +61,7 @@ const (
 	LabelGUID                   = "korifi.cloudfoundry.org/guid"
 	LabelVersion                = "korifi.cloudfoundry.org/version"
 	LabelAppGUID                = "korifi.cloudfoundry.org/app-guid"
-	LabelRunWorkloadGUID        = "korifi.cloudfoundry.org/run-workload-guid"
+	LabelAppWorkloadGUID        = "korifi.cloudfoundry.org/appworkload-guid"
 	LabelProcessType            = "korifi.cloudfoundry.org/process-type"
 	LabelStatefulSetRunnerIndex = "korifi.cloudfoundry.org/add-stsr-index"
 
@@ -79,16 +79,16 @@ type PDB interface {
 	Update(ctx context.Context, statefulSet *appsv1.StatefulSet) error
 }
 
-// RunWorkloadReconciler reconciles a RunWorkload object
-type RunWorkloadReconciler struct {
+// AppWorkloadReconciler reconciles a AppWorkload object
+type AppWorkloadReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	pdb    PDB
 	Log    logr.Logger
 }
 
-func NewRunWorkloadReconciler(c client.Client, scheme *runtime.Scheme, pdb PDB, log logr.Logger) *RunWorkloadReconciler {
-	return &RunWorkloadReconciler{
+func NewAppWorkloadReconciler(c client.Client, scheme *runtime.Scheme, pdb PDB, log logr.Logger) *AppWorkloadReconciler {
+	return &AppWorkloadReconciler{
 		Client: c,
 		Scheme: scheme,
 		pdb:    pdb,
@@ -96,24 +96,24 @@ func NewRunWorkloadReconciler(c client.Client, scheme *runtime.Scheme, pdb PDB, 
 	}
 }
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runworkloads,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runworkloads/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runworkloads/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;patch;get;list;watch
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;update;deletecollection
 
-func (r *RunWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var runWorkload korifiv1alpha1.RunWorkload
-	err := r.Client.Get(ctx, req.NamespacedName, &runWorkload)
+func (r *AppWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var appWorkload korifiv1alpha1.AppWorkload
+	err := r.Client.Get(ctx, req.NamespacedName, &appWorkload)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching RunWorkload", "RunWorkload.Name", req.Name, "RunWorkload.Namespace", req.Namespace)
+		r.Log.Error(err, "Error when fetching AppWorkload", "AppWorkload.Name", req.Name, "AppWorkload.Namespace", req.Namespace)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	statefulSet, err := r.Convert(runWorkload)
+	statefulSet, err := r.Convert(appWorkload)
 	// Not clear what errors this would produce, but we may use it later
 	if err != nil {
-		r.Log.Error(err, "Error when converting RunWorkload")
+		r.Log.Error(err, "Error when converting AppWorkload")
 		return ctrl.Result{}, err
 	}
 
@@ -152,10 +152,10 @@ func (r *RunWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	runWorkload.Status.ReadyReplicas = updatedStatefulSet.Status.ReadyReplicas
-	err = r.Client.Status().Update(ctx, &runWorkload)
+	appWorkload.Status.ReadyReplicas = updatedStatefulSet.Status.ReadyReplicas
+	err = r.Client.Status().Update(ctx, &appWorkload)
 	if err != nil {
-		r.Log.Error(err, "Error when updating RunWorkload status")
+		r.Log.Error(err, "Error when updating AppWorkload status")
 		return ctrl.Result{}, err
 	}
 
@@ -163,17 +163,17 @@ func (r *RunWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *RunWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *AppWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.RunWorkload{}).
+		For(&korifiv1alpha1.AppWorkload{}).
 		Watches(
 			&source.Kind{Type: new(appsv1.StatefulSet)},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				var requests []reconcile.Request
-				if runWorkloadName, ok := obj.GetLabels()[LabelRunWorkloadGUID]; ok {
+				if appWorkloadName, ok := obj.GetLabels()[LabelAppWorkloadGUID]; ok {
 					requests = append(requests, reconcile.Request{
 						NamespacedName: types.NamespacedName{
-							Name:      runWorkloadName,
+							Name:      appWorkloadName,
 							Namespace: obj.GetNamespace(),
 						},
 					})
@@ -207,20 +207,20 @@ func truncateString(str string, num int) string {
 	return str
 }
 
-func GetStatefulSetName(runWorkLoad korifiv1alpha1.RunWorkload) (string, error) {
-	nameSuffix, err := hash(fmt.Sprintf("%s-%s", runWorkLoad.Spec.GUID, runWorkLoad.Spec.Version))
+func GetStatefulSetName(appWorkload korifiv1alpha1.AppWorkload) (string, error) {
+	nameSuffix, err := hash(fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, appWorkload.Spec.Version))
 	if err != nil {
 		return "", fmt.Errorf("failed to generate hash for statefulset name: %w", err)
 	}
 
-	namePrefix := fmt.Sprintf("%s-%s", runWorkLoad.Spec.AppGUID, runWorkLoad.Namespace)
-	namePrefix = sanitizeName(namePrefix, runWorkLoad.Spec.GUID)
+	namePrefix := fmt.Sprintf("%s-%s", appWorkload.Spec.AppGUID, appWorkload.Namespace)
+	namePrefix = sanitizeName(namePrefix, appWorkload.Spec.GUID)
 
 	return fmt.Sprintf("%s-%s", namePrefix, nameSuffix), nil
 }
 
-func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) (*appsv1.StatefulSet, error) {
-	envs := runWorkload.Spec.Env
+func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) (*appsv1.StatefulSet, error) {
+	envs := appWorkload.Spec.Env
 	fieldEnvs := []corev1.EnvVar{
 		{
 			Name: EnvPodName,
@@ -260,12 +260,12 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 
 	ports := []corev1.ContainerPort{}
 
-	for _, port := range runWorkload.Spec.Ports {
+	for _, port := range appWorkload.Spec.Ports {
 		ports = append(ports, corev1.ContainerPort{ContainerPort: port})
 	}
 
-	livenessProbe := CreateLivenessProbe(runWorkload)
-	readinessProbe := CreateReadinessProbe(runWorkload)
+	livenessProbe := CreateLivenessProbe(appWorkload)
+	readinessProbe := CreateReadinessProbe(appWorkload)
 
 	allowPrivilegeEscalation := false
 	runAsNonRoot := true
@@ -273,9 +273,9 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 	containers := []corev1.Container{
 		{
 			Name:            ApplicationContainerName,
-			Image:           runWorkload.Spec.Image,
+			Image:           appWorkload.Spec.Image,
 			ImagePullPolicy: corev1.PullAlways,
-			Command:         runWorkload.Spec.Command,
+			Command:         appWorkload.Spec.Command,
 			Env:             envs,
 			Ports:           ports,
 			SecurityContext: &corev1.SecurityContext{
@@ -287,13 +287,13 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 					Type: corev1.SeccompProfileTypeRuntimeDefault,
 				},
 			},
-			Resources:      getContainerResources(runWorkload.Spec.CPUMillicores, runWorkload.Spec.MemoryMiB, runWorkload.Spec.DiskMiB),
+			Resources:      getContainerResources(appWorkload.Spec.CPUMillicores, appWorkload.Spec.MemoryMiB, appWorkload.Spec.DiskMiB),
 			LivenessProbe:  livenessProbe,
 			ReadinessProbe: readinessProbe,
 		},
 	}
 
-	statefulsetName, err := GetStatefulSetName(runWorkload)
+	statefulsetName, err := GetStatefulSetName(appWorkload)
 	if err != nil {
 		return nil, err
 	}
@@ -301,15 +301,15 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 	statefulSet := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulsetName,
-			Namespace: runWorkload.Namespace,
+			Namespace: appWorkload.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			PodManagementPolicy: "Parallel",
-			Replicas:            &runWorkload.Spec.Instances,
+			Replicas:            &appWorkload.Spec.Instances,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers:       containers,
-					ImagePullSecrets: runWorkload.Spec.ImagePullSecrets,
+					ImagePullSecrets: appWorkload.Spec.ImagePullSecrets,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: &runAsNonRoot,
 					},
@@ -320,7 +320,7 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 
 	automountServiceAccountToken := false
 	statefulSet.Spec.Template.Spec.AutomountServiceAccountToken = &automountServiceAccountToken
-	statefulSet.Spec.Selector = StatefulSetLabelSelector(&runWorkload)
+	statefulSet.Spec.Selector = StatefulSetLabelSelector(&appWorkload)
 
 	statefulSet.Spec.Template.Spec.Affinity = &corev1.Affinity{
 		PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -338,18 +338,18 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 		},
 	}
 
-	err = controllerutil.SetOwnerReference(&runWorkload, statefulSet, r.Scheme)
+	err = controllerutil.SetOwnerReference(&appWorkload, statefulSet, r.Scheme)
 	if err != nil {
 		r.Log.Error(err, "failed to set OwnerRef on StatefulSet")
 		return nil, err
 	}
 
 	labels := map[string]string{
-		LabelGUID:                   runWorkload.Spec.GUID,
-		LabelProcessType:            runWorkload.Spec.ProcessType,
-		LabelVersion:                runWorkload.Spec.Version,
-		LabelAppGUID:                runWorkload.Spec.AppGUID,
-		LabelRunWorkloadGUID:        runWorkload.Name,
+		LabelGUID:                   appWorkload.Spec.GUID,
+		LabelProcessType:            appWorkload.Spec.ProcessType,
+		LabelVersion:                appWorkload.Spec.Version,
+		LabelAppGUID:                appWorkload.Spec.AppGUID,
+		LabelAppWorkloadGUID:        appWorkload.Name,
 		LabelStatefulSetRunnerIndex: "true",
 	}
 
@@ -357,9 +357,9 @@ func (r *RunWorkloadReconciler) Convert(runWorkload korifiv1alpha1.RunWorkload) 
 	statefulSet.Labels = labels
 
 	annotations := map[string]string{
-		AnnotationAppID:       runWorkload.Spec.AppGUID,
-		AnnotationVersion:     runWorkload.Spec.Version,
-		AnnotationProcessGUID: fmt.Sprintf("%s-%s", runWorkload.Spec.GUID, runWorkload.Spec.Version),
+		AnnotationAppID:       appWorkload.Spec.AppGUID,
+		AnnotationVersion:     appWorkload.Spec.Version,
+		AnnotationProcessGUID: fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, appWorkload.Spec.Version),
 	}
 
 	statefulSet.Annotations = annotations
@@ -393,11 +393,11 @@ func MebibyteQuantity(miB int64) resource.Quantity {
 	return memory
 }
 
-func StatefulSetLabelSelector(runWorkload *korifiv1alpha1.RunWorkload) *metav1.LabelSelector {
+func StatefulSetLabelSelector(appWorkload *korifiv1alpha1.AppWorkload) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			LabelGUID:    runWorkload.Spec.GUID,
-			LabelVersion: runWorkload.Spec.Version,
+			LabelGUID:    appWorkload.Spec.GUID,
+			LabelVersion: appWorkload.Spec.Version,
 		},
 	}
 }
@@ -420,62 +420,62 @@ func getContainerResources(cpuMillicores, memoryMiB, diskMiB int64) corev1.Resou
 	return resourceRequirements
 }
 
-func CreateLivenessProbe(runWorkload korifiv1alpha1.RunWorkload) *corev1.Probe {
-	initialDelay := toSeconds(runWorkload.Spec.Health.TimeoutMs)
+func CreateLivenessProbe(appWorkload korifiv1alpha1.AppWorkload) *corev1.Probe {
+	initialDelay := toSeconds(appWorkload.Spec.Health.TimeoutMs)
 
-	if runWorkload.Spec.Health.Type == "http" {
-		return createHTTPProbe(runWorkload, initialDelay, LivenessFailureThreshold)
+	if appWorkload.Spec.Health.Type == "http" {
+		return createHTTPProbe(appWorkload, initialDelay, LivenessFailureThreshold)
 	}
 
-	if runWorkload.Spec.Health.Type == "port" {
-		return createPortProbe(runWorkload, initialDelay, LivenessFailureThreshold)
-	}
-
-	return nil
-}
-
-func CreateReadinessProbe(runWorkload korifiv1alpha1.RunWorkload) *corev1.Probe {
-	if runWorkload.Spec.Health.Type == "http" {
-		return createHTTPProbe(runWorkload, 0, ReadinessFailureThreshold)
-	}
-
-	if runWorkload.Spec.Health.Type == "port" {
-		return createPortProbe(runWorkload, 0, ReadinessFailureThreshold)
+	if appWorkload.Spec.Health.Type == "port" {
+		return createPortProbe(appWorkload, initialDelay, LivenessFailureThreshold)
 	}
 
 	return nil
 }
 
-func createPortProbe(runWorkload korifiv1alpha1.RunWorkload, initialDelay, failureThreshold int32) *corev1.Probe {
+func CreateReadinessProbe(appWorkload korifiv1alpha1.AppWorkload) *corev1.Probe {
+	if appWorkload.Spec.Health.Type == "http" {
+		return createHTTPProbe(appWorkload, 0, ReadinessFailureThreshold)
+	}
+
+	if appWorkload.Spec.Health.Type == "port" {
+		return createPortProbe(appWorkload, 0, ReadinessFailureThreshold)
+	}
+
+	return nil
+}
+
+func createPortProbe(appWorkload korifiv1alpha1.AppWorkload, initialDelay, failureThreshold int32) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
-			TCPSocket: tcpSocketAction(runWorkload),
+			TCPSocket: tcpSocketAction(appWorkload),
 		},
 		InitialDelaySeconds: initialDelay,
 		FailureThreshold:    failureThreshold,
 	}
 }
 
-func createHTTPProbe(runWorkload korifiv1alpha1.RunWorkload, initialDelay, failureThreshold int32) *corev1.Probe {
+func createHTTPProbe(appWorkload korifiv1alpha1.AppWorkload, initialDelay, failureThreshold int32) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: httpGetAction(runWorkload),
+			HTTPGet: httpGetAction(appWorkload),
 		},
 		InitialDelaySeconds: initialDelay,
 		FailureThreshold:    failureThreshold,
 	}
 }
 
-func httpGetAction(runWorkload korifiv1alpha1.RunWorkload) *corev1.HTTPGetAction {
+func httpGetAction(appWorkload korifiv1alpha1.AppWorkload) *corev1.HTTPGetAction {
 	return &corev1.HTTPGetAction{
-		Path: runWorkload.Spec.Health.Endpoint,
-		Port: intstr.IntOrString{Type: intstr.Int, IntVal: runWorkload.Spec.Health.Port},
+		Path: appWorkload.Spec.Health.Endpoint,
+		Port: intstr.IntOrString{Type: intstr.Int, IntVal: appWorkload.Spec.Health.Port},
 	}
 }
 
-func tcpSocketAction(runWorkload korifiv1alpha1.RunWorkload) *corev1.TCPSocketAction {
+func tcpSocketAction(appWorkload korifiv1alpha1.AppWorkload) *corev1.TCPSocketAction {
 	return &corev1.TCPSocketAction{
-		Port: intstr.IntOrString{Type: intstr.Int, IntVal: runWorkload.Spec.Health.Port},
+		Port: intstr.IntOrString{Type: intstr.Int, IntVal: appWorkload.Spec.Health.Port},
 	}
 }
 

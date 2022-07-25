@@ -120,6 +120,24 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - appworkloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - appworkloads/status
+  verbs:
+  - patch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - buildreconcilerinfos
   verbs:
   - create
@@ -447,24 +465,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - runworkloads
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - runworkloads/status
-  verbs:
-  - patch
 - apiGroups:
   - kpack.io
   resources:
