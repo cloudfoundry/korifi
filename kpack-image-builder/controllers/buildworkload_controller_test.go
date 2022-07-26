@@ -3,6 +3,7 @@ package controllers_test
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -25,16 +26,18 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		succeededConditionType              = "Succeeded"
 		kpackReadyConditionType             = "Ready"
 		wellFormedRegistryCredentialsSecret = "image-registry-credentials"
+		kpackReconcilerName                 = "kpack-image-builder"
 	)
 
 	var (
-		namespaceGUID string
-		cfBuildGUID   string
-		namespace     *corev1.Namespace
-		buildWorkload *korifiv1alpha1.BuildWorkload
-		source        korifiv1alpha1.PackageSource
-		env           []corev1.EnvVar
-		services      []corev1.ObjectReference
+		namespaceGUID  string
+		cfBuildGUID    string
+		namespace      *corev1.Namespace
+		buildWorkload  *korifiv1alpha1.BuildWorkload
+		source         korifiv1alpha1.PackageSource
+		env            []corev1.EnvVar
+		services       []corev1.ObjectReference
+		reconcilerName string
 	)
 
 	eventuallyKpackImageShould := func(assertion func(*buildv1alpha2.Image, Gomega)) {
@@ -86,6 +89,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				ImagePullSecrets: []corev1.LocalObjectReference{{Name: wellFormedRegistryCredentialsSecret}},
 			},
 		}
+
+		reconcilerName = kpackReconcilerName
 	})
 
 	AfterEach(func() {
@@ -94,7 +99,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 	When("BuildWorkload is first created", func() {
 		JustBeforeEach(func() {
-			buildWorkload = BuildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services)
+			buildWorkload = BuildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName)
 			Expect(k8sClient.Create(context.Background(), buildWorkload)).To(Succeed())
 		})
 
@@ -174,13 +179,27 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				}).Should(BeTrue())
 			})
 		})
+
+		When("The build workload reconciler name is not kpack-image-builder", func() {
+			BeforeEach(func() {
+				reconcilerName = "notkpackreconciler"
+			})
+
+			It("does not create a kpack image resource", func() {
+				Consistently(func(g Gomega) {
+					kpackImage := new(buildv1alpha2.Image)
+					err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, kpackImage)
+					g.Expect(err).To(MatchError(fmt.Sprintf("images.kpack.io %q not found", cfBuildGUID)))
+				}).Should(Succeed())
+			})
+		})
 	})
 
 	When("the kpack Image was already created", func() {
 		var createdKpackImage *buildv1alpha2.Image
 
 		BeforeEach(func() {
-			buildWorkload = BuildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services)
+			buildWorkload = BuildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName)
 			Expect(k8sClient.Create(context.Background(), buildWorkload)).To(Succeed())
 
 			kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
@@ -308,7 +327,7 @@ func PrefixedGUID(prefix string) string {
 	return prefix + "-" + uuid.NewString()[:8]
 }
 
-func BuildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference) *korifiv1alpha1.BuildWorkload {
+func BuildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference, reconcilerName string) *korifiv1alpha1.BuildWorkload {
 	return &korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuildGUID,
@@ -318,9 +337,10 @@ func BuildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1al
 			BuildRef: corev1.LocalObjectReference{
 				Name: cfBuildGUID,
 			},
-			Source:   source,
-			Env:      env,
-			Services: services,
+			Source:         source,
+			Env:            env,
+			Services:       services,
+			ReconcilerName: reconcilerName,
 		},
 	}
 }

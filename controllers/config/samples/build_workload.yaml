@@ -12,3 +12,4 @@ spec:
       image: gcr.io/cf-relint-greengrass/cf-crd-staging-spike/packages/665a78f8-ed97-47e6-85b2-60cbcc21d5e2
       imagePullSecrets:
         - name: image-registry-credentials
+  reconcilerName: kpack-image-builder

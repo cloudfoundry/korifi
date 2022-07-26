@@ -160,6 +160,7 @@ func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Conte
 					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
 				},
 			},
+			ReconcilerName: r.ControllerConfig.BuildReconciler,
 		},
 	}
 

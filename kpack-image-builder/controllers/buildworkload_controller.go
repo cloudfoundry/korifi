@@ -58,6 +58,7 @@ const (
 	clusterBuilderAPIVersion = "kpack.io/v1alpha2"
 	kpackServiceAccount      = "kpack-service-account"
 	BuildWorkloadLabelKey    = "korifi.cloudfoundry.org/build-workload-name"
+	kpackReconcilerName      = "kpack-image-builder"
 )
 
 //counterfeiter:generate -o fake -fake-name RegistryAuthFetcher . RegistryAuthFetcher
@@ -202,6 +203,10 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 }
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
+	if buildWorkload.Spec.ReconcilerName != kpackReconcilerName {
+		// Stop reconciling since the buildWorkload.Spec.ReconcilerName does not match this builder
+		return nil
+	}
 	serviceAccountName := kpackServiceAccount
 	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, buildWorkload.Name)
 	kpackImageName := buildWorkload.Name

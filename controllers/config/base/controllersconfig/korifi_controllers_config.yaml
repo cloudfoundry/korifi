@@ -1,3 +1,4 @@
+buildReconciler: kpack-image-builder
 cfProcessDefaults:
   memoryMB: 1024
   diskQuotaMB: 1024

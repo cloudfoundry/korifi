@@ -35,6 +35,8 @@ type BuildWorkloadSpec struct {
 	Env []v1.EnvVar `json:"env,omitempty"`
 
 	Services []v1.ObjectReference `json:"services,omitempty"`
+
+	ReconcilerName string `json:"reconcilerName"`
 }
 
 // BuildWorkloadStatus defines the observed state of BuildWorkload
