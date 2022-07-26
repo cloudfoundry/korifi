@@ -199,7 +199,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 					})
 					It("it creates a servicebinding.io ServiceBinding with the type/provider filled in", func() {
 						Expect(fakeClient.CreateCallCount()).To(Equal(1), "Client.Create call count mismatch")
-						Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Patch call count mismatch")
+						Expect(fakeClient.PatchCallCount()).To(Equal(3), "Client.Patch call count mismatch")
 						_, returnedObj, _ := fakeClient.CreateArgsForCall(0)
 						serviceBinding := returnedObj.(*servicebindingv1beta1.ServiceBinding)
 						Expect(serviceBinding.Spec.Name).To(Equal(cfServiceInstanceSecret.Name))
@@ -210,7 +210,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				When("the secret does not have a provider and type", func() {
 					It("it creates a servicebinding.io ServiceBinding with a default type and no provider", func() {
 						Expect(fakeClient.CreateCallCount()).To(Equal(1), "Client.Create call count mismatch")
-						Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Patch call count mismatch")
+						Expect(fakeClient.PatchCallCount()).To(Equal(3), "Client.Patch call count mismatch")
 						_, returnedObj, _ := fakeClient.CreateArgsForCall(0)
 						serviceBinding := returnedObj.(*servicebindingv1beta1.ServiceBinding)
 						Expect(serviceBinding.Spec.Name).To(Equal(cfServiceInstanceSecret.Name))
@@ -246,7 +246,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				})
 				It("patches the existing servicebinding.io ServiceBinding", func() {
 					Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
-					Expect(fakeClient.PatchCallCount()).To(Equal(3), "Client.Patch call count mismatch")
+					Expect(fakeClient.PatchCallCount()).To(Equal(4), "Client.Patch call count mismatch")
 				})
 				It("patches the existing VCAP Services Secret", func() {
 					Expect(fakeBuilder.BuildVCAPServicesEnvValueCallCount()).To(Equal(1))

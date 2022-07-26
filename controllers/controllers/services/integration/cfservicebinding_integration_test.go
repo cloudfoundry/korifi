@@ -23,9 +23,15 @@ import (
 )
 
 var _ = Describe("CFServiceBinding", func() {
-	var namespace *corev1.Namespace
-	var cfAppGUID string
-	var desiredCFApp *korifiv1alpha1.CFApp
+	var (
+		namespace                             *corev1.Namespace
+		cfAppGUID                             string
+		desiredCFApp                          *korifiv1alpha1.CFApp
+		cfServiceInstance, cfServiceInstance2 *korifiv1alpha1.CFServiceInstance
+		secret, secret2                       *corev1.Secret
+		secretType, secretType2               string
+		secretProvider, secretProvider2       string
+	)
 
 	BeforeEach(func() {
 		namespace = BuildNamespaceObject(GenerateGUID())
@@ -68,6 +74,70 @@ var _ = Describe("CFServiceBinding", func() {
 		Expect(
 			k8sClient.Status().Patch(context.Background(), desiredCFApp, client.MergeFrom(originalApp)),
 		).To(Succeed())
+
+		secretType = "mongodb"
+		secretProvider = "cloud-aws"
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "service-instance-secret",
+				Namespace: namespace.Name,
+			},
+			StringData: map[string]string{
+				"type":     secretType,
+				"provider": secretProvider,
+			},
+		}
+		Expect(
+			k8sClient.Create(context.Background(), secret),
+		).To(Succeed())
+
+		cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "service-instance-guid",
+				Namespace: namespace.Name,
+			},
+			Spec: korifiv1alpha1.CFServiceInstanceSpec{
+				DisplayName: "mongodb-service-instance-name",
+				SecretName:  secret.Name,
+				Type:        "user-provided",
+				Tags:        []string{},
+			},
+		}
+		Expect(
+			k8sClient.Create(context.Background(), cfServiceInstance),
+		).To(Succeed())
+
+		secretType2 = "dynamodb"
+		secretProvider2 = "cloud-aws"
+		secret2 = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "service-instance-secret-2",
+				Namespace: namespace.Name,
+			},
+			StringData: map[string]string{
+				"type":     secretType2,
+				"provider": secretProvider2,
+			},
+		}
+		Expect(
+			k8sClient.Create(context.Background(), secret2),
+		).To(Succeed())
+
+		cfServiceInstance2 = &korifiv1alpha1.CFServiceInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "service-instance-guid-2",
+				Namespace: namespace.Name,
+			},
+			Spec: korifiv1alpha1.CFServiceInstanceSpec{
+				DisplayName: "dyanamodb-service-instance-name",
+				SecretName:  secret2.Name,
+				Type:        "user-provided",
+				Tags:        []string{},
+			},
+		}
+		Expect(
+			k8sClient.Create(context.Background(), cfServiceInstance2),
+		).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -76,52 +146,10 @@ var _ = Describe("CFServiceBinding", func() {
 
 	When("a new CFServiceBinding is Created", func() {
 		var (
-			secretData           map[string]string
-			secret               *corev1.Secret
-			cfServiceInstance    *korifiv1alpha1.CFServiceInstance
 			cfServiceBinding     *korifiv1alpha1.CFServiceBinding
 			cfServiceBindingGUID string
-			secretName           string
-			secretType           string
-			secretProvider       string
 		)
 		BeforeEach(func() {
-			ctx := context.Background()
-
-			secretName = "secret-name"
-			secretType = "mongodb"
-			secretProvider = "cloud-aws"
-			secretData = map[string]string{
-				"type":     secretType,
-				"provider": secretProvider,
-			}
-			secret = &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secretName,
-					Namespace: namespace.Name,
-				},
-				StringData: secretData,
-			}
-			Expect(
-				k8sClient.Create(ctx, secret),
-			).To(Succeed())
-
-			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service-instance-guid",
-					Namespace: namespace.Name,
-				},
-				Spec: korifiv1alpha1.CFServiceInstanceSpec{
-					DisplayName: "service-instance-name",
-					SecretName:  secret.Name,
-					Type:        "user-provided",
-					Tags:        []string{},
-				},
-			}
-			Expect(
-				k8sClient.Create(ctx, cfServiceInstance),
-			).To(Succeed())
-
 			cfServiceBindingGUID = GenerateGUID()
 			cfServiceBinding = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
@@ -210,34 +238,6 @@ var _ = Describe("CFServiceBinding", func() {
 			}))
 		})
 
-		It("eventually updates the vcap services secret of the referenced cf app", func() {
-			ctx := context.Background()
-			vcapServicesSecretLookupKey := types.NamespacedName{Name: desiredCFApp.Status.VCAPServicesSecretName, Namespace: namespace.Name}
-			updatedSecret := new(corev1.Secret)
-			Eventually(func(g Gomega) []byte {
-				g.Expect(
-					k8sClient.Get(ctx, vcapServicesSecretLookupKey, updatedSecret),
-				).To(Succeed())
-				return updatedSecret.Data["VCAP_SERVICES"]
-			}).WithTimeout(time.Second * 5).Should(MatchJSON(fmt.Sprintf(`{
-																					   "user-provided": [{
-																					   "label":            "user-provided",
-																					   "name":             "service-instance-name",
-																					   "tags":             [],
-																					   "instance_guid":    "service-instance-guid",
-																					   "instance_name":    "service-instance-name",
-																					   "binding_guid":     "%[1]s",
-																					   "binding_name":     null,
-																					   "credentials":      {
-																					   "provider": "cloud-aws",
-																					   "type": "mongodb"
-																					   },
-																					   "syslog_drain_url": null,
-																					   "volume_mounts": []}
-																					   ]}`, cfServiceBindingGUID,
-			)))
-		})
-
 		It("eventually reconciles to set the owner reference on the CFServiceBinding", func() {
 			Eventually(func() []metav1.OwnerReference {
 				var createdCFServiceBinding korifiv1alpha1.CFServiceBinding
@@ -254,53 +254,24 @@ var _ = Describe("CFServiceBinding", func() {
 			}))
 		})
 
+		It("sets the `cfServiceBinding.korifi.cloudfoundry.org` finalizer", func() {
+			Eventually(func(g Gomega) []string {
+				updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
+				g.Expect(
+					k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
+				).To(Succeed())
+				return updatedCFServiceBinding.ObjectMeta.Finalizers
+			}).Should(ConsistOf([]string{
+				"cfServiceBinding.korifi.cloudfoundry.org",
+			}))
+		})
+
 		When("multiple CFServiceBindings exist for the same CFApp", func() {
 			var (
-				secretData2           map[string]string
-				secret2               *corev1.Secret
-				cfServiceInstance2    *korifiv1alpha1.CFServiceInstance
 				cfServiceBinding2     *korifiv1alpha1.CFServiceBinding
 				cfServiceBindingGUID2 string
-				secretName2           string
-				secretType2           string
-				secretProvider2       string
 			)
 			BeforeEach(func() {
-				ctx := context.Background()
-				secretName2 = "secret-name-2"
-				secretType2 = "dynamodb"
-				secretProvider2 = "cloud-aws"
-				secretData2 = map[string]string{
-					"type":     secretType2,
-					"provider": secretProvider2,
-				}
-				secret2 = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      secretName2,
-						Namespace: namespace.Name,
-					},
-					StringData: secretData2,
-				}
-				Expect(
-					k8sClient.Create(ctx, secret2),
-				).To(Succeed())
-
-				cfServiceInstance2 = &korifiv1alpha1.CFServiceInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "service-instance-guid-2",
-						Namespace: namespace.Name,
-					},
-					Spec: korifiv1alpha1.CFServiceInstanceSpec{
-						DisplayName: "service-instance-name-2",
-						SecretName:  secret2.Name,
-						Type:        "user-provided",
-						Tags:        []string{},
-					},
-				}
-				Expect(
-					k8sClient.Create(ctx, cfServiceInstance2),
-				).To(Succeed())
-
 				cfServiceBindingGUID2 = GenerateGUID()
 				cfServiceBinding2 = &korifiv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
@@ -324,33 +295,32 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 
 			It("eventually updates the vcap services secret of the referenced cf app", func() {
-				ctx := context.Background()
 				vcapServicesSecretLookupKey := types.NamespacedName{Name: desiredCFApp.Status.VCAPServicesSecretName, Namespace: namespace.Name}
 				updatedSecret := new(corev1.Secret)
 				Eventually(func(g Gomega) []env.ServiceDetails {
 					g.Expect(
-						k8sClient.Get(ctx, vcapServicesSecretLookupKey, updatedSecret),
+						k8sClient.Get(context.Background(), vcapServicesSecretLookupKey, updatedSecret),
 					).To(Succeed())
 					return getUserProvidedServiceDetails(updatedSecret.Data["VCAP_SERVICES"])
 				}).WithTimeout(time.Second * 5).Should(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
-						"Name":         Equal("service-instance-name"),
-						"InstanceGUID": Equal("service-instance-guid"),
-						"InstanceName": Equal("service-instance-name"),
+						"Name":         Equal(cfServiceInstance.Spec.DisplayName),
+						"InstanceGUID": Equal(cfServiceInstance.Name),
+						"InstanceName": Equal(cfServiceInstance.Spec.DisplayName),
 						"BindingGUID":  Equal(cfServiceBindingGUID),
 						"Credentials": SatisfyAll(
-							HaveKeyWithValue("provider", "cloud-aws"),
-							HaveKeyWithValue("type", "mongodb"),
+							HaveKeyWithValue("provider", secretProvider),
+							HaveKeyWithValue("type", secretType),
 						),
 					}),
 					MatchFields(IgnoreExtras, Fields{
-						"Name":         Equal("service-instance-name-2"),
-						"InstanceGUID": Equal("service-instance-guid-2"),
-						"InstanceName": Equal("service-instance-name-2"),
+						"Name":         Equal(cfServiceInstance2.Spec.DisplayName),
+						"InstanceGUID": Equal(cfServiceInstance2.Name),
+						"InstanceName": Equal(cfServiceInstance2.Spec.DisplayName),
 						"BindingGUID":  Equal(cfServiceBindingGUID2),
 						"Credentials": SatisfyAll(
-							HaveKeyWithValue("provider", "cloud-aws"),
-							HaveKeyWithValue("type", "dynamodb"),
+							HaveKeyWithValue("provider", secretProvider2),
+							HaveKeyWithValue("type", secretType2),
 						),
 					}),
 				))
@@ -433,6 +403,94 @@ var _ = Describe("CFServiceBinding", func() {
 					}))
 				})
 			})
+		})
+	})
+
+	When("a CFServiceBinding is deleted", func() {
+		var (
+			cfServiceBinding      *korifiv1alpha1.CFServiceBinding
+			cfServiceBindingGUID  string
+			cfServiceBinding2     *korifiv1alpha1.CFServiceBinding
+			cfServiceBindingGUID2 string
+		)
+		BeforeEach(func() {
+			cfServiceBindingGUID = GenerateGUID()
+			cfServiceBinding = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cfServiceBindingGUID,
+					Namespace: namespace.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "ServiceInstance",
+						Name:       cfServiceInstance.Name,
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfAppGUID,
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cfServiceBinding)).To(Succeed())
+
+			cfServiceBindingGUID2 = GenerateGUID()
+			cfServiceBinding2 = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cfServiceBindingGUID2,
+					Namespace: namespace.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "ServiceInstance",
+						Name:       cfServiceInstance2.Name,
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfAppGUID,
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cfServiceBinding2)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sClient.Delete(context.Background(), cfServiceBinding)).To(Succeed())
+		})
+
+		It("removes the instance secret from the vcap services secret", func() {
+			vcapServicesSecretLookupKey := types.NamespacedName{Name: desiredCFApp.Status.VCAPServicesSecretName, Namespace: namespace.Name}
+			updatedSecret := new(corev1.Secret)
+			Eventually(func(g Gomega) []env.ServiceDetails {
+				g.Expect(
+					k8sClient.Get(context.Background(), vcapServicesSecretLookupKey, updatedSecret),
+				).To(Succeed())
+				return getUserProvidedServiceDetails(updatedSecret.Data["VCAP_SERVICES"])
+			}).Should(SatisfyAll(
+				Not(ContainElement(
+					MatchFields(IgnoreExtras, Fields{
+						"Name":         Equal(cfServiceInstance.Spec.DisplayName),
+						"InstanceGUID": Equal(cfServiceInstance.Name),
+						"InstanceName": Equal(cfServiceInstance.Spec.DisplayName),
+						"BindingGUID":  Equal(cfServiceBindingGUID),
+						"Credentials": SatisfyAll(
+							HaveKeyWithValue("provider", secretProvider),
+							HaveKeyWithValue("type", secretType),
+						),
+					}),
+				)),
+				ContainElement(
+					MatchFields(IgnoreExtras, Fields{
+						"Name":         Equal(cfServiceInstance2.Spec.DisplayName),
+						"InstanceGUID": Equal(cfServiceInstance2.Name),
+						"InstanceName": Equal(cfServiceInstance2.Spec.DisplayName),
+						"BindingGUID":  Equal(cfServiceBindingGUID2),
+						"Credentials": SatisfyAll(
+							HaveKeyWithValue("provider", secretProvider2),
+							HaveKeyWithValue("type", secretType2),
+						),
+					}),
+				),
+			))
 		})
 	})
 })

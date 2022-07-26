@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	FinalizerName = "cfServiceInstance.korifi.cloudfoundry.org"
+	CFServiceInstanceFinalizerName = "cfServiceInstance.korifi.cloudfoundry.org"
 )
 
 // CFServiceInstanceReconciler reconciles a CFServiceInstance object
@@ -126,12 +126,12 @@ func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) error {
-	if controllerutil.ContainsFinalizer(cfServiceInstance, FinalizerName) {
+	if controllerutil.ContainsFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName) {
 		return nil
 	}
 
 	originalCFInstance := cfServiceInstance.DeepCopy()
-	controllerutil.AddFinalizer(cfServiceInstance, FinalizerName)
+	controllerutil.AddFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName)
 
 	err := r.Client.Patch(ctx, cfServiceInstance, client.MergeFrom(originalCFInstance))
 	if err != nil {
@@ -146,7 +146,7 @@ func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServic
 func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling deletion of CFServiceInstance/%s", cfServiceInstance.Name))
 
-	if !controllerutil.ContainsFinalizer(cfServiceInstance, FinalizerName) {
+	if !controllerutil.ContainsFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -167,7 +167,7 @@ func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Cont
 		}
 	}
 
-	controllerutil.RemoveFinalizer(cfServiceInstance, FinalizerName)
+	controllerutil.RemoveFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName)
 	if err := r.Client.Update(ctx, cfServiceInstance); err != nil {
 		r.Log.Error(err, "Failed to remove finalizer")
 		return ctrl.Result{}, err
