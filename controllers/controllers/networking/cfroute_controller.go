@@ -298,7 +298,8 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute
 					Conditions: []contourv1.MatchCondition{
 						{Prefix: cfRoute.Spec.Path},
 					},
-					Services: services,
+					Services:         services,
+					EnableWebsockets: true,
 				},
 			}
 		}

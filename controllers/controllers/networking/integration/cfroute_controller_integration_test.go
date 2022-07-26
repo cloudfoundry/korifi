@@ -278,6 +278,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Port: cfRoute.Spec.Destinations[0].Port,
 					},
 				},
+				EnableWebsockets: true,
 			}), "HTTPProxy route does not match destination")
 		})
 
@@ -473,6 +474,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Port: duplicateRoute.Spec.Destinations[0].Port,
 					},
 				},
+				EnableWebsockets: true,
 			}), "HTTPProxy route does not match destination")
 		})
 	})
@@ -561,6 +563,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 							Port: cfRoute.Spec.Destinations[1].Port,
 						},
 					},
+					EnableWebsockets: true,
 				},
 			}), "HTTPProxy routes mismatch")
 		})
