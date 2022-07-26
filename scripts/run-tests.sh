@@ -38,19 +38,12 @@ if ! grep -q e2e <(echo "$@"); then
   extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
 else
   export ROOT_NAMESPACE="${ROOT_NAMESPACE:-cf}"
-
-  if [[ -z "${APP_FQDN}" ]]; then
-    export APP_FQDN=vcap.me
-  fi
-
+  export APP_FQDN="${APP_FQDN:-vcap.me}"
   export KUBECONFIG="${KUBECONFIG:-${HOME}/kube/e2e.yml}"
+  export API_SERVER_ROOT="${API_SERVER_ROOT:-https://localhost}"
 
-  if [ -z "${SKIP_DEPLOY}" ]; then
+  if [ -z "${SKIP_DEPLOY:-}" ]; then
     "${SCRIPT_DIR}/deploy-on-kind.sh" -l -d e2e
-  fi
-
-  if [[ -z "${API_SERVER_ROOT}" ]]; then
-    export API_SERVER_ROOT=https://localhost
   fi
 
   # creates user keys/certs and service accounts and exports vars for them
