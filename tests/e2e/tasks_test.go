@@ -99,7 +99,7 @@ var _ = Describe("Tasks", func() {
 			createSpaceRole("space_developer", certUserName, spaceGUID)
 			resp, err = certClient.R().
 				SetBody(taskResource{
-					Command: "echo hello",
+					Command: "/bin/sh -c 'echo hello world'",
 				}).
 				SetPathParam("appGUID", appGUID).
 				SetResult(&createdTask).

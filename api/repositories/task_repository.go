@@ -3,8 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -23,11 +21,12 @@ import (
 const (
 	TaskResourceType string = "Task"
 
-	TaskStatePending   = "PENDING"
-	TaskStateRunning   = "RUNNING"
-	TaskStateSucceeded = "SUCCEEDED"
-	TaskStateFailed    = "FAILED"
-	TaskStateCanceling = "CANCELING"
+	TaskStatePending      = "PENDING"
+	TaskStateRunning      = "RUNNING"
+	TaskStateSucceeded    = "SUCCEEDED"
+	TaskStateFailed       = "FAILED"
+	TaskStateCanceling    = "CANCELING"
+	LifecycleLauncherPath = "/cnb/lifecycle/launcher"
 )
 
 type TaskRecord struct {
@@ -64,7 +63,7 @@ func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
 			Namespace: m.SpaceGUID,
 		},
 		Spec: korifiv1alpha1.CFTaskSpec{
-			Command: splitCommand(m.Command),
+			Command: []string{LifecycleLauncherPath, m.Command},
 			AppRef: v1.LocalObjectReference{
 				Name: m.AppGUID,
 			},
@@ -253,17 +252,11 @@ func filterBySequenceIDs(tasks []korifiv1alpha1.CFTask, sequenceIDs []int64) []k
 	return res
 }
 
-func splitCommand(command string) []string {
-	whitespace := regexp.MustCompile(`\s+`)
-	trimmedCommand := strings.TrimSpace(whitespace.ReplaceAllString(command, " "))
-	return strings.Split(trimmedCommand, " ")
-}
-
 func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 	taskRecord := TaskRecord{
 		Name:              task.Name,
 		GUID:              task.Name,
-		Command:           strings.Join(task.Spec.Command, " "),
+		Command:           task.Spec.Command[len(task.Spec.Command)-1],
 		AppGUID:           task.Spec.AppRef.Name,
 		SequenceID:        task.Status.SequenceID,
 		CreationTimestamp: task.CreationTimestamp.Time,
