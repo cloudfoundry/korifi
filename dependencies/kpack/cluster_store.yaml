@@ -6,6 +6,6 @@ spec:
   sources:
   - image: gcr.io/paketo-buildpacks/java
   - image: gcr.io/paketo-buildpacks/nodejs
-  - image: gcr.io/paketo-buildpacks/ruby:0.11
+  - image: gcr.io/paketo-buildpacks/ruby
   - image: gcr.io/paketo-buildpacks/procfile
   - image: gcr.io/paketo-buildpacks/go
