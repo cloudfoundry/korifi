@@ -3,7 +3,6 @@ package imageprocessfetcher
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
@@ -66,8 +65,11 @@ func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option, 
 
 // Reconstruct command with arguments into a single command string
 func extractFullCommand(process launch.Process) string {
-	commandWithArgs := append([]string{process.Command}, process.Args...)
-	return strings.Join(commandWithArgs, " ")
+	cmdString := process.Command
+	for _, a := range process.Args {
+		cmdString = fmt.Sprintf(`%s %q`, cmdString, a)
+	}
+	return cmdString
 }
 
 func extractExposedPorts(imageConfig *v1.Config) ([]int32, error) {
