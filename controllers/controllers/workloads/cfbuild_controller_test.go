@@ -110,7 +110,9 @@ var _ = Describe("CFBuildReconciler", func() {
 			fakeClient,
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			&config.ControllerConfig{},
+			&config.ControllerConfig{
+				BuildReconciler: "myCustomBuildReconciler",
+			},
 			fakeEnvBuilder,
 		)
 		req = ctrl.Request{
@@ -169,6 +171,14 @@ var _ = Describe("CFBuildReconciler", func() {
 				Expect(actualApp).To(Equal(cfApp))
 
 				Expect(actualWorkload.Spec.Env).To(Equal(buildEnv))
+			})
+
+			It("sets the build reconciler from the controller config", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(1), "fakeClient Create was not called 1 time")
+				_, obj, _ := fakeClient.CreateArgsForCall(0)
+				actualWorkload, ok := obj.(*korifiv1alpha1.BuildWorkload)
+				Expect(ok).To(BeTrue(), "create wasn't passed a buildWorkload")
+				Expect(actualWorkload.Spec.ReconcilerName).To(Equal("myCustomBuildReconciler"))
 			})
 		})
 
