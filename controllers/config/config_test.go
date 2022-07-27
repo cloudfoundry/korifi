@@ -82,17 +82,6 @@ var _ = Describe("LoadFromPath", func() {
 			Expect(retErr).To(MatchError(fmt.Sprintf("error reading config dir %q: open %s: no such file or directory", configPath, configPath)))
 		})
 	})
-
-	When("a file cannot be read", func() {
-		BeforeEach(func() {
-			err := os.WriteFile(filepath.Join(configPath, "file3"), []byte(`buildReconciler: "newBuildReconciler"`), 0o000)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("throws an error", func() {
-			Expect(retErr).To(MatchError(fmt.Sprintf("failed to open file: open %s: permission denied", filepath.Join(configPath, "file3"))))
-		})
-	})
 })
 
 var _ = Describe("ParseTaskTTL", func() {
