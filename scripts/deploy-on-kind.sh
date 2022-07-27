@@ -119,7 +119,6 @@ function clean_up_img_refs() {
   unset IMG_SSR
   make set-image-ref
 }
-trap clean_up_img_refs EXIT
 
 function ensure_kind_cluster() {
   if [[ -n "${controllers_only}" ]]; then return 0; fi
@@ -339,11 +338,11 @@ Logs will be shown when complete
 EOF
 
 tmp="$(mktemp -d)"
-trap "rm -rf $tmp" EXIT
-deploy_korifi_controllers &>"$tmp/controllers" &
-deploy_korifi_api &>"$tmp/api" &
-deploy_kpack_image_builder &>"$tmp/kip" &
-deploy_statefulset_runner &>"$tmp/stsr" &
+trap "rm -rf ${tmp}; clean_up_img_refs" EXIT
+deploy_korifi_controllers &>"${tmp}/controllers" &
+deploy_korifi_api &>"${tmp}/api" &
+deploy_kpack_image_builder &>"${tmp}/kip" &
+deploy_statefulset_runner &>"${tmp}/stsr" &
 wait
 
 cat <<EOF
@@ -351,25 +350,25 @@ cat <<EOF
 Controllers
 ***********
 EOF
-cat "$tmp/controllers"
+cat "${tmp}/controllers"
 
 cat <<EOF
 ***********
 API
 ***********
 EOF
-cat "$tmp/api"
+cat "${tmp}/api"
 
 cat <<EOF
 ***********
 Kpack Image Builder
 ***********
 EOF
-cat "$tmp/kip"
+cat "${tmp}/kip"
 
 cat <<EOF
 ***********
 Stateful Set Runner
 ***********
 EOF
-cat "$tmp/stsr"
+cat "${tmp}/stsr"
