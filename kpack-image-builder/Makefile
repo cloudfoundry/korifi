@@ -39,11 +39,11 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:generateEmbeddedObjectMeta=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: fmt
@@ -67,54 +67,53 @@ build: generate fmt vet ## Build manager binary.
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./main.go
+	CONTROLLERSCONFIG=$(shell pwd)/kpack-image-builder/config/base/controllersconfig ENABLE_WEBHOOKS=false go run ./kpack-image-builder/main.go
 
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
 	docker buildx build --load -f ./Dockerfile -t ${IMG_KIB} ..
 
+.PHONY: docker-build-debug
+docker-build-debug: ## Build docker image with the manager.
+	docker buildx build --load -f ./remote-debug/Dockerfile -t ${IMG_KIB} ..
+
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG_KIB}
 
+kind-load-image:
+	kind load docker-image ${IMG_KIB}
+
 ##@ Deployment
-
-ifndef ignore-not-found
-  ignore-not-found = false
-endif
-
-.PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-
-.PHONY: uninstall
-uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
-
-.PHONY: set-image-ref
-set-image-ref: kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG_KIB}
 
 .PHONY: deploy
 deploy: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-.PHONY: deploy-on-kind
-deploy-on-kind: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+.PHONY: deploy-kind-local
+deploy-kind-local: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/overlays/kind-local-registry | kubectl apply -f -
 
+.PHONY: deploy-kind-local-debug
+deploy-kind-local-debug: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/overlays/kind-controller-debug | kubectl apply -f -
+
 .PHONY: undeploy
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/default | kubectl delete -f -
+
+.PHONY: set-image-ref
+set-image-ref: install-kustomize
+	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG_KIB}
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
-.PHONY: controller-gen
-controller-gen: ## Download controller-gen locally if necessary.
+.PHONY: install-controller-gen
+install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
-.PHONY: kustomize
-kustomize: ## Download kustomize locally if necessary.
+.PHONY: install-kustomize
+install-kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt

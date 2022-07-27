@@ -8,17 +8,16 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY controllers/api controllers/api
-COPY controllers/config/config.go controllers/config/config.go
-COPY controllers/controllers controllers/controllers
-COPY controllers/coordination controllers/coordination
-COPY controllers/main.go controllers/main.go
-COPY controllers/webhooks controllers/webhooks
+COPY controllers/api controllers/api/
+COPY kpack-image-builder/api/ kpack-image-builder/api/
+COPY kpack-image-builder/config/config.go kpack-image-builder/config/config.go
+COPY kpack-image-builder/controllers/ kpack-image-builder/controllers/
+COPY kpack-image-builder/main.go kpack-image-builder/main.go
 COPY tools tools
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags=all="-N -l" -o manager controllers/main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags=all="-N -l" -o manager kpack-image-builder/main.go
 
 # Get Delve from a GOPATH not from a Go Modules project
 WORKDIR /go/src/

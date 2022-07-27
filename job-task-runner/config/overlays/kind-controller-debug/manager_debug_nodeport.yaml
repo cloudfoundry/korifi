@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: korifi-job-task-runner-controller-manager-debug-port
+  namespace: korifi-job-task-runner-system
+spec:
+  ports:
+    - name: debug-30055
+      nodePort: 30055
+      port: 30055
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: korifi-job-task-runner-controller-manager
+  type: NodePort

@@ -1,5 +1,5 @@
-# syntax = docker/dockerfile:experimental
-FROM golang:1.19.0 as builder
+# Build the manager binary
+FROM golang:1.18.4 as builder
 
 WORKDIR /workspace
 
@@ -9,16 +9,15 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY controllers/api controllers/api
-COPY controllers/config/config.go controllers/config/config.go
-COPY controllers/controllers controllers/controllers
-COPY controllers/coordination controllers/coordination
-COPY controllers/main.go controllers/main.go
-COPY controllers/webhooks controllers/webhooks
+COPY job-task-runner/api job-task-runner/api
+COPY job-task-runner/config/config.go job-task-runner/config/config.go
+COPY job-task-runner/controllers job-task-runner/controllers
+COPY job-task-runner/main.go job-task-runner/main.go
 COPY tools tools
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags=all="-N -l" -o manager controllers/main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -gcflags=all="-N -l" -o manager job-task-runner/main.go
 
 # Get Delve from a GOPATH not from a Go Modules project
 WORKDIR /go/src/

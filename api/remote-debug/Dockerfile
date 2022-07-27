@@ -40,4 +40,4 @@ COPY --from=builder /workspace/cfapi .
 COPY --from=builder /go/bin/dlv .
 USER 1000:1000
 
-CMD ["/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "exec", "/manager", '--continue', "--accept-multiclient"]
+CMD ["/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "exec", "/manager", "--continue", "--accept-multiclient"]

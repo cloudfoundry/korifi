@@ -44,12 +44,6 @@ nodes:
   - containerPort: 443
     hostPort: 443
     protocol: TCP
-  - containerPort: 30050
-    hostPort: 30050
-    protocol: TCP
-  - containerPort: 30051
-    hostPort: 30051
-    protocol: TCP
 EOF
   fi
 
@@ -100,6 +94,9 @@ function deploy_korifi() {
 
   kubectl rollout status deployment/korifi-controllers-controller-manager -w -n korifi-controllers-system
   kubectl rollout status deployment/korifi-api-deployment -w -n korifi-api-system
+  kubectl rollout status deployment/korifi-job-task-runner-controller-manager -w -n korifi-job-task-runner-system
+  kubectl rollout status deployment/korifi-kpack-build-controller-manager -w -n korifi-kpack-build-system
+  kubectl rollout status deployment/korifi-statefulset-runner-controller-manager -w -n korifi-statefulset-runner-system
 
   kubectl apply -f ${CONTROLLER_DIR}/config/samples/cfdomain.yaml
 }
