@@ -21,12 +21,12 @@ resources:
 patchesStrategicMerge:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
-- patches/webhook_in_cfapps.yaml
-- patches/webhook_in_cfpackages.yaml
-- patches/webhook_in_cfprocesses.yaml
-- patches/webhook_in_cfbuilds.yaml
-- patches/webhook_in_cfroutes.yaml
-- patches/webhook_in_cfdomains.yaml
+#- patches/webhook_in_cfapps.yaml
+#- patches/webhook_in_cfpackages.yaml
+#- patches/webhook_in_cfprocesses.yaml
+#- patches/webhook_in_cfbuilds.yaml
+#- patches/webhook_in_cfroutes.yaml
+#- patches/webhook_in_cfdomains.yaml
 #- patches/webhook_in_cfserviceinstances.yaml
 #- patches/webhook_in_cfservicebindings.yaml
 #- patches/webhook_in_cforgs.yaml
