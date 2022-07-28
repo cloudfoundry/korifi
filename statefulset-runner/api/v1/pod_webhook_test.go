@@ -2,13 +2,11 @@ package v1_test
 
 import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	// . "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -64,7 +62,7 @@ var _ = Describe("StatefulSet Runner Pod Mutating Webhook", func() {
 
 		It("the application container has a CF_INSTANCE_INDEX ENVVAR", func() {
 			Expect(stsPod.Labels).To(HaveKeyWithValue("korifi.cloudfoundry.org/add-stsr-index", "true"))
-			Expect(stsPod.Spec.Containers[0].Env).ToNot(BeEmpty())
+			Expect(stsPod.Spec.Containers[0].Env).NotTo(BeEmpty())
 			Expect(stsPod.Spec.Containers[0].Env[0].Name).To(Equal("CF_INSTANCE_INDEX"))
 			Expect(stsPod.Spec.Containers[0].Env[0].Value).To(Equal("1"))
 		})

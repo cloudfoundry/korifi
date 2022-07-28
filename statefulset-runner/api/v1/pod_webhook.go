@@ -22,13 +22,13 @@ import (
 	"regexp"
 
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
-	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
@@ -48,7 +48,7 @@ func (r *STSPodDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 // Mutate path is found here: https://github.com/kubernetes-sigs/controller-runtime/blob/15154aaa67679df320008ed45534f83ff3d6922d/pkg/builder/webhook.go#L201-L204
-//+kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=fail,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=mpod.korifi.cloudfoundry.org,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=fail,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=mstspod.korifi.cloudfoundry.org,admissionReviewVersions=v1
 
 var _ webhook.CustomDefaulter = &STSPodDefaulter{}
 

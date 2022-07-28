@@ -13,7 +13,7 @@ webhooks:
       namespace: system
       path: /mutate--v1-pod
   failurePolicy: Fail
-  name: mpod.korifi.cloudfoundry.org
+  name: mstspod.korifi.cloudfoundry.org
   rules:
   - apiGroups:
     - ""
