@@ -28,7 +28,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.20.0
 	github.com/pivotal/kpack v0.5.4
-	github.com/projectcontour/contour v1.21.1
+	github.com/projectcontour/contour v1.22.0
 	golang.org/x/text v0.3.7
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
