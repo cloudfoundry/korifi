@@ -540,7 +540,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 						Namespace: namespaceGUID,
 					},
 					Spec: korifiv1alpha1.CFTaskSpec{
-						Command: []string{"sleep", "1000"},
+						Command: "sleep 1000",
 						AppRef: corev1.LocalObjectReference{
 							Name: cfAppGUID,
 						},

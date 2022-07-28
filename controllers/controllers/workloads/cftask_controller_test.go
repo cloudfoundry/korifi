@@ -91,7 +91,7 @@ var _ = Describe("CFTask Controller", func() {
 				Name: "the-task-guid",
 			},
 			Spec: korifiv1alpha1.CFTaskSpec{
-				Command: []string{"echo", "hello"},
+				Command: "echo hello",
 				AppRef:  corev1.LocalObjectReference{Name: "the-app-guid"},
 			},
 		}
@@ -203,7 +203,7 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(eiriniTask.Namespace).To(Equal("the-task-namespace"))
 			Expect(eiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
 			Expect(eiriniTask.Spec.Image).To(Equal("the-image"))
-			Expect(eiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
+			Expect(eiriniTask.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 			Expect(eiriniTask.Spec.MemoryMB).To(BeEquivalentTo(256))
 			Expect(eiriniTask.Spec.DiskMB).To(BeEquivalentTo(128))
 			Expect(eiriniTask.Spec.CPUMillis).To(BeEquivalentTo(50))
@@ -242,7 +242,7 @@ var _ = Describe("CFTask Controller", func() {
 				Expect(actualEiriniTask.Namespace).To(Equal("the-task-namespace"))
 				Expect(actualEiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
 				Expect(actualEiriniTask.Spec.Image).To(Equal("the-image"))
-				Expect(actualEiriniTask.Spec.Command).To(ConsistOf("echo", "hello"))
+				Expect(actualEiriniTask.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 				Expect(actualEiriniTask.Spec.MemoryMB).To(BeNumerically("==", 256))
 				Expect(actualEiriniTask.Spec.DiskMB).To(BeNumerically("==", 128))
 			})

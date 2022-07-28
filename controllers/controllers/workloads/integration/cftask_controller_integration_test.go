@@ -122,7 +122,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Name:      testutils.PrefixedGUID("cftask"),
 			},
 			Spec: korifiv1alpha1.CFTaskSpec{
-				Command: []string{"echo", "hello"},
+				Command: "echo hello",
 				AppRef: corev1.LocalObjectReference{
 					Name: cfApp.Name,
 				},
@@ -168,7 +168,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			seqId := task.Status.SequenceID
 
 			updatedTask := task.DeepCopy()
-			updatedTask.Spec.Command = []string{"foo", "bar"}
+			updatedTask.Spec.Command = "foo bar"
 			Expect(k8sClient.Patch(ctx, updatedTask, client.MergeFrom(&task))).To(Succeed())
 
 			Consistently(func(g Gomega) {
@@ -191,7 +191,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 			Expect(tasks.Items[0].Name).To(Equal(cfTask.Name))
 			Expect(tasks.Items[0].Spec.GUID).To(Equal(cfTask.Name))
-			Expect(tasks.Items[0].Spec.Command).To(ConsistOf("echo", "hello"))
+			Expect(tasks.Items[0].Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 			Expect(tasks.Items[0].Spec.Image).To(Equal("registry.io/my/image"))
 			Expect(tasks.Items[0].Spec.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
 			Expect(tasks.Items[0].Spec.DiskMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
