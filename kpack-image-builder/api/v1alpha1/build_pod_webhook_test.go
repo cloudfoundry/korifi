@@ -1,4 +1,4 @@
-package podsecurity_test
+package v1alpha1_test
 
 import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Buildpack Pods Mutating Webhook", func() {
+var _ = Describe("Buildpack Pod Mutating Webhook", func() {
 	var (
 		namespace string
 		pod       *corev1.Pod

@@ -21,7 +21,6 @@ import (
 	"os"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-
 	v1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 

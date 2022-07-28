@@ -12,7 +12,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-kpack-build-pod
+      path: /mutate--v1-pod
   failurePolicy: Ignore
   name: mkpackbuildpod.korifi.cloudfoundry.org
   rules:

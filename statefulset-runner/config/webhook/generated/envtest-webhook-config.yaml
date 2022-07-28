@@ -24,7 +24,7 @@ webhooks:
       namespace: system
       path: /mutate--v1-pod
   failurePolicy: Fail
-  name: mpod.korifi.cloudfoundry.org
+  name: mstspod.korifi.cloudfoundry.org
   objectSelector:
     matchLabels:
       korifi.cloudfoundry.org/add-stsr-index: "true"

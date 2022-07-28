@@ -14,34 +14,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podsecurity_test
+package v1alpha1_test
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
+	"net"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/podsecurity"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/scheme"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var (
-	cancel    context.CancelFunc
 	cfg       *rest.Config
 	k8sClient client.Client
 	testEnv   *envtest.Environment
 	ctx       context.Context
+	cancel    context.CancelFunc
 )
 
 func TestAPIs(t *testing.T) {
@@ -50,7 +53,7 @@ func TestAPIs(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
 	SetDefaultEventuallyPollingInterval(200 * time.Millisecond)
 
-	RunSpecs(t, "PodSecurity Webhook Suite")
+	RunSpecs(t, "Buildpack PodSecurity Webhook Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -67,10 +70,22 @@ var _ = BeforeSuite(func() {
 	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	scheme := runtime.NewScheme()
+
+	err = corev1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	//+kubebuilder:scaffold:scheme
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient).NotTo(BeNil())
 
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
+		Scheme:             scheme,
 		Host:               webhookInstallOptions.LocalServingHost,
 		Port:               webhookInstallOptions.LocalServingPort,
 		CertDir:            webhookInstallOptions.LocalServingCertDir,
@@ -79,18 +94,30 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	mgr.GetWebhookServer().Register("/mutate-kpack-build-pod", &webhook.Admission{Handler: podsecurity.NewPodSecurityAdder()})
-
-	k8sClient = mgr.GetClient()
+	err = (&v1alpha1.PodSecurityAdder{}).SetupWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
 		defer GinkgoRecover()
 		err = mgr.Start(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	}()
+
+	// wait for the webhook server to get ready
+	dialer := &net.Dialer{Timeout: time.Second}
+	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
+	Eventually(func() error {
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+		if err != nil {
+			return err
+		}
+		conn.Close()
+		return nil
+	}).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {
 	cancel()
+	By("tearing down the test environment")
 	Expect(testEnv.Stop()).To(Succeed())
 })
