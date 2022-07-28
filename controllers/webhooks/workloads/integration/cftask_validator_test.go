@@ -31,7 +31,7 @@ var _ = Describe("CFTask Creation", func() {
 				Namespace: rootNamespace,
 			},
 			Spec: korifiv1alpha1.CFTaskSpec{
-				Command: []string{"echo", "hello"},
+				Command: "echo hello",
 				AppRef: corev1.LocalObjectReference{
 					Name: cfApp.Name,
 				},
@@ -49,7 +49,7 @@ var _ = Describe("CFTask Creation", func() {
 
 	When("command is missing", func() {
 		BeforeEach(func() {
-			cftask.Spec.Command = nil
+			cftask.Spec.Command = ""
 		})
 
 		It("returns a validation error", func() {
@@ -92,7 +92,7 @@ var _ = Describe("CFTask Update", func() {
 				Namespace: rootNamespace,
 			},
 			Spec: korifiv1alpha1.CFTaskSpec{
-				Command: []string{"echo", "hello"},
+				Command: "echo hello",
 				AppRef: corev1.LocalObjectReference{
 					Name: cfApp.Name,
 				},
@@ -107,7 +107,7 @@ var _ = Describe("CFTask Update", func() {
 
 	When("canceled is not changed", func() {
 		BeforeEach(func() {
-			cftask.Spec.Command = []string{"echo", "ok"}
+			cftask.Spec.Command = "echo ok"
 		})
 
 		It("succeeds", func() {
@@ -158,7 +158,7 @@ var _ = Describe("CFTask Update", func() {
 			BeforeEach(func() {
 				Expect(k8sClient.Update(context.Background(), &cftask)).To(Succeed())
 				setStatusCondition(&cftask, korifiv1alpha1.TaskSucceededConditionType)
-				cftask.Spec.Command = []string{"echo", "foo"}
+				cftask.Spec.Command = "echo foo"
 			})
 
 			It("succeeds", func() {

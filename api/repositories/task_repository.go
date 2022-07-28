@@ -21,12 +21,11 @@ import (
 const (
 	TaskResourceType string = "Task"
 
-	TaskStatePending      = "PENDING"
-	TaskStateRunning      = "RUNNING"
-	TaskStateSucceeded    = "SUCCEEDED"
-	TaskStateFailed       = "FAILED"
-	TaskStateCanceling    = "CANCELING"
-	LifecycleLauncherPath = "/cnb/lifecycle/launcher"
+	TaskStatePending   = "PENDING"
+	TaskStateRunning   = "RUNNING"
+	TaskStateSucceeded = "SUCCEEDED"
+	TaskStateFailed    = "FAILED"
+	TaskStateCanceling = "CANCELING"
 )
 
 type TaskRecord struct {
@@ -63,7 +62,7 @@ func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
 			Namespace: m.SpaceGUID,
 		},
 		Spec: korifiv1alpha1.CFTaskSpec{
-			Command: []string{LifecycleLauncherPath, m.Command},
+			Command: m.Command,
 			AppRef: v1.LocalObjectReference{
 				Name: m.AppGUID,
 			},
@@ -256,7 +255,7 @@ func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 	taskRecord := TaskRecord{
 		Name:              task.Name,
 		GUID:              task.Name,
-		Command:           task.Spec.Command[len(task.Spec.Command)-1],
+		Command:           task.Spec.Command,
 		AppGUID:           task.Spec.AppRef.Name,
 		SequenceID:        task.Status.SequenceID,
 		CreationTimestamp: task.CreationTimestamp.Time,

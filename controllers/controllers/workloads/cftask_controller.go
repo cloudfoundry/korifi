@@ -40,7 +40,10 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 )
 
-const TaskCanceledReason = "taskCanceled"
+const (
+	TaskCanceledReason    = "taskCanceled"
+	LifecycleLauncherPath = "/cnb/lifecycle/launcher"
+)
 
 //counterfeiter:generate -o fake -fake-name SeqIdGenerator . SeqIdGenerator
 type SeqIdGenerator interface {
@@ -261,7 +264,7 @@ func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *
 		eiriniTask.Labels[korifiv1alpha1.CFTaskGUIDLabelKey] = cfTask.Name
 
 		eiriniTask.Spec.GUID = cfTask.Name
-		eiriniTask.Spec.Command = cfTask.Spec.Command
+		eiriniTask.Spec.Command = []string{LifecycleLauncherPath, cfTask.Spec.Command}
 		eiriniTask.Spec.Image = cfDroplet.Status.Droplet.Registry.Image
 		eiriniTask.Spec.MemoryMB = r.cfProcessDefaults.MemoryMB
 		eiriniTask.Spec.DiskMB = r.cfProcessDefaults.DiskQuotaMB

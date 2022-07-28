@@ -16,7 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -151,15 +150,6 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 				Expect(taskRecord.State).To(Equal(repositories.TaskStatePending))
-
-				var task korifiv1alpha1.CFTask
-				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{
-						Namespace: space.Name,
-						Name:      taskRecord.Name,
-					}, &task)).To(Succeed())
-				}).Should(Succeed())
-				Expect(task.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo 'hello world'"}))
 			})
 
 			When("the task never becomes initialized", func() {
@@ -200,7 +190,7 @@ var _ = Describe("TaskRepository", func() {
 					Namespace: space.Name,
 				},
 				Spec: korifiv1alpha1.CFTaskSpec{
-					Command: []string{"/cnb/lifecycle/launcher", "echo hello"},
+					Command: "echo hello",
 					AppRef: corev1.LocalObjectReference{
 						Name: cfApp.Name,
 					},
@@ -350,7 +340,7 @@ var _ = Describe("TaskRepository", func() {
 					Namespace: space.Name,
 				},
 				Spec: korifiv1alpha1.CFTaskSpec{
-					Command: []string{"echo", "hello"},
+					Command: "echo hello",
 					AppRef: corev1.LocalObjectReference{
 						Name: cfApp.Name,
 					},
@@ -364,7 +354,7 @@ var _ = Describe("TaskRepository", func() {
 					Namespace: space2.Name,
 				},
 				Spec: korifiv1alpha1.CFTaskSpec{
-					Command: []string{"echo", "hello"},
+					Command: "echo hello",
 					AppRef: corev1.LocalObjectReference{
 						Name: cfApp2.Name,
 					},
@@ -447,7 +437,7 @@ var _ = Describe("TaskRepository", func() {
 								Namespace: space2.Name,
 							},
 							Spec: korifiv1alpha1.CFTaskSpec{
-								Command: []string{"echo", "hello"},
+								Command: "echo hello",
 								AppRef: corev1.LocalObjectReference{
 									Name: cfApp2.Name,
 								},
@@ -505,7 +495,7 @@ var _ = Describe("TaskRepository", func() {
 					Namespace: space.Name,
 				},
 				Spec: korifiv1alpha1.CFTaskSpec{
-					Command: []string{"/cnb/lifecycle/launcher", "echo hello"},
+					Command: "echo hello",
 					AppRef: corev1.LocalObjectReference{
 						Name: cfApp.Name,
 					},

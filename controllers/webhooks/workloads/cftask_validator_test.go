@@ -47,7 +47,7 @@ var _ = Describe("CFTaskValidator", func() {
 				AppRef: v1.LocalObjectReference{
 					Name: appGUID,
 				},
-				Command: []string{"some-command"},
+				Command: "some-command",
 			},
 		}
 
@@ -78,7 +78,7 @@ var _ = Describe("CFTaskValidator", func() {
 
 		When("the list of commands is empty", func() {
 			BeforeEach(func() {
-				cfTask.Spec.Command = []string{}
+				cfTask.Spec.Command = ""
 			})
 
 			It("denies the request", func() {
