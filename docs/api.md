@@ -393,6 +393,34 @@ This endpoint is fully supported.
 
 This endpoint is fully supported.
 
+## [Tasks](https://v3-apidocs.cloudfoundry.org/#tasks)
+
+### [Create a task](https://v3-apidocs.cloudfoundry.org/#create-a-task)
+
+#### Supported parameters:
+
+-   `command`
+
+### [Get a task](https://v3-apidocs.cloudfoundry.org/#get-a-task)
+
+This endpoint is fully supported.
+
+### [List tasks](https://v3-apidocs.cloudfoundry.org/#list-tasks)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+### [List tasks for an app](https://v3-apidocs.cloudfoundry.org/#list-tasks-for-an-app)
+
+#### Supported query parameters:
+
+-   `sequence_ids`
+
+### [Cancel a task](https://v3-apidocs.cloudfoundry.org/#cancel-a-task)
+
+These endpoints are fully supported.
+
 ## User Identity
 
 > **Warning**
