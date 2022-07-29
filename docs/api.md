@@ -1,468 +1,453 @@
-# CF K8s API Endpoint Documentation
+# Korifi API Documentation
 
-**This document captures API endpoints currently supported by the shim**
+This document lists all the CF API endpoints supported by Korifi and their parameters.
 
-## Resources
+## [Apps](https://v3-apidocs.cloudfoundry.org/#apps)
 
-### Root
+### [Create an app](https://v3-apidocs.cloudfoundry.org/#create-an-app)
 
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#root
+#### Supported parameters:
 
-| Resource        | Endpoint |
-| --------------- | -------- |
-| Global API Root | GET /    |
-| V3 API Root     | GET /v3  |
+All parameters are supported. `lifecycle` will be ignored and overridden with the default configured values.
 
-### Resource Matches
+### [Get an app](https://v3-apidocs.cloudfoundry.org/#get-an-app)
 
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#resource-matches
+#### Supported query parameters:
 
-| Resource                | Endpoint                  |
-| ----------------------- | ------------------------- |
-| Create a Resource Match | POST /v3/resource_matches |
+No query parameters are supported.
 
-#### [Create a Resource Match](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-resource-match)
-```bash
-curl "http://localhost:9000/v3/resource_matches" \
-  -X POST \
-  -d '{}'
-```
+### [List apps](https://v3-apidocs.cloudfoundry.org/#list-apps)
 
-### Orgs
+#### Supported query parameters:
 
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#organizations
+-   `names`
+-   `space_guids`
+-   `order_by` (the only supported value is `name`)
 
-| Resource   | Endpoint      |
-| ---------- | ------------- |
-| List Orgs  | GET /v3/organizations  |
-| Create Org | POST /v3/organizations |
-| Delete Space | [DELETE /v3/organizations/:guid](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#delete-an-organization)
-| List Org Domains | GET /v3/organizations/:guid/domains |
-#### [List Orgs](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-organizations)
-**Query Parameters:** Currently only supports filtering by organization `names`.
-```bash
-curl "http://localhost:9000/v3/organizations?names=org1,org2"
-```
-#### [Creating Orgs](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-an-organization)
-```bash
-curl "http://localhost:9000/v3/organizations" \
-  -X POST \
-  -d '{"name": "my-organization"}'
-```
-
-### Spaces
-
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#spaces
-
-| Resource     | Endpoint                                                                                                   |
-| ------------ |------------------------------------------------------------------------------------------------------------|
-| List Spaces  | GET /v3/spaces                                                                                             |
-| Create Space | POST /v3/spaces                                                                                            |
-| Delete Space | [DELETE /v3/spaces/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#delete-a-space) |
-
-#### [List Spaces](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-spaces)
-**Query Parameters:** Currently supports filtering by space `names` and `organization_guids`.
-
-```bash
-curl "http://localhost:9000/v3/spaces?names=space1,space2&organization_guids=ad0836b5-09f4-48c0-adb2-2c61e515562f,6030b015-f003-4c9f-8bb4-1ed7ae3d3659"
-```
-
-#### [Creating Spaces](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-space)
-
-```bash
-curl "http://localhost:9000/v3/spaces" \
-  -X POST \
-  -d '{"name":"my-space","relationships":{"organization":{"data":{"guid":"<organization-guid>"}}}}'
-```
-
-### Apps
-
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#apps
-
-| Resource                            | Endpoint                                                                                                    |
-|-------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| List Apps                           | GET /v3/apps                                                                                                |
-| Get App                             | GET /v3/apps/\<guid>                                                                                        |
-| Create App                          | POST /v3/apps                                                                                               |
-| Set App's Current Droplet           | PATCH /v3/apps/\<guid>/relationships/current_droplet                                                        |
-| Get App's Current Droplet           | GET /v3/apps/\<guid>/droplets/current                                                                       |
-| Start App                           | POST /v3/apps/\<guid>/actions/start                                                                         |
-| Stop App                            | POST /v3/apps/\<guid>/actions/stop                                                                          |
-| Restart App                         | POST /v3/apps/\<guid>/actions/restart                                                                       |
-| List App Processes                  | GET /v3/apps/\<guid>/processes                                                                              |
-| Scale App Process                   | POST /v3/apps/<guid>/processes/<type>/actions/scale                                                         |
-| List App Routes                     | GET /v3/apps/\<guid>/routes                                                                                 |
-| Delete App                          | [DELETE /v3/apps/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#delete-an-app)     |
-| Get App Env                         | GET /v3/apps/\<guid>/env                                                                                    |
-| Update App's Environment Variables  | PATCH /v3/apps/\<guid>/environment_variables                                                                |
-| Get App Processes by Type           | [GET /v3/apps/\<guid>/processes/\<web>](https://v3-apidocs.cloudfoundry.org/version/3.117.0/#get-a-process) |
-
-#### [List Apps](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-apps)
-**Query Parameters:** Currently supports filtering by app `names` and `space_guids` and ordering by `name`.
-
-```bash
-curl "http://localhost:9000/v3/apps?names=app1,app2&space_guids=ad0836b5-09f4-48c0-adb2-2c61e515562f,6030b015-f003-4c9f-8bb4-1ed7ae3d3659"
-```
-
-#### [Creating Apps](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-an-app)
-Note : `namespace` needs to exist before creating the app.
-```bash
-curl "http://localhost:9000/v3/apps" \
-  -X POST \
-  -d '{"name":"my-app","relationships":{"space":{"data":{"guid":"<space-guid>"}}}}'
-```
-
-#### [Setting App's Current Droplet](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#update-a-droplet)
-```bash
-curl "http://localhost:9000/v3/apps/<app-guid>/relationships/current_droplet" \
-  -X PATCH \
-  -d '{"data":{"guid":"<droplet-guid>"}}'
-```
-
-#### [Getting App's Current Droplet](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#get-current-droplet)
-```bash
-curl "http://localhost:9000/v3/apps/<app-guid>/droplets/current"
-```
-
-#### [Scaling App's Process](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#scale-a-process)
-```bash
-curl "http://localhost:9000/v3/apps/<guid>/processes/<type>/actions/scale" \
-  -X POST \
-  -d '{ "instances": 5, "memory_in_mb": 256, "disk_in_mb": 1024 }'
-```
-
-#### [Start an app](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#start-an-app)
-```bash
-curl "http://localhost:9000/v3/apps/<app-guid>/actions/start" \
-  -X POST
-```
-
-#### [Stop an app](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#stop-an-app)
-```bash
-curl "http://localhost:9000/v3/apps/<app-guid>/actions/stop" \
-  -X POST
-```
-
-#### [Restart an app](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#restart-an-app)
-```bash
-curl "http://localhost:9000/v3/apps/<app-guid>/actions/restart" \
-  -X POST
-```
-
-#### [Get app env](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#get-environment-for-an-app)
-```bash
-curl "http://localhost:9000/v3/apps/<app-guid>/env" 
-```
-
-#### [Update app's environment variables](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.hml#update-environment-variables-for-an-app)
-```bash
-curl "http://localhost:9000/v3/apps/<app-guid>/environment_variables" \
-  -X PATCH \
-  -d '{ "var": { "DEBUG": "false", "USER": null }'
-```
-
-### Packages
-
-| Resource                                                                                                                | Endpoint                         |
-|-------------------------------------------------------------------------------------------------------------------------| -------------------------------- |
-| Create Package                                                                                                          | POST /v3/packages                |
-| List Package                                                                                                            | GET /v3/packages                 |
-| Upload Package Bits                                                                                                     | POST /v3/packages/<guid>/upload  |
-| [List Droplets for Package](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-droplets-for-a-package) | GET /v3/packages/<guid>/droplets |
-
-#### [Creating Packages](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-package)
-```bash
-curl "http://localhost:9000/v3/packages" \
-  -X POST \
-  -d '{"type":"bits","relationships":{"app":{"data":{"guid":"<app-guid-goes-here>"}}}}'
-```
-
-#### [Uploading Package Bits](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#upload-package-bits)
-```bash
-curl "http://localhost:9000/v3/packages/<guid>/upload" \
-  -X POST \
-  -F bits=@"<path-to-app-source.zip>"
-```
-
-#### [List Package](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-packages)
-**Query Parameters:** Currently supports filtering by `app_guids`.
-
-```bash
-curl "http://localhost:9000/v3/packages" 
-```
-
-### Builds
-
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#builds
-
-| Resource     | Endpoint               |
-| ------------ | ---------------------- |
-| Get Build    | GET /v3/builds/\<guid> |
-| Create Build | POST /v3/builds        |
-
-#### [Creating Builds](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-build)
-```bash
-curl "http://localhost:9000/v3/builds" \
-  -X POST \
-  -d '{"package":{"guid":"<package-guid-goes-here>"}}'
-```
-
-### Droplet
-
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#droplets
-
-| Resource    | Endpoint                 |
-| ----------- | ------------------------ |
-| Get Droplet | GET /v3/droplets/\<guid> |
-
-### Process
-
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#processes
-
-| Resource             | Endpoint                                                                                             |
-| -------------------- |------------------------------------------------------------------------------------------------------|
-| Get Process          | GET /v3/processes/\<guid>/sidecars                                                                   |
-| Get Process Sidecars | GET /v3/processes/\<guid>/sidecars                                                                   |
-| Scale Process        | POST /v3/processes/\<guid>/actions/scale                                                             |
-| Get Process Stats    | POST /v3/processes/\<guid>/stats                                                                     |
-| List Process         | POST /v3/processes                                                                                   |
-| Patch Process        | [PATCH /v3/processes/\<guid>](https://v3-apidocs.cloudfoundry.org/version/3.117.0/#update-a-process) |
-
-#### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#scale-a-process)
-```bash
-curl "http://localhost:9000/v3/processes/<guid>/actions/scale" \
-  -X POST \
-  -d '{ "instances": 5, "memory_in_mb": 256, "disk_in_mb": 1024 }'
-```
-
-#### [Get Process Stats](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#get-stats-for-a-process)
-Currently, we only support fetching stats using the process guid endpoint, i.e., POST /v3/processes/\<guid>/stats.
-This endpoint supports populating only the index and state details on the response.
-Support for populating other fields will come later.
-
-#### [List Processes](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-processes)
-**Query Parameters:** Currently supports filtering by `app_guids`.
-
-### Domain
-
-https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#domains
-
-| Resource     | Endpoint        |
-| ------------ | --------------- |
-| List Domains | GET /v3/domains |
-
-#### [List Domains](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-domains)
-```bash
-curl "http://localhost:9000/v3/domains?names=cf-apps.io" \
-  -X GET
-```
-
-### Routes
-
-| Resource                      | Endpoint                                                                                                 |
-|-------------------------------|----------------------------------------------------------------------------------------------------------|
-| Get Route                     | GET /v3/routes/\<guid>                                                                                   |
-| Get Route List                | GET /v3/routes                                                                                           |
-| Get Route Destinations        | GET /v3/routes/\<guid\>/destinations                                                                     |
-| Create Route                  | POST /v3/routes                                                                                          |
-| Add Destinations to Route     | POST /v3/routes/\<guid\>/destinations                                                                    |
-| Remove Destination from Route | DELETE /v3/routes/\<guid\>/destinations/\<destination-guid\>                                             |
-| Delete Route                  | [DELETE /v3/routes/:guid](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#delete-a-route) |
-
-#### [List Routes](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-routes)
-**Query Parameters:** Currently supports filtering by `app_guids`, `space_guids`, `domain_guids`, `hosts` and `paths`.
-
-#### [Creating Routes](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-route)
-```bash
-curl "http://localhost:9000/v3/routes" \
-  -X POST \
-  -d '{"host": "hostname","path": "/path","relationships": {"domain": {"data": { "guid": "<domain-guid-goes-here>" }},"space": {"data": { "guid": "<namespace-name>" }}}}'
-```
-
-#### [Add Destinations to Route](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#insert-destinations-for-a-route)
-```bash
-curl "http://localhost:9000/v3/routes/<guid>/destinations" \
-  -X POST \
-  -d '{
-        "destinations": [
-          {
-            "app": {
-              "guid": "<app-guid-1>"
-            }
-          },
-          {
-            "app": {
-              "guid": "<app-guid-2>",
-              "process": {
-                "type": "api"
-              }
-            },
-            "port": 9000,
-            "protocol": "http1"
-          }
-        ]
-      }'
-```
-
-#### [Remove Destination from Route](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#remove-destination-for-a-route)
-```bash
-curl "http://localhost:9000/v3/routes/<guid>/destinations/<destination-guid>" \
-  -X DELETE
-```
-### Manifest
-
-| Resource         | Endpoint                                             |
-| ---------------- | ---------------------------------------------------- |
-| Apply a manifest | POST /v3/spaces/\<space-guid>/actions/apply_manifest |
-
-#### [Applying a manifest](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-route)
-```bash
-curl "http://localhost:9000/v3/spaces/<space-guid>/actions/apply_manifest" \
-  -X POST \
-  -H "Content-type: application/x-yaml" \
-  --data-binary @<path-to-manifest.yml>
-```
-
-| Resource                           | Endpoint                                    |
-| ---------------------------------- | ------------------------------------------- |
-| Create a manifest diff for a space | POST /v3/spaces/\<space-guid>/manifest_diff |
-
-#### [Create a manifest diff for a space](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-manifest-diff-for-a-space-experimental)
-**WARNING:** Currently this endpoint always returns an empty diff.
-
-##### Example Request
-```bash
-curl "http://localhost:9000/v3/spaces/<space-guid>/manifest_diff" \
-  -X POST \
-  -H "Content-type: application/x-yaml" \
-  --data-binary @<path-to-manifest.yml>
-```
-
-##### Example Response
-```json
-HTTP/1.1 202 OK
-Content-Type: application/json
-
-{
-  "diff": []
-}
-```
-
-### Buildpacks
-| Resource | Endpoint |
-|--|--|
-| List Buildpacks | GET /v3/buildpacks |
-
-#### [List Buildpacks](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-buildpacks)
-```bash
-curl "http://localhost:9000/v3/buildpacks?order_by=postion" \
-  -X GET
-```
-
-### Log-Cache API
-We support basic, unauthenticated versions of the following [log-cache](https://github.com/cloudfoundry/log-cache) APIs that return hard-coded responses.
-
-#### [Log-Cache Info](https://github.com/cloudfoundry/log-cache#get-apiv1info)
-
-| Resource                     | Endpoint         |
-| ---------------------------- | ---------------- |
-| Retrieve version information | GET /api/v1/info |
-
-#### [Log-Cache Read](https://github.com/cloudfoundry/log-cache#get-apiv1readsource-id)
-
-| Resource                                                                                        | Endpoint                     |
-| ----------------------------------------------------------------------------------------------- | ---------------------------- |
-| Retrieve data by source-id. Currently returns a hard-coded empty list of Loggregator envelopes. | GET /api/v1/read/<source-id> |
-
-
-### Service Instances
-
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#service-instances
-
-| Resource                     | Endpoint         |
-| ---------------------------- | ---------------- |
-| Create Service Instance | POST /v3/service_instances |
-| List Service Instance | GET /v3/service_instances |
-
-#### [Create Service Instances](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-service-instance)
-Currently, we support creation of user-provided service instances
-```bash
-curl "https://localhost:9000/v3/service_instances" \
-  -X POST \
-  -H "Authorization: bearer [token]" \
-  -H "Content-type: application/json" \
-  -d '{
-    "type": "user-provided",
-    "name": "my_service_instance",
-    "credentials": {
-      "foo": "bar",
-      "baz": "qux"
-    },
-    "tags": ["foo", "bar", "baz"],
-    "syslog_drain_url": "",
-    "route_service_url": "",
-    "metadata": {
-      "annotations": {
-        "foo": "bar"
-      },
-      "labels": {
-        "baz": "qux"
-      }
-    },
-    "relationships": {
-      "space": {
-        "data": {
-          "guid": "7304bc3c-7010-11ea-8840-48bf6bec2d78"
-        }
-      }
-    }
-  }'
-```
-
-#### [List Service Instances](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-service-instances)
-**Query Parameters:** Currently supports filtering by service instance
-`names` and `space_guids` and ordering by `name`, `created_at` or `updated_at`.
-The `fields` and `per_page` parameters will be silently ignored.
-
-### Service Credential Bindings
-
-Docs: https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#service-credential-binding
-
-| Resource                          | Endpoint                                     |
-|-----------------------------------|----------------------------------------------|
-| List Service Credential Binding   | GET /v3/service_credential_bindings          |
-| Create Service Credential Binding | POST /v3/service_credential_bindings         |
-| Delete Service Credential Binding | DELETE /v3/service_credential_bindings/:guid |
-
-#### [List Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#list-service-credential-bindings)
-
-**Query Parameters:** Currently supports filtering by `service_instance_guids`, `app_guids`, and `type`. `include` is
-supported, but only for the value `app`.
-
-#### [Create Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#create-a-service-credential-binding)
-
-The only supported value for the `type` is `app`. 
-
-#### [Delete Service Credential Binding](https://v3-apidocs.cloudfoundry.org/version/3.117.0/index.html#delete-a-service-credential-binding)
+### [Delete an app](https://v3-apidocs.cloudfoundry.org/#delete-an-app)
 
 This endpoint is fully supported.
 
-### User Identity
+### [Get current droplet](https://v3-apidocs.cloudfoundry.org/#get-current-droplet)
 
-_This is not part of the published CF API, and is not supported on CF on VMs._
+This endpoint is fully supported.
 
-It is required by the CF CLI when targetting CF-on-k8s, as the CLI needs to
-know the username for display in command output and to use in creating roles
-during `create-space`. This cannot be inferred from the authentication token
-without the help of kubernetes since tokens might be opaque, and even when not,
-kubernetes can choose non-standard fields to use as the username, and can
-choose to prefix the value.
+### [Get environment for an app](https://v3-apidocs.cloudfoundry.org/#get-environment-for-an-app)
 
-`ClientCert` authentication provides a client certificate, and we can extract
-the username from the subject's common name, but we choose to deal with all
-authorization header types in this endpoint to provide a useful common
-abstraction.
+> **Warning**
+> The field `system_env_json` will **not** be redacted.
 
-| Resource                        | Endpoint    |
-| ------------------------------- | ----------- |
-| User or ServiceAccount identity | GET /whoami |
+### [Set current droplet](https://v3-apidocs.cloudfoundry.org/#update-a-droplet)
+
+This endpoint is fully supported.
+
+### [Start an app](https://v3-apidocs.cloudfoundry.org/#start-an-app)
+
+This endpoint is fully supported.
+
+### [Stop an app](https://v3-apidocs.cloudfoundry.org/#stop-an-app)
+
+This endpoint is fully supported.
+
+### [Restart an app](https://v3-apidocs.cloudfoundry.org/#restart-an-app)
+
+This endpoint is fully supported.
+
+### [Update environment variables for an app](https://v3-apidocs.cloudfoundry.org/#update-environment-variables-for-an-app)
+
+This endpoint is fully supported.
+
+## [Builds](https://v3-apidocs.cloudfoundry.org/#builds)
+
+### [Create a build](https://v3-apidocs.cloudfoundry.org/#create-a-build)
+
+All parameters are supported. `lifecycle` will be ignored and overridden with the default configured values.
+
+### [Get a build](https://v3-apidocs.cloudfoundry.org/#get-a-build)
+
+This endpoint is fully supported.
+
+## [Buildpacks](https://v3-apidocs.cloudfoundry.org/#buildpacks)
+
+### [List buildpacks](https://v3-apidocs.cloudfoundry.org/#list-buildpacks)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+## [Organizations](https://v3-apidocs.cloudfoundry.org/#organizations)
+
+### [Create an organization](https://v3-apidocs.cloudfoundry.org/#create-an-organization)
+
+#### Supported parameters:
+
+-   `name`
+
+### [List organizations](https://v3-apidocs.cloudfoundry.org/#list-organizations)
+
+#### Supported query parameters:
+
+-   `names`
+
+### [Delete an organization](https://v3-apidocs.cloudfoundry.org/#delete-an-organization)
+
+This endpoint is fully supported.
+
+## [Domains](https://v3-apidocs.cloudfoundry.org/#domains)
+
+### [List Domains](https://v3-apidocs.cloudfoundry.org/#list-domains)
+
+#### Supported query parameters:
+
+-   `names`
+
+### [List domains for an organization](https://v3-apidocs.cloudfoundry.org/#list-domains-for-an-organization)
+
+#### Supported query parameters:
+
+-   `names`
+
+## [Droplets](https://v3-apidocs.cloudfoundry.org/#droplets)
+
+### [Get a droplet](https://v3-apidocs.cloudfoundry.org/#get-a-droplet)
+
+> **Warning**
+> No fields will be redacted.
+
+### [List droplets for a package](https://v3-apidocs.cloudfoundry.org/#list-droplets-for-a-package)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+## [Jobs](https://v3-apidocs.cloudfoundry.org/#jobs)
+
+### [Get a job](https://v3-apidocs.cloudfoundry.org/#get-a-job)
+
+> **Warning**
+> This endpoint always returns an empty resource with `state: "COMPLETE"`.
+
+## [Manifests](https://v3-apidocs.cloudfoundry.org/#manifests)
+
+### [Apply a manifest to a space](https://v3-apidocs.cloudfoundry.org/#apply-a-manifest-to-a-space)
+
+Korifi only supports manifests with a single entry in `applications`.
+
+#### Supported parameters:
+
+-   `applications[0].name`
+-   `applications[0].env`
+-   `applications[0].memory` (sets `memory` for the `web` process)
+-   `applications[0].processes`
+-   `applications[0].no-route`
+-   `applications[0].routes[0].route`
+
+### [Create a manifest diff for a space](https://v3-apidocs.cloudfoundry.org/#create-a-manifest-diff-for-a-space-experimental)
+
+> **Warning**
+> This endpoint always returns an empty diff.
+
+## [Packages](https://v3-apidocs.cloudfoundry.org/#packages)
+
+### [Create a package](https://v3-apidocs.cloudfoundry.org/#create-a-package)
+
+#### Supported parameters:
+
+-   `type` (the only supported value is `bits`)
+-   `relationships.app`
+
+### [Get a package](https://v3-apidocs.cloudfoundry.org/#get-a-package)
+
+This endpoint is fully supported.
+
+### [List Package](https://v3-apidocs.cloudfoundry.org/#list-packages)
+
+#### Supported query parameters:
+
+-   `app_guids`
+-   `states`
+-   `order_by` (the only supported value is `created_at`)
+
+### [Upload package bits](https://v3-apidocs.cloudfoundry.org/#upload-package-bits)
+
+#### Supported parameters:
+
+-   `bits`
+
+## [Processes](https://v3-apidocs.cloudfoundry.org/#processes)
+
+### [Get a process](https://v3-apidocs.cloudfoundry.org/#get-a-process)
+
+These endpoints are fully supported.
+
+### [Get stats for a process](https://v3-apidocs.cloudfoundry.org/#get-stats-for-a-process)
+
+`GET /v3/apps/:guid/processes/:type/stats` is not supported.
+
+#### Supported fields:
+
+-   `index`
+-   `state`
+
+### [List processes](https://v3-apidocs.cloudfoundry.org/#list-processes)
+
+#### Supported query parameters:
+
+-   `app_guids`
+
+### [List processes for app](https://v3-apidocs.cloudfoundry.org/#list-processes-for-app)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+### [Update a process](https://v3-apidocs.cloudfoundry.org/#update-a-process)
+
+#### Supported parameters:
+
+-   `command`
+-   `health_check`
+
+### [Scale a process](https://v3-apidocs.cloudfoundry.org/#scale-a-process)
+
+This endpoint is fully supported.
+
+## [Resource Matches](https://v3-apidocs.cloudfoundry.org/#resource-matches)
+
+### [Create a resource match](https://v3-apidocs.cloudfoundry.org/#create-a-resource-match)
+
+> **Warning**
+> CF for VMs uses a technique called "resource matching" as an optimization to support partial app uploads to the blobstore. Korifi does not support this feature and this endpoint will always return an empty list of matched resources.
+
+## [Roles](https://v3-apidocs.cloudfoundry.org/#roles)
+
+### [Create a role](https://v3-apidocs.cloudfoundry.org/#create-a-role)
+
+#### Supported parameters:
+
+-   `type` (the only supported value is `space_developer`
+-   `relationships.user`
+-   `relationships.organization`
+-   `relationships.space`
+
+## [Root](https://v3-apidocs.cloudfoundry.org/#root)
+
+### [Global API Root](https://v3-apidocs.cloudfoundry.org/#global-api-root)
+
+#### Supported fields:
+
+-   `self`
+-   `cloud_controller_v3`
+-   `login`
+-   `log_cache`
+
+### [V3 API Root](https://v3-apidocs.cloudfoundry.org/#v3-api-root)
+
+#### Supported fields:
+
+-   `links.self`
+
+## [Routes](https://v3-apidocs.cloudfoundry.org/#routes)
+
+### [Create a route](https://v3-apidocs.cloudfoundry.org/#create-a-route)
+
+#### Supported parameters:
+
+-   `relationships.space`
+-   `relationships.domain`
+-   `host`
+-   `path`
+-   `metadata.annotations`
+-   `metadata.labels`
+
+### [Get a route](https://v3-apidocs.cloudfoundry.org/#get-a-route)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+### [List routes](https://v3-apidocs.cloudfoundry.org/#list-routes)
+
+#### Supported query parameters:
+
+-   `app_guids`
+-   `space_guids`
+-   `domain_guids`
+-   `hosts`
+-   `paths`
+
+### [List routes for an app](https://v3-apidocs.cloudfoundry.org/#list-routes-for-an-app)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+### [Delete a route](https://v3-apidocs.cloudfoundry.org/#delete-a-route)
+
+This endpoint is fully supported.
+
+### [List destinations for a route](https://v3-apidocs.cloudfoundry.org/#list-destinations-for-a-route)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+### [Insert destinations for a route](https://v3-apidocs.cloudfoundry.org/#insert-destinations-for-a-route)
+
+#### Supported parameters:
+
+-   `destinations[].app.guid`
+-   `destinations[].app.process.type`
+-   `destinations[].port`
+-   `destinations[].protocol`
+
+### [Remove destination for a route](https://v3-apidocs.cloudfoundry.org/#remove-destination-for-a-route)
+
+This endpoint is fully supported.
+
+## [Service Instances](https://v3-apidocs.cloudfoundry.org/#service-instances)
+
+Korifi only supports user-provided service instances. Managed service operations and [fields](https://v3-apidocs.cloudfoundry.org/#fields) are not supported.
+
+### [Create a service instance](https://v3-apidocs.cloudfoundry.org/#create-a-service-instance)
+
+#### Supported parameters:
+
+-   `type` (must be `user-provided`)
+-   `name`
+-   `relationships.space`
+-   `tags`
+-   `credentials`
+-   `metadata.labels`
+-   `metadata.annotations`
+
+### [List service instances](https://v3-apidocs.cloudfoundry.org/#list-service-instances)
+
+#### Supported query parameters:
+
+-   `names`
+-   `space_guids`
+-   `order_by` (the only supported values are `name`, `created_at` and `updated_at`)
+
+### [Delete a service instance](https://v3-apidocs.cloudfoundry.org/#delete-a-service-instance)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+## [Service Credential Bindings](https://v3-apidocs.cloudfoundry.org/#service-credential-binding)
+
+### [Create a service credential binding](https://v3-apidocs.cloudfoundry.org/#create-a-service-credential-binding)
+
+#### Supported parameters:
+
+-   `name`
+-   `type` (the only supported value is `app`)
+-   `relationships.service_instance`
+-   `relationships.app`
+
+### [List service credential bindings](https://v3-apidocs.cloudfoundry.org/#list-service-credential-bindings)
+
+#### Supported query parameters:
+
+-   `service_instance_guids`
+-   `app_guids`
+-   `type`
+-   `include` (the only supported value is `app`)
+
+### [Delete a service credential binding](https://v3-apidocs.cloudfoundry.org/#delete-a-service-credential-binding)
+
+This endpoint is fully supported.
+
+## [Service Route Bindings](https://v3-apidocs.cloudfoundry.org/#service-route-binding)
+
+### [List service route bindings](https://v3-apidocs.cloudfoundry.org/#list-service-route-bindings)
+
+> **Warning**
+> This endpoint always returns an empty list.
+
+## [Sidecars](https://v3-apidocs.cloudfoundry.org/#sidecars)
+
+### [List sidecars for process](https://v3-apidocs.cloudfoundry.org/#list-sidecars-for-process)
+
+> **Warning**
+> This endpoint always returns an empty list.
+
+## [Spaces](https://v3-apidocs.cloudfoundry.org/#spaces)
+
+### [Create a space](https://v3-apidocs.cloudfoundry.org/#create-a-space)
+
+#### Supported parameters:
+
+-   `name`
+-   `relationships.guid`
+
+### [List spaces](https://v3-apidocs.cloudfoundry.org/#list-spaces)
+
+#### Supported query parameters:
+
+-   `names`
+-   `organization_guids`
+
+### [Delete a space](https://v3-apidocs.cloudfoundry.org/#delete-a-space)
+
+This endpoint is fully supported.
+
+## [Tasks](https://v3-apidocs.cloudfoundry.org/#tasks)
+
+### [Create a task](https://v3-apidocs.cloudfoundry.org/#create-a-task)
+
+#### Supported parameters:
+
+-   `command`
+
+### [Get a task](https://v3-apidocs.cloudfoundry.org/#get-a-task)
+
+This endpoint is fully supported.
+
+### [List tasks](https://v3-apidocs.cloudfoundry.org/#list-tasks)
+
+#### Supported query parameters:
+
+No query parameters are supported.
+
+### [List tasks for an app](https://v3-apidocs.cloudfoundry.org/#list-tasks-for-an-app)
+
+#### Supported query parameters:
+
+-   `sequence_ids`
+
+### [Cancel a task](https://v3-apidocs.cloudfoundry.org/#cancel-a-task)
+
+These endpoints are fully supported.
+
+## User Identity
+
+> **Warning**
+> This is not part of the published CF API, and is not supported on CF on VMs.
+
+These endpoints are needed by the CF CLI when targeting a Korifi instance to properly identify the user.
+
+### Get the current username
+
+#### Definition
+
+```
+GET /whoami
+```
+
+## [Log-Cache](https://github.com/cloudfoundry/log-cache)
+
+### [Info](https://github.com/cloudfoundry/log-cache#get-apiv1info)
+
+> **Warning**
+> This endpoint is unauthenticated.
+> This endpoint will always return a hard-coded response.
+
+### [Read](https://github.com/cloudfoundry/log-cache#get-apiv1readsource-id)
+
+#### Supported query parameters:
+
+-   `start_time`
+-   `limit`
+-   `descending`
