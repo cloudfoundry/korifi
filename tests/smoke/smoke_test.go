@@ -1,12 +1,11 @@
 package smoke_test
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gexec"
 )
 
@@ -115,17 +113,9 @@ func printAppReportBanner(announcement string) {
 }
 
 func loginAs(user string) {
-	r, w := io.Pipe()
-	loginSession := cf.CfWithStdin(r, "login")
-	Eventually(loginSession).Should(Say("Choose your Kubernetes"))
-
-	userEntryRegex, err := regexp.Compile(`(\d*). ` + user + `\s`)
-	Expect(err).NotTo(HaveOccurred())
-	matches := userEntryRegex.FindSubmatch(loginSession.Buffer().Contents())
-	Expect(matches).To(HaveLen(2))
-
-	Expect(fmt.Fprintf(w, "%s\n\n", matches[1])).To(BeNumerically(">=", 3))
-	Expect(w.Close()).To(Succeed())
-
+	// Stdin contains username followed by 2 return carriages. Firtst one
+	// enters the username and second one skips the org selection prompt that
+	// is presented if there is more than one org
+	loginSession := cf.CfWithStdin(bytes.NewBufferString(user+"\n\n"), "login")
 	Eventually(loginSession).Should(Exit(0))
 }
