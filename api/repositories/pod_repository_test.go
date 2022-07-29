@@ -346,6 +346,43 @@ var _ = Describe("PodRepository", func() {
 					Expect(listStatsErr.Error()).To(ContainSubstring("boom"))
 				})
 			})
+
+			When("there are more pods running than desired instances (the Process was just scaled down)", func() {
+				BeforeEach(func() {
+					message.Instances = 1
+
+					pod2.Status = corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								State: corev1.ContainerState{
+									Running: &corev1.ContainerStateRunning{},
+								},
+								Ready: true,
+							},
+						},
+					}
+					Expect(k8sClient.Status().Update(ctx, pod2)).To(Succeed())
+				})
+
+				It("returns stats only for the desired instances", func() {
+					Expect(listStatsErr).NotTo(HaveOccurred())
+
+					Expect(records).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Type":  Equal("web"),
+							"Index": Equal(0),
+							"State": Equal("RUNNING"),
+							"Usage": MatchFields(IgnoreExtras, Fields{
+								"Time": PointTo(Equal(metricstime.UTC().Format(TimestampFormat))),
+								"CPU":  PointTo(Equal(0.123)),
+								"Mem":  PointTo(Equal(mem.Value())),
+								"Disk": PointTo(Equal(disk.Value())),
+							}),
+						}),
+					))
+				})
+			})
 		})
 
 		When("the user is not authorized in the space", func() {

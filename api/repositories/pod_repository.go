@@ -117,6 +117,9 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 		if podState == "DOWN" {
 			continue
 		}
+		if index >= len(records) {
+			continue
+		}
 		records[index].State = podState
 
 		podMetrics, err := r.metricsFetcher(ctx, p.Namespace, p.Name)
