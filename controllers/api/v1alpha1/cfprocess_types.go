@@ -17,11 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const processNamePrefix = "cf-proc-"
+const processNamePrefix = "cf-proc"
 
 // CFProcessSpec defines the desired state of CFProcess
 type CFProcessSpec struct {
@@ -105,7 +107,7 @@ type CFProcessList struct {
 }
 
 func (r *CFProcess) SetStableName(appGUID string) {
-	r.Name = processNamePrefix + appGUID + r.Spec.ProcessType
+	r.Name = strings.Join([]string{processNamePrefix, appGUID, r.Spec.ProcessType}, "-")
 	if r.Labels == nil {
 		r.Labels = map[string]string{}
 	}
