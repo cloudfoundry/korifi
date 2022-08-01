@@ -175,9 +175,12 @@ function ensure_local_registry() {
   if [[ -n "${api_only}" ]]; then return 0; fi
 
   helm repo add twuni https://helm.twun.io
+  # the htpasswd value below is username: user, password: password encoded using `htpasswd` binary
+  # e.g. `docker run --entrypoint htpasswd httpd:2 -Bbn user password`
   helm upgrade --install localregistry twuni/docker-registry \
     --set service.type=NodePort,service.nodePort=30050,service.port=30050 \
-    --set persistence.enabled=true
+    --set persistence.enabled=true \
+    --set secrets.htpasswd='user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2'
 }
 
 function install_dependencies() {
@@ -188,8 +191,8 @@ function install_dependencies() {
   {
     if [[ -n "${use_local_registry}" ]]; then
       export DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
-      export DOCKER_USERNAME="whatevs"
-      export DOCKER_PASSWORD="whatevs"
+      export DOCKER_USERNAME="user"
+      export DOCKER_PASSWORD="password"
       export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta"
     fi
 

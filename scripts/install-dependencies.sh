@@ -151,7 +151,6 @@ if [[ "$EIRINI_VERSION" == "local" ]]; then
 else
   helm template eirini-controller "https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz" \
     --set "workloads.default_namespace=cf" \
-    --set "controller.registry_secret_name=image-registry-credentials" \
     --namespace "eirini-controller" | kubectl apply -f -
 
 fi
