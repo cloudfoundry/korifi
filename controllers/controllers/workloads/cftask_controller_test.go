@@ -47,6 +47,7 @@ var _ = Describe("CFTask Controller", func() {
 		eiriniTaskGetError error
 		taskTTL            time.Duration
 		processList        []korifiv1alpha1.CFProcess
+		cfAppStagedStatus  metav1.ConditionStatus
 	)
 
 	BeforeEach(func() {
@@ -76,6 +77,7 @@ var _ = Describe("CFTask Controller", func() {
 			taskTTL,
 		)
 
+		cfAppStagedStatus = metav1.ConditionTrue
 		cftaskGetError = nil
 		cfappGetError = nil
 		cfdropletGetError = nil
@@ -127,6 +129,13 @@ var _ = Describe("CFTask Controller", func() {
 					},
 					Spec: korifiv1alpha1.CFAppSpec{
 						CurrentDropletRef: corev1.LocalObjectReference{Name: dropletRef},
+					},
+					Status: korifiv1alpha1.CFAppStatus{
+						Conditions: []metav1.Condition{{
+							Type:   workloads.StatusConditionStaged,
+							Status: cfAppStagedStatus,
+							Reason: "staged",
+						}},
 					},
 				}
 				return cfappGetError
@@ -477,6 +486,24 @@ var _ = Describe("CFTask Controller", func() {
 					Expect(reason).To(Equal("appNotFound"))
 					Expect(message).To(ContainSubstring("Did not find app with name"))
 				})
+			})
+		})
+
+		When("the app is not staged", func() {
+			BeforeEach(func() {
+				cfAppStagedStatus = metav1.ConditionFalse
+			})
+
+			It("requeues and writes a warning event", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(eventRecorder.EventfCallCount()).To(Equal(1))
+				obj, eventType, reason, message, _ := eventRecorder.EventfArgsForCall(0)
+				task, ok := obj.(*korifiv1alpha1.CFTask)
+				Expect(ok).To(BeTrue())
+				Expect(task.Name).To(Equal("the-task-guid"))
+				Expect(eventType).To(Equal("Warning"))
+				Expect(reason).To(Equal("appNotStaged"))
+				Expect(message).To(ContainSubstring("is not staged"))
 			})
 		})
 
