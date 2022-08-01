@@ -79,16 +79,14 @@ if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE:=}" ]]; then
   DOCKER_PASSWORD="$(cat ${GCP_SERVICE_ACCOUNT_JSON_FILE})"
 fi
 if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSWORD:=}" ]]; then
-  for ns in cf; do
-    if kubectl get -n $ns secret image-registry-credentials >/dev/null 2>&1; then
-      kubectl delete -n $ns secret image-registry-credentials
-    fi
+  if kubectl get -n cf secret image-registry-credentials >/dev/null 2>&1; then
+    kubectl delete -n cf secret image-registry-credentials
+  fi
 
-    kubectl create secret -n $ns docker-registry image-registry-credentials \
-      --docker-server=${DOCKER_SERVER} \
-      --docker-username=${DOCKER_USERNAME} \
-      --docker-password="${DOCKER_PASSWORD}"
-  done
+  kubectl create secret -n cf docker-registry image-registry-credentials \
+    --docker-server=${DOCKER_SERVER} \
+    --docker-username=${DOCKER_USERNAME} \
+    --docker-password="${DOCKER_PASSWORD}"
 fi
 
 kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterbuilders.kpack.io
