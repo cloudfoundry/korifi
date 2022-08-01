@@ -174,6 +174,18 @@ spec:
                 type: array
               image:
                 type: string
+              imagePullSecrets:
+                items:
+                  description: LocalObjectReference contains enough information to
+                    let you locate the referenced object inside the same namespace.
+                  properties:
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        TODO: Add other useful fields. apiVersion, kind, uid?'
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
               memoryMB:
                 format: int64
                 type: integer
@@ -183,13 +195,6 @@ spec:
                 type: string
               orgName:
                 type: string
-              privateRegistry:
-                properties:
-                  password:
-                    type: string
-                  username:
-                    type: string
-                type: object
               spaceGUID:
                 type: string
               spaceName:

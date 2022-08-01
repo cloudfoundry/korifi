@@ -266,6 +266,7 @@ func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *
 		eiriniTask.Spec.GUID = cfTask.Name
 		eiriniTask.Spec.Command = []string{LifecycleLauncherPath, cfTask.Spec.Command}
 		eiriniTask.Spec.Image = cfDroplet.Status.Droplet.Registry.Image
+		eiriniTask.Spec.ImagePullSecrets = cfDroplet.Status.Droplet.Registry.ImagePullSecrets
 		eiriniTask.Spec.MemoryMB = r.cfProcessDefaults.MemoryMB
 		eiriniTask.Spec.DiskMB = r.cfProcessDefaults.DiskQuotaMB
 		eiriniTask.Spec.CPUMillis = calculateDefaultCPURequestMillicores(webProcess.Spec.MemoryMB)

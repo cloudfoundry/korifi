@@ -50,7 +50,12 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		cfDropletCopy := cfDroplet.DeepCopy()
 		cfDropletCopy.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
-			Registry: korifiv1alpha1.Registry{Image: "registry.io/my/image"},
+			Registry: korifiv1alpha1.Registry{
+				Image: "registry.io/my/image",
+				ImagePullSecrets: []corev1.LocalObjectReference{{
+					Name: "registry-secret",
+				}},
+			},
 			ProcessTypes: []korifiv1alpha1.ProcessType{{
 				Type:    "web",
 				Command: "cmd",
@@ -193,6 +198,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(tasks.Items[0].Spec.GUID).To(Equal(cfTask.Name))
 			Expect(tasks.Items[0].Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 			Expect(tasks.Items[0].Spec.Image).To(Equal("registry.io/my/image"))
+			Expect(tasks.Items[0].Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
 			Expect(tasks.Items[0].Spec.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
 			Expect(tasks.Items[0].Spec.DiskMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
 			Expect(tasks.Items[0].Spec.CPUMillis).To(BeEquivalentTo(75))
