@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Update Task CRD...
-      sha: 0bd52168ac0a26886f9d7e91bbdf49f2f5cbfe04
+      commitTitle: Replace privateRegistry with imagePullSecrets for tasks...
+      sha: e54a4458f63d12b260ad0772026811624ca7e7cd
       tags:
-      - v0.11.0
+      - v0.12.0
     path: eirini-controller
   path: vendor
 kind: LockConfig
