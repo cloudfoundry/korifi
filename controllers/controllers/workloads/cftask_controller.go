@@ -201,6 +201,12 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CF
 		return nil, err
 	}
 
+	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, StatusConditionStaged) {
+		r.logger.Info("cfapp not staged", "app-namespace", cfApp.Namespace, "app-name", cfApp.Name)
+		r.recorder.Eventf(cfTask, "Warning", "appNotStaged", "App %s:%s is not staged", cfApp.Namespace, cfApp.Name)
+		return nil, errors.New("app not staged")
+	}
+
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
 		r.recorder.Eventf(cfTask, "Warning", "appCurrentDropletRefNotSet", "App %s does not have a current droplet", cfTask.Spec.AppRef.Name)
 		return nil, errors.New("app droplet ref not set")
