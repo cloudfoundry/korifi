@@ -191,7 +191,10 @@ var _ = Describe("Orgs", func() {
 			})
 			It("returns orgs that the client has a role in and sets an HTTP warning header", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", HavePrefix("Warning: Client certificate has an unsafe expiry date")))
+				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", HavePrefix("Warning: The client certificate you provided for user authentication expires at")))
+				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", MatchRegexp("\\d{4}-\\d{2}-\\d{2}")))
+				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", MatchRegexp("\\d{3}h\\d{1}m\\d{1}s")))
+				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", HaveSuffix("to configure your authentication to generate short-lived credentials automatically.")))
 				Expect(result.Resources).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
 				))
