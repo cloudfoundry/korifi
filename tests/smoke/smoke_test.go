@@ -91,7 +91,7 @@ var _ = Describe("Smoke Tests", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(resp).To(HaveHTTPStatus(http.StatusOK))
 				g.Expect(resp).To(HaveHTTPBody(ContainSubstring("Hello World")))
-			}, 2*time.Minute, 30*time.Second).Should(Succeed())
+			}, 5*time.Minute, 30*time.Second).Should(Succeed())
 		})
 	})
 })
