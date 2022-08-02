@@ -105,3 +105,25 @@ jobs:
 
       - name: Run statefulset-runner tests
         run: make test-stset-runner
+
+  job-task-runner-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '^1.18'
+
+      - name: Run job-task-runner tests
+        run: make test-job-task-runner
