@@ -118,6 +118,10 @@ function clean_up_img_refs() {
   cd "${ROOT_DIR}/statefulset-runner"
   unset IMG_SSR
   make set-image-ref
+
+  cd "${ROOT_DIR}/job-task-runner"
+  unset IMG_JTR
+  make set-image-ref
 }
 
 function ensure_kind_cluster() {
@@ -328,6 +332,27 @@ function deploy_statefulset_runner() {
   kubectl rollout status deployment/korifi-statefulset-runner-controller-manager -w -n korifi-statefulset-runner-system
 }
 
+function deploy_job_task_runner() {
+  if [[ -n "${api_only}" ]]; then return 0; fi
+
+  pushd "${ROOT_DIR}/job-task-runner" >/dev/null
+  {
+    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
+    echo "${PWD}"
+    make generate
+    IMG_JTR=${IMG_JTR:-"korifi-job-task-runner:$(uuidgen)"}
+    export IMG_JTR
+    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
+      make docker-build
+    fi
+    kind load docker-image --name "${cluster}" "${IMG_JTR}"
+    make deploy
+  }
+  popd >/dev/null
+
+  kubectl rollout status deployment/korifi-job-task-runner-controller-manager -w -n korifi-job-task-runner-system
+}
+
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
@@ -346,6 +371,7 @@ deploy_korifi_controllers &>"${tmp}/controllers" &
 deploy_korifi_api &>"${tmp}/api" &
 deploy_kpack_image_builder &>"${tmp}/kip" &
 deploy_statefulset_runner &>"${tmp}/stsr" &
+deploy_job_task_runner &>"${tmp}/jtr" &
 wait
 
 cat <<EOF
@@ -375,3 +401,10 @@ Stateful Set Runner
 ***********
 EOF
 cat "${tmp}/stsr"
+
+cat <<EOF
+***********
+Job Task Runner
+***********
+EOF
+cat "${tmp}/jtr"
