@@ -47,6 +47,8 @@ manifests: manifests-controllers manifests-api
 
 manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./controllers/..." output:crd:artifacts:config=controllers/config/crd/bases output:rbac:artifacts:config=controllers/config/rbac output:webhook:artifacts:config=controllers/config/webhook
+	cd statefulset-runner && make manifests
+	cd job-task-runner && make manifests
 
 manifests-api: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=system-clusterrole paths=./api/... output:rbac:artifacts:config=api/config/base/rbac
@@ -85,6 +87,9 @@ test-kpack-image-builder: ## Run tests.
 
 test-stset-runner:
 	cd statefulset-runner && make test
+
+test-job-task-runner:
+	cd job-task-runner && make test
 
 ##@ Build
 

@@ -1,0 +1,6 @@
+apiVersion: korifi.cloudfoundry.org/v1alpha1
+kind: TaskWorkload
+metadata:
+  name: taskworkload-sample
+spec:
+  # TODO(user): Add fields here

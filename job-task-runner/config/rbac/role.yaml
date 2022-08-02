@@ -1,0 +1,35 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: taskworkload-manager-role
+rules:
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - taskworkloads
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - taskworkloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - taskworkloads/status
+  verbs:
+  - get
+  - patch
+  - update

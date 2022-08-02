@@ -1,0 +1,16 @@
+domain: cloudfoundry.org
+layout:
+- go.kubebuilder.io/v3
+projectName: job-task-runner
+repo: code.cloudfoundry.org/korifi/job-task-runner
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: korifi
+  kind: TaskWorkload
+  path: code.cloudfoundry.org/korifi/job-task-runner/api/v1alpha1
+  version: v1alpha1
+version: "3"
