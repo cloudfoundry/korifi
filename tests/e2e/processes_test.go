@@ -57,6 +57,7 @@ var _ = Describe("Processes", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 				Expect(processGUID).To(HavePrefix("cf-proc-"))
+				Expect(processGUID).To(HaveSuffix("-web"))
 				Expect(result.Resources).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(processGUID)}),
 				))
