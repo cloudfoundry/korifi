@@ -326,7 +326,7 @@ var _ = Describe("CFAppReconciler", func() {
 				// Validate call count to create CFProcess
 				Expect(fakeClient.CreateCallCount()).To(Equal(1))
 				_, desiredProcess, _ := fakeClient.CreateArgsForCall(0)
-				Expect(desiredProcess.GetName()).To(HavePrefix("cf-proc-"))
+				Expect(desiredProcess.GetName()).To(Equal("cf-proc-cf-app-guid-web"))
 				desiredProcessObject, ok := desiredProcess.(*korifiv1alpha1.CFProcess)
 				Expect(ok).To(BeTrue())
 				Expect(desiredProcessObject.Spec.HealthCheck.Type).To(Equal(korifiv1alpha1.HealthCheckType("port")))

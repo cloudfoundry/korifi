@@ -348,6 +348,7 @@ var _ = Describe("ProcessRepo", func() {
 
 				process := list.Items[0]
 				Expect(process.Name).To(HavePrefix("cf-proc-"))
+				Expect(process.Name).To(HaveSuffix("-web"))
 				Expect(process.Spec).To(Equal(korifiv1alpha1.CFProcessSpec{
 					AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 					ProcessType: "web",
