@@ -90,27 +90,27 @@ You will need to update the following configuration files:
 
 #### DockerHub
 
-- The cluster_builder.yaml `spec.tag` should be in the format `index.docker.io/<Username>/korifi-cluster-builder`.
-- The korifi-kpack-image-builder.yml `kpackImageTag` should be in the format `index.docker.io/<Username>`.
-  - It will be combined with the GUID of the Kpack Image resource to create the full URI of the droplet image for an application.
-- The korifi-api.yml `packageRegistryBase` should be in the format `index.docker.io/<Username>`.
-    - It will be combined with the GUID of the CFPackage resource to create the full URI of the package image for an application.
+-   The cluster_builder.yaml `spec.tag` should be in the format `index.docker.io/<Username>/korifi-cluster-builder`.
+-   The korifi-kpack-image-builder.yml `kpackImageTag` should be in the format `index.docker.io/<Username>`.
+    -   It will be combined with the GUID of the Kpack Image resource to create the full URI of the droplet image for an application.
+-   The korifi-api.yml `packageRegistryBase` should be in the format `index.docker.io/<Username>`.
+    -   It will be combined with the GUID of the CFPackage resource to create the full URI of the package image for an application.
 
 Note: DockerHub does not support nested directories so `kpackImageTag` and `packageRegistryBase` must point to the user's directory
 
 #### GCR
 
-- The cluster_builder.yaml `spec.tag` should be in the format `gcr.io/<project-id>/korifi-cluster-builder`.
-- The korifi-kpack-image-builder.yml `kpackImageTag` should be in the format `gcr.io/<project-id>/droplets`.
-    - It will be combined with the GUID of the Kpack Image resource to create the full URI of the droplet image for an application.
-- The korifi-api.yml `packageRegistryBase` should be in the format `gcr.io/<project-id>/packages`.
-    - It will be combined with the GUID of the CFPackage resource to create the full URI of the package image for an application.
+-   The cluster_builder.yaml `spec.tag` should be in the format `gcr.io/<project-id>/korifi-cluster-builder`.
+-   The korifi-kpack-image-builder.yml `kpackImageTag` should be in the format `gcr.io/<project-id>/droplets`.
+    -   It will be combined with the GUID of the Kpack Image resource to create the full URI of the droplet image for an application.
+-   The korifi-api.yml `packageRegistryBase` should be in the format `gcr.io/<project-id>/packages`.
+    -   It will be combined with the GUID of the CFPackage resource to create the full URI of the package image for an application.
 
 Note: GCR supports nested directories, so you can organize your images as desired.
 
 #### Registry with Custom CA
 
-- See instruction in [Using container registry signed by custom CA](docs/using-container-registry-signed-by-custom-ca.md) doc.
+-   See instruction in [Using container registry signed by custom CA](docs/using-container-registry-signed-by-custom-ca.md) doc.
 
 ## Root namespace and admin role binding
 
@@ -134,8 +134,9 @@ Bind `$ADMIN_USERNAME` to the admin role:
 kubectl create rolebinding --namespace=$ROOT_NAMESPACE default-admin-binding --clusterrole=korifi-controllers-admin --user=$ADMIN_USERNAME
 ```
 
-Set annotation `cloudfoundry.org/propagate-cf-role` to `true` on the admin role binding. 
+Set annotation `cloudfoundry.org/propagate-cf-role` to `true` on the admin role binding.
 This allows the role binding to be propagated to all `cf` managed namespaces (i.e. cforgs & cfspaces)
+
 ```sh
 kubectl annotate rolebinding --namespace=$ROOT_NAMESPACE default-admin-binding cloudfoundry.org/propagate-cf-role="true"
 ```
@@ -158,17 +159,17 @@ Make sure the value of `--docker-server` is a valid [URI authority](https://data
 
 When using DockerHub,
 
-- the docker-server should be https://index.docker.io/v1/
-- the docker-username should be your DockerHub user
-- the docker-password can be either your DockerHub password or a generated personal access token
+-   the docker-server should be https://index.docker.io/v1/
+-   the docker-username should be your DockerHub user
+-   the docker-password can be either your DockerHub password or a generated personal access token
 
 #### GCR
 
 When using GCR,
 
-- the docker-server should be gcr.io
-- the docker-username should be `"_json_key"`
-- the docker-password should be the JSON-formatted access token for a service account that has permission to manage images in GCR
+-   the docker-server should be gcr.io
+-   the docker-username should be `"_json_key"`
+-   the docker-password should be the JSON-formatted access token for a service account that has permission to manage images in GCR
 
 # Dependencies
 
@@ -216,12 +217,10 @@ kubectl apply -f dependencies/contour-1.19.1.yaml
 [`eirini-controller`](https://github.com/cloudfoundry/eirini-controller#what-is-eirini-controller) is responsible for running Korifi's workloads.
 
 ```sh
-EIRINI_VERSION=0.9.0
-helm install eirini-controller https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz \
+EIRINI_VERSION=0.12.0
+helm template eirini-controller https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz \
   --set "workloads.default_namespace=$ROOT_NAMESPACE" \
-  --set "controller.registry_secret_name=image-registry-credentials" \
-  --create-namespace \
-  --namespace "eirini-controller"
+  --namespace "eirini-controller" | kubectl apply -f -
 ```
 
 ## Optional: Service Bindings Controller
