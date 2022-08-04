@@ -236,6 +236,15 @@ helm template eirini-controller https://github.com/cloudfoundry/eirini-controlle
   --namespace "eirini-controller" | kubectl apply -f -
 ```
 
+## Metrics Server
+
+We use the [Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server) to implement [process stats](https://v3-apidocs.cloudfoundry.org/#get-stats-for-a-process).
+Most Kubernetes distributions will come with `metrics-server` already installed, but if yours doesn't you should install it.
+
+```sh
+kubectl apply -f dependencies/metrics-server-local-0.6.1.yaml
+```
+
 ## Optional: Service Bindings Controller
 
 We use the [Service Binding Specification for Kubernetes](https://github.com/servicebinding/spec) and its [controller reference implementation](https://github.com/servicebinding/service-binding-controller) to implement [Cloud Foundry service bindings](https://docs.cloudfoundry.org/devguide/services/application-binding.html) ([see this issue](https://github.com/cloudfoundry/cf-k8s-controllers/issues/462)).
