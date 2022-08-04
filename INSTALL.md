@@ -114,31 +114,44 @@ Note: GCR supports nested directories, so you can organize your images as desire
 
 ## Root namespace and admin role binding
 
-Create the root namespace:
+Update `dependencies/cf-setup.yaml`:
+
+-   Change the `metadata.name` of the `Namespace` resource to be `$ROOT_NAMESPACE`.
+
+    ```yaml
+    ---
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+        name: cf
+        # ...
+    ```
+
+-   Change the following fields in the `default-admin-binding` `RoleBinding`.
+
+    -   `metadata.namespace` should be `$ROOT_NAMESPACE`.
+    -   `subjects[0].name` should be `$ADMIN_USERNAME`.
+
+    ```yaml
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+        name: default-admin-binding
+        namespace: cf
+        annotations:
+            cloudfoundry.org/propagate-cf-role: "true"
+    # ...
+    subjects:
+        - apiGroup: rbac.authorization.k8s.io
+          kind: User
+          name: cf-admin
+    ```
+
+Now you're ready to apply it:
 
 ```sh
-kubectl create namespace $ROOT_NAMESPACE
-```
-
-All korifi namespaces are created with the [restricted Pod Security labels](https://kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-namespace-labels/). For consistency, apply these to the root namespace:
-
-```sh
-kubectl label namespaces $ROOT_NAMESPACE \
-  pod-security.kubernetes.io/enforce=restricted \
-  pod-security.kubernetes.io/warn=restricted
-```
-
-Bind `$ADMIN_USERNAME` to the admin role:
-
-```sh
-kubectl create rolebinding --namespace=$ROOT_NAMESPACE default-admin-binding --clusterrole=korifi-controllers-admin --user=$ADMIN_USERNAME
-```
-
-Set annotation `cloudfoundry.org/propagate-cf-role` to `true` on the admin role binding.
-This allows the role binding to be propagated to all `cf` managed namespaces (i.e. cforgs & cfspaces)
-
-```sh
-kubectl annotate rolebinding --namespace=$ROOT_NAMESPACE default-admin-binding cloudfoundry.org/propagate-cf-role="true"
+kubectl apply -f dependencies/cf-setup.yaml
 ```
 
 ### Container registry credentials
