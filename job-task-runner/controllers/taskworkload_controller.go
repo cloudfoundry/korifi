@@ -156,6 +156,7 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 						Name:    workloadContainerName,
 						Image:   taskWorkload.Spec.Image,
 						Command: taskWorkload.Spec.Command,
+						Env:     taskWorkload.Spec.Env,
 					}},
 				},
 			},
