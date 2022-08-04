@@ -60,7 +60,6 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		createServiceError        error
 		patchCFRouteError         error
 		patchHTTPProxyError       error
-		updateCFRouteError        error
 		deleteServiceErr          error
 		listServicesError         error
 		updateCFRouteStatusError  error
@@ -135,7 +134,6 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		createServiceError = nil
 		patchCFRouteError = nil
 		patchHTTPProxyError = nil
-		updateCFRouteError = nil
 		deleteServiceErr = nil
 		listServicesError = nil
 		updateCFRouteStatusError = nil
@@ -198,15 +196,6 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				return patchHTTPProxyError
 			default:
 				panic("TestClient Patch provided an unexpected object type")
-			}
-		}
-
-		fakeClient.UpdateStub = func(ctx context.Context, obj client.Object, option ...client.UpdateOption) error {
-			switch obj.(type) {
-			case *korifiv1alpha1.CFRoute:
-				return updateCFRouteError
-			default:
-				panic("TestClient Update provided an unexpected object type")
 			}
 		}
 
@@ -597,7 +586,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			})
 
 			It("updates the FQDN HTTPProxy to remove the route HTTPProxy from the includes list", func() {
-				Expect(fakeClient.PatchCallCount()).To(Equal(1), "Client.Patch call count mismatch")
+				Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Patch call count mismatch")
 
 				_, requestObject, _, _ := fakeClient.PatchArgsForCall(0)
 				requestHTTPProxy, ok := requestObject.(*contourv1.HTTPProxy)
@@ -606,9 +595,9 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			})
 
 			It("removes the finalizer from the CFRoute", func() {
-				Expect(fakeClient.UpdateCallCount()).To(Equal(1), "Client.Update call count mismatch")
+				Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Update call count mismatch")
 
-				_, requestObject, _ := fakeClient.UpdateArgsForCall(0)
+				_, requestObject, _, _ := fakeClient.PatchArgsForCall(1)
 				requestRoute, ok := requestObject.(*korifiv1alpha1.CFRoute)
 				Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFRoute failed")
 				Expect(requestRoute.ObjectMeta.Finalizers).To(HaveLen(0), "CFRoute finalizer count mismatch")
@@ -635,7 +624,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				})
 
 				It("updates the FQDN HTTPProxy to remove the route HTTPProxy from the includes list", func() {
-					Expect(fakeClient.PatchCallCount()).To(Equal(1), "Client.Patch call count mismatch")
+					Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Patch call count mismatch")
 
 					_, requestObject, _, _ := fakeClient.PatchArgsForCall(0)
 					requestHTTPProxy, ok := requestObject.(*contourv1.HTTPProxy)
@@ -644,9 +633,9 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				})
 
 				It("removes the finalizer from the CFRoute", func() {
-					Expect(fakeClient.UpdateCallCount()).To(Equal(1), "Client.Update call count mismatch")
+					Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Update call count mismatch")
 
-					_, requestObject, _ := fakeClient.UpdateArgsForCall(0)
+					_, requestObject, _, _ := fakeClient.PatchArgsForCall(1)
 					requestRoute, ok := requestObject.(*korifiv1alpha1.CFRoute)
 					Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFRoute failed")
 					Expect(requestRoute.ObjectMeta.Finalizers).To(HaveLen(0), "CFRoute finalizer count mismatch")
@@ -669,9 +658,9 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 				})
 
 				It("removes the finalizer from the CFRoute", func() {
-					Expect(fakeClient.UpdateCallCount()).To(Equal(1), "Client.Update call count mismatch")
+					Expect(fakeClient.PatchCallCount()).To(Equal(1), "Client.Patch call count mismatch")
 
-					_, requestObject, _ := fakeClient.UpdateArgsForCall(0)
+					_, requestObject, _, _ := fakeClient.PatchArgsForCall(0)
 					requestRoute, ok := requestObject.(*korifiv1alpha1.CFRoute)
 					Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFRoute failed")
 					Expect(requestRoute.ObjectMeta.Finalizers).To(HaveLen(0), "CFRoute finalizer count mismatch")
@@ -695,12 +684,12 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 			When("removing the finalizer from the CFRoute fails", func() {
 				BeforeEach(func() {
-					updateCFRouteError = errors.New("failed to update CFRoute")
+					patchCFRouteError = errors.New("failed to patch CFRoute")
 					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
 				})
 
 				It("returns the error", func() {
-					Expect(reconcileErr).To(MatchError("failed to update CFRoute"))
+					Expect(reconcileErr).To(MatchError("failed to patch CFRoute"))
 				})
 			})
 		})
