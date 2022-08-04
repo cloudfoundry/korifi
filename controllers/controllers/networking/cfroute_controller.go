@@ -201,8 +201,9 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifi
 		}
 	}
 
+	originalCFRoute := cfRoute.DeepCopy()
 	controllerutil.RemoveFinalizer(cfRoute, CFRouteFinalizerName)
-	if err := r.Client.Update(ctx, cfRoute); err != nil {
+	if err := r.Client.Patch(ctx, cfRoute, client.MergeFrom(originalCFRoute)); err != nil {
 		r.Log.Error(err, "Failed to remove finalizer")
 		return ctrl.Result{}, err
 	}
