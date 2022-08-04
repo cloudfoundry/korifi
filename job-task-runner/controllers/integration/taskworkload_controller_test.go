@@ -27,6 +27,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 			Spec: korifiv1alpha1.TaskWorkloadSpec{
 				Image:   "my-image",
 				Command: []string{"echo", "hello"},
+				Env:     []corev1.EnvVar{{Name: "MY_ENV_VAR", Value: "foo"}},
 			},
 		}
 	})
@@ -55,5 +56,6 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 		Expect(podSpec.Containers[0].Name).To(Equal("workload"))
 		Expect(podSpec.Containers[0].Image).To(Equal("my-image"))
 		Expect(podSpec.Containers[0].Command).To(Equal([]string{"echo", "hello"}))
+		Expect(podSpec.Containers[0].Env).To(Equal(taskWorkload.Spec.Env))
 	})
 })
