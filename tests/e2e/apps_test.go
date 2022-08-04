@@ -465,38 +465,42 @@ var _ = Describe("Apps", func() {
 
 		It("returns the app environment", func() {
 			Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
-			Expect(result).To(HaveKeyWithValue("system_env_json", HaveKeyWithValue("VCAP_SERVICES", map[string]interface{}{
-				"user-provided": []interface{}{
-					map[string]interface{}{
-						"syslog_drain_url": nil,
-						"tags":             []interface{}{},
-						"instance_name":    instanceName,
-						"binding_guid":     bindingGUID,
-						"credentials": map[string]interface{}{
-							"type": "user-provided",
-						},
-						"volume_mounts": []interface{}{},
-						"label":         "user-provided",
-						"name":          instanceName,
-						"instance_guid": instanceGUID,
-						"binding_name":  nil,
-					},
-					map[string]interface{}{
-						"syslog_drain_url": nil,
-						"tags":             []interface{}{},
-						"instance_name":    instanceName2,
-						"binding_guid":     bindingGUID2,
-						"credentials": map[string]interface{}{
-							"type": "user-provided",
-						},
-						"volume_mounts": []interface{}{},
-						"label":         "user-provided",
-						"name":          instanceName2,
-						"instance_guid": instanceGUID2,
-						"binding_name":  nil,
-					},
-				},
-			})))
+			Expect(result).To(
+				HaveKeyWithValue("system_env_json",
+					HaveKeyWithValue("VCAP_SERVICES",
+						HaveKeyWithValue("user-provided", ConsistOf(
+							map[string]interface{}{
+								"syslog_drain_url": nil,
+								"tags":             []interface{}{},
+								"instance_name":    instanceName,
+								"binding_guid":     bindingGUID,
+								"credentials": map[string]interface{}{
+									"type": "user-provided",
+								},
+								"volume_mounts": []interface{}{},
+								"label":         "user-provided",
+								"name":          instanceName,
+								"instance_guid": instanceGUID,
+								"binding_name":  nil,
+							},
+							map[string]interface{}{
+								"syslog_drain_url": nil,
+								"tags":             []interface{}{},
+								"instance_name":    instanceName2,
+								"binding_guid":     bindingGUID2,
+								"credentials": map[string]interface{}{
+									"type": "user-provided",
+								},
+								"volume_mounts": []interface{}{},
+								"label":         "user-provided",
+								"name":          instanceName2,
+								"instance_guid": instanceGUID2,
+								"binding_name":  nil,
+							}),
+						),
+					),
+				),
+			)
 		})
 
 		When("a deleted service binding changes the app env", func() {
