@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +53,7 @@ type DefaultLifecycleConfig struct {
 func LoadFromPath(path string) (*APIConfig, error) {
 	var config APIConfig
 
-	items, err := ioutil.ReadDir(path)
+	items, err := os.ReadDir(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading config dir %q: %w", path, err)
 	}
