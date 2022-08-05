@@ -401,7 +401,7 @@ func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cf
 	err := r.Client.Get(ctx, vcapServicesSecretLookupKey, vcapServicesSecret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "unable to fetch vcap services Secret")
+			r.Log.Error(err, "unable to fetch 'VCAP_SERVICES' Secret")
 			return err
 		}
 
@@ -417,9 +417,16 @@ func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cf
 			},
 			Type: "",
 		}
+
+		err = controllerutil.SetOwnerReference(cfApp, vcapServicesSecret, r.Scheme)
+		if err != nil {
+			r.Log.Error(err, "failed to set OwnerRef on 'VCAP_SERVICES' Secret")
+			return err
+		}
+
 		err = r.Client.Create(ctx, vcapServicesSecret)
 		if err != nil {
-			r.Log.Error(err, "unable to create vcap services Secret")
+			r.Log.Error(err, "unable to create 'VCAP_SERVICES' Secret")
 			return err
 		}
 	}
