@@ -153,10 +153,11 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
 					Containers: []corev1.Container{{
-						Name:    workloadContainerName,
-						Image:   taskWorkload.Spec.Image,
-						Command: taskWorkload.Spec.Command,
-						Env:     taskWorkload.Spec.Env,
+						Name:      workloadContainerName,
+						Image:     taskWorkload.Spec.Image,
+						Command:   taskWorkload.Spec.Command,
+						Resources: taskWorkload.Spec.Resources,
+						Env:       taskWorkload.Spec.Env,
 					}},
 				},
 			},

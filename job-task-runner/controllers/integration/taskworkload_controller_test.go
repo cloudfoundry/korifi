@@ -9,6 +9,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -29,6 +30,18 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 				Image:   "my-image",
 				Command: []string{"echo", "hello"},
 				Env:     []corev1.EnvVar{{Name: "MY_ENV_VAR", Value: "foo"}},
+				Resources: corev1.ResourceRequirements{
+					Limits: map[corev1.ResourceName]resource.Quantity{
+						corev1.ResourceCPU:              *resource.NewScaledQuantity(1000, resource.Milli),
+						corev1.ResourceMemory:           *resource.NewScaledQuantity(1024, resource.Mega),
+						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(1024, resource.Mega),
+					},
+					Requests: map[corev1.ResourceName]resource.Quantity{
+						corev1.ResourceCPU:              *resource.NewScaledQuantity(500, resource.Milli),
+						corev1.ResourceMemory:           *resource.NewScaledQuantity(512, resource.Mega),
+						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(512, resource.Mega),
+					},
+				},
 			},
 		}
 	})
@@ -60,6 +73,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 		Expect(podSpec.Containers[0].Image).To(Equal("my-image"))
 		Expect(podSpec.Containers[0].Command).To(Equal([]string{"echo", "hello"}))
 		Expect(podSpec.Containers[0].Env).To(Equal(taskWorkload.Spec.Env))
+		Expect(podSpec.Containers[0].Resources).To(Equal(taskWorkload.Spec.Resources))
 	})
 
 	It("sets the initialized condition on the task workload status", func() {
