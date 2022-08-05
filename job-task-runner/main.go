@@ -89,10 +89,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	logger := ctrl.Log.WithName("job-task-runner").WithName("TaskWorkload")
+	k8sClient := mgr.GetClient()
+
 	taskWorkloadReconciler := controllers.NewTaskWorkloadReconciler(
-		ctrl.Log.WithName("controllers").WithName("TaskWorkloadReconciler"),
-		mgr.GetClient(),
+		logger,
+		k8sClient,
 		mgr.GetScheme(),
+		controllers.NewStatusGetter(logger, k8sClient),
 	)
 	if err = taskWorkloadReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")

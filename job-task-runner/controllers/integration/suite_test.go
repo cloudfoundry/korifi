@@ -92,10 +92,14 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
+	logger := ctrl.Log.WithName("job-task-runner").WithName("TaskWorkload")
+	managerClient := k8sManager.GetClient()
+
 	taskWorkloadReconciler := controllers.NewTaskWorkloadReconciler(
-		ctrl.Log.WithName("job-task-runner").WithName("TaskWorkload"),
-		k8sManager.GetClient(),
+		logger,
+		managerClient,
 		k8sManager.GetScheme(),
+		controllers.NewStatusGetter(logger, managerClient),
 	)
 	err = taskWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
