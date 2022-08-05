@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/buildpacks/pack/pkg/archive"
@@ -30,7 +29,7 @@ func (r *ImageBuilder) Build(ctx context.Context, srcReader io.Reader) (v1.Image
 }
 
 func copyIntoTempFile(srcReader io.Reader) (string, error) {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "sourceimg-%s")
+	tmpFile, err := os.CreateTemp(os.TempDir(), "sourceimg-%s")
 	if err != nil {
 		return "", fmt.Errorf("failed to create a temp file for image: %w", err)
 	}
