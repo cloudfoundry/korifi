@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -49,6 +50,8 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 		Expect(job.Name).To(Equal(taskWorkload.Name))
 		Expect(job.OwnerReferences).To(HaveLen(1))
 		Expect(job.OwnerReferences[0].Name).To(Equal(taskWorkload.Name))
+		Expect(*job.OwnerReferences[0].Controller).To(BeTrue())
+		Expect(*job.Spec.BackoffLimit).To(BeZero())
 
 		podSpec := job.Spec.Template.Spec
 		Expect(podSpec.RestartPolicy).To(Equal(corev1.RestartPolicyNever))
@@ -57,5 +60,12 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 		Expect(podSpec.Containers[0].Image).To(Equal("my-image"))
 		Expect(podSpec.Containers[0].Command).To(Equal([]string{"echo", "hello"}))
 		Expect(podSpec.Containers[0].Env).To(Equal(taskWorkload.Spec.Env))
+	})
+
+	It("sets the initialized condition on the task workload status", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
+			g.Expect(meta.IsStatusConditionTrue(taskWorkload.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+		}).Should(Succeed())
 	})
 })

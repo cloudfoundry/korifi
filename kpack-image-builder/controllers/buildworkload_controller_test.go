@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
@@ -206,7 +205,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			createdKpackImage = new(buildv1alpha2.Image)
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), kpackImageLookupKey, createdKpackImage)
-			}, 2*time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		When("the image build failed", func() {
@@ -266,7 +265,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedBuildWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
 					return updatedBuildWorkload.Status.Droplet
-				}, 2*time.Second).ShouldNot(BeNil())
+				}).ShouldNot(BeNil())
 				Expect(fakeImageProcessFetcher.CallCount()).To(BeNumerically(">=", 1))
 				Expect(updatedBuildWorkload.Status.Droplet.Registry.Image).To(Equal(kpackBuildImageRef), "droplet registry image does not match kpack image latestImage")
 				Expect(updatedBuildWorkload.Status.Droplet.Stack).To(Equal(kpackImageLatestStack), "droplet stack does not match kpack image latestStack")

@@ -6,11 +6,22 @@ metadata:
   name: taskworkload-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - batch
   resources:
   - jobs
   verbs:
   - create
+  - get
+  - list
+  - watch
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
