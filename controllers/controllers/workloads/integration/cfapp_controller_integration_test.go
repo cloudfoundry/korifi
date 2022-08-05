@@ -80,6 +80,14 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			createdSecret := new(corev1.Secret)
 			Expect(k8sClient.Get(ctx, vcapServicesSecretLookupKey, createdSecret)).To(Succeed())
 			Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", []byte("{}")))
+			Expect(createdSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+				{
+					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+					Kind:       "CFApp",
+					Name:       cfApp.Name,
+					UID:        cfApp.GetUID(),
+				},
+			}))
 		})
 
 		It("sets its status.conditions", func() {
