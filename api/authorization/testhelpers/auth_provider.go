@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"os"
@@ -70,7 +69,7 @@ func (p *AuthProvider) GenerateJWTToken(subject string, groups ...string) string
 func writeCAToTempFile(server *ghttp.Server) string {
 	caDerBytes := server.HTTPTestServer.TLS.Certificates[0].Certificate[0]
 
-	certOut, err := ioutil.TempFile("", "test-oidc-ca")
+	certOut, err := os.CreateTemp("", "test-oidc-ca")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: caDerBytes})

@@ -3,7 +3,7 @@ package integration_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -144,7 +144,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			It("creates the applications in the manifest, the env var secret, the processes, and the route, then returns 202 and a job URI", func() {
 				Expect(rr.Code).To(Equal(202))
 
-				body, err := ioutil.ReadAll(rr.Body)
+				body, err := io.ReadAll(rr.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 
@@ -601,7 +601,7 @@ var _ = Describe("POST /v3/spaces/<space-guid>/actions/apply_manifest endpoint",
 			It("updates the app with the manifest changes and returns a 202", func() {
 				Expect(rr.Code).To(Equal(202))
 
-				body, err := ioutil.ReadAll(rr.Body)
+				body, err := io.ReadAll(rr.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(body).To(BeEmpty())
 

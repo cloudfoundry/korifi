@@ -3,11 +3,11 @@ package integration_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -253,7 +253,7 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
 	filepath := filepath.Join("..", "..", "..", "controllers", "config", "cf_roles", filename+".yaml")
-	content, err := ioutil.ReadFile(filepath)
+	content, err := os.ReadFile(filepath)
 	Expect(err).NotTo(HaveOccurred())
 
 	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDecoder()
