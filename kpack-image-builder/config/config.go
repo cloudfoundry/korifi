@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +18,7 @@ type ControllerConfig struct {
 func LoadFromPath(path string) (*ControllerConfig, error) {
 	var config ControllerConfig
 
-	items, err := ioutil.ReadDir(path)
+	items, err := os.ReadDir(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading config dir %q: %w", path, err)
 	}
