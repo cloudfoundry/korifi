@@ -28,6 +28,7 @@ import (
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -88,14 +89,7 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	err = r.addFinalizer(ctx, cfRoute)
 	if err != nil {
-		description := "Error adding finalizer"
-		r.Log.Error(err, description)
-		errMsg := fmt.Sprintf("%v", err)
-		if statusErr := r.setRouteStatus(ctx, cfRoute, korifiv1alpha1.InvalidStatus, description, "AddFinalizer", errMsg); statusErr != nil {
-			r.Log.Error(statusErr, "Error when updating CFRoute status")
-			return ctrl.Result{}, statusErr
-		}
-		return ctrl.Result{}, err
+		return r.setRouteErrorStatusAndReturn(ctx, cfRoute, err, "Error adding finalizer", "AddFinalizer")
 	}
 
 	err = r.createOrPatchServices(ctx, cfRoute)
@@ -114,42 +108,65 @@ func (r *CFRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	err = r.deleteOrphanedServices(ctx, cfRoute)
-	if err != nil { // technically, failing to delete the orphaned services does not make the CFRoute invalid so we don't mess with the cfRoute status here
+	if err != nil {
+		// technically, failing to delete the orphaned services does not make the CFRoute invalid so we don't mess with the cfRoute status here
 		return ctrl.Result{}, err
 	}
 
-	// setCFRouteCFDomainStatusFields
-	cfRoute.Status.FQDN = cfRoute.Spec.Host + "." + cfDomain.Spec.Name
-	cfRoute.Status.URI = cfRoute.Status.FQDN + cfRoute.Spec.Path
-	cfRoute.Status.Destinations = cfRoute.Spec.Destinations
-
-	if err := r.setRouteStatus(ctx, cfRoute, korifiv1alpha1.ValidStatus, "Valid CFRoute", "Valid", "Valid CFRoute"); err != nil {
+	if err := r.setRouteStatus(ctx, cfRoute, createValidRouteStatus(cfRoute, &cfDomain, "Valid CFRoute", "Valid", "Valid CFRoute")); err != nil {
 		r.Log.Error(err, "Error when updating CFRoute status")
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, statusValue korifiv1alpha1.CurrentStatus, description, reason, message string) error {
-	cfRoute.Status.CurrentStatus = statusValue
-	cfRoute.Status.Description = description
+func (r *CFRouteReconciler) setRouteStatus(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, routeStatus korifiv1alpha1.CFRouteStatus) error {
+	originalCFRoute := cfRoute.DeepCopy()
+	cfRoute.Status = routeStatus
+	return r.Client.Status().Patch(ctx, cfRoute, client.MergeFrom(originalCFRoute))
+}
 
-	statusConditionValue := metav1.ConditionUnknown
-	if statusValue == korifiv1alpha1.InvalidStatus {
-		statusConditionValue = metav1.ConditionFalse
-	} else if statusValue == korifiv1alpha1.ValidStatus {
-		statusConditionValue = metav1.ConditionTrue
+func createValidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain, description, reason, message string) korifiv1alpha1.CFRouteStatus {
+	fqdn := cfRoute.Spec.Host + "." + cfDomain.Spec.Name
+	cfRouteStatus := korifiv1alpha1.CFRouteStatus{
+		FQDN:          fqdn,
+		URI:           fqdn + cfRoute.Spec.Path,
+		Destinations:  cfRoute.Spec.Destinations,
+		CurrentStatus: korifiv1alpha1.ValidStatus,
+		Description:   description,
+		Conditions:    cfRoute.Status.Conditions,
 	}
 
-	setStatusConditionOnLocalCopy(&cfRoute.Status.Conditions, "Valid", statusConditionValue, reason, message)
+	meta.SetStatusCondition(&cfRouteStatus.Conditions, metav1.Condition{
+		Type:    "Valid",
+		Status:  metav1.ConditionTrue,
+		Reason:  reason,
+		Message: message,
+	})
 
-	return r.Client.Status().Update(ctx, cfRoute)
+	return cfRouteStatus
+}
+
+func createInvalidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, description, reason, message string) korifiv1alpha1.CFRouteStatus {
+	cfRouteStatus := korifiv1alpha1.CFRouteStatus{
+		Description:   description,
+		CurrentStatus: korifiv1alpha1.InvalidStatus,
+		Conditions:    cfRoute.Status.Conditions,
+	}
+
+	meta.SetStatusCondition(&cfRouteStatus.Conditions, metav1.Condition{
+		Type:    "Valid",
+		Status:  metav1.ConditionFalse,
+		Reason:  reason,
+		Message: message,
+	})
+
+	return cfRouteStatus
 }
 
 func (r *CFRouteReconciler) setRouteErrorStatusAndReturn(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, err error, description, reason string) (ctrl.Result, error) {
 	r.Log.Error(err, description)
-	errMsg := fmt.Sprintf("%v", err)
-	if statusErr := r.setRouteStatus(ctx, cfRoute, korifiv1alpha1.InvalidStatus, description, reason, errMsg); statusErr != nil {
+	if statusErr := r.setRouteStatus(ctx, cfRoute, createInvalidRouteStatus(cfRoute, description, reason, err.Error())); statusErr != nil {
 		r.Log.Error(statusErr, "Error when updating CFRoute status")
 		return ctrl.Result{}, statusErr
 	}
@@ -241,7 +258,7 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *
 		}
 
 		result, err := controllerutil.CreateOrPatch(ctx, r.Client, service, func() error {
-			service.ObjectMeta.Labels = map[string]string{
+			service.Labels = map[string]string{
 				korifiv1alpha1.CFAppGUIDLabelKey:   destination.AppRef.Name,
 				korifiv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 			}
