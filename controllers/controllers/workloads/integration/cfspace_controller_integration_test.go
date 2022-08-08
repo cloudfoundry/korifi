@@ -32,7 +32,6 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		cfSpace                                      *korifiv1alpha1.CFSpace
 		imageRegistrySecret                          *corev1.Secret
 		role                                         *rbacv1.ClusterRole
-		rules                                        []rbacv1.PolicyRule
 		username                                     string
 		roleBinding                                  rbacv1.RoleBinding
 		roleBindingWithPropagateAnnotationSetToFalse rbacv1.RoleBinding
@@ -43,12 +42,11 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		ctx = context.Background()
 		orgNamespace = createNamespaceWithCleanup(ctx, k8sClient, PrefixedGUID("cf-org"))
 		imageRegistrySecret = createSecret(ctx, k8sClient, packageRegistrySecretName, orgNamespace.Name)
-		rules = []rbacv1.PolicyRule{
+		rules := []rbacv1.PolicyRule{
 			{
-				Verbs:         []string{"use"},
-				APIGroups:     []string{"policy"},
-				Resources:     []string{"podsecuritypolicies"},
-				ResourceNames: []string{"eirini-workloads-app-psp"},
+				Verbs:     []string{"create"},
+				APIGroups: []string{"korifi.cloudfoundry.org"},
+				Resources: []string{"cfapps"},
 			},
 		}
 		role = createClusterRole(ctx, k8sClient, PrefixedGUID("clusterrole"), rules)
@@ -147,13 +145,6 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Expect(serviceAccount.Secrets).To(Equal([]corev1.ObjectReference{
 				{Name: packageRegistrySecretName},
 			}))
-		})
-
-		It("creates the eirini service account", func() {
-			Eventually(func() error {
-				var serviceAccount corev1.ServiceAccount
-				return k8sClient.Get(ctx, types.NamespacedName{Namespace: spaceGUID, Name: "eirini"}, &serviceAccount)
-			}).Should(Succeed())
 		})
 
 		It("sets status on CFSpace", func() {

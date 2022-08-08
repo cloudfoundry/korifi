@@ -109,58 +109,8 @@ echo "*******************"
 
 kubectl apply -f "${DEP_DIR}/contour-1.19.1.yaml"
 
-echo "*******************"
-echo "Installing Eirini"
-echo "*******************"
-
-EIRINI_VERSION="${EIRINI_VERSION:-0.12.0}"
-
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: eirini-controller
-EOF
-
-if [[ "$EIRINI_VERSION" == "local" ]]; then
-  EIRINI_DIR="$SCRIPT_DIR/../../eirini-controller"
-  if [[ ! -d "$EIRINI_DIR" ]]; then
-    echo "cannot find eirini-controller source in $EIRINI_DIR" >&2
-    exit 1
-  fi
-
-  pushd "$EIRINI_DIR"
-  {
-    kbld -f deployment/scripts/assets/kbld-kind.yaml \
-      -f deployment/helm/values-template.yaml >deployment/helm/values.yaml
-
-    image="$(awk '/eirini_controller:/ {print $2}' deployment/helm/values.yaml)"
-
-    cluster_name=$(kubectl config current-context)
-    cluster_name="${cluster_name#"kind-"}"
-    kind load docker-image --name "$cluster_name" "$image"
-
-    helm template eirini-controller deployment/helm \
-      --namespace eirini-controller \
-      --set "workloads.default_namespace=cf" \
-      --set "controller.registry_secret_name=image-registry-credentials" \
-      --values deployment/helm/values.yaml |
-      kubectl apply -f-
-  }
-  popd
-else
-  helm template eirini-controller "https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz" \
-    --set "workloads.default_namespace=cf" \
-    --namespace "eirini-controller" | kubectl apply -f -
-
-fi
-
 echo "**************************************"
 echo "Installing Service Binding Controller"
 echo "**************************************"
 
 kubectl apply -f "${DEP_DIR}/service-bindings-0.7.1.yaml"
-
-echo "******"
-echo "Done"
-echo "******"

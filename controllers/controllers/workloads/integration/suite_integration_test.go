@@ -14,7 +14,6 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 
-	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	"github.com/jonboulle/clockwork"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,7 +59,6 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("fixtures", "vendor", "eirini-controller", "deployment", "helm", "templates", "core"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -70,12 +68,7 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-
-	// Add Eirini to Scheme
-	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
-
 	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
-
 	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme

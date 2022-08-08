@@ -40,9 +40,8 @@ import (
 )
 
 const (
-	kpackServiceAccountName  = "kpack-service-account"
-	eiriniServiceAccountName = "eirini"
-	spaceFinalizerName       = "cfSpace.korifi.cloudfoundry.org"
+	kpackServiceAccountName = "kpack-service-account"
+	spaceFinalizerName      = "cfSpace.korifi.cloudfoundry.org"
 )
 
 // CFSpaceReconciler reconciles a CFSpace object
@@ -165,17 +164,6 @@ func (r *CFSpaceReconciler) createServiceAccounts(ctx context.Context, namespace
 	})
 	if err != nil {
 		r.log.Error(err, "unable to create kpack service account")
-		return err
-	}
-
-	err = r.createServiceAccountIfMissing(ctx, &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      eiriniServiceAccountName,
-			Namespace: namespace,
-		},
-	})
-	if err != nil {
-		r.log.Error(err, "unable to create eirini service account")
 		return err
 	}
 

@@ -225,17 +225,6 @@ kubectl apply -f dependencies/kpack/service_account.yaml \
 kubectl apply -f dependencies/contour-1.19.1.yaml
 ```
 
-## eirini-controller
-
-[`eirini-controller`](https://github.com/cloudfoundry/eirini-controller#what-is-eirini-controller) is responsible for running Korifi's workloads.
-
-```sh
-EIRINI_VERSION=0.12.0
-helm template eirini-controller https://github.com/cloudfoundry/eirini-controller/releases/download/v$EIRINI_VERSION/eirini-controller-$EIRINI_VERSION.tgz \
-  --set "workloads.default_namespace=$ROOT_NAMESPACE" \
-  --namespace "eirini-controller" | kubectl apply -f -
-```
-
 ## Metrics Server
 
 We use the [Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server) to implement [process stats](https://v3-apidocs.cloudfoundry.org/#get-stats-for-a-process).
