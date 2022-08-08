@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
@@ -137,10 +138,6 @@ func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func int32ptr(i int32) *int32 {
-	return &i
-}
-
 func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -148,16 +145,28 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 			Namespace: taskWorkload.Namespace,
 		},
 		Spec: batchv1.JobSpec{
-			BackoffLimit: int32ptr(0),
+			BackoffLimit: tools.PtrTo(int32(0)),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: tools.PtrTo(true),
+					},
 					Containers: []corev1.Container{{
 						Name:      workloadContainerName,
 						Image:     taskWorkload.Spec.Image,
 						Command:   taskWorkload.Spec.Command,
 						Resources: taskWorkload.Spec.Resources,
 						Env:       taskWorkload.Spec.Env,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							AllowPrivilegeEscalation: tools.PtrTo(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
