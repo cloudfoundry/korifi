@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -116,7 +117,7 @@ var _ = Describe("ApplyManifest", func() {
 				Applications: []payloads.ManifestApplication{
 					{
 						Name:      appName,
-						Memory:    stringPointer("128M"),
+						Memory:    tools.PtrTo("128M"),
 						Processes: []payloads.ManifestApplicationProcess{},
 					},
 				},
@@ -142,11 +143,11 @@ var _ = Describe("ApplyManifest", func() {
 				Applications: []payloads.ManifestApplication{
 					{
 						Name:   appName,
-						Memory: stringPointer("128M"),
+						Memory: tools.PtrTo("128M"),
 						Processes: []payloads.ManifestApplicationProcess{
 							{
 								Type:   "web",
-								Memory: stringPointer("256M"),
+								Memory: tools.PtrTo("256M"),
 							},
 						},
 					},
@@ -502,7 +503,7 @@ var _ = Describe("ApplyManifest", func() {
 			When("routes are specified in the manifest", func() {
 				BeforeEach(func() {
 					manifest.Applications[0].Routes = []payloads.ManifestRoute{
-						{Route: stringPointer("my-app.my-domain.com/path")},
+						{Route: tools.PtrTo("my-app.my-domain.com/path")},
 					}
 				})
 
@@ -608,7 +609,7 @@ var _ = Describe("ApplyManifest", func() {
 					Destinations: []repositories.DestinationRecord{{GUID: "existing-destination-guid"}},
 				}, nil)
 				manifest.Applications[0].Routes = []payloads.ManifestRoute{
-					{Route: stringPointer("my-app.my-domain.com/path")},
+					{Route: tools.PtrTo("my-app.my-domain.com/path")},
 				}
 			})
 
@@ -687,7 +688,7 @@ var _ = Describe("ApplyManifest", func() {
 			When("defaultRoute:true is set on the manifest along with the routes", func() {
 				BeforeEach(func() {
 					manifest.Applications[0].Routes = []payloads.ManifestRoute{
-						{Route: stringPointer("NOT-MY-APP.my-domain.com/path")},
+						{Route: tools.PtrTo("NOT-MY-APP.my-domain.com/path")},
 					}
 					manifest.Applications[0].DefaultRoute = true
 				})
@@ -709,7 +710,7 @@ var _ = Describe("ApplyManifest", func() {
 			When("randomRoute:true is set on the manifest along with the routes", func() {
 				BeforeEach(func() {
 					manifest.Applications[0].Routes = []payloads.ManifestRoute{
-						{Route: stringPointer("NOT-MY-APP.my-domain.com/path")},
+						{Route: tools.PtrTo("NOT-MY-APP.my-domain.com/path")},
 					}
 					manifest.Applications[0].RandomRoute = true
 				})
@@ -730,7 +731,3 @@ var _ = Describe("ApplyManifest", func() {
 		})
 	})
 })
-
-func stringPointer(s string) *string {
-	return &s
-}

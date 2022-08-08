@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,7 +17,7 @@ import (
 )
 
 const (
-	logTailLines = 50
+	logTailLines int64 = 50
 )
 
 type podContainerDescriptor struct {
@@ -128,7 +129,7 @@ func getPods(clientset kubernetes.Interface, namespace, labelKey, labelValue str
 }
 
 func getSinglePodLog(clientset kubernetes.Interface, pod corev1.Pod, container, correlationId string) (string, error) {
-	podLogOpts := corev1.PodLogOptions{TailLines: int64ptr(logTailLines), Container: container}
+	podLogOpts := corev1.PodLogOptions{TailLines: tools.PtrTo(logTailLines), Container: container}
 	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
 
 	logStream, err := req.Stream(context.Background())
@@ -147,8 +148,4 @@ func getSinglePodLog(clientset kubernetes.Interface, pod corev1.Pod, container, 
 	}
 
 	return logBuf.String(), logScanner.Err()
-}
-
-func int64ptr(i int64) *int64 {
-	return &i
 }

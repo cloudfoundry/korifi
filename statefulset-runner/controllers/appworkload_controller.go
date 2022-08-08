@@ -40,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -267,9 +268,6 @@ func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) 
 	livenessProbe := CreateLivenessProbe(appWorkload)
 	readinessProbe := CreateReadinessProbe(appWorkload)
 
-	allowPrivilegeEscalation := false
-	runAsNonRoot := true
-
 	containers := []corev1.Container{
 		{
 			Name:            ApplicationContainerName,
@@ -279,7 +277,7 @@ func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) 
 			Env:             envs,
 			Ports:           ports,
 			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+				AllowPrivilegeEscalation: tools.PtrTo(false),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
@@ -311,15 +309,14 @@ func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) 
 					Containers:       containers,
 					ImagePullSecrets: appWorkload.Spec.ImagePullSecrets,
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: &runAsNonRoot,
+						RunAsNonRoot: tools.PtrTo(true),
 					},
 				},
 			},
 		},
 	}
 
-	automountServiceAccountToken := false
-	statefulSet.Spec.Template.Spec.AutomountServiceAccountToken = &automountServiceAccountToken
+	statefulSet.Spec.Template.Spec.AutomountServiceAccountToken = tools.PtrTo(false)
 	statefulSet.Spec.Selector = StatefulSetLabelSelector(&appWorkload)
 
 	statefulSet.Spec.Template.Spec.Affinity = &corev1.Affinity{

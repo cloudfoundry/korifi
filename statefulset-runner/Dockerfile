@@ -10,8 +10,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY controllers/api controllers/api/
-
-# Copy the go source
+COPY tools tools
 COPY statefulset-runner/main.go statefulset-runner/main.go
 COPY statefulset-runner/api/ statefulset-runner/api/
 COPY statefulset-runner/controllers/ statefulset-runner/controllers/

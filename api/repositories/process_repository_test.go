@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -484,14 +485,14 @@ var _ = Describe("ProcessRepo", func() {
 					message = repositories.PatchProcessMessage{
 						ProcessGUID:                         process1GUID,
 						SpaceGUID:                           space.Name,
-						Command:                             stringPointer("start-web"),
-						HealthCheckType:                     stringPointer("http"),
-						HealthCheckHTTPEndpoint:             stringPointer("/healthz"),
-						HealthCheckInvocationTimeoutSeconds: int64Pointer(20),
-						HealthCheckTimeoutSeconds:           int64Pointer(10),
-						DesiredInstances:                    intPointer(42),
-						MemoryMB:                            int64Pointer(456),
-						DiskQuotaMB:                         int64Pointer(123),
+						Command:                             tools.PtrTo("start-web"),
+						HealthCheckType:                     tools.PtrTo("http"),
+						HealthCheckHTTPEndpoint:             tools.PtrTo("/healthz"),
+						HealthCheckInvocationTimeoutSeconds: tools.PtrTo(int64(20)),
+						HealthCheckTimeoutSeconds:           tools.PtrTo(int64(10)),
+						DesiredInstances:                    tools.PtrTo(42),
+						MemoryMB:                            tools.PtrTo(int64(456)),
+						DiskQuotaMB:                         tools.PtrTo(int64(123)),
 					}
 				})
 
@@ -511,14 +512,14 @@ var _ = Describe("ProcessRepo", func() {
 						message = repositories.PatchProcessMessage{
 							ProcessGUID:                         process1GUID,
 							SpaceGUID:                           space.Name,
-							Command:                             stringPointer("start-web"),
-							HealthCheckType:                     stringPointer("http"),
-							HealthCheckHTTPEndpoint:             stringPointer("/healthz"),
-							HealthCheckInvocationTimeoutSeconds: int64Pointer(20),
-							HealthCheckTimeoutSeconds:           int64Pointer(10),
-							DesiredInstances:                    intPointer(42),
-							MemoryMB:                            int64Pointer(456),
-							DiskQuotaMB:                         int64Pointer(123),
+							Command:                             tools.PtrTo("start-web"),
+							HealthCheckType:                     tools.PtrTo("http"),
+							HealthCheckHTTPEndpoint:             tools.PtrTo("/healthz"),
+							HealthCheckInvocationTimeoutSeconds: tools.PtrTo(int64(20)),
+							HealthCheckTimeoutSeconds:           tools.PtrTo(int64(10)),
+							DesiredInstances:                    tools.PtrTo(42),
+							MemoryMB:                            tools.PtrTo(int64(456)),
+							DiskQuotaMB:                         tools.PtrTo(int64(123)),
 						}
 					})
 
@@ -563,10 +564,10 @@ var _ = Describe("ProcessRepo", func() {
 						message = repositories.PatchProcessMessage{
 							ProcessGUID:               process1GUID,
 							SpaceGUID:                 space.Name,
-							Command:                   stringPointer("new-command"),
-							HealthCheckTimeoutSeconds: int64Pointer(42),
-							DesiredInstances:          intPointer(5),
-							MemoryMB:                  int64Pointer(123),
+							Command:                   tools.PtrTo("new-command"),
+							HealthCheckTimeoutSeconds: tools.PtrTo(int64(42)),
+							DesiredInstances:          tools.PtrTo(5),
+							MemoryMB:                  tools.PtrTo(int64(123)),
 						}
 					})
 
@@ -609,15 +610,3 @@ var _ = Describe("ProcessRepo", func() {
 		})
 	})
 })
-
-func stringPointer(s string) *string {
-	return &s
-}
-
-func intPointer(i int) *int {
-	return &i
-}
-
-func int64Pointer(i int64) *int64 {
-	return &i
-}
