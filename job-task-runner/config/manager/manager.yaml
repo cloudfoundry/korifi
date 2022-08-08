@@ -3,6 +3,8 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
   name: system
 ---
 apiVersion: apps/v1
@@ -44,7 +46,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - "ALL"
+              - ALL
         livenessProbe:
           httpGet:
             path: /healthz
