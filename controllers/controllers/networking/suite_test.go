@@ -7,7 +7,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -21,13 +20,22 @@ func TestNetworkingControllers(t *testing.T) {
 }
 
 func expectCFRouteValidStatus(cfRouteStatus korifiv1alpha1.CFRouteStatus, valid bool, desc ...string) {
-	expectedCurrentStatus := korifiv1alpha1.ValidStatus
-	expectedValidStatusCondition := metav1.ConditionTrue
-	if !valid {
-		expectedCurrentStatus = korifiv1alpha1.InvalidStatus
-		expectedValidStatusCondition = metav1.ConditionFalse
+	validCondition := meta.FindStatusCondition(cfRouteStatus.Conditions, "Valid")
+	Expect(validCondition).NotTo(BeNil())
+
+	if valid {
+		Expect(cfRouteStatus.FQDN).ToNot(BeEmpty())
+		Expect(cfRouteStatus.URI).ToNot(BeEmpty())
+		Expect(cfRouteStatus.Destinations).ToNot(BeEmpty())
+		Expect(cfRouteStatus.CurrentStatus).To(Equal(korifiv1alpha1.ValidStatus))
+		Expect(validCondition.Status).To(Equal(metav1.ConditionTrue))
+	} else {
+		Expect(cfRouteStatus.FQDN).To(BeEmpty())
+		Expect(cfRouteStatus.URI).To(BeEmpty())
+		Expect(cfRouteStatus.Destinations).To(BeEmpty())
+		Expect(cfRouteStatus.CurrentStatus).To(Equal(korifiv1alpha1.InvalidStatus))
+		Expect(validCondition.Status).To(Equal(metav1.ConditionFalse))
 	}
-	Expect(cfRouteStatus.CurrentStatus).To(Equal(expectedCurrentStatus))
 
 	if len(desc) == 0 {
 		Expect(cfRouteStatus.Description).NotTo(BeEmpty())
@@ -43,12 +51,6 @@ func expectCFRouteValidStatus(cfRouteStatus korifiv1alpha1.CFRouteStatus, valid 
 		messageMatcher = Equal(desc[2])
 	}
 
-	validStatus := meta.FindStatusCondition(cfRouteStatus.Conditions, "Valid")
-	Expect(validStatus).NotTo(BeNil())
-	Expect(*validStatus).To(MatchFields(IgnoreExtras, Fields{
-		"Type":    Equal("Valid"),
-		"Status":  Equal(expectedValidStatusCondition),
-		"Reason":  reasonMatcher,
-		"Message": messageMatcher,
-	}))
+	Expect(validCondition.Reason).To(reasonMatcher)
+	Expect(validCondition.Message).To(messageMatcher)
 }
