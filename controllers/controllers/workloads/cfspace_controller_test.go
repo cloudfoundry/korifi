@@ -38,20 +38,17 @@ var _ = Describe("CFSpace Reconciler", func() {
 		cfSpace   *korifiv1alpha1.CFSpace
 		namespace *v1.Namespace
 
-		cfSpaceError                        error
-		cfSpacePatchError                   error
-		createSubnamespaceAnchorCallCount   int
-		namespaceError                      error
-		createNamespaceErr                  error
-		patchNamespaceErr                   error
-		deleteNamespaceErr                  error
-		secretErr                           error
-		getEiriniServiceAccountError        error
-		getKpackServiceAccountError         error
-		createEiriniServiceAccountError     error
-		createEiriniServiceAccountCallCount int
-		createKpackServiceAccountError      error
-		createKpackServiceAccountCallCount  int
+		cfSpaceError                       error
+		cfSpacePatchError                  error
+		createSubnamespaceAnchorCallCount  int
+		namespaceError                     error
+		createNamespaceErr                 error
+		patchNamespaceErr                  error
+		deleteNamespaceErr                 error
+		secretErr                          error
+		getKpackServiceAccountError        error
+		createKpackServiceAccountError     error
+		createKpackServiceAccountCallCount int
 
 		cfSpaceReconciler *CFSpaceReconciler
 		ctx               context.Context
@@ -79,8 +76,6 @@ var _ = Describe("CFSpace Reconciler", func() {
 		createSubnamespaceAnchorCallCount = 0
 		reconcileErr = nil
 
-		createEiriniServiceAccountError = nil
-		createEiriniServiceAccountCallCount = 0
 		createKpackServiceAccountError = nil
 		createKpackServiceAccountCallCount = 0
 
@@ -95,29 +90,20 @@ var _ = Describe("CFSpace Reconciler", func() {
 			case *v1.Secret:
 				return secretErr
 			case *v1.ServiceAccount:
-				if nn.Name == "eirini" {
-					return getEiriniServiceAccountError
-				} else {
-					return getKpackServiceAccountError
-				}
+				return getKpackServiceAccountError
 			default:
 				panic("TestClient Get provided a weird obj")
 			}
 		}
 
 		fakeClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
-			switch obj := obj.(type) {
+			switch obj.(type) {
 			case *v1.Namespace:
 				createSubnamespaceAnchorCallCount++
 				return createNamespaceErr
 			case *v1.ServiceAccount:
-				if obj.Name == "eirini" {
-					createEiriniServiceAccountCallCount++
-					return createEiriniServiceAccountError
-				} else {
-					createKpackServiceAccountCallCount++
-					return createKpackServiceAccountError
-				}
+				createKpackServiceAccountCallCount++
+				return createKpackServiceAccountError
 			default:
 				panic("TestClient Create provided an unexpected object type")
 			}
@@ -245,29 +231,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			})
 		})
 
-		When("creating the eirini service account errors", func() {
-			BeforeEach(func() {
-				namespaceError = nil
-				getEiriniServiceAccountError = errors.New("not found")
-				createEiriniServiceAccountError = errors.New("boom")
-			})
-
-			It("should return an error", func() {
-				Expect(reconcileErr).To(MatchError("boom"))
-			})
-		})
-
 		When("the kpack service account already exists", func() {
-			BeforeEach(func() {
-				namespaceError = nil
-			})
-
-			It("should not fail", func() {
-				Expect(reconcileErr).To(Not(HaveOccurred()))
-			})
-		})
-
-		When("the eirini service account already exists", func() {
 			BeforeEach(func() {
 				namespaceError = nil
 			})

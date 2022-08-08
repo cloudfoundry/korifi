@@ -347,7 +347,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				Expect(fakeClient.CreateCallCount()).To(BeNumerically(">=", 1))
 				_, createObj, _ := fakeClient.CreateArgsForCall(0)
 				createdAppWorkload, ok := createObj.(*korifiv1alpha1.AppWorkload)
-				Expect(ok).To(BeTrue(), "client Create() object coerce to eirini.AppWorkload failed")
+				Expect(ok).To(BeTrue(), "client Create() object coerce to AppWorkload failed")
 				Expect(createdAppWorkload.Spec.CPUMillicores).To(Equal(outputCTPURequestMillicores))
 			},
 			Entry("Memory is 1024MiB", int64(1024), int64(100)),

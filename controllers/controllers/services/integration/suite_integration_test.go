@@ -27,7 +27,6 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 
-	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
@@ -76,10 +75,6 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-
-	// Add Eirini to Scheme
-	Expect(eiriniv1.AddToScheme(scheme.Scheme)).To(Succeed())
-
 	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme

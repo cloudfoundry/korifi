@@ -2,8 +2,8 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 
-	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -184,31 +184,32 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
-		It("creates an eirini.Task", func() {
-			var tasks eiriniv1.TaskList
-			Eventually(func() ([]eiriniv1.Task, error) {
+		It("creates an TaskWorkload", func() {
+			var taskWorkloads korifiv1alpha1.TaskWorkloadList
+			Eventually(func() ([]korifiv1alpha1.TaskWorkload, error) {
 				err := k8sClient.List(
 					ctx,
-					&tasks,
+					&taskWorkloads,
 					client.InNamespace(ns),
 					client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
 				)
-				return tasks.Items, err
+				return taskWorkloads.Items, err
 			}).Should(HaveLen(1))
 
-			Expect(tasks.Items[0].Name).To(Equal(cfTask.Name))
-			Expect(tasks.Items[0].Spec.GUID).To(Equal(cfTask.Name))
-			Expect(tasks.Items[0].Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
-			Expect(tasks.Items[0].Spec.Image).To(Equal("registry.io/my/image"))
-			Expect(tasks.Items[0].Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
-			Expect(tasks.Items[0].Spec.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
-			Expect(tasks.Items[0].Spec.DiskMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
-			Expect(tasks.Items[0].Spec.CPUMillis).To(BeEquivalentTo(75))
+			Expect(taskWorkloads.Items[0].Name).To(Equal(cfTask.Name))
+			Expect(taskWorkloads.Items[0].Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
+			Expect(taskWorkloads.Items[0].Spec.Image).To(Equal("registry.io/my/image"))
+			Expect(taskWorkloads.Items[0].Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
+			Expect(taskWorkloads.Items[0].Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
+			Expect(taskWorkloads.Items[0].Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
+			Expect(taskWorkloads.Items[0].Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))
+			Expect(taskWorkloads.Items[0].Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))
+			Expect(taskWorkloads.Items[0].Spec.Resources.Requests.Cpu().String()).To(Equal("75m"))
 
 			// refresh the VCAPServicesSecretName
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 
-			Expect(tasks.Items[0].Spec.Environment).To(ConsistOf(
+			Expect(taskWorkloads.Items[0].Spec.Env).To(ConsistOf(
 				corev1.EnvVar{
 					Name: "BOB",
 					ValueFrom: &corev1.EnvVarSource{
@@ -245,28 +246,28 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			))
 		})
 
-		When("the eirini task status condition changes", func() {
+		When("the task workload status condition changes", func() {
 			JustBeforeEach(func() {
-				var tasks eiriniv1.TaskList
-				Eventually(func() ([]eiriniv1.Task, error) {
+				var taskWorkloads korifiv1alpha1.TaskWorkloadList
+				Eventually(func() ([]korifiv1alpha1.TaskWorkload, error) {
 					err := k8sClient.List(
 						ctx,
-						&tasks,
+						&taskWorkloads,
 						client.InNamespace(ns),
 						client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
 					)
-					return tasks.Items, err
+					return taskWorkloads.Items, err
 				}).Should(HaveLen(1))
 
-				modifiedEiriniTask := tasks.Items[0].DeepCopy()
-				meta.SetStatusCondition(&modifiedEiriniTask.Status.Conditions, metav1.Condition{
-					Type:    eiriniv1.TaskStartedConditionType,
+				modifiedTaskWorkload := taskWorkloads.Items[0].DeepCopy()
+				meta.SetStatusCondition(&modifiedTaskWorkload.Status.Conditions, metav1.Condition{
+					Type:    korifiv1alpha1.TaskStartedConditionType,
 					Status:  metav1.ConditionTrue,
 					Reason:  "task_started",
 					Message: "task started",
 				})
 
-				Expect(k8sClient.Status().Patch(ctx, modifiedEiriniTask, client.MergeFrom(&tasks.Items[0]))).To(Succeed())
+				Expect(k8sClient.Status().Patch(ctx, modifiedTaskWorkload, client.MergeFrom(&taskWorkloads.Items[0]))).To(Succeed())
 			})
 
 			It("reflects the status in the korifi task", func() {

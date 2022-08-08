@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
@@ -16,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,26 +28,26 @@ import (
 
 var _ = Describe("CFTask Controller", func() {
 	var (
-		taskReconciler     workloads.CFTaskReconciler
-		k8sClient          *fake.Client
-		statusWriter       *fake.StatusWriter
-		eventRecorder      *fake.EventRecorder
-		seqIdGenerator     *workloadsfake.SeqIdGenerator
-		envBuilder         *workloadsfake.EnvBuilder
-		result             controllerruntime.Result
-		err                error
-		req                controllerruntime.Request
-		dropletRef         string
-		cftaskGetError     error
-		cfappGetError      error
-		cfdropletGetError  error
-		droplet            *korifiv1alpha1.BuildDropletStatus
-		cfTask             korifiv1alpha1.CFTask
-		eiriniTask         eiriniv1.Task
-		eiriniTaskGetError error
-		taskTTL            time.Duration
-		processList        []korifiv1alpha1.CFProcess
-		cfAppStagedStatus  metav1.ConditionStatus
+		taskReconciler       workloads.CFTaskReconciler
+		k8sClient            *fake.Client
+		statusWriter         *fake.StatusWriter
+		eventRecorder        *fake.EventRecorder
+		seqIdGenerator       *workloadsfake.SeqIdGenerator
+		envBuilder           *workloadsfake.EnvBuilder
+		result               controllerruntime.Result
+		err                  error
+		req                  controllerruntime.Request
+		dropletRef           string
+		cftaskGetError       error
+		cfappGetError        error
+		cfdropletGetError    error
+		droplet              *korifiv1alpha1.BuildDropletStatus
+		cfTask               korifiv1alpha1.CFTask
+		workloadTask         korifiv1alpha1.TaskWorkload
+		workloadTaskGetError error
+		taskTTL              time.Duration
+		processList          []korifiv1alpha1.CFProcess
+		cfAppStagedStatus    metav1.ConditionStatus
 	)
 
 	BeforeEach(func() {
@@ -81,7 +81,7 @@ var _ = Describe("CFTask Controller", func() {
 		cftaskGetError = nil
 		cfappGetError = nil
 		cfdropletGetError = nil
-		eiriniTaskGetError = k8serrors.NewNotFound(schema.GroupResource{}, "not-found")
+		workloadTaskGetError = k8serrors.NewNotFound(schema.GroupResource{}, "not-found")
 		dropletRef = "the-droplet-guid"
 		droplet = &korifiv1alpha1.BuildDropletStatus{
 			Registry: korifiv1alpha1.Registry{
@@ -98,14 +98,12 @@ var _ = Describe("CFTask Controller", func() {
 				AppRef:  corev1.LocalObjectReference{Name: "the-app-guid"},
 			},
 		}
-		eiriniTask = eiriniv1.Task{
+		workloadTask = korifiv1alpha1.TaskWorkload{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "the-task-namespace",
 				Name:      cfTask.Name,
 			},
-			Spec: eiriniv1.TaskSpec{
-				Name: cfTask.Name,
-			},
+			// Spec: korifiv1alpha1.TaskWorkloadSpec{},
 		}
 		req = controllerruntime.Request{
 			NamespacedName: types.NamespacedName{
@@ -151,11 +149,11 @@ var _ = Describe("CFTask Controller", func() {
 					},
 				}
 				return cfdropletGetError
-			case *eiriniv1.Task:
+			case *korifiv1alpha1.TaskWorkload:
 				Expect(namespacedName.Name).To(Equal("the-task-guid"))
-				*t = eiriniTask
+				*t = workloadTask
 
-				return eiriniTaskGetError
+				return workloadTaskGetError
 			}
 
 			return nil
@@ -199,36 +197,38 @@ var _ = Describe("CFTask Controller", func() {
 	}
 
 	Describe("task creation", func() {
-		It("creates an eirini.Task correctly", func() {
+		It("creates an TaskWorkload correctly", func() {
 			Expect(envBuilder.BuildEnvCallCount()).To(Equal(1))
 			_, envApp := envBuilder.BuildEnvArgsForCall(0)
 			Expect(envApp.Name).To(Equal("the-app-guid"))
 
 			Expect(k8sClient.CreateCallCount()).To(Equal(1))
 			_, obj, _ := k8sClient.CreateArgsForCall(0)
-			eiriniTask, ok := obj.(*eiriniv1.Task)
+			taskWorkload, ok := obj.(*korifiv1alpha1.TaskWorkload)
 			Expect(ok).To(BeTrue())
 
-			Expect(eiriniTask.Name).To(Equal("the-task-guid"))
-			Expect(eiriniTask.Namespace).To(Equal("the-task-namespace"))
-			Expect(eiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
-			Expect(eiriniTask.Spec.Image).To(Equal("the-image"))
-			Expect(eiriniTask.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
-			Expect(eiriniTask.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
-			Expect(eiriniTask.Spec.MemoryMB).To(BeEquivalentTo(256))
-			Expect(eiriniTask.Spec.DiskMB).To(BeEquivalentTo(128))
-			Expect(eiriniTask.Spec.CPUMillis).To(BeEquivalentTo(50))
-			Expect(eiriniTask.Spec.Environment).To(ConsistOf(corev1.EnvVar{Name: "FOO", Value: "bar"}))
+			Expect(taskWorkload.Name).To(Equal("the-task-guid"))
+			Expect(taskWorkload.Namespace).To(Equal("the-task-namespace"))
+			Expect(taskWorkload.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
+			Expect(taskWorkload.Spec.Image).To(Equal("the-image"))
+			Expect(taskWorkload.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
+			Expect(taskWorkload.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
+			Expect(taskWorkload.Spec.Resources.Requests.Memory()).To(Equal(resource.NewScaledQuantity(256, resource.Mega)))
+			Expect(taskWorkload.Spec.Resources.Limits.Memory()).To(Equal(resource.NewScaledQuantity(256, resource.Mega)))
+			Expect(taskWorkload.Spec.Resources.Requests.StorageEphemeral()).To(Equal(resource.NewScaledQuantity(128, resource.Mega)))
+			Expect(taskWorkload.Spec.Resources.Limits.StorageEphemeral()).To(Equal(resource.NewScaledQuantity(128, resource.Mega)))
+			Expect(taskWorkload.Spec.Resources.Requests.Cpu()).To(Equal(resource.NewScaledQuantity(50, resource.Milli)))
+			Expect(taskWorkload.Spec.Env).To(ConsistOf(corev1.EnvVar{Name: "FOO", Value: "bar"}))
 
-			eiriniTaskOwner := metav1.GetControllerOf(eiriniTask)
-			Expect(eiriniTaskOwner).NotTo(BeNil())
-			Expect(eiriniTaskOwner.UID).To(Equal(cfTask.UID))
+			workloadTaskOwner := metav1.GetControllerOf(taskWorkload)
+			Expect(workloadTaskOwner).NotTo(BeNil())
+			Expect(workloadTaskOwner.UID).To(Equal(cfTask.UID))
 		})
 
 		When("setting the owner reference fails", func() {
 			BeforeEach(func() {
 				// setting controller reference on object that is already owned by a controller yields an error
-				eiriniTask.OwnerReferences = []metav1.OwnerReference{{
+				workloadTask.OwnerReferences = []metav1.OwnerReference{{
 					Controller: pointer.Bool(true),
 				}}
 			})
@@ -238,24 +238,26 @@ var _ = Describe("CFTask Controller", func() {
 			})
 		})
 
-		When("the eirini task exists", func() {
+		When("the task workload exists", func() {
 			BeforeEach(func() {
-				eiriniTaskGetError = nil
+				workloadTaskGetError = nil
 			})
 
-			It("patches the task", func() {
+			It("patches the task workload", func() {
 				Expect(k8sClient.PatchCallCount()).To(Equal(1))
 				_, actualObject, _, _ := k8sClient.PatchArgsForCall(0)
-				actualEiriniTask, ok := actualObject.(*eiriniv1.Task)
+				actualTaskWorkload, ok := actualObject.(*korifiv1alpha1.TaskWorkload)
 				Expect(ok).To(BeTrue())
 
-				Expect(actualEiriniTask.Name).To(Equal("the-task-guid"))
-				Expect(actualEiriniTask.Namespace).To(Equal("the-task-namespace"))
-				Expect(actualEiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
-				Expect(actualEiriniTask.Spec.Image).To(Equal("the-image"))
-				Expect(actualEiriniTask.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
-				Expect(actualEiriniTask.Spec.MemoryMB).To(BeNumerically("==", 256))
-				Expect(actualEiriniTask.Spec.DiskMB).To(BeNumerically("==", 128))
+				Expect(actualTaskWorkload.Name).To(Equal("the-task-guid"))
+				Expect(actualTaskWorkload.Namespace).To(Equal("the-task-namespace"))
+				Expect(actualTaskWorkload.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
+				Expect(actualTaskWorkload.Spec.Image).To(Equal("the-image"))
+				Expect(actualTaskWorkload.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
+				Expect(actualTaskWorkload.Spec.Resources.Requests.Memory()).To(Equal(resource.NewScaledQuantity(256, resource.Mega)))
+				Expect(actualTaskWorkload.Spec.Resources.Limits.Memory()).To(Equal(resource.NewScaledQuantity(256, resource.Mega)))
+				Expect(actualTaskWorkload.Spec.Resources.Requests.StorageEphemeral()).To(Equal(resource.NewScaledQuantity(128, resource.Mega)))
+				Expect(actualTaskWorkload.Spec.Resources.Limits.StorageEphemeral()).To(Equal(resource.NewScaledQuantity(128, resource.Mega)))
 			})
 
 			It("does not record task created event", func() {
@@ -264,31 +266,31 @@ var _ = Describe("CFTask Controller", func() {
 
 			When("a label exists", func() {
 				BeforeEach(func() {
-					eiriniTask.Labels = map[string]string{"foo": "bar"}
+					workloadTask.Labels = map[string]string{"foo": "bar"}
 				})
 
 				It("preserves existing labels", func() {
 					Expect(k8sClient.PatchCallCount()).To(Equal(1))
 					_, actualObject, _, _ := k8sClient.PatchArgsForCall(0)
-					actualEiriniTask, ok := actualObject.(*eiriniv1.Task)
+					actualTaskWorkload, ok := actualObject.(*korifiv1alpha1.TaskWorkload)
 					Expect(ok).To(BeTrue())
 
-					Expect(actualEiriniTask.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
-					Expect(actualEiriniTask.Labels).To(HaveKeyWithValue("foo", "bar"))
+					Expect(actualTaskWorkload.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
+					Expect(actualTaskWorkload.Labels).To(HaveKeyWithValue("foo", "bar"))
 				})
 			})
 
-			When("the eirini task has started", func() {
+			When("the task workload has started", func() {
 				var now metav1.Time
 
 				BeforeEach(func() {
 					now = metav1.Now()
 
-					meta.SetStatusCondition(&eiriniTask.Status.Conditions, metav1.Condition{
-						Type:               eiriniv1.TaskStartedConditionType,
+					meta.SetStatusCondition(&workloadTask.Status.Conditions, metav1.Condition{
+						Type:               korifiv1alpha1.TaskStartedConditionType,
 						Status:             metav1.ConditionTrue,
-						Reason:             "eirini-task-started",
-						Message:            "eirini task started",
+						Reason:             "taskWorkloadStarted",
+						Message:            "task workload started",
 						LastTransitionTime: now,
 					})
 				})
@@ -297,8 +299,8 @@ var _ = Describe("CFTask Controller", func() {
 					startedCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskStartedConditionType)
 					Expect(startedCondition).NotTo(BeNil())
 					Expect(startedCondition.Status).To(Equal(metav1.ConditionTrue))
-					Expect(startedCondition.Reason).To(Equal("eirini-task-started"))
-					Expect(startedCondition.Message).To(Equal("eirini task started"))
+					Expect(startedCondition.Reason).To(Equal("taskWorkloadStarted"))
+					Expect(startedCondition.Message).To(Equal("task workload started"))
 					Expect(startedCondition.LastTransitionTime).To(Equal(now))
 				})
 
@@ -307,17 +309,17 @@ var _ = Describe("CFTask Controller", func() {
 				})
 			})
 
-			When("the eirini task has succeeded", func() {
+			When("the task workload has succeeded", func() {
 				var now metav1.Time
 
 				BeforeEach(func() {
 					now = metav1.NewTime(time.Now().Add(-2 * time.Second))
 
-					meta.SetStatusCondition(&eiriniTask.Status.Conditions, metav1.Condition{
-						Type:               eiriniv1.TaskSucceededConditionType,
+					meta.SetStatusCondition(&workloadTask.Status.Conditions, metav1.Condition{
+						Type:               korifiv1alpha1.TaskSucceededConditionType,
 						Status:             metav1.ConditionTrue,
-						Reason:             "eirini-task-succeeded",
-						Message:            "eirini task succeeded",
+						Reason:             "taskWorkloadSucceeded",
+						Message:            "task workload succeeded",
 						LastTransitionTime: now,
 					})
 				})
@@ -326,8 +328,8 @@ var _ = Describe("CFTask Controller", func() {
 					succeededCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskSucceededConditionType)
 					Expect(succeededCondition).NotTo(BeNil())
 					Expect(succeededCondition.Status).To(Equal(metav1.ConditionTrue))
-					Expect(succeededCondition.Reason).To(Equal("eirini-task-succeeded"))
-					Expect(succeededCondition.Message).To(Equal("eirini task succeeded"))
+					Expect(succeededCondition.Reason).To(Equal("taskWorkloadSucceeded"))
+					Expect(succeededCondition.Message).To(Equal("task workload succeeded"))
 					Expect(succeededCondition.LastTransitionTime).To(Equal(now))
 				})
 
@@ -340,17 +342,17 @@ var _ = Describe("CFTask Controller", func() {
 				})
 			})
 
-			When("the eirini task has failed", func() {
+			When("the task workload has failed", func() {
 				var now metav1.Time
 
 				BeforeEach(func() {
 					now = metav1.NewTime(time.Now().Add(-2 * time.Second))
 
-					meta.SetStatusCondition(&eiriniTask.Status.Conditions, metav1.Condition{
-						Type:               eiriniv1.TaskFailedConditionType,
+					meta.SetStatusCondition(&workloadTask.Status.Conditions, metav1.Condition{
+						Type:               korifiv1alpha1.TaskFailedConditionType,
 						Status:             metav1.ConditionTrue,
-						Reason:             "eirini-task-failed",
-						Message:            "eirini task failed",
+						Reason:             "taskWorkloadFailed",
+						Message:            "task workload failed",
 						LastTransitionTime: now,
 					})
 				})
@@ -359,8 +361,8 @@ var _ = Describe("CFTask Controller", func() {
 					failedCondition := meta.FindStatusCondition(taskWithPatchedStatus().Status.Conditions, korifiv1alpha1.TaskFailedConditionType)
 					Expect(failedCondition).NotTo(BeNil())
 					Expect(failedCondition.Status).To(Equal(metav1.ConditionTrue))
-					Expect(failedCondition.Reason).To(Equal("eirini-task-failed"))
-					Expect(failedCondition.Message).To(Equal("eirini task failed"))
+					Expect(failedCondition.Reason).To(Equal("taskWorkloadFailed"))
+					Expect(failedCondition.Message).To(Equal("task workload failed"))
 					Expect(failedCondition.LastTransitionTime).To(Equal(now))
 				})
 
@@ -382,7 +384,7 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(task.Name).To(Equal("the-task-guid"))
 			Expect(eventType).To(Equal("Normal"))
 			Expect(reason).To(Equal("taskCreated"))
-			Expect(message).To(ContainSubstring("Created eirini task %s"))
+			Expect(message).To(ContainSubstring("Created task workload %s"))
 		})
 
 		It("populates the CFTask Status", func() {
@@ -395,9 +397,9 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
 		})
 
-		When("creating the eirini task fails", func() {
+		When("creating the task workload fails", func() {
 			BeforeEach(func() {
-				k8sClient.CreateReturns(errors.New("create-eirini-task-failure"))
+				k8sClient.CreateReturns(errors.New("create-task-workload-failure"))
 			})
 
 			It("returns an error", func() {
@@ -608,22 +610,22 @@ var _ = Describe("CFTask Controller", func() {
 			cfTask.Spec.Canceled = true
 		})
 
-		It("deletes the underlying eirini task", func() {
+		It("deletes the underlying task workload", func() {
 			Expect(k8sClient.DeleteCallCount()).To(Equal(1))
 			_, actualObject, _ := k8sClient.DeleteArgsForCall(0)
-			actualEiriniTask, ok := actualObject.(*eiriniv1.Task)
+			actualTaskWorkload, ok := actualObject.(*korifiv1alpha1.TaskWorkload)
 			Expect(ok).To(BeTrue())
 
-			Expect(actualEiriniTask.Namespace).To(Equal("the-task-namespace"))
-			Expect(actualEiriniTask.Name).To(Equal("the-task-guid"))
+			Expect(actualTaskWorkload.Namespace).To(Equal("the-task-namespace"))
+			Expect(actualTaskWorkload.Name).To(Equal("the-task-guid"))
 		})
 
-		When("processing cancellation and the eirini task does not exist", func() {
+		When("processing cancellation and the task workload does not exist", func() {
 			BeforeEach(func() {
-				eiriniTaskGetError = k8serrors.NewNotFound(schema.GroupResource{}, "eirini-task")
+				workloadTaskGetError = k8serrors.NewNotFound(schema.GroupResource{}, "task-workload")
 			})
 
-			It("does not attempt to create the eirini task", func() {
+			It("does not attempt to create the task workload", func() {
 				Expect(k8sClient.CreateCallCount()).To(BeZero())
 			})
 		})
@@ -669,7 +671,7 @@ var _ = Describe("CFTask Controller", func() {
 			})
 		})
 
-		When("deleting of the underlying eirini task fails", func() {
+		When("deleting of the underlying task workload fails", func() {
 			BeforeEach(func() {
 				k8sClient.DeleteReturns(errors.New("boom"))
 			})
@@ -684,9 +686,9 @@ var _ = Describe("CFTask Controller", func() {
 			})
 		})
 
-		When("underlying eirini task does not exist", func() {
+		When("underlying task workload does not exist", func() {
 			BeforeEach(func() {
-				k8sClient.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "eirini-task"))
+				k8sClient.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "task-workload"))
 			})
 
 			It("sets the canceled condition on the korifi task", func() {

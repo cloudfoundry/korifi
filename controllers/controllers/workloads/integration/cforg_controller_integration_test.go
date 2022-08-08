@@ -31,7 +31,6 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		cfOrg                                        korifiv1alpha1.CFOrg
 		imageRegistrySecret                          *v1.Secret
 		role                                         *rbacv1.ClusterRole
-		rules                                        []rbacv1.PolicyRule
 		username                                     string
 		roleBinding                                  rbacv1.RoleBinding
 		roleBindingWithPropagateAnnotationSetToFalse rbacv1.RoleBinding
@@ -42,12 +41,11 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		testCtx = context.Background()
 		rootNamespace = createNamespace(testCtx, k8sClient, PrefixedGUID("root-ns"))
 		imageRegistrySecret = createSecret(testCtx, k8sClient, packageRegistrySecretName, rootNamespace.Name)
-		rules = []rbacv1.PolicyRule{
+		rules := []rbacv1.PolicyRule{
 			{
-				Verbs:         []string{"use"},
-				APIGroups:     []string{"policy"},
-				Resources:     []string{"podsecuritypolicies"},
-				ResourceNames: []string{"eirini-workloads-app-psp"},
+				Verbs:     []string{"create"},
+				APIGroups: []string{"korifi.cloudfoundry.org"},
+				Resources: []string{"cfapps"},
 			},
 		}
 		role = createClusterRole(testCtx, k8sClient, PrefixedGUID("clusterrole"), rules)

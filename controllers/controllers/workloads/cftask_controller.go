@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"time"
 
-	eiriniv1 "code.cloudfoundry.org/eirini-controller/pkg/apis/eirini/v1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -87,7 +87,7 @@ func NewCFTaskReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks/finalizers,verbs=update
-//+kubebuilder:rbac:groups=eirini.cloudfoundry.org,resources=tasks,verbs=get;list;create;watch;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -143,47 +143,34 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
 
-	eiriniTask, err := r.createOrPatchEiriniTask(ctx, cfTask, cfDroplet, webProcess, env)
+	taskWorkload, err := r.createOrPatchTaskWorkload(ctx, cfTask, cfDroplet, webProcess, env)
 	if err != nil {
 		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
 
-	r.setTaskStatus(cfTask, eiriniTask.Status.Conditions)
+	r.setTaskStatus(cfTask, taskWorkload.Status.Conditions)
 
 	return r.updateStatusAndReturn(ctx, cfTask, nil)
 }
 
-func (r *CFTaskReconciler) setTaskStatus(cfTask *korifiv1alpha1.CFTask, eiriniConditions []metav1.Condition) {
-	for eiriniCond, korifiCond := range map[string]string{
-		eiriniv1.TaskStartedConditionType:   korifiv1alpha1.TaskStartedConditionType,
-		eiriniv1.TaskSucceededConditionType: korifiv1alpha1.TaskSucceededConditionType,
-		eiriniv1.TaskFailedConditionType:    korifiv1alpha1.TaskFailedConditionType,
+func (r *CFTaskReconciler) setTaskStatus(cfTask *korifiv1alpha1.CFTask, taskWorkloadConditions []metav1.Condition) {
+	for _, conditionType := range []string{
+		korifiv1alpha1.TaskStartedConditionType,
+		korifiv1alpha1.TaskSucceededConditionType,
+		korifiv1alpha1.TaskFailedConditionType,
 	} {
-		if cond := translateEiriniCondition(eiriniConditions, eiriniCond, korifiCond); cond != nil {
-			meta.SetStatusCondition(&cfTask.Status.Conditions, *cond)
+		cond := meta.FindStatusCondition(taskWorkloadConditions, conditionType)
+		if cond == nil {
+			continue
 		}
-	}
-}
-
-func translateEiriniCondition(eiriniConditions []metav1.Condition, eiriniTaskCondition, targetCondition string) *metav1.Condition {
-	cond := meta.FindStatusCondition(eiriniConditions, eiriniTaskCondition)
-	if cond == nil || cond.Status != metav1.ConditionTrue {
-		return nil
-	}
-
-	return &metav1.Condition{
-		Type:               targetCondition,
-		Status:             metav1.ConditionTrue,
-		LastTransitionTime: cond.LastTransitionTime,
-		Reason:             cond.Reason,
-		Message:            cond.Message,
+		meta.SetStatusCondition(&cfTask.Status.Conditions, *cond)
 	}
 }
 
 func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFTask{}).
-		Owns(&eiriniv1.Task{}).
+		Owns(&korifiv1alpha1.TaskWorkload{}).
 		Complete(r)
 }
 
@@ -255,30 +242,39 @@ func (r *CFTaskReconciler) getWebProcess(ctx context.Context, cfApp *korifiv1alp
 	return processList.Items[0], err
 }
 
-func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess, env []corev1.EnvVar) (*eiriniv1.Task, error) {
-	eiriniTask := &eiriniv1.Task{
+func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess, env []corev1.EnvVar) (*korifiv1alpha1.TaskWorkload, error) {
+	taskWorkload := &korifiv1alpha1.TaskWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
 			Namespace: cfTask.Namespace,
 		},
 	}
 
-	opResult, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, eiriniTask, func() error {
-		if eiriniTask.Labels == nil {
-			eiriniTask.Labels = map[string]string{}
+	opResult, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, taskWorkload, func() error {
+		if taskWorkload.Labels == nil {
+			taskWorkload.Labels = map[string]string{}
 		}
-		eiriniTask.Labels[korifiv1alpha1.CFTaskGUIDLabelKey] = cfTask.Name
+		taskWorkload.Labels[korifiv1alpha1.CFTaskGUIDLabelKey] = cfTask.Name
 
-		eiriniTask.Spec.GUID = cfTask.Name
-		eiriniTask.Spec.Command = []string{LifecycleLauncherPath, cfTask.Spec.Command}
-		eiriniTask.Spec.Image = cfDroplet.Status.Droplet.Registry.Image
-		eiriniTask.Spec.ImagePullSecrets = cfDroplet.Status.Droplet.Registry.ImagePullSecrets
-		eiriniTask.Spec.MemoryMB = r.cfProcessDefaults.MemoryMB
-		eiriniTask.Spec.DiskMB = r.cfProcessDefaults.DiskQuotaMB
-		eiriniTask.Spec.CPUMillis = calculateDefaultCPURequestMillicores(webProcess.Spec.MemoryMB)
-		eiriniTask.Spec.Environment = env
+		taskWorkload.Spec.Command = []string{LifecycleLauncherPath, cfTask.Spec.Command}
+		taskWorkload.Spec.Image = cfDroplet.Status.Droplet.Registry.Image
+		taskWorkload.Spec.ImagePullSecrets = cfDroplet.Status.Droplet.Registry.ImagePullSecrets
 
-		if err := ctrl.SetControllerReference(cfTask, eiriniTask, r.scheme); err != nil {
+		if taskWorkload.Spec.Resources.Requests == nil {
+			taskWorkload.Spec.Resources.Requests = corev1.ResourceList{}
+		}
+		if taskWorkload.Spec.Resources.Limits == nil {
+			taskWorkload.Spec.Resources.Limits = corev1.ResourceList{}
+		}
+
+		taskWorkload.Spec.Resources.Requests[corev1.ResourceMemory] = *resource.NewScaledQuantity(r.cfProcessDefaults.MemoryMB, resource.Mega)
+		taskWorkload.Spec.Resources.Limits[corev1.ResourceMemory] = *resource.NewScaledQuantity(r.cfProcessDefaults.MemoryMB, resource.Mega)
+		taskWorkload.Spec.Resources.Requests[corev1.ResourceEphemeralStorage] = *resource.NewScaledQuantity(r.cfProcessDefaults.DiskQuotaMB, resource.Mega)
+		taskWorkload.Spec.Resources.Limits[corev1.ResourceEphemeralStorage] = *resource.NewScaledQuantity(r.cfProcessDefaults.DiskQuotaMB, resource.Mega)
+		taskWorkload.Spec.Resources.Requests[corev1.ResourceCPU] = *resource.NewScaledQuantity(calculateDefaultCPURequestMillicores(webProcess.Spec.MemoryMB), resource.Milli)
+		taskWorkload.Spec.Env = env
+
+		if err := ctrl.SetControllerReference(cfTask, taskWorkload, r.scheme); err != nil {
 			r.logger.Error(err, "failed to set owner ref")
 			return err
 		}
@@ -286,15 +282,15 @@ func (r *CFTaskReconciler) createOrPatchEiriniTask(ctx context.Context, cfTask *
 		return nil
 	})
 	if err != nil {
-		r.logger.Info("error-creating-or-patching-eirini-task", "error", err, "opResult", opResult)
+		r.logger.Info("error-creating-or-patching-task-workload", "error", err, "opResult", opResult)
 		return nil, err
 	}
 
 	if opResult == controllerutil.OperationResultCreated {
-		r.recorder.Eventf(cfTask, "Normal", "taskCreated", "Created eirini task %s", eiriniTask.Name)
+		r.recorder.Eventf(cfTask, "Normal", "taskCreated", "Created task workload %s", taskWorkload.Name)
 	}
 
-	return eiriniTask, nil
+	return taskWorkload, nil
 }
 
 func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
@@ -322,15 +318,15 @@ func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifi
 }
 
 func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
-	eiriniTask := &eiriniv1.Task{
+	taskWorkload := &korifiv1alpha1.TaskWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
 			Namespace: cfTask.Namespace,
 		},
 	}
-	err := r.k8sClient.Delete(ctx, eiriniTask)
+	err := r.k8sClient.Delete(ctx, taskWorkload)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.logger.Info("error-deleting-eirini-task", "error", err)
+		r.logger.Info("error-deleting-task-workload", "error", err)
 		return err
 	}
 
