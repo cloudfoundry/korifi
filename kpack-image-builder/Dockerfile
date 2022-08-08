@@ -10,8 +10,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY controllers/api controllers/api/
-
-# Copy the go source
+COPY tools tools
 COPY kpack-image-builder/main.go kpack-image-builder/main.go
 COPY kpack-image-builder/api/ kpack-image-builder/api/
 COPY kpack-image-builder/controllers/ kpack-image-builder/controllers/

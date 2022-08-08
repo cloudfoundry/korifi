@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/statefulset-runner/fake"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -117,8 +118,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	})
 
 	It("should not automount service account token", func() {
-		f := false
-		Expect(statefulSet.Spec.Template.Spec.AutomountServiceAccountToken).To(Equal(&f))
+		Expect(statefulSet.Spec.Template.Spec.AutomountServiceAccountToken).To(Equal(tools.PtrTo(false)))
 	})
 
 	It("should set the image", func() {

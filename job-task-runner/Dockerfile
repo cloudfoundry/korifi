@@ -11,8 +11,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY controllers/api controllers/api/
-
-# Copy the go source
+COPY tools tools
 COPY job-task-runner/main.go job-task-runner/main.go
 COPY job-task-runner/api/ job-task-runner/api/
 COPY job-task-runner/controllers/ job-task-runner/controllers/

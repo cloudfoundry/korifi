@@ -3,6 +3,7 @@ package payloads_test
 import (
 	. "code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,14 +21,14 @@ var _ = Describe("ManifestApplicationProcess", func() {
 			BeforeEach(func() {
 				processInfo = ManifestApplicationProcess{
 					Type:                         "web",
-					Command:                      stringPointer("start-web.sh"),
-					DiskQuota:                    stringPointer("512M"),
-					HealthCheckHTTPEndpoint:      stringPointer("/stuff"),
-					HealthCheckInvocationTimeout: int64Pointer(90),
-					HealthCheckType:              stringPointer("http"),
-					Instances:                    intPointer(3),
-					Memory:                       stringPointer("1G"),
-					Timeout:                      int64Pointer(60),
+					Command:                      tools.PtrTo("start-web.sh"),
+					DiskQuota:                    tools.PtrTo("512M"),
+					HealthCheckHTTPEndpoint:      tools.PtrTo("/stuff"),
+					HealthCheckInvocationTimeout: tools.PtrTo(int64(90)),
+					HealthCheckType:              tools.PtrTo("http"),
+					Instances:                    tools.PtrTo(3),
+					Memory:                       tools.PtrTo("1G"),
+					Timeout:                      tools.PtrTo(int64(60)),
 				}
 			})
 
@@ -58,7 +59,7 @@ var _ = Describe("ManifestApplicationProcess", func() {
 					const noneHealthCheckType = "none"
 
 					It("converts the type to 'process'", func() {
-						processInfo.HealthCheckType = stringPointer(noneHealthCheckType)
+						processInfo.HealthCheckType = tools.PtrTo(noneHealthCheckType)
 
 						message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
@@ -68,7 +69,7 @@ var _ = Describe("ManifestApplicationProcess", func() {
 
 				When("HealthCheckType is specified as some other valid type", func() {
 					It("passes the type through to the message", func() {
-						processInfo.HealthCheckType = stringPointer("port")
+						processInfo.HealthCheckType = tools.PtrTo("port")
 
 						message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
@@ -154,21 +155,21 @@ var _ = Describe("ManifestApplicationProcess", func() {
 				const noneHealthCheckType = "none"
 
 				It("converts the type to 'process'", func() {
-					processInfo.HealthCheckType = stringPointer(noneHealthCheckType)
+					processInfo.HealthCheckType = tools.PtrTo(noneHealthCheckType)
 
 					message := processInfo.ToProcessPatchMessage(processGUID, spaceGUID)
 
-					Expect(message.HealthCheckType).To(Equal(stringPointer("process")))
+					Expect(message.HealthCheckType).To(Equal(tools.PtrTo("process")))
 				})
 			})
 
 			When("HealthCheckType is specified as some other valid type", func() {
 				It("passes the type through to the message", func() {
-					processInfo.HealthCheckType = stringPointer("port")
+					processInfo.HealthCheckType = tools.PtrTo("port")
 
 					message := processInfo.ToProcessPatchMessage(processGUID, spaceGUID)
 
-					Expect(message.HealthCheckType).To(Equal(stringPointer("port")))
+					Expect(message.HealthCheckType).To(Equal(tools.PtrTo("port")))
 				})
 			})
 
@@ -183,7 +184,7 @@ var _ = Describe("ManifestApplicationProcess", func() {
 
 		When("DiskQuota is specified", func() {
 			BeforeEach(func() {
-				processInfo.DiskQuota = stringPointer("1G")
+				processInfo.DiskQuota = tools.PtrTo("1G")
 			})
 
 			It("returns a message with DiskQuotaMB set to the parsed value", func() {
@@ -203,7 +204,7 @@ var _ = Describe("ManifestApplicationProcess", func() {
 
 		When("Memory is specified", func() {
 			BeforeEach(func() {
-				processInfo.Memory = stringPointer("1G")
+				processInfo.Memory = tools.PtrTo("1G")
 			})
 
 			It("returns a message with MemoryMB set to the parsed value", func() {
@@ -223,7 +224,7 @@ var _ = Describe("ManifestApplicationProcess", func() {
 
 		When("Instances is specified", func() {
 			BeforeEach(func() {
-				processInfo.Instances = intPointer(3)
+				processInfo.Instances = tools.PtrTo(3)
 			})
 
 			It("returns a message with DesiredInstances set to the parsed value", func() {
@@ -242,15 +243,3 @@ var _ = Describe("ManifestApplicationProcess", func() {
 		})
 	})
 })
-
-func stringPointer(s string) *string {
-	return &s
-}
-
-func intPointer(i int) *int {
-	return &i
-}
-
-func int64Pointer(i int64) *int64 {
-	return &i
-}

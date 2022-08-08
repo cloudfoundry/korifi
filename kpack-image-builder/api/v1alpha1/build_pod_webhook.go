@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/tools"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -56,8 +57,8 @@ func patchContainerSecurity(containers []corev1.Container) {
 			container.SecurityContext = new(corev1.SecurityContext)
 		}
 
-		container.SecurityContext.AllowPrivilegeEscalation = pointerTo(false)
-		container.SecurityContext.RunAsNonRoot = pointerTo(true)
+		container.SecurityContext.AllowPrivilegeEscalation = tools.PtrTo(false)
+		container.SecurityContext.RunAsNonRoot = tools.PtrTo(true)
 		container.SecurityContext.Capabilities = &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		}
@@ -65,8 +66,4 @@ func patchContainerSecurity(containers []corev1.Container) {
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		}
 	}
-}
-
-func pointerTo(b bool) *bool {
-	return &b
 }
