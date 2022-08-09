@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,7 +51,8 @@ type InstanceType string
 type CFServiceInstanceStatus struct {
 	// A reference to the Secret containing the credentials (same as spec.secretName).
 	// This is required to conform to the Kubernetes Service Bindings spec
-	Binding v1.LocalObjectReference `json:"binding"`
+	// +optional
+	Binding corev1.LocalObjectReference `json:"binding"`
 
 	// Conditions capture the current status of the CFServiceInstance
 	Conditions []metav1.Condition `json:"conditions"`

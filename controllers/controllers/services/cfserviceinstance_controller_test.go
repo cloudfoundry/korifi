@@ -33,9 +33,9 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 		cfServiceInstance       *korifiv1alpha1.CFServiceInstance
 		cfServiceInstanceSecret *corev1.Secret
 
-		getCFServiceInstanceError          error
-		getCFServiceInstanceSecretError    error
-		updateCFServiceInstanceStatusError error
+		getCFServiceInstanceError         error
+		getCFServiceInstanceSecretError   error
+		patchCFServiceInstanceStatusError error
 
 		cfServiceInstanceReconciler *CFServiceInstanceReconciler
 		ctx                         context.Context
@@ -48,7 +48,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 	BeforeEach(func() {
 		getCFServiceInstanceError = nil
 		getCFServiceInstanceSecretError = nil
-		updateCFServiceInstanceStatusError = nil
+		patchCFServiceInstanceStatusError = nil
 
 		fakeClient = new(fake.Client)
 		fakeStatusWriter = new(fake.StatusWriter)
@@ -70,8 +70,8 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 			}
 		}
 
-		fakeStatusWriter.UpdateStub = func(ctx context.Context, obj client.Object, option ...client.UpdateOption) error {
-			return updateCFServiceInstanceStatusError
+		fakeStatusWriter.PatchStub = func(ctx context.Context, obj client.Object, patch client.Patch, option ...client.PatchOption) error {
+			return patchCFServiceInstanceStatusError
 		}
 
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
@@ -100,8 +100,8 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 				Expect(reconcileResult).To(Equal(ctrl.Result{}))
 				Expect(reconcileErr).NotTo(HaveOccurred())
 
-				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
-				_, serviceInstanceObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+				Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+				_, serviceInstanceObj, _, _ := fakeStatusWriter.PatchArgsForCall(0)
 				updatedCFServiceInstance, ok := serviceInstanceObj.(*korifiv1alpha1.CFServiceInstance)
 				Expect(ok).To(BeTrue())
 				Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal(cfServiceInstanceSecret.Name))
@@ -122,11 +122,12 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 				Expect(reconcileResult).To(Equal(ctrl.Result{RequeueAfter: 2 * time.Second}))
 				Expect(reconcileErr).NotTo(HaveOccurred())
 
-				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
-				_, serviceInstanceObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+				Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+				_, serviceInstanceObj, _, _ := fakeStatusWriter.PatchArgsForCall(0)
 				updatedCFServiceInstance, ok := serviceInstanceObj.(*korifiv1alpha1.CFServiceInstance)
 				Expect(ok).To(BeTrue())
-				Expect(updatedCFServiceInstance.Status.Binding.Name).To(BeEmpty())
+
+				Expect(updatedCFServiceInstance.Status.Binding).To(BeZero())
 				Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal("BindingSecretAvailable"),
 					"Status":  Equal(metav1.ConditionFalse),
@@ -143,11 +144,12 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 			It("errors, and updates status", func() {
 				Expect(reconcileErr).To(HaveOccurred())
 
-				Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
-				_, serviceInstanceObj, _ := fakeStatusWriter.UpdateArgsForCall(0)
+				Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+				_, serviceInstanceObj, _, _ := fakeStatusWriter.PatchArgsForCall(0)
 				updatedCFServiceInstance, ok := serviceInstanceObj.(*korifiv1alpha1.CFServiceInstance)
 				Expect(ok).To(BeTrue())
-				Expect(updatedCFServiceInstance.Status.Binding.Name).To(BeEmpty())
+
+				Expect(updatedCFServiceInstance.Status.Binding).To(BeZero())
 				Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal("BindingSecretAvailable"),
 					"Status":  Equal(metav1.ConditionFalse),
@@ -158,7 +160,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 		})
 		When("The API errors setting status on the CFServiceInstance", func() {
 			BeforeEach(func() {
-				updateCFServiceInstanceStatusError = errors.New("some random error")
+				patchCFServiceInstanceStatusError = errors.New("some random error")
 			})
 
 			It("errors", func() {
@@ -234,11 +236,11 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 
 		When("removing the finalizer from the CFRoute fails", func() {
 			BeforeEach(func() {
-				fakeClient.UpdateReturns(errors.New("failed to update CFServiceInstance"))
+				fakeClient.PatchReturns(errors.New("failed to patch CFServiceInstance"))
 			})
 
 			It("returns the error", func() {
-				Expect(reconcileErr).To(MatchError("failed to update CFServiceInstance"))
+				Expect(reconcileErr).To(MatchError("failed to patch CFServiceInstance"))
 			})
 		})
 	})

@@ -43,6 +43,7 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
+	ctx       context.Context
 	cancel    context.CancelFunc
 	testEnv   *envtest.Environment
 	k8sClient client.Client
@@ -59,8 +60,7 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	ctx, cancelFunc := context.WithCancel(context.TODO())
-	cancel = cancelFunc
+	ctx, cancel = context.WithCancel(context.TODO())
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
