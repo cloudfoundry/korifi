@@ -146,6 +146,8 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 		},
 		Spec: batchv1.JobSpec{
 			BackoffLimit: tools.PtrTo(int32(0)),
+			Parallelism:  tools.PtrTo(int32(1)),
+			Completions:  tools.PtrTo(int32(1)),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
