@@ -147,7 +147,6 @@ spec:
                   type: object
                 type: array
             required:
-            - binding
             - conditions
             type: object
         type: object
