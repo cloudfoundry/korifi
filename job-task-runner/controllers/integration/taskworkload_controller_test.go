@@ -65,7 +65,9 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 		Expect(job.OwnerReferences).To(HaveLen(1))
 		Expect(job.OwnerReferences[0].Name).To(Equal(taskWorkload.Name))
 		Expect(*job.OwnerReferences[0].Controller).To(BeTrue())
-		Expect(*job.Spec.BackoffLimit).To(BeZero())
+		Expect(job.Spec.Parallelism).To(Equal(tools.PtrTo(int32(1))))
+		Expect(job.Spec.Completions).To(Equal(tools.PtrTo(int32(1))))
+		Expect(job.Spec.BackoffLimit).To(Equal(tools.PtrTo(int32(0))))
 
 		podSpec := job.Spec.Template.Spec
 		Expect(podSpec.RestartPolicy).To(Equal(corev1.RestartPolicyNever))
