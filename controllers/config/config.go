@@ -1,13 +1,13 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/korifi/tools"
 	"gopkg.in/yaml.v3"
 )
 
@@ -69,26 +69,5 @@ func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {
 		return defaultTaskTTL, nil
 	}
 
-	splitByDays := strings.Split(c.TaskTTL, "d")
-	switch len(splitByDays) {
-	case 1:
-		return time.ParseDuration(c.TaskTTL)
-	case 2:
-		days, err := time.ParseDuration(splitByDays[0] + "h")
-		if err != nil {
-			return 0, errors.New("failed to parse " + c.TaskTTL)
-		}
-
-		var parsedDuration time.Duration = 0
-		if splitByDays[1] != "" {
-			parsedDuration, err = time.ParseDuration(splitByDays[1])
-			if err != nil {
-				return 0, errors.New("failed to parse " + c.TaskTTL)
-			}
-		}
-
-		return days*24 + parsedDuration, nil
-	default:
-		return 0, errors.New("failed to parse " + c.TaskTTL)
-	}
+	return tools.ParseDuration(c.TaskTTL)
 }
