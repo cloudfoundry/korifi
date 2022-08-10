@@ -3,6 +3,7 @@ package controllers_test
 import (
 	"context"
 	"errors"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
@@ -110,7 +111,7 @@ var _ = Describe("TaskworkloadController", func() {
 			Reason:             "something",
 		}}, nil)
 
-		reconciler = controllers.NewTaskWorkloadReconciler(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), k8sClient, scheme.Scheme, statusGetter)
+		reconciler = controllers.NewTaskWorkloadReconciler(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), k8sClient, scheme.Scheme, statusGetter, time.Hour)
 
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{

@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
@@ -49,6 +50,7 @@ type TaskWorkloadReconciler struct {
 	logger       logr.Logger
 	scheme       *runtime.Scheme
 	statusGetter TaskStatusGetter
+	jobTTL       time.Duration
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads,verbs=get;list;watch
@@ -57,12 +59,13 @@ type TaskWorkloadReconciler struct {
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;get;list;watch
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 
-func NewTaskWorkloadReconciler(logger logr.Logger, k8sClient client.Client, scheme *runtime.Scheme, statusGetter TaskStatusGetter) *TaskWorkloadReconciler {
+func NewTaskWorkloadReconciler(logger logr.Logger, k8sClient client.Client, scheme *runtime.Scheme, statusGetter TaskStatusGetter, jobTTL time.Duration) *TaskWorkloadReconciler {
 	return &TaskWorkloadReconciler{
 		k8sClient:    k8sClient,
 		logger:       logger,
 		scheme:       scheme,
 		statusGetter: statusGetter,
+		jobTTL:       jobTTL,
 	}
 }
 
@@ -145,9 +148,10 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 			Namespace: taskWorkload.Namespace,
 		},
 		Spec: batchv1.JobSpec{
-			BackoffLimit: tools.PtrTo(int32(0)),
-			Parallelism:  tools.PtrTo(int32(1)),
-			Completions:  tools.PtrTo(int32(1)),
+			BackoffLimit:            tools.PtrTo(int32(0)),
+			Parallelism:             tools.PtrTo(int32(1)),
+			Completions:             tools.PtrTo(int32(1)),
+			TTLSecondsAfterFinished: tools.PtrTo(int32(r.jobTTL.Seconds())),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
