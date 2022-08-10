@@ -154,6 +154,7 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: tools.PtrTo(true),
 					},
+					AutomountServiceAccountToken: tools.PtrTo(false),
 					Containers: []corev1.Container{{
 						Name:      workloadContainerName,
 						Image:     taskWorkload.Spec.Image,
