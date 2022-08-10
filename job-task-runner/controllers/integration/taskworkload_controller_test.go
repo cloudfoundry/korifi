@@ -43,6 +43,9 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(512, resource.Mega),
 					},
 				},
+				ImagePullSecrets: []corev1.LocalObjectReference{{
+					Name: "my-image-secret",
+				}},
 			},
 		}
 	})
@@ -75,6 +78,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 			RunAsNonRoot: tools.PtrTo(true),
 		}))
 		Expect(podSpec.AutomountServiceAccountToken).To(Equal(tools.PtrTo(false)))
+		Expect(podSpec.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: "my-image-secret"}))
 		Expect(podSpec.Containers).To(HaveLen(1))
 		Expect(podSpec.Containers[0].Name).To(Equal("workload"))
 		Expect(podSpec.Containers[0].Image).To(Equal("my-image"))
