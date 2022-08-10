@@ -124,6 +124,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFProcess"),
+		controllerConfig,
 		env.NewBuilder(k8sManager.GetClient()),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

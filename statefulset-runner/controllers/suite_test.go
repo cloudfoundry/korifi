@@ -41,11 +41,12 @@ func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 				Endpoint:  "/healthz",
 				TimeoutMs: uint(60000),
 			},
-			Ports:         []int32{8888, 9999},
-			Instances:     1,
-			MemoryMiB:     1024,
-			DiskMiB:       2048,
-			CPUMillicores: 5,
+			Ports:          []int32{8888, 9999},
+			Instances:      1,
+			MemoryMiB:      1024,
+			DiskMiB:        2048,
+			CPUMillicores:  5,
+			ReconcilerName: "statefulset-runner",
 		},
 	}
 }

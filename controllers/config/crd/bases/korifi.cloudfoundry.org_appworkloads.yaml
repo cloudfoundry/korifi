@@ -204,6 +204,8 @@ spec:
                 type: array
               processType:
                 type: string
+              reconcilerName:
+                type: string
               version:
                 type: string
             required:
@@ -217,6 +219,7 @@ spec:
             - instances
             - memoryMiB
             - processType
+            - reconcilerName
             - version
             type: object
           status:

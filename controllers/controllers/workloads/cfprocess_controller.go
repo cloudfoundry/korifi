@@ -25,6 +25,7 @@ import (
 	"strconv"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
@@ -48,13 +49,14 @@ type EnvBuilder interface {
 // CFProcessReconciler reconciles a CFProcess object
 type CFProcessReconciler struct {
 	client.Client
-	Scheme     *runtime.Scheme
-	Log        logr.Logger
-	EnvBuilder EnvBuilder
+	Scheme           *runtime.Scheme
+	Log              logr.Logger
+	ControllerConfig *config.ControllerConfig
+	EnvBuilder       EnvBuilder
 }
 
-func NewCFProcessReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, envBuilder EnvBuilder) *CFProcessReconciler {
-	return &CFProcessReconciler{Client: client, Scheme: scheme, Log: log, EnvBuilder: envBuilder}
+func NewCFProcessReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig, envBuilder EnvBuilder) *CFProcessReconciler {
+	return &CFProcessReconciler{Client: client, Scheme: scheme, Log: log, ControllerConfig: controllerConfig, EnvBuilder: envBuilder}
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
@@ -233,6 +235,7 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
 	desiredAppWorkload.Spec.CPUMillicores = calculateDefaultCPURequestMillicores(cfProcess.Spec.MemoryMB)
+	desiredAppWorkload.Spec.ReconcilerName = r.ControllerConfig.AppReconciler
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredAppWorkload, r.Scheme)
 	if err != nil {

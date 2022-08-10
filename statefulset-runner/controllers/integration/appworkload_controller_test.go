@@ -50,6 +50,7 @@ var _ = Describe("AppWorkloadsController", func() {
 				MemoryMiB:        5,
 				DiskMiB:          100,
 				CPUMillicores:    5,
+				ReconcilerName:   "statefulset-runner",
 			},
 		}
 	})

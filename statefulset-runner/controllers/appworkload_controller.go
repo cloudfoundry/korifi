@@ -66,7 +66,8 @@ const (
 	LabelProcessType            = "korifi.cloudfoundry.org/process-type"
 	LabelStatefulSetRunnerIndex = "korifi.cloudfoundry.org/add-stsr-index"
 
-	ApplicationContainerName = "application"
+	ApplicationContainerName  = "application"
+	AppWorkloadReconcilerName = "statefulset-runner"
 
 	LivenessFailureThreshold  = 4
 	ReadinessFailureThreshold = 1
@@ -109,6 +110,10 @@ func (r *AppWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching AppWorkload", "AppWorkload.Name", req.Name, "AppWorkload.Namespace", req.Namespace)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if appWorkload.Spec.ReconcilerName != AppWorkloadReconcilerName {
+		return ctrl.Result{}, nil
 	}
 
 	statefulSet, err := r.Convert(appWorkload)
