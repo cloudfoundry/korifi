@@ -3,12 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"code.cloudfoundry.org/korifi/tools"
 	"k8s.io/client-go/rest"
 )
 
@@ -52,29 +49,9 @@ type DefaultLifecycleConfig struct {
 
 func LoadFromPath(path string) (*APIConfig, error) {
 	var config APIConfig
-
-	items, err := os.ReadDir(path)
+	err := tools.LoadConfigInto(&config, path)
 	if err != nil {
-		return nil, fmt.Errorf("error reading config dir %q: %w", path, err)
-	}
-
-	for _, item := range items {
-		fileName := item.Name()
-		if item.IsDir() || strings.HasPrefix(fileName, ".") {
-			continue
-		}
-
-		var configFile *os.File
-		configFile, err = os.Open(filepath.Join(path, fileName))
-		if err != nil {
-			return &config, fmt.Errorf("failed to open file: %w", err)
-		}
-		defer configFile.Close()
-
-		decoder := yaml.NewDecoder(configFile)
-		if err = decoder.Decode(&config); err != nil {
-			return nil, fmt.Errorf("failed decoding %q: %w", item.Name(), err)
-		}
+		return nil, err
 	}
 
 	err = config.validate()

@@ -1,7 +1,6 @@
 package config_test
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -44,9 +43,6 @@ var _ = Describe("LoadFromPath", func() {
 
 		err = os.WriteFile(filepath.Join(configPath, "file1"), configYAML, 0o644)
 		Expect(err).NotTo(HaveOccurred())
-
-		err = os.WriteFile(filepath.Join(configPath, "file2"), []byte(`buildReconciler: "newBuildReconciler"`), 0o644)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -69,18 +65,8 @@ var _ = Describe("LoadFromPath", func() {
 			TaskTTL:                     "taskTTL",
 			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
 			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
-			BuildReconciler:             "newBuildReconciler",
+			BuildReconciler:             "buildReconciler",
 		}))
-	})
-
-	When("the path does not exist", func() {
-		BeforeEach(func() {
-			configPath = "notarealpath"
-		})
-
-		It("throws an error", func() {
-			Expect(retErr).To(MatchError(fmt.Sprintf("error reading config dir %q: open %s: no such file or directory", configPath, configPath)))
-		})
 	})
 })
 
