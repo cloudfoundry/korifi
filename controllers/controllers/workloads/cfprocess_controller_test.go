@@ -7,6 +7,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -124,6 +125,9 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			fakeClient,
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			&config.ControllerConfig{
+				AppReconciler: "myCustomAppReconciler",
+			},
 			envBuilder,
 		)
 		ctx = context.Background()
@@ -251,6 +255,14 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 					Equal(corev1.EnvVar{Name: "PORT", Value: strconv.Itoa(testPort)}),
 					Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: strconv.Itoa(testPort)}),
 				))
+			})
+
+			It("sets the app reconciler on the AppWorkload from the controller config", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(1), "fakeClient Create was not called 1 time")
+				_, obj, _ := fakeClient.CreateArgsForCall(0)
+				actualWorkload, ok := obj.(*korifiv1alpha1.AppWorkload)
+				Expect(ok).To(BeTrue(), "create wasn't passed a appWorkload")
+				Expect(actualWorkload.Spec.ReconcilerName).To(Equal("myCustomAppReconciler"))
 			})
 		})
 

@@ -179,7 +179,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 		})
 
-		When("The build workload reconciler name is not kpack-image-builder", func() {
+		When("reconciler name on BuildWorkload is not kpack-image-builder", func() {
 			BeforeEach(func() {
 				reconcilerName = "notkpackreconciler"
 			})

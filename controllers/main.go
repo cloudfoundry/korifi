@@ -160,6 +160,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFProcess"),
+			controllerConfig,
 			env.NewBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFProcess")

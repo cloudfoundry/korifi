@@ -47,6 +47,8 @@ type AppWorkloadSpec struct {
 	// +kubebuilder:validation:Required
 	DiskMiB       int64 `json:"diskMiB"`
 	CPUMillicores int64 `json:"cpuMillicores"`
+	// +kubebuilder:validation:Required
+	ReconcilerName string `json:"reconcilerName"`
 }
 
 type Healthcheck struct {

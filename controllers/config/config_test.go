@@ -37,12 +37,12 @@ var _ = Describe("LoadFromPath", func() {
 			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
 			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
 			BuildReconciler:             "buildReconciler",
+			AppReconciler:               "statefulset-runner",
 		}
 		configYAML, err := yaml.Marshal(config)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = os.WriteFile(filepath.Join(configPath, "file1"), configYAML, 0o644)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(configPath, "file1"), configYAML, 0o644)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -66,6 +66,7 @@ var _ = Describe("LoadFromPath", func() {
 			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
 			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
 			BuildReconciler:             "buildReconciler",
+			AppReconciler:               "statefulset-runner",
 		}))
 	})
 })

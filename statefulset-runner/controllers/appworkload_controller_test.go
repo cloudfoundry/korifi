@@ -387,6 +387,17 @@ var _ = Describe("AppWorkload Reconcile", func() {
 				Expect(reconcileErr).To(MatchError("big sad"))
 			})
 		})
+
+		When("reconciler name on the AppWorkload is not statefulset-runner", func() {
+			BeforeEach(func() {
+				appWorkload.Spec.ReconcilerName = "MyCustomReconciler"
+			})
+
+			It("does not create/patch statefulset", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
+				Expect(fakeClient.PatchCallCount()).To(Equal(0), "Client.Patch call count mismatch")
+			})
+		})
 	})
 
 	When("the appworkload is being deleted", func() {
@@ -419,12 +430,13 @@ var _ = Describe("AppWorkload Reconcile", func() {
 					Namespace: testNamespace,
 				},
 				Spec: korifiv1alpha1.AppWorkloadSpec{
-					GUID:          "test-sts",
-					Version:       "1",
-					Instances:     2,
-					MemoryMiB:     10,
-					DiskMiB:       10,
-					CPUMillicores: 10,
+					GUID:           "test-sts",
+					Version:        "1",
+					Instances:      2,
+					MemoryMiB:      10,
+					DiskMiB:        10,
+					CPUMillicores:  10,
+					ReconcilerName: "statefulset-runner",
 				},
 			}
 
