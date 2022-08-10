@@ -58,12 +58,20 @@ To implement these various endpoints, we ported over the relevant CF resources i
 #### Korifi API
 The Korifi API performs three primary functions:
 
-1. It translates requests from a CF client (such as the CLI) into Kubernetes API requests that create, read, update, and otherwise interpret the various CF custom resources.
+1. It translates requests from a CF API client (such as the CLI) into Kubernetes API requests that create, read, update, and otherwise interpret the various CF custom resources.
 2. It translates responses from the Kubernetes logging endpoints and metrics-server into CF compatible responses.
 3. It uses libraries from the kpack project to convert application source code from the CF CLI (zip files) into OCI images
 
 #### Korifi Controllers
-The Korifi Controllers component is a single process that runs a set of Kubernetes controllers that were built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) framework as scaffolding. These controllers watch their respective custom resources and either transform them into downstream resources (e.g. a `CFRoute` becomes a Contour `HTTPProxy`  and Kubernetes `Service`) and/or do bookkeeping such as propagate status and actual state upwards so that the Korifi API can return it back to CF clients (e.g. is a `Pod` running or not or did a kpack Build succeed). For the most part these controllers are translational and the actual developer outcomes are handled by the components we integrate with.
+The Korifi Controllers component is a single process that runs a set of Kubernetes controllers that were built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) framework as scaffolding. These controllers watch their respective custom resources and either transform them into downstream resources (e.g. a `CFRoute` becomes a Contour `HTTPProxy`  and Kubernetes `Service`) and/or do bookkeeping such as propagate status and actual state upwards so that the Korifi API can return it back to CF clients (e.g. is a `Pod` running or did a kpack `Build` succeed). For the most part these controllers are translational and the actual developer outcomes are handled by the components we integrate with.
+
+#### Korifi CRDs
+Although we expect most users to interact with Korifi using existing CF API clients, the true "API" for Korifi is actually its custom resources. Since these resources extend the Kubernetes API and authentication is handled by it, users can use any K8s API client (such as `kubectl`, `client-go`, `k9s`, etc.) to view and manipulate the Korifi resources directly.
+
+Some examples:
+* Orgs and spaces can be declaratively managed via the `CFOrg` and `CFSpace` resources and roles can be applied by creating K8s `RoleBindings`.
+* An app developer could orchestrate their own "cf push" by directly manipulating the `CFApp`, `CFPackage`, and `CFBuild` resources.
+* An operator could use [k9s](https://k9scli.io/) or a generic Kubernetes GUI to visualize their Korifi installation and all apps running on the cluster.
 
 ### Authentication and Authorization
 Korifi relies on the Kubernetes API and RBAC (`Roles`, `ClusterRoles`, `RoleBindings`, etc.) for authentication and authorization (aka auth(n/z)). Users authenticate using their Kubernetes cluster credentials and either interact with the CRDs directly or send their credentials to the Korifi API layer to interact with the resources on their behalf. [Cloud Foundry roles](https://docs.cloudfoundry.org/concepts/roles.html) (such as `SpaceDeveloper`) have corresponding `ClusterRoles` on the cluster and commands like `cf set-space-role` result in `RoleBindings` being created in the appropriate namespaces.
