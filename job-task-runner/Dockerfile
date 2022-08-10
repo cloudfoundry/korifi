@@ -18,7 +18,7 @@ COPY job-task-runner/controllers/ job-task-runner/controllers/
 
 # Build
 RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/go/pkg/mod \
-     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager job-task-runner/main.go
+     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager job-task-runner/main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
