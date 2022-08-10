@@ -4,16 +4,18 @@ FROM golang:1.19.0 as builder
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
+
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
+COPY controllers/api controllers/api
+COPY controllers/config/config.go controllers/config/config.go
+COPY controllers/controllers controllers/controllers
+COPY controllers/coordination controllers/coordination
+COPY controllers/main.go controllers/main.go
+COPY controllers/webhooks controllers/webhooks
 COPY tools tools
-COPY controllers/api controllers/api/
-COPY controllers/controllers controllers/controllers/
-COPY controllers/coordination controllers/coordination/
-COPY controllers/webhooks controllers/webhooks/
-COPY controllers/config/config.go controllers/config/
-COPY controllers/main.go controllers/
+
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags=all="-N -l" -o manager controllers/main.go
@@ -23,6 +25,7 @@ WORKDIR /go/src/
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 FROM ubuntu
+
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /go/bin/dlv .

@@ -26,6 +26,11 @@ updates:
     interval: "daily"
 
 - package-ecosystem: "docker"
+  directory: "/job-task-runner"
+  schedule:
+    interval: "daily"
+
+- package-ecosystem: "docker"
   directory: "/kpack-image-builder"
   schedule:
     interval: "daily"
