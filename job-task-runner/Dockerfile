@@ -14,6 +14,7 @@ COPY controllers/api controllers/api/
 COPY tools tools
 COPY job-task-runner/main.go job-task-runner/main.go
 COPY job-task-runner/api/ job-task-runner/api/
+COPY job-task-runner/config/ job-task-runner/config/
 COPY job-task-runner/controllers/ job-task-runner/controllers/
 
 # Build

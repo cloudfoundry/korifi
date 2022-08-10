@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/job-task-runner/config"
 	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -65,6 +66,20 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	configPath, found := os.LookupEnv("JOBTASKRUNNERCONFIG")
+	if !found {
+		panic("JOBTASKRUNNERCONFIG must be set")
+	}
+
+	jobTaskRunnerConfig, err := config.LoadFromPath(configPath)
+	if err != nil {
+		panic(err)
+	}
+	jobTTL, err := jobTaskRunnerConfig.ParseJobTTL()
+	if err != nil {
+		panic(err)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -97,6 +112,7 @@ func main() {
 		k8sClient,
 		mgr.GetScheme(),
 		controllers.NewStatusGetter(logger, k8sClient),
+		jobTTL,
 	)
 	if err = taskWorkloadReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")

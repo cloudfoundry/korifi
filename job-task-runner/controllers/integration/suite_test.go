@@ -100,6 +100,7 @@ var _ = BeforeSuite(func() {
 		managerClient,
 		k8sManager.GetScheme(),
 		controllers.NewStatusGetter(logger, managerClient),
+		time.Minute,
 	)
 	err = taskWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

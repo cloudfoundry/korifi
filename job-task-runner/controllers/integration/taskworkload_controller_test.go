@@ -71,6 +71,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 		Expect(job.Spec.Parallelism).To(Equal(tools.PtrTo(int32(1))))
 		Expect(job.Spec.Completions).To(Equal(tools.PtrTo(int32(1))))
 		Expect(job.Spec.BackoffLimit).To(Equal(tools.PtrTo(int32(0))))
+		Expect(job.Spec.TTLSecondsAfterFinished).To(Equal(tools.PtrTo(int32(60))))
 
 		podSpec := job.Spec.Template.Spec
 		Expect(podSpec.RestartPolicy).To(Equal(corev1.RestartPolicyNever))

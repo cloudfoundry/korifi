@@ -63,5 +63,16 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        env:
+        - name: JOBTASKRUNNERCONFIG
+          value: "/etc/korifi-job-task-runner-config"
+        volumeMounts:
+        - name: korifi-job-task-runner-config
+          mountPath: "/etc/korifi-job-task-runner-config"
+          readOnly: true
+      volumes:
+      - name: korifi-job-task-runner-config
+        configMap:
+          name: korifi-job-task-runner-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
