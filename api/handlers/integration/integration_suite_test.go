@@ -123,7 +123,7 @@ var _ = BeforeEach(func() {
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	identityProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
-	nsPermissions = authorization.NewNamespacePermissions(k8sClient, identityProvider, rootNamespace)
+	nsPermissions = authorization.NewNamespacePermissions(k8sClient, identityProvider)
 
 	userName = generateGUID()
 

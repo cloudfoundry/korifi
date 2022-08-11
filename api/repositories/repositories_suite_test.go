@@ -120,7 +120,7 @@ var _ = BeforeEach(func() {
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	baseIDProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
 	idProvider = authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
-	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider, rootNamespace)
+	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider)
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
