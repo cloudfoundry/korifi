@@ -24,14 +24,12 @@ type IdentityProvider interface {
 type NamespacePermissions struct {
 	privilegedClient client.Client
 	identityProvider IdentityProvider
-	rootNamespace    string
 }
 
-func NewNamespacePermissions(privilegedClient client.Client, identityProvider IdentityProvider, rootNamespace string) *NamespacePermissions {
+func NewNamespacePermissions(privilegedClient client.Client, identityProvider IdentityProvider) *NamespacePermissions {
 	return &NamespacePermissions{
 		privilegedClient: privilegedClient,
 		identityProvider: identityProvider,
-		rootNamespace:    rootNamespace,
 	}
 }
 

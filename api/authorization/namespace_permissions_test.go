@@ -28,9 +28,8 @@ var _ = Describe("Namespace Permissions", func() {
 		identity         authorization.Identity
 		identityProvider *fake.IdentityProvider
 
-		rootNamespace        string
-		org1NS, org2NS       string
 		space1NS, space2NS   string
+		org1NS, org2NS       string
 		nonCFNS              string
 		userName             string
 		roleName1, roleName2 string
@@ -85,7 +84,6 @@ var _ = Describe("Namespace Permissions", func() {
 	}
 
 	BeforeEach(func() {
-		rootNamespace = generateGUID("root-ns")
 		userName = generateGUID("alice")
 		ctx = context.Background()
 
@@ -99,7 +97,7 @@ var _ = Describe("Namespace Permissions", func() {
 		identityProvider = new(fake.IdentityProvider)
 		identityProvider.GetIdentityReturns(identity, nil)
 
-		nsPerms = authorization.NewNamespacePermissions(k8sClient, identityProvider, rootNamespace)
+		nsPerms = authorization.NewNamespacePermissions(k8sClient, identityProvider)
 
 		nonCFNS = createNamespace("non-cf", nil)
 

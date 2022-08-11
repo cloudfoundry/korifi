@@ -89,7 +89,7 @@ func main() {
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
-	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider, config.RootNamespace)
+	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider)
 
 	serverURL, err := url.Parse(config.ServerURL)
 	if err != nil {
@@ -117,11 +117,7 @@ func main() {
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,
 		spaceRepo,
-		authorization.NewNamespacePermissions(
-			privilegedCRClient,
-			cachingIdentityProvider,
-			config.RootNamespace,
-		),
+		authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider),
 		config.RootNamespace,
 		config.RoleMappings,
 	)
