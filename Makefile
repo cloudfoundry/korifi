@@ -161,8 +161,11 @@ deploy-api: install-kustomize set-image-ref-api
 deploy-api-kind: install-kustomize set-image-ref-api
 	$(KUSTOMIZE) build api/config/overlays/kind | kubectl apply -f -
 
+TMPDIR := $(shell mktemp -d)
 deploy-api-kind-local: install-kustomize set-image-ref-api
-	$(KUSTOMIZE) build api/config/overlays/kind-local-registry | kubectl apply -f -
+	ytt -f api/config/base -f api/config/ytt -f api/config/values/kind-local-registry.yml --output-files $(TMPDIR)
+	$(KUSTOMIZE) build $(TMPDIR) | kubectl apply -f -
+	rm -rf $(TMPDIR)
 
 deploy-api-kind-local-debug: install-kustomize set-image-ref-api
 	$(KUSTOMIZE) build api/config/overlays/kind-api-debug | kubectl apply -f -
@@ -171,7 +174,9 @@ undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~
 	$(KUSTOMIZE) build controllers/config/default | kubectl delete -f -
 
 undeploy-api: ## Undeploy api from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build api/config/base | kubectl delete -f -
+	ytt -f api/config/base -f api/config/ytt -f api/config/values/kind-local-registry.yml --output-files $(TMPDIR)
+	$(KUSTOMIZE) build $(TMPDIR) | kubectl delete -f -
+	rm -rf $(TMPDIR)
 
 set-image-ref: set-image-ref-api set-image-ref-controllers
 

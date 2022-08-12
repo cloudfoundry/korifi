@@ -1,0 +1,16 @@
+#@data/values-schema
+---
+api:
+  fqdn: localhost
+  internalPort: 9000
+
+  rootNamespace: cf
+  defaultLifecycleConfig:
+    type: buildpack
+    stack: cflinuxfs3
+    stagingMemoryMB: 1024
+    stagingDiskMB: 1024
+  packageRegistrySecretName: image-registry-credentials
+  packageRegistryBase: localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
+  defaultDomainName: vcap.me
+  userCertificateExpirationWarningDuration: 168h

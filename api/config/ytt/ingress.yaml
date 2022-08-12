@@ -1,0 +1,9 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+
+#@overlay/match by=overlay.subset({"kind":"HTTPProxy","metadata":{"labels":{"app":"korifi-api"}}}), missing_ok=True
+---
+spec:
+  virtualhost:
+    #@overlay/match missing_ok=True
+    fqdn: #@ data.values.api.fqdn

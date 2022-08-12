@@ -29,14 +29,6 @@ images:
   newName: cloudfoundry/korifi-api
   newTag: latest
 
-patches:
-- path: api_url_patch.yaml
-  target:
-    group: projectcontour.io
-    kind: HTTPProxy
-    name: proxy
-    version: v1
-
 # the following config is for teaching kustomize how to do var substitution
 vars:
 - fieldref:

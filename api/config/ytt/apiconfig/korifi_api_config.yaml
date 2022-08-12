@@ -1,0 +1,37 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+
+#@overlay/match by=overlay.subset("externalFQDN")
+externalFQDN: #@ data.values.api.fqdn
+
+#@overlay/match by=overlay.map_key("internalPort")
+internalPort: #@ data.values.api.internalPort
+
+#@overlay/match by=overlay.map_key("rootNamespace")
+rootNamespace: #@ data.values.api.rootNamespace
+
+
+defaultLifecycleConfig:
+  #@overlay/match by=overlay.map_key("type")
+  type: #@ data.values.api.defaultLifecycleConfig.type
+  #@overlay/match by=overlay.map_key("stack")
+  stack: #@ data.values.api.defaultLifecycleConfig.stack
+  #@overlay/match by=overlay.map_key("stagingMemoryMB")
+  stagingMemoryMB: #@ data.values.api.defaultLifecycleConfig.stagingMemoryMB
+  #@overlay/match by=overlay.map_key("stagingDiskMB")
+  stagingDiskMB: #@ data.values.api.defaultLifecycleConfig.stagingDiskMB
+
+#@overlay/match by=overlay.map_key("defaultLifecycleConfig")
+
+#@overlay/match by=overlay.map_key("packageRegistryBase")
+packageRegistryBase: #@ data.values.api.packageRegistryBase
+
+#@overlay/match by=overlay.map_key("packageRegistrySecretName")
+packageRegistrySecretName: #@ data.values.api.packageRegistrySecretName
+
+#@overlay/match by=overlay.map_key("defaultDomainName")
+defaultDomainName: #@ data.values.api.defaultDomainName
+
+#@overlay/match by=overlay.map_key("userCertificateExpirationWarningDuration")
+userCertificateExpirationWarningDuration: #@ data.values.api.userCertificateExpirationWarningDuration
+
