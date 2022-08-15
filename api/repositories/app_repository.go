@@ -135,6 +135,13 @@ type PatchAppEnvVarsMessage struct {
 	EnvironmentVariables map[string]*string
 }
 
+type PatchAppMetadataMessage struct {
+	AppGUID     string
+	SpaceGUID   string
+	Annotations map[string]*string
+	Labels      map[string]*string
+}
+
 type SetCurrentDropletMessage struct {
 	AppGUID     string
 	DropletGUID string
@@ -406,6 +413,29 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 		return AppEnvVarsRecord{}, apierrors.FromK8sError(err, AppEnvResourceType)
 	}
 	return appEnvVarsSecretToRecord(secretObj), nil
+}
+
+func (f *AppRepo) PatchAppMetadata(ctx context.Context, authInfo authorization.Info, message PatchAppMetadataMessage) (AppRecord, error) {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	app := new(korifiv1alpha1.CFApp)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: message.SpaceGUID, Name: message.AppGUID}, app)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
+	}
+
+	origApp := app.DeepCopy()
+	patchMap(app.Labels, message.Labels)
+	patchMap(app.Annotations, message.Annotations)
+	err = userClient.Patch(ctx, app, client.MergeFrom(origApp))
+	if err != nil {
+		return AppRecord{}, apierrors.FromK8sErrorWithInvalidAsUnprocessableEntity(err, AppResourceType)
+	}
+
+	return cfAppToAppRecord(*app), nil
 }
 
 func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.Info, message SetCurrentDropletMessage) (CurrentDropletRecord, error) {

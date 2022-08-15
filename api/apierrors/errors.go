@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ApiError interface {
@@ -277,6 +279,18 @@ func FromK8sError(err error, resourceType string) error {
 	default:
 		return err
 	}
+}
+
+func FromK8sErrorWithInvalidAsUnprocessableEntity(err error, resourceType string) error {
+	err2 := FromK8sError(err, resourceType)
+
+	if k8serrors.IsInvalid(err2) {
+		cause, ok := k8serrors.StatusCause(err2, metav1.CauseTypeFieldValueInvalid)
+		if ok {
+			return NewUnprocessableEntityError(err2, fmt.Sprintf("%s is invalid: %s", cause.Field, cause.Message))
+		}
+	}
+	return err2
 }
 
 func AsUnprocessableEntity(err error, detail string, errTypes ...ApiError) error {

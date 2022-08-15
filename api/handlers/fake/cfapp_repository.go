@@ -99,6 +99,21 @@ type CFAppRepository struct {
 		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}
+	PatchAppMetadataStub        func(context.Context, authorization.Info, repositories.PatchAppMetadataMessage) (repositories.AppRecord, error)
+	patchAppMetadataMutex       sync.RWMutex
+	patchAppMetadataArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchAppMetadataMessage
+	}
+	patchAppMetadataReturns struct {
+		result1 repositories.AppRecord
+		result2 error
+	}
+	patchAppMetadataReturnsOnCall map[int]struct {
+		result1 repositories.AppRecord
+		result2 error
+	}
 	SetAppDesiredStateStub        func(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 	setAppDesiredStateMutex       sync.RWMutex
 	setAppDesiredStateArgsForCall []struct {
@@ -526,6 +541,72 @@ func (fake *CFAppRepository) PatchAppEnvVarsReturnsOnCall(i int, result1 reposit
 	}{result1, result2}
 }
 
+func (fake *CFAppRepository) PatchAppMetadata(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchAppMetadataMessage) (repositories.AppRecord, error) {
+	fake.patchAppMetadataMutex.Lock()
+	ret, specificReturn := fake.patchAppMetadataReturnsOnCall[len(fake.patchAppMetadataArgsForCall)]
+	fake.patchAppMetadataArgsForCall = append(fake.patchAppMetadataArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchAppMetadataMessage
+	}{arg1, arg2, arg3})
+	stub := fake.PatchAppMetadataStub
+	fakeReturns := fake.patchAppMetadataReturns
+	fake.recordInvocation("PatchAppMetadata", []interface{}{arg1, arg2, arg3})
+	fake.patchAppMetadataMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) PatchAppMetadataCallCount() int {
+	fake.patchAppMetadataMutex.RLock()
+	defer fake.patchAppMetadataMutex.RUnlock()
+	return len(fake.patchAppMetadataArgsForCall)
+}
+
+func (fake *CFAppRepository) PatchAppMetadataCalls(stub func(context.Context, authorization.Info, repositories.PatchAppMetadataMessage) (repositories.AppRecord, error)) {
+	fake.patchAppMetadataMutex.Lock()
+	defer fake.patchAppMetadataMutex.Unlock()
+	fake.PatchAppMetadataStub = stub
+}
+
+func (fake *CFAppRepository) PatchAppMetadataArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchAppMetadataMessage) {
+	fake.patchAppMetadataMutex.RLock()
+	defer fake.patchAppMetadataMutex.RUnlock()
+	argsForCall := fake.patchAppMetadataArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) PatchAppMetadataReturns(result1 repositories.AppRecord, result2 error) {
+	fake.patchAppMetadataMutex.Lock()
+	defer fake.patchAppMetadataMutex.Unlock()
+	fake.PatchAppMetadataStub = nil
+	fake.patchAppMetadataReturns = struct {
+		result1 repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) PatchAppMetadataReturnsOnCall(i int, result1 repositories.AppRecord, result2 error) {
+	fake.patchAppMetadataMutex.Lock()
+	defer fake.patchAppMetadataMutex.Unlock()
+	fake.PatchAppMetadataStub = nil
+	if fake.patchAppMetadataReturnsOnCall == nil {
+		fake.patchAppMetadataReturnsOnCall = make(map[int]struct {
+			result1 repositories.AppRecord
+			result2 error
+		})
+	}
+	fake.patchAppMetadataReturnsOnCall[i] = struct {
+		result1 repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFAppRepository) SetAppDesiredState(arg1 context.Context, arg2 authorization.Info, arg3 repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error) {
 	fake.setAppDesiredStateMutex.Lock()
 	ret, specificReturn := fake.setAppDesiredStateReturnsOnCall[len(fake.setAppDesiredStateArgsForCall)]
@@ -673,6 +754,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.listAppsMutex.RUnlock()
 	fake.patchAppEnvVarsMutex.RLock()
 	defer fake.patchAppEnvVarsMutex.RUnlock()
+	fake.patchAppMetadataMutex.RLock()
+	defer fake.patchAppMetadataMutex.RUnlock()
 	fake.setAppDesiredStateMutex.RLock()
 	defer fake.setAppDesiredStateMutex.RUnlock()
 	fake.setCurrentDropletMutex.RLock()
