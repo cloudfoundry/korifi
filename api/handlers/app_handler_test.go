@@ -831,34 +831,70 @@ var _ = Describe("AppHandler", func() {
 		})
 
 		When("a label is invalid", func() {
-			BeforeEach(func() {
-				queuePatchRequest(`{
-				  "metadata": {
-					"labels": {
-					  "cloudfoundry.org/test": "production"
-				    }
-                  }
-				}`)
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					queuePatchRequest(`{
+					  "metadata": {
+						"labels": {
+						  "cloudfoundry.org/test": "production"
+					    }
+        		     }
+					}`)
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
 			})
 
-			It("returns an unprocessable entity error", func() {
-				expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org"`)
+			When("the prefix is a subdomain of cloudfoundry.org", func() {
+				BeforeEach(func() {
+					queuePatchRequest(`{
+					  "metadata": {
+						"labels": {
+						  "korifi.cloudfoundry.org/test": "production"
+					    }
+    		         }
+					}`)
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
 			})
 		})
 
 		When("an annotation is invalid", func() {
-			BeforeEach(func() {
-				queuePatchRequest(`{
-				  "metadata": {
-					"annotations": {
-					  "cloudfoundry.org/test": "there"
-					}
-				  }
-				}`)
-			})
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					queuePatchRequest(`{
+					  "metadata": {
+						"annotations": {
+						  "cloudfoundry.org/test": "there"
+						}
+					  }
+					}`)
+				})
 
-			It("returns an unprocessable entity error", func() {
-				expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org"`)
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+
+				When("the prefix is a subdomain of cloudfoundry.org", func() {
+					BeforeEach(func() {
+						queuePatchRequest(`{
+					  "metadata": {
+						"annotations": {
+						  "korifi.cloudfoundry.org/test": "there"
+						}
+					  }
+					}`)
+					})
+
+					It("returns an unprocessable entity error", func() {
+						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					})
+				})
 			})
 		})
 	})
