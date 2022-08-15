@@ -1,3 +1,5 @@
+#@ load("@ytt:data", "data")
+
 apiVersion: kpack.io/v1alpha2
 kind: ClusterBuilder
 metadata:
@@ -5,9 +7,8 @@ metadata:
 spec:
   serviceAccountRef:
     name: kpack-service-account
-    namespace: cf
-  # Replace with real docker registry
-  tag: gcr.io/cf-relint-greengrass/korifi/kpack/beta
+    namespace: #@ data.values.controllers.cfRootNamespace
+  tag: #@ data.values.controllers.docker.server+"/"+data.values.controllers.kpack.tag
   stack:
     name: cf-default-stack
     kind: ClusterStack

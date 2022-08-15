@@ -1,0 +1,21 @@
+#@data/values-schema
+---
+controllers:
+  buildReconciler: kpack-image-builder
+  appReconciler: statefulset-runner
+  cfProcessDefaults:
+    memoryMB: 1024
+    diskQuotaMB: 1024
+  cfRootNamespace: cf
+  packageRegistrySecretName: image-registry-credentials
+  taskTTL: 5s
+  workloads_tls_secret_name: korifi-workloads-ingress-cert
+  workloads_tls_secret_namespace: korifi-controllers-system
+  adminUsername: cf-admin
+  defaultDomainName: vcap.me
+  docker:
+    server: "localregistry-docker-registry.default.svc.cluster.local:30050"
+    username: "user"
+    password: "password"
+  kpack:
+    tag: "cf-relint-greengrass/korifi/kpack/beta"

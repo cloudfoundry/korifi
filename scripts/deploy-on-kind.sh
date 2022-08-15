@@ -202,13 +202,6 @@ function install_dependencies() {
 
   pushd "${ROOT_DIR}" >/dev/null
   {
-    if [[ -n "${use_local_registry}" ]]; then
-      export DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
-      export DOCKER_USERNAME="user"
-      export DOCKER_PASSWORD="password"
-      export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta"
-    fi
-
     "${SCRIPT_DIR}/install-dependencies.sh"
 
     # install metrics server only on local cluster
@@ -258,9 +251,6 @@ function deploy_korifi_controllers() {
 
   kubectl rollout status deployment/korifi-controllers-controller-manager -w -n korifi-controllers-system
 
-  if [[ -n "${default_domain}" ]]; then
-    sed 's/vcap\.me/'${APP_FQDN:-vcap.me}'/' ${CONTROLLER_DIR}/config/samples/cfdomain.yaml | kubectl apply -f-
-  fi
 }
 
 function deploy_korifi_api() {

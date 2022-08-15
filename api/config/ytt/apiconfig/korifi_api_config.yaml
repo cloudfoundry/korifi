@@ -21,8 +21,6 @@ defaultLifecycleConfig:
   #@overlay/match by=overlay.map_key("stagingDiskMB")
   stagingDiskMB: #@ data.values.api.defaultLifecycleConfig.stagingDiskMB
 
-#@overlay/match by=overlay.map_key("defaultLifecycleConfig")
-
 #@overlay/match by=overlay.map_key("packageRegistryBase")
 packageRegistryBase: #@ data.values.api.packageRegistryBase
 

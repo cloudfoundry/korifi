@@ -1,0 +1,30 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+
+
+#@overlay/match by=overlay.subset("buildReconciler")
+buildReconciler: #@ data.values.controllers.buildReconciler
+
+#@overlay/match by=overlay.subset("appReconciler")
+appReconciler: #@ data.values.controllers.appReconciler
+
+cfProcessDefaults:
+  #@overlay/match by=overlay.subset("memoryMB")
+  memoryMB: #@ data.values.controllers.cfProcessDefaults.memoryMB
+  #@overlay/match by=overlay.subset("diskQuotaMB")
+  diskQuotaMB: #@ data.values.controllers.cfProcessDefaults.diskQuotaMB
+
+#@overlay/match by=overlay.subset("cfRootNamespace")
+cfRootNamespace: #@ data.values.controllers.cfRootNamespace
+
+#@overlay/match by=overlay.subset("packageRegistrySecretName")
+packageRegistrySecretName: #@ data.values.controllers.packageRegistrySecretName
+
+#@overlay/match by=overlay.subset("taskTTL")
+taskTTL: #@ data.values.controllers.taskTTL
+
+#@overlay/match by=overlay.subset("workloads_tls_secret_name")
+workloads_tls_secret_name: #@ data.values.controllers.workloads_tls_secret_name
+
+#@overlay/match by=overlay.subset("workloads_tls_secret_namespace")
+workloads_tls_secret_namespace: #@ data.values.controllers.workloads_tls_secret_namespace

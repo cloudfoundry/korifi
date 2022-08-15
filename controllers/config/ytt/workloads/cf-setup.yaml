@@ -1,8 +1,10 @@
+#@ load("@ytt:data", "data")
+
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: cf
+  name: #@ data.values.controllers.cfRootNamespace
   labels:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
@@ -12,7 +14,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: default-admin-binding
-  namespace: cf
+  namespace: #@ data.values.controllers.cfRootNamespace
   annotations:
     cloudfoundry.org/propagate-cf-role: "true"
 roleRef:
@@ -22,4 +24,4 @@ roleRef:
 subjects:
 - apiGroup: rbac.authorization.k8s.io
   kind: User
-  name: cf-admin
+  name: #@ data.values.controllers.adminUsername

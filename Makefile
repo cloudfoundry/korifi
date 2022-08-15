@@ -149,8 +149,17 @@ deploy-kind-local: install-crds deploy-controllers-kind-local deploy-api-kind-lo
 deploy-controllers: install-kustomize set-image-ref-controllers
 	$(KUSTOMIZE) build controllers/config/controllers/default | kubectl apply -f -
 
+TMPDIR := $(shell mktemp -d)
 deploy-controllers-kind-local: install-kustomize set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/controllers/overlays/kind-local-registry | kubectl apply -f -
+	ytt -f controllers/config/controllers -f controllers/config/ytt/controllers -f controllers/config/values/kind-local-registry.yaml --output-files $(TMPDIR)
+	$(KUSTOMIZE) build $(TMPDIR)/default | kubectl apply -f -
+
+	ytt -f controllers/config/ytt/workloads -f controllers/config/values/kind-local-registry.yaml | kubectl apply -f -
+	kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterbuilders.kpack.io
+	kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstores.kpack.io
+	kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstacks.kpack.io
+
+	rm -rf $(TMPDIR)
 
 deploy-controllers-kind-local-debug: install-kustomize set-image-ref-controllers
 	$(KUSTOMIZE) build controllers/config/controllers/overlays/kind-controller-debug | kubectl apply -f -

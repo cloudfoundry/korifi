@@ -1,0 +1,9 @@
+#@ load("@ytt:data", "data")
+
+apiVersion: korifi.cloudfoundry.org/v1alpha1
+kind: CFDomain
+metadata:
+  name: default-domain
+  namespace: #@ data.values.controllers.cfRootNamespace
+spec:
+  name: #@ data.values.controllers.defaultDomainName
