@@ -3,6 +3,7 @@ package repositories_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -705,6 +706,155 @@ var _ = Describe("AppRepository", func() {
 		When("the user is not authorized in the space", func() {
 			It("returns a forbidden error", func() {
 				Expect(returnedErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("PatchAppMetadata", func() {
+		var (
+			appName                       string
+			patchErr                      error
+			appRecord                     AppRecord
+			origLabels, origAnnotations   map[string]string
+			labelsPatch, annotationsPatch map[string]*string
+		)
+
+		BeforeEach(func() {
+			appName = cfApp.Name
+			origLabels = map[string]string{
+				"before-key-one": "value-one",
+				"before-key-two": "value-two",
+				"key-one":        "value-one",
+			}
+			labelsPatch = map[string]*string{
+				"key-one":        pointerTo("value-one-updated"),
+				"key-two":        pointerTo("value-two"),
+				"before-key-two": nil,
+			}
+			origAnnotations = map[string]string{
+				"before-key-one": "value-one",
+				"before-key-two": "value-two",
+				"key-one":        "value-one",
+			}
+			annotationsPatch = map[string]*string{
+				"key-one":        pointerTo("value-one-updated"),
+				"key-two":        pointerTo("value-two"),
+				"before-key-two": nil,
+			}
+			origCFApp := cfApp.DeepCopy()
+			cfApp.Labels = origLabels
+			cfApp.Annotations = origAnnotations
+			Expect(k8sClient.Patch(ctx, cfApp, client.MergeFrom(origCFApp))).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			patchMsg := PatchAppMetadataMessage{
+				AppGUID:     appName,
+				SpaceGUID:   space.Name,
+				Annotations: annotationsPatch,
+				Labels:      labelsPatch,
+			}
+
+			appRecord, patchErr = appRepo.PatchAppMetadata(testCtx, authInfo, patchMsg)
+		})
+
+		When("the user is authorized and an app exists", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("returns the updated app record", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
+				Expect(appRecord.GUID).To(Equal(cfApp.Name))
+				Expect(appRecord.SpaceGUID).To(Equal(cfApp.Namespace))
+				Expect(appRecord.State).To(BeEquivalentTo(cfApp.Spec.DesiredState))
+				Expect(appRecord.Labels).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+				Expect(appRecord.Annotations).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+			})
+
+			It("sets the k8s cfapp resource", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
+				updatedCFApp := new(korifiv1alpha1.CFApp)
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfApp), updatedCFApp)).To(Succeed())
+				Expect(updatedCFApp.Labels).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+				Expect(updatedCFApp.Annotations).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+			})
+
+			When("an annotation is invalid", func() {
+				BeforeEach(func() {
+					annotationsPatch = map[string]*string{
+						"-bad-annotation": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.annotations is invalid"),
+						ContainSubstring(`"-bad-annotation"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"-bad-label": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.labels is invalid"),
+						ContainSubstring(`"-bad-label"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+		})
+
+		When("the user is authorized but the app does not exist", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				appName = "invalidAppName"
+			})
+
+			It("fails to get the app", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("the user is not authorized", func() {
+			It("return a forbidden error", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

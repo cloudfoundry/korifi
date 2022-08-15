@@ -43,7 +43,7 @@ func WebhookErrorToValidationError(err error) (ValidationError, bool) {
 	}
 
 	validationErr := new(ValidationError)
-	if json.Unmarshal([]byte(statusErr.Status().Reason), validationErr) != nil {
+	if err := json.Unmarshal([]byte(statusErr.Status().Reason), validationErr); err != nil {
 		return ValidationError{}, false
 	}
 

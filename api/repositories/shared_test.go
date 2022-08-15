@@ -224,3 +224,7 @@ func initializeAppCreateMessage(appName string, spaceGUID string) CreateAppMessa
 func generateAppEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }
+
+func pointerTo[T any](v T) *T {
+	return &v
+}

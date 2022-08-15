@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-http-utils/headers"
-	"github.com/onsi/gomega/gstruct"
+	. "github.com/onsi/gomega/gstruct"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -89,6 +89,12 @@ var _ = Describe("AppHandler", func() {
 							Stack:      "",
 						},
 					},
+					Annotations: map[string]string{
+						"annotation-key": "annotation-value",
+					},
+					Labels: map[string]string{
+						"label-key": "label-value",
+					},
 				}, nil)
 			})
 
@@ -127,8 +133,12 @@ var _ = Describe("AppHandler", func() {
                       }
                     },
                     "metadata": {
-                      "labels": {},
-                      "annotations": {}
+                      "labels": {
+                        "label-key": "label-value"
+                      },
+                      "annotations": {
+                        "annotation-key": "annotation-value"
+                      }
                     },
                     "links": {
                       "self": {
@@ -646,6 +656,209 @@ var _ = Describe("AppHandler", func() {
 
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, guids, space_guids, order_by'")
+			})
+		})
+	})
+
+	Describe("the PATCH /v3/apps/:guid endpoint", func() {
+		queuePatchRequest := func(requestBody string) {
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/apps/"+appGUID, strings.NewReader(requestBody))
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		When("the app exists and is accessible and we patch the annotations and labels", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{
+					GUID:      appGUID,
+					Name:      "test-app",
+					SpaceGUID: spaceGUID,
+					State:     "STOPPED",
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				}, nil)
+				appRepo.PatchAppMetadataReturns(repositories.AppRecord{
+					GUID: appGUID,
+					Name: "test-app",
+					Labels: map[string]string{
+						"env":                           "production",
+						"foo.example.com/my-identifier": "aruba",
+					},
+					Annotations: map[string]string{
+						"hello":                       "there",
+						"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+					},
+					SpaceGUID: spaceGUID,
+					State:     "STOPPED",
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				}, nil)
+				queuePatchRequest(`{
+				  "metadata": {
+					"labels": {
+					  "env": "production",
+					  "foo.example.com/my-identifier": "aruba"
+					},
+					"annotations": {
+					  "hello": "there",
+					  "foo.example.com/lorem-ipsum": "Lorem ipsum."
+					}
+				  }
+				}`)
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("returns the App in the response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("patches the app with the new labels and annotations", func() {
+				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
+				_, _, msg := appRepo.PatchAppMetadataArgsForCall(0)
+				Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
+				Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
+				Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
+				Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+			})
+
+			It("includes the labels and annotations in the response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				var jsonBody struct {
+					Metadata struct {
+						Annotations map[string]string `json:"annotations"`
+						Labels      map[string]string `json:"labels"`
+					} `json:"metadata"`
+				}
+				Expect(json.NewDecoder(rr.Body).Decode(&jsonBody)).To(Succeed())
+				Expect(jsonBody.Metadata.Annotations).To(Equal(map[string]string{
+					"hello":                       "there",
+					"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+				}))
+				Expect(jsonBody.Metadata.Labels).To(Equal(map[string]string{
+					"env":                           "production",
+					"foo.example.com/my-identifier": "aruba",
+				}))
+			})
+		})
+
+		When("the user doesn't have permission to get the App", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
+				queuePatchRequest(`{
+				  "metadata": {
+					"labels": {
+					  "env": "production"
+					}
+				  }
+				}`)
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError("App not found")
+			})
+
+			It("does not call patch", func() {
+				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("fetching the App errors", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
+				queuePatchRequest(`{
+				  "metadata": {
+					"labels": {
+					  "env": "production",
+					}
+				  }
+				}`)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+
+			It("does not call patch", func() {
+				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("patching the App errors", func() {
+			BeforeEach(func() {
+				appRecord := repositories.AppRecord{
+					GUID:      appGUID,
+					Name:      "test-app",
+					SpaceGUID: spaceGUID,
+					State:     "STOPPED",
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				}
+				appRepo.GetAppReturns(appRecord, nil)
+				appRepo.PatchAppMetadataReturns(repositories.AppRecord{}, errors.New("boom"))
+				queuePatchRequest(`{
+				  "metadata": {
+					"labels": {
+					  "env": "production"
+					}
+				  }
+				}`)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("a label is invalid", func() {
+			BeforeEach(func() {
+				queuePatchRequest(`{
+				  "metadata": {
+					"labels": {
+					  "cloudfoundry.org/test": "production"
+				    }
+                  }
+				}`)
+			})
+
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org"`)
+			})
+		})
+
+		When("an annotation is invalid", func() {
+			BeforeEach(func() {
+				queuePatchRequest(`{
+				  "metadata": {
+					"annotations": {
+					  "cloudfoundry.org/test": "there"
+					}
+				  }
+				}`)
+			})
+
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org"`)
 			})
 		})
 	})
@@ -2316,7 +2529,7 @@ var _ = Describe("AppHandler", func() {
 				Expect(bodyJSON).To(HaveKey("errors"))
 				Expect(bodyJSON["errors"]).To(HaveLen(1))
 				Expect(bodyJSON["errors"]).To(ConsistOf(
-					gstruct.MatchAllKeys(gstruct.Keys{
+					MatchAllKeys(Keys{
 						"code":   BeEquivalentTo(10010),
 						"title":  Equal("CF-ResourceNotFound"),
 						"detail": Equal("Droplet not found"),
@@ -2339,7 +2552,7 @@ var _ = Describe("AppHandler", func() {
 				Expect(bodyJSON).To(HaveKey("errors"))
 				Expect(bodyJSON["errors"]).To(HaveLen(1))
 				Expect(bodyJSON["errors"]).To(ConsistOf(
-					gstruct.MatchAllKeys(gstruct.Keys{
+					MatchAllKeys(Keys{
 						"code":   BeEquivalentTo(10010),
 						"title":  Equal("CF-ResourceNotFound"),
 						"detail": Equal("Droplet not found"),

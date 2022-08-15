@@ -104,3 +104,16 @@ func (a *AppPatchEnvVars) ToMessage(appGUID, spaceGUID string) repositories.Patc
 
 	return message
 }
+
+type AppPatch struct {
+	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (a *AppPatch) ToMessage(appGUID, spaceGUID string) repositories.PatchAppMetadataMessage {
+	return repositories.PatchAppMetadataMessage{
+		AppGUID:     appGUID,
+		SpaceGUID:   spaceGUID,
+		Annotations: a.Metadata.Annotations,
+		Labels:      a.Metadata.Labels,
+	}
+}

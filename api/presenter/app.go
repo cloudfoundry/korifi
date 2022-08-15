@@ -40,7 +40,7 @@ type AppLinks struct {
 }
 
 func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
-	return AppResponse{
+	appResponse := AppResponse{
 		Name:      responseApp.Name,
 		GUID:      responseApp.GUID,
 		State:     string(responseApp.State),
@@ -61,8 +61,8 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 			},
 		},
 		Metadata: Metadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
+			Labels:      responseApp.Labels,
+			Annotations: responseApp.Annotations,
 		},
 		Links: AppLinks{
 			Self: Link{
@@ -108,6 +108,13 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 			},
 		},
 	}
+	if responseApp.Labels == nil {
+		appResponse.Metadata.Labels = map[string]string{}
+	}
+	if responseApp.Annotations == nil {
+		appResponse.Metadata.Annotations = map[string]string{}
+	}
+	return appResponse
 }
 
 func ForAppList(appRecordList []repositories.AppRecord, baseURL, requestURL url.URL) ListResponse {

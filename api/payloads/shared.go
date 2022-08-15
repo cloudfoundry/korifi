@@ -25,6 +25,11 @@ type Metadata struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
+type MetadataPatch struct {
+	Labels      map[string]*string `json:"labels" validate:"metadatavalidator"`
+	Annotations map[string]*string `json:"annotations" validate:"metadatavalidator"`
+}
+
 func ParseArrayParam(arrayParam *string) []string {
 	if arrayParam == nil {
 		return []string{}

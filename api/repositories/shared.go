@@ -82,3 +82,13 @@ func matchesFilter(field string, filter []string) bool {
 
 	return false
 }
+
+func patchMap(input map[string]string, patch map[string]*string) {
+	for k, v := range patch {
+		if v != nil {
+			input[k] = *v
+		} else {
+			delete(input, k)
+		}
+	}
+}

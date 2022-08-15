@@ -47,6 +47,7 @@ type CFAppRepository interface {
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 	DeleteApp(context.Context, authorization.Info, repositories.DeleteAppMessage) error
 	GetAppEnv(context.Context, authorization.Info, string) (repositories.AppEnvRecord, error)
+	PatchAppMetadata(context.Context, authorization.Info, repositories.PatchAppMetadataMessage) (repositories.AppRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name AppProcessScaler . AppProcessScaler
@@ -462,6 +463,27 @@ func (h *AppHandler) getProcessByTypeForAppHander(ctx context.Context, logger lo
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
 }
 
+func (h *AppHandler) appPatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+	}
+
+	var payload payloads.AppPatch
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	app, err = h.appRepo.PatchAppMetadata(ctx, authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch app metadata", "AppGUID", appGUID)
+	}
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
+}
+
 func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appGetHandler))
 	router.Path(AppsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appListHandler))
@@ -478,4 +500,5 @@ func (h *AppHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(AppPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.appDeleteHandler))
 	router.Path(AppEnvVarsPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.appPatchEnvVarsHandler))
 	router.Path(AppEnvPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appGetEnvHandler))
+	router.Path(AppPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.appPatchHandler))
 }

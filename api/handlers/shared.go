@@ -123,6 +123,17 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 
+	err = v.RegisterValidation("metadatavalidator", metadataValidator)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = v.RegisterTranslation("metadatavalidator", trans, func(ut ut.Translator) error {
+		return ut.Add("metadatavalidator", `Labels and annotations cannot begin with "cloudfoundry.org"`, false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("metadatavalidator", fe.Field())
+		return t
+	})
+
 	v.RegisterStructValidation(checkRandomRouteAndDefaultRouteConflict, payloads.ManifestApplication{})
 
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
@@ -261,4 +272,19 @@ func serviceInstanceTagLength(fl validator.FieldLevel) bool {
 	}
 
 	return tagLen < 2048
+}
+
+func metadataValidator(fl validator.FieldLevel) bool {
+	metadata, ok := fl.Field().Interface().(map[string]*string)
+	if !ok {
+		return true // the value is optional, and is set to nil
+	}
+
+	for k := range metadata {
+		if strings.HasPrefix(k, "cloudfoundry.org") {
+			return false
+		}
+	}
+
+	return true
 }
