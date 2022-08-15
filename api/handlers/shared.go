@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -128,7 +129,7 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 	err = v.RegisterTranslation("metadatavalidator", trans, func(ut ut.Translator) error {
-		return ut.Add("metadatavalidator", `Labels and annotations cannot begin with "cloudfoundry.org"`, false)
+		return ut.Add("metadatavalidator", `Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`, false)
 	}, func(ut ut.Translator, fe validator.FieldError) string {
 		t, _ := ut.T("metadatavalidator", fe.Field())
 		return t
@@ -281,7 +282,12 @@ func metadataValidator(fl validator.FieldLevel) bool {
 	}
 
 	for k := range metadata {
-		if strings.HasPrefix(k, "cloudfoundry.org") {
+		u, err := url.ParseRequestURI("https://" + k) // without the scheme, the hostname will be parsed as a path
+		if err != nil {
+			continue
+		}
+
+		if strings.HasSuffix(u.Hostname(), "cloudfoundry.org") {
 			return false
 		}
 	}
