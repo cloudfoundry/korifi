@@ -46,7 +46,7 @@ help: ## Display this help.
 manifests: manifests-controllers manifests-api
 
 manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./controllers/..." output:crd:artifacts:config=controllers/config/crd/bases output:rbac:artifacts:config=controllers/config/rbac output:webhook:artifacts:config=controllers/config/webhook
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./controllers/..." output:crd:artifacts:config=controllers/config/controllers/crd/bases output:rbac:artifacts:config=controllers/config/controllers/rbac output:webhook:artifacts:config=controllers/config/controllers/webhook
 	cd statefulset-runner && make manifests
 	cd job-task-runner && make manifests
 
@@ -97,7 +97,7 @@ build: generate-controllers fmt vet ## Build manager binary.
 	go build -o controllers/bin/manager controllers/main.go
 
 run-controllers: manifests-controllers generate-controllers fmt vet ## Run a controller from your host.
-	CONTROLLERSCONFIG=$(shell pwd)/controllers/config/base/controllersconfig ENABLE_WEBHOOKS=false go run ./controllers/main.go
+	CONTROLLERSCONFIG=$(shell pwd)/controllers/config/controllers/base/controllersconfig ENABLE_WEBHOOKS=false go run ./controllers/main.go
 
 run-api: fmt vet
 	APICONFIG=$(shell pwd)/api/config/base/apiconfig go run ./api/main.go
@@ -135,10 +135,10 @@ kind-load-api-image:
 ##@ Deployment
 
 install-crds: manifests-controllers install-kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/crd | kubectl apply -f -
+	$(KUSTOMIZE) build controllers/config/controllers/crd | kubectl apply -f -
 
 uninstall-crds: manifests-controllers install-kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/crd | kubectl delete -f -
+	$(KUSTOMIZE) build controllers/config/controllers/crd | kubectl delete -f -
 
 deploy: install-crds deploy-controllers deploy-api
 
@@ -147,13 +147,13 @@ deploy-kind: install-crds deploy-controllers deploy-api-kind
 deploy-kind-local: install-crds deploy-controllers-kind-local deploy-api-kind-local
 
 deploy-controllers: install-kustomize set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
+	$(KUSTOMIZE) build controllers/config/controllers/default | kubectl apply -f -
 
 deploy-controllers-kind-local: install-kustomize set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind-local-registry | kubectl apply -f -
+	$(KUSTOMIZE) build controllers/config/controllers/overlays/kind-local-registry | kubectl apply -f -
 
 deploy-controllers-kind-local-debug: install-kustomize set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind-controller-debug | kubectl apply -f -
+	$(KUSTOMIZE) build controllers/config/controllers/overlays/kind-controller-debug | kubectl apply -f -
 
 deploy-api: install-kustomize set-image-ref-api
 	$(KUSTOMIZE) build api/config/base | kubectl apply -f -
@@ -171,7 +171,7 @@ deploy-api-kind-local-debug: install-kustomize set-image-ref-api
 	$(KUSTOMIZE) build api/config/overlays/kind-api-debug | kubectl apply -f -
 
 undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/default | kubectl delete -f -
+	$(KUSTOMIZE) build controllers/config/controllers/default | kubectl delete -f -
 
 undeploy-api: ## Undeploy api from the K8s cluster specified in ~/.kube/config.
 	ytt -f api/config/base -f api/config/ytt -f api/config/values/kind-local-registry.yml --output-files $(TMPDIR)
@@ -181,7 +181,7 @@ undeploy-api: ## Undeploy api from the K8s cluster specified in ~/.kube/config.
 set-image-ref: set-image-ref-api set-image-ref-controllers
 
 set-image-ref-controllers: manifests-controllers install-kustomize
-	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-controllers=${IMG_CONTROLLERS}
+	cd controllers/config/controllers/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-controllers=${IMG_CONTROLLERS}
 
 set-image-ref-api: manifests-api install-kustomize
 	cd api/config/base && $(KUSTOMIZE) edit set image cloudfoundry/korifi-api=${IMG_API}
