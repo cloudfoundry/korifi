@@ -16,3 +16,18 @@ func (p OrgCreate) ToMessage() repositories.CreateOrgMessage {
 		Annotations: p.Metadata.Annotations,
 	}
 }
+
+type OrgUpdate struct {
+	Name      *string   `json:"name"`
+	Suspended *bool     `json:"suspended"`
+	Metadata  *Metadata `json:"metadata"`
+}
+
+func (p OrgUpdate) ToMessage() repositories.UpdateOrgMessage {
+	return repositories.UpdateOrgMessage{
+		Name:        *p.Name,
+		Suspended:   *p.Suspended,
+		Labels:      p.Metadata.Labels,
+		Annotations: p.Metadata.Annotations,
+	}
+}

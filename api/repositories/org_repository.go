@@ -27,6 +27,13 @@ type CreateOrgMessage struct {
 	Annotations map[string]string
 }
 
+type UpdateOrgMessage struct {
+	Name        *string
+	Suspended   *bool
+	Labels      *map[string]string
+	Annotations *map[string]string
+}
+
 type ListOrgsMessage struct {
 	Names []string
 	GUIDs []string
@@ -143,6 +150,10 @@ func (r *OrgRepo) createOrgCR(ctx context.Context,
 	}
 
 	return createdOrg, nil
+}
+
+func (r *OrgRepo) UpdateOrg(ctx context.Context, info authorization.Info, update UpdateOrgMessage) (OrgRecord, error) {
+	return OrgRecord{}, nil
 }
 
 func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter ListOrgsMessage) ([]OrgRecord, error) {

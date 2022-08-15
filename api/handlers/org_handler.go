@@ -29,6 +29,7 @@ const (
 //counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
 type CFOrgRepository interface {
 	CreateOrg(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
+	UpdateOrg(context.Context, authorization.Info, repositories.UpdateOrgMessage) (repositories.OrgRecord, error)
 	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
 	GetOrg(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
@@ -66,7 +67,28 @@ func (h *OrgHandler) orgCreateHandler(ctx context.Context, logger logr.Logger, a
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create org", "Org Name", payload.Name)
 	}
 
-	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateOrg(record, h.apiBaseURL)), nil
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForOrg(record, h.apiBaseURL)), nil
+}
+
+func (h *OrgHandler) orgUpdateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	var payload payloads.OrgUpdate
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "invalid-payload-for-create-org")
+	}
+	vars := mux.Vars(r)
+	orgGUID := vars["guid"]
+	record, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching org with repository")
+	}
+
+	org := payload.ToMessage()
+	updatedRecord, err := h.orgRepo.UpdateOrg(ctx, authInfo, org)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create org", "Org Name", payload.Name)
+	}
+
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForOrg(updatedRecord, h.apiBaseURL)), nil
 }
 
 func (h *OrgHandler) orgDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
@@ -132,6 +154,7 @@ func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(OrgsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.orgListHandler))
 	router.Path(OrgPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.orgDeleteHandler))
 	router.Path(OrgsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.orgCreateHandler))
+	router.Path(OrgPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.orgUpdateHandler))
 	router.Path(OrgDomainsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.orgListDomainHandler))
 }
 

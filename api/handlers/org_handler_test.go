@@ -246,6 +246,82 @@ var _ = Describe("OrgHandler", func() {
 		})
 	})
 
+	FDescribe("Updating Orgs", func() {
+		makePatchRequest := func(requestBody string) {
+			request, err := http.NewRequestWithContext(ctx, "PATCH", orgsBase+"/the-org", strings.NewReader(requestBody))
+			Expect(err).NotTo(HaveOccurred())
+			request.Header.Add(headers.Authorization, "Bearer my-token")
+
+			router.ServeHTTP(rr, request)
+		}
+
+		BeforeEach(func() {
+			orgRepo.GetOrgStub = func(_ context.Context, info authorization.Info, orgGUID string) (repositories.OrgRecord, error) {
+				record := repositories.OrgRecord{
+					Name:      "the-org",
+					GUID:      "t-h-e-o-r-g",
+					Suspended: false,
+					CreatedAt: now,
+					UpdatedAt: now,
+				}
+				return record, nil
+			}
+
+			orgRepo.UpdateOrgStub = func(_ context.Context, info authorization.Info, message repositories.UpdateOrgMessage) (repositories.OrgRecord, error) {
+				record := repositories.OrgRecord{
+					Name:        message.Name,
+					GUID:        "t-h-e-o-r-g",
+					Suspended:   message.Suspended,
+					Labels:      message.Labels,
+					Annotations: message.Annotations,
+					CreatedAt:   now,
+					UpdatedAt:   now,
+				}
+				return record, nil
+			}
+		})
+
+		When("an org update request is made", func() {
+			BeforeEach(func() {
+				makePatchRequest(`{"metadata": {"labels": {"foo": "bar"}, "annotations": {"bar": "baz"}}}`)
+			})
+
+			It("invokes the repo org update function with expected parameters", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(orgRepo.UpdateOrgCallCount()).To(Equal(1))
+				_, info, orgRecord := orgRepo.UpdateOrgArgsForCall(0)
+				Expect(info).To(Equal(authInfo))
+				Expect(orgRecord.Name).To(Equal("the-org"))
+				Expect(orgRecord.Suspended).To(BeFalse())
+				Expect(orgRecord.Labels).To(And(HaveLen(1), HaveKeyWithValue("foo", "bar")))
+				Expect(orgRecord.Annotations).To(And(HaveLen(1), HaveKeyWithValue("bar", "baz")))
+			})
+
+			It("returns 201 with appropriate success JSON", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
+                    "guid": "t-h-e-o-r-g",
+                    "name": "the-org",
+                    "created_at": "2021-09-17T15:23:10Z",
+                    "updated_at": "2021-09-17T15:23:10Z",
+                    "suspended": true,
+                    "metadata": {
+                        "labels": {"foo": "bar"},
+                        "annotations": {"bar": "baz"}
+                    },
+                    "relationships": {},
+                    "links": {
+                        "self": {
+                            "href": "%[1]s/v3/organizations/t-h-e-o-r-g"
+                        }
+                    }
+                }`, defaultServerURL))))
+			})
+		})
+	})
+
 	Describe("Listing Orgs", func() {
 		var req *http.Request
 		BeforeEach(func() {
