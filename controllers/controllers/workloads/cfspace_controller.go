@@ -88,7 +88,9 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	cfSpace := new(korifiv1alpha1.CFSpace)
 	err := r.client.Get(ctx, req.NamespacedName, cfSpace)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFSpace %s/%s", req.Namespace, req.Name))
+		if !k8serrors.IsNotFound(err) {
+			r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFSpace %s/%s", req.Namespace, req.Name))
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 

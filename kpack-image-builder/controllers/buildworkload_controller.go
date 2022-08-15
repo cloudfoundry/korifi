@@ -128,7 +128,9 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	buildWorkload := new(korifiv1alpha1.BuildWorkload)
 	err := r.Client.Get(ctx, req.NamespacedName, buildWorkload)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching CFBuild")
+		if !apierrors.IsNotFound(err) {
+			r.Log.Error(err, "Error when fetching CFBuildWorkload")
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 

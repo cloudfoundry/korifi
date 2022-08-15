@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -84,7 +85,9 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 	info := new(v1alpha1.BuildReconcilerInfo)
 	err := r.Client.Get(ctx, req.NamespacedName, info)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching BuildReconcilerInfo")
+		if !apierrors.IsNotFound(err) {
+			r.Log.Error(err, "Error when fetching BuildReconcilerInfo")
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 

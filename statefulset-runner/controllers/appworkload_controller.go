@@ -33,14 +33,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,7 +108,9 @@ func (r *AppWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var appWorkload korifiv1alpha1.AppWorkload
 	err := r.Client.Get(ctx, req.NamespacedName, &appWorkload)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching AppWorkload", "AppWorkload.Name", req.Name, "AppWorkload.Namespace", req.Namespace)
+		if !apierrors.IsNotFound(err) {
+			r.Log.Error(err, "Error when fetching AppWorkload", "AppWorkload.Name", req.Name, "AppWorkload.Namespace", req.Namespace)
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
