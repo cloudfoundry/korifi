@@ -22,6 +22,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-logr/logr"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -58,7 +59,9 @@ func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	var cfPackage korifiv1alpha1.CFPackage
 	err := r.Client.Get(ctx, req.NamespacedName, &cfPackage)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching CFPackage")
+		if !apierrors.IsNotFound(err) {
+			r.Log.Error(err, "Error when fetching CFPackage")
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 

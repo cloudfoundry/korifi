@@ -64,7 +64,9 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.Client.Get(ctx, req.NamespacedName, cfBuild)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching CFBuild")
+		if !apierrors.IsNotFound(err) {
+			r.Log.Error(err, "Error when fetching CFBuild")
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
