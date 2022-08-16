@@ -113,11 +113,13 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			}))
 		})
 
-		It("creates a BuildWorkload with the env set on it", func() {
+		It("creates a BuildWorkload with the buildRef, source, and env set", func() {
 			createdCFApp := &korifiv1alpha1.CFApp{}
 			Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}, createdCFApp)).To(Succeed())
 
 			eventuallyBuildWorkloadShould(func(workload *korifiv1alpha1.BuildWorkload, g Gomega) {
+				g.Expect(workload.Spec.BuildRef.Name).To(Equal(cfBuildGUID))
+				g.Expect(workload.Spec.Source).To(Equal(desiredCFPackage.Spec.Source))
 				g.Expect(workload.Spec.Env).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal("a_key"),

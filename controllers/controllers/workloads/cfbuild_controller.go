@@ -144,11 +144,10 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
-	workloadName := cfBuild.Name
 	namespace := cfBuild.Namespace
 	desiredWorkload := korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      workloadName,
+			Name:      cfBuild.Name,
 			Namespace: namespace,
 			Labels: map[string]string{
 				korifiv1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
@@ -156,6 +155,9 @@ func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Conte
 			},
 		},
 		Spec: korifiv1alpha1.BuildWorkloadSpec{
+			BuildRef: korifiv1alpha1.RequiredLocalObjectReference{
+				Name: cfBuild.Name,
+			},
 			Source: korifiv1alpha1.PackageSource{
 				Registry: korifiv1alpha1.Registry{
 					Image:            cfPackage.Spec.Source.Registry.Image,
