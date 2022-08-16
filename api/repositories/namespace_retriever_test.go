@@ -1,8 +1,6 @@
 package repositories_test
 
 import (
-	"context"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
@@ -12,7 +10,6 @@ import (
 
 var _ = Describe("NamespaceRetriever", func() {
 	var (
-		ctx          context.Context
 		resourceType string
 		appGUID      string
 		orgGUID      string
@@ -22,8 +19,6 @@ var _ = Describe("NamespaceRetriever", func() {
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
-
 		resourceType = repositories.AppResourceType
 		appGUID = prefixedGUID("app")
 		org := createOrgWithCleanup(ctx, prefixedGUID("org"))

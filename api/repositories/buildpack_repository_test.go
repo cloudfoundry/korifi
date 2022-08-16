@@ -17,12 +17,10 @@ import (
 
 var _ = Describe("BuildpackRepository", func() {
 	var (
-		ctx           context.Context
 		buildpackRepo *BuildpackRepository
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		buildpackRepo = NewBuildpackRepository(userClientFactory, rootNamespace)
 	})
 

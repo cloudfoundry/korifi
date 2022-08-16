@@ -21,7 +21,6 @@ import (
 
 var _ = Describe("ProcessRepo", func() {
 	var (
-		ctx          context.Context
 		processRepo  *repositories.ProcessRepo
 		org          *korifiv1alpha1.CFOrg
 		space        *korifiv1alpha1.CFSpace
@@ -30,7 +29,6 @@ var _ = Describe("ProcessRepo", func() {
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		processRepo = repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPerms)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))

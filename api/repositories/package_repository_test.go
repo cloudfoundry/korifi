@@ -23,13 +23,11 @@ var _ = Describe("PackageRepository", func() {
 
 	var (
 		packageRepo *repositories.PackageRepo
-		ctx         context.Context
 		org         *korifiv1alpha1.CFOrg
 		space       *korifiv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		packageRepo = repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPerms)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))

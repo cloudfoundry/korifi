@@ -473,7 +473,7 @@ func (h *AppHandler) appPatchHandler(ctx context.Context, logger logr.Logger, au
 	}
 
 	var payload payloads.AppPatch
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 

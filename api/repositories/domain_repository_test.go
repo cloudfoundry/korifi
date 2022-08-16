@@ -216,7 +216,6 @@ var _ = Describe("DomainRepository", func() {
 					domainGUID1 = generateGUID()
 					domainGUID2 = generateGUID()
 
-					ctx := context.Background()
 					domainListMessage = ListDomainsMessage{
 						Names: []string{domainName1},
 					}
