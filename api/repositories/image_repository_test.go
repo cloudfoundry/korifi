@@ -35,7 +35,6 @@ var _ = Describe("ImageRepository", func() {
 
 		imageRef  string
 		uploadErr error
-		ctx       context.Context
 		org       *korifiv1alpha1.CFOrg
 		space     *korifiv1alpha1.CFSpace
 	)
@@ -54,8 +53,6 @@ var _ = Describe("ImageRepository", func() {
 
 		privilegedK8sClient, err = k8sclient.NewForConfig(k8sConfig)
 		Expect(err).NotTo(HaveOccurred())
-
-		ctx = context.Background()
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))

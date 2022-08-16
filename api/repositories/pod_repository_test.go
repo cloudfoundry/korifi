@@ -37,7 +37,6 @@ var _ = Describe("PodRepository", func() {
 
 	var (
 		podRepo         *PodRepo
-		ctx             context.Context
 		spaceGUID       string
 		processGUID     string
 		namespace       *corev1.Namespace
@@ -45,7 +44,6 @@ var _ = Describe("PodRepository", func() {
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		metricFetcherFn = new(fake.MetricsFetcherFn)
 		spaceGUID = prefixedGUID("space")
 		processGUID = prefixedGUID("process")

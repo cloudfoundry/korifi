@@ -134,6 +134,9 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		t, _ := ut.T("metadatavalidator", fe.Field())
 		return t
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	v.RegisterStructValidation(checkRandomRouteAndDefaultRouteConflict, payloads.ManifestApplication{})
 

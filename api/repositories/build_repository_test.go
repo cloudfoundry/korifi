@@ -19,12 +19,10 @@ import (
 
 var _ = Describe("BuildRepository", func() {
 	var (
-		ctx       context.Context
 		buildRepo *repositories.BuildRepo
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		buildRepo = repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
 	})
 

@@ -21,12 +21,10 @@ import (
 
 var _ = Describe("OrgRepository", func() {
 	var (
-		ctx     context.Context
 		orgRepo *repositories.OrgRepo
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
 	})
 
