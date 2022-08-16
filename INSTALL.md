@@ -39,15 +39,6 @@ export BASE_DOMAIN="korifi.example.org"
 
 You will need to update the following configuration files:
 
--   `dependencies/kpack/cluster_builder.yaml`
-
-    `spec.tag` specifies the tag for the [CNB builder](https://buildpacks.io/docs/concepts/components/builder/) image used by Korifi. Its hostname should point to your container registry and its path should be [valid for the registry](#image-registry-configuration).
-
-    ```yaml
-    spec:
-        tag: us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack
-    ```
-
 -   `korifi-kpack-image-builder.yml`
 
     Change the value of `kpackImageTag` in the `korifi-kpack-build-config` `ConfigMap`. `kpackImageTag` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be [valid for the registry](#image-registry-configuration).
@@ -114,44 +105,34 @@ Note: GCR supports nested directories, so you can organize your images as desire
 
 ## Root namespace and admin role binding
 
-Update `dependencies/cf-setup.yaml`:
+Create the following resources:
 
--   Change the `metadata.name` of the `Namespace` resource to be `$ROOT_NAMESPACE`.
+```yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $ROOT_NAMESPACE
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
 
-    ```yaml
-    ---
-    apiVersion: v1
-    kind: Namespace
-    metadata:
-        name: cf
-        # ...
-    ```
-
--   Change the following fields in the `default-admin-binding` `RoleBinding`.
-
-    -   `metadata.namespace` should be `$ROOT_NAMESPACE`.
-    -   `subjects[0].name` should be `$ADMIN_USERNAME`.
-
-    ```yaml
-    ---
-    apiVersion: rbac.authorization.k8s.io/v1
-    kind: RoleBinding
-    metadata:
-        name: default-admin-binding
-        namespace: cf
-        annotations:
-            cloudfoundry.org/propagate-cf-role: "true"
-    # ...
-    subjects:
-        - apiGroup: rbac.authorization.k8s.io
-          kind: User
-          name: cf-admin
-    ```
-
-Now you're ready to apply it:
-
-```sh
-kubectl apply -f dependencies/cf-setup.yaml
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: default-admin-binding
+  namespace: $ROOT_NAMESPACE
+  annotations:
+    cloudfoundry.org/propagate-cf-role: "true"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-controllers-admin
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: $ADMIN_USERNAME
 ```
 
 ### Container registry credentials
@@ -186,61 +167,39 @@ When using GCR,
 
 # Dependencies
 
-## `cert-manager`
+## Cert-Manager
 
-```sh
-kubectl apply -f dependencies/cert-manager.yaml
-```
+Cert-Manager allows us to create internal automatically certificates within the cluster. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
 
-## kpack
+## Kpack
 
-[kpack](https://github.com/pivotal/kpack) powers our source-to-image build process.
+[Kpack](https://github.com/pivotal/kpack) powers our source-to-image build process. Follow the [tutorial](https://github.com/pivotal/kpack/blob/main/docs/tutorial.md) to install the latest version and configure a stack, store and builder. Ensure that the name of the builder matches the value of the `clusterBuilderName` configuration from the `korifi-kpack-image-builder.yml` config file.  For the service account, use the following definition:
 
-```sh
-kubectl apply -f dependencies/kpack-release-0.6.0.yaml
-```
-
-Ensure the kpack CRDs are ready:
-
-```sh
-kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterbuilders.kpack.io
-kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstores.kpack.io
-kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstacks.kpack.io
-```
-
-And then apply the kpack configuration for Korifi:
-
-```sh
-kubectl apply -f dependencies/kpack/service_account.yaml \
-    -f dependencies/kpack/cluster_stack.yaml \
-    -f dependencies/kpack/cluster_store.yaml \
-    -f dependencies/kpack/cluster_builder.yaml
+```yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kpack-service-account
+  namespace: cf
+secrets:
+- name: image-registry-credentials
+imagePullSecrets:
+  - name: image-registry-credentials
 ```
 
 ## Contour
 
-[Contour](https://projectcontour.io/docs/v1.20.1/) is our [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) controller.
-
-```sh
-kubectl apply -f dependencies/contour-1.19.1.yaml
-```
+[Contour](https://projectcontour.io/) is our [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) controller. Follow the [instructions](https://projectcontour.io/getting-started/#install-contour-and-envoy) from the getting started guide to install the latest version.
 
 ## Metrics Server
 
 We use the [Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server) to implement [process stats](https://v3-apidocs.cloudfoundry.org/#get-stats-for-a-process).
-Most Kubernetes distributions will come with `metrics-server` already installed, but if yours doesn't you should install it.
-
-```sh
-kubectl apply -f dependencies/metrics-server-local-0.6.1.yaml
-```
+Most Kubernetes distributions will come with `metrics-server` already installed. If yours does not, you should follow the [instructions](https://github.com/kubernetes-sigs/metrics-server#installation) to install it.
 
 ## Optional: Service Bindings Controller
 
-We use the [Service Binding Specification for Kubernetes](https://github.com/servicebinding/spec) and its [controller reference implementation](https://github.com/servicebinding/service-binding-controller) to implement [Cloud Foundry service bindings](https://docs.cloudfoundry.org/devguide/services/application-binding.html) ([see this issue](https://github.com/cloudfoundry/cf-k8s-controllers/issues/462)).
-
-```sh
-kubectl apply -f dependencies/service-bindings-0.7.1.yaml
-```
+We use the [Service Binding Specification for Kubernetes](https://github.com/servicebinding/spec) and its [controller reference implementation](https://github.com/servicebinding/runtime) to implement [Cloud Foundry service bindings](https://docs.cloudfoundry.org/devguide/services/application-binding.html) ([see this issue](https://github.com/cloudfoundry/cf-k8s-controllers/issues/462)). Follow the [instructions](https://github.com/servicebinding/runtime/releases/latest) to install the latest version.
 
 # DNS
 
@@ -264,8 +223,9 @@ The type of DNS records to create will differ based on the type of the endpoint:
 Just apply the files in the release:
 
 ```sh
-kubectl apply -f korifi-api.yml
 kubectl apply -f korifi-controllers.yml
+kubectl apply -f korifi-api.yml
+kubectl apply -f korifi-job-task-runner.yml
 kubectl apply -f korifi-kpack-image-builder.yml
 kubectl apply -f korifi-statefulset-runner.yml
 ```

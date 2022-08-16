@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DEP_DIR="$(cd "${SCRIPT_DIR}/../dependencies" && pwd)"
+DEP_DIR="$(cd "${SCRIPT_DIR}/../tests/dependencies" && pwd)"
 
 source "$SCRIPT_DIR/common.sh"
 
@@ -53,21 +53,23 @@ echo "**************************"
 
 "$SCRIPT_DIR/create-new-user.sh" cf-admin
 
+cert_manager_version=$(curl --silent "https://api.github.com/repos/cert-manager/cert-manager/releases/latest" | jq -r '.tag_name')
 echo "*************************"
-echo "Installing Cert Manager"
+echo "Installing Cert Manager ${cert_manager_version}"
 echo "*************************"
 
-# Install Cert Manager
-kubectl apply -f "${DEP_DIR}/cert-manager.yaml"
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${cert_manager_version}/cert-manager.yaml
+
 kubectl -n cert-manager rollout status deployment/cert-manager --watch=true
 kubectl -n cert-manager rollout status deployment/cert-manager-webhook --watch=true
 kubectl -n cert-manager rollout status deployment/cert-manager-cainjector --watch=true
 
+kpack_version=$(curl --silent "https://api.github.com/repos/pivotal/kpack/releases/latest" | jq -r '.tag_name' | tr -d 'v')
 echo "*******************"
-echo "Installing Kpack"
+echo "Installing Kpack v${kpack_version}"
 echo "*******************"
 
-kubectl apply -f "${DEP_DIR}/kpack-release-0.6.0.yaml"
+kubectl apply -f "https://github.com/pivotal/kpack/releases/download/v${kpack_version}/release-${kpack_version}.yaml"
 
 echo "*******************"
 echo "Configuring Kpack"
@@ -103,14 +105,25 @@ else
   kubectl apply -f "${DEP_DIR}/kpack/cluster_builder.yaml"
 fi
 
+contour_version="$(curl -sL https://projectcontour.io/quickstart/contour.yaml | grep -Eo 'ghcr.io/projectcontour/contour:v[0-9.]+' | head -1 | cut -d: -f2)"
 echo "*******************"
-echo "Installing Contour"
+echo "Installing Contour ${contour_version}"
 echo "*******************"
 
-kubectl apply -f "${DEP_DIR}/contour-1.19.1.yaml"
+kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
 
+sbr_version=$(curl --silent "https://api.github.com/repos/servicebinding/runtime/releases/latest" | jq -r '.tag_name')
 echo "**************************************"
-echo "Installing Service Binding Controller"
+echo "Installing Service Binding Runtime ${sbr_version}"
 echo "**************************************"
 
-kubectl apply -f "${DEP_DIR}/service-bindings-0.7.1.yaml"
+kubectl apply -f https://github.com/servicebinding/runtime/releases/download/${sbr_version}/servicebinding-runtime-${sbr_version}.yaml
+
+if ! kubectl get apiservice v1beta1.metrics.k8s.io >dev/null 2>&1; then
+  metrics_server_version=$(curl --silent "https://api.github.com/repos/kubernetes-sigs/metrics-server/releases" | jq -r '.[].tag_name' | grep '^v' | head -1)
+  echo "**************************************"
+  echo "Installing Metrics Server ${metrics_server_version}"
+  echo "**************************************"
+
+  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/${metrics_server_version}/components.yaml
+fi
