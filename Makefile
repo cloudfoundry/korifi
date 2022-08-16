@@ -153,6 +153,7 @@ TMPDIR := $(shell mktemp -d)
 deploy-controllers-kind-local: install-kustomize set-image-ref-controllers
 	ytt -f controllers/config/controllers -f controllers/config/ytt/controllers -f controllers/config/values/kind-local-registry.yaml --output-files $(TMPDIR)
 	$(KUSTOMIZE) build $(TMPDIR)/default | kubectl apply -f -
+	kubectl rollout status deployment/korifi-controllers-controller-manager -w -n korifi-controllers-system
 
 	ytt -f controllers/config/ytt/workloads -f controllers/config/values/kind-local-registry.yaml | kubectl apply -f -
 	kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterbuilders.kpack.io

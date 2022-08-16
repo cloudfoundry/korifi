@@ -1,5 +1,31 @@
 #@ load("@ytt:data", "data")
 
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStack
+metadata:
+  name: cf-default-stack
+spec:
+  id: "io.buildpacks.stacks.bionic"
+  buildImage:
+    image: "paketobuildpacks/build:full-cnb"
+  runImage:
+    image: "paketobuildpacks/run:full-cnb"
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStore
+metadata:
+  name: cf-default-buildpacks
+spec:
+  sources:
+  - image: gcr.io/paketo-buildpacks/java
+  - image: gcr.io/paketo-buildpacks/nodejs
+  - image: gcr.io/paketo-buildpacks/ruby
+  - image: gcr.io/paketo-buildpacks/procfile
+  - image: gcr.io/paketo-buildpacks/go
+
+---
 apiVersion: kpack.io/v1alpha2
 kind: ClusterBuilder
 metadata:
