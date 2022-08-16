@@ -333,7 +333,7 @@ func BuildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1al
 			Namespace: namespace,
 		},
 		Spec: korifiv1alpha1.BuildWorkloadSpec{
-			BuildRef: corev1.LocalObjectReference{
+			BuildRef: korifiv1alpha1.RequiredLocalObjectReference{
 				Name: cfBuildGUID,
 			},
 			Source:         source,

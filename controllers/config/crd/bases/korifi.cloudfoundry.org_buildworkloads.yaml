@@ -39,11 +39,10 @@ spec:
                 description: this is a reference to the object requesting the build
                 properties:
                   name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
+                required:
+                - name
                 type: object
-                x-kubernetes-map-type: atomic
               env:
                 items:
                   description: EnvVar represents an environment variable present in

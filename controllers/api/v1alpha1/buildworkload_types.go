@@ -27,7 +27,7 @@ import (
 // BuildWorkloadSpec defines the desired state of BuildWorkload
 type BuildWorkloadSpec struct {
 	// this is a reference to the object requesting the build
-	BuildRef v1.LocalObjectReference `json:"buildRef"`
+	BuildRef RequiredLocalObjectReference `json:"buildRef"`
 
 	// Source contains the details for the source image(bits)
 	Source PackageSource `json:"source,omitempty"`

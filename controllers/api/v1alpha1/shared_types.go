@@ -52,3 +52,9 @@ type Registry struct {
 	// ImagePullSecrets specifies a list of secrets required to access the image
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
+
+// RequiredLocalObjectReference is a reference to an object in the same namespace.
+// Unlike k8s.io/api/core/v1/LocalObjectReference, name is required.
+type RequiredLocalObjectReference struct {
+	Name string `json:"name"`
+}
