@@ -28,7 +28,7 @@ spec:
             memory: 100Mi
         env:
         - name: APICONFIG
-          value: "/etc/korifi-api-config"
+          value: "/etc/korifi-api-role-mappings"
         - name: TLSCONFIG
           value: "/etc/korifi-tls-config"
         - name: EXTERNAL_FQDN
@@ -52,8 +52,8 @@ spec:
         - name: DEFAULT_DOMAIN_NAME
           value: apps.example.org
         volumeMounts:
-        - name: &configname korifi-api-config
-          mountPath: /etc/korifi-api-config
+        - name: &configname korifi-api-role-mappings
+          mountPath: /etc/korifi-api-role-mappings
           readOnly: true
         - name: &tlsname korifi-tls-config
           mountPath: /etc/korifi-tls-config
@@ -69,7 +69,7 @@ spec:
       volumes:
       - name: *configname
         configMap:
-          name: korifi-api-config
+          name: korifi-api-role-mappings
       - name: *tlsname
         secret:
           secretName: korifi-api-internal-cert

@@ -19,7 +19,7 @@ resources:
 configMapGenerator:
 - files:
   - apiconfig/role_mappings_config.yaml
-  name: config
+  name: role-mappings
 
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
