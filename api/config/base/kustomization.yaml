@@ -17,6 +17,9 @@ resources:
 - service.yaml
 
 configMapGenerator:
+- envs:
+  - apiconfig/korifi_api_config.env
+  name: config
 - files:
   - apiconfig/role_mappings_config.yaml
   name: role-mappings
@@ -27,14 +30,6 @@ images:
 - name: cloudfoundry/korifi-api
   newName: cloudfoundry/korifi-api
   newTag: latest
-
-patches:
-- path: api_url_patch.yaml
-  target:
-    group: projectcontour.io
-    kind: HTTPProxy
-    name: proxy
-    version: v1
 
 # the following config is for teaching kustomize how to do var substitution
 vars:

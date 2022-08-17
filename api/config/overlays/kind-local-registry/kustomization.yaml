@@ -3,14 +3,18 @@ kind: Kustomization
 
 resources:
 - ../../base
-- korifi-api-config.yaml
+
+configMapGenerator:
+- name: config
+  behavior: merge
+  envs:
+  - apiconfig/korifi_api_config.env
 
 replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.externalFQDN
   targets:
   - select:
@@ -29,8 +33,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.internalPort
   targets:
   - select:
@@ -42,8 +45,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.rootNamespace
   targets:
   - select:
@@ -55,8 +57,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.lifecycleType
   targets:
   - select:
@@ -68,8 +69,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.lifecycleStack
   targets:
   - select:
@@ -81,8 +81,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.lifecycleStagingMemoryMB
   targets:
   - select:
@@ -94,8 +93,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.lifecycleStagingDiskMB
   targets:
   - select:
@@ -107,8 +105,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.packageRegistryBase
   targets:
   - select:
@@ -120,8 +117,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.packageRegistrySecret
   targets:
   - select:
@@ -133,8 +129,7 @@ replacements:
 - source:
     version: v1
     kind: ConfigMap
-    name: korifi-api-config
-    namespace: korifi-api-system
+    name: config
     fieldPath: data.defaultDomainName
   targets:
   - select:
