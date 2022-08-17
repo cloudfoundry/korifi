@@ -30,10 +30,12 @@ type AppWorkloadSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// +kubebuilder:validation:Required
-	GUID             string                        `json:"GUID"`
-	Version          string                        `json:"version"`
-	AppGUID          string                        `json:"appGUID"`
-	ProcessType      string                        `json:"processType"`
+	GUID        string `json:"GUID"`
+	Version     string `json:"version"`
+	AppGUID     string `json:"appGUID"`
+	ProcessType string `json:"processType"`
+	// BuildRef refers to the CFBuild whose image the AppWorkload is running
+	BuildRef         RequiredLocalObjectReference  `json:"buildRef"`
 	Image            string                        `json:"image"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets"`
 	Command          []string                      `json:"command,omitempty"`

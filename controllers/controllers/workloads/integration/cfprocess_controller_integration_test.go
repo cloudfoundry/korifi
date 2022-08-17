@@ -145,7 +145,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				var updatedCFApp korifiv1alpha1.CFApp
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfApp.Namespace}, &updatedCFApp)).To(Succeed())
 
-				g.Expect(appWorkload.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
+				g.Expect(appWorkload.OwnerReferences).To(HaveLen(1))
 				g.Expect(appWorkload.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
 
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
@@ -153,16 +153,17 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessGUIDLabelKey, testProcessGUID))
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessTypeLabelKey, cfProcess.Spec.ProcessType))
 
-				g.Expect(appWorkload.Spec.GUID).To(Equal(cfProcess.Name), "Expected appWorkload spec GUID to match cfProcess GUID")
-				g.Expect(appWorkload.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]), "Expected appWorkload version to match cfApp's app-rev annotation")
-				g.Expect(appWorkload.Spec.DiskMiB).To(Equal(cfProcess.Spec.DiskQuotaMB), "appWorkload DiskMB does not match")
-				g.Expect(appWorkload.Spec.MemoryMiB).To(Equal(cfProcess.Spec.MemoryMB), "appWorkload MemoryMB does not match")
-				g.Expect(appWorkload.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image), "appWorkload Image does not match Droplet")
-				g.Expect(appWorkload.Spec.ImagePullSecrets).To(Equal(cfBuild.Status.Droplet.Registry.ImagePullSecrets), "appWorkload ImagePullSecrets does not match Droplet")
-				g.Expect(appWorkload.Spec.ProcessType).To(Equal(processTypeWeb), "appWorkload process type does not match")
-				g.Expect(appWorkload.Spec.AppGUID).To(Equal(cfApp.Name), "appWorkload app GUID does not match CFApp")
-				g.Expect(appWorkload.Spec.Ports).To(Equal(cfProcess.Spec.Ports), "appWorkload ports do not match")
-				g.Expect(appWorkload.Spec.Instances).To(Equal(int32(cfProcess.Spec.DesiredInstances)), "appWorkload desired instances does not match CFApp")
+				g.Expect(appWorkload.Spec.GUID).To(Equal(cfProcess.Name))
+				g.Expect(appWorkload.Spec.BuildRef.Name).To(Equal(cfBuild.Name))
+				g.Expect(appWorkload.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]))
+				g.Expect(appWorkload.Spec.DiskMiB).To(Equal(cfProcess.Spec.DiskQuotaMB))
+				g.Expect(appWorkload.Spec.MemoryMiB).To(Equal(cfProcess.Spec.MemoryMB))
+				g.Expect(appWorkload.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image))
+				g.Expect(appWorkload.Spec.ImagePullSecrets).To(Equal(cfBuild.Status.Droplet.Registry.ImagePullSecrets))
+				g.Expect(appWorkload.Spec.ProcessType).To(Equal(processTypeWeb))
+				g.Expect(appWorkload.Spec.AppGUID).To(Equal(cfApp.Name))
+				g.Expect(appWorkload.Spec.Ports).To(Equal(cfProcess.Spec.Ports))
+				g.Expect(appWorkload.Spec.Instances).To(Equal(int32(cfProcess.Spec.DesiredInstances)))
 				g.Expect(appWorkload.Spec.CPUMillicores).To(Equal(int64(100)), "expected cpu request to be 100m (Based on 1024MiB memory)")
 				g.Expect(appWorkload.Spec.Env).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
