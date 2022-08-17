@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
@@ -14,24 +16,24 @@ const (
 )
 
 type APIConfig struct {
-	InternalPort int `yaml:"internalPort"`
+	RoleMappings map[string]Role `yaml:"roleMappings"`
 
-	ExternalFQDN string `yaml:"externalFQDN"`
-	ExternalPort int    `yaml:"externalPort"`
+	InternalPort int
+
+	ExternalFQDN string
+	ExternalPort int
 
 	ServerURL string
 
-	RootNamespace                            string                 `yaml:"rootNamespace"`
-	PackageRegistryBase                      string                 `yaml:"packageRegistryBase"`
-	PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
-	DefaultDomainName                        string                 `yaml:"defaultDomainName"`
-	UserCertificateExpirationWarningDuration string                 `yaml:"userCertificateExpirationWarningDuration"`
-	DefaultLifecycleConfig                   DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
+	RootNamespace                            string
+	PackageRegistryBase                      string
+	PackageRegistrySecretName                string
+	DefaultDomainName                        string
+	UserCertificateExpirationWarningDuration string
+	DefaultLifecycleConfig                   DefaultLifecycleConfig
 
-	RoleMappings map[string]Role `yaml:"roleMappings"`
-
-	AuthProxyHost   string `yaml:"authProxyHost"`
-	AuthProxyCACert string `yaml:"authProxyCACert"`
+	AuthProxyHost   string
+	AuthProxyCACert string
 }
 
 type Role struct {
@@ -41,10 +43,10 @@ type Role struct {
 
 // DefaultLifecycleConfig contains default values of the Lifecycle block of CFApps and Builds created by the Shim
 type DefaultLifecycleConfig struct {
-	Type            string `yaml:"type"`
-	Stack           string `yaml:"stack"`
-	StagingMemoryMB int    `yaml:"stagingMemoryMB"`
-	StagingDiskMB   int    `yaml:"stagingDiskMB"`
+	Type            string
+	Stack           string
+	StagingMemoryMB int
+	StagingDiskMB   int
 }
 
 func LoadFromPath(path string) (*APIConfig, error) {
@@ -52,6 +54,19 @@ func LoadFromPath(path string) (*APIConfig, error) {
 	err := tools.LoadConfigInto(&config, path)
 	if err != nil {
 		return nil, err
+	}
+
+	config.InternalPort = mustHaveIntEnv("INTERNAL_PORT")
+	config.ExternalFQDN = mustHaveEnv("EXTERNAL_FQDN")
+	config.RootNamespace = mustHaveEnv("ROOT_NAMESPACE")
+	config.PackageRegistryBase = mustHaveEnv("PACKAGE_REGISTRY_BASE")
+	config.PackageRegistrySecretName = mustHaveEnv("PACKAGE_REGISTRY_SECRET")
+	config.DefaultDomainName = mustHaveEnv("DEFAULT_DOMAIN_NAME")
+	config.DefaultLifecycleConfig = DefaultLifecycleConfig{
+		Type:            mustHaveEnv("LIFECYCLE_TYPE"),
+		Stack:           mustHaveEnv("LIFECYCLE_STACK"),
+		StagingMemoryMB: mustHaveIntEnv("LIFECYCLE_STAGING_MEMORY_MB"),
+		StagingDiskMB:   mustHaveIntEnv("LIFECYCLE_STAGING_DISK_MB"),
 	}
 
 	err = config.validate()
@@ -65,6 +80,25 @@ func LoadFromPath(path string) (*APIConfig, error) {
 	}
 
 	return &config, nil
+}
+
+func mustHaveEnv(name string) string {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		panic(fmt.Sprintf("Env var %s not set", name))
+	}
+
+	return value
+}
+
+func mustHaveIntEnv(name string) int {
+	value := mustHaveEnv(name)
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		panic(err)
+	}
+
+	return intValue
 }
 
 func (c *APIConfig) validate() error {

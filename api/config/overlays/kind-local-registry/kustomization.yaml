@@ -1,14 +1,12 @@
-configMapGenerator:
-- behavior: merge
-  files:
-  - apiconfig/korifi_api_config.yaml
-  name: config
-
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
 - ../../base
+
+
+patchesStrategicMerge:
+- deployment-env-var.yaml
 
 patches:
 - target:

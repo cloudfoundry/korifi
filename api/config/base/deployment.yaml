@@ -31,6 +31,26 @@ spec:
           value: "/etc/korifi-api-config"
         - name: TLSCONFIG
           value: "/etc/korifi-tls-config"
+        - name: EXTERNAL_FQDN
+          value: "api.example.org"
+        - name: INTERNAL_PORT
+          value: "9000"
+        - name: ROOT_NAMESPACE
+          value: cf
+        - name: LIFECYCLE_TYPE
+          value: buildpack
+        - name: LIFECYCLE_STACK
+          value: cflinuxfs3
+        - name: LIFECYCLE_STAGING_MEMORY_MB
+          value: "1024"
+        - name: LIFECYCLE_STAGING_DISK_MB
+          value: "1024"
+        - name: PACKAGE_REGISTRY_BASE
+          value: "gcr.io/cf-relint-greengrass/korifi-controllers/kpack/beta"
+        - name: PACKAGE_REGISTRY_SECRET
+          value: image-registry-credentials
+        - name: DEFAULT_DOMAIN_NAME
+          value: apps.example.org
         volumeMounts:
         - name: &configname korifi-api-config
           mountPath: /etc/korifi-api-config

@@ -18,7 +18,6 @@ resources:
 
 configMapGenerator:
 - files:
-  - apiconfig/korifi_api_config.yaml
   - apiconfig/role_mappings_config.yaml
   name: config
 
