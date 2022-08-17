@@ -219,6 +219,7 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	desiredAppWorkload.Labels[korifiv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
 
 	desiredAppWorkload.Spec.GUID = cfProcess.Name
+	desiredAppWorkload.Spec.BuildRef.Name = cfBuild.Name
 	desiredAppWorkload.Spec.Version = cfAppRevisionKeyValue
 	desiredAppWorkload.Spec.DiskMiB = cfProcess.Spec.DiskQuotaMB
 	desiredAppWorkload.Spec.MemoryMiB = cfProcess.Spec.MemoryMB
