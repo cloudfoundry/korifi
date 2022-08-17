@@ -53,14 +53,14 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		beforeCtx := context.Background()
 
 		namespaceGUID = PrefixedGUID("namespace")
-		namespace = BuildNamespaceObject(namespaceGUID)
+		namespace = buildNamespaceObject(namespaceGUID)
 		Expect(k8sClient.Create(beforeCtx, namespace)).To(Succeed())
 
-		dockerRegistrySecret := BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
+		dockerRegistrySecret := buildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
 		Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
 
 		registryServiceAccountName := "kpack-service-account" // this name is assumed in the controller code
-		registryServiceAccount := BuildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
+		registryServiceAccount := buildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
 		Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
 
 		cfBuildGUID = PrefixedGUID("cf-build")
@@ -98,7 +98,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 	When("BuildWorkload is first created", func() {
 		JustBeforeEach(func() {
-			buildWorkload = BuildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName)
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName)
 			Expect(k8sClient.Create(context.Background(), buildWorkload)).To(Succeed())
 		})
 
@@ -191,6 +191,55 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(err).To(MatchError(fmt.Sprintf("images.kpack.io %q not found", cfBuildGUID)))
 				}).Should(Succeed())
 			})
+
+			When("the other reconciler has partially reconciled the object and created an Image", func() {
+				BeforeEach(func() {
+					image := buildKpackImageObject(cfBuildGUID, namespaceGUID, source, env, services)
+					Expect(k8sClient.Create(context.Background(), image)).To(Succeed())
+
+					returnedProcessTypes := []korifiv1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
+					returnedPorts := []int32{8080, 8443}
+					fakeImageProcessFetcher.Returns(returnedProcessTypes, returnedPorts, nil)
+
+					kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+					createdKpackImage := new(buildv1alpha2.Image)
+					Eventually(func() error {
+						return k8sClient.Get(context.Background(), kpackImageLookupKey, createdKpackImage)
+					}).Should(Succeed())
+
+					setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionTrue)
+					createdKpackImage.Status.LatestImage = "some-org/my-image@sha256:some-sha"
+					createdKpackImage.Status.LatestStack = "cflinuxfs3"
+					Expect(k8sClient.Status().Update(context.Background(), createdKpackImage)).To(Succeed())
+				})
+
+				JustBeforeEach(func() {
+					updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
+					Eventually(func(g Gomega) {
+						err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, updatedBuildWorkload)
+						g.Expect(err).NotTo(HaveOccurred())
+					}).Should(Succeed())
+
+					meta.SetStatusCondition(&updatedBuildWorkload.Status.Conditions, metav1.Condition{
+						Type:    korifiv1alpha1.SucceededConditionType,
+						Status:  metav1.ConditionUnknown,
+						Reason:  "thinking",
+						Message: "thunking",
+					})
+					Expect(k8sClient.Status().Update(context.Background(), updatedBuildWorkload)).To(Succeed())
+				})
+
+				It("doesn't continue to reconcile the object", func() {
+					updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
+					Consistently(func(g Gomega) {
+						err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, updatedBuildWorkload)
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+						g.Expect(fakeImageProcessFetcher.CallCount()).To(BeZero())
+					}).Should(Succeed())
+				})
+
+			})
 		})
 	})
 
@@ -198,7 +247,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		var createdKpackImage *buildv1alpha2.Image
 
 		BeforeEach(func() {
-			buildWorkload = BuildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName)
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName)
 			Expect(k8sClient.Create(context.Background(), buildWorkload)).To(Succeed())
 
 			kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
@@ -284,7 +333,7 @@ func setKpackImageStatus(kpackImage *buildv1alpha2.Image, conditionType string, 
 	})
 }
 
-func BuildNamespaceObject(name string) *corev1.Namespace {
+func buildNamespaceObject(name string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -292,7 +341,7 @@ func BuildNamespaceObject(name string) *corev1.Namespace {
 	}
 }
 
-func BuildDockerRegistrySecret(name, namespace string) *corev1.Secret {
+func buildDockerRegistrySecret(name, namespace string) *corev1.Secret {
 	dockerRegistryUsername := "user"
 	dockerRegistryPassword := "password"
 	dockerAuth := base64.StdEncoding.EncodeToString([]byte(dockerRegistryUsername + ":" + dockerRegistryPassword))
@@ -311,7 +360,7 @@ func BuildDockerRegistrySecret(name, namespace string) *corev1.Secret {
 	}
 }
 
-func BuildServiceAccount(name, namespace, imagePullSecretName string) *corev1.ServiceAccount {
+func buildServiceAccount(name, namespace, imagePullSecretName string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -326,9 +375,10 @@ func PrefixedGUID(prefix string) string {
 	return prefix + "-" + uuid.NewString()[:8]
 }
 
-func BuildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference, reconcilerName string) *korifiv1alpha1.BuildWorkload {
+func buildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference, reconcilerName string) *korifiv1alpha1.BuildWorkload {
 	return &korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
+
 			Name:      cfBuildGUID,
 			Namespace: namespace,
 		},
@@ -348,4 +398,35 @@ func mustHaveCondition(g Gomega, conditions []metav1.Condition, conditionType st
 	foundCondition := meta.FindStatusCondition(conditions, conditionType)
 	g.ExpectWithOffset(1, foundCondition).NotTo(BeNil())
 	return foundCondition
+}
+
+func buildKpackImageObject(name string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference) *buildv1alpha2.Image {
+	return &buildv1alpha2.Image{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				controllers.BuildWorkloadLabelKey: name,
+			},
+		},
+		Spec: buildv1alpha2.ImageSpec{
+			Tag: "kpack-image-tag",
+			Builder: corev1.ObjectReference{
+				Kind:       "ClusterBuilder",
+				Name:       "default",
+				APIVersion: "kpack.io/v1alpha2",
+			},
+			ServiceAccountName: "kpack-service-account",
+			Source: corev1alpha1.SourceConfig{
+				Registry: &corev1alpha1.Registry{
+					Image:            source.Registry.Image,
+					ImagePullSecrets: source.Registry.ImagePullSecrets,
+				},
+			},
+			Build: &buildv1alpha2.ImageBuild{
+				Services: services,
+				Env:      env,
+			},
+		},
+	}
 }

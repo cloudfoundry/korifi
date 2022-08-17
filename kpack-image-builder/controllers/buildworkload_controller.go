@@ -134,6 +134,11 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if buildWorkload.Spec.ReconcilerName != kpackReconcilerName {
+		// Stop reconciling since the buildWorkload.Spec.ReconcilerName does not match this builder
+		return ctrl.Result{}, nil
+	}
+
 	succeededStatus := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 
 	if succeededStatus != nil && succeededStatus.Status != metav1.ConditionUnknown {
@@ -205,10 +210,6 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 }
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
-	if buildWorkload.Spec.ReconcilerName != kpackReconcilerName {
-		// Stop reconciling since the buildWorkload.Spec.ReconcilerName does not match this builder
-		return nil
-	}
 	serviceAccountName := kpackServiceAccount
 	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, buildWorkload.Name)
 	kpackImageName := buildWorkload.Name
