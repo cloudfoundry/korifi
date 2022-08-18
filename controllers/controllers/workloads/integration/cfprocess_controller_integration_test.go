@@ -7,11 +7,13 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -130,17 +132,13 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				ctx := context.Background()
 				var appWorkloads korifiv1alpha1.AppWorkloadList
-				err := k8sClient.List(ctx, &appWorkloads, client.InNamespace(testNamespace))
+				err := k8sClient.List(ctx, &appWorkloads, client.InNamespace(testNamespace), client.MatchingLabels{
+					korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
+				})
 				g.Expect(err).NotTo(HaveOccurred())
 
-				processAppWorkloads := []korifiv1alpha1.AppWorkload{}
-				for _, currentAppWorkload := range appWorkloads.Items {
-					if valueForKey(currentAppWorkload.Labels, korifiv1alpha1.CFProcessGUIDLabelKey) == testProcessGUID {
-						processAppWorkloads = append(processAppWorkloads, currentAppWorkload)
-					}
-				}
-				g.Expect(processAppWorkloads).To(HaveLen(1))
-				appWorkload := processAppWorkloads[0]
+				g.Expect(appWorkloads.Items).To(HaveLen(1))
+				appWorkload := appWorkloads.Items[0]
 
 				var updatedCFApp korifiv1alpha1.CFApp
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfApp.Namespace}, &updatedCFApp)).To(Succeed())
@@ -156,15 +154,18 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.Spec.GUID).To(Equal(cfProcess.Name))
 				g.Expect(appWorkload.Spec.BuildRef.Name).To(Equal(cfBuild.Name))
 				g.Expect(appWorkload.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]))
-				g.Expect(appWorkload.Spec.DiskMiB).To(Equal(cfProcess.Spec.DiskQuotaMB))
-				g.Expect(appWorkload.Spec.MemoryMiB).To(Equal(cfProcess.Spec.MemoryMB))
 				g.Expect(appWorkload.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image))
 				g.Expect(appWorkload.Spec.ImagePullSecrets).To(Equal(cfBuild.Status.Droplet.Registry.ImagePullSecrets))
 				g.Expect(appWorkload.Spec.ProcessType).To(Equal(processTypeWeb))
 				g.Expect(appWorkload.Spec.AppGUID).To(Equal(cfApp.Name))
 				g.Expect(appWorkload.Spec.Ports).To(Equal(cfProcess.Spec.Ports))
 				g.Expect(appWorkload.Spec.Instances).To(Equal(int32(cfProcess.Spec.DesiredInstances)))
-				g.Expect(appWorkload.Spec.CPUMillicores).To(Equal(int64(100)), "expected cpu request to be 100m (Based on 1024MiB memory)")
+
+				g.Expect(appWorkload.Spec.Resources.Limits.StorageEphemeral()).To(matchers.RepresentsResourceQuantity(cfProcess.Spec.DiskQuotaMB, "Mi"))
+				g.Expect(appWorkload.Spec.Resources.Limits.Memory()).To(matchers.RepresentsResourceQuantity(cfProcess.Spec.MemoryMB, "Mi"))
+				g.Expect(appWorkload.Spec.Resources.Requests.Memory()).To(matchers.RepresentsResourceQuantity(cfProcess.Spec.MemoryMB, "Mi"))
+				g.Expect(appWorkload.Spec.Resources.Requests.Cpu()).To(matchers.RepresentsResourceQuantity(100, "m"), "expected cpu request to be 100m (Based on 1024MiB memory)")
+
 				g.Expect(appWorkload.Spec.Env).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal("test-env-key"),
@@ -376,9 +377,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					},
 				},
 				Spec: korifiv1alpha1.AppWorkloadSpec{
-					MemoryMiB:        1,
-					DiskMiB:          1,
 					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "some-image-pull-secret"}},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory:           resource.MustParse("1Mi"),
+							corev1.ResourceEphemeralStorage: resource.MustParse("1Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("1Mi"),
+						},
+					},
 				},
 			}
 			Expect(

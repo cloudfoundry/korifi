@@ -293,6 +293,18 @@ func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask
 	return taskWorkload, nil
 }
 
+func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
+	const (
+		cpuRequestRatio         int64 = 1024
+		cpuRequestMinMillicores int64 = 5
+	)
+	cpuMillicores := int64(100) * memoryMiB / cpuRequestRatio
+	if cpuMillicores < cpuRequestMinMillicores {
+		cpuMillicores = cpuRequestMinMillicores
+	}
+	return cpuMillicores
+}
+
 func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
 	if cfTask.Status.SequenceID == 0 {
 		var err error

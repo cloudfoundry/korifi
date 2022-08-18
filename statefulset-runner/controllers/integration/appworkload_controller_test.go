@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
@@ -47,10 +48,17 @@ var _ = Describe("AppWorkloadsController", func() {
 				Health:           korifiv1alpha1.Healthcheck{},
 				Ports:            []int32{8080},
 				Instances:        5,
-				MemoryMiB:        5,
-				DiskMiB:          100,
-				CPUMillicores:    5,
 				ReconcilerName:   "statefulset-runner",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceEphemeralStorage: resource.MustParse("100Mi"),
+						corev1.ResourceMemory:           resource.MustParse("5Mi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("5m"),
+						corev1.ResourceMemory: resource.MustParse("5Mi"),
+					},
+				},
 			},
 		}
 	})
@@ -130,8 +138,9 @@ var _ = Describe("AppWorkloadsController", func() {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: appWorkload.Name, Namespace: namespaceName}, actualAppWorkload)).To(Succeed())
 
 				actualAppWorkload.Spec.Instances = 2
-				actualAppWorkload.Spec.MemoryMiB = 10
-				actualAppWorkload.Spec.CPUMillicores = 1024
+				actualAppWorkload.Spec.Resources.Requests[corev1.ResourceCPU] = resource.MustParse("1024m")
+				actualAppWorkload.Spec.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("10Mi")
+				actualAppWorkload.Spec.Resources.Limits[corev1.ResourceMemory] = resource.MustParse("10Mi")
 				g.Expect(k8sClient.Update(ctx, actualAppWorkload)).To(Succeed())
 			}).Should(Succeed())
 		})

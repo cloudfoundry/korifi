@@ -52,13 +52,6 @@ spec:
                 items:
                   type: string
                 type: array
-              cpuMillicores:
-                format: int64
-                type: integer
-              diskMiB:
-                format: int64
-                minimum: 1
-                type: integer
               env:
                 items:
                   description: EnvVar represents an environment variable present in
@@ -203,9 +196,6 @@ spec:
                 default: 1
                 format: int32
                 type: integer
-              memoryMiB:
-                format: int64
-                type: integer
               ports:
                 items:
                   format: int32
@@ -215,19 +205,42 @@ spec:
                 type: string
               reconcilerName:
                 type: string
+              resources:
+                description: ResourceRequirements describes the compute resource requirements.
+                properties:
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Limits describes the maximum amount of compute resources
+                      allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Requests describes the minimum amount of compute
+                      resources required. If Requests is omitted for a container,
+                      it defaults to Limits if that is explicitly specified, otherwise
+                      to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                type: object
               version:
                 type: string
             required:
             - GUID
             - appGUID
             - buildRef
-            - cpuMillicores
-            - diskMiB
             - health
             - image
             - imagePullSecrets
             - instances
-            - memoryMiB
             - processType
             - reconcilerName
             - version
