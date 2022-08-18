@@ -89,14 +89,6 @@ function install_dependencies() {
     export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta"
 
     "${SCRIPT_DIR}/install-dependencies.sh"
-
-    # install metrics server only on local cluster
-    DEP_DIR="$(cd "${SCRIPT_DIR}/../dependencies" && pwd)"
-    echo "*********************************************"
-    echo "Installing metrics-server"
-    echo "*********************************************"
-    kubectl apply -f "${DEP_DIR}/metrics-server-local-0.6.1.yaml"
-
   }
   popd >/dev/null
 }
