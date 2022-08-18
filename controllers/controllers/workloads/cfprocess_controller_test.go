@@ -3,6 +3,7 @@ package workloads_test
 import (
 	"context"
 	"errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"strconv"
 	"time"
 
@@ -171,14 +172,21 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 						},
 					},
 					Spec: korifiv1alpha1.AppWorkloadSpec{
-						GUID:          testProcessGUID,
-						ProcessType:   testProcessType,
-						AppGUID:       testAppGUID,
-						Image:         "test-image-ref",
-						Instances:     0,
-						MemoryMiB:     100,
-						DiskMiB:       100,
-						CPUMillicores: 5,
+						GUID:        testProcessGUID,
+						ProcessType: testProcessType,
+						AppGUID:     testAppGUID,
+						Image:       "test-image-ref",
+						Instances:   0,
+						Resources: corev1.ResourceRequirements{
+							Limits: map[corev1.ResourceName]resource.Quantity{
+								corev1.ResourceMemory:           resource.MustParse("100Mi"),
+								corev1.ResourceEphemeralStorage: resource.MustParse("100Mi"),
+							},
+							Requests: map[corev1.ResourceName]resource.Quantity{
+								corev1.ResourceMemory: resource.MustParse("100Mi"),
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+							},
+						},
 					},
 					Status: korifiv1alpha1.AppWorkloadStatus{
 						ReadyReplicas: 0,
@@ -350,21 +358,22 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		})
 
 		DescribeTable("matches expected output",
-			func(processMemoryMB, outputCTPURequestMillicores int64) {
-				cfProcess.Spec.MemoryMB = processMemoryMB
+			func(processMemoryMB int, outputCTPURequestMillicores string) {
+				cfProcess.Spec.MemoryMB = int64(processMemoryMB)
 
 				_, reconcileErr = cfProcessReconciler.Reconcile(ctx, req)
 				Expect(reconcileErr).To(Succeed())
 
 				Expect(fakeClient.CreateCallCount()).To(BeNumerically(">=", 1))
 				_, createObj, _ := fakeClient.CreateArgsForCall(0)
-				createdAppWorkload, ok := createObj.(*korifiv1alpha1.AppWorkload)
-				Expect(ok).To(BeTrue(), "client Create() object coerce to AppWorkload failed")
-				Expect(createdAppWorkload.Spec.CPUMillicores).To(Equal(outputCTPURequestMillicores))
+				var createdAppWorkload *korifiv1alpha1.AppWorkload
+				Expect(createObj).To(BeAssignableToTypeOf(createdAppWorkload))
+				createdAppWorkload = createObj.(*korifiv1alpha1.AppWorkload)
+				Expect(createdAppWorkload.Spec.Resources.Requests.Cpu().String()).To(Equal(outputCTPURequestMillicores))
 			},
-			Entry("Memory is 1024MiB", int64(1024), int64(100)),
-			Entry("Memory is 25MiB", int64(25), int64(5)),
-			Entry("Memory is 10GiB", int64(10240), int64(1000)),
+			Entry("Memory is 1024MiB", 1024, "100m"),
+			Entry("Memory is 25MiB", 25, "5m"),
+			Entry("Memory is 10GiB", 10240, "1"),
 		)
 	})
 })

@@ -187,7 +187,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	It("should set cpu request", func() {
 		expectedRequest := resource.NewScaledQuantity(5, resource.Milli)
 		actualRequest := statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu()
-		Expect(actualRequest).To(Equal(expectedRequest))
+		Expect(actualRequest.String()).To(Equal(expectedRequest.String()))
 	})
 
 	It("should not set cpu limit", func() {
@@ -433,10 +433,17 @@ var _ = Describe("AppWorkload Reconcile", func() {
 					GUID:           "test-sts",
 					Version:        "1",
 					Instances:      2,
-					MemoryMiB:      10,
-					DiskMiB:        10,
-					CPUMillicores:  10,
 					ReconcilerName: "statefulset-runner",
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceEphemeralStorage: resource.MustParse("10Mi"),
+							corev1.ResourceMemory:           resource.MustParse("10Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("10Mi"),
+						},
+					},
 				},
 			}
 
@@ -456,12 +463,12 @@ var _ = Describe("AppWorkload Reconcile", func() {
 									Image: "test-image",
 									Resources: corev1.ResourceRequirements{
 										Limits: map[corev1.ResourceName]resource.Quantity{
-											corev1.ResourceMemory:           controllers.MebibyteQuantity(512),
-											corev1.ResourceEphemeralStorage: controllers.MebibyteQuantity(512),
+											corev1.ResourceMemory:           mebibyteQuantity(512),
+											corev1.ResourceEphemeralStorage: mebibyteQuantity(512),
 											corev1.ResourceCPU:              *resource.NewScaledQuantity(20, resource.Milli),
 										},
 										Requests: map[corev1.ResourceName]resource.Quantity{
-											corev1.ResourceMemory: controllers.MebibyteQuantity(512),
+											corev1.ResourceMemory: mebibyteQuantity(512),
 											corev1.ResourceCPU:    *resource.NewScaledQuantity(10, resource.Milli),
 										},
 									},
@@ -496,4 +503,14 @@ func expectedValFrom(fieldPath string) *corev1.EnvVarSource {
 			FieldPath:  fieldPath,
 		},
 	}
+}
+
+func mebibyteQuantity(miB int64) resource.Quantity {
+	memory := resource.Quantity{
+		Format: resource.BinarySI,
+	}
+	//nolint:gomnd
+	memory.Set(miB * 1024 * 1024)
+
+	return memory
 }

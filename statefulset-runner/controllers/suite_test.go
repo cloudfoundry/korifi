@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestAppWorkloadsController(t *testing.T) {
@@ -43,10 +44,17 @@ func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 			},
 			Ports:          []int32{8888, 9999},
 			Instances:      1,
-			MemoryMiB:      1024,
-			DiskMiB:        2048,
-			CPUMillicores:  5,
 			ReconcilerName: "statefulset-runner",
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceEphemeralStorage: resource.MustParse("2048Mi"),
+					corev1.ResourceMemory:           resource.MustParse("1024Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("5m"),
+					corev1.ResourceMemory: resource.MustParse("1024Mi"),
+				},
+			},
 		},
 	}
 }

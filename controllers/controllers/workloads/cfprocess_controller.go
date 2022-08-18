@@ -31,6 +31,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -221,8 +222,14 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	desiredAppWorkload.Spec.GUID = cfProcess.Name
 	desiredAppWorkload.Spec.BuildRef.Name = cfBuild.Name
 	desiredAppWorkload.Spec.Version = cfAppRevisionKeyValue
-	desiredAppWorkload.Spec.DiskMiB = cfProcess.Spec.DiskQuotaMB
-	desiredAppWorkload.Spec.MemoryMiB = cfProcess.Spec.MemoryMB
+	desiredAppWorkload.Spec.Resources.Requests = corev1.ResourceList{
+		corev1.ResourceCPU:    calculateCPURequest(cfProcess.Spec.MemoryMB),
+		corev1.ResourceMemory: mebibyteQuantity(cfProcess.Spec.MemoryMB),
+	}
+	desiredAppWorkload.Spec.Resources.Limits = corev1.ResourceList{
+		corev1.ResourceEphemeralStorage: mebibyteQuantity(cfProcess.Spec.DiskQuotaMB),
+		corev1.ResourceMemory:           mebibyteQuantity(cfProcess.Spec.MemoryMB),
+	}
 	desiredAppWorkload.Spec.ProcessType = cfProcess.Spec.ProcessType
 	desiredAppWorkload.Spec.Command = commandForProcess(cfProcess, cfApp)
 	desiredAppWorkload.Spec.AppGUID = cfApp.Name
@@ -238,7 +245,6 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
-	desiredAppWorkload.Spec.CPUMillicores = calculateDefaultCPURequestMillicores(cfProcess.Spec.MemoryMB)
 	desiredAppWorkload.Spec.ReconcilerName = r.ControllerConfig.AppReconciler
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredAppWorkload, r.Scheme)
@@ -249,7 +255,7 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	return &desiredAppWorkload, err
 }
 
-func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
+func calculateCPURequest(memoryMiB int64) resource.Quantity {
 	const (
 		cpuRequestRatio         int64 = 1024
 		cpuRequestMinMillicores int64 = 5
@@ -258,7 +264,7 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 	if cpuMillicores < cpuRequestMinMillicores {
 		cpuMillicores = cpuRequestMinMillicores
 	}
-	return cpuMillicores
+	return *resource.NewScaledQuantity(cpuMillicores, resource.Milli)
 }
 
 func generateAppWorkloadName(cfAppRev string, processGUID string) string {
@@ -357,4 +363,8 @@ func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return requests
 		})).
 		Complete(r)
+}
+
+func mebibyteQuantity(miB int64) resource.Quantity {
+	return *resource.NewQuantity(miB*1024*1024, resource.BinarySI)
 }

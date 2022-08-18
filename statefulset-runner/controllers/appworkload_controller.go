@@ -39,7 +39,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -292,7 +291,7 @@ func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) 
 					Type: corev1.SeccompProfileTypeRuntimeDefault,
 				},
 			},
-			Resources:      getContainerResources(appWorkload.Spec.CPUMillicores, appWorkload.Spec.MemoryMiB, appWorkload.Spec.DiskMiB),
+			Resources:      appWorkload.Spec.Resources,
 			LivenessProbe:  livenessProbe,
 			ReadinessProbe: readinessProbe,
 		},
@@ -387,16 +386,6 @@ func toLabelSelectorRequirements(selector *metav1.LabelSelector) []metav1.LabelS
 	return reqs
 }
 
-func MebibyteQuantity(miB int64) resource.Quantity {
-	memory := resource.Quantity{
-		Format: resource.BinarySI,
-	}
-	//nolint:gomnd
-	memory.Set(miB * 1024 * 1024)
-
-	return memory
-}
-
 func StatefulSetLabelSelector(appWorkload *korifiv1alpha1.AppWorkload) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -404,24 +393,6 @@ func StatefulSetLabelSelector(appWorkload *korifiv1alpha1.AppWorkload) *metav1.L
 			LabelVersion: appWorkload.Spec.Version,
 		},
 	}
-}
-
-func getContainerResources(cpuMillicores, memoryMiB, diskMiB int64) corev1.ResourceRequirements {
-	memory := MebibyteQuantity(memoryMiB)
-	cpuRequest := *resource.NewScaledQuantity(cpuMillicores, resource.Milli)
-	ephemeralStorage := MebibyteQuantity(diskMiB)
-
-	resourceRequirements := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory:           memory,
-			corev1.ResourceEphemeralStorage: ephemeralStorage,
-		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: memory,
-			corev1.ResourceCPU:    cpuRequest,
-		},
-	}
-	return resourceRequirements
 }
 
 func CreateLivenessProbe(appWorkload korifiv1alpha1.AppWorkload) *corev1.Probe {

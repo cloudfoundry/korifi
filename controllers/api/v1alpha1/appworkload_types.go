@@ -34,6 +34,7 @@ type AppWorkloadSpec struct {
 	Version     string `json:"version"`
 	AppGUID     string `json:"appGUID"`
 	ProcessType string `json:"processType"`
+
 	// BuildRef refers to the CFBuild whose image the AppWorkload is running
 	BuildRef         RequiredLocalObjectReference  `json:"buildRef"`
 	Image            string                        `json:"image"`
@@ -42,15 +43,15 @@ type AppWorkloadSpec struct {
 	Env              []corev1.EnvVar               `json:"env,omitempty"`
 	Health           Healthcheck                   `json:"health"`
 	Ports            []int32                       `json:"ports,omitempty"`
+
 	// +kubebuilder:default:=1
 	Instances int32 `json:"instances"`
-	MemoryMiB int64 `json:"memoryMiB"`
-	// +kubebuilder:validation:Minimum:=1
-	// +kubebuilder:validation:Required
-	DiskMiB       int64 `json:"diskMiB"`
-	CPUMillicores int64 `json:"cpuMillicores"`
+
 	// +kubebuilder:validation:Required
 	ReconcilerName string `json:"reconcilerName"`
+
+	// +kubebuilder:validation:Optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type Healthcheck struct {
