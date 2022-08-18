@@ -209,6 +209,8 @@ function install_dependencies() {
       export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta"
     fi
 
+    export INSECURE_TLS_METRICS_SERVER=true
+
     "${SCRIPT_DIR}/install-dependencies.sh"
   }
   popd >/dev/null

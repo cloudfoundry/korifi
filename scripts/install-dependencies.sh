@@ -16,7 +16,8 @@ flags:
   -g, --gcr-service-account-json
       (optional) Filepath to the GCP Service Account JSON describing a service account
       that has permissions to write to the project's container repository.
-
+  -i, --insecure-tls-metrics-server
+      (optional) Provide insecure TLS args to Metrics Server. This is useful for distributions such as Kind, Minikube, etc.
 EOF
   exit 1
 }
@@ -30,7 +31,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -g | --gcr-service-account-json)
       GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
-      shift
+      shift 2
+      ;;
+    -i | --insecure-tls-metrics-server)
+      INSECURE_TLS_METRICS_SERVER=true
       shift
       ;;
     *)
@@ -112,18 +116,26 @@ echo "*******************"
 
 kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
 
-sbr_version=$(curl --silent "https://api.github.com/repos/servicebinding/runtime/releases/latest" | jq -r '.tag_name')
+sbr_version=$(curl --silent "https://api.github.com/repos/vmware-tanzu/servicebinding/releases/latest" | jq -r '.tag_name')
 echo "**************************************"
 echo "Installing Service Binding Runtime ${sbr_version}"
 echo "**************************************"
 
-kubectl apply -f https://github.com/servicebinding/runtime/releases/download/${sbr_version}/servicebinding-runtime-${sbr_version}.yaml
+kubectl apply -f https://github.com/vmware-tanzu/servicebinding/releases/download/${sbr_version}/service-bindings-${sbr_version:1}.yaml
 
-if ! kubectl get apiservice v1beta1.metrics.k8s.io >dev/null 2>&1; then
-  metrics_server_version=$(curl --silent "https://api.github.com/repos/kubernetes-sigs/metrics-server/releases" | jq -r '.[].tag_name' | grep '^v' | head -1)
-  echo "**************************************"
-  echo "Installing Metrics Server ${metrics_server_version}"
-  echo "**************************************"
+if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
+  if [[ -v INSECURE_TLS_METRICS_SERVER ]]; then
+    echo "**************************************"
+    echo "Installing Metrics Server v0.6.1 with Insecure TLS options"
+    echo "**************************************"
 
-  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/${metrics_server_version}/components.yaml
+    kubectl apply -f $DEP_DIR/metrics-server-local-0.6.1.yaml
+  else
+    metrics_server_version=$(curl --silent "https://api.github.com/repos/kubernetes-sigs/metrics-server/releases" | jq -r '.[].tag_name' | grep '^v' | head -1)
+    echo "**************************************"
+    echo "Installing Metrics Server ${metrics_server_version}"
+    echo "**************************************"
+
+    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/${metrics_server_version}/components.yaml
+  fi
 fi
