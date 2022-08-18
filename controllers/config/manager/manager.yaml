@@ -63,15 +63,23 @@ spec:
             cpu: 50m
             memory: 100Mi
         env:
-        - name: CONTROLLERSCONFIG
-          value: "/etc/korifi-controllers-config"
-        volumeMounts:
-        - name: korifi-controllers-config
-          mountPath: /etc/korifi-controllers-config
-          readOnly: true
-      volumes:
-      - name: korifi-controllers-config
-        configMap:
-          name: korifi-controllers-config
+        - name: BUILD_RECONCILER
+          value: kpack-image-builder
+        - name: APP_RECONCILER
+          value: statefulset-runner
+        - name: PROCESS_DEFAULT_MEMORY_MB
+          value: "1024"
+        - name: PROCESS_DEFAULT_DISK_QUOTA_MB
+          value: "1024"
+        - name: ROOT_NAMESPACE
+          value: cf
+        - name: PACKAGE_REGISTRY_SECRET_NAME
+          value: image-registry-credentials
+        - name: TASK_TTL
+          value: 30d
+        - name: WORKLOADS_TLS_SECRET_NAME
+          value: korifi-workloads-ingress-cert
+        - name: WORKLOADS_TLS_SECRET_NAMESPACE
+          value: korifi-controllers-system
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

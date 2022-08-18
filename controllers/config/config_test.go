@@ -50,7 +50,7 @@ var _ = Describe("LoadFromPath", func() {
 	})
 
 	JustBeforeEach(func() {
-		retConfig, retErr = config.LoadFromPath(configPath)
+		// retConfig, retErr = config.LoadFromEnv(configPath)
 	})
 
 	It("loads the configuration from all the files in the given directory", func() {

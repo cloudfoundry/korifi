@@ -2,9 +2,10 @@ generatorOptions:
   disableNameSuffixHash: true
 
 configMapGenerator:
-  - files:
-      - controllersconfig/korifi_controllers_config.yaml
+  - envs:
+      - controllersconfig/korifi_controllers_config.env
     name: config
 
 resources:
   - workloads_tls_delegation.yaml
+
