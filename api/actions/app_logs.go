@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"sort"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -38,7 +39,10 @@ func (a *AppLogs) Read(ctx context.Context, logger logr.Logger, authInfo authori
 
 	build, err := a.buildRepo.GetLatestBuildByAppGUID(ctx, authInfo, app.SpaceGUID, appGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch latest app CFBuild from Kubernetes", "AppGUID", appGUID)
+		if !errors.As(err, new(apierrors.NotFoundError)) {
+			return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch latest app CFBuild from Kubernetes", "AppGUID", appGUID)
+		}
+		return []repositories.LogRecord{}, nil
 	}
 
 	buildLogs, err := a.buildRepo.GetBuildLogs(ctx, authInfo, app.SpaceGUID, build.GUID)
