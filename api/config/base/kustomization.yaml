@@ -1,12 +1,3 @@
-# Adds namespace to all resources.
-namespace: korifi-api-system
-
-# Value of this field is prepended to the
-# names of all resources, e.g. a deployment named
-# "wordpress" becomes "alices-wordpress".
-# Note that it should also match with the prefix (text before '-') of the namespace
-# field above.
-namePrefix: korifi-api-
 
 resources:
 - certificate.yaml
@@ -17,9 +8,6 @@ resources:
 - service.yaml
 
 configMapGenerator:
-- envs:
-  - apiconfig/korifi_api_config.env
-  name: config
 - files:
   - apiconfig/role_mappings_config.yaml
   name: role-mappings
@@ -35,13 +23,13 @@ images:
 vars:
 - fieldref:
     fieldPath: metadata.namespace
-  name: SERVICE_NAMESPACE
+  name: API_SERVICE_NS
   objref:
     kind: Service
     name: svc
     version: v1
 - fieldref: {}
-  name: SERVICE_NAME
+  name: API_SERVICE_NAME
   objref:
     kind: Service
     name: svc

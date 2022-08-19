@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cf
+
+resources:
+- ../../../config
+- cfrootns.yaml
+
+replacements:
+- source:
+    version: v1
+    kind: ConfigMap
+    name: config
+    fieldPath: data.rootNamespace
+  targets:
+  - select:
+      version: v1
+      kind: Namespace
+      name: cf
+    fieldPaths:
+    - metadata.name
+  - select:
+      version: v1
+      kind: ConfigMap
+      name: config
+    fieldPaths:
+    - metadata.namespace
+  - select:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: RoleBinding
+      name: default-admin-binding
+    fieldPaths:
+    - metadata.namespace
