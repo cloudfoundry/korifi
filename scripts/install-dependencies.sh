@@ -116,12 +116,14 @@ echo "*******************"
 
 kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
 
-sbr_version=$(curl --silent "https://api.github.com/repos/vmware-tanzu/servicebinding/releases/latest" | jq -r '.tag_name')
+sbr_version=$(curl --silent "https://api.github.com/repos/servicebinding/runtime/releases/latest" | jq -r '.tag_name')
 echo "**************************************"
 echo "Installing Service Binding Runtime ${sbr_version}"
 echo "**************************************"
 
-kubectl apply -f https://github.com/vmware-tanzu/servicebinding/releases/download/${sbr_version}/service-bindings-${sbr_version:1}.yaml
+kubectl apply -f https://github.com/servicebinding/runtime/releases/download/${sbr_version}/servicebinding-runtime-${sbr_version}.yaml
+kubectl -n servicebinding-system rollout status deployment/servicebinding-controller-manager --watch=true
+kubectl apply -f https://github.com/servicebinding/runtime/releases/download/${sbr_version}/servicebinding-workloadresourcemappings-${sbr_version}.yaml
 
 if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
   if [[ -v INSECURE_TLS_METRICS_SERVER ]]; then
