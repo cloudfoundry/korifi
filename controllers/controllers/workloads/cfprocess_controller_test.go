@@ -3,9 +3,10 @@ package workloads_test
 import (
 	"context"
 	"errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"strconv"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"

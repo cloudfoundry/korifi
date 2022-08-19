@@ -275,12 +275,12 @@ func NewBuildLogsClient(k8sClient k8sclient.Interface) *BuildLogsClient {
 	}
 }
 
-const ImageLabel = "image.kpack.io/image"
+const BuildWorkloadLabelKey = "korifi.cloudfoundry.org/build-workload-name"
 
-func (c *BuildLogsClient) GetImageLogs(ctx context.Context, writer io.Writer, image, namespace string) error {
+func (c *BuildLogsClient) GetImageLogs(ctx context.Context, writer io.Writer, buildGUID, namespace string) error {
 	return c.getPodLogs(ctx, writer, namespace, metav1.ListOptions{
 		Watch:         false,
-		LabelSelector: fmt.Sprintf("%s=%s", ImageLabel, image),
+		LabelSelector: fmt.Sprintf("%s=%s", BuildWorkloadLabelKey, buildGUID),
 	}, false)
 }
 

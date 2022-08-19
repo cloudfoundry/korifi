@@ -20,9 +20,7 @@ import (
 )
 
 var _ = Describe("OrgRepository", func() {
-	var (
-		orgRepo *repositories.OrgRepo
-	)
+	var orgRepo *repositories.OrgRepo
 
 	BeforeEach(func() {
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)

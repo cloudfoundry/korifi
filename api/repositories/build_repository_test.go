@@ -18,9 +18,7 @@ import (
 )
 
 var _ = Describe("BuildRepository", func() {
-	var (
-		buildRepo *repositories.BuildRepo
-	)
+	var buildRepo *repositories.BuildRepo
 
 	BeforeEach(func() {
 		buildRepo = repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
