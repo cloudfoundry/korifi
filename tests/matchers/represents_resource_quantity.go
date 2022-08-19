@@ -13,7 +13,7 @@ type representsResourceQuantityMatcher struct {
 	scaleStr string
 }
 
-func RepresentsResourceQuantity(amount int64, scaleStr string) types.GomegaMatcher {
+func RepresentResourceQuantity(amount int64, scaleStr string) types.GomegaMatcher {
 	return &representsResourceQuantityMatcher{amount: amount, scaleStr: scaleStr}
 }
 
