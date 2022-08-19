@@ -209,7 +209,7 @@ var _ = Describe("ReadAppLogs", func() {
 		})
 	})
 
-	When("GetLatestBuildByAppGUIDReturns returns a Forbidden error", func() {
+	When("GetLatestBuildByAppGUID returns a Forbidden error", func() {
 		BeforeEach(func() {
 			buildRepo.GetLatestBuildByAppGUIDReturns(repositories.BuildRecord{}, apierrors.NewForbiddenError(errors.New("blah"), repositories.BuildResourceType))
 		})
@@ -219,7 +219,7 @@ var _ = Describe("ReadAppLogs", func() {
 		})
 	})
 
-	When("GetLatestBuildByAppGUIDReturns returns a random error", func() {
+	When("GetLatestBuildByAppGUID returns a random error", func() {
 		var getLatestBuildByAppGUID error
 		BeforeEach(func() {
 			getLatestBuildByAppGUID = errors.New("blah")
@@ -228,6 +228,16 @@ var _ = Describe("ReadAppLogs", func() {
 		It("returns the error transparently", func() {
 			Expect(returnedErr).To(HaveOccurred())
 			Expect(returnedErr).To(Equal(getLatestBuildByAppGUID))
+		})
+	})
+
+	When("GetLatestBuildByAppGUID returns a NotFound error", func() {
+		BeforeEach(func() {
+			buildRepo.GetLatestBuildByAppGUIDReturns(repositories.BuildRecord{}, apierrors.NewNotFoundError(errors.New("blah"), repositories.BuildResourceType))
+		})
+		It("returns the list of app records", func() {
+			Expect(returnedErr).NotTo(HaveOccurred())
+			Expect(returnedRecords).To(Equal(logs))
 		})
 	})
 
