@@ -238,7 +238,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						g.Expect(fakeImageProcessFetcher.CallCount()).To(BeZero())
 					}).Should(Succeed())
 				})
-
 			})
 		})
 	})
@@ -378,7 +377,6 @@ func PrefixedGUID(prefix string) string {
 func buildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference, reconcilerName string) *korifiv1alpha1.BuildWorkload {
 	return &korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
-
 			Name:      cfBuildGUID,
 			Namespace: namespace,
 		},

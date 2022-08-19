@@ -2,10 +2,10 @@ package matchers
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 type representsResourceQuantityMatcher struct {
