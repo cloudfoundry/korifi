@@ -37,17 +37,17 @@ func (a *AppLogs) Read(ctx context.Context, logger logr.Logger, authInfo authori
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	var buildLogs []repositories.LogRecord
 	build, err := a.buildRepo.GetLatestBuildByAppGUID(ctx, authInfo, app.SpaceGUID, appGUID)
 	if err != nil {
 		if !errors.As(err, new(apierrors.NotFoundError)) {
 			return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch latest app CFBuild from Kubernetes", "AppGUID", appGUID)
 		}
-	} else {
-		buildLogs, err = a.buildRepo.GetBuildLogs(ctx, authInfo, app.SpaceGUID, build.GUID)
-		if err != nil {
-			return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch build logs", "AppGUID", appGUID, "BuildGUID", build.GUID)
-		}
+		return []repositories.LogRecord{}, nil
+	}
+
+	buildLogs, err := a.buildRepo.GetBuildLogs(ctx, authInfo, app.SpaceGUID, build.GUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch build logs", "AppGUID", appGUID, "BuildGUID", build.GUID)
 	}
 
 	logLimit := int64(defaultLogLimit)

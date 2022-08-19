@@ -235,9 +235,9 @@ var _ = Describe("ReadAppLogs", func() {
 		BeforeEach(func() {
 			buildRepo.GetLatestBuildByAppGUIDReturns(repositories.BuildRecord{}, apierrors.NewNotFoundError(errors.New("blah"), repositories.BuildResourceType))
 		})
-		It("returns the list of app records", func() {
+		It("returns no log records", func() {
 			Expect(returnedErr).NotTo(HaveOccurred())
-			Expect(returnedRecords).To(Equal(logs))
+			Expect(returnedRecords).To(Equal([]repositories.LogRecord{}))
 		})
 	})
 
