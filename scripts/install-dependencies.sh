@@ -114,7 +114,13 @@ echo "*******************"
 echo "Installing Contour ${contour_version}"
 echo "*******************"
 
-kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
+# Temporarily resolve an issue with contour running on Apple silicon.
+# This fix can be removed once the latest version of contour uses envoy v1.23.1 or newer
+if command -v kbld &> /dev/null; then
+  kbld --image-map-file "${DEP_DIR}/contour/kbld-image-mapping-to-fix-envoy-v1.23-bug.json" -f https://projectcontour.io/quickstart/contour.yaml | kubectl apply -f -
+else
+  kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
+fi
 
 sbr_version=$(curl --silent "https://api.github.com/repos/servicebinding/runtime/releases/latest" | jq -r '.tag_name')
 echo "**************************************"
