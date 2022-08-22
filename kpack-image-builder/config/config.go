@@ -3,10 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 type ControllerConfig struct {
@@ -15,31 +11,19 @@ type ControllerConfig struct {
 	ClusterBuilderName string `yaml:"clusterBuilderName"`
 }
 
-func LoadFromPath(path string) (*ControllerConfig, error) {
-	var config ControllerConfig
+func LoadFromEnv() *ControllerConfig {
+	return &ControllerConfig{
+		CFRootNamespace:    mustHaveEnv("ROOT_NAMESPACE"),
+		KpackImageTag:      mustHaveEnv("KPACK_IMAGE_TAG"),
+		ClusterBuilderName: mustHaveEnv("CLUSTER_BUILDER_NAME"),
+	}
+}
 
-	items, err := os.ReadDir(path)
-	if err != nil {
-		return nil, fmt.Errorf("error reading config dir %q: %w", path, err)
+func mustHaveEnv(name string) string {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		panic(fmt.Sprintf("Env var %s not set", name))
 	}
 
-	for _, item := range items {
-		fileName := item.Name()
-		if item.IsDir() || strings.HasPrefix(fileName, ".") {
-			continue
-		}
-
-		configFile, err := os.Open(filepath.Join(path, fileName))
-		if err != nil {
-			return &config, fmt.Errorf("failed to open file: %w", err)
-		}
-		defer configFile.Close()
-
-		decoder := yaml.NewDecoder(configFile)
-		if err = decoder.Decode(&config); err != nil {
-			return nil, fmt.Errorf("failed decoding %q: %w", item.Name(), err)
-		}
-	}
-
-	return &config, nil
+	return value
 }

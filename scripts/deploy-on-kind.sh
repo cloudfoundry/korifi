@@ -244,9 +244,9 @@ function deploy_korifi_controllers() {
     make install-crds
     if [[ -n "${use_local_registry}" ]]; then
       if [[ -z "${debug}" ]]; then
-        make deploy-controllers-kind-local
+        make deploy-controllers
       else
-        make deploy-controllers-kind-local-debug
+        make deploy-controllers
       fi
     else
       make deploy-controllers
@@ -281,9 +281,9 @@ function deploy_korifi_api() {
 
     if [[ -n "${use_local_registry}" ]]; then
       if [[ -z "${debug}" ]]; then
-        make deploy-api-kind-local
+        make deploy-api
       else
-        make deploy-api-kind-local-debug
+        make deploy-api
       fi
     else
       make deploy-api-kind
@@ -309,11 +309,7 @@ function deploy_kpack_image_builder() {
     fi
     kind load docker-image --name "${cluster}" "${IMG_KIB}"
 
-    if [[ -n "${use_local_registry}" ]]; then
-      make deploy-on-kind
-    else
-      make deploy
-    fi
+    make deploy
   }
   popd >/dev/null
 

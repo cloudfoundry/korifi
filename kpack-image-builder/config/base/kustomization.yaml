@@ -3,8 +3,3 @@ generatorOptions:
   # This is necessary to pick up the correct buildpacks when `clusterBuilderName` changes.
   # See https://github.com/cloudfoundry/korifi/issues/1054 for details
   disableNameSuffixHash: false
-
-configMapGenerator:
-  - files:
-      - controllersconfig/kpack_build_controllers_config.yaml
-    name: config

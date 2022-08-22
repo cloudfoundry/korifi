@@ -61,15 +61,11 @@ spec:
             cpu: 50m
             memory: 100Mi
         env:
-        - name: CONTROLLERSCONFIG
-          value: "/etc/kpack-build-controllers-config"
-        volumeMounts:
-        - name: korifi-kpack-build-config
-          mountPath: /etc/kpack-build-controllers-config
-          readOnly: true
-      volumes:
-      - name: korifi-kpack-build-config
-        configMap:
-          name: korifi-kpack-build-config
+        - name: ROOT_NAMESPACE
+          value: ""
+        - name: CLUSTER_BUILDER_NAME
+          value: ""
+        - name: KPACK_IMAGE_TAG
+          value: ""
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

@@ -85,16 +85,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	configPath, found := os.LookupEnv("CONTROLLERSCONFIG")
-	if !found {
-		panic("CONTROLLERSCONFIG must be set")
-	}
-
-	controllerConfig, err := config.LoadFromPath(configPath)
-	if err != nil {
-		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
-		panic(errorMessage)
-	}
+	controllerConfig := config.LoadFromEnv()
 
 	k8sClientConfig := ctrl.GetConfigOrDie()
 	k8sClient, err := k8sclient.NewForConfig(k8sClientConfig)

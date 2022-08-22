@@ -93,19 +93,15 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: set-image-ref
 set-image-ref: kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG_KIB}
+	cd ../dist/kpack-image-builder && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG_KIB}
 
 .PHONY: deploy
 deploy: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
-
-.PHONY: deploy-on-kind
-deploy-on-kind: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/overlays/kind-local-registry | kubectl apply -f -
+	$(KUSTOMIZE) build ../dist/kpack-image-builder | kubectl apply -f -
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build ../dist/kpack-image-builder | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: controller-gen

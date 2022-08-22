@@ -1,0 +1,143 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: korifi-api-system
+
+namePrefix: korifi-api-
+
+resources:
+- ../config
+- ../../api/config/base
+
+replacements:
+- source:
+    fieldPath: data.externalFQDN
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=EXTERNAL_FQDN].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+  - fieldPaths:
+    - spec.virtualhost.fqdn
+    select:
+      group: projectcontour.io
+      kind: HTTPProxy
+      name: proxy
+      version: v1
+- source:
+    fieldPath: data.internalPort
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=INTERNAL_PORT].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+- source:
+    fieldPath: data.rootNamespace
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=ROOT_NAMESPACE].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+- source:
+    fieldPath: data.lifecycleType
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=LIFECYCLE_TYPE].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+- source:
+    fieldPath: data.lifecycleStack
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=LIFECYCLE_STACK].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+- source:
+    fieldPath: data.lifecycleStagingMemoryMB
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=LIFECYCLE_STAGING_MEMORY_MB].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+- source:
+    fieldPath: data.lifecycleStagingDiskMB
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=LIFECYCLE_STAGING_DISK_MB].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+- source:
+    fieldPath: data.packageRegistryBase
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=PACKAGE_REGISTRY_BASE].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+- source:
+    fieldPath: data.packageRegistrySecret
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=PACKAGE_REGISTRY_SECRET].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+- source:
+    fieldPath: data.defaultDomainName
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=korifi-api].env.[name=DEFAULT_DOMAIN_NAME].value
+    select:
+      kind: Deployment
+      name: deployment
+      version: v1
+images:
+- name: cloudfoundry/korifi-api
+  newName: cloudfoundry/korifi-api
+  newTag: latest

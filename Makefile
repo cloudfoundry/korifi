@@ -142,44 +142,25 @@ uninstall-crds: manifests-controllers install-kustomize ## Uninstall CRDs from t
 
 deploy: install-crds deploy-controllers deploy-api
 
-deploy-kind: install-crds deploy-controllers deploy-api-kind
-
-deploy-kind-local: install-crds deploy-controllers-kind-local deploy-api-kind-local
-
 deploy-controllers: install-kustomize set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
-
-deploy-controllers-kind-local: install-kustomize set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind-local-registry | kubectl apply -f -
-
-deploy-controllers-kind-local-debug: install-kustomize set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind-controller-debug | kubectl apply -f -
+	$(KUSTOMIZE) build dist/controllers | kubectl apply -f -
 
 deploy-api: install-kustomize set-image-ref-api
-	$(KUSTOMIZE) build api/config/base | kubectl apply -f -
-
-deploy-api-kind: install-kustomize set-image-ref-api
-	$(KUSTOMIZE) build api/config/overlays/kind | kubectl apply -f -
-
-deploy-api-kind-local: install-kustomize set-image-ref-api
-	$(KUSTOMIZE) build api/config/overlays/kind-local-registry | kubectl apply -f -
-
-deploy-api-kind-local-debug: install-kustomize set-image-ref-api
-	$(KUSTOMIZE) build api/config/overlays/kind-api-debug | kubectl apply -f -
+	$(KUSTOMIZE) build dist/api | kubectl apply -f -
 
 undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/default | kubectl delete -f -
+	$(KUSTOMIZE) build dist/controllers | kubectl delete -f -
 
 undeploy-api: ## Undeploy api from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build api/config/base | kubectl delete -f -
+	$(KUSTOMIZE) build dist/api | kubectl delete -f -
 
 set-image-ref: set-image-ref-api set-image-ref-controllers
 
 set-image-ref-controllers: manifests-controllers install-kustomize
-	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-controllers=${IMG_CONTROLLERS}
+	cd dist/controllers && $(KUSTOMIZE) edit set image cloudfoundry/korifi-controllers=${IMG_CONTROLLERS}
 
 set-image-ref-api: manifests-api install-kustomize
-	cd api/config/base && $(KUSTOMIZE) edit set image cloudfoundry/korifi-api=${IMG_API}
+	cd dist/api && $(KUSTOMIZE) edit set image cloudfoundry/korifi-api=${IMG_API}
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.

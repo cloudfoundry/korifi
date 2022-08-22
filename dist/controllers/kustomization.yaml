@@ -1,0 +1,124 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: korifi-controllers-system
+
+namePrefix: korifi-controllers-
+
+resources:
+- ../config
+- ../../controllers/config/default
+
+replacements:
+- source:
+    fieldPath: data.buildReconciler
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=BUILD_RECONCILER].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+- source:
+    fieldPath: data.appReconciler
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=APP_RECONCILER].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+- source:
+    fieldPath: data.processDefaultMemoryMB
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=PROCESS_DEFAULT_MEMORY_MB].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+- source:
+    fieldPath: data.processDefaultDiskQuotaMB
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=PROCESS_DEFAULT_DISK_QUOTA_MB].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+- source:
+    fieldPath: data.rootNamespace
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=ROOT_NAMESPACE].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+- source:
+    fieldPath: data.packageRegistrySecretName
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=PACKAGE_REGISTRY_SECRET_NAME].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+- source:
+    fieldPath: data.taskTTL
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=TASK_TTL].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+- source:
+    fieldPath: data.workloads_tls_secret_name
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=WORKLOADS_TLS_SECRET_NAME].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+- source:
+    fieldPath: data.workloads_tls_secret_namespace
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=WORKLOADS_TLS_SECRET_NAMESPACE].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+images:
+- name: cloudfoundry/korifi-controllers
+  newName: cloudfoundry/korifi-controllers
+  newTag: latest
