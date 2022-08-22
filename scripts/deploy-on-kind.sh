@@ -217,7 +217,7 @@ function install_dependencies() {
 
 create_registry_secret() {
   echo "*********************************************"
-  echo "Creating private tegistry secret"
+  echo "Creating private registry secret"
   echo "*********************************************"
 
   if [[ -n "${use_local_registry}" ]]; then
@@ -445,4 +445,5 @@ EOF
   cat "${tmp}/api"
 fi
 
+make deploy-workloads
 create_registry_secret

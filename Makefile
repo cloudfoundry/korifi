@@ -154,6 +154,10 @@ undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~
 undeploy-api: ## Undeploy api from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build dist/api | kubectl delete -f -
 
+deploy-workloads: install-kustomize
+	$(KUSTOMIZE) build dist/kpack-image-builder | kubectl apply -f -
+	$(KUSTOMIZE) build dist/workloads | kubectl apply -f -
+
 set-image-ref: set-image-ref-api set-image-ref-controllers
 
 set-image-ref-controllers: manifests-controllers install-kustomize

@@ -8,6 +8,10 @@ namePrefix: korifi-kpack-build-
 resources:
 - ../config
 - ../../kpack-image-builder/config/default
+- cluster_builder.yaml
+- cluster_stack.yaml
+- cluster_store.yaml
+- service_account.yaml
 
 replacements:
 - source:
