@@ -46,6 +46,13 @@ replacements:
       kind: Deployment
       name: controller-manager
       version: v1
+  - fieldPaths:
+    - spec.tag
+    select:
+      group: kpack.io
+      kind: ClusterBuilder
+      name: cf-kpack-cluster-builder
+      version: v1alpha2
 images:
 - name: cloudfoundry/korifi-kpack-image-builder
   newName: cloudfoundry/korifi-kpack-image-builder

@@ -202,13 +202,6 @@ function install_dependencies() {
 
   pushd "${ROOT_DIR}" >/dev/null
   {
-    if [[ -n "${use_local_registry}" ]]; then
-      export DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
-      export DOCKER_USERNAME="user"
-      export DOCKER_PASSWORD="password"
-      export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta"
-    fi
-
     "${SCRIPT_DIR}/install-dependencies.sh"
 
     # install metrics server only on local cluster
@@ -220,6 +213,35 @@ function install_dependencies() {
 
   }
   popd >/dev/null
+}
+
+create_registry_secret() {
+  echo "*********************************************"
+  echo "Creating private tegistry secret"
+  echo "*********************************************"
+
+  if [[ -n "${use_local_registry}" ]]; then
+    export DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
+    export DOCKER_USERNAME="user"
+    export DOCKER_PASSWORD="password"
+  fi
+
+  if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE:=}" ]]; then
+    DOCKER_SERVER="gcr.io"
+    DOCKER_USERNAME="_json_key"
+    DOCKER_PASSWORD="$(cat ${GCP_SERVICE_ACCOUNT_JSON_FILE})"
+  fi
+
+  if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSWORD:=}" ]]; then
+    if kubectl get -n cf secret image-registry-credentials >/dev/null 2>&1; then
+      kubectl delete -n cf secret image-registry-credentials
+    fi
+
+    kubectl create secret -n cf docker-registry image-registry-credentials \
+      --docker-server=${DOCKER_SERVER} \
+      --docker-username=${DOCKER_USERNAME} \
+      --docker-password="${DOCKER_PASSWORD}"
+  fi
 }
 
 function deploy_korifi_controllers() {
@@ -422,3 +444,5 @@ API
 EOF
   cat "${tmp}/api"
 fi
+
+create_registry_secret
