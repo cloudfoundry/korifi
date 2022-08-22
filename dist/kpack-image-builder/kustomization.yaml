@@ -92,6 +92,13 @@ replacements:
       kind: Deployment
       name: controller-manager
       version: v1
+  - fieldPaths:
+    - metadata.name
+    select:
+      group: kpack.io
+      kind: ClusterBuilder
+      name: cf-kpack-cluster-builder
+      version: v1alpha2
 - source:
     fieldPath: data.kpackImageTag
     kind: ConfigMap
