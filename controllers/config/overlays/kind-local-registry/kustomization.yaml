@@ -9,12 +9,6 @@ resources:
 - ../../../../config
 - ../../default
 
-configMapGenerator:
-  - behavior: merge
-    envs:
-      - controllersconfig/korifi_controllers_config.env
-    name: config
-
 replacements:
 - source:
     version: v1

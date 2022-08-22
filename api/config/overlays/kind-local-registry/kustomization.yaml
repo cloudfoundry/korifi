@@ -9,12 +9,6 @@ resources:
 - ../../../../config
 - ../../base
 
-configMapGenerator:
-- name: config
-  behavior: merge
-  envs:
-  - apiconfig/korifi_api_config.env
-
 replacements:
 - source:
     version: v1

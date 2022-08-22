@@ -5,6 +5,5 @@ resources:
 - ../api/config/overlays/kind-local-registry
 - ../controllers/config/overlays/kind-local-registry
 - ../controllers/config/workloads
-- ../config
 
 
