@@ -383,6 +383,8 @@ function deploy_job_task_runner() {
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
+make deploy-workloads
+create_registry_secret
 
 if [[ -n "${serial}" ]]; then
   trap 'clean_up_img_refs' EXIT
@@ -445,5 +447,4 @@ EOF
   cat "${tmp}/api"
 fi
 
-make deploy-workloads
-create_registry_secret
+make deploy-kpack-config

@@ -26,6 +26,60 @@ replacements:
       kind: Deployment
       name: controller-manager
       version: v1
+  - fieldPaths:
+    - spec.serviceAccountRef.namespace
+    select:
+      group: kpack.io
+      kind: ClusterBuilder
+      name: cf-kpack-cluster-builder
+      version: v1alpha2
+  - fieldPaths:
+    - metadata.namespace
+    select:
+      kind: ServiceAccount
+      name: kpack-service-account
+      version: v1
+- source:
+    fieldPath: metadata.name
+    kind: ServiceAccount
+    name: kpack-service-account
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.serviceAccountRef.name
+    select:
+      group: kpack.io
+      kind: ClusterBuilder
+      name: cf-kpack-cluster-builder
+      version: v1alpha2
+- source:
+    fieldPath: metadata.name
+    group: kpack.io
+    kind: ClusterStack
+    name: cf-default-stack
+    version: v1alpha2
+  targets:
+  - fieldPaths:
+    - spec.stack.name
+    select:
+      group: kpack.io
+      kind: ClusterBuilder
+      name: cf-kpack-cluster-builder
+      version: v1alpha2
+- source:
+    fieldPath: metadata.name
+    group: kpack.io
+    kind: ClusterStore
+    name: cf-default-buildpacks
+    version: v1alpha2
+  targets:
+  - fieldPaths:
+    - spec.store.name
+    select:
+      group: kpack.io
+      kind: ClusterBuilder
+      name: cf-kpack-cluster-builder
+      version: v1alpha2
 - source:
     fieldPath: data.clusterBuilderName
     kind: ConfigMap
