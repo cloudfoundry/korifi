@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
@@ -10,17 +11,13 @@ import (
 const defaultJobTTL = 24 * time.Hour
 
 type JobTaskRunnerConfig struct {
-	JobTTL string `yaml:"jobTTL"`
+	JobTTL string
 }
 
-func LoadFromPath(path string) (*JobTaskRunnerConfig, error) {
-	var config JobTaskRunnerConfig
-	err := tools.LoadConfigInto(&config, path)
-	if err != nil {
-		return nil, fmt.Errorf("failed loading config: %w", err)
+func LoadFromEnv() *JobTaskRunnerConfig {
+	return &JobTaskRunnerConfig{
+		JobTTL: mustHaveEnv("JOB_TTL"),
 	}
-
-	return &config, nil
 }
 
 func (c JobTaskRunnerConfig) ParseJobTTL() (time.Duration, error) {
@@ -29,4 +26,13 @@ func (c JobTaskRunnerConfig) ParseJobTTL() (time.Duration, error) {
 	}
 
 	return tools.ParseDuration(c.JobTTL)
+}
+
+func mustHaveEnv(name string) string {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		panic(fmt.Sprintf("Env var %s not set", name))
+	}
+
+	return value
 }

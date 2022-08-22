@@ -6,3 +6,5 @@ resources:
 - controllers
 - workloads
 - kpack-image-builder
+- statefulset-runner
+- job-task-runner

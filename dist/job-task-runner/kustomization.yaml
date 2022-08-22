@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: korifi-job-task-runner-system
+namePrefix: korifi-job-task-runner-
+
+resources:
+- ../config
+- ../../job-task-runner/config/default
+
+replacements:
+- source:
+    fieldPath: data.jobTTL
+    kind: ConfigMap
+    name: config
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=JOB_TTL].value
+    select:
+      kind: Deployment
+      name: controller-manager
+      version: v1
+images:
+- name: cloudfoundry/korifi-job-task-runner
+  newName: cloudfoundry/korifi-job-task-runner
+  newTag: latest

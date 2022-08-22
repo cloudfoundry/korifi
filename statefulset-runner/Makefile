@@ -105,15 +105,15 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: set-image-ref
 set-image-ref: kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-statefulset-runner=${IMG_SSR}
+	cd ../dist/statefulset-runner && $(KUSTOMIZE) edit set image cloudfoundry/korifi-statefulset-runner=${IMG_SSR}
 
 .PHONY: deploy
 deploy: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+	$(KUSTOMIZE) build ../dist/statefulset-runner | kubectl apply -f -
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build ../dist/statefulset-runner | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: controller-gen

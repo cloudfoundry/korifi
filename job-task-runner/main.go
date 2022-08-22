@@ -66,15 +66,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	configPath, found := os.LookupEnv("JOBTASKRUNNERCONFIG")
-	if !found {
-		panic("JOBTASKRUNNERCONFIG must be set")
-	}
-
-	jobTaskRunnerConfig, err := config.LoadFromPath(configPath)
-	if err != nil {
-		panic(err)
-	}
+	jobTaskRunnerConfig := config.LoadFromEnv()
 	jobTTL, err := jobTaskRunnerConfig.ParseJobTTL()
 	if err != nil {
 		panic(err)
