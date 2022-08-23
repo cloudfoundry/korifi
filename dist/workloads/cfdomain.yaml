@@ -1,0 +1,6 @@
+apiVersion: korifi.cloudfoundry.org/v1alpha1
+kind: CFDomain
+metadata:
+  name: default-cf-domain
+spec:
+  name: ""

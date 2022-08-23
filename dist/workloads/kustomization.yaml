@@ -6,6 +6,7 @@ namespace: cf
 resources:
 - ../config
 - cfrootns.yaml
+- cfdomain.yaml
 
 replacements:
 - source:
@@ -33,3 +34,23 @@ replacements:
       name: default-admin-binding
     fieldPaths:
     - metadata.namespace
+  - select:
+      group: korifi.cloudfoundry.org
+      version: v1alpha1
+      kind: CFDomain
+      name: default-cf-domain
+    fieldPaths:
+    - metadata.namespace
+- source:
+    version: v1
+    kind: ConfigMap
+    name: config
+    fieldPath: data.defaultDomainName
+  targets:
+  - select:
+      group: korifi.cloudfoundry.org
+      version: v1alpha1
+      kind: CFDomain
+      name: default-cf-domain
+    fieldPaths:
+    - spec.name

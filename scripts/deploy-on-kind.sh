@@ -279,10 +279,6 @@ function deploy_korifi_controllers() {
   popd >/dev/null
 
   kubectl rollout status deployment/korifi-controllers-controller-manager -w -n korifi-controllers-system
-
-  if [[ -n "${default_domain}" ]]; then
-    sed 's/vcap\.me/'${APP_FQDN:-vcap.me}'/' ${CONTROLLER_DIR}/config/samples/cfdomain.yaml | kubectl apply -f-
-  fi
 }
 
 function deploy_korifi_api() {
