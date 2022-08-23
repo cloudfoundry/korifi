@@ -145,6 +145,13 @@ deploy: install-crds deploy-controllers deploy-api
 deploy-controllers: install-kustomize set-image-ref-controllers
 	$(KUSTOMIZE) build dist/controllers | kubectl apply -f -
 
+docker-build-controllers-debug:
+	docker buildx build --load -f controllers/remote-debug/Dockerfile -t ${IMG_CONTROLLERS} .
+
+deploy-controllers-kind-local-debug: install-kustomize set-image-ref-controllers
+	$(KUSTOMIZE) build controllers/config/overlays/kind-controller-debug | kubectl apply -f -
+
+
 deploy-api: install-kustomize set-image-ref-api
 	$(KUSTOMIZE) build dist/api | kubectl apply -f -
 
