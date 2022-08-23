@@ -2,7 +2,6 @@ package presenter
 
 import (
 	"net/url"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -31,25 +30,21 @@ type OrgLinks struct {
 	Quota         *Link `json:"quota,omitempty"`
 }
 
-func ForCreateOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
-	return toOrgResponse(org, apiBaseURL)
-}
-
 func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL, requestURL url.URL) ListResponse {
 	orgResponses := make([]interface{}, 0, len(orgs))
 	for _, org := range orgs {
-		orgResponses = append(orgResponses, toOrgResponse(org, apiBaseURL))
+		orgResponses = append(orgResponses, ForOrg(org, apiBaseURL))
 	}
 
 	return ForList(orgResponses, apiBaseURL, requestURL)
 }
 
-func toOrgResponse(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
+func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 	return OrgResponse{
 		Name:      org.Name,
 		GUID:      org.GUID,
-		CreatedAt: org.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt: org.CreatedAt.UTC().Format(time.RFC3339),
+		CreatedAt: org.CreatedAt,
+		UpdatedAt: org.UpdatedAt,
 		Suspended: org.Suspended,
 		Metadata: Metadata{
 			Labels:      orEmptyMap(org.Labels),

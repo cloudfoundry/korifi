@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -26,7 +27,7 @@ var _ = Describe("OrgRepository", func() {
 		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
 	})
 
-	Describe("Create", func() {
+	Describe("CreateOrg", func() {
 		var (
 			createErr                 error
 			orgName                   string
@@ -99,6 +100,12 @@ var _ = Describe("OrgRepository", func() {
 			}
 			org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 				Name: orgName,
+				Labels: map[string]string{
+					"test-label-key": "test-label-val",
+				},
+				Annotations: map[string]string{
+					"test-annotation-key": "test-annotation-val",
+				},
 			})
 		})
 
@@ -117,16 +124,30 @@ var _ = Describe("OrgRepository", func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 			})
 
-			It("creates a CFOrg resource in the root namespace", func() {
+			It("returns an Org record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
-
-				orgCR := new(korifiv1alpha1.CFOrg)
-				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: org.GUID}, orgCR)).To(Succeed())
 
 				Expect(org.Name).To(Equal(orgName))
 				Expect(org.GUID).To(HavePrefix("cf-org-"))
-				Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				createdAt, err := time.Parse(time.RFC3339, org.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createdAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				updatedAt, err := time.Parse(time.RFC3339, org.UpdatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(org.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(org.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
+			})
+
+			It("creates a CFOrg resource in the root namespace", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				cfOrg := new(korifiv1alpha1.CFOrg)
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: org.GUID}, cfOrg)).To(Succeed())
+
+				Expect(cfOrg.Spec.DisplayName).To(Equal(orgName))
+				Expect(cfOrg.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(cfOrg.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 
 			When("the org isn't ready in the timeout", func() {
@@ -151,7 +172,7 @@ var _ = Describe("OrgRepository", func() {
 		})
 	})
 
-	Describe("List", func() {
+	Describe("ListOrgs", func() {
 		var cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
 
 		BeforeEach(func() {
@@ -172,20 +193,20 @@ var _ = Describe("OrgRepository", func() {
 			Expect(orgs).To(ContainElements(
 				repositories.OrgRecord{
 					Name:      cfOrg1.Spec.DisplayName,
-					CreatedAt: cfOrg1.CreationTimestamp.Time,
-					UpdatedAt: cfOrg1.CreationTimestamp.Time,
+					CreatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
+					UpdatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
 					GUID:      cfOrg1.Name,
 				},
 				repositories.OrgRecord{
 					Name:      cfOrg2.Spec.DisplayName,
-					CreatedAt: cfOrg2.CreationTimestamp.Time,
-					UpdatedAt: cfOrg2.CreationTimestamp.Time,
+					CreatedAt: cfOrg2.CreationTimestamp.Time.UTC().Format(time.RFC3339),
+					UpdatedAt: cfOrg2.CreationTimestamp.Time.UTC().Format(time.RFC3339),
 					GUID:      cfOrg2.Name,
 				},
 				repositories.OrgRecord{
 					Name:      cfOrg3.Spec.DisplayName,
-					CreatedAt: cfOrg3.CreationTimestamp.Time,
-					UpdatedAt: cfOrg3.CreationTimestamp.Time,
+					CreatedAt: cfOrg3.CreationTimestamp.Time.UTC().Format(time.RFC3339),
+					UpdatedAt: cfOrg3.CreationTimestamp.Time.UTC().Format(time.RFC3339),
 					GUID:      cfOrg3.Name,
 				},
 			))
@@ -240,14 +261,14 @@ var _ = Describe("OrgRepository", func() {
 				Expect(orgs).To(ConsistOf(
 					repositories.OrgRecord{
 						Name:      cfOrg1.Spec.DisplayName,
-						CreatedAt: cfOrg1.CreationTimestamp.Time,
-						UpdatedAt: cfOrg1.CreationTimestamp.Time,
+						CreatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
+						UpdatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
 						GUID:      cfOrg1.Name,
 					},
 					repositories.OrgRecord{
 						Name:      cfOrg3.Spec.DisplayName,
-						CreatedAt: cfOrg3.CreationTimestamp.Time,
-						UpdatedAt: cfOrg3.CreationTimestamp.Time,
+						CreatedAt: cfOrg3.CreationTimestamp.Time.UTC().Format(time.RFC3339),
+						UpdatedAt: cfOrg3.CreationTimestamp.Time.UTC().Format(time.RFC3339),
 						GUID:      cfOrg3.Name,
 					},
 				))
@@ -262,14 +283,14 @@ var _ = Describe("OrgRepository", func() {
 				Expect(orgs).To(ConsistOf(
 					repositories.OrgRecord{
 						Name:      cfOrg1.Spec.DisplayName,
-						CreatedAt: cfOrg1.CreationTimestamp.Time,
-						UpdatedAt: cfOrg1.CreationTimestamp.Time,
+						CreatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
+						UpdatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
 						GUID:      cfOrg1.Name,
 					},
 					repositories.OrgRecord{
 						Name:      cfOrg2.Spec.DisplayName,
-						CreatedAt: cfOrg2.CreationTimestamp.Time,
-						UpdatedAt: cfOrg2.CreationTimestamp.Time,
+						CreatedAt: cfOrg2.CreationTimestamp.Time.UTC().Format(time.RFC3339),
+						UpdatedAt: cfOrg2.CreationTimestamp.Time.UTC().Format(time.RFC3339),
 						GUID:      cfOrg2.Name,
 					},
 				))
@@ -289,11 +310,19 @@ var _ = Describe("OrgRepository", func() {
 		})
 	})
 
-	Describe("Get", func() {
+	Describe("GetOrg", func() {
 		var cfOrg *korifiv1alpha1.CFOrg
 
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("the-org"))
+			cfOrgOrig := cfOrg.DeepCopy()
+			cfOrg.Labels = map[string]string{
+				"test-label-key": "test-label-val",
+			}
+			cfOrg.Annotations = map[string]string{
+				"test-annotation-key": "test-annotation-val",
+			}
+			Expect(k8sClient.Patch(ctx, cfOrg, client.MergeFrom(cfOrgOrig))).To(Succeed())
 		})
 
 		When("the user has a role binding in the org", func() {
@@ -305,6 +334,8 @@ var _ = Describe("OrgRepository", func() {
 				orgRecord, err := orgRepo.GetOrg(ctx, authInfo, cfOrg.Name)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgRecord.Name).To(Equal(cfOrg.Spec.DisplayName))
+				Expect(orgRecord.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 		})
 
@@ -316,7 +347,7 @@ var _ = Describe("OrgRepository", func() {
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("DeleteOrg", func() {
 		var cfOrg *korifiv1alpha1.CFOrg
 
 		BeforeEach(func() {
@@ -369,6 +400,154 @@ var _ = Describe("OrgRepository", func() {
 					})
 					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
+			})
+		})
+	})
+
+	Describe("PatchOrgMetadata", func() {
+		var (
+			orgName                       string
+			cfOrg                         *korifiv1alpha1.CFOrg
+			patchErr                      error
+			orgRecord                     repositories.OrgRecord
+			origLabels, origAnnotations   map[string]string
+			labelsPatch, annotationsPatch map[string]*string
+		)
+
+		BeforeEach(func() {
+			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org-name"))
+			orgName = cfOrg.Name
+			origLabels = map[string]string{
+				"before-key-one": "value-one",
+				"before-key-two": "value-two",
+				"key-one":        "value-one",
+			}
+			labelsPatch = map[string]*string{
+				"key-one":        pointerTo("value-one-updated"),
+				"key-two":        pointerTo("value-two"),
+				"before-key-two": nil,
+			}
+			origAnnotations = map[string]string{
+				"before-key-one": "value-one",
+				"before-key-two": "value-two",
+				"key-one":        "value-one",
+			}
+			annotationsPatch = map[string]*string{
+				"key-one":        pointerTo("value-one-updated"),
+				"key-two":        pointerTo("value-two"),
+				"before-key-two": nil,
+			}
+			origCFApp := cfOrg.DeepCopy()
+			cfOrg.Labels = origLabels
+			cfOrg.Annotations = origAnnotations
+			Expect(k8sClient.Patch(ctx, cfOrg, client.MergeFrom(origCFApp))).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			patchMsg := repositories.PatchOrgMetadataMessage{
+				OrgGUID:     orgName,
+				Annotations: annotationsPatch,
+				Labels:      labelsPatch,
+			}
+
+			orgRecord, patchErr = orgRepo.PatchOrgMetadata(ctx, authInfo, patchMsg)
+		})
+
+		When("the user is authorized and an org exists", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+			})
+
+			It("returns the updated org record", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
+				Expect(orgRecord.GUID).To(Equal(cfOrg.Name))
+				Expect(orgRecord.Labels).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+				Expect(orgRecord.Annotations).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+			})
+
+			It("sets the k8s cforg resource", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
+				updatedCFOrg := new(korifiv1alpha1.CFOrg)
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
+				Expect(updatedCFOrg.Labels).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+				Expect(updatedCFOrg.Annotations).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+			})
+
+			When("an annotation is invalid", func() {
+				BeforeEach(func() {
+					annotationsPatch = map[string]*string{
+						"-bad-annotation": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.annotations is invalid"),
+						ContainSubstring(`"-bad-annotation"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"-bad-label": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.labels is invalid"),
+						ContainSubstring(`"-bad-label"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+		})
+
+		When("the user is authorized but the org does not exist", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+				orgName = "invalidOrgName"
+			})
+
+			It("fails to get the org", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("the user is not authorized", func() {
+			It("return a forbidden error", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
