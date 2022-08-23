@@ -721,11 +721,6 @@ var _ = Describe("AppHandler", func() {
 				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
 
-			It("returns the App in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
 			It("patches the app with the new labels and annotations", func() {
 				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
 				_, _, msg := appRepo.PatchAppMetadataArgsForCall(0)

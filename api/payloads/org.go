@@ -16,3 +16,15 @@ func (p OrgCreate) ToMessage() repositories.CreateOrgMessage {
 		Annotations: p.Metadata.Annotations,
 	}
 }
+
+type OrgPatch struct {
+	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (p OrgPatch) ToMessage(orgGUID string) repositories.PatchOrgMetadataMessage {
+	return repositories.PatchOrgMetadataMessage{
+		OrgGUID:     orgGUID,
+		Labels:      p.Metadata.Labels,
+		Annotations: p.Metadata.Annotations,
+	}
+}

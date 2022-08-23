@@ -16,9 +16,7 @@ import (
 )
 
 var _ = Describe("BuildpackRepository", func() {
-	var (
-		buildpackRepo *BuildpackRepository
-	)
+	var buildpackRepo *BuildpackRepository
 
 	BeforeEach(func() {
 		buildpackRepo = NewBuildpackRepository(userClientFactory, rootNamespace)

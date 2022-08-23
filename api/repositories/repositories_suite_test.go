@@ -134,7 +134,7 @@ var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 })
 
-func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOrg {
+func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alpha1.CFOrg {
 	guid := uuid.NewString()
 	cfOrg := &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
@@ -142,7 +142,7 @@ func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOr
 			Namespace: rootNamespace,
 		},
 		Spec: korifiv1alpha1.CFOrgSpec{
-			DisplayName: name,
+			DisplayName: displayName,
 		},
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())

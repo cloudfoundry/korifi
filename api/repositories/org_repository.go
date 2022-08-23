@@ -36,14 +36,20 @@ type DeleteOrgMessage struct {
 	GUID string
 }
 
+type PatchOrgMetadataMessage struct {
+	OrgGUID     string
+	Annotations map[string]*string
+	Labels      map[string]*string
+}
+
 type OrgRecord struct {
 	Name        string
 	GUID        string
 	Suspended   bool
 	Labels      map[string]string
 	Annotations map[string]string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	CreatedAt   string
+	UpdatedAt   string
 }
 
 type OrgRepo struct {
@@ -75,30 +81,23 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
-	var orgCR *korifiv1alpha1.CFOrg
-	orgCR, err = r.createOrgCR(ctx, info, userClient, &korifiv1alpha1.CFOrg{
+
+	cfOrg, err := r.createOrgCR(ctx, info, userClient, &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OrgPrefix + uuid.NewString(),
-			Namespace: r.rootNamespace,
+			Name:        OrgPrefix + uuid.NewString(),
+			Namespace:   r.rootNamespace,
+			Labels:      message.Labels,
+			Annotations: message.Annotations,
 		},
 		Spec: korifiv1alpha1.CFOrgSpec{
 			DisplayName: message.Name,
 		},
 	})
-
 	if err != nil {
 		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
-	return OrgRecord{
-		Name:        message.Name,
-		GUID:        orgCR.Name,
-		Suspended:   message.Suspended,
-		Labels:      message.Labels,
-		Annotations: message.Annotations,
-		CreatedAt:   orgCR.CreationTimestamp.Time,
-		UpdatedAt:   orgCR.CreationTimestamp.Time,
-	}, nil
+	return cfOrgToOrgRecord(*cfOrg), nil
 }
 
 //nolint:dupl
@@ -180,12 +179,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 			continue
 		}
 
-		records = append(records, OrgRecord{
-			Name:      cfOrg.Spec.DisplayName,
-			GUID:      cfOrg.Name,
-			CreatedAt: cfOrg.CreationTimestamp.Time,
-			UpdatedAt: cfOrg.CreationTimestamp.Time,
-		})
+		records = append(records, cfOrgToOrgRecord(cfOrg))
 	}
 
 	return records, nil
@@ -217,4 +211,41 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	})
 
 	return apierrors.FromK8sError(err, OrgResourceType)
+}
+
+//nolint:dupl
+func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.Info, message PatchOrgMetadataMessage) (OrgRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfOrg := new(korifiv1alpha1.CFOrg)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: message.OrgGUID}, cfOrg)
+	if err != nil {
+		return OrgRecord{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgResourceType))
+	}
+
+	origOrg := cfOrg.DeepCopy()
+	patchMap(cfOrg.Labels, message.Labels)
+	patchMap(cfOrg.Annotations, message.Annotations)
+	err = userClient.Patch(ctx, cfOrg, client.MergeFrom(origOrg))
+	if err != nil {
+		return OrgRecord{}, apierrors.FromK8sErrorWithInvalidAsUnprocessableEntity(err, OrgResourceType)
+	}
+
+	return cfOrgToOrgRecord(*cfOrg), nil
+}
+
+func cfOrgToOrgRecord(cfOrg korifiv1alpha1.CFOrg) OrgRecord {
+	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfOrg.ObjectMeta)
+	return OrgRecord{
+		GUID:        cfOrg.Name,
+		Name:        cfOrg.Spec.DisplayName,
+		Suspended:   false,
+		Labels:      cfOrg.Labels,
+		Annotations: cfOrg.Annotations,
+		CreatedAt:   formatTimestamp(cfOrg.CreationTimestamp),
+		UpdatedAt:   updatedAtTime,
+	}
 }

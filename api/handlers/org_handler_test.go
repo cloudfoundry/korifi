@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,15 +10,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-http-utils/headers"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apis "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+
+	"github.com/go-http-utils/headers"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 const (
@@ -29,12 +31,12 @@ var _ = Describe("OrgHandler", func() {
 	var (
 		orgHandler *apis.OrgHandler
 		orgRepo    *fake.OrgRepository
-		now        time.Time
+		now        string
 		domainRepo *fake.CFDomainRepository
 	)
 
 	BeforeEach(func() {
-		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
+		now = time.Unix(1631892190, 0).UTC().Format(time.RFC3339) // 2021-09-17T15:23:10Z
 
 		orgRepo = new(fake.OrgRepository)
 		domainRepo = new(fake.CFDomainRepository)
@@ -369,6 +371,222 @@ var _ = Describe("OrgHandler", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("Updating Orgs", func() {
+		const orgGUID = "orgGUID"
+		var (
+			request     *http.Request
+			err         error
+			requestBody string
+		)
+
+		JustBeforeEach(func() {
+			request, err = http.NewRequestWithContext(ctx, http.MethodPatch, orgsBase+"/"+orgGUID, strings.NewReader(requestBody))
+			Expect(err).NotTo(HaveOccurred())
+			request.Header.Add(headers.Authorization, "Bearer my-token")
+			router.ServeHTTP(rr, request)
+		})
+
+		When("the org exists and is accessible and we patch the annotations and labels", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{
+					GUID: orgGUID,
+					Name: "test-org",
+				}, nil)
+
+				orgRepo.PatchOrgMetadataReturns(repositories.OrgRecord{
+					GUID: orgGUID,
+					Name: "test-org",
+					Labels: map[string]string{
+						"env":                           "production",
+						"foo.example.com/my-identifier": "aruba",
+					},
+					Annotations: map[string]string{
+						"hello":                       "there",
+						"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+					},
+				}, nil)
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+						"env": "production",
+                        "foo.example.com/my-identifier": "aruba"
+					},
+					"annotations": {
+						"hello": "there",
+                        "foo.example.com/lorem-ipsum": "Lorem ipsum."
+					}
+				  }
+			    }`
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK))
+			})
+
+			It("patches the org with the new labels and annotations", func() {
+				Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(1))
+				_, _, msg := orgRepo.PatchOrgMetadataArgsForCall(0)
+				Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
+				Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
+				Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
+				Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+			})
+
+			It("includes the labels and annotations in the response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				var jsonBody struct {
+					Metadata struct {
+						Annotations map[string]string `json:"annotations"`
+						Labels      map[string]string `json:"labels"`
+					} `json:"metadata"`
+				}
+				Expect(json.NewDecoder(rr.Body).Decode(&jsonBody)).To(Succeed())
+				Expect(jsonBody.Metadata.Annotations).To(Equal(map[string]string{
+					"hello":                       "there",
+					"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+				}))
+				Expect(jsonBody.Metadata.Labels).To(Equal(map[string]string{
+					"env":                           "production",
+					"foo.example.com/my-identifier": "aruba",
+				}))
+			})
+		})
+
+		When("the user doesn't have permission to get the org", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, apierrors.NewForbiddenError(nil, repositories.OrgResourceType))
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+					  "env": "production"
+					}
+				  }
+				}`
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.OrgResourceType)
+			})
+
+			It("does not call patch", func() {
+				Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("fetching the org errors", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, errors.New("boom"))
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+					  "env": "production"
+					}
+				  }
+				}`
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+
+			It("does not call patch", func() {
+				Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("patching the org errors", func() {
+			BeforeEach(func() {
+				orgRecord := repositories.OrgRecord{
+					GUID: orgGUID,
+					Name: "test-org",
+				}
+				orgRepo.GetOrgReturns(orgRecord, nil)
+				orgRepo.PatchOrgMetadataReturns(repositories.OrgRecord{}, errors.New("boom"))
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+					  "env": "production"
+					}
+				  }
+				}`
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("a label is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+					  "metadata": {
+						"labels": {
+						  "cloudfoundry.org/test": "production"
+					    }
+        		     }
+					}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+
+			When("the prefix is a subdomain of cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+					  "metadata": {
+						"labels": {
+						  "korifi.cloudfoundry.org/test": "production"
+					    }
+    		         }
+					}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+		})
+
+		When("an annotation is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+					  "metadata": {
+						"annotations": {
+						  "cloudfoundry.org/test": "there"
+						}
+					  }
+					}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+
+				When("the prefix is a subdomain of cloudfoundry.org", func() {
+					BeforeEach(func() {
+						requestBody = `{
+						  "metadata": {
+							"annotations": {
+							  "korifi.cloudfoundry.org/test": "there"
+							}
+						  }
+						}`
+					})
+
+					It("returns an unprocessable entity error", func() {
+						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					})
+				})
 			})
 		})
 	})

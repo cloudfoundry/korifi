@@ -415,6 +415,7 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 	return appEnvVarsSecretToRecord(secretObj), nil
 }
 
+//nolint:dupl
 func (f *AppRepo) PatchAppMetadata(ctx context.Context, authInfo authorization.Info, message PatchAppMetadataMessage) (AppRecord, error) {
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
