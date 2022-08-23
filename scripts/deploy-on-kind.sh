@@ -379,12 +379,13 @@ function deploy_job_task_runner() {
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
+deploy_korifi_controllers
 make deploy-workloads
+make deploy-kpack-config
 create_registry_secret
 
 if [[ -n "${serial}" ]]; then
   trap 'clean_up_img_refs' EXIT
-  deploy_korifi_controllers
   deploy_job_task_runner
   deploy_kpack_image_builder
   deploy_statefulset_runner
@@ -400,19 +401,11 @@ EOF
 
   tmp="$(mktemp -d)"
   trap "rm -rf ${tmp}; clean_up_img_refs" EXIT
-  deploy_korifi_controllers &>"${tmp}/controllers" &
   deploy_job_task_runner &>"${tmp}/jtr" &
   deploy_kpack_image_builder &>"${tmp}/kip" &
   deploy_statefulset_runner &>"${tmp}/stsr" &
   deploy_korifi_api &>"${tmp}/api" &
   wait
-
-  cat <<EOF
-***********
-Controllers
-***********
-EOF
-  cat "${tmp}/controllers"
 
   cat <<EOF
 ***********
@@ -442,5 +435,3 @@ API
 EOF
   cat "${tmp}/api"
 fi
-
-make deploy-kpack-config
