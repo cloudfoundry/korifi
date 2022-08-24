@@ -136,10 +136,9 @@ type PatchAppEnvVarsMessage struct {
 }
 
 type PatchAppMetadataMessage struct {
-	AppGUID     string
-	SpaceGUID   string
-	Annotations map[string]*string
-	Labels      map[string]*string
+	MetadataPatch
+	AppGUID   string
+	SpaceGUID string
 }
 
 type SetCurrentDropletMessage struct {
@@ -415,7 +414,6 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 	return appEnvVarsSecretToRecord(secretObj), nil
 }
 
-//nolint:dupl
 func (f *AppRepo) PatchAppMetadata(ctx context.Context, authInfo authorization.Info, message PatchAppMetadataMessage) (AppRecord, error) {
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -428,12 +426,9 @@ func (f *AppRepo) PatchAppMetadata(ctx context.Context, authInfo authorization.I
 		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	origApp := app.DeepCopy()
-	patchMap(app.Labels, message.Labels)
-	patchMap(app.Annotations, message.Annotations)
-	err = userClient.Patch(ctx, app, client.MergeFrom(origApp))
+	err = patchMetadata(ctx, userClient, app, message.MetadataPatch, AppResourceType)
 	if err != nil {
-		return AppRecord{}, apierrors.FromK8sErrorWithInvalidAsUnprocessableEntity(err, AppResourceType)
+		return AppRecord{}, err
 	}
 
 	return cfAppToAppRecord(*app), nil

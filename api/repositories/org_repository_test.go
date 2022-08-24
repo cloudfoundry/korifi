@@ -406,48 +406,27 @@ var _ = Describe("OrgRepository", func() {
 
 	Describe("PatchOrgMetadata", func() {
 		var (
-			orgName                       string
+			orgGUID                       string
 			cfOrg                         *korifiv1alpha1.CFOrg
 			patchErr                      error
 			orgRecord                     repositories.OrgRecord
-			origLabels, origAnnotations   map[string]string
 			labelsPatch, annotationsPatch map[string]*string
 		)
 
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org-name"))
-			orgName = cfOrg.Name
-			origLabels = map[string]string{
-				"before-key-one": "value-one",
-				"before-key-two": "value-two",
-				"key-one":        "value-one",
-			}
-			labelsPatch = map[string]*string{
-				"key-one":        pointerTo("value-one-updated"),
-				"key-two":        pointerTo("value-two"),
-				"before-key-two": nil,
-			}
-			origAnnotations = map[string]string{
-				"before-key-one": "value-one",
-				"before-key-two": "value-two",
-				"key-one":        "value-one",
-			}
-			annotationsPatch = map[string]*string{
-				"key-one":        pointerTo("value-one-updated"),
-				"key-two":        pointerTo("value-two"),
-				"before-key-two": nil,
-			}
-			origCFOrg := cfOrg.DeepCopy()
-			cfOrg.Labels = origLabels
-			cfOrg.Annotations = origAnnotations
-			Expect(k8sClient.Patch(ctx, cfOrg, client.MergeFrom(origCFOrg))).To(Succeed())
+			orgGUID = cfOrg.Name
+			labelsPatch = nil
+			annotationsPatch = nil
 		})
 
 		JustBeforeEach(func() {
 			patchMsg := repositories.PatchOrgMetadataMessage{
-				GUID:        orgName,
-				Annotations: annotationsPatch,
-				Labels:      labelsPatch,
+				GUID: orgGUID,
+				MetadataPatch: repositories.MetadataPatch{
+					Annotations: annotationsPatch,
+					Labels:      labelsPatch,
+				},
 			}
 
 			orgRecord, patchErr = orgRepo.PatchOrgMetadata(ctx, authInfo, patchMsg)
@@ -458,43 +437,122 @@ var _ = Describe("OrgRepository", func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 			})
 
-			It("returns the updated org record", func() {
-				Expect(patchErr).NotTo(HaveOccurred())
-				Expect(orgRecord.GUID).To(Equal(cfOrg.Name))
-				Expect(orgRecord.Labels).To(Equal(
-					map[string]string{
-						"before-key-one": "value-one",
-						"key-one":        "value-one-updated",
-						"key-two":        "value-two",
-					},
-				))
-				Expect(orgRecord.Annotations).To(Equal(
-					map[string]string{
-						"before-key-one": "value-one",
-						"key-one":        "value-one-updated",
-						"key-two":        "value-two",
-					},
-				))
+			When("the org doesn't have any labels or annotations", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"key-one": pointerTo("value-one"),
+						"key-two": pointerTo("value-two"),
+					}
+					annotationsPatch = map[string]*string{
+						"key-one": pointerTo("value-one"),
+						"key-two": pointerTo("value-two"),
+					}
+					origCFOrg := cfOrg.DeepCopy()
+					cfOrg.Labels = nil
+					cfOrg.Annotations = nil
+					Expect(k8sClient.Patch(ctx, cfOrg, client.MergeFrom(origCFOrg))).To(Succeed())
+				})
+
+				It("returns the updated org record", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(orgRecord.GUID).To(Equal(orgGUID))
+					Expect(orgRecord.Labels).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+					Expect(orgRecord.Annotations).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+				})
+
+				It("sets the k8s CFOrg resource", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					updatedCFOrg := new(korifiv1alpha1.CFOrg)
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
+					Expect(updatedCFOrg.Labels).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+					Expect(updatedCFOrg.Annotations).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+				})
 			})
 
-			It("sets the k8s CFOrg resource", func() {
-				Expect(patchErr).NotTo(HaveOccurred())
-				updatedCFOrg := new(korifiv1alpha1.CFOrg)
-				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
-				Expect(updatedCFOrg.Labels).To(Equal(
-					map[string]string{
+			When("the org already has labels and annotations", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"key-one":        pointerTo("value-one-updated"),
+						"key-two":        pointerTo("value-two"),
+						"before-key-two": nil,
+					}
+					annotationsPatch = map[string]*string{
+						"key-one":        pointerTo("value-one-updated"),
+						"key-two":        pointerTo("value-two"),
+						"before-key-two": nil,
+					}
+					origCFOrg := cfOrg.DeepCopy()
+					cfOrg.Labels = map[string]string{
 						"before-key-one": "value-one",
-						"key-one":        "value-one-updated",
-						"key-two":        "value-two",
-					},
-				))
-				Expect(updatedCFOrg.Annotations).To(Equal(
-					map[string]string{
+						"before-key-two": "value-two",
+						"key-one":        "value-one",
+					}
+					cfOrg.Annotations = map[string]string{
 						"before-key-one": "value-one",
-						"key-one":        "value-one-updated",
-						"key-two":        "value-two",
-					},
-				))
+						"before-key-two": "value-two",
+						"key-one":        "value-one",
+					}
+					Expect(k8sClient.Patch(ctx, cfOrg, client.MergeFrom(origCFOrg))).To(Succeed())
+				})
+
+				It("returns the updated org record", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(orgRecord.GUID).To(Equal(cfOrg.Name))
+					Expect(orgRecord.Labels).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+					Expect(orgRecord.Annotations).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+				})
+
+				It("sets the k8s CFOrg resource", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					updatedCFOrg := new(korifiv1alpha1.CFOrg)
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
+					Expect(updatedCFOrg.Labels).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+					Expect(updatedCFOrg.Annotations).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+				})
 			})
 
 			When("an annotation is invalid", func() {
@@ -537,7 +595,7 @@ var _ = Describe("OrgRepository", func() {
 		When("the user is authorized but the Org does not exist", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
-				orgName = "invalidOrgGUID"
+				orgGUID = "invalidOrgGUID"
 			})
 
 			It("fails to get the Org", func() {

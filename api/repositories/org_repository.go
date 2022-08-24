@@ -37,9 +37,8 @@ type DeleteOrgMessage struct {
 }
 
 type PatchOrgMetadataMessage struct {
-	GUID        string
-	Annotations map[string]*string
-	Labels      map[string]*string
+	MetadataPatch
+	GUID string
 }
 
 type OrgRecord struct {
@@ -213,7 +212,6 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	return apierrors.FromK8sError(err, OrgResourceType)
 }
 
-//nolint:dupl
 func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.Info, message PatchOrgMetadataMessage) (OrgRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -226,12 +224,9 @@ func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.I
 		return OrgRecord{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgResourceType))
 	}
 
-	origOrg := cfOrg.DeepCopy()
-	patchMap(cfOrg.Labels, message.Labels)
-	patchMap(cfOrg.Annotations, message.Annotations)
-	err = userClient.Patch(ctx, cfOrg, client.MergeFrom(origOrg))
+	err = patchMetadata(ctx, userClient, cfOrg, message.MetadataPatch, OrgResourceType)
 	if err != nil {
-		return OrgRecord{}, apierrors.FromK8sErrorWithInvalidAsUnprocessableEntity(err, OrgResourceType)
+		return OrgRecord{}, err
 	}
 
 	return cfOrgToOrgRecord(*cfOrg), nil

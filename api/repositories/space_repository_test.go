@@ -497,10 +497,9 @@ var _ = Describe("SpaceRepository", func() {
 			orgGUID                       string
 			cfSpace                       *korifiv1alpha1.CFSpace
 			cfOrg                         *korifiv1alpha1.CFOrg
+			labelsPatch, annotationsPatch map[string]*string
 			patchErr                      error
 			spaceRecord                   repositories.SpaceRecord
-			origLabels, origAnnotations   map[string]string
-			labelsPatch, annotationsPatch map[string]*string
 		)
 
 		BeforeEach(func() {
@@ -508,39 +507,18 @@ var _ = Describe("SpaceRepository", func() {
 			orgGUID = cfOrg.Name
 			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, "the-space")
 			spaceGUID = cfSpace.Name
-
-			origLabels = map[string]string{
-				"before-key-one": "value-one",
-				"before-key-two": "value-two",
-				"key-one":        "value-one",
-			}
-			labelsPatch = map[string]*string{
-				"key-one":        pointerTo("value-one-updated"),
-				"key-two":        pointerTo("value-two"),
-				"before-key-two": nil,
-			}
-			origAnnotations = map[string]string{
-				"before-key-one": "value-one",
-				"before-key-two": "value-two",
-				"key-one":        "value-one",
-			}
-			annotationsPatch = map[string]*string{
-				"key-one":        pointerTo("value-one-updated"),
-				"key-two":        pointerTo("value-two"),
-				"before-key-two": nil,
-			}
-			origCFSpace := cfSpace.DeepCopy()
-			cfSpace.Labels = origLabels
-			cfSpace.Annotations = origAnnotations
-			Expect(k8sClient.Patch(ctx, cfSpace, client.MergeFrom(origCFSpace))).To(Succeed())
+			labelsPatch = nil
+			annotationsPatch = nil
 		})
 
 		JustBeforeEach(func() {
 			patchMsg := repositories.PatchSpaceMetadataMessage{
-				GUID:        spaceGUID,
-				OrgGUID:     orgGUID,
-				Annotations: annotationsPatch,
-				Labels:      labelsPatch,
+				GUID:    spaceGUID,
+				OrgGUID: orgGUID,
+				MetadataPatch: repositories.MetadataPatch{
+					Annotations: annotationsPatch,
+					Labels:      labelsPatch,
+				},
 			}
 
 			spaceRecord, patchErr = spaceRepo.PatchSpaceMetadata(ctx, authInfo, patchMsg)
@@ -551,44 +529,125 @@ var _ = Describe("SpaceRepository", func() {
 				createRoleBinding(ctx, userName, adminRole.Name, orgGUID)
 			})
 
-			It("returns the updated org record", func() {
-				Expect(patchErr).NotTo(HaveOccurred())
-				Expect(spaceRecord.GUID).To(Equal(spaceGUID))
-				Expect(spaceRecord.OrganizationGUID).To(Equal(orgGUID))
-				Expect(spaceRecord.Labels).To(Equal(
-					map[string]string{
-						"before-key-one": "value-one",
-						"key-one":        "value-one-updated",
-						"key-two":        "value-two",
-					},
-				))
-				Expect(spaceRecord.Annotations).To(Equal(
-					map[string]string{
-						"before-key-one": "value-one",
-						"key-one":        "value-one-updated",
-						"key-two":        "value-two",
-					},
-				))
+			When("the space doesn't have any labels or annotations", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"key-one": pointerTo("value-one"),
+						"key-two": pointerTo("value-two"),
+					}
+					annotationsPatch = map[string]*string{
+						"key-one": pointerTo("value-one"),
+						"key-two": pointerTo("value-two"),
+					}
+					origCFSpace := cfSpace.DeepCopy()
+					cfSpace.Labels = nil
+					cfSpace.Annotations = nil
+					Expect(k8sClient.Patch(ctx, cfSpace, client.MergeFrom(origCFSpace))).To(Succeed())
+				})
+
+				It("returns the updated org record", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(spaceRecord.GUID).To(Equal(spaceGUID))
+					Expect(spaceRecord.OrganizationGUID).To(Equal(orgGUID))
+					Expect(spaceRecord.Labels).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+					Expect(spaceRecord.Annotations).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+				})
+
+				It("sets the k8s CFSpace resource", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					updatedCFSpace := new(korifiv1alpha1.CFSpace)
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), updatedCFSpace)).To(Succeed())
+					Expect(updatedCFSpace.Labels).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+					Expect(updatedCFSpace.Annotations).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+				})
 			})
 
-			It("sets the k8s CFSpace resource", func() {
-				Expect(patchErr).NotTo(HaveOccurred())
-				updatedCFSpace := new(korifiv1alpha1.CFSpace)
-				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), updatedCFSpace)).To(Succeed())
-				Expect(updatedCFSpace.Labels).To(Equal(
-					map[string]string{
+			When("the space already has labels and annotations", func() {
+				BeforeEach(func() {
+					origCFSpace := cfSpace.DeepCopy()
+					cfSpace.Labels = map[string]string{
 						"before-key-one": "value-one",
-						"key-one":        "value-one-updated",
-						"key-two":        "value-two",
-					},
-				))
-				Expect(updatedCFSpace.Annotations).To(Equal(
-					map[string]string{
+						"before-key-two": "value-two",
+						"key-one":        "value-one",
+					}
+					cfSpace.Annotations = map[string]string{
 						"before-key-one": "value-one",
-						"key-one":        "value-one-updated",
-						"key-two":        "value-two",
-					},
-				))
+						"before-key-two": "value-two",
+						"key-one":        "value-one",
+					}
+					Expect(k8sClient.Patch(ctx, cfSpace, client.MergeFrom(origCFSpace))).To(Succeed())
+
+					labelsPatch = map[string]*string{
+						"key-one":        pointerTo("value-one-updated"),
+						"key-two":        pointerTo("value-two"),
+						"before-key-two": nil,
+					}
+					annotationsPatch = map[string]*string{
+						"key-one":        pointerTo("value-one-updated"),
+						"key-two":        pointerTo("value-two"),
+						"before-key-two": nil,
+					}
+				})
+
+				It("returns the updated org record", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(spaceRecord.GUID).To(Equal(spaceGUID))
+					Expect(spaceRecord.OrganizationGUID).To(Equal(orgGUID))
+					Expect(spaceRecord.Labels).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+					Expect(spaceRecord.Annotations).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+				})
+
+				It("sets the k8s CFSpace resource", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					updatedCFSpace := new(korifiv1alpha1.CFSpace)
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), updatedCFSpace)).To(Succeed())
+					Expect(updatedCFSpace.Labels).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+					Expect(updatedCFSpace.Annotations).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+				})
 			})
 
 			When("an annotation is invalid", func() {
