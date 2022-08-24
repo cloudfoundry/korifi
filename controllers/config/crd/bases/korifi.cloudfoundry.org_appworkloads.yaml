@@ -39,15 +39,6 @@ spec:
                 type: string
               appGUID:
                 type: string
-              buildRef:
-                description: BuildRef refers to the CFBuild whose image the AppWorkload
-                  is running
-                properties:
-                  name:
-                    type: string
-                required:
-                - name
-                type: object
               command:
                 items:
                   type: string
@@ -236,7 +227,6 @@ spec:
             required:
             - GUID
             - appGUID
-            - buildRef
             - health
             - image
             - imagePullSecrets
