@@ -23,7 +23,7 @@ type OrgPatch struct {
 
 func (p OrgPatch) ToMessage(orgGUID string) repositories.PatchOrgMetadataMessage {
 	return repositories.PatchOrgMetadataMessage{
-		OrgGUID:     orgGUID,
+		GUID:        orgGUID,
 		Labels:      p.Metadata.Labels,
 		Annotations: p.Metadata.Annotations,
 	}

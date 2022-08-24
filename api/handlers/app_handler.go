@@ -463,6 +463,7 @@ func (h *AppHandler) getProcessByTypeForAppHander(ctx context.Context, logger lo
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
 }
 
+//nolint:dupl
 func (h *AppHandler) appPatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]

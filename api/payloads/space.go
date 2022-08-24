@@ -19,3 +19,16 @@ func (p SpaceCreate) ToMessage(imageRegistryCredentialSecret string) repositorie
 		ImageRegistryCredentials: imageRegistryCredentialSecret,
 	}
 }
+
+type SpacePatch struct {
+	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (p SpacePatch) ToMessage(spaceGUID, orgGUID string) repositories.PatchSpaceMetadataMessage {
+	return repositories.PatchSpaceMetadataMessage{
+		GUID:        spaceGUID,
+		OrgGUID:     orgGUID,
+		Labels:      p.Metadata.Labels,
+		Annotations: p.Metadata.Annotations,
+	}
+}

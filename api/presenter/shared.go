@@ -99,3 +99,17 @@ func (u buildURL) build() string {
 
 	return nativeP.String()
 }
+
+func emptyMapIfNil(m map[string]string) map[string]string {
+	if m == nil {
+		return map[string]string{}
+	}
+	return m
+}
+
+func emptySliceIfNil(m []string) []string {
+	if m == nil {
+		return []string{}
+	}
+	return m
+}

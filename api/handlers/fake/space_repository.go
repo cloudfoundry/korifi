@@ -69,6 +69,21 @@ type SpaceRepository struct {
 		result1 []repositories.SpaceRecord
 		result2 error
 	}
+	PatchSpaceMetadataStub        func(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)
+	patchSpaceMetadataMutex       sync.RWMutex
+	patchSpaceMetadataArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchSpaceMetadataMessage
+	}
+	patchSpaceMetadataReturns struct {
+		result1 repositories.SpaceRecord
+		result2 error
+	}
+	patchSpaceMetadataReturnsOnCall map[int]struct {
+		result1 repositories.SpaceRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -334,6 +349,72 @@ func (fake *SpaceRepository) ListSpacesReturnsOnCall(i int, result1 []repositori
 	}{result1, result2}
 }
 
+func (fake *SpaceRepository) PatchSpaceMetadata(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error) {
+	fake.patchSpaceMetadataMutex.Lock()
+	ret, specificReturn := fake.patchSpaceMetadataReturnsOnCall[len(fake.patchSpaceMetadataArgsForCall)]
+	fake.patchSpaceMetadataArgsForCall = append(fake.patchSpaceMetadataArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchSpaceMetadataMessage
+	}{arg1, arg2, arg3})
+	stub := fake.PatchSpaceMetadataStub
+	fakeReturns := fake.patchSpaceMetadataReturns
+	fake.recordInvocation("PatchSpaceMetadata", []interface{}{arg1, arg2, arg3})
+	fake.patchSpaceMetadataMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *SpaceRepository) PatchSpaceMetadataCallCount() int {
+	fake.patchSpaceMetadataMutex.RLock()
+	defer fake.patchSpaceMetadataMutex.RUnlock()
+	return len(fake.patchSpaceMetadataArgsForCall)
+}
+
+func (fake *SpaceRepository) PatchSpaceMetadataCalls(stub func(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)) {
+	fake.patchSpaceMetadataMutex.Lock()
+	defer fake.patchSpaceMetadataMutex.Unlock()
+	fake.PatchSpaceMetadataStub = stub
+}
+
+func (fake *SpaceRepository) PatchSpaceMetadataArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) {
+	fake.patchSpaceMetadataMutex.RLock()
+	defer fake.patchSpaceMetadataMutex.RUnlock()
+	argsForCall := fake.patchSpaceMetadataArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *SpaceRepository) PatchSpaceMetadataReturns(result1 repositories.SpaceRecord, result2 error) {
+	fake.patchSpaceMetadataMutex.Lock()
+	defer fake.patchSpaceMetadataMutex.Unlock()
+	fake.PatchSpaceMetadataStub = nil
+	fake.patchSpaceMetadataReturns = struct {
+		result1 repositories.SpaceRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *SpaceRepository) PatchSpaceMetadataReturnsOnCall(i int, result1 repositories.SpaceRecord, result2 error) {
+	fake.patchSpaceMetadataMutex.Lock()
+	defer fake.patchSpaceMetadataMutex.Unlock()
+	fake.PatchSpaceMetadataStub = nil
+	if fake.patchSpaceMetadataReturnsOnCall == nil {
+		fake.patchSpaceMetadataReturnsOnCall = make(map[int]struct {
+			result1 repositories.SpaceRecord
+			result2 error
+		})
+	}
+	fake.patchSpaceMetadataReturnsOnCall[i] = struct {
+		result1 repositories.SpaceRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *SpaceRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -345,6 +426,8 @@ func (fake *SpaceRepository) Invocations() map[string][][]interface{} {
 	defer fake.getSpaceMutex.RUnlock()
 	fake.listSpacesMutex.RLock()
 	defer fake.listSpacesMutex.RUnlock()
+	fake.patchSpaceMetadataMutex.RLock()
+	defer fake.patchSpaceMetadataMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -29,6 +29,7 @@ type SpaceRepository interface {
 	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
 	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
+	PatchSpaceMetadata(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)
 }
 
 type SpaceHandler struct {
@@ -66,8 +67,7 @@ func (h *SpaceHandler) spaceCreateHandler(ctx context.Context, logger logr.Logge
 		)
 	}
 
-	spaceResponse := presenter.ForCreateSpace(record, h.apiBaseURL)
-	return NewHandlerResponse(http.StatusCreated).WithBody(spaceResponse), nil
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForSpace(record, h.apiBaseURL)), nil
 }
 
 func (h *SpaceHandler) spaceListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
@@ -84,6 +84,29 @@ func (h *SpaceHandler) spaceListHandler(ctx context.Context, logger logr.Logger,
 
 	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL, *r.URL)
 	return NewHandlerResponse(http.StatusOK).WithBody(spaceList), nil
+}
+
+//nolint:dupl
+func (h *SpaceHandler) spacePatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	vars := mux.Vars(r)
+	spaceGUID := vars["guid"]
+
+	space, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch org from Kubernetes", "GUID", spaceGUID)
+	}
+
+	var payload payloads.SpacePatch
+	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	space, err = h.spaceRepo.PatchSpaceMetadata(ctx, authInfo, payload.ToMessage(spaceGUID, space.OrganizationGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch space metadata", "GUID", spaceGUID)
+	}
+
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForSpace(space, h.apiBaseURL)), nil
 }
 
 func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
@@ -110,6 +133,7 @@ func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logge
 func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(SpacesPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.spaceListHandler))
 	router.Path(SpacesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.spaceCreateHandler))
+	router.Path(SpacePath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.spacePatchHandler))
 	router.Path(SpacePath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.spaceDeleteHandler))
 }
 

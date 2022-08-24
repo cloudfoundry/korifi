@@ -49,16 +49,11 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 		lastOperationType = "create"
 	}
 
-	tags := serviceInstanceRecord.Tags
-	if tags == nil {
-		tags = []string{}
-	}
-
 	return ServiceInstanceResponse{
 		Name: serviceInstanceRecord.Name,
 		GUID: serviceInstanceRecord.GUID,
 		Type: serviceInstanceRecord.Type,
-		Tags: tags,
+		Tags: emptySliceIfNil(serviceInstanceRecord.Tags),
 		LastOperation: lastOperation{
 			CreatedAt:   serviceInstanceRecord.CreatedAt,
 			UpdatedAt:   serviceInstanceRecord.UpdatedAt,

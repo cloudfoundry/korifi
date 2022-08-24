@@ -47,8 +47,8 @@ func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 		UpdatedAt: org.UpdatedAt,
 		Suspended: org.Suspended,
 		Metadata: Metadata{
-			Labels:      orEmptyMap(org.Labels),
-			Annotations: orEmptyMap(org.Annotations),
+			Labels:      emptyMapIfNil(org.Labels),
+			Annotations: emptyMapIfNil(org.Annotations),
 		},
 		Relationships: Relationships{},
 		Links: OrgLinks{
@@ -57,12 +57,4 @@ func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 			},
 		},
 	}
-}
-
-func orEmptyMap(m map[string]string) map[string]string {
-	if m == nil {
-		return map[string]string{}
-	}
-
-	return m
 }

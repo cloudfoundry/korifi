@@ -37,7 +37,7 @@ type DeleteOrgMessage struct {
 }
 
 type PatchOrgMetadataMessage struct {
-	OrgGUID     string
+	GUID        string
 	Annotations map[string]*string
 	Labels      map[string]*string
 }
@@ -221,7 +221,7 @@ func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.I
 	}
 
 	cfOrg := new(korifiv1alpha1.CFOrg)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: message.OrgGUID}, cfOrg)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: message.GUID}, cfOrg)
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgResourceType))
 	}
