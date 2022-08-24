@@ -39,10 +39,9 @@ type DeleteSpaceMessage struct {
 }
 
 type PatchSpaceMetadataMessage struct {
-	GUID        string
-	OrgGUID     string
-	Annotations map[string]*string
-	Labels      map[string]*string
+	MetadataPatch
+	GUID    string
+	OrgGUID string
 }
 
 type SpaceRecord struct {
@@ -264,7 +263,6 @@ func (r *SpaceRepo) DeleteSpace(ctx context.Context, info authorization.Info, me
 	return apierrors.FromK8sError(err, SpaceResourceType)
 }
 
-//nolint:dupl
 func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorization.Info, message PatchSpaceMetadataMessage) (SpaceRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -277,12 +275,9 @@ func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorizati
 		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
 	}
 
-	origSpace := cfSpace.DeepCopy()
-	patchMap(cfSpace.Labels, message.Labels)
-	patchMap(cfSpace.Annotations, message.Annotations)
-	err = userClient.Patch(ctx, cfSpace, client.MergeFrom(origSpace))
+	err = patchMetadata(ctx, userClient, cfSpace, message.MetadataPatch, SpaceResourceType)
 	if err != nil {
-		return SpaceRecord{}, apierrors.FromK8sErrorWithInvalidAsUnprocessableEntity(err, SpaceResourceType)
+		return SpaceRecord{}, err
 	}
 
 	return cfSpaceToSpaceRecord(*cfSpace), nil

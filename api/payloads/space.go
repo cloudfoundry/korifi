@@ -26,9 +26,11 @@ type SpacePatch struct {
 
 func (p SpacePatch) ToMessage(spaceGUID, orgGUID string) repositories.PatchSpaceMetadataMessage {
 	return repositories.PatchSpaceMetadataMessage{
-		GUID:        spaceGUID,
-		OrgGUID:     orgGUID,
-		Labels:      p.Metadata.Labels,
-		Annotations: p.Metadata.Annotations,
+		GUID:    spaceGUID,
+		OrgGUID: orgGUID,
+		MetadataPatch: repositories.MetadataPatch{
+			Labels:      p.Metadata.Labels,
+			Annotations: p.Metadata.Annotations,
+		},
 	}
 }

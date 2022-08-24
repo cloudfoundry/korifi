@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"code.cloudfoundry.org/korifi/api/apierrors"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,6 +83,36 @@ func matchesFilter(field string, filter []string) bool {
 	}
 
 	return false
+}
+
+type MetadataPatch struct {
+	Annotations map[string]*string
+	Labels      map[string]*string
+}
+
+type k8sResourceWithDeepCopy[O client.Object] interface {
+	client.Object
+	DeepCopy() O
+}
+
+func patchMetadata[R k8sResourceWithDeepCopy[R]](ctx context.Context, c client.WithWatch, resource R, metadataPatch MetadataPatch, resourceType string) error {
+	origResource := resource.DeepCopy()
+	if resource.GetAnnotations() == nil {
+		resource.SetAnnotations(map[string]string{})
+	}
+
+	if resource.GetLabels() == nil {
+		resource.SetLabels(map[string]string{})
+	}
+
+	patchMap(resource.GetAnnotations(), metadataPatch.Annotations)
+	patchMap(resource.GetLabels(), metadataPatch.Labels)
+	err := c.Patch(ctx, resource, client.MergeFrom(origResource))
+	if err != nil {
+		return apierrors.FromK8sErrorWithInvalidAsUnprocessableEntity(err, resourceType)
+	}
+
+	return nil
 }
 
 func patchMap(input map[string]string, patch map[string]*string) {
