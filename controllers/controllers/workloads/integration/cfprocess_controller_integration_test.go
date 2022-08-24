@@ -143,7 +143,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				var updatedCFApp korifiv1alpha1.CFApp
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfApp.Namespace}, &updatedCFApp)).To(Succeed())
 
-				g.Expect(appWorkload.OwnerReferences).To(HaveLen(1))
+				g.Expect(appWorkload.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
 				g.Expect(appWorkload.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
 
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
@@ -152,7 +152,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessTypeLabelKey, cfProcess.Spec.ProcessType))
 
 				g.Expect(appWorkload.Spec.GUID).To(Equal(cfProcess.Name))
-				g.Expect(appWorkload.Spec.BuildRef.Name).To(Equal(cfBuild.Name))
 				g.Expect(appWorkload.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]))
 				g.Expect(appWorkload.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image))
 				g.Expect(appWorkload.Spec.ImagePullSecrets).To(Equal(cfBuild.Status.Droplet.Registry.ImagePullSecrets))
