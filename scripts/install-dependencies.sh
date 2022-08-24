@@ -116,7 +116,7 @@ echo "*******************"
 
 # Temporarily resolve an issue with contour running on Apple silicon.
 # This fix can be removed once the latest version of contour uses envoy v1.23.1 or newer
-if command -v kbld &> /dev/null; then
+if command -v kbld &>/dev/null; then
   kbld --image-map-file "${DEP_DIR}/contour/kbld-image-mapping-to-fix-envoy-v1.23-bug.json" -f https://projectcontour.io/quickstart/contour.yaml | kubectl apply -f -
 else
   kubectl apply -f https://projectcontour.io/quickstart/contour.yaml

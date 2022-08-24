@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,7 +30,7 @@ var _ = Describe("SpaceRepository", func() {
 		spaceRepo = repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, time.Millisecond*2000)
 	})
 
-	Describe("Create", func() {
+	Describe("CreateSpace", func() {
 		var (
 			createErr                   error
 			orgGUID                     string
@@ -172,7 +173,7 @@ var _ = Describe("SpaceRepository", func() {
 		})
 	})
 
-	Describe("List", func() {
+	Describe("ListSpaces", func() {
 		var cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
 		var space11, space12, space21, space22, space31, space32 *korifiv1alpha1.CFSpace
 
@@ -401,7 +402,7 @@ var _ = Describe("SpaceRepository", func() {
 		})
 	})
 
-	Describe("Get", func() {
+	Describe("GetSpace", func() {
 		var (
 			cfOrg   *korifiv1alpha1.CFOrg
 			cfSpace *korifiv1alpha1.CFSpace
@@ -429,9 +430,11 @@ var _ = Describe("SpaceRepository", func() {
 		})
 	})
 
-	Describe("Delete", func() {
-		var cfOrg *korifiv1alpha1.CFOrg
-		var cfSpace *korifiv1alpha1.CFSpace
+	Describe("DeleteSpace", func() {
+		var (
+			cfOrg   *korifiv1alpha1.CFOrg
+			cfSpace *korifiv1alpha1.CFSpace
+		)
 
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
@@ -484,6 +487,161 @@ var _ = Describe("SpaceRepository", func() {
 					})
 					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
+			})
+		})
+	})
+
+	Describe("PatchSpaceMetadata", func() {
+		var (
+			spaceGUID                     string
+			orgGUID                       string
+			cfSpace                       *korifiv1alpha1.CFSpace
+			cfOrg                         *korifiv1alpha1.CFOrg
+			patchErr                      error
+			spaceRecord                   repositories.SpaceRecord
+			origLabels, origAnnotations   map[string]string
+			labelsPatch, annotationsPatch map[string]*string
+		)
+
+		BeforeEach(func() {
+			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
+			orgGUID = cfOrg.Name
+			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, "the-space")
+			spaceGUID = cfSpace.Name
+
+			origLabels = map[string]string{
+				"before-key-one": "value-one",
+				"before-key-two": "value-two",
+				"key-one":        "value-one",
+			}
+			labelsPatch = map[string]*string{
+				"key-one":        pointerTo("value-one-updated"),
+				"key-two":        pointerTo("value-two"),
+				"before-key-two": nil,
+			}
+			origAnnotations = map[string]string{
+				"before-key-one": "value-one",
+				"before-key-two": "value-two",
+				"key-one":        "value-one",
+			}
+			annotationsPatch = map[string]*string{
+				"key-one":        pointerTo("value-one-updated"),
+				"key-two":        pointerTo("value-two"),
+				"before-key-two": nil,
+			}
+			origCFSpace := cfSpace.DeepCopy()
+			cfSpace.Labels = origLabels
+			cfSpace.Annotations = origAnnotations
+			Expect(k8sClient.Patch(ctx, cfSpace, client.MergeFrom(origCFSpace))).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			patchMsg := repositories.PatchSpaceMetadataMessage{
+				GUID:        spaceGUID,
+				OrgGUID:     orgGUID,
+				Annotations: annotationsPatch,
+				Labels:      labelsPatch,
+			}
+
+			spaceRecord, patchErr = spaceRepo.PatchSpaceMetadata(ctx, authInfo, patchMsg)
+		})
+
+		When("the user is authorized and the space exists", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, orgGUID)
+			})
+
+			It("returns the updated org record", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
+				Expect(spaceRecord.GUID).To(Equal(spaceGUID))
+				Expect(spaceRecord.OrganizationGUID).To(Equal(orgGUID))
+				Expect(spaceRecord.Labels).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+				Expect(spaceRecord.Annotations).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+			})
+
+			It("sets the k8s CFSpace resource", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
+				updatedCFSpace := new(korifiv1alpha1.CFSpace)
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), updatedCFSpace)).To(Succeed())
+				Expect(updatedCFSpace.Labels).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+				Expect(updatedCFSpace.Annotations).To(Equal(
+					map[string]string{
+						"before-key-one": "value-one",
+						"key-one":        "value-one-updated",
+						"key-two":        "value-two",
+					},
+				))
+			})
+
+			When("an annotation is invalid", func() {
+				BeforeEach(func() {
+					annotationsPatch = map[string]*string{
+						"-bad-annotation": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.annotations is invalid"),
+						ContainSubstring(`"-bad-annotation"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"-bad-label": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.labels is invalid"),
+						ContainSubstring(`"-bad-label"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+		})
+
+		When("the user is authorized but the Space does not exist", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, orgGUID)
+				spaceGUID = "invalidSpaceGUID"
+			})
+
+			It("fails to get the Space", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("the user is not authorized", func() {
+			It("return a forbidden error", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

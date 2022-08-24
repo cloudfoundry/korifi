@@ -30,7 +30,7 @@ var _ = Describe("OrgRepository", func() {
 	Describe("CreateOrg", func() {
 		var (
 			createErr                 error
-			orgName                   string
+			orgGUID                   string
 			org                       repositories.OrgRecord
 			done                      chan bool
 			doOrgControllerSimulation bool
@@ -91,15 +91,15 @@ var _ = Describe("OrgRepository", func() {
 		BeforeEach(func() {
 			doOrgControllerSimulation = true
 			done = make(chan bool, 1)
-			orgName = prefixedGUID("org-name")
+			orgGUID = prefixedGUID("org")
 		})
 
 		JustBeforeEach(func() {
 			if doOrgControllerSimulation {
-				go simulateOrgController(rootNamespace, orgName, done)
+				go simulateOrgController(rootNamespace, orgGUID, done)
 			}
 			org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
-				Name: orgName,
+				Name: orgGUID,
 				Labels: map[string]string{
 					"test-label-key": "test-label-val",
 				},
@@ -127,7 +127,7 @@ var _ = Describe("OrgRepository", func() {
 			It("returns an Org record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(org.Name).To(Equal(orgName))
+				Expect(org.Name).To(Equal(orgGUID))
 				Expect(org.GUID).To(HavePrefix("cf-org-"))
 				createdAt, err := time.Parse(time.RFC3339, org.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
@@ -145,7 +145,7 @@ var _ = Describe("OrgRepository", func() {
 				cfOrg := new(korifiv1alpha1.CFOrg)
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: org.GUID}, cfOrg)).To(Succeed())
 
-				Expect(cfOrg.Spec.DisplayName).To(Equal(orgName))
+				Expect(cfOrg.Spec.DisplayName).To(Equal(orgGUID))
 				Expect(cfOrg.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
 				Expect(cfOrg.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
@@ -162,7 +162,7 @@ var _ = Describe("OrgRepository", func() {
 
 			When("the client fails to create the org", func() {
 				BeforeEach(func() {
-					orgName = "this-string-has-illegal-characters-ц"
+					orgGUID = "this-string-has-illegal-characters-ц"
 				})
 
 				It("returns an error", func() {
@@ -437,15 +437,15 @@ var _ = Describe("OrgRepository", func() {
 				"key-two":        pointerTo("value-two"),
 				"before-key-two": nil,
 			}
-			origCFApp := cfOrg.DeepCopy()
+			origCFOrg := cfOrg.DeepCopy()
 			cfOrg.Labels = origLabels
 			cfOrg.Annotations = origAnnotations
-			Expect(k8sClient.Patch(ctx, cfOrg, client.MergeFrom(origCFApp))).To(Succeed())
+			Expect(k8sClient.Patch(ctx, cfOrg, client.MergeFrom(origCFOrg))).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
 			patchMsg := repositories.PatchOrgMetadataMessage{
-				OrgGUID:     orgName,
+				GUID:        orgName,
 				Annotations: annotationsPatch,
 				Labels:      labelsPatch,
 			}
@@ -477,7 +477,7 @@ var _ = Describe("OrgRepository", func() {
 				))
 			})
 
-			It("sets the k8s cforg resource", func() {
+			It("sets the k8s CFOrg resource", func() {
 				Expect(patchErr).NotTo(HaveOccurred())
 				updatedCFOrg := new(korifiv1alpha1.CFOrg)
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
@@ -534,13 +534,13 @@ var _ = Describe("OrgRepository", func() {
 			})
 		})
 
-		When("the user is authorized but the org does not exist", func() {
+		When("the user is authorized but the Org does not exist", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
-				orgName = "invalidOrgName"
+				orgName = "invalidOrgGUID"
 			})
 
-			It("fails to get the org", func() {
+			It("fails to get the Org", func() {
 				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})

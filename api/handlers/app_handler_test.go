@@ -724,6 +724,8 @@ var _ = Describe("AppHandler", func() {
 			It("patches the app with the new labels and annotations", func() {
 				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
 				_, _, msg := appRepo.PatchAppMetadataArgsForCall(0)
+				Expect(msg.AppGUID).To(Equal(appGUID))
+				Expect(msg.SpaceGUID).To(Equal(spaceGUID))
 				Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
 				Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
 				Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))

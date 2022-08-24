@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("Spaces", func() {
@@ -378,6 +380,223 @@ var _ = Describe("Spaces", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("Updating Space", func() {
+		const (
+			spaceGUID = "spaceGUID"
+			orgGUID   = "orgGUID"
+		)
+
+		BeforeEach(func() {
+			requestMethod = http.MethodPatch
+			requestPath = spacesBase + "/" + spaceGUID
+		})
+
+		When("the space exists and is accessible and we patch the annotations and labels", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
+					GUID:             spaceGUID,
+					OrganizationGUID: orgGUID,
+					Name:             "test-space",
+				}, nil)
+
+				spaceRepo.PatchSpaceMetadataReturns(repositories.SpaceRecord{
+					GUID:             spaceGUID,
+					Name:             "test-space",
+					OrganizationGUID: orgGUID,
+					Labels: map[string]string{
+						"env":                           "production",
+						"foo.example.com/my-identifier": "aruba",
+					},
+					Annotations: map[string]string{
+						"hello":                       "there",
+						"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+					},
+				}, nil)
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+						"env": "production",
+                        "foo.example.com/my-identifier": "aruba"
+					},
+					"annotations": {
+						"hello": "there",
+                        "foo.example.com/lorem-ipsum": "Lorem ipsum."
+					}
+				  }
+			    }`
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK))
+			})
+
+			It("patches the space with the new labels and annotations", func() {
+				Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(1))
+				_, _, msg := spaceRepo.PatchSpaceMetadataArgsForCall(0)
+				Expect(msg.GUID).To(Equal(spaceGUID))
+				Expect(msg.OrgGUID).To(Equal(orgGUID))
+				Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
+				Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
+				Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
+				Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+			})
+
+			It("includes the labels and annotations in the response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				var jsonBody struct {
+					Metadata struct {
+						Annotations map[string]string `json:"annotations"`
+						Labels      map[string]string `json:"labels"`
+					} `json:"metadata"`
+				}
+				Expect(json.NewDecoder(rr.Body).Decode(&jsonBody)).To(Succeed())
+				Expect(jsonBody.Metadata.Annotations).To(Equal(map[string]string{
+					"hello":                       "there",
+					"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+				}), "body = ", rr.Body.String())
+				Expect(jsonBody.Metadata.Labels).To(Equal(map[string]string{
+					"env":                           "production",
+					"foo.example.com/my-identifier": "aruba",
+				}))
+			})
+		})
+
+		When("the user doesn't have permission to get the org", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(nil, repositories.SpaceResourceType))
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+					  "env": "production"
+					}
+				  }
+				}`
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.SpaceResourceType)
+			})
+
+			It("does not call patch", func() {
+				Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("fetching the org errors", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("boom"))
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+					  "env": "production"
+					}
+				  }
+				}`
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+
+			It("does not call patch", func() {
+				Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("patching the org errors", func() {
+			BeforeEach(func() {
+				spaceRecord := repositories.SpaceRecord{
+					GUID:             spaceGUID,
+					OrganizationGUID: orgGUID,
+					Name:             "test-space",
+				}
+				spaceRepo.GetSpaceReturns(spaceRecord, nil)
+				spaceRepo.PatchSpaceMetadataReturns(repositories.SpaceRecord{}, errors.New("boom"))
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+					  "env": "production"
+					}
+				  }
+				}`
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("a label is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+					  "metadata": {
+						"labels": {
+						  "cloudfoundry.org/test": "production"
+					    }
+        		     }
+					}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+
+			When("the prefix is a subdomain of cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+					  "metadata": {
+						"labels": {
+						  "korifi.cloudfoundry.org/test": "production"
+					    }
+    		         }
+					}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+		})
+
+		When("an annotation is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+					  "metadata": {
+						"annotations": {
+						  "cloudfoundry.org/test": "there"
+						}
+					  }
+					}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+
+				When("the prefix is a subdomain of cloudfoundry.org", func() {
+					BeforeEach(func() {
+						requestBody = `{
+						  "metadata": {
+							"annotations": {
+							  "korifi.cloudfoundry.org/test": "there"
+							}
+						  }
+						}`
+					})
+
+					It("returns an unprocessable entity error", func() {
+						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					})
+				})
 			})
 		})
 	})

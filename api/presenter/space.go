@@ -27,28 +27,24 @@ type SpaceLinks struct {
 	Organization *Link `json:"organization"`
 }
 
-func ForCreateSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
-	return toSpaceResponse(space, apiBaseURL)
-}
-
 func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL, requestURL url.URL) ListResponse {
 	spaceResponses := make([]interface{}, 0, len(spaces))
 	for _, space := range spaces {
-		spaceResponses = append(spaceResponses, toSpaceResponse(space, apiBaseURL))
+		spaceResponses = append(spaceResponses, ForSpace(space, apiBaseURL))
 	}
 
 	return ForList(spaceResponses, apiBaseURL, requestURL)
 }
 
-func toSpaceResponse(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
+func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
 	return SpaceResponse{
 		Name:      space.Name,
 		GUID:      space.GUID,
 		CreatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
 		Metadata: Metadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
+			Labels:      emptyMapIfNil(space.Labels),
+			Annotations: emptyMapIfNil(space.Annotations),
 		},
 		Relationships: Relationships{
 			"organization": Relationship{

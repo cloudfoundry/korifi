@@ -430,6 +430,7 @@ var _ = Describe("OrgHandler", func() {
 			It("patches the org with the new labels and annotations", func() {
 				Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(1))
 				_, _, msg := orgRepo.PatchOrgMetadataArgsForCall(0)
+				Expect(msg.GUID).To(Equal(orgGUID))
 				Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
 				Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
 				Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))

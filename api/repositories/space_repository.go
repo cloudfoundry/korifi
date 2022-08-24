@@ -38,6 +38,13 @@ type DeleteSpaceMessage struct {
 	OrganizationGUID string
 }
 
+type PatchSpaceMetadataMessage struct {
+	GUID        string
+	OrgGUID     string
+	Annotations map[string]*string
+	Labels      map[string]*string
+}
+
 type SpaceRecord struct {
 	Name             string
 	GUID             string
@@ -234,6 +241,8 @@ func cfSpaceToSpaceRecord(cfSpace korifiv1alpha1.CFSpace) SpaceRecord {
 		Name:             cfSpace.Spec.DisplayName,
 		GUID:             cfSpace.Name,
 		OrganizationGUID: cfSpace.Namespace,
+		Annotations:      cfSpace.Annotations,
+		Labels:           cfSpace.Labels,
 		CreatedAt:        cfSpace.CreationTimestamp.Time,
 		UpdatedAt:        cfSpace.CreationTimestamp.Time,
 	}
@@ -253,4 +262,28 @@ func (r *SpaceRepo) DeleteSpace(ctx context.Context, info authorization.Info, me
 	})
 
 	return apierrors.FromK8sError(err, SpaceResourceType)
+}
+
+//nolint:dupl
+func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorization.Info, message PatchSpaceMetadataMessage) (SpaceRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfSpace := new(korifiv1alpha1.CFSpace)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: message.OrgGUID, Name: message.GUID}, cfSpace)
+	if err != nil {
+		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
+	}
+
+	origSpace := cfSpace.DeepCopy()
+	patchMap(cfSpace.Labels, message.Labels)
+	patchMap(cfSpace.Annotations, message.Annotations)
+	err = userClient.Patch(ctx, cfSpace, client.MergeFrom(origSpace))
+	if err != nil {
+		return SpaceRecord{}, apierrors.FromK8sErrorWithInvalidAsUnprocessableEntity(err, SpaceResourceType)
+	}
+
+	return cfSpaceToSpaceRecord(*cfSpace), nil
 }
