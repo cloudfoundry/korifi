@@ -24,7 +24,7 @@ This document was tested on both [EKS](https://aws.amazon.com/eks/) and [GKE](ht
 The following environment variables will be needed throughout this guide:
 
 -   `ROOT_NAMESPACE`: the namespace at the root of the Korifi org and space hierarchy. The default value is `cf`.
--   `ADMIN_USERNAME`: the name of the Kubernetes user who will have admin privileges on the Korifi installation. For security reasons, you should create a dedicated user.
+-   `ADMIN_USERNAME`: the name of the Kubernetes user who will have CF admin privileges on the Korifi installation. For security reasons, you should choose or create a user that is different from your cluster admin user. To provision new users, follow the user management instructions specific for your cluster's [authentication configuration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) or create a [new (short-lived) client certificate for user authentication](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user).
 -   `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
 
 Here are the example values we'll use in this guide:
