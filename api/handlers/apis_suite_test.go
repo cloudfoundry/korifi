@@ -131,6 +131,18 @@ func expectBadRequestError() {
     }`)
 }
 
+func expectBlobstoreUnavailableError() {
+	expectJSONResponse(http.StatusBadGateway, `{
+        "errors": [
+            {
+                "title": "CF-BlobstoreUnavailable",
+                "detail": "Error uploading source package to the container registry",
+                "code": 150006
+            }
+        ]
+    }`)
+}
+
 func expectUnknownKeyError(detail string) {
 	expectJSONResponse(http.StatusBadRequest, fmt.Sprintf(`{
 		"errors": [

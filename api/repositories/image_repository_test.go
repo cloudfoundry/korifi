@@ -145,8 +145,11 @@ var _ = Describe("ImageRepository", func() {
 				imagePusher.PushReturns("", errors.New("push-error"))
 			})
 
-			It("errors", func() {
+			It("fails with a blobstore unavailable error", func() {
 				Expect(uploadErr).To(MatchError(ContainSubstring("push-error")))
+				var apiError apierrors.BlobstoreUnavailableError
+				Expect(errors.As(uploadErr, &apiError)).To(BeTrue())
+				Expect(apiError.Detail()).To(Equal("Error uploading source package to the container registry"))
 			})
 		})
 

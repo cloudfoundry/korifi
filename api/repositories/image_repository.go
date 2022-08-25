@@ -97,7 +97,7 @@ func (r *ImageRepository) UploadSourceImage(ctx context.Context, authInfo author
 
 	pushedRef, err := r.pusher.Push(imageRef, image, credentials, transport)
 	if err != nil {
-		return "", fmt.Errorf("pushing image ref '%s' failed: %w", imageRef, err)
+		return "", apierrors.NewBlobstoreUnavailableError(fmt.Errorf("pushing image ref '%s' failed: %w", imageRef, err))
 	}
 
 	return pushedRef, nil
