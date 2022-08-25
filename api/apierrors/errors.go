@@ -264,6 +264,22 @@ func NewPackageBitsAlreadyUploadedError(cause error) PackageBitsAlreadyUploadedE
 	}
 }
 
+type BlobstoreUnavailableError struct {
+	apiError
+}
+
+func NewBlobstoreUnavailableError(cause error) BlobstoreUnavailableError {
+	return BlobstoreUnavailableError{
+		apiError: apiError{
+			cause:      cause,
+			title:      "CF-BlobstoreUnavailable",
+			detail:     "Error uploading source package to the container registry",
+			code:       150006,
+			httpStatus: http.StatusBadGateway,
+		},
+	}
+}
+
 func FromK8sError(err error, resourceType string) error {
 	if webhookValidationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
 		return NewUnprocessableEntityError(err, webhookValidationError.GetMessage())

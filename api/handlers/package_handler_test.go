@@ -887,13 +887,24 @@ var _ = Describe("PackageHandler", func() {
 			itDoesntUpdateAnyPackages()
 		})
 
-		When("uploading the source image errors", func() {
+		When("preparing to upload the source image errors", func() {
 			BeforeEach(func() {
 				imageRepo.UploadSourceImageReturns("", errors.New("boom"))
 			})
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+			itDoesntUpdateAnyPackages()
+		})
+
+		When("uploading the source image errors", func() {
+			BeforeEach(func() {
+				imageRepo.UploadSourceImageReturns("", apierrors.NewBlobstoreUnavailableError(errors.New("boom")))
+			})
+
+			It("returns an error", func() {
+				expectBlobstoreUnavailableError()
 			})
 			itDoesntUpdateAnyPackages()
 		})
