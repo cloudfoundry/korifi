@@ -133,12 +133,40 @@ var _ = Describe("Apps", func() {
 	})
 
 	Describe("Delete an app", func() {
-		var err error
+		var (
+			err         error
+			pkgGUID     string
+			buildGUID   string
+			processType string
+		)
 
 		BeforeEach(func() {
 			createSpaceRole("space_developer", certUserName, space1GUID)
 			appName := generateGUID("app")
 			appGUID = createApp(space1GUID, appName)
+			pkgGUID = createPackage(appGUID)
+			buildGUID = createBuild(pkgGUID)
+			processType = "web"
+
+			// Applying a manifest will create any processes defined within the manifest
+			manifest := manifestResource{
+				Version: 1,
+				Applications: []applicationResource{{
+					Name: appName,
+					Processes: []manifestApplicationProcessResource{{
+						Type: processType,
+					}},
+				}},
+			}
+
+			applySpaceManifest(manifest, space1GUID)
+			var processResult processResource
+			resp, err = certClient.R().
+				SetResult(&processResult).
+				Get("/v3/apps/" + appGUID + "/processes/" + processType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(processResult.Type).To(Equal(processType))
+
 			resp, err = certClient.R().Delete("/v3/apps/" + appGUID)
 		})
 
@@ -156,10 +184,28 @@ var _ = Describe("Apps", func() {
 			}).Should(Succeed())
 		})
 
-		It("successfully deletes the app", func() {
+		It("successfully deletes the app and associated child resources", func() {
 			var result resource
 			Eventually(func(g Gomega) {
 				resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID)
+				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				g.Expect(err).NotTo(HaveOccurred())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				resp, err = certClient.R().SetResult(&result).Get("/v3/packages/" + pkgGUID)
+				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				g.Expect(err).NotTo(HaveOccurred())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				resp, err = certClient.R().SetResult(&result).Get("/v3/builds/" + buildGUID)
+				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+				g.Expect(err).NotTo(HaveOccurred())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes/" + processType)
 				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 				g.Expect(err).NotTo(HaveOccurred())
 			}).Should(Succeed())
