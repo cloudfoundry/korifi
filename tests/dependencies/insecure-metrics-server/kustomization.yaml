@@ -1,0 +1,13 @@
+resources:
+  - components.yaml
+
+patches:
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --kubelet-insecure-tls
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --kubelet-preferred-address-types=InternalIP
+    target:
+      kind: Deployment

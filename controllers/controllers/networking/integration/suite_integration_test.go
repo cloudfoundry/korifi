@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 		// TODO: Reconcile with CRDInstallOptions
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", "..", "..", "tests", "dependencies"),
+			filepath.Join("..", "..", "..", "..", "tests", "vendor", "contour"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}

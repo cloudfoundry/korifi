@@ -28,6 +28,7 @@ require (
 	github.com/onsi/gomega v1.20.0
 	github.com/pivotal/kpack v0.5.4
 	github.com/projectcontour/contour v1.22.0
+	github.com/vmware-tanzu/carvel-vendir v0.30.0
 	golang.org/x/text v0.3.7
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -39,6 +40,19 @@ require (
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
 	sigs.k8s.io/controller-runtime v0.12.3
 	sigs.k8s.io/controller-tools v0.9.2
+)
+
+require (
+	github.com/bmatcuk/doublestar v1.2.1 // indirect
+	github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72 // indirect
+	github.com/cppforlife/color v1.9.1-0.20200716202919-6706ac40b835 // indirect
+	github.com/cppforlife/go-cli-ui v0.0.0-20200716203538-1e47f820817f // indirect
+	github.com/google/go-github v17.0.0+incompatible // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/hashicorp/go-version v1.2.1 // indirect
+	github.com/k14s/semver/v4 v4.0.1-0.20210701191048-266d47ac6115 // indirect
+	github.com/otiai10/copy v1.2.0 // indirect
+	github.com/vito/go-interact v0.0.0-20171111012221-fa338ed9e9ec // indirect
 )
 
 require (

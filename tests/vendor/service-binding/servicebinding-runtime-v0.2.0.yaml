@@ -1,254 +1,52 @@
-# Copyright 2021 VMware, Inc.
-# SPDX-License-Identifier: Apache-2.0
+# Copyright 2022 the original author or authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    knative.dev.bindings.labs.vmware.com/exclude: "true"
-  name: service-bindings
----
-aggregationRule:
-  clusterRoleSelectors:
-  - matchLabels:
-      servicebinding.io/controller: "true"
-  - matchLabels:
-      service.binding/controller: "true"
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: service-binding-admin
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    servicebinding.io/controller: "true"
-  name: service-binding-core
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - services
-  - secrets
-  - events
-  - namespaces
-  verbs:
-  - get
-  - list
-  - create
-  - update
-  - delete
-  - patch
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - deployments/finalizers
-  verbs:
-  - get
-  - list
-  - create
-  - update
-  - delete
-  - patch
-  - watch
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - get
-  - list
-  - create
-  - update
-  - delete
-  - patch
-  - watch
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - get
-  - list
-  - create
-  - update
-  - delete
-  - patch
-  - watch
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - create
-  - update
-  - delete
-  - patch
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    servicebinding.io/controller: "true"
-  name: service-binding-crd
-rules:
-- apiGroups:
-  - servicebinding.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - bindings.labs.vmware.com
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - internal.bindings.labs.vmware.com
-  resources:
-  - '*'
-  verbs:
-  - '*'
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    servicebinding.io/controller: "true"
-  name: service-binding-apps
-rules:
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - statefulsets
-  verbs:
-  - get
-  - list
-  - watch
-  - update
-  - patch
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - get
-  - list
-  - watch
-  - update
-  - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    servicebinding.io/controller: "true"
-  name: service-binding-knative-serving
-rules:
-- apiGroups:
-  - serving.knative.dev
-  resources:
-  - services
-  - configurations
-  verbs:
-  - get
-  - list
-  - watch
-  - update
-  - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    apps.tanzu.vmware.com/aggregate-to-app-viewer: "true"
-  name: service-binding-app-viewer
-rules:
-- apiGroups:
-  - servicebinding.io
-  resources:
-  - servicebindings
-  verbs:
-  - get
-  - list
-  - watch
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: controller
-  namespace: service-bindings
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: service-binding-controller-admin
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: service-binding-admin
-subjects:
-- kind: ServiceAccount
-  name: controller
-  namespace: service-bindings
+    control-plane: controller-manager
+  name: servicebinding-system
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  labels:
-    bindings.labs.vmware.com/crd-install: "true"
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    servicebinding.io/provisioned-service: "true"
-  name: provisionedservices.bindings.labs.vmware.com
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.9.2
+  creationTimestamp: null
+  name: clusterworkloadresourcemappings.servicebinding.io
 spec:
-  group: bindings.labs.vmware.com
+  group: servicebinding.io
   names:
-    categories:
-    - all
-    - bind
-    kind: ProvisionedService
-    listKind: ProvisionedServiceList
-    plural: provisionedservices
-    singular: provisionedservice
-  scope: Namespaced
+    kind: ClusterWorkloadResourceMapping
+    listKind: ClusterWorkloadResourceMappingList
+    plural: clusterworkloadresourcemappings
+    singular: clusterworkloadresourcemapping
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
-      type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
-      name: Reason
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    deprecated: true
+    deprecationWarning: servicebinding.io/v1alpha3 is deprecated and will be removed
+      in a future release, use v1beta1 instead
+    name: v1alpha3
     schema:
       openAPIV3Schema:
-        description: ProvisionedService exposes an existing Secret as a Service for
-          binding via a ServiceBinding
+        description: ClusterWorkloadResourceMapping is the Schema for the clusterworkloadresourcemappings
+          API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -263,91 +61,194 @@ spec:
           metadata:
             type: object
           spec:
-            description: ProvisionedServiceSpec defines the desired state of ProvisionedService
+            description: ClusterWorkloadResourceMappingSpec defines the desired state
+              of ClusterWorkloadResourceMapping
             properties:
-              binding:
-                description: Binding exposes the secret for this service
-                properties:
-                  name:
-                    description: 'Name of the referent secret. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                    type: string
-                required:
-                - name
-                type: object
-            required:
-            - binding
-            type: object
-          status:
-            description: ProvisionedServiceStatus defines the observed state of ProvisionedService
-            properties:
-              binding:
-                description: Binding exposes the secret for this service
-                properties:
-                  name:
-                    description: 'Name of the referent secret. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                    type: string
-                required:
-                - name
-                type: object
-              conditions:
-                description: Conditions are the conditions of this ProvisionedService
+              versions:
+                description: Versions is the collection of versions for a given resource,
+                  with mappings.
                 items:
-                  description: Condition contains details for the current condition
-                    of this ProvisionedService
+                  description: ClusterWorkloadResourceMappingTemplate defines the
+                    mapping for a specific version of an workload resource to a logical
+                    PodTemplateSpec-like structure.
                   properties:
-                    lastTransitionTime:
-                      description: Last time the condition transitioned from one status
-                        to another
-                      format: date-time
+                    annotations:
+                      description: Annotations is a Restricted JSONPath that references
+                        the annotations map within the workload resource. These annotations
+                        must end up in the resulting Pod, and are generally not the
+                        workload resource's annotations. Defaults to `.spec.template.metadata.annotations`.
                       type: string
-                    message:
-                      description: Human-readable message indicating details about
-                        last transition
+                    containers:
+                      description: Containers is the collection of mappings to container-like
+                        fragments of the workload resource. Defaults to mappings appropriate
+                        for a PodSpecable resource.
+                      items:
+                        description: "ClusterWorkloadResourceMappingContainer defines
+                          the mapping for a specific fragment of an workload resource
+                          to a Container-like structure. \n Each mapping defines exactly
+                          one path that may match multiple container-like fragments
+                          within the workload resource. For each object matching the
+                          path the name, env and volumeMounts expressions are resolved
+                          to find those structures."
+                        properties:
+                          env:
+                            description: Env is a Restricted JSONPath that references
+                              the slice of environment variables for the container
+                              with the container-like workload resource fragment.
+                              The referenced location is created if it does not exist.
+                              Defaults to `.envs`.
+                            type: string
+                          name:
+                            description: Name is a Restricted JSONPath that references
+                              the name of the container with the container-like workload
+                              resource fragment. If not defined, container name filtering
+                              is ignored.
+                            type: string
+                          path:
+                            description: Path is the JSONPath within the workload
+                              resource that matches an existing fragment that is container-like.
+                            type: string
+                          volumeMounts:
+                            description: VolumeMounts is a Restricted JSONPath that
+                              references the slice of volume mounts for the container
+                              with the container-like workload resource fragment.
+                              The referenced location is created if it does not exist.
+                              Defaults to `.volumeMounts`.
+                            type: string
+                        required:
+                        - path
+                        type: object
+                      type: array
+                    version:
+                      description: Version is the version of the workload resource
+                        that this mapping is for.
                       type: string
-                    reason:
-                      description: Unique, one-word, CamelCase reason for the condition's
-                        last transition
-                      type: string
-                    status:
-                      description: Status is the status of the condition Can be True,
-                        False, Unknown.
-                      type: string
-                    type:
-                      description: Type is the type of the condition
+                    volumes:
+                      description: Volumes is a Restricted JSONPath that references
+                        the slice of volumes within the workload resource. Defaults
+                        to `.spec.template.spec.volumes`.
                       type: string
                   required:
-                  - status
-                  - type
+                  - annotations
+                  - version
+                  - volumes
                   type: object
                 type: array
-              observedGeneration:
-                description: ObservedGeneration is the 'Generation' of the ProvisionedService
-                  that was last processed by the controller.
-                format: int64
-                type: integer
+            type: object
+        type: object
+    served: true
+    storage: false
+    subresources: {}
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: ClusterWorkloadResourceMapping is the Schema for the clusterworkloadresourcemappings
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterWorkloadResourceMappingSpec defines the desired state
+              of ClusterWorkloadResourceMapping
+            properties:
+              versions:
+                description: Versions is the collection of versions for a given resource,
+                  with mappings.
+                items:
+                  description: ClusterWorkloadResourceMappingTemplate defines the
+                    mapping for a specific version of an workload resource to a logical
+                    PodTemplateSpec-like structure.
+                  properties:
+                    annotations:
+                      description: Annotations is a Restricted JSONPath that references
+                        the annotations map within the workload resource. These annotations
+                        must end up in the resulting Pod, and are generally not the
+                        workload resource's annotations. Defaults to `.spec.template.metadata.annotations`.
+                      type: string
+                    containers:
+                      description: Containers is the collection of mappings to container-like
+                        fragments of the workload resource. Defaults to mappings appropriate
+                        for a PodSpecable resource.
+                      items:
+                        description: "ClusterWorkloadResourceMappingContainer defines
+                          the mapping for a specific fragment of an workload resource
+                          to a Container-like structure. \n Each mapping defines exactly
+                          one path that may match multiple container-like fragments
+                          within the workload resource. For each object matching the
+                          path the name, env and volumeMounts expressions are resolved
+                          to find those structures."
+                        properties:
+                          env:
+                            description: Env is a Restricted JSONPath that references
+                              the slice of environment variables for the container
+                              with the container-like workload resource fragment.
+                              The referenced location is created if it does not exist.
+                              Defaults to `.envs`.
+                            type: string
+                          name:
+                            description: Name is a Restricted JSONPath that references
+                              the name of the container with the container-like workload
+                              resource fragment. If not defined, container name filtering
+                              is ignored.
+                            type: string
+                          path:
+                            description: Path is the JSONPath within the workload
+                              resource that matches an existing fragment that is container-like.
+                            type: string
+                          volumeMounts:
+                            description: VolumeMounts is a Restricted JSONPath that
+                              references the slice of volume mounts for the container
+                              with the container-like workload resource fragment.
+                              The referenced location is created if it does not exist.
+                              Defaults to `.volumeMounts`.
+                            type: string
+                        required:
+                        - path
+                        type: object
+                      type: array
+                    version:
+                      description: Version is the version of the workload resource
+                        that this mapping is for.
+                      type: string
+                    volumes:
+                      description: Volumes is a Restricted JSONPath that references
+                        the slice of volumes within the workload resource. Defaults
+                        to `.spec.template.spec.volumes`.
+                      type: string
+                  required:
+                  - version
+                  type: object
+                type: array
             type: object
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}
+    subresources: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
-  labels:
-    bindings.labs.vmware.com/crd-install: "true"
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    duck.knative.dev/binding: "true"
+    controller-gen.kubebuilder.io/version: v0.9.2
+  creationTimestamp: null
   name: servicebindings.servicebinding.io
 spec:
   group: servicebinding.io
   names:
-    categories:
-    - all
-    - bind
     kind: ServiceBinding
     listKind: ServiceBindingList
     plural: servicebindings
@@ -355,6 +256,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.binding.name
+      name: Secret
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -364,6 +268,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
+    deprecationWarning: servicebinding.io/v1alpha3 is deprecated and will be removed
+      in a future release, use v1beta1 instead
     name: v1alpha3
     schema:
       openAPIV3Schema:
@@ -495,6 +402,7 @@ spec:
                           "value". The requirements are ANDed.
                         type: object
                     type: object
+                    x-kubernetes-map-type: atomic
                 required:
                 - apiVersion
                 - kind
@@ -521,13 +429,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -593,10 +500,13 @@ spec:
             type: object
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
   - additionalPrinterColumns:
+    - jsonPath: .status.binding.name
+      name: Secret
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -737,6 +647,7 @@ spec:
                           "value". The requirements are ANDed.
                         type: object
                     type: object
+                    x-kubernetes-map-type: atomic
                 required:
                 - apiVersion
                 - kind
@@ -763,13 +674,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -835,446 +745,309 @@ spec:
             type: object
         type: object
     served: true
-    storage: false
-    subresources:
-      status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
-  labels:
-    bindings.labs.vmware.com/crd-install: "true"
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    duck.knative.dev/binding: "true"
-  name: servicebindingprojections.internal.bindings.labs.vmware.com
-spec:
-  group: internal.bindings.labs.vmware.com
-  names:
-    categories:
-    - bind
-    kind: ServiceBindingProjection
-    listKind: ServiceBindingProjectionList
-    plural: servicebindingprojections
-    singular: servicebindingprojection
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
-      type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
-      name: Reason
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          spec:
-            properties:
-              binding:
-                properties:
-                  name:
-                    type: string
-                required:
-                - name
-                type: object
-              env:
-                items:
-                  properties:
-                    key:
-                      type: string
-                    name:
-                      type: string
-                  required:
-                  - key
-                  - name
-                  type: object
-                type: array
-              name:
-                type: string
-              provider:
-                type: string
-              type:
-                type: string
-              workload:
-                properties:
-                  apiVersion:
-                    type: string
-                  containers:
-                    items:
-                      type: string
-                    type: array
-                  kind:
-                    type: string
-                  name:
-                    type: string
-                  selector:
-                    properties:
-                      matchExpressions:
-                        items:
-                          properties:
-                            key:
-                              type: string
-                            operator:
-                              type: string
-                            values:
-                              items:
-                                type: string
-                              type: array
-                          required:
-                          - key
-                          - operator
-                          type: object
-                        type: array
-                      matchLabels:
-                        additionalProperties:
-                          type: string
-                        type: object
-                    type: object
-                required:
-                - apiVersion
-                - kind
-                type: object
-            required:
-            - binding
-            - name
-            - workload
-            type: object
-          status:
-            properties:
-              conditions:
-                items:
-                  properties:
-                    lastTransitionTime:
-                      format: date-time
-                      type: string
-                    message:
-                      type: string
-                    reason:
-                      type: string
-                    status:
-                      type: string
-                    type:
-                      type: string
-                  required:
-                  - status
-                  - type
-                  type: object
-                type: array
-              observedGeneration:
-                format: int64
-                type: integer
-            type: object
-        type: object
-    served: true
     storage: true
     subresources:
       status: {}
 ---
-apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
+apiVersion: v1
+kind: ServiceAccount
 metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: defaulting.webhook.bindings.labs.vmware.com
-webhooks:
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook
-      namespace: service-bindings
-  failurePolicy: Fail
-  name: defaulting.webhook.bindings.labs.vmware.com
-  sideEffects: None
+  name: servicebinding-controller-manager
+  namespace: servicebinding-system
 ---
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: validation.webhook.bindings.labs.vmware.com
-webhooks:
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook
-      namespace: service-bindings
-  failurePolicy: Fail
-  name: validation.webhook.bindings.labs.vmware.com
-  sideEffects: None
+  name: servicebinding-leader-election-role
+  namespace: servicebinding-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 ---
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      servicebinding.io/controller: "true"
+  - matchLabels:
+      service.binding/controller: "true"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: config.webhook.bindings.labs.vmware.com
-webhooks:
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook
-      namespace: service-bindings
-  failurePolicy: Fail
-  name: config.webhook.bindings.labs.vmware.com
-  namespaceSelector:
-    matchExpressions:
-    - key: bindings.labs.vmware.com/release
-      operator: Exists
-  sideEffects: None
+  name: servicebinding-aggregate-role
 ---
-apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
   labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: servicebindingprojections.webhook.bindings.labs.vmware.com
-webhooks:
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook
-      namespace: service-bindings
-  failurePolicy: Fail
-  name: servicebindingprojections.webhook.bindings.labs.vmware.com
-  sideEffects: None
+    servicebinding.io/controller: "true"
+  name: servicebinding-k8s-workloads-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - replicationcontrollers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: servicebinding-manager-role
+rules:
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - servicebinding.io
+  resources:
+  - clusterworkloadresourcemappings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - servicebinding.io
+  resources:
+  - servicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - servicebinding.io
+  resources:
+  - servicebindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - servicebinding.io
+  resources:
+  - servicebindings/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: servicebinding-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: servicebinding-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: servicebinding-leader-election-rolebinding
+  namespace: servicebinding-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: servicebinding-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: servicebinding-controller-manager
+  namespace: servicebinding-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: servicebinding-aggregate-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: servicebinding-aggregate-role
+subjects:
+- kind: ServiceAccount
+  name: servicebinding-controller-manager
+  namespace: servicebinding-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: servicebinding-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: servicebinding-manager-role
+subjects:
+- kind: ServiceAccount
+  name: servicebinding-controller-manager
+  namespace: servicebinding-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: servicebinding-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: servicebinding-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: servicebinding-controller-manager
+  namespace: servicebinding-system
 ---
 apiVersion: v1
-kind: Secret
+data:
+  controller_manager_config.yaml: |
+    apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
+    kind: ControllerManagerConfig
+    health:
+      healthProbeBindAddress: :8081
+    metrics:
+      bindAddress: 127.0.0.1:8080
+    webhook:
+      port: 9443
+    leaderElection:
+      leaderElect: true
+      resourceName: a359ffaf.servicebinding.io
+kind: ConfigMap
 metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: webhook-certs
-  namespace: service-bindings
+  name: servicebinding-manager-config
+  namespace: servicebinding-system
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    role: webhook
-  name: webhook
-  namespace: service-bindings
+    control-plane: controller-manager
+  name: servicebinding-controller-manager-metrics-service
+  namespace: servicebinding-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicebinding-webhook-service
+  namespace: servicebinding-system
 spec:
   ports:
   - port: 443
-    targetPort: 8443
+    targetPort: 9443
   selector:
-    role: manager
----
-apiVersion: v1
-data:
-  config.yml: |
-    apiVersion: kapp.k14s.io/v1alpha1
-    kind: Config
-    minimumRequiredVersion: 0.34.0
-    rebaseRules:
-    - path: [rules]
-      type: copy
-      sources: [existing]
-      resourceMatchers:
-      - andMatcher:
-          matchers:
-          - apiVersionKindMatcher: {apiVersion: rbac.authorization.k8s.io/v1, kind: ClusterRole}
-          - kindNamespaceNameMatcher: {kind: ClusterRole, name: service-binding-admin}
-    - path: [data]
-      type: copy
-      sources: [existing]
-      resourceMatchers:
-      - andMatcher:
-          matchers:
-          - apiVersionKindMatcher: {apiVersion: v1, kind: Secret}
-          - kindNamespaceNameMatcher: {kind: Secret, namespace: service-bindings, name: webhook-certs}
-    - paths:
-      - [webhooks, {allIndexes: true}, clientConfig, caBundle]
-      - [webhooks, {allIndexes: true}, clientConfig, service, path]
-      - [webhooks, {allIndexes: true}, clientConfig, service, port]
-      - [webhooks, {allIndexes: true}, matchPolicy]
-      - [webhooks, {allIndexes: true}, namespaceSelector]
-      - [webhooks, {allIndexes: true}, objectSelector]
-      - [webhooks, {allIndexes: true}, reinvocationPolicy]
-      - [webhooks, {allIndexes: true}, rules]
-      - [webhooks, {allIndexes: true}, sideEffects]
-      - [webhooks, {allIndexes: true}, timeoutSeconds]
-      type: copy
-      sources: [existing]
-      resourceMatchers:
-      - apiVersionKindMatcher: {apiVersion: admissionregistration.k8s.io/v1, kind: MutatingWebhookConfiguration}
-      - apiVersionKindMatcher: {apiVersion: admissionregistration.k8s.io/v1, kind: ValidatingWebhookConfiguration}
-kind: ConfigMap
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    kapp.k14s.io/config: ""
-  name: config-kapp
-  namespace: service-bindings
----
-apiVersion: v1
-data:
-  _example: |
-    ################################
-    #                              #
-    #    EXAMPLE CONFIGURATION     #
-    #                              #
-    ################################
-
-    # This block is not actually functional configuration,
-    # but serves to illustrate the available configuration
-    # options and document them in a way that is accessible
-    # to users that `kubectl edit` this config map.
-    #
-    # These sample configuration options may be copied out of
-    # this example block and unindented to be in the data block
-    # to actually change the configuration.
-
-    # Common configuration for all Knative codebase
-    zap-logger-config: |
-      {
-        "level": "info",
-        "development": false,
-        "outputPaths": ["stdout"],
-        "errorOutputPaths": ["stderr"],
-        "encoding": "json",
-        "encoderConfig": {
-          "timeKey": "ts",
-          "levelKey": "level",
-          "nameKey": "logger",
-          "callerKey": "caller",
-          "messageKey": "msg",
-          "stacktraceKey": "stacktrace",
-          "lineEnding": "",
-          "levelEncoder": "",
-          "timeEncoder": "iso8601",
-          "durationEncoder": "",
-          "callerEncoder": ""
-        }
-      }
-
-    # Log level overrides
-    # Changes are be picked up immediately.
-    loglevel.controller: "info"
-    loglevel.webhook: "info"
-  zap-logger-config: |
-    {
-      "level": "info",
-      "development": false,
-      "outputPaths": ["stderr"],
-      "errorOutputPaths": ["stderr"],
-      "encoding": "json",
-      "encoderConfig": {
-        "timeKey": "ts",
-        "levelKey": "level",
-        "nameKey": "logger",
-        "callerKey": "caller",
-        "messageKey": "msg",
-        "stacktraceKey": "stacktrace",
-        "lineEnding": "",
-        "levelEncoder": "",
-        "timeEncoder": "rfc3339nano",
-        "durationEncoder": "",
-        "callerEncoder": ""
-      }
-    }
-kind: ConfigMap
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: config-logging
-  namespace: service-bindings
----
-apiVersion: v1
-data:
-  _example: |
-    ################################
-    #                              #
-    #    EXAMPLE CONFIGURATION     #
-    #                              #
-    ################################
-
-    # This block is not actually functional configuration,
-    # but serves to illustrate the available configuration
-    # options and document them in a way that is accessible
-    # to users that `kubectl edit` this config map.
-    #
-    # These sample configuration options may be copied out of
-    # this example block and unindented to be in the data block
-    # to actually change the configuration.
-
-    # If non-empty, this enables queue proxy writing request logs to stdout.
-    # The value determines the shape of the request logs and it must be a valid go text/template.
-    # It is important to keep this as a single line. Multiple lines are parsed as separate entities
-    # by most collection agents and will split the request logs into multiple records.
-    #
-    # The following fields and functions are available to the template:
-    #
-    # Request: An http.Request (see https://golang.org/pkg/net/http/#Request)
-    # representing an HTTP request received by the server.
-    #
-    # Response:
-    # struct {
-    #   Code    int       // HTTP status code (see https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml)
-    #   Size    int       // An int representing the size of the response.
-    #   Latency float64   // A float64 representing the latency of the response in seconds.
-    # }
-    #
-    # Revision:
-    # struct {
-    #   Name          string  // Knative revision name
-    #   Namespace     string  // Knative revision namespace
-    #   Service       string  // Knative service name
-    #   Configuration string  // Knative configuration name
-    #   PodName       string  // Name of the pod hosting the revision
-    #   PodIP         string  // IP of the pod hosting the revision
-    # }
-    #
-    logging.request-log-template: '{"httpRequest": {"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}", "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent": "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp": "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s", "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}'
-
-    # metrics.backend-destination field specifies the system metrics destination.
-    # It supports either prometheus (the default) or stackdriver.
-    # Note: Using stackdriver will incur additional charges
-    metrics.backend-destination: prometheus
-
-    # metrics.request-metrics-backend-destination specifies the request metrics
-    # destination. If non-empty, it enables queue proxy to send request metrics.
-    # Currently supported values: prometheus, stackdriver.
-    metrics.request-metrics-backend-destination: prometheus
-
-    # metrics.stackdriver-project-id field specifies the stackdriver project ID. This
-    # field is optional. When running on GCE, application default credentials will be
-    # used if this field is not provided.
-    metrics.stackdriver-project-id: "<your stackdriver project id>"
-
-    # metrics.allow-stackdriver-custom-metrics indicates whether it is allowed to send metrics to
-    # Stackdriver using "global" resource type and custom metric type if the
-    # metrics are not supported by "knative_revision" resource type. Setting this
-    # flag to "true" could cause extra Stackdriver charge.
-    # If metrics.backend-destination is not Stackdriver, this is ignored.
-    metrics.allow-stackdriver-custom-metrics: "false"
-kind: ConfigMap
-metadata:
-  labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-  name: config-observability
-  namespace: service-bindings
+    control-plane: controller-manager
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -1282,52 +1055,219 @@ metadata:
   annotations:
     kbld.k14s.io/images: |
       - origins:
+        - resolved:
+            tag: v0.11.0
+            url: gcr.io/kubebuilder/kube-rbac-proxy:v0.11.0
         - preresolved:
-            url: index.docker.io/vmware/labs-service-bindings-manager@sha256:3e7b807911f9ab88d471cb9fca979b7c21cfc07191c80f688f78fc36e6ebcd76
-        url: index.docker.io/vmware/labs-service-bindings-manager@sha256:3e7b807911f9ab88d471cb9fca979b7c21cfc07191c80f688f78fc36e6ebcd76
+            url: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
+        url: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
+      - origins:
+        - preresolved:
+            url: ghcr.io/servicebinding/runtime/bundle@sha256:50eae61cb276f77283371a204dae1b6d33d0b73aa181d93f136f33b0020e6db4
+        url: ghcr.io/servicebinding/runtime/bundle@sha256:50eae61cb276f77283371a204dae1b6d33d0b73aa181d93f136f33b0020e6db4
   labels:
-    bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-    knative.dev.bindings.labs.vmware.com/exclude: "true"
-  name: manager
-  namespace: service-bindings
+    control-plane: controller-manager
+  name: servicebinding-controller-manager
+  namespace: servicebinding-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: manager
-      role: manager
+      control-plane: controller-manager
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
       labels:
-        app: manager
-        bindings.labs.vmware.com/release: 0.7.1-20220308194714-d4426cdb44b2abba
-        knative.dev.bindings.labs.vmware.com/exclude: "true"
-        role: manager
+        control-plane: controller-manager
     spec:
       containers:
-      - env:
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        - name: METRICS_DOMAIN
-          value: labs.vmware.com/bindings
-        image: index.docker.io/vmware/labs-service-bindings-manager@sha256:3e7b807911f9ab88d471cb9fca979b7c21cfc07191c80f688f78fc36e6ebcd76
+      - args:
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=127.0.0.1:8080
+        - --leader-elect
+        image: ghcr.io/servicebinding/runtime/bundle@sha256:50eae61cb276f77283371a204dae1b6d33d0b73aa181d93f136f33b0020e6db4
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
         name: manager
         ports:
-        - containerPort: 9090
-          name: metrics
-        - containerPort: 8443
-          name: https-webhook
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
         resources:
           limits:
-            cpu: 1000m
-            memory: 1000Mi
+            cpu: 500m
+            memory: 128Mi
           requests:
-            cpu: 100m
-            memory: 100Mi
-      serviceAccountName: controller
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=0
+        image: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 5m
+            memory: 64Mi
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: servicebinding-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: servicebinding-serving-cert
+  namespace: servicebinding-system
+spec:
+  dnsNames:
+  - servicebinding-webhook-service.servicebinding-system.svc
+  - servicebinding-webhook-service.servicebinding-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: servicebinding-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: servicebinding-selfsigned-issuer
+  namespace: servicebinding-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: servicebinding-system/servicebinding-serving-cert
+    webhook.servicebinding.io/dynamic-rules: ""
+  name: servicebinding-admission-projector
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: servicebinding-webhook-service
+      namespace: servicebinding-system
+      path: /interceptor
+  failurePolicy: Fail
+  name: interceptor.servicebinding.io
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - servicebinding-system
+      - kube-system
+  reinvocationPolicy: IfNeeded
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: servicebinding-system/servicebinding-serving-cert
+    webhook.servicebinding.io/dynamic-rules: ""
+  name: servicebinding-trigger
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: servicebinding-webhook-service
+      namespace: servicebinding-system
+      path: /trigger
+  failurePolicy: Ignore
+  name: trigger.servicebinding.io
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - servicebinding-system
+      - kube-system
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: servicebinding-system/servicebinding-serving-cert
+  name: servicebinding-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: servicebinding-webhook-service
+      namespace: servicebinding-system
+      path: /validate-servicebinding-io-v1beta1-clusterworkloadresourcemapping
+  failurePolicy: Fail
+  name: vclusterworkloadresourcemapping.kb.io
+  rules:
+  - apiGroups:
+    - servicebinding.io
+    apiVersions:
+    - v1alpha3
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterworkloadresourcemappings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: servicebinding-webhook-service
+      namespace: servicebinding-system
+      path: /validate-servicebinding-io-v1beta1-servicebinding
+  failurePolicy: Fail
+  name: vservicebinding.kb.io
+  rules:
+  - apiGroups:
+    - servicebinding.io
+    apiVersions:
+    - v1alpha3
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - servicebindings
+  sideEffects: None

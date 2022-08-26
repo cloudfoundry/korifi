@@ -6,6 +6,7 @@ package tools
 import (
 	_ "github.com/maxbrunsfeld/counterfeiter/v6"
 	_ "github.com/onsi/ginkgo/v2/ginkgo"
+	_ "github.com/vmware-tanzu/carvel-vendir/cmd/vendir"
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
 )
 

@@ -81,13 +81,9 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "controllers", "config", "crd", "bases"),
+			filepath.Join("..", "..", "tests", "vendor", "kpack"),
 		},
 		ErrorIfCRDPathMissing: true,
-		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{
-				filepath.Join("..", "..", "tests", "dependencies", "kpack-release-0.6.0.yaml"),
-			},
-		},
 	}
 
 	var err error
