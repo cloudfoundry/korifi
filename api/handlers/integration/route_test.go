@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -407,7 +406,7 @@ var _ = Describe("Route Handler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPBody(ContainSubstring(newDestinationAppGUID)), rr.Body.String())
 
-				cfRouteLookupKey := types.NamespacedName{Name: cfRoute.Name, Namespace: cfRoute.Namespace}
+				cfRouteLookupKey := client.ObjectKeyFromObject(cfRoute)
 				updatedCFRoute := new(korifiv1alpha1.CFRoute)
 				Expect(k8sClient.Get(context.Background(), cfRouteLookupKey, updatedCFRoute)).To(Succeed())
 
