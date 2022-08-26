@@ -73,7 +73,7 @@ test: lint test-controllers-api test-e2e
 
 test-controllers-api: test-controllers test-api
 
-test-controllers: install-ginkgo manifests-controllers generate-controllers fmt vet ## Run tests.
+test-controllers: install-ginkgo manifests-controllers generate-controllers fmt vet
 	cd controllers && GINKGO_NODES=$(CONTROLLERS_GINKGO_NODES) ../scripts/run-tests.sh
 
 test-api: install-ginkgo fmt vet
@@ -82,7 +82,7 @@ test-api: install-ginkgo fmt vet
 test-e2e: install-ginkgo
 	./scripts/run-tests.sh tests/e2e
 
-test-kpack-image-builder: ## Run tests.
+test-kpack-image-builder:
 	cd kpack-image-builder && make test
 
 test-stset-runner:
@@ -199,6 +199,12 @@ install-shfmt:
 
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
+
+install-vendir:
+	go install github.com/vmware-tanzu/carvel-vendir/cmd/vendir
+
+vendir-update-dependencies: install-vendir
+	vendir sync --chdir tests
 
 # go-install-tool will 'go get' any package $2 and install it to $1.
 define go-install-tool

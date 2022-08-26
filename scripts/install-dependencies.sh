@@ -3,7 +3,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DEP_DIR="$(cd "${SCRIPT_DIR}/../tests/dependencies" && pwd)"
+TEST_DIR="$SCRIPT_DIR/../tests"
+DEP_DIR="$TEST_DIR/dependencies"
+VENDOR_DIR="$TEST_DIR/vendor"
 
 source "$SCRIPT_DIR/common.sh"
 
@@ -46,38 +48,32 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "************************************************"
-echo "Creating CF Namespace and cf-admin RoleBinding"
+echo " Creating CF Namespace and cf-admin RoleBinding"
 echo "************************************************"
 
 kubectl apply -f "${DEP_DIR}/cf-setup.yaml"
 
 echo "**************************"
-echo "Creating user 'cf-admin'"
+echo " Creating 'cf-admin' user"
 echo "**************************"
 
 "$SCRIPT_DIR/create-new-user.sh" cf-admin
 
-cert_manager_version=$(curl --silent "https://api.github.com/repos/cert-manager/cert-manager/releases/latest" | jq -r '.tag_name')
 echo "*************************"
-echo "Installing Cert Manager ${cert_manager_version}"
+echo " Installing Cert Manager"
 echo "*************************"
 
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${cert_manager_version}/cert-manager.yaml
+kubectl apply -f "$VENDOR_DIR/cert-manager"
 
 kubectl -n cert-manager rollout status deployment/cert-manager --watch=true
 kubectl -n cert-manager rollout status deployment/cert-manager-webhook --watch=true
 kubectl -n cert-manager rollout status deployment/cert-manager-cainjector --watch=true
 
-kpack_version=$(curl --silent "https://api.github.com/repos/pivotal/kpack/releases/latest" | jq -r '.tag_name' | tr -d 'v')
-echo "*******************"
-echo "Installing Kpack v${kpack_version}"
-echo "*******************"
+echo "******************"
+echo " Installing Kpack"
+echo "******************"
 
-kubectl apply -f "https://github.com/pivotal/kpack/releases/download/v${kpack_version}/release-${kpack_version}.yaml"
-
-echo "*******************"
-echo "Configuring Kpack"
-echo "*******************"
+kubectl apply -f "$VENDOR_DIR/kpack"
 
 if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE:=}" ]]; then
   DOCKER_SERVER="gcr.io"
@@ -109,41 +105,40 @@ else
   kubectl apply -f "${DEP_DIR}/kpack/cluster_builder.yaml"
 fi
 
-contour_version="$(curl -sL https://projectcontour.io/quickstart/contour.yaml | grep -Eo 'ghcr.io/projectcontour/contour:v[0-9.]+' | head -1 | cut -d: -f2)"
-echo "*******************"
-echo "Installing Contour ${contour_version}"
-echo "*******************"
+echo "********************"
+echo " Installing Contour"
+echo "********************"
 
 # Temporarily resolve an issue with contour running on Apple silicon.
 # This fix can be removed once the latest version of contour uses envoy v1.23.1 or newer
 if command -v kbld &>/dev/null; then
-  kbld --image-map-file "${DEP_DIR}/contour/kbld-image-mapping-to-fix-envoy-v1.23-bug.json" -f https://projectcontour.io/quickstart/contour.yaml | kubectl apply -f -
+  kbld --image-map-file "${DEP_DIR}/contour/kbld-image-mapping-to-fix-envoy-v1.23-bug.json" -f "$VENDOR_DIR/contour" | kubectl apply -f -
 else
-  kubectl apply -f https://projectcontour.io/quickstart/contour.yaml
+  kubectl apply -f "$VENDOR_DIR/contour"
 fi
 
-sbr_version=$(curl --silent "https://api.github.com/repos/servicebinding/runtime/releases/latest" | jq -r '.tag_name')
-echo "**************************************"
-echo "Installing Service Binding Runtime ${sbr_version}"
-echo "**************************************"
+echo "************************************"
+echo " Installing Service Binding Runtime"
+echo "************************************"
 
-kubectl apply -f https://github.com/servicebinding/runtime/releases/download/${sbr_version}/servicebinding-runtime-${sbr_version}.yaml
+kubectl apply -f "$VENDOR_DIR/service-binding/servicebinding-runtime-v*.yaml"
 kubectl -n servicebinding-system rollout status deployment/servicebinding-controller-manager --watch=true
-kubectl apply -f https://github.com/servicebinding/runtime/releases/download/${sbr_version}/servicebinding-workloadresourcemappings-${sbr_version}.yaml
+kubectl apply -f "$VENDOR_DIR/service-binding/servicebinding-workloadresourcemappings-v*.yaml"
 
 if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
   if [[ -v INSECURE_TLS_METRICS_SERVER ]]; then
-    echo "**************************************"
-    echo "Installing Metrics Server v0.6.1 with Insecure TLS options"
-    echo "**************************************"
+    echo "************************************************"
+    echo " Installing Metrics Server Insecure TLS options"
+    echo "************************************************"
 
-    kubectl apply -f $DEP_DIR/metrics-server-local-0.6.1.yaml
+    trap "rm $DEP_DIR/insecure-metrics-server/components.yaml" EXIT
+    cp "$VENDOR_DIR/metrics-server-local/components.yaml" "$DEP_DIR/insecure-metrics-server/components.yaml"
+    kubectl apply -k "$DEP_DIR/insecure-metrics-server"
   else
-    metrics_server_version=$(curl --silent "https://api.github.com/repos/kubernetes-sigs/metrics-server/releases" | jq -r '.[].tag_name' | grep '^v' | head -1)
-    echo "**************************************"
-    echo "Installing Metrics Server ${metrics_server_version}"
-    echo "**************************************"
+    echo "***************************"
+    echo " Installing Metrics Server"
+    echo "***************************"
 
-    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/${metrics_server_version}/components.yaml
+    kubectl apply -f "$VENDOR_DIR/metrics-server-local"
   fi
 fi

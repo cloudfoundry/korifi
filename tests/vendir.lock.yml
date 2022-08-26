@@ -1,0 +1,23 @@
+apiVersion: vendir.k14s.io/v1alpha1
+directories:
+- contents:
+  - githubRelease:
+      url: https://api.github.com/repos/pivotal/kpack/releases/75244244
+    path: kpack
+  - githubRelease:
+      url: https://api.github.com/repos/servicebinding/runtime/releases/74823243
+    path: service-binding
+  - githubRelease:
+      url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/60209406
+    path: metrics-server-local
+  - githubRelease:
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/72867571
+    path: cert-manager
+  - git:
+      commitTitle: Update Contour Docker image to v1.22.0....
+      sha: 34b352804250445a6b70407bf072d894ca3dc5a1
+      tags:
+      - v1.22.0
+    path: contour
+  path: vendor
+kind: LockConfig
