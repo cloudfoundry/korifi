@@ -352,12 +352,7 @@ func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 			var requests []reconcile.Request
 			for _, process := range processList.Items {
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      process.Name,
-						Namespace: process.Namespace,
-					},
-				})
+				requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&process)})
 			}
 			return requests
 		})).

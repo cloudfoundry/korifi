@@ -156,7 +156,7 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	var kpackImage buildv1alpha2.Image
-	err = r.Client.Get(ctx, types.NamespacedName{Name: buildWorkload.Name, Namespace: buildWorkload.Namespace}, &kpackImage)
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(buildWorkload), &kpackImage)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching Kpack Image")
 		// Ignore Image NotFound errors to account for eventual consistency
@@ -265,7 +265,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 
 func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha2.Image) error {
 	var foundKpackImage buildv1alpha2.Image
-	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredKpackImage.Name, Namespace: desiredKpackImage.Namespace}, &foundKpackImage)
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(&desiredKpackImage), &foundKpackImage)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			err = r.Client.Create(ctx, &desiredKpackImage)

@@ -150,7 +150,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		It("sets status on CFSpace", func() {
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Namespace, Name: cfSpace.Name}, &createdSpace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), &createdSpace)).To(Succeed())
 				g.Expect(createdSpace.Status.GUID).To(Equal(cfSpace.Name))
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}).Should(Succeed())

@@ -113,12 +113,7 @@ var _ = Describe("TaskworkloadController", func() {
 
 		reconciler = controllers.NewTaskWorkloadReconciler(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), k8sClient, scheme.Scheme, statusGetter, time.Hour)
 
-		req = ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      taskWorkload.Name,
-				Namespace: taskWorkload.Namespace,
-			},
-		}
+		req = ctrl.Request{NamespacedName: client.ObjectKeyFromObject(taskWorkload)}
 	})
 
 	JustBeforeEach(func() {

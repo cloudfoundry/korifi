@@ -144,10 +144,7 @@ func (r *AppWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	updatedStatefulSet := &appsv1.StatefulSet{}
-	err = r.Client.Get(ctx, types.NamespacedName{
-		Name:      statefulSet.Name,
-		Namespace: statefulSet.Namespace,
-	}, updatedStatefulSet)
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(statefulSet), updatedStatefulSet)
 	if err != nil {
 		r.Log.Info("Error when fetching StatefulSet", "StatefulSet.Name", statefulSet.Name, "StatefulSet.Namespace", statefulSet.Namespace, "error", err.Error())
 		return ctrl.Result{}, client.IgnoreNotFound(err)

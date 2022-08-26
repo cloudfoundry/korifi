@@ -3,6 +3,9 @@ package controllers_test
 import (
 	"context"
 
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -12,9 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
@@ -240,10 +241,7 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 			})
 
 			It("doesn't modify that resource", func() {
-				lookupKey := types.NamespacedName{
-					Name:      info.Name,
-					Namespace: info.Namespace,
-				}
+				lookupKey := client.ObjectKeyFromObject(info)
 				Consistently(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Buildpacks
@@ -270,10 +268,7 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 			})
 
 			It("doesn't modify that resource", func() {
-				lookupKey := types.NamespacedName{
-					Name:      info.Name,
-					Namespace: info.Namespace,
-				}
+				lookupKey := client.ObjectKeyFromObject(info)
 				Consistently(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Buildpacks
@@ -320,10 +315,7 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 		})
 
 		It("doesn't set the buildpacks on the BuildReconcilerInfo", func() {
-			lookupKey := types.NamespacedName{
-				Name:      info.Name,
-				Namespace: info.Namespace,
-			}
+			lookupKey := client.ObjectKeyFromObject(info)
 			Consistently(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
 				g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 				return info.Status.Buildpacks
@@ -378,10 +370,7 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 			})
 
 			It("sets the stack", func() {
-				lookupKey := types.NamespacedName{
-					Name:      info.Name,
-					Namespace: info.Namespace,
-				}
+				lookupKey := client.ObjectKeyFromObject(info)
 				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusStack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Stacks

@@ -988,7 +988,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("sets the spec.current_droplet_ref.name to the Droplet GUID", func() {
-				lookupKey := types.NamespacedName{Name: cfApp.Name, Namespace: cfSpace.Name}
+				lookupKey := client.ObjectKeyFromObject(cfApp)
 				updatedApp := new(korifiv1alpha1.CFApp)
 				Expect(k8sClient.Get(testCtx, lookupKey, updatedApp)).To(Succeed())
 				Expect(updatedApp.Spec.CurrentDropletRef.Name).To(Equal(dropletGUID))

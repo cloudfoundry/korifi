@@ -6,8 +6,6 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	. "github.com/onsi/ginkgo/v2"
@@ -64,7 +62,7 @@ var _ = Describe("CFServiceInstance", func() {
 		It("adds a finalizer", func() {
 			Eventually(func(g Gomega) {
 				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-				serviceInstanceNamespacedName := types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}
+				serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
 				err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
 				g.Expect(err).NotTo(HaveOccurred())
 
@@ -80,7 +78,7 @@ var _ = Describe("CFServiceInstance", func() {
 			It("sets the BindingSecretAvailable condition to true in the CFServiceInstance status", func() {
 				Eventually(func(g Gomega) {
 					updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-					serviceInstanceNamespacedName := types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}
+					serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
 					err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
 					g.Expect(err).NotTo(HaveOccurred())
 
@@ -103,7 +101,7 @@ var _ = Describe("CFServiceInstance", func() {
 			It("sets the BindingSecretAvailable condition to false in the CFServiceInstance status", func() {
 				Eventually(func(g Gomega) {
 					updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-					serviceInstanceNamespacedName := types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}
+					serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
 					err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
 					g.Expect(err).NotTo(HaveOccurred())
 
@@ -130,7 +128,7 @@ var _ = Describe("CFServiceInstance", func() {
 				It("sets the BindingSecretAvailable condition to true in the CFServiceInstance status", func() {
 					Eventually(func(g Gomega) {
 						updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-						serviceInstanceNamespacedName := types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}
+						serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
 						err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
 						g.Expect(err).NotTo(HaveOccurred())
 
@@ -154,7 +152,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 			Eventually(func(g Gomega) {
 				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-				serviceInstanceNamespacedName := types.NamespacedName{Name: cfServiceInstance.Name, Namespace: cfServiceInstance.Namespace}
+				serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
 				err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
 				g.Expect(err).NotTo(HaveOccurred())
 

@@ -110,7 +110,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	var buildWorkload korifiv1alpha1.BuildWorkload
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Name, Namespace: cfBuild.Namespace}, &buildWorkload)
+	err = r.Client.Get(ctx, client.ObjectKeyFromObject(cfBuild), &buildWorkload)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching BuildWorkload")
 		// Ignore NotFound errors to account for eventual consistency
@@ -230,7 +230,7 @@ func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace,
 
 func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {
 	var foundWorkload korifiv1alpha1.BuildWorkload
-	err := r.Client.Get(ctx, types.NamespacedName{Name: desiredWorkload.Name, Namespace: desiredWorkload.Namespace}, &foundWorkload)
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(&desiredWorkload), &foundWorkload)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			err = r.Client.Create(ctx, &desiredWorkload)

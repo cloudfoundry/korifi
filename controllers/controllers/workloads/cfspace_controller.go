@@ -23,7 +23,6 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -222,12 +221,7 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequests(object client.Object) []recon
 	}
 	requests := make([]reconcile.Request, len(cfSpaceList.Items))
 	for i, space := range cfSpaceList.Items {
-		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      space.Name,
-				Namespace: space.Namespace,
-			},
-		}
+		requests[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&space)}
 	}
 	return requests
 }

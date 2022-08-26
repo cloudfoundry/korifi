@@ -141,7 +141,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				appWorkload := appWorkloads.Items[0]
 
 				var updatedCFApp korifiv1alpha1.CFApp
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfApp.Namespace}, &updatedCFApp)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &updatedCFApp)).To(Succeed())
 
 				g.Expect(appWorkload.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
 				g.Expect(appWorkload.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
