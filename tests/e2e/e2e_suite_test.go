@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"gopkg.in/yaml.v3"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -215,6 +216,11 @@ type cfErrs struct {
 	Errors []cfErr
 }
 
+type processResource struct {
+	resource `json:",inline"`
+	Type     string `json:"type"`
+}
+
 type cfErr struct {
 	Detail string `json:"detail"`
 	Title  string `json:"title"`
@@ -370,6 +376,17 @@ func createSpace(spaceName, orgGUID string) string {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
 
 	return spaceGUID
+}
+
+func applySpaceManifest(manifest manifestResource, spaceGUID string) {
+	manifestBytes, err := yaml.Marshal(manifest)
+	Expect(err).NotTo(HaveOccurred())
+	resp, err := adminClient.R().
+		SetHeader("Content-type", "application/x-yaml").
+		SetBody(manifestBytes).
+		Post("/v3/spaces/" + spaceGUID + "/actions/apply_manifest")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *sync.WaitGroup, errChan chan error) {
