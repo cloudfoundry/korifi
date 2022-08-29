@@ -80,9 +80,9 @@ var _ = Describe("CertInspector", func() {
 
 		It("returns an error", func() {
 			Expect(inspectorErr).To(SatisfyAll(
-				matchers.WrapErrorAssignableToTypeOf(apierrors.InvalidAuthError{})),
+				matchers.WrapErrorAssignableToTypeOf(apierrors.InvalidAuthError{}),
 				MatchError(ContainSubstring("failed to parse certificate")),
-			)
+			))
 		})
 	})
 })
