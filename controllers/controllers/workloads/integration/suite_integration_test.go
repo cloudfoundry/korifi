@@ -6,13 +6,12 @@ import (
 	"testing"
 	"time"
 
-	rbacv1 "k8s.io/api/rbac/v1"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	"github.com/jonboulle/clockwork"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +19,7 @@ import (
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,6 +36,7 @@ var (
 	testEnv           *envtest.Environment
 	k8sClient         client.Client
 	cfProcessDefaults config.CFProcessDefaults
+	cfRootNamespace   string
 )
 
 const (
@@ -88,12 +89,16 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
+	cfRootNamespace = testutils.PrefixedGUID("root-namespace")
+
+	createNamespace(ctx, k8sClient, cfRootNamespace)
+
 	controllerConfig := &config.ControllerConfig{
 		CFProcessDefaults: config.CFProcessDefaults{
 			MemoryMB:    500,
 			DiskQuotaMB: 512,
 		},
-		CFRootNamespace:             "cf",
+		CFRootNamespace:             cfRootNamespace,
 		PackageRegistrySecretName:   packageRegistrySecretName,
 		WorkloadsTLSSecretName:      "korifi-workloads-ingress-cert",
 		WorkloadsTLSSecretNamespace: "korifi-controllers-system",
@@ -165,6 +170,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
 		controllerConfig.PackageRegistrySecretName,
+		controllerConfig.CFRootNamespace,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -254,6 +260,18 @@ func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBinding
 	}
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
 	return roleBinding
+}
+
+func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceAccountName, namespace string, annotations map[string]string) corev1.ServiceAccount {
+	serviceAccount := corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        serviceAccountName,
+			Namespace:   namespace,
+			Annotations: annotations,
+		},
+	}
+	Expect(k8sClient.Create(ctx, &serviceAccount)).To(Succeed())
+	return serviceAccount
 }
 
 func createNamespaceWithCleanup(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {

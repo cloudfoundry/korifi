@@ -21,26 +21,25 @@ import (
 	"fmt"
 	"time"
 
-	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
-	kpackServiceAccountName = "kpack-service-account"
-	spaceFinalizerName      = "cfSpace.korifi.cloudfoundry.org"
+	spaceFinalizerName = "cfSpace.korifi.cloudfoundry.org"
 )
 
 // CFSpaceReconciler reconciles a CFSpace object
@@ -49,6 +48,7 @@ type CFSpaceReconciler struct {
 	scheme                    *runtime.Scheme
 	log                       logr.Logger
 	packageRegistrySecretName string
+	rootNamespace             string
 }
 
 func NewCFSpaceReconciler(
@@ -56,12 +56,14 @@ func NewCFSpaceReconciler(
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	packageRegistrySecretName string,
+	rootNamespace string,
 ) *CFSpaceReconciler {
 	return &CFSpaceReconciler{
 		client:                    client,
 		scheme:                    scheme,
 		log:                       log,
 		packageRegistrySecretName: packageRegistrySecretName,
+		rootNamespace:             rootNamespace,
 	}
 }
 
@@ -72,7 +74,7 @@ func NewCFSpaceReconciler(
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=create;patch;delete;get;list;watch
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;create
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -135,8 +137,9 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	err = r.createServiceAccounts(ctx, namespace.Name)
+	err = r.reconcileServiceAccounts(ctx, cfSpace)
 	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error propagating service accounts into CFSpace %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -150,34 +153,78 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *CFSpaceReconciler) createServiceAccounts(ctx context.Context, namespace string) error {
-	err := r.createServiceAccountIfMissing(ctx, &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kpackServiceAccountName,
-			Namespace: namespace,
-		},
-		ImagePullSecrets: []corev1.LocalObjectReference{
-			{Name: r.packageRegistrySecretName},
-		},
-		Secrets: []corev1.ObjectReference{
-			{Name: r.packageRegistrySecretName},
-		},
-	})
+func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space client.Object) error {
+	var (
+		result controllerutil.OperationResult
+		err    error
+	)
+
+	serviceAccounts := new(corev1.ServiceAccountList)
+	err = r.client.List(ctx, serviceAccounts, client.InNamespace(r.rootNamespace))
 	if err != nil {
-		r.log.Error(err, "unable to create kpack service account")
+		r.log.Error(err, fmt.Sprintf("Error listing service accounts from namespace %s", space.GetNamespace()))
 		return err
 	}
 
-	return nil
-}
+	serviceAccountMap := make(map[string]struct{})
+	for _, serviceAccount := range serviceAccounts.Items {
+		if serviceAccount.Annotations[korifiv1alpha1.PropagateServiceAccountAnnotation] == "true" {
 
-func (r *CFSpaceReconciler) createServiceAccountIfMissing(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
-	err := r.client.Create(ctx, serviceAccount)
-	if k8serrors.IsAlreadyExists(err) {
-		r.log.Info("service account already exists, skipping", "error", err)
-		return nil
+			serviceAccountMap[serviceAccount.Name] = struct{}{}
+
+			newServiceAccount := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceAccount.Name,
+					Namespace: space.GetName(),
+				},
+			}
+
+			result, err = controllerutil.CreateOrPatch(ctx, r.client, newServiceAccount, func() error {
+				newServiceAccount.Labels = serviceAccount.Labels
+				if newServiceAccount.Labels == nil {
+					newServiceAccount.Labels = map[string]string{}
+				}
+				newServiceAccount.Labels[korifiv1alpha1.PropagatedFromLabel] = r.rootNamespace
+				newServiceAccount.Annotations = serviceAccount.Annotations
+				newServiceAccount.ImagePullSecrets = serviceAccount.ImagePullSecrets
+				newServiceAccount.Secrets = serviceAccount.Secrets
+				return nil
+			})
+			if err != nil {
+				r.log.Error(err, fmt.Sprintf("Error creating/patching service accounts %s/%s", newServiceAccount.Namespace, newServiceAccount.Name))
+				return err
+			}
+
+			r.log.Info(fmt.Sprintf("Service Account %s/%s %s", newServiceAccount.Namespace, newServiceAccount.Name, result))
+
+		}
 	}
-	return err
+
+	propagatedServiceAccounts := new(corev1.ServiceAccountList)
+	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
+		korifiv1alpha1.PropagatedFromLabel: r.rootNamespace,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = r.client.List(ctx, propagatedServiceAccounts, &client.ListOptions{Namespace: space.GetName(), LabelSelector: labelSelector})
+	if err != nil {
+		r.log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", space.GetName()))
+		return err
+	}
+
+	for index := range propagatedServiceAccounts.Items {
+		propagatedServiceAccount := propagatedServiceAccounts.Items[index]
+		if _, found := serviceAccountMap[propagatedServiceAccount.Name]; !found {
+			err = r.client.Delete(ctx, &propagatedServiceAccount)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (r *CFSpaceReconciler) addFinalizer(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) error {
@@ -210,6 +257,10 @@ func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&source.Kind{Type: &rbacv1.RoleBinding{}},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequests),
 		).
+		Watches(
+			&source.Kind{Type: &corev1.ServiceAccount{}},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequestsForServiceAccount),
+		).
 		Complete(r)
 }
 
@@ -222,6 +273,25 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequests(object client.Object) []recon
 	requests := make([]reconcile.Request, len(cfSpaceList.Items))
 	for i, space := range cfSpaceList.Items {
 		requests[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&space)}
+	}
+	return requests
+}
+
+func (r *CFSpaceReconciler) enqueueCFSpaceRequestsForServiceAccount(object client.Object) []reconcile.Request {
+	if object.GetNamespace() != r.rootNamespace {
+		return nil
+	}
+
+	cfSpaceList := &korifiv1alpha1.CFSpaceList{}
+	err := r.client.List(context.Background(), cfSpaceList)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+	requests := make([]reconcile.Request, len(cfSpaceList.Items))
+	for i := range cfSpaceList.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(&cfSpaceList.Items[i]),
+		}
 	}
 	return requests
 }

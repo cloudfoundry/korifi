@@ -57,8 +57,11 @@ rules:
   - serviceaccounts
   verbs:
   - create
+  - delete
   - get
   - list
+  - patch
+  - watch
 - apiGroups:
   - ""
   resources:

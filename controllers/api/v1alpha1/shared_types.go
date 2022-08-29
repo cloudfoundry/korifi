@@ -20,8 +20,9 @@ const (
 	ReadyConditionType     = "Ready"
 	SucceededConditionType = "Succeeded"
 
-	PropagateRoleBindingAnnotation = "cloudfoundry.org/propagate-cf-role"
-	PropagatedFromLabel            = "cloudfoundry.org/propagated-from"
+	PropagateRoleBindingAnnotation    = "cloudfoundry.org/propagate-cf-role"
+	PropagateServiceAccountAnnotation = "cloudfoundry.org/propagate-service-account"
+	PropagatedFromLabel               = "cloudfoundry.org/propagated-from"
 )
 
 type Lifecycle struct {
