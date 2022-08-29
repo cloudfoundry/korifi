@@ -26,16 +26,19 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 	)
 
 	var (
-		ctx                                          context.Context
-		orgNamespace                                 *corev1.Namespace
-		spaceGUID                                    string
-		cfSpace                                      *korifiv1alpha1.CFSpace
-		imageRegistrySecret                          *corev1.Secret
-		role                                         *rbacv1.ClusterRole
-		username                                     string
-		roleBinding                                  rbacv1.RoleBinding
-		roleBindingWithPropagateAnnotationSetToFalse rbacv1.RoleBinding
-		roleBindingWithMissingPropagateAnnotation    rbacv1.RoleBinding
+		ctx                                             context.Context
+		orgNamespace                                    *corev1.Namespace
+		spaceGUID                                       string
+		cfSpace                                         *korifiv1alpha1.CFSpace
+		imageRegistrySecret                             *corev1.Secret
+		role                                            *rbacv1.ClusterRole
+		username                                        string
+		roleBinding                                     rbacv1.RoleBinding
+		roleBindingWithPropagateAnnotationSetToFalse    rbacv1.RoleBinding
+		roleBindingWithMissingPropagateAnnotation       rbacv1.RoleBinding
+		serviceAccount                                  corev1.ServiceAccount
+		serviceAccountWithPropagateAnnotationSetToFalse corev1.ServiceAccount
+		serviceAccountWithMissingPropagateAnnotation    corev1.ServiceAccount
 	)
 
 	BeforeEach(func() {
@@ -53,10 +56,12 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 		username = PrefixedGUID("user")
 		roleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role.Name, orgNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
-
 		roleBindingWithPropagateAnnotationSetToFalse = createRoleBinding(ctx, k8sClient, PrefixedGUID("rb-propagate-annotation-false"), username, role.Name, orgNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "false"})
-
 		roleBindingWithMissingPropagateAnnotation = createRoleBinding(ctx, k8sClient, PrefixedGUID("rb-missing-propagate-annotation"), username, role.Name, orgNamespace.Name, nil)
+
+		serviceAccount = createServiceAccount(ctx, k8sClient, PrefixedGUID("service-account"), cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-service-account": "true"})
+		serviceAccountWithPropagateAnnotationSetToFalse = createServiceAccount(ctx, k8sClient, PrefixedGUID("service-account-false-propagate"), cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-service-account": "false"})
+		serviceAccountWithMissingPropagateAnnotation = createServiceAccount(ctx, k8sClient, PrefixedGUID("service-account-no-propagate"), cfRootNamespace, nil)
 
 		spaceGUID = PrefixedGUID("cf-space")
 		cfSpace = &korifiv1alpha1.CFSpace{
@@ -132,19 +137,32 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}, time.Second).Should(BeTrue())
 		})
 
-		It("creates the kpack service account", func() {
-			var serviceAccount corev1.ServiceAccount
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Namespace: spaceGUID, Name: "kpack-service-account"}, &serviceAccount)
+		It("propagates the service accounts with annotation \"cloudfoundry.org/propagate-service-account\" set to \"true\" to CFSpace", func() {
+			Eventually(func(g Gomega) {
+				var createdServiceAccounts corev1.ServiceAccountList
+				g.Expect(k8sClient.List(ctx, &createdServiceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
+				g.Expect(createdServiceAccounts.Items).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+							"Name": Equal(serviceAccount.Name),
+						}),
+					}),
+				))
 			}).Should(Succeed())
+		})
 
-			Expect(serviceAccount.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{
-				{Name: packageRegistrySecretName},
-			}))
+		It("does not propagate service accounts with annotation \"cloudfoundry.org/propagate-service-account\" set to \"false\" ", func() {
+			Consistently(func(g Gomega) bool {
+				var newServiceAccount corev1.ServiceAccount
+				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Name, Name: serviceAccountWithPropagateAnnotationSetToFalse.Name}, &newServiceAccount))
+			}, time.Second).Should(BeTrue())
+		})
 
-			Expect(serviceAccount.Secrets).To(Equal([]corev1.ObjectReference{
-				{Name: packageRegistrySecretName},
-			}))
+		It("does not propagate service accounts with missing annotation \"cloudfoundry.org/propagate-service-account\" ", func() {
+			Consistently(func(g Gomega) bool {
+				var newServiceAccount corev1.ServiceAccount
+				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Name, Name: serviceAccountWithMissingPropagateAnnotation.Name}, &newServiceAccount))
+			}, time.Second).Should(BeTrue())
 		})
 
 		It("sets status on CFSpace", func() {
@@ -177,6 +195,9 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}, 20*time.Second).Should(Succeed())
 
 			newlyCreatedRoleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("newly-created-role-binding"), username, role.Name, orgNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
+			updatedRoleBinding := roleBinding.DeepCopy()
+			updatedRoleBinding.SetLabels(map[string]string{"foo": "bar"})
+			Expect(k8sClient.Patch(ctx, updatedRoleBinding, client.MergeFrom(&roleBinding))).To(Succeed())
 		})
 
 		It("propagates the new role-binding to CFSpace namespace", func() {
@@ -186,12 +207,50 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				g.Expect(createdRoleBindings.Items).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(roleBinding.Name),
+							"Name":   Equal(roleBinding.Name),
+							"Labels": HaveKeyWithValue("foo", "bar"),
 						}),
 					}),
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 							"Name": Equal(newlyCreatedRoleBinding.Name),
+						}),
+					}),
+				))
+			}).Should(Succeed())
+		})
+	})
+
+	When("service accounts are added/updated in the root namespace after CFSpace creation", func() {
+		var newlyCreatedServiceAccount corev1.ServiceAccount
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var createdSpace korifiv1alpha1.CFSpace
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
+			}, 20*time.Second).Should(Succeed())
+
+			newlyCreatedServiceAccount = createServiceAccount(ctx, k8sClient, PrefixedGUID("newly-created-service-account"), cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-service-account": "true"})
+			updatedServiceAccount := serviceAccount.DeepCopy()
+			updatedServiceAccount.SetLabels(map[string]string{"foo": "bar"})
+			Expect(k8sClient.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))).To(Succeed())
+		})
+
+		It("propagates the new service account to CFSpace namespace", func() {
+			Eventually(func(g Gomega) {
+				var createdServiceAccounts corev1.ServiceAccountList
+				g.Expect(k8sClient.List(ctx, &createdServiceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
+				g.Expect(createdServiceAccounts.Items).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+							"Name":   Equal(serviceAccount.Name),
+							"Labels": HaveKeyWithValue("foo", "bar"),
+						}),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+							"Name": Equal(newlyCreatedServiceAccount.Name),
 						}),
 					}),
 				))
@@ -216,6 +275,26 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				var deletedRoleBinding rbacv1.RoleBinding
 				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfSpace.Name}, &deletedRoleBinding))
 			}).Should(BeTrue(), "timed out waiting for role binding to be deleted")
+		})
+	})
+
+	When("service accounts are deleted in the root namespace after CFSpace creation", func() {
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var createdSpace korifiv1alpha1.CFSpace
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
+			}, 20*time.Second).Should(Succeed())
+
+			Expect(k8sClient.Delete(ctx, &serviceAccount)).To(Succeed())
+		})
+
+		It("deletes the corresponding service account in CFSpace", func() {
+			Eventually(func() bool {
+				var deletedServiceAccount corev1.ServiceAccount
+				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name}, &deletedServiceAccount))
+			}).Should(BeTrue(), "timed out waiting for service account to be deleted")
 		})
 	})
 

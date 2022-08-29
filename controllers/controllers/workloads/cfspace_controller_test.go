@@ -5,11 +5,6 @@ import (
 	"errors"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -17,7 +12,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,6 +28,7 @@ import (
 var _ = Describe("CFSpace Reconciler", func() {
 	const (
 		packageRegistrySecretName = "test-package-registry-secret"
+		rootNamespace             = "root-namespace"
 	)
 	var (
 		fakeClient       *fake.Client
@@ -35,8 +36,9 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 		cfSpaceGUID string
 
-		cfSpace   *korifiv1alpha1.CFSpace
-		namespace *v1.Namespace
+		cfSpace            *korifiv1alpha1.CFSpace
+		namespace          *corev1.Namespace
+		serviceAccountList *corev1.ServiceAccountList
 
 		cfSpaceError                       error
 		cfSpacePatchError                  error
@@ -65,6 +67,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 		cfSpace = BuildCFSpaceObject(cfSpaceGUID, defaultNamespace)
 		namespace = BuildNamespaceObject(cfSpaceGUID)
+		serviceAccountList = &corev1.ServiceAccountList{}
 
 		cfSpaceError = nil
 		cfSpacePatchError = nil
@@ -84,12 +87,12 @@ var _ = Describe("CFSpace Reconciler", func() {
 			case *korifiv1alpha1.CFSpace:
 				cfSpace.DeepCopyInto(obj)
 				return cfSpaceError
-			case *v1.Namespace:
+			case *corev1.Namespace:
 				namespace.DeepCopyInto(obj)
 				return namespaceError
-			case *v1.Secret:
+			case *corev1.Secret:
 				return secretErr
-			case *v1.ServiceAccount:
+			case *corev1.ServiceAccount:
 				return getKpackServiceAccountError
 			default:
 				panic("TestClient Get provided a weird obj")
@@ -98,10 +101,10 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 		fakeClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
 			switch obj.(type) {
-			case *v1.Namespace:
+			case *corev1.Namespace:
 				createSubnamespaceAnchorCallCount++
 				return createNamespaceErr
-			case *v1.ServiceAccount:
+			case *corev1.ServiceAccount:
 				createKpackServiceAccountCallCount++
 				return createKpackServiceAccountError
 			default:
@@ -113,7 +116,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			switch obj.(type) {
 			case *korifiv1alpha1.CFSpace:
 				return cfSpacePatchError
-			case *v1.Namespace:
+			case *corev1.Namespace:
 				return patchNamespaceErr
 			default:
 				panic("TestClient Patch provided an unexpected object type")
@@ -122,10 +125,22 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 		fakeClient.DeleteStub = func(ctx context.Context, obj client.Object, option ...client.DeleteOption) error {
 			switch obj.(type) {
-			case *v1.Namespace:
+			case *corev1.Namespace:
 				return deleteNamespaceErr
 			default:
 				panic("TestClient Delete provided an unexpected object type")
+			}
+		}
+
+		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, _ ...client.ListOption) error {
+			switch list := list.(type) {
+			case *corev1.ServiceAccountList:
+				serviceAccountList.DeepCopyInto(list)
+				return nil
+			case *rbacv1.RoleBindingList:
+				return nil
+			default:
+				panic("TestClient List provided an unexpected object type")
 			}
 		}
 
@@ -140,6 +155,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 			packageRegistrySecretName,
+			rootNamespace,
 		)
 		ctx = context.Background()
 		req = ctrl.Request{
@@ -222,8 +238,21 @@ var _ = Describe("CFSpace Reconciler", func() {
 		When("creating the kpack service account errors", func() {
 			BeforeEach(func() {
 				namespaceError = nil
-				getKpackServiceAccountError = errors.New("not found")
+				getKpackServiceAccountError = k8serrors.NewNotFound(schema.GroupResource{}, "serviceaccount")
 				createKpackServiceAccountError = errors.New("boom")
+				serviceAccountList = &corev1.ServiceAccountList{
+					Items: []corev1.ServiceAccount{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "kpack-service-account",
+								Namespace: rootNamespace,
+								Annotations: map[string]string{
+									korifiv1alpha1.PropagateServiceAccountAnnotation: "true",
+								},
+							},
+						},
+					},
+				}
 			})
 
 			It("should return an error", func() {

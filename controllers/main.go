@@ -211,6 +211,7 @@ func main() {
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
 			controllerConfig.PackageRegistrySecretName,
+			controllerConfig.CFRootNamespace,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
 			os.Exit(1)

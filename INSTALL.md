@@ -182,6 +182,8 @@ kind: ServiceAccount
 metadata:
   name: kpack-service-account
   namespace: cf
+  annotations:
+    cloudfoundry.org/propagate-service-account: "true"
 secrets:
 - name: image-registry-credentials
 imagePullSecrets:
