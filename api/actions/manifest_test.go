@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,6 +23,7 @@ import (
 var _ = Describe("ApplyManifest", func() {
 	const (
 		spaceGUID         = "test-space-guid"
+		routeGUID         = "test-route-guid"
 		appName           = "my-app"
 		appGUID           = "my-app-guid"
 		appEtcdUID        = types.UID("my-app-etcd-uid")
@@ -52,6 +54,15 @@ var _ = Describe("ApplyManifest", func() {
 
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
+		routeRepo.GetOrCreateRouteReturns(repositories.RouteRecord{
+			GUID:      routeGUID,
+			SpaceGUID: spaceGUID,
+			Destinations: []repositories.DestinationRecord{{
+				GUID:    spaceGUID,
+				AppGUID: appGUID,
+			}},
+		}, nil)
+
 		authInfo = authorization.Info{Token: "a-token"}
 		manifest = payloads.Manifest{
 			Version: 1,
@@ -59,8 +70,21 @@ var _ = Describe("ApplyManifest", func() {
 				{
 					Name: appName,
 					Env:  map[string]string{"FOO": "bar"},
+					Routes: []payloads.ManifestRoute{{
+						Route: tools.PtrTo(fmt.Sprintf("bob.%s/bobby", defaultDomainName)),
+					}},
 					Processes: []payloads.ManifestApplicationProcess{
-						{Type: "bob"},
+						{
+							Type:                         "bob",
+							Command:                      tools.PtrTo("run-bob"),
+							DiskQuota:                    tools.PtrTo("512M"),
+							HealthCheckHTTPEndpoint:      tools.PtrTo("/stuff"),
+							HealthCheckInvocationTimeout: tools.PtrTo(int64(60)),
+							HealthCheckType:              tools.PtrTo("http"),
+							Instances:                    tools.PtrTo(3),
+							Memory:                       tools.PtrTo("500M"),
+							Timeout:                      tools.PtrTo(int64(70)),
+						},
 					},
 				},
 			},
@@ -107,6 +131,39 @@ var _ = Describe("ApplyManifest", func() {
 
 		It("doesn't create an App", func() {
 			Expect(appRepo.CreateAppCallCount()).To(Equal(0))
+		})
+	})
+
+	It("ensures the default domain is configured correctly", func() {
+		Expect(domainRepo.GetDomainByNameCallCount()).To(BeNumerically(">", 0))
+		_, actualAuthInfo, actualDomain := domainRepo.GetDomainByNameArgsForCall(0)
+		Expect(actualAuthInfo).To(Equal(authInfo))
+		Expect(actualDomain).To(Equal(defaultDomainName))
+	})
+
+	When("fetching the default domain fails with a NotFound error", func() {
+		BeforeEach(func() {
+			domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, apierrors.NewNotFoundError(errors.New("boom"), repositories.DomainResourceType))
+		})
+
+		It("returns an UnprocessibleEntity error with a friendly message", func() {
+			Expect(applyErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+			var apierr apierrors.ApiError
+			ok := errors.As(applyErr, &apierr)
+			Expect(ok).To(BeTrue())
+			Expect(apierr.Detail()).To(Equal(
+				fmt.Sprintf("The configured default domain %q was not found", defaultDomainName),
+			))
+		})
+	})
+
+	When("fetching the default domain fails", func() {
+		BeforeEach(func() {
+			domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
+		})
+
+		It("returns an error", func() {
+			Expect(applyErr).To(MatchError("fail-on-purpose"))
 		})
 	})
 
@@ -158,12 +215,29 @@ var _ = Describe("ApplyManifest", func() {
 			appRepo.CreateAppReturns(repositories.AppRecord{GUID: appGUID}, nil)
 		})
 
-		It("creates a web process with the given resource properties", func() {
-			Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-			_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-			Expect(processMessage.AppGUID).To(Equal(appGUID))
-			Expect(processMessage.Type).To(Equal("web"))
-			Expect(processMessage.MemoryMB).To(Equal(int64(256)))
+		When("health check type is specified in the manifest", func() {
+			BeforeEach(func() {
+				healthCheckTypeHttp := "http"
+				manifest.Applications[0].Processes[0].HealthCheckType = &healthCheckTypeHttp
+			})
+
+			It("sets the health check type to http", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("http"))
+			})
+		})
+
+		When("no-route is set to true in the manifest", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].NoRoute = true
+			})
+
+			It("sets the health check type to process", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("process"))
+			})
 		})
 
 		When("default route is set to true in the manifest", func() {
@@ -202,121 +276,12 @@ var _ = Describe("ApplyManifest", func() {
 				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
 			})
 		})
-
-		When("routes exist for the app", func() {
-			BeforeEach(func() {
-				routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{{
-					GUID: "route-guid",
-				}}, nil)
-			})
-
-			It("sets the health check type to port", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
-			})
-		})
-
-		When("no-route is set to true in the manifest", func() {
-			BeforeEach(func() {
-				manifest.Applications[0].NoRoute = true
-			})
-
-			It("sets the health check type to process", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("process"))
-			})
-		})
-
-		When("health check type is specified in the manifest", func() {
-			BeforeEach(func() {
-				healthCheckTypeHttp := "http"
-				manifest.Applications[0].Processes[0].HealthCheckType = &healthCheckTypeHttp
-			})
-
-			It("sets the health check type to http", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("http"))
-			})
-		})
-	})
-
-	When("the manifest has no-route set", func() {
-		BeforeEach(func() {
-			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{
-				GUID:      appGUID,
-				SpaceGUID: spaceGUID,
-			}, nil)
-			manifest.Applications[0].NoRoute = true
-		})
-
-		It("does not create routes", func() {
-			Expect(applyErr).NotTo(HaveOccurred())
-			Expect(routeRepo.GetOrCreateRouteCallCount()).To(BeZero())
-		})
-
-		When("the manifest has default-route set as well", func() {
-			BeforeEach(func() {
-				manifest.Applications[0].DefaultRoute = true
-			})
-
-			It("does not create routes", func() {
-				Expect(applyErr).NotTo(HaveOccurred())
-				Expect(routeRepo.GetOrCreateRouteCallCount()).To(BeZero())
-			})
-		})
-
-		When("the app has routes", func() {
-			BeforeEach(func() {
-				routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{{
-					GUID:      "app-route-guid",
-					SpaceGUID: spaceGUID,
-				}}, nil)
-			})
-
-			It("lists the routes for the app", func() {
-				Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID, actualSpaceGUID := routeRepo.ListRoutesForAppArgsForCall(0)
-				Expect(actualSpaceGUID).To(Equal(spaceGUID))
-				Expect(actualAppGUID).To(Equal(appGUID))
-			})
-
-			When("listing app routes fails", func() {
-				BeforeEach(func() {
-					routeRepo.ListRoutesForAppReturns(nil, errors.New("list-routes-error"))
-				})
-
-				It("returns the error", func() {
-					Expect(applyErr).To(MatchError("list-routes-error"))
-				})
-			})
-
-			It("deletes the app routes", func() {
-				Expect(applyErr).NotTo(HaveOccurred())
-				Expect(routeRepo.DeleteRouteCallCount()).To(Equal(1))
-				_, _, actualDeleteRouteMsg := routeRepo.DeleteRouteArgsForCall(0)
-				Expect(actualDeleteRouteMsg.GUID).To(Equal("app-route-guid"))
-				Expect(actualDeleteRouteMsg.SpaceGUID).To(Equal(spaceGUID))
-			})
-
-			When("deleting a route fails", func() {
-				BeforeEach(func() {
-					routeRepo.DeleteRouteReturns(errors.New("delete-route-error"))
-				})
-
-				It("returns the error", func() {
-					Expect(applyErr).To(MatchError("delete-route-error"))
-				})
-			})
-		})
 	})
 
 	When("the app does not exist", func() {
 		BeforeEach(func() {
 			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
-			appRepo.CreateAppReturns(repositories.AppRecord{GUID: appGUID}, nil)
+			appRepo.CreateAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}, nil)
 			manifest.Applications[0].DefaultRoute = true
 		})
 
@@ -327,14 +292,25 @@ var _ = Describe("ApplyManifest", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(appMessage.Name).To(Equal(appName))
 			Expect(appMessage.SpaceGUID).To(Equal(spaceGUID))
+			Expect(appMessage.Lifecycle.Type).To(Equal(string(korifiv1alpha1.BuildpackLifecycle)))
+			Expect(appMessage.State).To(Equal(repositories.DesiredState(korifiv1alpha1.StoppedState)))
+			Expect(appMessage.EnvironmentVariables).To(Equal(map[string]string{"FOO": "bar"}))
 
 			Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
 			_, actualAuthInfo, processMessage := processRepo.CreateProcessArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+
 			Expect(processMessage.AppGUID).To(Equal(appGUID))
 			Expect(processMessage.SpaceGUID).To(Equal(spaceGUID))
 			Expect(processMessage.Type).To(Equal("bob"))
-			Expect(processMessage.HealthCheck.Type).To(Equal("process"))
+			Expect(processMessage.Command).To(Equal("run-bob"))
+			Expect(processMessage.DiskQuotaMB).To(BeNumerically("==", 512))
+			Expect(processMessage.HealthCheck.Type).To(Equal("http"))
+			Expect(processMessage.HealthCheck.Data.HTTPEndpoint).To(Equal("/stuff"))
+			Expect(processMessage.HealthCheck.Data.InvocationTimeoutSeconds).To(BeNumerically("==", 60))
+			Expect(processMessage.HealthCheck.Data.TimeoutSeconds).To(BeNumerically("==", 70))
+			Expect(processMessage.DesiredInstances).To(Equal(3))
+			Expect(processMessage.MemoryMB).To(BeNumerically("==", 500))
 		})
 
 		When("creating the app errors", func() {
@@ -354,6 +330,43 @@ var _ = Describe("ApplyManifest", func() {
 
 			It("returns an error", func() {
 				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
+			})
+		})
+
+		When("a non-web process does not have a health check type set", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].Processes[0].HealthCheckType = nil
+			})
+
+			It("defaults to process health check type", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("process"))
+			})
+		})
+
+		When("the web process does not have a health check type set", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].Processes[0].Type = "web"
+				manifest.Applications[0].Processes[0].HealthCheckType = nil
+			})
+
+			It("defaults to port health check type", func() {
+				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
+			})
+
+			When("there are no routes to the app", func() {
+				BeforeEach(func() {
+					manifest.Applications[0].Routes = nil
+				})
+
+				It("does not set the health check type", func() {
+					Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+					_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+					Expect(processMessage.HealthCheck.Type).To(Equal("port"))
+				})
 			})
 		})
 	})
@@ -458,10 +471,35 @@ var _ = Describe("ApplyManifest", func() {
 					Expect(applyErr).To(MatchError(ContainSubstring("boom")))
 				})
 			})
+
+			When("the process type is web without healthcheck type", func() {
+				BeforeEach(func() {
+					manifest.Applications[0].Processes[0].Type = "web"
+					manifest.Applications[0].Processes[0].HealthCheckType = nil
+				})
+
+				It("sets the health check type to port", func() {
+					Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+					_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
+					Expect(processMessage.HealthCheck.Type).To(Equal("port"))
+				})
+			})
+		})
+	})
+
+	Describe("routes", func() {
+		BeforeEach(func() {
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{
+				Name:      appName,
+				GUID:      appGUID,
+				EtcdUID:   appEtcdUID,
+				SpaceGUID: spaceGUID,
+			}, nil)
 		})
 
 		When("default route is specified for the app, and no routes are specified", func() {
 			BeforeEach(func() {
+				manifest.Applications[0].Routes = nil
 				manifest.Applications[0].DefaultRoute = true
 			})
 
@@ -484,46 +522,18 @@ var _ = Describe("ApplyManifest", func() {
 				})
 			})
 
-			When("the app has no existing route destinations", func() {
-				It("fetches the default domain, and calls create route for the default destination", func() {
-					Expect(applyErr).To(Succeed())
-					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
-					_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
-					Expect(createMessage.Host).To(Equal(appName))
-					Expect(createMessage.Path).To(Equal(""))
-					Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
+			It("creates route for the default destination", func() {
+				Expect(applyErr).To(Succeed())
+				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
+				_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
+				Expect(createMessage.Host).To(Equal(appName))
+				Expect(createMessage.Path).To(Equal(""))
+				Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
 
-					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
-					_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
-					Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
-					Expect(destinationsMessage.NewDestinations[0].AppGUID).To(Equal(appGUID))
-				})
-
-				When("fetching the default domain fails with a NotFound error", func() {
-					BeforeEach(func() {
-						domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, apierrors.NewNotFoundError(errors.New("boom"), repositories.DomainResourceType))
-					})
-
-					It("returns an UnprocessibleEntity error with a friendly message", func() {
-						Expect(applyErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-						var apierr apierrors.ApiError
-						ok := errors.As(applyErr, &apierr)
-						Expect(ok).To(BeTrue())
-						Expect(apierr.Detail()).To(Equal(
-							fmt.Sprintf("The configured default domain %q was not found", defaultDomainName),
-						))
-					})
-				})
-
-				When("fetching the default domain fails", func() {
-					BeforeEach(func() {
-						domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
-					})
-
-					It("returns an error", func() {
-						Expect(applyErr).To(MatchError("fail-on-purpose"))
-					})
-				})
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
+				_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
+				Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
+				Expect(destinationsMessage.NewDestinations[0].AppGUID).To(Equal(appGUID))
 			})
 
 			When("the app already has a route destination", func() {
@@ -541,52 +551,9 @@ var _ = Describe("ApplyManifest", func() {
 			})
 		})
 
-		When("no route is specified for the app", func() {
-			BeforeEach(func() {
-				manifest.Applications[0].NoRoute = true
-			})
-
-			When("default route is set to true", func() {
-				BeforeEach(func() {
-					manifest.Applications[0].DefaultRoute = true
-				})
-
-				It("does not call GetOrCreateRoute, and does not return an error", func() {
-					Expect(applyErr).To(Succeed())
-					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
-					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
-				})
-			})
-
-			When("random route is set to true", func() {
-				BeforeEach(func() {
-					manifest.Applications[0].RandomRoute = true
-				})
-
-				It("does not call GetOrCreateRoute, and does not return an error", func() {
-					Expect(applyErr).To(Succeed())
-					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
-					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
-				})
-			})
-
-			When("routes are specified in the manifest", func() {
-				BeforeEach(func() {
-					manifest.Applications[0].Routes = []payloads.ManifestRoute{
-						{Route: tools.PtrTo("my-app.my-domain.com/path")},
-					}
-				})
-
-				It("does not call GetOrCreateRoute, and does not return an error", func() {
-					Expect(applyErr).To(Succeed())
-					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(0))
-					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
-				})
-			})
-		})
-
 		When("random route is specified for the app, and no routes are specified", func() {
 			BeforeEach(func() {
+				manifest.Applications[0].Routes = nil
 				manifest.Applications[0].RandomRoute = true
 			})
 
@@ -609,46 +576,18 @@ var _ = Describe("ApplyManifest", func() {
 				})
 			})
 
-			When("the app has no existing route destinations", func() {
-				It("fetches the default domain, and calls create route for a random destination", func() {
-					Expect(applyErr).To(Succeed())
-					Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
-					_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
-					Expect(createMessage.Host).To(HavePrefix(appName + "-"))
-					Expect(createMessage.Path).To(Equal(""))
-					Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
+			It("creates route for a random destination", func() {
+				Expect(applyErr).To(Succeed())
+				Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
+				_, _, createMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
+				Expect(createMessage.Host).To(HavePrefix(appName + "-"))
+				Expect(createMessage.Path).To(Equal(""))
+				Expect(createMessage.DomainGUID).To(Equal(defaultDomainGUID))
 
-					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
-					_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
-					Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
-					Expect(destinationsMessage.NewDestinations[0].AppGUID).To(Equal(appGUID))
-				})
-
-				When("fetching the default domain fails with a NotFound error", func() {
-					BeforeEach(func() {
-						domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, apierrors.NewNotFoundError(errors.New("boom"), repositories.DomainResourceType))
-					})
-
-					It("returns an UnprocessibleEntity error with a friendly message", func() {
-						Expect(applyErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-						var apierr apierrors.ApiError
-						ok := errors.As(applyErr, &apierr)
-						Expect(ok).To(BeTrue())
-						Expect(apierr.Detail()).To(Equal(
-							fmt.Sprintf("The configured default domain %q was not found", defaultDomainName),
-						))
-					})
-				})
-
-				When("fetching the default domain fails", func() {
-					BeforeEach(func() {
-						domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("fail-on-purpose"))
-					})
-
-					It("returns an error", func() {
-						Expect(applyErr).To(MatchError("fail-on-purpose"))
-					})
-				})
+				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
+				_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
+				Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
+				Expect(destinationsMessage.NewDestinations[0].AppGUID).To(Equal(appGUID))
 			})
 
 			When("the app already has a route destination", func() {
@@ -684,8 +623,8 @@ var _ = Describe("ApplyManifest", func() {
 			})
 
 			It("creates or updates the route", func() {
-				Expect(domainRepo.GetDomainByNameCallCount()).To(Equal(1))
-				_, actualAuthInfo, domainName := domainRepo.GetDomainByNameArgsForCall(0)
+				Expect(domainRepo.GetDomainByNameCallCount()).To(Equal(2))
+				_, actualAuthInfo, domainName := domainRepo.GetDomainByNameArgsForCall(1)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 				Expect(domainName).To(Equal("my-domain.com"))
 
@@ -715,7 +654,7 @@ var _ = Describe("ApplyManifest", func() {
 
 			When("fetching the domain errors", func() {
 				BeforeEach(func() {
-					domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("boom"))
+					domainRepo.GetDomainByNameReturnsOnCall(1, repositories.DomainRecord{}, errors.New("boom"))
 				})
 
 				It("doesn't create the route", func() {
@@ -796,6 +735,83 @@ var _ = Describe("ApplyManifest", func() {
 					Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
 					_, _, destinationsMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
 					Expect(destinationsMessage.NewDestinations).To(HaveLen(1))
+				})
+			})
+		})
+
+		When("the manifest has no-route set", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].NoRoute = true
+			})
+
+			It("does not create routes", func() {
+				Expect(applyErr).NotTo(HaveOccurred())
+				Expect(routeRepo.GetOrCreateRouteCallCount()).To(BeZero())
+			})
+
+			When("the manifest has default-route set as well", func() {
+				BeforeEach(func() {
+					manifest.Applications[0].DefaultRoute = true
+				})
+
+				It("does not create routes", func() {
+					Expect(applyErr).NotTo(HaveOccurred())
+					Expect(routeRepo.GetOrCreateRouteCallCount()).To(BeZero())
+				})
+			})
+
+			When("the manifest has random-route set as well", func() {
+				BeforeEach(func() {
+					manifest.Applications[0].RandomRoute = true
+				})
+
+				It("does not create routes", func() {
+					Expect(applyErr).NotTo(HaveOccurred())
+					Expect(routeRepo.GetOrCreateRouteCallCount()).To(BeZero())
+				})
+			})
+
+			When("the app has routes", func() {
+				BeforeEach(func() {
+					routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{{
+						GUID:      "app-route-guid",
+						SpaceGUID: spaceGUID,
+					}}, nil)
+				})
+
+				It("lists the routes for the app", func() {
+					Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
+					_, _, actualAppGUID, actualSpaceGUID := routeRepo.ListRoutesForAppArgsForCall(0)
+					Expect(actualSpaceGUID).To(Equal(spaceGUID))
+					Expect(actualAppGUID).To(Equal(appGUID))
+				})
+
+				When("listing app routes fails", func() {
+					BeforeEach(func() {
+						routeRepo.ListRoutesForAppReturns(nil, errors.New("list-routes-error"))
+					})
+
+					It("returns the error", func() {
+						Expect(applyErr).To(MatchError("list-routes-error"))
+					})
+				})
+
+				It("deletes the app routes", func() {
+					Expect(applyErr).NotTo(HaveOccurred())
+					Expect(routeRepo.DeleteRouteCallCount()).To(Equal(1))
+					_, _, actualDeleteRouteMsg := routeRepo.DeleteRouteArgsForCall(0)
+					Expect(actualDeleteRouteMsg.GUID).To(Equal("app-route-guid"))
+					Expect(actualDeleteRouteMsg.SpaceGUID).To(Equal(spaceGUID))
+				})
+
+				When("deleting a route fails", func() {
+					BeforeEach(func() {
+						routeRepo.DeleteRouteReturns(errors.New("delete-route-error"))
+					})
+
+					It("returns the error", func() {
+						Expect(applyErr).To(MatchError("delete-route-error"))
+					})
 				})
 			})
 		})
