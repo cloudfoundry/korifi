@@ -19,6 +19,7 @@ package workloads
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -187,7 +188,14 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 				newServiceAccount.Labels[korifiv1alpha1.PropagatedFromLabel] = r.rootNamespace
 				newServiceAccount.Annotations = serviceAccount.Annotations
 				newServiceAccount.ImagePullSecrets = serviceAccount.ImagePullSecrets
-				newServiceAccount.Secrets = serviceAccount.Secrets
+				newServiceAccount.Secrets = []corev1.ObjectReference{}
+				// for k8s 1.23 and earlier, we need to elide the k8s generated token from the source secret since that token won't exist in the new namespace.
+				for i := range serviceAccount.Secrets {
+					if !strings.HasPrefix(serviceAccount.Secrets[i].Name, serviceAccount.Name+"-token-") {
+						newServiceAccount.Secrets = append(newServiceAccount.Secrets, serviceAccount.Secrets[i])
+					}
+				}
+
 				return nil
 			})
 			if err != nil {

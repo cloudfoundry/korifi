@@ -151,6 +151,21 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
+		It("removes service account tokens from the propagated secret", func() {
+			Eventually(func(g Gomega) {
+				var createdServiceAccounts corev1.ServiceAccountList
+				g.Expect(k8sClient.List(ctx, &createdServiceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
+				g.Expect(createdServiceAccounts.Items).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+							"Name": Equal(serviceAccount.Name),
+						}),
+						"Secrets": ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal("a-secret-i-like")})),
+					}),
+				))
+			}).Should(Succeed())
+		})
+
 		It("does not propagate service accounts with annotation \"cloudfoundry.org/propagate-service-account\" set to \"false\" ", func() {
 			Consistently(func(g Gomega) bool {
 				var newServiceAccount corev1.ServiceAccount
