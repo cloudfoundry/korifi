@@ -75,20 +75,21 @@ func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, space
 		return err
 	}
 
-	if !appInfo.NoRoute {
-		err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, &appInfo)
-		if err != nil {
-			return err
-		}
-
-		err = a.checkAndUpdateRandomRoute(ctx, authInfo, appRecord, &appInfo)
-		if err != nil {
-			return err
-		}
-
-		return a.createOrUpdateRoutes(ctx, authInfo, appRecord, appInfo.Routes)
+	if appInfo.NoRoute {
+		return a.deleteAppRoutes(ctx, authInfo, appRecord)
 	}
-	return nil
+
+	err = a.checkAndUpdateDefaultRoute(ctx, authInfo, appRecord, &appInfo)
+	if err != nil {
+		return err
+	}
+
+	err = a.checkAndUpdateRandomRoute(ctx, authInfo, appRecord, &appInfo)
+	if err != nil {
+		return err
+	}
+
+	return a.createOrUpdateRoutes(ctx, authInfo, appRecord, appInfo.Routes)
 }
 
 func (a *Manifest) setHealthCheckType(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication, processInfo *payloads.ManifestApplicationProcess) error {
@@ -174,6 +175,25 @@ func (a *Manifest) checkAndUpdateRandomRoute(ctx context.Context, authInfo autho
 	}
 	// set the route field of the manifest with a randomly generated name . default domain
 	appInfo.Routes = append(appInfo.Routes, randomRoute)
+
+	return nil
+}
+
+func (a *Manifest) deleteAppRoutes(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord) error {
+	appRoutes, err := a.routeRepo.ListRoutesForApp(ctx, authInfo, appRecord.GUID, appRecord.SpaceGUID)
+	if err != nil {
+		return err
+	}
+
+	for _, route := range appRoutes {
+		err = a.routeRepo.DeleteRoute(ctx, authInfo, repositories.DeleteRouteMessage{
+			GUID:      route.GUID,
+			SpaceGUID: route.SpaceGUID,
+		})
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
