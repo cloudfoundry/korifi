@@ -55,4 +55,5 @@ type CFRouteRepository interface {
 	GetOrCreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
+	DeleteRoute(ctx context.Context, authInfo authorization.Info, message repositories.DeleteRouteMessage) error
 }

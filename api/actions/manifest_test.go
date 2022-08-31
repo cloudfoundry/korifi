@@ -243,6 +243,76 @@ var _ = Describe("ApplyManifest", func() {
 		})
 	})
 
+	When("the manifest has no-route set", func() {
+		BeforeEach(func() {
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{
+				GUID:      appGUID,
+				SpaceGUID: spaceGUID,
+			}, nil)
+			manifest.Applications[0].NoRoute = true
+		})
+
+		It("does not create routes", func() {
+			Expect(applyErr).NotTo(HaveOccurred())
+			Expect(routeRepo.GetOrCreateRouteCallCount()).To(BeZero())
+		})
+
+		When("the manifest has default-route set as well", func() {
+			BeforeEach(func() {
+				manifest.Applications[0].DefaultRoute = true
+			})
+
+			It("does not create routes", func() {
+				Expect(applyErr).NotTo(HaveOccurred())
+				Expect(routeRepo.GetOrCreateRouteCallCount()).To(BeZero())
+			})
+		})
+
+		When("the app has routes", func() {
+			BeforeEach(func() {
+				routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{{
+					GUID:      "app-route-guid",
+					SpaceGUID: spaceGUID,
+				}}, nil)
+			})
+
+			It("lists the routes for the app", func() {
+				Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID, actualSpaceGUID := routeRepo.ListRoutesForAppArgsForCall(0)
+				Expect(actualSpaceGUID).To(Equal(spaceGUID))
+				Expect(actualAppGUID).To(Equal(appGUID))
+			})
+
+			When("listing app routes fails", func() {
+				BeforeEach(func() {
+					routeRepo.ListRoutesForAppReturns(nil, errors.New("list-routes-error"))
+				})
+
+				It("returns the error", func() {
+					Expect(applyErr).To(MatchError("list-routes-error"))
+				})
+			})
+
+			It("deletes the app routes", func() {
+				Expect(applyErr).NotTo(HaveOccurred())
+				Expect(routeRepo.DeleteRouteCallCount()).To(Equal(1))
+				_, _, actualDeleteRouteMsg := routeRepo.DeleteRouteArgsForCall(0)
+				Expect(actualDeleteRouteMsg.GUID).To(Equal("app-route-guid"))
+				Expect(actualDeleteRouteMsg.SpaceGUID).To(Equal(spaceGUID))
+			})
+
+			When("deleting a route fails", func() {
+				BeforeEach(func() {
+					routeRepo.DeleteRouteReturns(errors.New("delete-route-error"))
+				})
+
+				It("returns the error", func() {
+					Expect(applyErr).To(MatchError("delete-route-error"))
+				})
+			})
+		})
+	})
+
 	When("the app does not exist", func() {
 		BeforeEach(func() {
 			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
