@@ -2,15 +2,19 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - githubRelease:
+      tag: v0.6.2
       url: https://api.github.com/repos/pivotal/kpack/releases/75244244
     path: kpack
   - githubRelease:
+      tag: v0.2.0
       url: https://api.github.com/repos/servicebinding/runtime/releases/74823243
     path: service-binding
   - githubRelease:
+      tag: metrics-server-helm-chart-3.8.2
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/60209406
     path: metrics-server-local
   - githubRelease:
+      tag: v1.9.1
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/72867571
     path: cert-manager
   - git:
