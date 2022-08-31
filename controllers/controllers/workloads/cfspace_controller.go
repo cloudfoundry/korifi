@@ -278,10 +278,12 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequests(object client.Object) []recon
 	if err != nil {
 		return []reconcile.Request{}
 	}
+
 	requests := make([]reconcile.Request, len(cfSpaceList.Items))
-	for i, space := range cfSpaceList.Items {
-		requests[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&space)}
+	for i := range cfSpaceList.Items {
+		requests[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cfSpaceList.Items[i])}
 	}
+
 	return requests
 }
 

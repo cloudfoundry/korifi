@@ -196,9 +196,11 @@ func (r *CFOrgReconciler) enqueueCFOrgRequests(object client.Object) []reconcile
 	if err != nil {
 		return []reconcile.Request{}
 	}
+
 	requests := make([]reconcile.Request, len(cfOrgList.Items))
-	for i, org := range cfOrgList.Items {
-		requests[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&org)}
+	for i := range cfOrgList.Items {
+		requests[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cfOrgList.Items[i])}
 	}
+
 	return requests
 }
