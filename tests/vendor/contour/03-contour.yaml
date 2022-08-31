@@ -1,0 +1,104 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: contour
+  name: contour
+  namespace: projectcontour
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # This value of maxSurge means that during a rolling update
+      # the new ReplicaSet will be created first.
+      maxSurge: 50%
+  selector:
+    matchLabels:
+      app: contour
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+      labels:
+        app: contour
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: contour
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - serve
+        - --incluster
+        - --xds-address=0.0.0.0
+        - --xds-port=8001
+        - --contour-cafile=/certs/ca.crt
+        - --contour-cert-file=/certs/tls.crt
+        - --contour-key-file=/certs/tls.key
+        - --config-path=/config/contour.yaml
+        command: ["contour"]
+        image: ghcr.io/projectcontour/contour:v1.22.0
+        imagePullPolicy: IfNotPresent
+        name: contour
+        ports:
+        - containerPort: 8001
+          name: xds
+          protocol: TCP
+        - containerPort: 8000
+          name: metrics
+          protocol: TCP
+        - containerPort: 6060
+          name: debug
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+        readinessProbe:
+          tcpSocket:
+            port: 8001
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        volumeMounts:
+          - name: contourcert
+            mountPath: /certs
+            readOnly: true
+          - name: contour-config
+            mountPath: /config
+            readOnly: true
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+      dnsPolicy: ClusterFirst
+      serviceAccountName: contour
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      volumes:
+        - name: contourcert
+          secret:
+            secretName: contourcert
+        - name: contour-config
+          configMap:
+            name: contour
+            defaultMode: 0644
+            items:
+            - key: contour.yaml
+              path: contour.yaml
