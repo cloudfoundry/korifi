@@ -222,8 +222,9 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	desiredAppWorkload.Spec.GUID = cfProcess.Name
 	desiredAppWorkload.Spec.Version = cfAppRevisionKeyValue
 	desiredAppWorkload.Spec.Resources.Requests = corev1.ResourceList{
-		corev1.ResourceCPU:    calculateCPURequest(cfProcess.Spec.MemoryMB),
-		corev1.ResourceMemory: mebibyteQuantity(cfProcess.Spec.MemoryMB),
+		corev1.ResourceCPU:              calculateCPURequest(cfProcess.Spec.MemoryMB),
+		corev1.ResourceEphemeralStorage: mebibyteQuantity(cfProcess.Spec.DiskQuotaMB),
+		corev1.ResourceMemory:           mebibyteQuantity(cfProcess.Spec.MemoryMB),
 	}
 	desiredAppWorkload.Spec.Resources.Limits = corev1.ResourceList{
 		corev1.ResourceEphemeralStorage: mebibyteQuantity(cfProcess.Spec.DiskQuotaMB),
