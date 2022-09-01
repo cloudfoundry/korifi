@@ -3,6 +3,7 @@
 IMG_JTR ?= cloudfoundry/korifi-job-task-runner:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.24.1
+CLUSTER_NAME ?= "e2e"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -87,7 +88,7 @@ docker-push: ## Push docker image with the manager.
 	docker push ${IMG_JTR}
 
 kind-load-image:
-	kind load docker-image ${IMG_JTR}
+	kind load docker-image --name ${CLUSTER_NAME} ${IMG_JTR}
 
 ##@ Deployment
 
