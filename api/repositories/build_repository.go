@@ -29,8 +29,8 @@ const (
 	StagingConditionType   = "Staging"
 	SucceededConditionType = "Succeeded"
 
-	BuildResourceType = "Build"
-	stagingLog        = "STG"
+	BuildResourceType    = "Build"
+	stagingLogSourceType = "STG"
 )
 
 type BuildRecord struct {
@@ -143,7 +143,7 @@ func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Inf
 			Message:   logLine,
 			Timestamp: logTime,
 			Tags: map[string]string{
-				"source_type": stagingLog,
+				"source_type": stagingLogSourceType,
 			},
 		})
 	}

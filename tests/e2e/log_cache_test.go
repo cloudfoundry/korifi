@@ -19,7 +19,7 @@ var _ = Describe("LogCache", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
-		appGUID = pushTestApp(spaceGUID, appBitsFile)
+		appGUID = pushTestApp(spaceGUID, loggingAppBitsFile)
 		createSpaceRole("space_developer", certUserName, spaceGUID)
 	})
 
@@ -33,13 +33,18 @@ var _ = Describe("LogCache", func() {
 			httpResp, httpError = certClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
 		})
 
-		It("succeeds with log envelopes", func() {
+		It("succeeds with log envelopes that include both app and staging logs", func() {
 			Expect(httpError).NotTo(HaveOccurred())
 			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Envelopes.Batch).NotTo(BeEmpty())
-			Expect(result.Envelopes.Batch).To(ContainElements(MatchFields(IgnoreExtras, Fields{
-				"Tags": HaveKeyWithValue("source_type", "STG"),
-			})))
+			Expect(result.Envelopes.Batch).To(ContainElements(
+				MatchFields(IgnoreExtras, Fields{
+					"Tags": ContainElement("STG"),
+				})))
+			Expect(result.Envelopes.Batch).To(ContainElements(
+				MatchFields(IgnoreExtras, Fields{
+					"Tags": ContainElement("APP"),
+				})))
 		})
 	})
 })
