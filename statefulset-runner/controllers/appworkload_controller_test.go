@@ -125,7 +125,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Spec.Template.Spec.Containers[0].Image).To(Equal(appWorkload.Spec.Image))
 	})
 
-	It("copy the image pull secrets", func() {
+	It("should copy the image pull secrets", func() {
 		Expect(statefulSet.Spec.Template.Spec.ImagePullSecrets).To(ContainElements(appWorkload.Spec.ImagePullSecrets))
 	})
 
@@ -243,6 +243,10 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		container := statefulSet.Spec.Template.Spec.Containers[0]
 		Expect(container.Ports).To(HaveLen(2))
 		Expect(container.Ports).To(ContainElements(corev1.ContainerPort{ContainerPort: 8888}, corev1.ContainerPort{ContainerPort: 9999}))
+	})
+
+	It("should set the serviceAccountName", func() {
+		Expect(statefulSet.Spec.Template.Spec.ServiceAccountName).To(Equal("korifi-app"))
 	})
 
 	When("the app has environment set", func() {
