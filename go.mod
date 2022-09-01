@@ -25,7 +25,7 @@ require (
 	github.com/jonboulle/clockwork v0.3.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/onsi/ginkgo/v2 v2.1.6
-	github.com/onsi/gomega v1.20.1
+	github.com/onsi/gomega v1.20.2
 	github.com/pivotal/kpack v0.5.4
 	github.com/projectcontour/contour v1.22.0
 	github.com/vmware-tanzu/carvel-vendir v0.30.0
