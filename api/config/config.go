@@ -22,6 +22,7 @@ type APIConfig struct {
 	ServerURL string
 
 	RootNamespace                            string                 `yaml:"rootNamespace"`
+	BuildReconciler                          string                 `yaml:"buildReconciler"`
 	PackageRegistryBase                      string                 `yaml:"packageRegistryBase"`
 	PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
 	DefaultDomainName                        string                 `yaml:"defaultDomainName"`
@@ -84,6 +85,10 @@ func (c *APIConfig) validate() error {
 		if _, err := time.ParseDuration(c.UserCertificateExpirationWarningDuration); err != nil {
 			return errors.New(`Invalid duration format for userCertificateExpirationWarningDuration. Use a format like "48h"`)
 		}
+	}
+
+	if c.BuildReconciler == "" {
+		return errors.New("BuildReconciler must have a value")
 	}
 
 	return nil

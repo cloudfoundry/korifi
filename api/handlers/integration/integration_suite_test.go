@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 	dynamicClient, err := dynamic.NewForConfig(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(dynamicClient).NotTo(BeNil())
-	namespaceRetriever = repositories.NewNamespaceRetriver(dynamicClient)
+	namespaceRetriever = repositories.NewNamespaceRetriever(dynamicClient)
 	Expect(namespaceRetriever).NotTo(BeNil())
 
 	rand.Seed(time.Now().UnixNano())
