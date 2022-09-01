@@ -2,6 +2,7 @@
 IMG_CONTROLLERS ?= cloudfoundry/korifi-controllers:latest
 IMG_API ?= cloudfoundry/korifi-api:latest
 CRD_OPTIONS ?= "crd"
+CLUSTER_NAME ?= "e2e"
 
 # Run controllers tests with two nodes by default to (potentially) minimise
 # flakes.
@@ -181,10 +182,10 @@ docker-push-statefulset-runner:
 kind-load-images: kind-load-api-image kind-load-controllers-image kind-load-job-task-runner-image kind-load-kpack-image-builder-image kind-load-statefulset-runner-image
 
 kind-load-api-image:
-	kind load docker-image ${IMG_API}
+	kind load docker-image --name ${CLUSTER_NAME} ${IMG_API}
 
 kind-load-controllers-image:
-	kind load docker-image ${IMG_CONTROLLERS}
+	kind load docker-image --name ${CLUSTER_NAME} ${IMG_CONTROLLERS}
 
 kind-load-job-task-runner-image:
 	make -C job-task-runner kind-load-image
