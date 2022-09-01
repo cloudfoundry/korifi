@@ -504,7 +504,9 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 
 				Eventually(func(g Gomega) metav1.ConditionStatus {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
-					return meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType).Status
+					statusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
+					g.Expect(statusCondition).NotTo(BeNil())
+					return statusCondition.Status
 				}).Should(Equal(metav1.ConditionTrue))
 			})
 
