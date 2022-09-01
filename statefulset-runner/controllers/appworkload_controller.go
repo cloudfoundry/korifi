@@ -67,6 +67,7 @@ const (
 
 	ApplicationContainerName  = "application"
 	AppWorkloadReconcilerName = "statefulset-runner"
+	ServiceAccountName        = "korifi-app"
 
 	LivenessFailureThreshold  = 4
 	ReadinessFailureThreshold = 1
@@ -314,6 +315,7 @@ func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) 
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: tools.PtrTo(true),
 					},
+					ServiceAccountName: ServiceAccountName,
 				},
 			},
 		},

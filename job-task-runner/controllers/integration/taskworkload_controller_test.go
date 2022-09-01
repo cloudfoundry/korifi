@@ -95,6 +95,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
 		}))
+		Expect(podSpec.ServiceAccountName).To(Equal("korifi-task"))
 	})
 
 	It("sets the initialized condition on the task workload status", func() {

@@ -37,6 +37,7 @@ import (
 )
 
 const workloadContainerName = "workload"
+const ServiceAccountName = "korifi-task"
 
 //counterfeiter:generate -o fake -fake-name TaskStatusGetter . TaskStatusGetter
 
@@ -176,6 +177,7 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 							},
 						},
 					}},
+					ServiceAccountName: ServiceAccountName,
 				},
 			},
 		},
