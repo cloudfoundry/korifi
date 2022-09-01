@@ -89,7 +89,7 @@ lint:
 
 test: lint test-controllers-api test-job-task-runner test-kpack-image-builder test-statefulset-runner test-e2e
 
-test-controllers-api: test-api test-controllers test
+test-controllers-api: test-api test-controllers
 
 test-api: install-ginkgo fmt vet
 	cd api && ../scripts/run-tests.sh --skip-package=test
