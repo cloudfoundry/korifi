@@ -60,7 +60,7 @@ This is the above method, but run with `dlv` for remote debugging.
 ```
 ./scripts/deploy-on-kind <kind-cluster-name> --local --debug
 ```
-To remote debug, connect with `dlv` on `localhost:30051` (controller) or `localhost:30052` (api)
+To remote debug, connect with `dlv` on `localhost:30051` (controller), `localhost:30052` (api), `localhost:30053` (kpack-image-builder), `localhost:30054` (statefulset-runner), or `localhost:30055` (job-task-runner).
 
 A sample VSCode `launch.json` configuration is provided below:
 ```
@@ -68,7 +68,7 @@ A sample VSCode `launch.json` configuration is provided below:
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Attach to Debug Controller on Kind",
+            "name": "Attach to Debug Controllers on Kind",
             "type": "go",
             "debugAdapter": "dlv-dap",
             "request": "attach",
@@ -132,13 +132,13 @@ kubectl apply -f controllers/config/samples/. --recursive
 ## Using the Makefile
 
 ### Running controllers locally
-```sh
+```
 make run-controllers
 ```
 
 ### Running the API Shim Locally
 
-```make
+```
 make run-api
 ```
 
@@ -153,7 +153,7 @@ export IMG_CONTROLLERS=foo/korifi-controllers:bar #Replace this with your image 
 export IMG_API=foo/korifi-api:bar #Replace this with your image ref
 ```
 ### Generate CRD bases
-```sh
+```
 make generate-controllers
 ```
 ### Build Docker image
@@ -197,21 +197,6 @@ make deploy-controllers
 or
 ```
 make deploy-api
-```
-
-
-### Generate reference yaml
-Build reference yaml (with defaults) to be applied with kubectl
-```
-make build-reference
-```
-or
-```
-make build-reference-controllers
-```
-or
-```
-make build-reference-api
 ```
 
 ### Regenerate kubernetes resources after making changes

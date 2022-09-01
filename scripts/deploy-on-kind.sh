@@ -37,7 +37,12 @@ flags:
 
   -D, --debug
       Builds controller and api images with debugging hooks and
-      wires up localhost:30051 (controller) and localhost:30052 (api) for remote debugging.
+      wires up ports for remote debugging:
+        localhost:30051 (controllers)
+        localhost:30052 (api)
+        localhost:30053 (kpack-image-builder)
+        localhost:30054 (statefulset-runner)
+        localhost:30055 (job-task-runner)
 
   -s, --serial
       Deploy serially.
@@ -115,21 +120,14 @@ fi
 
 # undo *_IMG changes in config and reference
 function clean_up_img_refs() {
+  echo
+  echo "Resetting image references..."
   cd "${ROOT_DIR}"
   unset IMG_CONTROLLERS
   unset IMG_API
-  make set-image-ref
-
-  cd "${ROOT_DIR}/kpack-image-builder"
-  unset IMG_KIB
-  make set-image-ref
-
-  cd "${ROOT_DIR}/statefulset-runner"
-  unset IMG_SSR
-  make set-image-ref
-
-  cd "${ROOT_DIR}/job-task-runner"
   unset IMG_JTR
+  unset IMG_KIB
+  unset IMG_SSR
   make set-image-ref
 }
 
@@ -176,6 +174,15 @@ nodes:
   - containerPort: 30052
     hostPort: 30052
     protocol: TCP
+  - containerPort: 30053
+    hostPort: 30053
+    protocol: TCP
+  - containerPort: 30054
+    hostPort: 30054
+    protocol: TCP
+  - containerPort: 30055
+    hostPort: 30055
+    protocol: TCP
 EOF
   fi
 
@@ -218,14 +225,15 @@ function install_dependencies() {
 
 function deploy_korifi_controllers() {
   if [[ -n "${api_only}" ]]; then return 0; fi
+  echo "Deploying korifi-controllers..."
 
   pushd "${ROOT_DIR}" >/dev/null
   {
+    export IMG_CONTROLLERS=${IMG_CONTROLLERS:-"korifi-controllers:$(uuidgen)"}
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
-    echo "${PWD}"
+
     make generate-controllers
-    IMG_CONTROLLERS=${IMG_CONTROLLERS:-"korifi-controllers:$(uuidgen)"}
-    export IMG_CONTROLLERS
+
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       if [[ -z "${debug}" ]]; then
         make docker-build-controllers
@@ -233,9 +241,9 @@ function deploy_korifi_controllers() {
         make docker-build-controllers-debug
       fi
     fi
-    kind load docker-image --name "${cluster}" "${IMG_CONTROLLERS}"
 
-    make install-crds
+    make kind-load-controllers-image
+
     if [[ -n "${use_local_registry}" ]]; then
       if [[ -z "${debug}" ]]; then
         make deploy-controllers-kind-local
@@ -259,11 +267,12 @@ function deploy_korifi_controllers() {
 
 function deploy_korifi_api() {
   if [[ -n "${controllers_only}" ]]; then return 0; fi
+  echo "Deploying korifi-api..."
 
   pushd "${ROOT_DIR}" >/dev/null
   {
-    IMG_API=${IMG_API:-"korifi-api:$(uuidgen)"}
-    export IMG_API
+    export IMG_API=${IMG_API:-"korifi-api:$(uuidgen)"}
+
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       if [[ -z "${debug}" ]]; then
         make docker-build-api
@@ -271,7 +280,8 @@ function deploy_korifi_api() {
         make docker-build-api-debug
       fi
     fi
-    kind load docker-image --name "${cluster}" "${IMG_API}"
+
+    make kind-load-api-image
 
     if [[ -n "${use_local_registry}" ]]; then
       if [[ -z "${debug}" ]]; then
@@ -286,25 +296,69 @@ function deploy_korifi_api() {
     create_tls_secret "korifi-api-ingress-cert" "korifi-api-system" "localhost"
   }
   popd >/dev/null
+
+  kubectl rollout status deployment/korifi-api-deployment -w -n korifi-api-system
+}
+
+function deploy_job_task_runner() {
+  if [[ -n "${api_only}" ]]; then return 0; fi
+  echo "Deploying job-task-runner..."
+
+  pushd "${ROOT_DIR}/job-task-runner" >/dev/null
+  {
+    export IMG_JTR=${IMG_JTR:-"korifi-job-task-runner:$(uuidgen)"}
+    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
+
+    make generate
+
+    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
+      if [[ -z "${debug}" ]]; then
+        make docker-build
+      else
+        make docker-build-debug
+      fi
+    fi
+
+    make kind-load-image
+
+    if [[ -n "${debug}" ]]; then
+      make deploy-kind-local-debug
+    else
+      make deploy
+    fi
+  }
+  popd >/dev/null
+
+  kubectl rollout status deployment/korifi-job-task-runner-controller-manager -w -n korifi-job-task-runner-system
 }
 
 function deploy_kpack_image_builder() {
   if [[ -n "${api_only}" ]]; then return 0; fi
+  echo "Deploying kpack-image-builder..."
 
   pushd "${ROOT_DIR}/kpack-image-builder" >/dev/null
   {
+    export IMG_KIB=${IMG_KIB:-"korifi-kpack-image-builder:$(uuidgen)"}
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
-    echo "${PWD}"
+
     make generate
-    IMG_KIB=${IMG_KIB:-"korifi-kpack-image-builder:$(uuidgen)"}
-    export IMG_KIB
+
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      make docker-build
+      if [[ -z "${debug}" ]]; then
+        make docker-build
+      else
+        make docker-build-debug
+      fi
     fi
-    kind load docker-image --name "${cluster}" "${IMG_KIB}"
+
+    make kind-load-image
 
     if [[ -n "${use_local_registry}" ]]; then
-      make deploy-on-kind
+      if [[ -z "${debug}" ]]; then
+        make deploy-kind-local
+      else
+        make deploy-kind-local-debug
+      fi
     else
       make deploy
     fi
@@ -316,44 +370,34 @@ function deploy_kpack_image_builder() {
 
 function deploy_statefulset_runner() {
   if [[ -n "${api_only}" ]]; then return 0; fi
+  echo "Deploying statefulset-runner..."
 
   pushd "${ROOT_DIR}/statefulset-runner" >/dev/null
   {
+    export IMG_SSR=${IMG_SSR:-"korifi-statefulset-runner:$(uuidgen)"}
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
-    echo "${PWD}"
+
     make generate
-    IMG_SSR=${IMG_SSR:-"korifi-statefulset-runner:$(uuidgen)"}
-    export IMG_SSR
+
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      make docker-build
+      if [[ -z "${debug}" ]]; then
+        make docker-build
+      else
+        make docker-build-debug
+      fi
     fi
-    kind load docker-image --name "${cluster}" "${IMG_SSR}"
-    make deploy
+
+    make kind-load-image
+
+    if [[ -n "${debug}" ]]; then
+      make deploy-kind-local-debug
+    else
+      make deploy
+    fi
   }
   popd >/dev/null
 
   kubectl rollout status deployment/korifi-statefulset-runner-controller-manager -w -n korifi-statefulset-runner-system
-}
-
-function deploy_job_task_runner() {
-  if [[ -n "${api_only}" ]]; then return 0; fi
-
-  pushd "${ROOT_DIR}/job-task-runner" >/dev/null
-  {
-    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
-    echo "${PWD}"
-    make generate
-    IMG_JTR=${IMG_JTR:-"korifi-job-task-runner:$(uuidgen)"}
-    export IMG_JTR
-    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      make docker-build
-    fi
-    kind load docker-image --name "${cluster}" "${IMG_JTR}"
-    make deploy
-  }
-  popd >/dev/null
-
-  kubectl rollout status deployment/korifi-job-task-runner-controller-manager -w -n korifi-job-task-runner-system
 }
 
 ensure_kind_cluster "${cluster}"

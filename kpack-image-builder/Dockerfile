@@ -1,9 +1,8 @@
-# Build the manager binary
+# syntax = docker/dockerfile:experimental
 FROM golang:1.19.0 as builder
 
 WORKDIR /workspace
 
-# Copy the Go Modules manifests
 COPY go.mod go.sum ./
 
 RUN --mount=type=cache,target=/go/pkg/mod \

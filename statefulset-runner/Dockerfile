@@ -1,9 +1,8 @@
-# Build the manager binary
+# syntax = docker/dockerfile:experimental
 FROM golang:1.19.0 as builder
 
 WORKDIR /workspace
 
-# Copy the Go Modules manifests
 COPY go.mod go.sum ./
 
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -15,7 +14,6 @@ COPY statefulset-runner/controllers/ statefulset-runner/controllers
 COPY statefulset-runner/main.go statefulset-runner/main.go
 COPY tools tools
 
-# Build
 RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/go/pkg/mod \
      CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager statefulset-runner/main.go
 
