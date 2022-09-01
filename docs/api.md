@@ -75,24 +75,6 @@ This endpoint is fully supported.
 
 No query parameters are supported.
 
-## [Organizations](https://v3-apidocs.cloudfoundry.org/#organizations)
-
-### [Create an organization](https://v3-apidocs.cloudfoundry.org/#create-an-organization)
-
-#### Supported parameters:
-
--   `name`
-
-### [List organizations](https://v3-apidocs.cloudfoundry.org/#list-organizations)
-
-#### Supported query parameters:
-
--   `names`
-
-### [Delete an organization](https://v3-apidocs.cloudfoundry.org/#delete-an-organization)
-
-This endpoint is fully supported.
-
 ## [Domains](https://v3-apidocs.cloudfoundry.org/#domains)
 
 ### [List Domains](https://v3-apidocs.cloudfoundry.org/#list-domains)
@@ -146,6 +128,24 @@ Korifi only supports manifests with a single entry in `applications`.
 
 > **Warning**
 > This endpoint always returns an empty diff.
+
+## [Organizations](https://v3-apidocs.cloudfoundry.org/#organizations)
+
+### [Create an organization](https://v3-apidocs.cloudfoundry.org/#create-an-organization)
+
+#### Supported parameters:
+
+-   `name`
+
+### [List organizations](https://v3-apidocs.cloudfoundry.org/#list-organizations)
+
+#### Supported query parameters:
+
+-   `names`
+
+### [Delete an organization](https://v3-apidocs.cloudfoundry.org/#delete-an-organization)
+
+This endpoint is fully supported.
 
 ## [Packages](https://v3-apidocs.cloudfoundry.org/#packages)
 
