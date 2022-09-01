@@ -277,7 +277,7 @@ var _ = Describe("TaskRepository", func() {
 				})
 			})
 
-			When("the task was canceled", func() {
+			When("the task was cancelled", func() {
 				BeforeEach(func() {
 					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
 					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
@@ -291,7 +291,7 @@ var _ = Describe("TaskRepository", func() {
 				It("returns the failed task", func() {
 					Expect(getErr).NotTo(HaveOccurred())
 					Expect(taskRecord.State).To(Equal(repositories.TaskStateFailed))
-					Expect(taskRecord.FailureReason).To(Equal("task was canceled"))
+					Expect(taskRecord.FailureReason).To(Equal("task was cancelled"))
 				})
 			})
 		})

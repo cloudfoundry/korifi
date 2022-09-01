@@ -270,7 +270,7 @@ func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 		taskRecord.FailureReason = failedCond.Message
 
 		if failedCond.Reason == workloads.TaskCanceledReason {
-			taskRecord.FailureReason = "task was canceled"
+			taskRecord.FailureReason = "task was cancelled"
 		}
 	}
 
