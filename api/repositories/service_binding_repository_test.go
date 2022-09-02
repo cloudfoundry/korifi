@@ -81,6 +81,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 			return
 		}
 
+		originalServiceBinding := serviceBinding.DeepCopy()
+
+		serviceBinding.Status.Binding.Name = "service-secret-name"
 		meta.SetStatusCondition(&(serviceBinding.Status.Conditions), metav1.Condition{
 			Type:    repositories.VCAPServicesSecretAvailableCondition,
 			Status:  metav1.ConditionTrue,
@@ -88,7 +91,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			Message: "blah",
 		})
 		Expect(
-			k8sClient.Status().Update(ctx, serviceBinding),
+			k8sClient.Status().Patch(ctx, serviceBinding, client.MergeFrom(originalServiceBinding)),
 		).To(Succeed())
 	}
 
