@@ -74,6 +74,10 @@ echo " Installing Kpack"
 echo "******************"
 
 kubectl apply -f "$VENDOR_DIR/kpack"
+# Increase the CPU limit on the kpack-controller. Without this change the ClusterBuilder takes 10+ minutes to
+# become ready on M1 Macs. With this change the ClusterBuilder becomes ready in the time it takes this script to run.
+kubectl patch -n kpack deployment kpack-controller -p \
+  '{"spec": {"template": {"spec": {"containers": [{"name": "controller", "resources": {"limits": {"cpu": "500m"}}}]}}}}'
 
 if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE:=}" ]]; then
   DOCKER_SERVER="gcr.io"
