@@ -1,0 +1,11 @@
+imageRef: cloudfoundry/korifi-controllers:latest
+buildReconciler: kpack-image-builder
+appReconciler: statefulset-runner
+cfProcessDefaults:
+  memoryMB: 1024
+  diskQuotaMB: 1024
+cfRootNamespace: cf
+packageRegistrySecretName: image-registry-credentials
+taskTTL: 5s
+workloadsTLSSecretName: korifi-workloads-ingress-cert
+workloadsTLSSecretNamespace: korifi-controllers-system

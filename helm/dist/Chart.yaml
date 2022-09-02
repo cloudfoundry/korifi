@@ -10,3 +10,8 @@ dependencies:
     version: 0.1.0
     repository: file://../statefulset-runner
     condition: include.statefulset-runner
+
+  - name: controllers
+    version: 0.1.0
+    repository: file://../controllers
+    condition: include.controllers

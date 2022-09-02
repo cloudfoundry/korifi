@@ -1,0 +1,112 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/korifi-controllers-serving-cert
+  name: korifi-controllers-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp
+  failurePolicy: Fail
+  name: mcfapp.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfapps
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfbuild
+  failurePolicy: Fail
+  name: mcfbuild.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfbuilds
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfpackage
+  failurePolicy: Fail
+  name: mcfpackage.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfpackages
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess
+  failurePolicy: Fail
+  name: mcfprocess.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfprocesses
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: korifi-controllers-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfroute
+  failurePolicy: Fail
+  name: mcfroute.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cfroutes
+  sideEffects: None

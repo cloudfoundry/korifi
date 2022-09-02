@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: korifi-controllers-config
+data:
+  korifi_controllers_config.yaml: |-
+    buildReconciler: {{ .Values.buildReconciler }}
+    appReconciler: {{ .Values.appReconciler }}
+    cfProcessDefaults:
+      memoryMB: {{ .Values.memoryMB }}
+      diskQuotaMB: {{ .Values.diskQuotaMB }}
+    cfRootNamespace: {{ .Values.cfRootNamespace }}
+    packageRegistrySecretName: {{ .Values.packageRegistrySecretName }}
+    taskTTL: {{ .Values.taskTTL }}
+    workloads_tls_secret_name: {{ .Values.workloadsTLSSecretName }}
+    workloads_tls_secret_namespace: {{.Values.workloadsTLSSecretNamespace }}

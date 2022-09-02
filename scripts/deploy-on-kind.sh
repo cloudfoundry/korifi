@@ -123,7 +123,6 @@ function clean_up_img_refs() {
   echo
   echo "Resetting image references..."
   cd "${ROOT_DIR}"
-  unset IMG_CONTROLLERS
   unset IMG_API
   make set-image-ref
 

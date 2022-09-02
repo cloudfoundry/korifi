@@ -2,5 +2,8 @@ dependencies:
 - name: statefulset-runner
   repository: file://../statefulset-runner
   version: 0.1.0
-digest: sha256:37b2d3168b62aa57f5aaf9b7cd6fdf532499899953582dc827cd6dc1af9926c4
-generated: "2022-09-01T11:55:05.838758959+01:00"
+- name: controllers
+  repository: file://../controllers
+  version: 0.1.0
+digest: sha256:7f43414e93e5ec2cc6907136978d8e122118c96f6cda3973f96a86e708104abb
+generated: "2022-09-02T14:35:22.245700271+01:00"

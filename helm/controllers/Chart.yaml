@@ -1,0 +1,6 @@
+apiVersion: v2
+name: controllers
+description: a helm chart to install korifi controllers
+type: application
+version: 0.1.0
+appVersion: "0.2.0"

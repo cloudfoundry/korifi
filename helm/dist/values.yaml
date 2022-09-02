@@ -1,2 +1,5 @@
 include:
   statefulset-runner: true
+  controllers: true
+controllers:
+  imageRef: kieron

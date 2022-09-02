@@ -3,6 +3,7 @@ IMG_CONTROLLERS ?= cloudfoundry/korifi-controllers:latest
 IMG_API ?= cloudfoundry/korifi-api:latest
 CRD_OPTIONS ?= "crd"
 CLUSTER_NAME ?= "e2e"
+CONTROLLERS_NAMESPACE ?= korifi-controllers-system
 
 # Run controllers tests with two nodes by default to (potentially) minimise
 # flakes.
@@ -49,8 +50,8 @@ manifests: manifests-api manifests-controllers manifests-job-task-runner manifes
 manifests-api: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=system-clusterrole paths=./api/... output:rbac:artifacts:config=api/config/base/rbac
 
-manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./controllers/..." output:crd:artifacts:config=controllers/config/crd/bases output:rbac:artifacts:config=controllers/config/rbac output:webhook:artifacts:config=controllers/config/webhook
+manifests-controllers: install-controller-gen ## Generate ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=korifi-controllers-manager-role paths="./controllers/..." output:crd:artifacts:config=helm/controllers/templates/crds output:rbac:artifacts:config=helm/controllers/templates/rbac
 
 manifests-job-task-runner:
 	make -C job-task-runner manifests
@@ -198,11 +199,11 @@ kind-load-statefulset-runner-image:
 
 ##@ Deployment
 
-install-crds: manifests-controllers install-kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/crd | kubectl apply -f -
+install-crds: manifests-controllers ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	kubectl apply -f helm/controllers/crds
 
-uninstall-crds: manifests-controllers install-kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/crd | kubectl delete -f -
+uninstall-crds: manifests-controllers ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
+	kubectl delete -f helm/controllers/crds
 
 deploy: deploy-controllers deploy-job-task-runner deploy-kpack-image-builder deploy-statefulset-runner deploy-api
 
@@ -222,13 +223,32 @@ deploy-api-kind-local: set-image-ref-api
 deploy-api-kind-local-debug: set-image-ref-api
 	$(KUSTOMIZE) build api/config/overlays/kind-api-debug | kubectl apply -f -
 
-deploy-controllers: set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
+deploy-controllers:
+	kubectl create namespace $(CONTROLLERS_NAMESPACE) --dry-run=client -o yaml | \
+		sed '/^metadata:/a\ \ labels: {"control-plane":"controller-manager","pod-security.kubernetes.io/enforce":"restricted"}' | \
+		kubectl apply -f -
+	helm upgrade \
+		controllers \
+		--install \
+		--namespace $(CONTROLLERS_NAMESPACE) \
+		--set=imageRef=$(IMG_CONTROLLERS) \
+		--wait \
+		helm/controllers
 
-deploy-controllers-kind-local: set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind-local-registry | kubectl apply -f -
+deploy-controllers-kind-local:
+	kubectl create namespace $(CONTROLLERS_NAMESPACE) --dry-run=client -o yaml | \
+		sed '/^metadata:/a\ \ labels: {"control-plane":"controller-manager","pod-security.kubernetes.io/enforce":"restricted"}' | \
+		kubectl apply -f -
+	helm upgrade \
+		controllers \
+		--install \
+		--namespace $(CONTROLLERS_NAMESPACE) \
+		--set=imageRef=$(IMG_CONTROLLERS) \
+		--set=taskTTL=5s \
+		--wait \
+		helm/controllers
 
-deploy-controllers-kind-local-debug: set-image-ref-controllers
+deploy-controllers-kind-local-debug:
 	$(KUSTOMIZE) build controllers/config/overlays/kind-controller-debug | kubectl apply -f -
 
 deploy-job-task-runner:
@@ -272,22 +292,16 @@ undeploy-kpack-image-builder:
 undeploy-statefulset-runner:
 	make -C statefulset-runner undeploy
 
-set-image-ref: set-image-ref-api set-image-ref-controllers set-image-ref-job-task-runner set-image-ref-kpack-image-builder set-image-ref-statefulset-runner
+set-image-ref: set-image-ref-api set-image-ref-job-task-runner set-image-ref-kpack-image-builder
 
 set-image-ref-api: manifests-api install-kustomize
 	cd api/config/base && $(KUSTOMIZE) edit set image cloudfoundry/korifi-api=${IMG_API}
-
-set-image-ref-controllers: manifests-controllers install-kustomize
-	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-controllers=${IMG_CONTROLLERS}
 
 set-image-ref-job-task-runner:
 	make -C job-task-runner set-image-ref
 
 set-image-ref-kpack-image-builder:
 	make -C kpack-image-builder set-image-ref
-
-set-image-ref-statefulset-runner:
-	make -C statefulset-runner set-image-ref
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
