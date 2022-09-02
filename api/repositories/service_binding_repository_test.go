@@ -3,6 +3,7 @@ package repositories_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -32,7 +33,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 		serviceInstanceGUID           string
 		doBindingControllerSimulation bool
 		bindingName                   *string
-		done                          chan bool
+		controllerCancel              chan bool
+		controllerDone                *sync.WaitGroup
 	)
 
 	BeforeEach(func() {
@@ -45,7 +47,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 		serviceInstanceGUID = prefixedGUID("service-instance")
 		doBindingControllerSimulation = true
 		bindingName = nil
-		done = make(chan bool, 1)
+		controllerCancel = make(chan bool, 1)
+		controllerDone = &sync.WaitGroup{}
 	})
 
 	waitForServiceBinding := func(anchorNamespace string, done chan bool) (*korifiv1alpha1.CFServiceBinding, error) {
@@ -73,10 +76,10 @@ var _ = Describe("ServiceBindingRepo", func() {
 		}
 	}
 
-	simulateServiceBindingController := func(anchorNamespace string, done chan bool) {
+	simulateServiceBindingController := func(anchorNamespace string, controllerCancel chan bool, controllerDone *sync.WaitGroup) {
 		defer GinkgoRecover()
 
-		serviceBinding, err := waitForServiceBinding(anchorNamespace, done)
+		serviceBinding, err := waitForServiceBinding(anchorNamespace, controllerCancel)
 		if err != nil {
 			return
 		}
@@ -93,15 +96,20 @@ var _ = Describe("ServiceBindingRepo", func() {
 		Expect(
 			k8sClient.Status().Patch(ctx, serviceBinding, client.MergeFrom(originalServiceBinding)),
 		).To(Succeed())
+
+		controllerDone.Done()
 	}
 
 	JustBeforeEach(func() {
 		if doBindingControllerSimulation {
-			go simulateServiceBindingController(space.Name, done)
+			controllerDone.Add(1)
+			go simulateServiceBindingController(space.Name, controllerCancel, controllerDone)
 		}
 	})
+
 	AfterEach(func() {
-		done <- true
+		controllerCancel <- true
+		controllerDone.Wait()
 	})
 
 	Describe("CreateServiceBinding", func() {
