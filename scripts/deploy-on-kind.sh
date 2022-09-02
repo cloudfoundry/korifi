@@ -44,8 +44,6 @@ flags:
         localhost:30054 (statefulset-runner)
         localhost:30055 (job-task-runner)
 
-  -s, --serial
-      Deploy serially.
 EOF
   exit 1
 }
@@ -56,7 +54,6 @@ controllers_only=""
 api_only=""
 default_domain=""
 debug=""
-serial=""
 
 while [[ $# -gt 0 ]]; do
   i=$1
@@ -79,10 +76,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     -D | --debug)
       debug="true"
-      shift
-      ;;
-    -s | --serial)
-      serial="true"
       shift
       ;;
     -v | --verbose)
@@ -404,63 +397,9 @@ ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
 
-if [[ -n "${serial}" ]]; then
-  trap 'clean_up_img_refs' EXIT
-  deploy_korifi_controllers
-  deploy_job_task_runner
-  deploy_kpack_image_builder
-  deploy_statefulset_runner
-  deploy_korifi_api
-else
-  cat <<EOF
-****************************************************
-Building and deploying Korifi components in parallel
-
-Logs will be shown when complete
-****************************************************
-EOF
-
-  tmp="$(mktemp -d)"
-  trap "rm -rf ${tmp}; clean_up_img_refs" EXIT
-  deploy_korifi_controllers &>"${tmp}/controllers" &
-  deploy_job_task_runner &>"${tmp}/jtr" &
-  deploy_kpack_image_builder &>"${tmp}/kip" &
-  deploy_statefulset_runner &>"${tmp}/stsr" &
-  deploy_korifi_api &>"${tmp}/api" &
-  wait
-
-  cat <<EOF
-***********
-Controllers
-***********
-EOF
-  cat "${tmp}/controllers"
-
-  cat <<EOF
-***********
-Job Task Runner
-***********
-EOF
-  cat "${tmp}/jtr"
-
-  cat <<EOF
-***********
-Kpack Image Builder
-***********
-EOF
-  cat "${tmp}/kip"
-
-  cat <<EOF
-***********
-Stateful Set Runner
-***********
-EOF
-  cat "${tmp}/stsr"
-
-  cat <<EOF
-***********
-API
-***********
-EOF
-  cat "${tmp}/api"
-fi
+trap 'clean_up_img_refs' EXIT
+deploy_korifi_controllers
+deploy_job_task_runner
+deploy_kpack_image_builder
+deploy_statefulset_runner
+deploy_korifi_api
