@@ -362,69 +362,6 @@ var _ = Describe("Spaces", func() {
 						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 					}).Should(Succeed())
 				})
-
-				When("the defaultRoute is set to true in the manifest", func() {
-					BeforeEach(func() {
-						manifest.Applications[0].DefaultRoute = true
-						manifest.Applications[0].Routes = []manifestRouteResource{}
-					})
-
-					It("succeeds with a job redirect", func() {
-						Expect(resp).To(SatisfyAll(
-							HaveRestyStatusCode(http.StatusAccepted),
-							HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
-						))
-
-						jobURL := resp.Header().Get("Location")
-						Eventually(func(g Gomega) {
-							jobResp, err := restyClient.R().Get(jobURL)
-							g.Expect(err).NotTo(HaveOccurred())
-							g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-						}).Should(Succeed())
-					})
-				})
-
-				When("the randomRoute is set to true in the manifest", func() {
-					BeforeEach(func() {
-						manifest.Applications[0].RandomRoute = true
-						manifest.Applications[0].Routes = []manifestRouteResource{}
-					})
-
-					It("succeeds with a job redirect", func() {
-						Expect(resp).To(SatisfyAll(
-							HaveRestyStatusCode(http.StatusAccepted),
-							HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
-						))
-
-						jobURL := resp.Header().Get("Location")
-						Eventually(func(g Gomega) {
-							jobResp, err := restyClient.R().Get(jobURL)
-							g.Expect(err).NotTo(HaveOccurred())
-							g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-						}).Should(Succeed())
-					})
-				})
-
-				When("noRoute is set to true in the manifest", func() {
-					BeforeEach(func() {
-						manifest.Applications[0].NoRoute = true
-						manifest.Applications[0].Routes = []manifestRouteResource{}
-					})
-
-					It("succeeds with a job redirect", func() {
-						Expect(resp).To(SatisfyAll(
-							HaveRestyStatusCode(http.StatusAccepted),
-							HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
-						))
-
-						jobURL := resp.Header().Get("Location")
-						Eventually(func(g Gomega) {
-							jobResp, err := restyClient.R().Get(jobURL)
-							g.Expect(err).NotTo(HaveOccurred())
-							g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-						}).Should(Succeed())
-					})
-				})
 			})
 
 			When("the user has space manager role in the space", func() {
