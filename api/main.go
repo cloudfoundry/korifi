@@ -78,7 +78,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("could not create dynamic k8s client: %v", err))
 	}
-	namespaceRetriever := repositories.NewNamespaceRetriver(dynamicClient)
+	namespaceRetriever := repositories.NewNamespaceRetriever(dynamicClient)
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sClientConfig)
 	if err != nil {
@@ -113,7 +113,7 @@ func main() {
 	packageRepo := repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions, createTimeout)
-	buildpackRepo := repositories.NewBuildpackRepository(userClientFactory, config.RootNamespace)
+	buildpackRepo := repositories.NewBuildpackRepository(config.BuildReconciler, userClientFactory, config.RootNamespace)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,
 		spaceRepo,

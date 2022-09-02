@@ -51,6 +51,7 @@ var (
 	userName              string
 	authInfo              authorization.Info
 	rootNamespace         string
+	buildReconciler       string
 	idProvider            authorization.IdentityProvider
 	nsPerms               *authorization.NamespacePermissions
 	adminRole             *rbacv1.ClusterRole
@@ -90,7 +91,7 @@ var _ = BeforeSuite(func() {
 	dynamicClient, err := dynamic.NewForConfig(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(dynamicClient).NotTo(BeNil())
-	namespaceRetriever = repositories.NewNamespaceRetriver(dynamicClient)
+	namespaceRetriever = repositories.NewNamespaceRetriever(dynamicClient)
 	Expect(namespaceRetriever).NotTo(BeNil())
 
 	adminRole = createClusterRole(context.Background(), "cf_admin")
@@ -112,6 +113,7 @@ var _ = BeforeEach(func() {
 	cert, key := testhelpers.ObtainClientCert(testEnv, userName)
 	authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
 	rootNamespace = prefixedGUID("root-ns")
+	buildReconciler = "kpack-image-builder"
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	baseIDProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)

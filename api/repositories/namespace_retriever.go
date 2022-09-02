@@ -101,7 +101,7 @@ type NamespaceRetriever struct {
 	client dynamic.Interface
 }
 
-func NewNamespaceRetriver(client dynamic.Interface) NamespaceRetriever {
+func NewNamespaceRetriever(client dynamic.Interface) NamespaceRetriever {
 	return NamespaceRetriever{
 		client: client,
 	}

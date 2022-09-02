@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -19,13 +20,13 @@ var _ = Describe("BuildpackRepository", func() {
 	var buildpackRepo *BuildpackRepository
 
 	BeforeEach(func() {
-		buildpackRepo = NewBuildpackRepository(userClientFactory, rootNamespace)
+		buildpackRepo = NewBuildpackRepository(buildReconciler, userClientFactory, rootNamespace)
 	})
 
 	Describe("ListBuildpacks", func() {
-		When("there is exactly 1 BuildReconcilerInfo record", func() {
+		When("the configured BuildReconciler exists", func() {
 			BeforeEach(func() {
-				createBuildReconcilerInfoWithCleanup(ctx, "ignored-name", "io.buildpacks.stacks.bionic", []buildpackInfo{
+				createBuildReconcilerInfoWithCleanup(ctx, buildReconciler, "io.buildpacks.stacks.bionic", []buildpackInfo{
 					{name: "paketo-buildpacks/buildpack-1-1", version: "1.1"},
 					{name: "paketo-buildpacks/buildpack-2-1", version: "2.1"},
 					{name: "paketo-buildpacks/buildpack-3-1", version: "3.1"},
@@ -58,14 +59,14 @@ var _ = Describe("BuildpackRepository", func() {
 			})
 		})
 
-		When("there are no BuildReconcilerInfo records", func() {
+		When("there no BuildReconcilers exist", func() {
 			It("errors", func() {
 				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
-				Expect(err).To(MatchError(ContainSubstring("no BuildReconcilerInfo resource found")))
+				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("no BuildReconcilerInfo %q resource found in %q namespace", buildReconciler, rootNamespace))))
 			})
 		})
 
-		When("there is more than 1 BuildReconcilerInfo records", func() {
+		When("configured BuildReconciler is not found", func() {
 			BeforeEach(func() {
 				createBuildReconcilerInfoWithCleanup(ctx, "ignored-name1", "io.buildpacks.stacks.bionic", []buildpackInfo{
 					{name: "paketo-buildpacks/buildpack-1-1", version: "1.1"},
@@ -77,7 +78,7 @@ var _ = Describe("BuildpackRepository", func() {
 
 			It("errors", func() {
 				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
-				Expect(err).To(MatchError(ContainSubstring("more than 1 BuildReconcilerInfo resource found")))
+				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("no BuildReconcilerInfo %q resource found in %q namespace", buildReconciler, rootNamespace))))
 			})
 		})
 	})

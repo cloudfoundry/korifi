@@ -7,8 +7,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -16,6 +16,7 @@ const (
 )
 
 type BuildpackRepository struct {
+	buildReconciler   string
 	userClientFactory authorization.UserK8sClientFactory
 	rootNamespace     string
 }
@@ -33,39 +34,43 @@ type ListBuildpacksMessage struct {
 	OrderBy []string
 }
 
-func NewBuildpackRepository(userClientFactory authorization.UserK8sClientFactory, rootNamespace string) *BuildpackRepository {
+func NewBuildpackRepository(buildReconciler string, userClientFactory authorization.UserK8sClientFactory, rootNamespace string) *BuildpackRepository {
 	return &BuildpackRepository{
+		buildReconciler:   buildReconciler,
 		userClientFactory: userClientFactory,
 		rootNamespace:     rootNamespace,
 	}
 }
 
 func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo authorization.Info) ([]BuildpackRecord, error) {
-	var buildReconcilerInfos v1alpha1.BuildReconcilerInfoList
+	var buildReconcilerInfo v1alpha1.BuildReconcilerInfo
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	err = userClient.List(ctx, &buildReconcilerInfos, client.InNamespace(r.rootNamespace))
+	err = userClient.Get(
+		ctx,
+		types.NamespacedName{
+			Namespace: r.rootNamespace,
+			Name:      r.buildReconciler,
+		},
+		&buildReconcilerInfo,
+	)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, fmt.Errorf("no BuildReconcilerInfo %q resource found in %q namespace", r.buildReconciler, r.rootNamespace)
+		}
 		return nil, apierrors.FromK8sError(err, BuildpackResourceType)
 	}
 
-	switch len(buildReconcilerInfos.Items) {
-	case 0:
-		return nil, fmt.Errorf("no BuildReconcilerInfo resource found in %q namespace", r.rootNamespace)
-	case 1:
-		buildReconcilerInfo := buildReconcilerInfos.Items[0]
-		return buildReconcilerInfoToBuildpackRecords(buildReconcilerInfo), nil
-	default:
-		return nil, fmt.Errorf("more than 1 BuildReconcilerInfo resource found in %q namespace", r.rootNamespace)
-	}
+	return buildReconcilerInfoToBuildpackRecords(buildReconcilerInfo), nil
 }
 
 func buildReconcilerInfoToBuildpackRecords(info v1alpha1.BuildReconcilerInfo) []BuildpackRecord {
 	buildpackRecords := make([]BuildpackRecord, 0, len(info.Status.Buildpacks))
+
 	for i, b := range info.Status.Buildpacks {
 		currentRecord := BuildpackRecord{
 			Name:      b.Name,
@@ -77,5 +82,6 @@ func buildReconcilerInfoToBuildpackRecords(info v1alpha1.BuildReconcilerInfo) []
 		}
 		buildpackRecords = append(buildpackRecords, currentRecord)
 	}
+
 	return buildpackRecords
 }
