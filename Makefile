@@ -2,7 +2,6 @@
 IMG_CONTROLLERS ?= cloudfoundry/korifi-controllers:latest
 IMG_API ?= cloudfoundry/korifi-api:latest
 CRD_OPTIONS ?= "crd"
-CLUSTER_NAME ?= "e2e"
 
 # Run controllers tests with two nodes by default to (potentially) minimise
 # flakes.
