@@ -191,24 +191,18 @@ var _ = Describe("OrgRepository", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(orgs).To(ContainElements(
-				repositories.OrgRecord{
-					Name:      cfOrg1.Spec.DisplayName,
-					CreatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-					UpdatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-					GUID:      cfOrg1.Name,
-				},
-				repositories.OrgRecord{
-					Name:      cfOrg2.Spec.DisplayName,
-					CreatedAt: cfOrg2.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-					UpdatedAt: cfOrg2.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-					GUID:      cfOrg2.Name,
-				},
-				repositories.OrgRecord{
-					Name:      cfOrg3.Spec.DisplayName,
-					CreatedAt: cfOrg3.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-					UpdatedAt: cfOrg3.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-					GUID:      cfOrg3.Name,
-				},
+				MatchFields(IgnoreExtras, Fields{
+					"Name": Equal(cfOrg1.Spec.DisplayName),
+					"GUID": Equal(cfOrg1.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name": Equal(cfOrg2.Spec.DisplayName),
+					"GUID": Equal(cfOrg2.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name": Equal(cfOrg3.Spec.DisplayName),
+					"GUID": Equal(cfOrg3.Name),
+				}),
 			))
 		})
 
@@ -259,40 +253,32 @@ var _ = Describe("OrgRepository", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(orgs).To(ConsistOf(
-					repositories.OrgRecord{
-						Name:      cfOrg1.Spec.DisplayName,
-						CreatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-						UpdatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-						GUID:      cfOrg1.Name,
-					},
-					repositories.OrgRecord{
-						Name:      cfOrg3.Spec.DisplayName,
-						CreatedAt: cfOrg3.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-						UpdatedAt: cfOrg3.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-						GUID:      cfOrg3.Name,
-					},
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal(cfOrg1.Spec.DisplayName),
+						"GUID": Equal(cfOrg1.Name),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal(cfOrg3.Spec.DisplayName),
+						"GUID": Equal(cfOrg3.Name),
+					}),
 				))
 			})
 		})
 
-		When("we filter for guids org1 and org3", func() {
+		When("we filter for guids org1 and org2", func() {
 			It("returns just those", func() {
 				orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{GUIDs: []string{cfOrg1.Name, cfOrg2.Name}})
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(orgs).To(ConsistOf(
-					repositories.OrgRecord{
-						Name:      cfOrg1.Spec.DisplayName,
-						CreatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-						UpdatedAt: cfOrg1.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-						GUID:      cfOrg1.Name,
-					},
-					repositories.OrgRecord{
-						Name:      cfOrg2.Spec.DisplayName,
-						CreatedAt: cfOrg2.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-						UpdatedAt: cfOrg2.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-						GUID:      cfOrg2.Name,
-					},
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal(cfOrg1.Spec.DisplayName),
+						"GUID": Equal(cfOrg1.Name),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal(cfOrg2.Spec.DisplayName),
+						"GUID": Equal(cfOrg2.Name),
+					}),
 				))
 			})
 		})
