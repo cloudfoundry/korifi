@@ -1,0 +1,12 @@
+apiVersion: v2
+name: korifi
+description: a helm chart to install korifi components
+type: application
+version: 0.1.0
+appVersion: "0.2.0"
+
+dependencies:
+  - name: statefulset-runner
+    version: 0.1.0
+    repository: file://../statefulset-runner
+    condition: include.statefulset-runner

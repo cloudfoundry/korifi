@@ -1,9 +1,12 @@
-
 # Image URL to use all building/pushing image targets
 IMG_SSR ?= cloudfoundry/korifi-statefulset-runner:latest
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
 CLUSTER_NAME ?= "e2e"
+
+# Namespace in which to deploy the statefulset-runner
+NAMESPACE ?= korifi-statefulset-runner-system
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -41,15 +44,11 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: manifest-configs kustomize-webhook-config
-
-.PHONY: manifest-configs
-manifest-configs: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=appworkload-manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-
-.PHONY: kustomize-webhook-config
-kustomize-webhook-config: install-kustomize
-	$(KUSTOMIZE) build config/webhook -o config/webhook/generated/envtest-webhook-config.yaml
+manifests: install-controller-gen ## Generate ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) \
+		crd output:crd:artifacts:config=../helm/statefulset-runner/templates/crds/ \
+		rbac:roleName=korifi-statefulset-runner-appworkload-manager-role output:rbac:artifacts:config=../helm/statefulset-runner/templates/rbac \
+		paths="./..."
 
 .PHONY: generate
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -100,30 +99,43 @@ kind-load-image:
 ##@ Deployment
 
 .PHONY: deploy
-deploy: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+deploy: manifests ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | \
+		sed '/^metadata:/a\ \ labels: {"control-plane":"controller-manager","pod-security.kubernetes.io/enforce":"restricted"}' | \
+		kubectl apply -f -
+	helm upgrade \
+		statefulset-runner \
+		--install \
+		--namespace $(NAMESPACE) \
+		--set=imageRef=$(IMG_SSR) \
+		--wait \
+		../helm/statefulset-runner
+
 
 .PHONY: deploy-kind-local-debug
-deploy-kind-local-debug: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/overlays/kind-controller-debug | kubectl apply -f -
+deploy-kind-local-debug: manifests ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | \
+		sed '/^metadata:/a\ \ labels: {"control-plane":"controller-manager","pod-security.kubernetes.io/enforce":"privileged"}' | \
+		kubectl apply -f -
+	helm upgrade \
+		statefulset-runner \
+		--install \
+		--namespace $(NAMESPACE) \
+		--set=imageRef=$(IMG_SSR) \
+		--set=debug=true \
+		--wait \
+		../helm/statefulset-runner
 
 .PHONY: undeploy
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
-
-.PHONY: set-image-ref
-set-image-ref: install-kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-statefulset-runner=${IMG_SSR}
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	helm uninstall \
+		--namespace $(NAMESPACE) \
+		statefulset-runner
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: install-controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
-
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-.PHONY: install-kustomize
-install-kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:

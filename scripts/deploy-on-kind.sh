@@ -125,9 +125,14 @@ function clean_up_img_refs() {
   cd "${ROOT_DIR}"
   unset IMG_CONTROLLERS
   unset IMG_API
-  unset IMG_JTR
+  make set-image-ref
+
+  cd "${ROOT_DIR}/kpack-image-builder"
   unset IMG_KIB
-  unset IMG_SSR
+  make set-image-ref
+
+  cd "${ROOT_DIR}/job-task-runner"
+  unset IMG_JTR
   make set-image-ref
 }
 
@@ -396,8 +401,6 @@ function deploy_statefulset_runner() {
     fi
   }
   popd >/dev/null
-
-  kubectl rollout status deployment/korifi-statefulset-runner-controller-manager -w -n korifi-statefulset-runner-system
 }
 
 ensure_kind_cluster "${cluster}"

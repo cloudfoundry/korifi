@@ -1,0 +1,42 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: korifi-statefulset-runner-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-statefulset-runner-appworkload-manager-role
+subjects:
+- kind: ServiceAccount
+  name: korifi-statefulset-runner-controller-manager
+  namespace: {{ .Release.Namespace }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: korifi-statefulset-runner-leader-election-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: korifi-statefulset-runner-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: korifi-statefulset-runner-controller-manager
+  namespace: {{ .Release.Namespace }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: korifi-statefulset-runner-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-statefulset-runner-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: korifi-statefulset-runner-controller-manager
+  namespace: {{ .Release.Namespace }}

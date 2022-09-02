@@ -1,0 +1,29 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/korifi-statefulset-runner-serving-cert"
+  name: korifi-statefulset-runner-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: korifi-statefulset-runner-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate--v1-pod
+  failurePolicy: Fail
+  name: mstspod.korifi.cloudfoundry.org
+  objectSelector:
+    matchLabels:
+      korifi.cloudfoundry.org/add-stsr-index: "true"
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None

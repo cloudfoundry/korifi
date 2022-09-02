@@ -1,0 +1,2 @@
+imageRef: cloudfoundry/korifi-statefulset-runner:latest
+debug: false

@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: controller-manager
+{{- if .Values.debug }}
+    app: korifi-statefulset-runner-controller-manager
+{{- end }}
+  name: korifi-statefulset-runner-controller-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+{{- if .Values.debug }}
+        app: korifi-statefulset-runner-controller-manager
+{{- end }}
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+{{- if .Values.debug }}
+        - --listen=:40000
+        - --headless=true
+        - exec
+        - /manager
+        - --continue
+        - --accept-multiclient
+        - --
+{{- end }}
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=127.0.0.1:8080
+        - --leader-elect
+{{- if .Values.debug }}
+        command:
+        - /dlv
+{{- end }}
+        image: {{ .Values.imageRef }}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+{{- if .Values.debug }}
+            add:
+            - SYS_PTRACE
+{{- end }}
+            drop:
+            - ALL
+{{- if .Values.debug }}
+          runAsNonRoot: false
+{{- else }}
+          runAsNonRoot: true
+{{- end }}
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=0
+        image: quay.io/brancz/kube-rbac-proxy:v0.12.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 5m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+      securityContext:
+{{- if .Values.debug }}
+        runAsNonRoot: false
+{{- else }}
+        runAsNonRoot: true
+{{- end }}
+      serviceAccountName: korifi-statefulset-runner-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
