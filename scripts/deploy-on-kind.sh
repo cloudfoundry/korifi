@@ -235,7 +235,7 @@ function deploy_korifi_controllers() {
       fi
     fi
 
-    make kind-load-controllers-image
+    CLUSTER_NAME="$cluster" make kind-load-controllers-image
 
     if [[ -n "${use_local_registry}" ]]; then
       if [[ -z "${debug}" ]]; then
@@ -274,7 +274,7 @@ function deploy_korifi_api() {
       fi
     fi
 
-    make kind-load-api-image
+    CLUSTER_NAME="$cluster" make kind-load-api-image
 
     if [[ -n "${use_local_registry}" ]]; then
       if [[ -z "${debug}" ]]; then
@@ -312,7 +312,7 @@ function deploy_job_task_runner() {
       fi
     fi
 
-    make kind-load-image
+    CLUSTER_NAME="$cluster" make kind-load-image
 
     if [[ -n "${debug}" ]]; then
       make deploy-kind-local-debug
@@ -344,7 +344,7 @@ function deploy_kpack_image_builder() {
       fi
     fi
 
-    make kind-load-image
+    CLUSTER_NAME="$cluster" make kind-load-image
 
     if [[ -n "${use_local_registry}" ]]; then
       if [[ -z "${debug}" ]]; then
@@ -380,7 +380,7 @@ function deploy_statefulset_runner() {
       fi
     fi
 
-    make kind-load-image
+    CLUSTER_NAME="$cluster" make kind-load-image
 
     if [[ -n "${debug}" ]]; then
       make deploy-kind-local-debug
