@@ -52,6 +52,7 @@ var (
 
 const (
 	defaultAppBitsFile = "assets/procfile.zip"
+	loggingAppBitsFile = "assets/node.zip"
 )
 
 type resource struct {

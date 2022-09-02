@@ -38,6 +38,7 @@ const (
 	unknownState             = "DOWN"
 	ProcessStatsResourceType = "Process Stats"
 	PodMetricsResourceType   = "Pod Metrics"
+	appLogSourceType         = "APP"
 )
 
 type PodRepo struct {
@@ -387,14 +388,7 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, 
 				}
 			}
 
-			logLine := string(line)
-			var logTime int64
-			logLine, logTime, _ = parseRFC3339NanoTime(logLine)
-
-			logRecord := LogRecord{
-				Message:   logLine,
-				Timestamp: logTime,
-			}
+			logRecord := lineToAppLogRecord(line)
 
 			appLogs = append(appLogs, logRecord)
 		}
@@ -403,6 +397,21 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, 
 	}
 
 	return appLogs, nil
+}
+
+func lineToAppLogRecord(line []byte) LogRecord {
+	logLine := string(line)
+	var logTime int64
+	logLine, logTime, _ = parseRFC3339NanoTime(logLine)
+
+	logRecord := LogRecord{
+		Message:   logLine,
+		Timestamp: logTime,
+		Tags: map[string]string{
+			"source_type": appLogSourceType,
+		},
+	}
+	return logRecord
 }
 
 func parseRFC3339NanoTime(input string) (string, int64, error) {
