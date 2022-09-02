@@ -29,22 +29,29 @@ var _ = Describe("LogCache", func() {
 
 	Describe("Get", func() {
 		var result appLogResource
-		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
-		})
 
 		It("succeeds with log envelopes that include both app and staging logs", func() {
-			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Envelopes.Batch).NotTo(BeEmpty())
-			Expect(result.Envelopes.Batch).To(ContainElements(
-				MatchFields(IgnoreExtras, Fields{
-					"Tags": ContainElement("STG"),
-				})))
-			Expect(result.Envelopes.Batch).To(ContainElements(
-				MatchFields(IgnoreExtras, Fields{
-					"Tags": ContainElement("APP"),
-				})))
+			Eventually(func(g Gomega) {
+				httpResp, httpError = certClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
+				g.Expect(httpError).NotTo(HaveOccurred())
+				g.Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+				g.Expect(result.Envelopes.Batch).NotTo(BeEmpty())
+				g.Expect(result.Envelopes.Batch).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"Tags": HaveKeyWithValue("source_type", "STG"),
+					})))
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				httpResp, httpError = certClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
+				g.Expect(httpError).NotTo(HaveOccurred())
+				g.Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+				g.Expect(result.Envelopes.Batch).NotTo(BeEmpty())
+				g.Expect(result.Envelopes.Batch).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"Tags": HaveKeyWithValue("source_type", "APP"),
+					})))
+			}).Should(Succeed())
 		})
 	})
 })
