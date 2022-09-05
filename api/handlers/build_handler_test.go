@@ -69,6 +69,7 @@ var _ = Describe("BuildHandler", func() {
 				*serverURL,
 				buildRepo,
 				new(fake.CFPackageRepository),
+				new(fake.CFAppRepository),
 				decoderValidator,
 			)
 			buildHandler.RegisterRoutes(router)
@@ -316,9 +317,11 @@ var _ = Describe("BuildHandler", func() {
 
 	Describe("the POST /v3/builds endpoint", func() {
 		var (
-			packageRepo *fake.CFPackageRepository
-			buildRepo   *fake.CFBuildRepository
-			body        string
+			packageRepo                 *fake.CFPackageRepository
+			appRepo                     *fake.CFAppRepository
+			buildRepo                   *fake.CFBuildRepository
+			body                        string
+			expectedLifecycleBuildpacks []string
 		)
 
 		makePostRequest := func(body string) {
@@ -337,7 +340,7 @@ var _ = Describe("BuildHandler", func() {
 			expectedStagingMem     = 1024
 			expectedStagingDisk    = 1024
 			expectedLifecycleType  = "buildpack"
-			expectedLifecycleStack = "cflinuxfs3"
+			expectedLifecycleStack = "cflinuxfs3d"
 			spaceGUID              = "the-space-guid"
 			validBody              = `{
 			"package": {
@@ -350,6 +353,9 @@ var _ = Describe("BuildHandler", func() {
 
 		BeforeEach(func() {
 			body = validBody
+
+			expectedLifecycleBuildpacks = []string{"buildpack-a", "buildpack-b"}
+
 			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.GetPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
@@ -360,6 +366,19 @@ var _ = Describe("BuildHandler", func() {
 				State:     "READY",
 				CreatedAt: createdAt,
 				UpdatedAt: updatedAt,
+			}, nil)
+
+			appRepo = new(fake.CFAppRepository)
+			appRepo.GetAppReturns(repositories.AppRecord{
+				GUID:      appGUID,
+				SpaceGUID: spaceGUID,
+				Lifecycle: repositories.Lifecycle{
+					Type: expectedLifecycleType,
+					Data: repositories.LifecycleData{
+						Buildpacks: expectedLifecycleBuildpacks,
+						Stack:      expectedLifecycleStack,
+					},
+				},
 			}, nil)
 
 			buildRepo = new(fake.CFBuildRepository)
@@ -373,7 +392,7 @@ var _ = Describe("BuildHandler", func() {
 				Lifecycle: repositories.Lifecycle{
 					Type: expectedLifecycleType,
 					Data: repositories.LifecycleData{
-						Buildpacks: []string{},
+						Buildpacks: expectedLifecycleBuildpacks,
 						Stack:      expectedLifecycleStack,
 					},
 				},
@@ -388,6 +407,7 @@ var _ = Describe("BuildHandler", func() {
 				*serverURL,
 				buildRepo,
 				packageRepo,
+				appRepo,
 				decoderValidator,
 			)
 			buildHandler.RegisterRoutes(router)
@@ -417,7 +437,7 @@ var _ = Describe("BuildHandler", func() {
 				Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
 				Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
 				Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
-				Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal([]string{}))
+				Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal(expectedLifecycleBuildpacks))
 				Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
 				Expect(actualCreate.OwnerRef).To(Equal(metav1.OwnerReference{
 					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
@@ -440,7 +460,7 @@ var _ = Describe("BuildHandler", func() {
 					"lifecycle": {
 						"type": "`+expectedLifecycleType+`",
 						"data": {
-							"buildpacks": [],
+							"buildpacks": ["`+expectedLifecycleBuildpacks[0]+`", "`+expectedLifecycleBuildpacks[1]+`"],
 							"stack": "`+expectedLifecycleStack+`"
 						}
 					},
@@ -469,6 +489,12 @@ var _ = Describe("BuildHandler", func() {
 					}
 				}`), "Response body matches response:")
 			})
+
+			It("looks up the app by the correct GUID", func() {
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+				Expect(actualAppGUID).To(Equal(appGUID))
+			})
 		})
 
 		When("the package doesn't exist", func() {
@@ -496,6 +522,39 @@ var _ = Describe("BuildHandler", func() {
 		When("the package exists check returns an error", func() {
 			BeforeEach(func() {
 				packageRepo.GetPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the app doesn't exist", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Unable to use the app associated with that package. Ensure that the app exists and you have access to it.")
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the app is forbidden", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Unable to use the app associated with that package. Ensure that the app exists and you have access to it.")
+				Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the app exists check returns an error", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {

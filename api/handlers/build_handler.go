@@ -32,6 +32,7 @@ type BuildHandler struct {
 	serverURL        url.URL
 	buildRepo        CFBuildRepository
 	packageRepo      CFPackageRepository
+	appRepo          CFAppRepository
 	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	decoderValidator *DecoderValidator
 }
@@ -40,6 +41,7 @@ func NewBuildHandler(
 	serverURL url.URL,
 	buildRepo CFBuildRepository,
 	packageRepo CFPackageRepository,
+	appRepo CFAppRepository,
 	decoderValidator *DecoderValidator,
 ) *BuildHandler {
 	return &BuildHandler{
@@ -47,6 +49,7 @@ func NewBuildHandler(
 		serverURL:        serverURL,
 		buildRepo:        buildRepo,
 		packageRepo:      packageRepo,
+		appRepo:          appRepo,
 		decoderValidator: decoderValidator,
 	}
 }
@@ -82,7 +85,20 @@ func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logge
 		)
 	}
 
-	buildCreateMessage := payload.ToMessage(packageRecord)
+	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, packageRecord.AppGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err,
+				"Unable to use the app associated with that package. Ensure that the app exists and you have access to it.",
+				apierrors.ForbiddenError{},
+				apierrors.NotFoundError{},
+			),
+			"Error finding App", "App GUID", packageRecord.AppGUID,
+		)
+	}
+
+	buildCreateMessage := payload.ToMessage(appRecord, packageRecord)
 
 	record, err := h.buildRepo.CreateBuild(r.Context(), authInfo, buildCreateMessage)
 	if err != nil {

@@ -52,11 +52,11 @@ func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, space
 		appInfo.Processes = appendWebProcessIfMissing(appInfo)
 	}
 
-	if !appExists {
-		return a.applyToCreateApp(ctx, authInfo, spaceGUID, appInfo)
+	if appExists {
+		return a.applyToUpdateApp(ctx, authInfo, appRecord, appInfo)
 	}
 
-	return a.applyToUpdateApp(ctx, authInfo, appRecord, appInfo)
+	return a.applyToCreateApp(ctx, authInfo, spaceGUID, appInfo)
 }
 
 func appendWebProcessIfMissing(appInfo payloads.ManifestApplication) []payloads.ManifestApplicationProcess {

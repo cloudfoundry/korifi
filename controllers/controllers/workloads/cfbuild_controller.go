@@ -165,6 +165,7 @@ func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Conte
 				},
 			},
 			ReconcilerName: r.ControllerConfig.BuildReconciler,
+			Buildpacks:     cfBuild.Spec.Lifecycle.Data.Buildpacks,
 		},
 	}
 

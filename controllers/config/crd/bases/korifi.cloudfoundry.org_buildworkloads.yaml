@@ -43,6 +43,10 @@ spec:
                 required:
                 - name
                 type: object
+              buildpacks:
+                items:
+                  type: string
+                type: array
               env:
                 items:
                   description: EnvVar represents an environment variable present in

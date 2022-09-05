@@ -374,6 +374,11 @@ func (in *BuildWorkloadSpec) DeepCopyInto(out *BuildWorkloadSpec) {
 	*out = *in
 	out.BuildRef = in.BuildRef
 	in.Source.DeepCopyInto(&out.Source)
+	if in.Buildpacks != nil {
+		in, out := &in.Buildpacks, &out.Buildpacks
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
 		*out = make([]v1.EnvVar, len(*in))

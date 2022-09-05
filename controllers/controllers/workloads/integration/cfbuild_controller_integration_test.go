@@ -24,14 +24,15 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 	)
 
 	var (
-		namespaceGUID    string
-		cfAppGUID        string
-		cfPackageGUID    string
-		cfBuildGUID      string
-		namespace        *corev1.Namespace
-		desiredCFApp     *korifiv1alpha1.CFApp
-		desiredCFPackage *korifiv1alpha1.CFPackage
-		desiredCFBuild   *korifiv1alpha1.CFBuild
+		namespaceGUID     string
+		cfAppGUID         string
+		cfPackageGUID     string
+		cfBuildGUID       string
+		namespace         *corev1.Namespace
+		desiredCFApp      *korifiv1alpha1.CFApp
+		desiredCFPackage  *korifiv1alpha1.CFPackage
+		desiredCFBuild    *korifiv1alpha1.CFBuild
+		desiredBuildpacks []string
 	)
 
 	eventuallyBuildWorkloadShould := func(assertion func(*korifiv1alpha1.BuildWorkload, Gomega)) {
@@ -77,6 +78,8 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		registryServiceAccountName := "kpack-service-account"
 		registryServiceAccount := BuildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
 		Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
+
+		desiredBuildpacks = []string{"first-buildpack", "second-buildpack"}
 	})
 
 	AfterEach(func() {
@@ -96,6 +99,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		JustBeforeEach(func() {
 			cfBuildGUID = PrefixedGUID("cf-build")
 			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+			desiredCFBuild.Spec.Lifecycle.Data.Buildpacks = desiredBuildpacks
 			Expect(k8sClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
 		})
 
@@ -113,7 +117,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			}))
 		})
 
-		It("creates a BuildWorkload with the buildRef, source, and env set", func() {
+		It("creates a BuildWorkload with the buildRef, source, env, and buildpacks set", func() {
 			createdCFApp := &korifiv1alpha1.CFApp{}
 			Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}, createdCFApp)).To(Succeed())
 
@@ -155,6 +159,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 						})),
 					}),
 				))
+				g.Expect(workload.Spec.Buildpacks).To(Equal(desiredBuildpacks))
 			})
 		})
 

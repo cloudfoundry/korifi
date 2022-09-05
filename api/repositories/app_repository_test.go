@@ -427,9 +427,10 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		It("returns an AppRecord with correct fields", func() {
-			Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
-			Expect(createdAppRecord.SpaceGUID).To(Equal(cfSpace.Name), "App SpaceGUID in record did not match input")
-			Expect(createdAppRecord.Name).To(Equal(testAppName), "App Name in record did not match input")
+			Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"))
+			Expect(createdAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
+			Expect(createdAppRecord.Name).To(Equal(testAppName))
+			Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
 
 			recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
 			Expect(err).NotTo(HaveOccurred())
@@ -480,6 +481,26 @@ var _ = Describe("AppRepository", func() {
 					"FOO": BeEquivalentTo("foo"),
 					"BAR": BeEquivalentTo("bar"),
 				}))
+			})
+		})
+
+		When("buildpacks are given", func() {
+			var buildpacks []string
+
+			BeforeEach(func() {
+				buildpacks = []string{"buildpack-1", "buildpack-2"}
+				appCreateMessage.Lifecycle.Data.Buildpacks = buildpacks
+			})
+
+			It("creates a CFApp with the buildpacks set", func() {
+				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
+				createdCFApp := new(korifiv1alpha1.CFApp)
+				Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
+			})
+
+			It("returns an AppRecord with the buildpacks set", func() {
+				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
 			})
 		})
 	})
