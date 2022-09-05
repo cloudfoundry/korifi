@@ -26,6 +26,7 @@ type ManifestApplication struct {
 	Memory       *string                      `yaml:"memory" validate:"megabytestring"`
 	Processes    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
 	Routes       []ManifestRoute              `yaml:"routes" validate:"dive"`
+	Buildpacks   []string                     `yaml:"buildpacks"`
 }
 
 type ManifestApplicationProcess struct {
@@ -50,6 +51,9 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 		SpaceGUID: spaceGUID,
 		Lifecycle: repositories.Lifecycle{
 			Type: string(korifiv1alpha1.BuildpackLifecycle),
+			Data: repositories.LifecycleData{
+				Buildpacks: a.Buildpacks,
+			},
 		},
 		State:                repositories.DesiredState(korifiv1alpha1.StoppedState),
 		EnvironmentVariables: a.Env,

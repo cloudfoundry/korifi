@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +27,8 @@ var _ = Describe("Build", func() {
 	BeforeEach(func() {
 		buildRepo := repositories.NewBuildRepo(namespaceRetriever, clientFactory)
 		packageRepo := repositories.NewPackageRepo(clientFactory, namespaceRetriever, nsPermissions)
+		appConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](time.Second * 120)
+		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions, appConditionAwaiter)
 		decoderValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -32,6 +36,7 @@ var _ = Describe("Build", func() {
 			*serverURL,
 			buildRepo,
 			packageRepo,
+			appRepo,
 			decoderValidator,
 		)
 		buildHandler.RegisterRoutes(router)
@@ -82,20 +87,38 @@ var _ = Describe("Build", func() {
 	})
 
 	Describe("create", func() {
-		var cfPackage *korifiv1alpha1.CFPackage
+		var (
+			cfPackage *korifiv1alpha1.CFPackage
+			cfApp     *korifiv1alpha1.CFApp
+		)
 
 		BeforeEach(func() {
-			packageGUID := generateGUID()
+			appGUID := generateGUIDWithPrefix("app")
+			packageGUID := generateGUIDWithPrefix("package")
 			cfPackage = &korifiv1alpha1.CFPackage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      packageGUID,
 					Namespace: namespace.Name,
 				},
 				Spec: korifiv1alpha1.CFPackageSpec{
-					Type: "bits",
+					Type:   "bits",
+					AppRef: corev1.LocalObjectReference{Name: appGUID},
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+
+			cfApp = &korifiv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      appGUID,
+					Namespace: namespace.Name,
+				},
+				Spec: korifiv1alpha1.CFAppSpec{
+					DesiredState: "STOPPED",
+					DisplayName:  generateGUIDWithPrefix("app-name"),
+					Lifecycle:    korifiv1alpha1.Lifecycle{Type: "buildpack"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {

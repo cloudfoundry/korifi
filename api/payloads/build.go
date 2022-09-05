@@ -14,27 +14,21 @@ type BuildCreate struct {
 	Metadata        Metadata          `json:"metadata"`
 }
 
-func (c *BuildCreate) ToMessage(record repositories.PackageRecord) repositories.CreateBuildMessage {
+func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord, packageRecord repositories.PackageRecord) repositories.CreateBuildMessage {
 	toReturn := repositories.CreateBuildMessage{
-		AppGUID:         record.AppGUID,
+		AppGUID:         appRecord.GUID,
 		PackageGUID:     c.Package.GUID,
-		SpaceGUID:       record.SpaceGUID,
+		SpaceGUID:       appRecord.SpaceGUID,
 		StagingMemoryMB: DefaultLifecycleConfig.StagingMemoryMB,
 		StagingDiskMB:   DefaultLifecycleConfig.StagingDiskMB,
-		Lifecycle: repositories.Lifecycle{
-			Type: DefaultLifecycleConfig.Type,
-			Data: repositories.LifecycleData{
-				Buildpacks: []string{},
-				Stack:      DefaultLifecycleConfig.Stack,
-			},
-		},
-		Labels:      c.Metadata.Labels,
-		Annotations: c.Metadata.Annotations,
+		Lifecycle:       appRecord.Lifecycle,
+		Labels:          c.Metadata.Labels,
+		Annotations:     c.Metadata.Annotations,
 		OwnerRef: metav1.OwnerReference{
 			APIVersion: repositories.APIVersion,
 			Kind:       "CFPackage",
-			Name:       record.GUID,
-			UID:        record.UID,
+			Name:       packageRecord.GUID,
+			UID:        packageRecord.UID,
 		},
 	}
 

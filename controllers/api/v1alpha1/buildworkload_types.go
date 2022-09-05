@@ -32,6 +32,8 @@ type BuildWorkloadSpec struct {
 	// Source contains the details for the source image(bits)
 	Source PackageSource `json:"source,omitempty"`
 
+	Buildpacks []string `json:"buildpacks,omitempty"`
+
 	Env []v1.EnvVar `json:"env,omitempty"`
 
 	Services []v1.ObjectReference `json:"services,omitempty"`

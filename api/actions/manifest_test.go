@@ -369,6 +369,23 @@ var _ = Describe("ApplyManifest", func() {
 				})
 			})
 		})
+
+		When("the manifest specifies buildpacks", func() {
+			var buildpacks []string
+			BeforeEach(func() {
+				buildpacks = []string{"paketo-buildpacks/java", "paketo-buildpacks/node"}
+				manifest.Applications[0].Buildpacks = buildpacks
+			})
+
+			It("sets the buildpacks on the App's lifecycle data", func() {
+				Expect(appRepo.CreateAppCallCount()).To(Equal(1))
+
+				_, _, appMessage := appRepo.CreateAppArgsForCall(0)
+				Expect(appMessage.Name).To(Equal(appName))
+				Expect(appMessage.SpaceGUID).To(Equal(spaceGUID))
+				Expect(appMessage.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
+			})
+		})
 	})
 
 	When("the app exists", func() {

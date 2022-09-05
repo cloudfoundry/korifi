@@ -200,6 +200,7 @@ func main() {
 			*serverURL,
 			buildRepo,
 			packageRepo,
+			appRepo,
 			decoderValidator,
 		),
 		handlers.NewDropletHandler(

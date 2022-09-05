@@ -36,8 +36,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
-const workloadContainerName = "workload"
-const ServiceAccountName = "korifi-task"
+const (
+	workloadContainerName = "workload"
+	ServiceAccountName    = "korifi-task"
+)
 
 //counterfeiter:generate -o fake -fake-name TaskStatusGetter . TaskStatusGetter
 
