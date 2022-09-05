@@ -38,7 +38,7 @@ require (
 	k8s.io/metrics v0.25.0
 	k8s.io/pod-security-admission v0.25.0
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
-	sigs.k8s.io/controller-runtime v0.12.3
+	sigs.k8s.io/controller-runtime v0.13.0
 	sigs.k8s.io/controller-tools v0.9.2
 )
 
@@ -47,6 +47,7 @@ require (
 	github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72 // indirect
 	github.com/cppforlife/color v1.9.1-0.20200716202919-6706ac40b835 // indirect
 	github.com/cppforlife/go-cli-ui v0.0.0-20200716203538-1e47f820817f // indirect
+	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/google/go-github v17.0.0+incompatible // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/hashicorp/go-version v1.2.1 // indirect
@@ -146,7 +147,7 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apiextensions-apiserver v0.24.3 // indirect
+	k8s.io/apiextensions-apiserver v0.25.0 // indirect
 	k8s.io/component-base v0.25.0 // indirect
 	k8s.io/klog/v2 v2.70.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
