@@ -138,7 +138,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		listServicesError = nil
 		patchCFRouteStatusError = nil
 
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFDomain:
 				cfDomain.DeepCopyInto(obj)

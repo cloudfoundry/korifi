@@ -77,7 +77,7 @@ var _ = Describe("TaskworkloadController", func() {
 		createJobError = nil
 
 		k8sClient = new(fake.Client)
-		k8sClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+		k8sClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.TaskWorkload:
 				taskWorkload.DeepCopyInto(obj)

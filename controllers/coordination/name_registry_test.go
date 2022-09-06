@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"code.cloudfoundry.org/korifi/controllers/coordination"
-	"code.cloudfoundry.org/korifi/controllers/coordination/fake"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

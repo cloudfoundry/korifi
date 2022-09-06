@@ -33,7 +33,7 @@ var _ = Describe("CFBuildReconciler", func() {
 	)
 
 	var (
-		fakeClient       *workloadsfakes.CFClient
+		fakeClient       *fake.Client
 		fakeStatusWriter *fake.StatusWriter
 
 		fakeEnvBuilder *workloadsfakes.EnvBuilder
@@ -62,7 +62,7 @@ var _ = Describe("CFBuildReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(workloadsfakes.CFClient)
+		fakeClient = new(fake.Client)
 
 		cfAppGUID = "cf-app-guid"
 		cfPackageGUID = "cf-package-guid"
@@ -80,7 +80,7 @@ var _ = Describe("CFBuildReconciler", func() {
 		buildWorkloadError = apierrors.NewNotFound(schema.GroupResource{}, cfBuild.Name)
 		buildEnv = []corev1.EnvVar{{Name: "foo", Value: "var"}}
 
-		fakeClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFBuild:
 				cfBuild.DeepCopyInto(obj)

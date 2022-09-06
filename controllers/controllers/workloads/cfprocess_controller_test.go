@@ -79,7 +79,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		appWorkloadError = nil
 		appWorkloadListError = nil
 
-		fakeClient.GetStub = func(_ context.Context, name types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, name types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			// cast obj to find its kind
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFProcess:

@@ -8,7 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,7 +31,7 @@ var _ = Describe("Builder", func() {
 	)
 
 	var (
-		cfClient                     *fake.CFClient
+		cfClient                     *fake.Client
 		listServiceBindingsError     error
 		getServiceInstanceError      error
 		getAppSecretError            error
@@ -55,7 +55,7 @@ var _ = Describe("Builder", func() {
 	)
 
 	BeforeEach(func() {
-		cfClient = new(fake.CFClient)
+		cfClient = new(fake.Client)
 		builder = env.NewBuilder(cfClient)
 		listServiceBindingsError = nil
 		getServiceInstanceError = nil
@@ -183,7 +183,7 @@ var _ = Describe("Builder", func() {
 			Data: map[string][]byte{vcapServicesKey: []byte(vcapServicesData)},
 		}
 
-		cfClient.GetStub = func(_ context.Context, nsName types.NamespacedName, obj client.Object) error {
+		cfClient.GetStub = func(_ context.Context, nsName types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFServiceInstance:
 				if nsName.Name == serviceInstance.Name {
@@ -225,10 +225,10 @@ var _ = Describe("Builder", func() {
 
 		It("gets the app secrets (env and vcap services)", func() {
 			Expect(cfClient.GetCallCount()).To(Equal(2))
-			_, actualNsName, _ := cfClient.GetArgsForCall(0)
+			_, actualNsName, _, _ := cfClient.GetArgsForCall(0)
 			Expect(actualNsName.Namespace).To(Equal(cfApp.Namespace))
 			Expect(actualNsName.Name).To(Equal(cfApp.Spec.EnvSecretName))
-			_, actualNsName, _ = cfClient.GetArgsForCall(1)
+			_, actualNsName, _, _ = cfClient.GetArgsForCall(1)
 			Expect(actualNsName.Namespace).To(Equal(cfApp.Namespace))
 			Expect(actualNsName.Name).To(Equal(cfApp.Status.VCAPServicesSecretName))
 		})
@@ -452,14 +452,14 @@ var _ = Describe("Builder", func() {
 
 		It("gets the service instance for the binding", func() {
 			Expect(cfClient.GetCallCount()).To(Equal(4))
-			_, actualNsName, _ := cfClient.GetArgsForCall(0)
+			_, actualNsName, _, _ := cfClient.GetArgsForCall(0)
 			Expect(actualNsName.Namespace).To(Equal("service-binding-ns"))
 			Expect(actualNsName.Name).To(Equal("my-service-instance-guid"))
 		})
 
 		It("gets the secret for the bound service", func() {
 			Expect(cfClient.GetCallCount()).To(Equal(4))
-			_, actualNsName, _ := cfClient.GetArgsForCall(1)
+			_, actualNsName, _, _ := cfClient.GetArgsForCall(1)
 			Expect(actualNsName.Namespace).To(Equal("service-binding-ns"))
 			Expect(actualNsName.Name).To(Equal("service-binding-secret"))
 		})

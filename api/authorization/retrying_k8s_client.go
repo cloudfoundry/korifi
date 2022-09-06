@@ -36,9 +36,9 @@ func NewAuthRetryingClient(c client.WithWatch, backoff wait.Backoff) client.With
 	}
 }
 
-func (a AuthRetryingClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
+func (a AuthRetryingClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	return a.retryOnForbidden(ctx, func() error {
-		return a.WithWatch.Get(ctx, key, obj)
+		return a.WithWatch.Get(ctx, key, obj, opts...)
 	}, "get")
 }
 

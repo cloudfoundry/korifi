@@ -7,7 +7,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,25 +31,25 @@ type ServiceDetails struct {
 }
 
 type Builder struct {
-	client workloads.CFClient
+	k8sClient client.Client
 }
 
-func NewBuilder(client workloads.CFClient) *Builder {
-	return &Builder{client: client}
+func NewBuilder(k8sClient client.Client) *Builder {
+	return &Builder{k8sClient: k8sClient}
 }
 
 func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error) {
 	var appEnvSecret, vcapServicesSecret corev1.Secret
 
 	if cfApp.Spec.EnvSecretName != "" {
-		err := b.client.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Spec.EnvSecretName}, &appEnvSecret)
+		err := b.k8sClient.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Spec.EnvSecretName}, &appEnvSecret)
 		if err != nil {
 			return nil, fmt.Errorf("error when trying to fetch app env Secret %s/%s: %w", cfApp.Namespace, cfApp.Spec.EnvSecretName, err)
 		}
 	}
 
 	if cfApp.Status.VCAPServicesSecretName != "" {
-		err := b.client.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Status.VCAPServicesSecretName}, &vcapServicesSecret)
+		err := b.k8sClient.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Status.VCAPServicesSecretName}, &vcapServicesSecret)
 		if err != nil {
 			return nil, fmt.Errorf("error when trying to fetch app env Secret %s/%s: %w", cfApp.Namespace, cfApp.Status.VCAPServicesSecretName, err)
 		}
@@ -62,7 +61,7 @@ func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]
 
 func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (string, error) {
 	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
-	err := b.client.List(ctx, serviceBindings,
+	err := b.k8sClient.List(ctx, serviceBindings,
 		client.InNamespace(cfApp.Namespace),
 		client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name},
 	)
@@ -82,7 +81,7 @@ func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1
 		}
 
 		var serviceEnv ServiceDetails
-		serviceEnv, err = buildSingleServiceEnv(ctx, b.client, currentServiceBinding)
+		serviceEnv, err = buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
 		if err != nil {
 			return "", err
 		}
@@ -161,7 +160,7 @@ func fromServiceBinding(
 	}
 }
 
-func buildSingleServiceEnv(ctx context.Context, k8sClient workloads.CFClient, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, error) {
+func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, error) {
 	if serviceBinding.Status.Binding.Name == "" {
 		return ServiceDetails{}, fmt.Errorf("service binding secret name is empty")
 	}

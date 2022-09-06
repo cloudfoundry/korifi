@@ -8,7 +8,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 
@@ -35,7 +34,7 @@ const (
 
 var _ = Describe("CFAppReconciler", func() {
 	var (
-		fakeClient       *workloadsfakes.CFClient
+		fakeClient       *fake.Client
 		fakeStatusWriter *fake.StatusWriter
 
 		cfAppGUID     string
@@ -66,7 +65,7 @@ var _ = Describe("CFAppReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(workloadsfakes.CFClient)
+		fakeClient = new(fake.Client)
 
 		cfAppGUID = "cf-app-guid"
 		cfPackageGUID = "cf-package-guid"
@@ -85,7 +84,7 @@ var _ = Describe("CFAppReconciler", func() {
 		secret = &v1.Secret{}
 		secretErr = nil
 
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			// cast obj to find its kind
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFBuild:
@@ -228,7 +227,7 @@ var _ = Describe("CFAppReconciler", func() {
 
 				// validate the inputs to Get
 				Expect(fakeClient.GetCallCount()).To(BeNumerically(">=", 1))
-				_, testRequestNamespacedName, _ := fakeClient.GetArgsForCall(0)
+				_, testRequestNamespacedName, _, _ := fakeClient.GetArgsForCall(0)
 				Expect(testRequestNamespacedName.Namespace).To(Equal(defaultNamespace))
 				Expect(testRequestNamespacedName.Name).To(Equal(cfAppGUID))
 
@@ -311,12 +310,12 @@ var _ = Describe("CFAppReconciler", func() {
 				Expect(fakeClient.GetCallCount()).To(Equal(3))
 
 				// Validate args to fetch CFApp
-				_, testRequestNamespacedName, _ := fakeClient.GetArgsForCall(0)
+				_, testRequestNamespacedName, _, _ := fakeClient.GetArgsForCall(0)
 				Expect(testRequestNamespacedName.Namespace).To(Equal(defaultNamespace))
 				Expect(testRequestNamespacedName.Name).To(Equal(cfAppGUID))
 
 				// Validate args to fetch CFBuild
-				_, testRequestNamespacedName, _ = fakeClient.GetArgsForCall(2)
+				_, testRequestNamespacedName, _, _ = fakeClient.GetArgsForCall(2)
 				Expect(testRequestNamespacedName.Namespace).To(Equal(defaultNamespace))
 				Expect(testRequestNamespacedName.Name).To(Equal(cfBuildGUID))
 

@@ -52,12 +52,13 @@ type WithWatch struct {
 	deleteAllOfReturnsOnCall map[int]struct {
 		result1 error
 	}
-	GetStub        func(context.Context, types.NamespacedName, client.Object) error
+	GetStub        func(context.Context, types.NamespacedName, client.Object, ...client.GetOption) error
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
 		arg1 context.Context
 		arg2 types.NamespacedName
 		arg3 client.Object
+		arg4 []client.GetOption
 	}
 	getReturns struct {
 		result1 error
@@ -343,20 +344,21 @@ func (fake *WithWatch) DeleteAllOfReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *WithWatch) Get(arg1 context.Context, arg2 types.NamespacedName, arg3 client.Object) error {
+func (fake *WithWatch) Get(arg1 context.Context, arg2 types.NamespacedName, arg3 client.Object, arg4 ...client.GetOption) error {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
 		arg1 context.Context
 		arg2 types.NamespacedName
 		arg3 client.Object
-	}{arg1, arg2, arg3})
+		arg4 []client.GetOption
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.GetStub
 	fakeReturns := fake.getReturns
-	fake.recordInvocation("Get", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("Get", []interface{}{arg1, arg2, arg3, arg4})
 	fake.getMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4...)
 	}
 	if specificReturn {
 		return ret.result1
@@ -370,17 +372,17 @@ func (fake *WithWatch) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *WithWatch) GetCalls(stub func(context.Context, types.NamespacedName, client.Object) error) {
+func (fake *WithWatch) GetCalls(stub func(context.Context, types.NamespacedName, client.Object, ...client.GetOption) error) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = stub
 }
 
-func (fake *WithWatch) GetArgsForCall(i int) (context.Context, types.NamespacedName, client.Object) {
+func (fake *WithWatch) GetArgsForCall(i int) (context.Context, types.NamespacedName, client.Object, []client.GetOption) {
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	argsForCall := fake.getArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *WithWatch) GetReturns(result1 error) {
