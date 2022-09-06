@@ -181,7 +181,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 		})
 
-		When("specific buildpacks are specified", func() {
+		When("buildpacks are specified", func() {
 			BeforeEach(func() {
 				buildpacks = []string{"paketo-buildpacks/java"}
 			})

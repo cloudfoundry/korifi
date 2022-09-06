@@ -141,7 +141,7 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if len(buildWorkload.Spec.Buildpacks) > 0 {
 		// Specifying buildpacks is not supported
-		failureStatusConditionMessage := `Only the "default" buildpack is supported`
+		failureStatusConditionMessage := `Only buildpack auto-detection is supported. Specifying buildpacks is not allowed.`
 		setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionFalse, "InvalidBuildpacks", failureStatusConditionMessage)
 		err = r.Client.Status().Update(ctx, buildWorkload)
 		if err != nil {
