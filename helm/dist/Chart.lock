@@ -5,5 +5,5 @@ dependencies:
 - name: controllers
   repository: file://../controllers
   version: 0.1.0
-digest: sha256:7f43414e93e5ec2cc6907136978d8e122118c96f6cda3973f96a86e708104abb
-generated: "2022-09-02T14:35:22.245700271+01:00"
+digest: sha256:140ff554d4603ad96bca6f7f2b99491cdcd3bcc7a1d4eb52468103384a4d0e4e
+generated: "2022-09-05T10:00:51.418918517+01:00"
