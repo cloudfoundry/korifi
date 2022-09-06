@@ -53,7 +53,7 @@ var _ = Describe("CFPackageReconciler", func() {
 		cfPackage = BuildCFPackageCRObject(cfPackageGUID, defaultNamespace, cfAppGUID)
 		cfPackageError = nil
 
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)

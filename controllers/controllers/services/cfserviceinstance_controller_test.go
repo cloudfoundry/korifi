@@ -57,7 +57,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 		cfServiceInstance = new(korifiv1alpha1.CFServiceInstance)
 		cfServiceInstanceSecret = new(corev1.Secret)
 
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFServiceInstance:
 				cfServiceInstance.DeepCopyInto(obj)

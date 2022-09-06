@@ -94,7 +94,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 			VCAPServicesSecretName: cfAppName + "-vcap-services",
 		}
 
-		fakeClient.GetStub = func(_ context.Context, ref types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, ref types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFServiceBinding:
 				cfServiceBinding.DeepCopyInto(obj)

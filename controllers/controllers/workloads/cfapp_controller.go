@@ -38,14 +38,14 @@ const (
 
 // CFAppReconciler reconciles a CFApp object
 type CFAppReconciler struct {
-	Client           CFClient
+	Client           client.Client
 	Scheme           *runtime.Scheme
 	Log              logr.Logger
 	ControllerConfig *config.ControllerConfig
 }
 
-func NewCFAppReconciler(client CFClient, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig) *CFAppReconciler {
-	return &CFAppReconciler{Client: client, Scheme: scheme, Log: log, ControllerConfig: controllerConfig}
+func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig) *CFAppReconciler {
+	return &CFAppReconciler{Client: k8sClient, Scheme: scheme, Log: log, ControllerConfig: controllerConfig}
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete

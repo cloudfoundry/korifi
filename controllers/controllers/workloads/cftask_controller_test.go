@@ -111,7 +111,7 @@ var _ = Describe("CFTask Controller", func() {
 				Name:      "the-task-name",
 			},
 		}
-		k8sClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object) error {
+		k8sClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch t := obj.(type) {
 			case *korifiv1alpha1.CFTask:
 				*t = *cfTask.DeepCopy()

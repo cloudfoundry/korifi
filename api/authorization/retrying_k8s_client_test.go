@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	"code.cloudfoundry.org/korifi/api/authorization/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

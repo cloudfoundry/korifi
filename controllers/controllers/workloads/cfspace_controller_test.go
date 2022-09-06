@@ -82,7 +82,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 		createKpackServiceAccountError = nil
 		createKpackServiceAccountCallCount = 0
 
-		fakeClient.GetStub = func(_ context.Context, nn types.NamespacedName, obj client.Object) error {
+		fakeClient.GetStub = func(_ context.Context, nn types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFSpace:
 				cfSpace.DeepCopyInto(obj)
