@@ -62,6 +62,10 @@ type CFSpaceList struct {
 	Items           []CFSpace `json:"items"`
 }
 
+func (s *CFSpace) StatusConditions() *[]metav1.Condition {
+	return &s.Status.Conditions
+}
+
 func init() {
 	SchemeBuilder.Register(&CFSpace{}, &CFSpaceList{})
 }

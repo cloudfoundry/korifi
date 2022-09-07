@@ -12,7 +12,7 @@ import (
 
 type RuntimeObjectWithStatusConditions interface {
 	client.Object
-	StatusConditions() []metav1.Condition
+	StatusConditions() *[]metav1.Condition
 }
 
 type objectList[L any] interface {
@@ -53,7 +53,7 @@ func (a *Awaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client
 			continue
 		}
 
-		if meta.IsStatusConditionTrue(obj.StatusConditions(), conditionType) {
+		if meta.IsStatusConditionTrue(*obj.StatusConditions(), conditionType) {
 			return obj, nil
 		}
 	}
