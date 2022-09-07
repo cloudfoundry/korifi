@@ -28,6 +28,7 @@ import (
 	"os"
 	"path"
 
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
 
@@ -166,14 +167,19 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	kpackReadyStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
 	if kpackReadyStatusCondition.IsFalse() {
 		failureStatusConditionMessage := kpackReadyStatusCondition.Reason + ":" + kpackReadyStatusCondition.Message
-		setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
-		if err = r.Client.Status().Update(ctx, buildWorkload); err != nil {
-			r.Log.Error(err, "Error when updating buildWorkload status")
+
+		err = conditions.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "kpack",
+			Message: failureStatusConditionMessage,
+		})
+		if err != nil {
+			r.Log.Error(err, "Error when setting status conditions on buildWorkload")
 			return ctrl.Result{}, err
 		}
-	} else if kpackReadyStatusCondition.IsTrue() {
-		setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionTrue, "kpack", "kpack")
 
+	} else if kpackReadyStatusCondition.IsTrue() {
 		serviceAccountName := kpackServiceAccount
 		serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
 		foundServiceAccount := corev1.ServiceAccount{}
@@ -189,8 +195,14 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, err
 		}
 
-		if err := r.Client.Status().Update(ctx, buildWorkload); err != nil {
-			r.Log.Error(err, "Error when updating CFBuild status")
+		err = conditions.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionTrue,
+			Reason:  "kpack",
+			Message: "kpack",
+		})
+		if err != nil {
+			r.Log.Error(err, "Error when updating status on buildWorkload")
 			return ctrl.Result{}, err
 		}
 	}
@@ -254,9 +266,14 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		return err
 	}
 
-	setStatusConditionOnLocalCopy(&buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionUnknown, "Unknown", "Unknown")
-	if err := r.Client.Status().Update(ctx, buildWorkload); err != nil {
-		r.Log.Error(err, "Error when updating buildWorkload status")
+	err = conditions.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+		Type:    korifiv1alpha1.SucceededConditionType,
+		Status:  metav1.ConditionUnknown,
+		Reason:  "Unknown",
+		Message: "Unknown",
+	})
+	if err != nil {
+		r.Log.Error(err, "Error when updating buildWorkload status conditions")
 		return err
 	}
 
@@ -279,15 +296,6 @@ func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Contex
 		}
 	}
 	return nil
-}
-
-func setStatusConditionOnLocalCopy(conditions *[]metav1.Condition, conditionType string, conditionStatus metav1.ConditionStatus, reason, message string) {
-	meta.SetStatusCondition(conditions, metav1.Condition{
-		Type:    conditionType,
-		Status:  conditionStatus,
-		Reason:  reason,
-		Message: message,
-	})
 }
 
 func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*korifiv1alpha1.BuildDropletStatus, error) {

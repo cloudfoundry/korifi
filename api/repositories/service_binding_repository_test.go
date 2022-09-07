@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
@@ -81,18 +80,13 @@ var _ = Describe("ServiceBindingRepo", func() {
 			return
 		}
 
-		originalServiceBinding := serviceBinding.DeepCopy()
-
 		serviceBinding.Status.Binding.Name = "service-secret-name"
-		meta.SetStatusCondition(&(serviceBinding.Status.Conditions), metav1.Condition{
+		Expect(conditions.PatchStatus(ctx, k8sClient, serviceBinding, metav1.Condition{
 			Type:    repositories.VCAPServicesSecretAvailableCondition,
 			Status:  metav1.ConditionTrue,
 			Reason:  "blah",
 			Message: "blah",
-		})
-		Expect(
-			k8sClient.Status().Patch(ctx, serviceBinding, client.MergeFrom(originalServiceBinding)),
-		).To(Succeed())
+		})).To(Succeed())
 	}
 
 	JustBeforeEach(func() {

@@ -76,6 +76,10 @@ type BuildReconcilerInfoList struct {
 	Items           []BuildReconcilerInfo `json:"items"`
 }
 
+func (i *BuildReconcilerInfo) StatusConditions() *[]metav1.Condition {
+	return &i.Status.Conditions
+}
+
 func init() {
 	SchemeBuilder.Register(&BuildReconcilerInfo{}, &BuildReconcilerInfoList{})
 }

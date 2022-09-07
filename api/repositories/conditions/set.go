@@ -14,10 +14,16 @@ type RuntimeObjectWithDeepCopy[T any] interface {
 	DeepCopy() T
 }
 
-func SetConditions[T RuntimeObjectWithDeepCopy[T]](ctx context.Context, k8sClient client.Client, obj T, conditions ...metav1.Condition) error {
+func PatchStatus[T RuntimeObjectWithDeepCopy[T]](ctx context.Context, k8sClient client.Client, obj T, conditions ...metav1.Condition) error {
 	originalObj := obj.DeepCopy()
 	for _, condition := range conditions {
 		meta.SetStatusCondition(obj.StatusConditions(), condition)
 	}
+	return k8sClient.Status().Patch(ctx, obj, client.MergeFrom(originalObj))
+}
+
+func PatchStatus1[T RuntimeObjectWithDeepCopy[T]](ctx context.Context, k8sClient client.Client, obj T, modificator func(T)) error {
+	originalObj := obj.DeepCopy()
+	modificator(obj)
 	return k8sClient.Status().Patch(ctx, obj, client.MergeFrom(originalObj))
 }

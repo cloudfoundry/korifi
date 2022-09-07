@@ -69,6 +69,10 @@ type CFOrgList struct {
 	Items           []CFOrg `json:"items"`
 }
 
+func (o *CFOrg) StatusConditions() *[]metav1.Condition {
+	return &o.Status.Conditions
+}
+
 func init() {
 	SchemeBuilder.Register(&CFOrg{}, &CFOrgList{})
 }

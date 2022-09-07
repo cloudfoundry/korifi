@@ -17,7 +17,6 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -143,13 +142,16 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
-		Type:    "Ready",
-		Status:  metav1.ConditionTrue,
-		Reason:  "cus",
-		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfOrg)).To(Succeed())
+	originalCfOrg := cfOrg.DeepCopy()
+	cfOrg.Status.GUID = guid
+	cfOrg.Status.Conditions = []metav1.Condition{{
+		Type:               "Ready",
+		Status:             metav1.ConditionTrue,
+		Reason:             "cus",
+		Message:            "cus",
+		LastTransitionTime: metav1.Now(),
+	}}
+	Expect(k8sClient.Status().Patch(ctx, cfOrg, client.MergeFrom(originalCfOrg))).To(Succeed())
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -182,14 +184,16 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 	}
 	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 
+	originalCfSpace := cfSpace.DeepCopy()
 	cfSpace.Status.GUID = cfSpace.Name
-	meta.SetStatusCondition(&(cfSpace.Status.Conditions), metav1.Condition{
-		Type:    "Ready",
-		Status:  metav1.ConditionTrue,
-		Reason:  "cus",
-		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfSpace)).To(Succeed())
+	cfSpace.Status.Conditions = []metav1.Condition{{
+		Type:               "Ready",
+		Status:             metav1.ConditionTrue,
+		Reason:             "cus",
+		Message:            "cus",
+		LastTransitionTime: metav1.Now(),
+	}}
+	Expect(k8sClient.Status().Patch(ctx, cfSpace, client.MergeFrom(originalCfSpace))).To(Succeed())
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

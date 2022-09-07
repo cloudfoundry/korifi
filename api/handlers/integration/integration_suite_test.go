@@ -17,6 +17,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/google/uuid"
@@ -26,7 +27,6 @@ import (
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -185,13 +185,12 @@ func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOr
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
+	Expect(conditions.PatchStatus(ctx, k8sClient, cfOrg, metav1.Condition{
 		Type:    "Ready",
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",
 		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfOrg)).To(Succeed())
+	})).To(Succeed())
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -225,13 +224,12 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 
 	cfSpace.Status.GUID = cfSpace.Name
-	meta.SetStatusCondition(&(cfSpace.Status.Conditions), metav1.Condition{
+	Expect(conditions.PatchStatus(ctx, k8sClient, cfSpace, metav1.Condition{
 		Type:    "Ready",
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",
 		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfSpace)).To(Succeed())
+	})).To(Succeed())
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

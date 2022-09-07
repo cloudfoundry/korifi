@@ -86,6 +86,10 @@ type CFBuildList struct {
 	Items           []CFBuild `json:"items"`
 }
 
+func (b *CFBuild) StatusConditions() *[]metav1.Condition {
+	return &b.Status.Conditions
+}
+
 func init() {
 	SchemeBuilder.Register(&CFBuild{}, &CFBuildList{})
 }

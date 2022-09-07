@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -34,8 +33,9 @@ var _ = Describe("TaskRepository", func() {
 			task.Status.Conditions = []metav1.Condition{}
 		}
 
+		taskConditions := []metav1.Condition{}
 		for _, cond := range conditionTypes {
-			meta.SetStatusCondition(&(task.Status.Conditions), metav1.Condition{
+			taskConditions = append(taskConditions, metav1.Condition{
 				Type:    cond,
 				Status:  metav1.ConditionTrue,
 				Reason:  "foo",
@@ -43,7 +43,7 @@ var _ = Describe("TaskRepository", func() {
 			})
 		}
 
-		ExpectWithOffset(1, k8sClient.Status().Update(ctx, task)).To(Succeed())
+		ExpectWithOffset(1, conditions.PatchStatus(ctx, k8sClient, task, taskConditions...)).To(Succeed())
 	}
 
 	defaultStatusValues := func(task *korifiv1alpha1.CFTask, seqId int64, dropletId string) *korifiv1alpha1.CFTask {
@@ -280,12 +280,11 @@ var _ = Describe("TaskRepository", func() {
 			When("the task was cancelled", func() {
 				BeforeEach(func() {
 					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
-					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
+					Expect(conditions.PatchStatus(ctx, k8sClient, cfTask, metav1.Condition{
 						Type:   korifiv1alpha1.TaskFailedConditionType,
 						Status: metav1.ConditionTrue,
 						Reason: "taskCanceled",
-					})
-					Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+					})).To(Succeed())
 				})
 
 				It("returns the failed task", func() {

@@ -9,13 +9,13 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -77,15 +77,12 @@ var _ = Describe("OrgRepository", func() {
 
 			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{korifiv1alpha1.OrgNameLabel: org.Spec.DisplayName})
 
-			meta.SetStatusCondition(&(org.Status.Conditions), metav1.Condition{
+			Expect(conditions.PatchStatus(ctx, k8sClient, org, metav1.Condition{
 				Type:    "Ready",
 				Status:  metav1.ConditionTrue,
 				Reason:  "blah",
 				Message: "blah",
-			})
-			Expect(
-				k8sClient.Status().Update(ctx, org),
-			).To(Succeed())
+			})).To(Succeed())
 		}
 
 		BeforeEach(func() {
@@ -214,21 +211,19 @@ var _ = Describe("OrgRepository", func() {
 
 		When("the org is not ready", func() {
 			BeforeEach(func() {
-				meta.SetStatusCondition(&(cfOrg1.Status.Conditions), metav1.Condition{
+				Expect(conditions.PatchStatus(ctx, k8sClient, cfOrg1, metav1.Condition{
 					Type:    "Ready",
 					Status:  metav1.ConditionFalse,
 					Reason:  "because",
 					Message: "because",
-				})
-				Expect(k8sClient.Status().Update(ctx, cfOrg1)).To(Succeed())
+				})).To(Succeed())
 
-				meta.SetStatusCondition(&(cfOrg2.Status.Conditions), metav1.Condition{
+				Expect(conditions.PatchStatus(ctx, k8sClient, cfOrg2, metav1.Condition{
 					Type:    "Ready",
 					Status:  metav1.ConditionUnknown,
 					Reason:  "because",
 					Message: "because",
-				})
-				Expect(k8sClient.Status().Update(ctx, cfOrg2)).To(Succeed())
+				})).To(Succeed())
 			})
 
 			It("does not list it", func() {

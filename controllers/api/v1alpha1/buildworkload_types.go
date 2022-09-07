@@ -68,6 +68,10 @@ type BuildWorkloadList struct {
 	Items           []BuildWorkload `json:"items"`
 }
 
+func (b *BuildWorkload) StatusConditions() *[]metav1.Condition {
+	return &b.Status.Conditions
+}
+
 func init() {
 	SchemeBuilder.Register(&BuildWorkload{}, &BuildWorkloadList{})
 }

@@ -22,12 +22,12 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-logr/logr"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -131,28 +131,24 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
-	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+	conditions.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
 		Type:    BindingSecretAvailableCondition,
 		Status:  metav1.ConditionTrue,
 		Reason:  "SecretFound",
 		Message: "",
 	})
-
-	err = r.setStatus(ctx, cfServiceBinding)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if cfApp.Status.VCAPServicesSecretName == "" {
 		r.log.Info("Did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+		err = conditions.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
 			Type:    VCAPServicesSecretAvailableCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  "SecretNotFound",
 			Message: "VCAPServicesSecret name absent from status of CFApp",
 		})
-
-		err = r.setStatus(ctx, cfServiceBinding)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -184,14 +180,12 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.finalizeCFServiceBinding(ctx, cfServiceBinding)
 	}
 
-	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+	err = conditions.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
 		Type:    VCAPServicesSecretAvailableCondition,
 		Status:  metav1.ConditionTrue,
 		Reason:  "SecretFound",
 		Message: "",
 	})
-
-	err = r.setStatus(ctx, cfServiceBinding)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -249,31 +243,28 @@ func (r *CFServiceBindingReconciler) finalizeCFServiceBinding(ctx context.Contex
 }
 
 func (r *CFServiceBindingReconciler) handleGetError(ctx context.Context, err error, cfServiceBinding *korifiv1alpha1.CFServiceBinding, conditionType, notFoundReason, objectType string) (ctrl.Result, error) {
-	var result ctrl.Result
 	if apierrors.IsNotFound(err) {
 		cfServiceBinding.Status.Binding.Name = ""
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+		statusErr := conditions.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
 			Type:    conditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  notFoundReason,
 			Message: objectType + " does not exist",
 		})
-		result = ctrl.Result{RequeueAfter: 2 * time.Second}
-		err = nil
-	} else {
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-			Type:    conditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "UnknownError",
-			Message: "Error occurred while fetching " + strings.ToLower(objectType) + ": " + err.Error(),
-		})
-		result = ctrl.Result{}
+		if statusErr != nil {
+			return ctrl.Result{}, statusErr
+		}
+
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
-	statusErr := r.setStatus(ctx, cfServiceBinding)
-	if statusErr != nil {
-		return ctrl.Result{}, statusErr
-	}
-	return result, err
+
+	statusErr := conditions.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
+		Type:    conditionType,
+		Status:  metav1.ConditionFalse,
+		Reason:  "UnknownError",
+		Message: "Error occurred while fetching " + strings.ToLower(objectType) + ": " + err.Error(),
+	})
+	return ctrl.Result{}, statusErr
 }
 
 func sbServiceBindingMutateFn(actualSBServiceBinding, desiredSBServiceBinding *servicebindingv1beta1.ServiceBinding) controllerutil.MutateFn {
@@ -328,14 +319,6 @@ func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.S
 		desiredServiceBinding.Spec.Provider = string(secretProvider)
 	}
 	return &desiredServiceBinding
-}
-
-func (r *CFServiceBindingReconciler) setStatus(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) error {
-	if statusErr := r.Client.Status().Update(ctx, cfServiceBinding); statusErr != nil {
-		r.log.Error(statusErr, "unable to update CFServiceBinding status")
-		return statusErr
-	}
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

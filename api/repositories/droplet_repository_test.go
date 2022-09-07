@@ -6,13 +6,13 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -92,18 +92,6 @@ var _ = Describe("DropletRepository", func() {
 
 			When("status.Droplet is set", func() {
 				BeforeEach(func() {
-					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-						Type:    "Staging",
-						Status:  metav1.ConditionFalse,
-						Reason:  "kpack",
-						Message: "kpack",
-					})
-					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-						Type:    "Succeeded",
-						Status:  metav1.ConditionTrue,
-						Reason:  "Unknown",
-						Message: "Unknown",
-					})
 					build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 						Stack: dropletStack,
 						Registry: korifiv1alpha1.Registry{
@@ -126,8 +114,20 @@ var _ = Describe("DropletRepository", func() {
 						},
 						Ports: []int32{8080, 443},
 					}
-					// Update Build Status based on changes made to local copy
-					Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
+					Expect(conditions.PatchStatus(ctx, k8sClient, build,
+						metav1.Condition{
+							Type:    "Staging",
+							Status:  metav1.ConditionFalse,
+							Reason:  "kpack",
+							Message: "kpack",
+						},
+						metav1.Condition{
+							Type:    "Succeeded",
+							Status:  metav1.ConditionTrue,
+							Reason:  "Unknown",
+							Message: "Unknown",
+						},
+					)).To(Succeed())
 				})
 
 				It("should eventually return a droplet record with fields set to expected values", func() {
@@ -177,19 +177,20 @@ var _ = Describe("DropletRepository", func() {
 			When("status.Droplet is not set", func() {
 				When("status.Conditions \"Staging\": Unknown, \"Succeeded\": Unknown, is set", func() {
 					BeforeEach(func() {
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    "Staging",
-							Status:  metav1.ConditionUnknown,
-							Reason:  "kpack",
-							Message: "kpack",
-						})
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    "Succeeded",
-							Status:  metav1.ConditionUnknown,
-							Reason:  "Unknown",
-							Message: "Unknown",
-						})
-						Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
+						Expect(conditions.PatchStatus(ctx, k8sClient, build,
+							metav1.Condition{
+								Type:    "Staging",
+								Status:  metav1.ConditionUnknown,
+								Reason:  "kpack",
+								Message: "kpack",
+							},
+							metav1.Condition{
+								Type:    "Succeeded",
+								Status:  metav1.ConditionUnknown,
+								Reason:  "Unknown",
+								Message: "Unknown",
+							},
+						)).To(Succeed())
 					})
 
 					It("should return a NotFound error", func() {
@@ -199,19 +200,20 @@ var _ = Describe("DropletRepository", func() {
 
 				When("status.Conditions \"Staging\": True, \"Succeeded\": Unknown, is set", func() {
 					BeforeEach(func() {
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    "Staging",
-							Status:  metav1.ConditionTrue,
-							Reason:  "kpack",
-							Message: "kpack",
-						})
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    "Succeeded",
-							Status:  metav1.ConditionUnknown,
-							Reason:  "Unknown",
-							Message: "Unknown",
-						})
-						Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
+						Expect(conditions.PatchStatus(ctx, k8sClient, build,
+							metav1.Condition{
+								Type:    "Staging",
+								Status:  metav1.ConditionTrue,
+								Reason:  "kpack",
+								Message: "kpack",
+							},
+							metav1.Condition{
+								Type:    "Succeeded",
+								Status:  metav1.ConditionUnknown,
+								Reason:  "Unknown",
+								Message: "Unknown",
+							},
+						)).To(Succeed())
 					})
 
 					It("should return a NotFound error", func() {
@@ -221,19 +223,20 @@ var _ = Describe("DropletRepository", func() {
 
 				When("status.Conditions \"Staging\": False, \"Succeeded\": False, is set", func() {
 					BeforeEach(func() {
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    "Staging",
-							Status:  metav1.ConditionTrue,
-							Reason:  "kpack",
-							Message: "kpack",
-						})
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    "Succeeded",
-							Status:  metav1.ConditionUnknown,
-							Reason:  "Unknown",
-							Message: "Unknown",
-						})
-						Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
+						Expect(conditions.PatchStatus(ctx, k8sClient, build,
+							metav1.Condition{
+								Type:    "Staging",
+								Status:  metav1.ConditionTrue,
+								Reason:  "kpack",
+								Message: "kpack",
+							},
+							metav1.Condition{
+								Type:    "Succeeded",
+								Status:  metav1.ConditionUnknown,
+								Reason:  "Unknown",
+								Message: "Unknown",
+							},
+						)).To(Succeed())
 					})
 
 					It("should return a NotFound error", func() {
@@ -300,18 +303,6 @@ var _ = Describe("DropletRepository", func() {
 				},
 			}
 			Expect(k8sClient.Create(testCtx, build)).To(Succeed())
-			meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-				Type:    "Staging",
-				Status:  metav1.ConditionFalse,
-				Reason:  "kpack",
-				Message: "kpack",
-			})
-			meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-				Type:    "Succeeded",
-				Status:  metav1.ConditionTrue,
-				Reason:  "Unknown",
-				Message: "Unknown",
-			})
 			build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 				Stack: dropletStack,
 				Registry: korifiv1alpha1.Registry{
@@ -334,8 +325,20 @@ var _ = Describe("DropletRepository", func() {
 				},
 				Ports: []int32{8080, 443},
 			}
-			// Update Build Status based on changes made to local copy
-			Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
+			Expect(conditions.PatchStatus(ctx, k8sClient, build,
+				metav1.Condition{
+					Type:    "Staging",
+					Status:  metav1.ConditionFalse,
+					Reason:  "kpack",
+					Message: "kpack",
+				},
+				metav1.Condition{
+					Type:    "Succeeded",
+					Status:  metav1.ConditionTrue,
+					Reason:  "Unknown",
+					Message: "Unknown",
+				},
+			)).To(Succeed())
 		})
 
 		When("the packageGUIDs message parameter is provided", func() {

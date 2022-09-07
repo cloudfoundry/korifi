@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 
@@ -220,13 +221,12 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						g.Expect(err).NotTo(HaveOccurred())
 					}).Should(Succeed())
 
-					meta.SetStatusCondition(&updatedBuildWorkload.Status.Conditions, metav1.Condition{
+					Expect(conditions.PatchStatus(context.Background(), k8sClient, updatedBuildWorkload, metav1.Condition{
 						Type:    korifiv1alpha1.SucceededConditionType,
 						Status:  metav1.ConditionUnknown,
 						Reason:  "thinking",
 						Message: "thunking",
-					})
-					Expect(k8sClient.Status().Update(context.Background(), updatedBuildWorkload)).To(Succeed())
+					})).To(Succeed())
 				})
 
 				It("doesn't continue to reconcile the object", func() {

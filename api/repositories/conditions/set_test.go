@@ -44,7 +44,7 @@ var _ = Describe("Set Conditions", func() {
 	})
 
 	JustBeforeEach(func() {
-		setCondErr = conditions.SetConditions(ctx, k8sClient, space, metav1.Condition{
+		setCondErr = conditions.PatchStatus(ctx, k8sClient, space, metav1.Condition{
 			Type:    "Ready",
 			Status:  metav1.ConditionTrue,
 			Reason:  "whatevs",

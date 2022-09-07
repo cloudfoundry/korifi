@@ -7,12 +7,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 )
@@ -171,19 +171,20 @@ var _ = Describe("BuildRepository", func() {
 
 				When("status.Conditions \"Staging\": False, \"Succeeded\": True, is set", func() {
 					BeforeEach(func() {
-						meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
-							Type:    StagingConditionType,
-							Status:  metav1.ConditionFalse,
-							Reason:  "kpack",
-							Message: "kpack",
-						})
-						meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
-							Type:    SucceededConditionType,
-							Status:  metav1.ConditionTrue,
-							Reason:  "Unknown",
-							Message: "Unknown",
-						})
-						Expect(k8sClient.Status().Update(ctx, build2)).To(Succeed())
+						Expect(conditions.PatchStatus(ctx, k8sClient, build2,
+							metav1.Condition{
+								Type:    StagingConditionType,
+								Status:  metav1.ConditionFalse,
+								Reason:  "kpack",
+								Message: "kpack",
+							},
+							metav1.Condition{
+								Type:    SucceededConditionType,
+								Status:  metav1.ConditionTrue,
+								Reason:  "Unknown",
+								Message: "Unknown",
+							},
+						)).To(Succeed())
 					})
 
 					It("should return a record with State: \"STAGED\", no StagingErrorMsg, and a DropletGUID that matches the BuildGUID", func() {
@@ -202,19 +203,20 @@ var _ = Describe("BuildRepository", func() {
 					)
 
 					BeforeEach(func() {
-						meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
-							Type:    StagingConditionType,
-							Status:  metav1.ConditionFalse,
-							Reason:  "kpack",
-							Message: "kpack",
-						})
-						meta.SetStatusCondition(&build2.Status.Conditions, metav1.Condition{
-							Type:    SucceededConditionType,
-							Status:  metav1.ConditionFalse,
-							Reason:  "StagingError",
-							Message: StagingErrorMessage,
-						})
-						Expect(k8sClient.Status().Update(ctx, build2)).To(Succeed())
+						Expect(conditions.PatchStatus(ctx, k8sClient, build2,
+							metav1.Condition{
+								Type:    StagingConditionType,
+								Status:  metav1.ConditionFalse,
+								Reason:  "kpack",
+								Message: "kpack",
+							},
+							metav1.Condition{
+								Type:    SucceededConditionType,
+								Status:  metav1.ConditionFalse,
+								Reason:  "StagingError",
+								Message: StagingErrorMessage,
+							},
+						)).To(Succeed())
 					})
 
 					It("should return a record with State: \"FAILED\", no DropletGUID, and a Staging Error Message", func() {

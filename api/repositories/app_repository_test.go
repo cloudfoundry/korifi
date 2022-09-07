@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -118,21 +117,15 @@ var _ = Describe("AppRepository", func() {
 
 			When("the app has staged condition false", func() {
 				BeforeEach(func() {
-					meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+					Expect(conditions.PatchStatus(testCtx, k8sClient, cfApp, metav1.Condition{
 						Type:    workloads.StatusConditionStaged,
 						Status:  metav1.ConditionFalse,
 						Reason:  "appStaged",
 						Message: "",
-					})
-					Expect(k8sClient.Status().Update(testCtx, cfApp)).To(Succeed())
-					Eventually(func(g Gomega) {
-						app := korifiv1alpha1.CFApp{}
-						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
-						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
-					}).Should(Succeed())
+					})).To(Succeed())
 				})
 
-				It("sets IsStaged to false", func() {
+				FIt("sets IsStaged to false", func() {
 					Expect(getErr).ToNot(HaveOccurred())
 					Expect(app.IsStaged).To(BeFalse())
 				})
@@ -1392,9 +1385,11 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-	cfApp.Status.Conditions = []metav1.Condition{}
-	cfApp.Status.ObservedDesiredState = "STOPPED"
-	Expect(k8sClient.Status().Update(context.Background(), cfApp)).To(Succeed())
+	Expect(conditions.PatchStatus1(context.Background(), k8sClient, cfApp, func(a *korifiv1alpha1.CFApp) {
+		a.Status.ObservedDesiredState = "STOPPED"
+		a.Status.VCAPServicesSecretName = "vcap-secret"
+		a.Status.Conditions = []metav1.Condition{}
+	})).To(Succeed())
 
 	return cfApp
 }

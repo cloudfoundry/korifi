@@ -23,13 +23,13 @@ import (
 	"github.com/go-logr/logr"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,13 +98,13 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		info.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{}
 		info.Status.Buildpacks = []v1alpha1.BuildReconcilerInfoStatusBuildpack{}
-		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
+
+		err = conditions.PatchStatus(ctx, r.Client, info, metav1.Condition{
 			Type:    ReadyConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "cluster_builder_missing",
 			Message: fmt.Sprintf("Error fetching ClusterBuilder %q: %q", r.ClusterBuilderName, err),
 		})
-		err = r.Client.Status().Update(ctx, info)
 		if err != nil {
 			r.Log.Error(err, "Error when updating BuildReconcilerInfo.status for failure")
 		}
@@ -114,13 +114,12 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 	updatedTimestamp := lastUpdatedTime(clusterBuilder.ObjectMeta)
 	info.Status.Stacks = clusterBuilderToStacks(clusterBuilder, updatedTimestamp)
 	info.Status.Buildpacks = clusterBuilderToBuildpacks(clusterBuilder, updatedTimestamp)
-	meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
+	err = conditions.PatchStatus(ctx, r.Client, info, metav1.Condition{
 		Type:    ReadyConditionType,
 		Status:  metav1.ConditionTrue,
 		Reason:  "cluster_builder_exists",
 		Message: fmt.Sprintf("Found ClusterBuilder %q", r.ClusterBuilderName),
 	})
-	err = r.Client.Status().Update(ctx, info)
 	if err != nil {
 		r.Log.Error(err, "Error when updating BuildReconcilerInfo.status for success")
 		return ctrl.Result{}, err

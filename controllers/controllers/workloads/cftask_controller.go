@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 )
@@ -148,23 +149,24 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
 
-	r.setTaskStatus(cfTask, taskWorkload.Status.Conditions)
-
-	return r.updateStatusAndReturn(ctx, cfTask, nil)
+	err = conditions.PatchStatus(ctx, r.k8sClient, cfTask, filterConditions(taskWorkload.Status.Conditions)...)
+	return ctrl.Result{}, err
 }
 
-func (r *CFTaskReconciler) setTaskStatus(cfTask *korifiv1alpha1.CFTask, taskWorkloadConditions []metav1.Condition) {
-	for _, conditionType := range []string{
-		korifiv1alpha1.TaskStartedConditionType,
-		korifiv1alpha1.TaskSucceededConditionType,
-		korifiv1alpha1.TaskFailedConditionType,
-	} {
-		cond := meta.FindStatusCondition(taskWorkloadConditions, conditionType)
-		if cond == nil {
-			continue
+func filterConditions(objConditions []metav1.Condition) []metav1.Condition {
+	result := []metav1.Condition{}
+	for _, cond := range objConditions {
+		switch cond.Type {
+		case korifiv1alpha1.TaskStartedConditionType:
+			fallthrough
+		case korifiv1alpha1.TaskSucceededConditionType:
+			fallthrough
+		case korifiv1alpha1.TaskFailedConditionType:
+			result = append(result, cond)
 		}
-		meta.SetStatusCondition(&cfTask.Status.Conditions, *cond)
 	}
+
+	return result
 }
 
 func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
