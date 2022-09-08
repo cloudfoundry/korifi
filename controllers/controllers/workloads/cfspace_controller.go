@@ -23,6 +23,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -96,14 +97,6 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	readyCondition := getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
-	if readyCondition == metav1.ConditionUnknown {
-		if err = r.client.Status().Update(ctx, cfSpace); err != nil {
-			r.log.Error(err, fmt.Sprintf("Error when trying to set status conditions on CFSpace %s/%s", req.Namespace, req.Name))
-			return ctrl.Result{}, err
-		}
-	}
-
 	err = r.addFinalizer(ctx, cfSpace)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error adding finalizer on CFSpace %s/%s", req.Namespace, req.Name))
@@ -144,10 +137,15 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	cfSpace.Status.GUID = namespace.Name
-	err = updateStatus(ctx, r.client, cfSpace, metav1.ConditionTrue)
+	err = k8s.PatchStatus(ctx, r.client, cfSpace, func() {
+		cfSpace.Status.GUID = namespace.Name
+	}, metav1.Condition{
+		Type:   StatusConditionReady,
+		Status: metav1.ConditionTrue,
+		Reason: StatusConditionReady,
+	})
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error updating status on CFSpace %s/%s", req.Namespace, req.Name))
+		r.log.Error(err, fmt.Sprintf("Error patching status on CFSpace %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err
 	}
 

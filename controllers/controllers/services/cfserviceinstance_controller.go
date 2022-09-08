@@ -23,12 +23,12 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -81,70 +81,41 @@ func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	secret := new(corev1.Secret)
 	err = r.Client.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: req.Namespace}, secret)
 	if err != nil {
+		conditionReason := "Unknown"
+		conditionMessage := "Error occurred while fetching secret: " + err.Error()
 		if apierrors.IsNotFound(err) {
-			setStatusErr := r.setStatus(ctx, cfServiceInstance, bindSecretUnavailableStatus(cfServiceInstance, "SecretNotFound", "Binding secret does not exist"))
-			if setStatusErr != nil {
-				return ctrl.Result{}, setStatusErr
-			}
-
-			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+			conditionReason = "SecretNotFound"
+			conditionMessage = "Binding secret does not exist"
 		}
 
-		return r.setStatusAndReturnError(ctx, cfServiceInstance, bindSecretUnavailableStatus(cfServiceInstance, "UnknownError", "Error occurred while fetching secret: "+err.Error()), err)
-	}
+		setStatusErr := k8s.PatchStatus(ctx, r.Client, cfServiceInstance, func() {
+			cfServiceInstance.Status.Binding = corev1.LocalObjectReference{}
+		}, metav1.Condition{
+			Type:    BindingSecretAvailableCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  conditionReason,
+			Message: conditionMessage,
+		})
+		if setStatusErr != nil {
+			return ctrl.Result{}, setStatusErr
+		}
 
-	return ctrl.Result{}, r.setStatus(ctx, cfServiceInstance, bindSecretAvailableStatus(cfServiceInstance))
-}
-
-func bindSecretAvailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance) korifiv1alpha1.CFServiceInstanceStatus {
-	status := korifiv1alpha1.CFServiceInstanceStatus{
-		Binding: corev1.LocalObjectReference{
-			Name: cfServiceInstance.Spec.SecretName,
-		},
-		Conditions: cfServiceInstance.Status.Conditions,
-	}
-
-	meta.SetStatusCondition(&status.Conditions, metav1.Condition{
-		Type:   BindingSecretAvailableCondition,
-		Status: metav1.ConditionTrue,
-		Reason: "SecretFound",
-	})
-
-	return status
-}
-
-func bindSecretUnavailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance, reason, message string) korifiv1alpha1.CFServiceInstanceStatus {
-	status := korifiv1alpha1.CFServiceInstanceStatus{
-		Binding:    corev1.LocalObjectReference{},
-		Conditions: cfServiceInstance.Status.Conditions,
-	}
-
-	meta.SetStatusCondition(&status.Conditions, metav1.Condition{
-		Type:    BindingSecretAvailableCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  reason,
-		Message: message,
-	})
-
-	return status
-}
-
-func (r *CFServiceInstanceReconciler) setStatusAndReturnError(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, status korifiv1alpha1.CFServiceInstanceStatus, errToReturn error) (ctrl.Result, error) {
-	err := r.setStatus(ctx, cfServiceInstance, status)
-	if err != nil {
-		r.Log.Error(err, "unable to patch CFServiceInstance status")
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+		}
 		return ctrl.Result{}, err
 
 	}
 
-	return ctrl.Result{}, errToReturn
-}
-
-func (r *CFServiceInstanceReconciler) setStatus(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, status korifiv1alpha1.CFServiceInstanceStatus) error {
-	originalCFServiceInstance := cfServiceInstance.DeepCopy()
-	cfServiceInstance.Status = status
-
-	return r.Client.Status().Patch(ctx, cfServiceInstance, client.MergeFrom(originalCFServiceInstance))
+	return ctrl.Result{}, k8s.PatchStatus(ctx, r.Client, cfServiceInstance, func() {
+		cfServiceInstance.Status.Binding = corev1.LocalObjectReference{
+			Name: cfServiceInstance.Spec.SecretName,
+		}
+	}, metav1.Condition{
+		Type:   BindingSecretAvailableCondition,
+		Status: metav1.ConditionTrue,
+		Reason: "SecretFound",
+	})
 }
 
 // SetupWithManager sets up the controller with the Manager.

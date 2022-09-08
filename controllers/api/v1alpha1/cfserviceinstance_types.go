@@ -85,3 +85,7 @@ type CFServiceInstanceList struct {
 func init() {
 	SchemeBuilder.Register(&CFServiceInstance{}, &CFServiceInstanceList{})
 }
+
+func (i *CFServiceInstance) StatusConditions() *[]metav1.Condition {
+	return &i.Status.Conditions
+}

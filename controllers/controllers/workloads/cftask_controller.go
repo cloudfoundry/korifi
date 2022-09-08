@@ -113,8 +113,7 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if cfTask.Spec.Canceled {
-		err := r.handleCancelation(ctx, cfTask)
-		return r.updateStatusAndReturn(ctx, cfTask, err)
+		return ctrl.Result{}, r.handleCancelation(ctx, cfTask)
 	}
 
 	cfApp, err := r.getApp(ctx, cfTask)
@@ -135,22 +134,22 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	webProcess, err := r.getWebProcess(ctx, cfApp)
 	if err != nil {
 		r.logger.Error(err, "failed to get web processes")
-		return r.updateStatusAndReturn(ctx, cfTask, err)
+		return ctrl.Result{}, err
 	}
 
 	env, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
 		r.logger.Error(err, "failed to build env")
-		return r.updateStatusAndReturn(ctx, cfTask, err)
+		return ctrl.Result{}, err
 	}
 
 	taskWorkload, err := r.createOrPatchTaskWorkload(ctx, cfTask, cfDroplet, webProcess, env)
 	if err != nil {
-		return r.updateStatusAndReturn(ctx, cfTask, err)
+		return ctrl.Result{}, err
 	}
 
 	err = k8s.PatchStatusConditions(ctx, r.k8sClient, cfTask, filterConditions(taskWorkload.Status.Conditions)...)
-	return ctrl.Result{}, err
+	return ctrl.Result{RequeueAfter: r.computeRequeueAfter(cfTask)}, err
 }
 
 func filterConditions(objConditions []metav1.Condition) []metav1.Condition {
@@ -308,27 +307,27 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 }
 
 func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
-	if cfTask.Status.SequenceID == 0 {
-		var err error
-		cfTask.Status.SequenceID, err = r.seqIdGenerator.Generate()
-		if err != nil {
-			r.logger.Info("error-generating-sequence-id", "error", err)
-			return err
-		}
+	if cfTask.Status.SequenceID != 0 {
+		return nil
+	}
 
+	seqId, err := r.seqIdGenerator.Generate()
+	if err != nil {
+		r.logger.Info("error-generating-sequence-id", "error", err)
+		return err
+	}
+
+	return k8s.PatchStatus(ctx, r.k8sClient, cfTask, func() {
+		cfTask.Status.SequenceID = seqId
 		cfTask.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
 		cfTask.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
 		cfTask.Status.DropletRef.Name = cfDroplet.Name
-		meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.TaskInitializedConditionType,
-			Status:  metav1.ConditionTrue,
-			Reason:  "taskInitialized",
-			Message: "taskInitialized",
-		})
-
-	}
-
-	return nil
+	}, metav1.Condition{
+		Type:    korifiv1alpha1.TaskInitializedConditionType,
+		Status:  metav1.ConditionTrue,
+		Reason:  "taskInitialized",
+		Message: "taskInitialized",
+	})
 }
 
 func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
@@ -344,40 +343,21 @@ func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifi
 		return err
 	}
 
-	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+	conditions := []metav1.Condition{{
 		Type:   korifiv1alpha1.TaskCanceledConditionType,
 		Status: metav1.ConditionTrue,
 		Reason: TaskCanceledReason,
-	})
+	}}
 
 	if !meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType) {
-		meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+		conditions = append(conditions, metav1.Condition{
 			Type:   korifiv1alpha1.TaskFailedConditionType,
 			Status: metav1.ConditionTrue,
 			Reason: TaskCanceledReason,
 		})
 	}
 
-	return nil
-}
-
-func (r *CFTaskReconciler) updateStatusAndReturn(ctx context.Context, cfTask *korifiv1alpha1.CFTask, reconcileErr error) (ctrl.Result, error) {
-	orig := &korifiv1alpha1.CFTask{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cfTask.Name,
-			Namespace: cfTask.Namespace,
-		},
-	}
-	if statusErr := r.k8sClient.Status().Patch(ctx, cfTask, client.MergeFrom(orig)); statusErr != nil {
-		r.logger.Error(statusErr, "unable to patch CFTask status")
-		return ctrl.Result{}, statusErr
-	}
-
-	if reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
-	}
-
-	return ctrl.Result{RequeueAfter: r.computeRequeueAfter(cfTask)}, nil
+	return k8s.PatchStatusConditions(ctx, r.k8sClient, cfTask, conditions...)
 }
 
 func (r *CFTaskReconciler) computeRequeueAfter(cfTask *korifiv1alpha1.CFTask) time.Duration {

@@ -259,15 +259,12 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 					return taskWorkloads.Items, err
 				}).Should(HaveLen(1))
 
-				modifiedTaskWorkload := taskWorkloads.Items[0].DeepCopy()
-				meta.SetStatusCondition(&modifiedTaskWorkload.Status.Conditions, metav1.Condition{
+				Expect(k8s.PatchStatusConditions(ctx, k8sClient, &taskWorkloads.Items[0], metav1.Condition{
 					Type:    korifiv1alpha1.TaskStartedConditionType,
 					Status:  metav1.ConditionTrue,
 					Reason:  "task_started",
 					Message: "task started",
-				})
-
-				Expect(k8sClient.Status().Patch(ctx, modifiedTaskWorkload, client.MergeFrom(&taskWorkloads.Items[0]))).To(Succeed())
+				})).To(Succeed())
 			})
 
 			It("reflects the status in the korifi task", func() {
@@ -305,15 +302,13 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
 
-			updatedTask := cfTask.DeepCopy()
-			meta.SetStatusCondition(&updatedTask.Status.Conditions, metav1.Condition{
+			Expect(k8s.PatchStatusConditions(ctx, k8sClient, cfTask, metav1.Condition{
 				Type:               korifiv1alpha1.TaskSucceededConditionType,
 				Status:             metav1.ConditionTrue,
 				LastTransitionTime: metav1.Now(),
 				Reason:             "succeeded",
 				Message:            "succeeded",
-			})
-			Expect(k8sClient.Status().Patch(ctx, updatedTask, client.MergeFrom(cfTask))).To(Succeed())
+			})).To(Succeed())
 		})
 
 		It("it can get the task shortly after completion", func() {

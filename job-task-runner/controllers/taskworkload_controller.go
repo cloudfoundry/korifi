@@ -32,8 +32,8 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 const (
@@ -194,16 +194,10 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 }
 
 func (r *TaskWorkloadReconciler) updateTaskWorkloadStatus(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload, job *batchv1.Job) error {
-	originalTaskWorkload := taskWorkload.DeepCopy()
-
 	conditions, err := r.statusGetter.GetStatusConditions(ctx, job)
 	if err != nil {
 		return fmt.Errorf("failed to get status conditions for job %s:%s: %w", job.Namespace, job.Name, err)
 	}
 
-	for _, condition := range conditions {
-		meta.SetStatusCondition(&taskWorkload.Status.Conditions, condition)
-	}
-
-	return r.k8sClient.Status().Patch(ctx, taskWorkload, client.MergeFrom(originalTaskWorkload))
+	return k8s.PatchStatusConditions(ctx, r.k8sClient, taskWorkload, conditions...)
 }

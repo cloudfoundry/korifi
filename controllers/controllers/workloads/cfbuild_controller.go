@@ -24,6 +24,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -90,22 +91,19 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	cfPackage := new(korifiv1alpha1.CFPackage)
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
-	if err != nil {
-		r.Log.Error(err, "Error when fetching CFPackage")
-		return ctrl.Result{}, err
-	}
-
-	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)
-	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
-
-	if succeededStatus != metav1.ConditionUnknown {
+	if isBuildCompleted(cfBuild) {
 		return ctrl.Result{}, nil
 	}
 
-	if stagingStatus == metav1.ConditionUnknown {
-		err = r.createBuildWorkloadAndUpdateStatus(ctx, cfBuild, cfApp, cfPackage)
+	if !isBuildStaged(cfBuild) {
+		cfPackage := new(korifiv1alpha1.CFPackage)
+		err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
+		if err != nil {
+			r.Log.Error(err, "Error when fetching CFPackage")
+			return ctrl.Result{}, err
+		}
+
+		err = r.createBuildWorkloadAndPatchStatus(ctx, cfBuild, cfApp, cfPackage)
 		return ctrl.Result{}, err
 	}
 
@@ -124,26 +122,51 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	switch workloadSucceededStatus.Status {
 	case metav1.ConditionFalse:
-		failureStatusConditionMessage := fmt.Sprintf("%s:%s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message)
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionFalse, "BuildWorkload", failureStatusConditionMessage)
+		return ctrl.Result{}, k8s.PatchStatusConditions(ctx, r.Client, cfBuild,
+			metav1.Condition{
+				Type:    korifiv1alpha1.StagingConditionType,
+				Status:  metav1.ConditionFalse,
+				Reason:  "BuildWorkload",
+				Message: "BuildWorkload",
+			},
+			metav1.Condition{
+				Type:    korifiv1alpha1.SucceededConditionType,
+				Status:  metav1.ConditionFalse,
+				Reason:  "BuildWorkload",
+				Message: fmt.Sprintf("%s:%s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message),
+			},
+		)
 	case metav1.ConditionTrue:
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
-		cfBuild.Status.Droplet = buildWorkload.Status.Droplet
+		return ctrl.Result{}, k8s.PatchStatus(ctx, r.Client, cfBuild, func() {
+			cfBuild.Status.Droplet = buildWorkload.Status.Droplet
+		},
+			metav1.Condition{
+				Type:    korifiv1alpha1.StagingConditionType,
+				Status:  metav1.ConditionFalse,
+				Reason:  "BuildWorkload",
+				Message: "BuildWorkload",
+			},
+			metav1.Condition{
+				Type:    korifiv1alpha1.SucceededConditionType,
+				Status:  metav1.ConditionTrue,
+				Reason:  "BuildWorkload",
+				Message: "BuildWorkload",
+			},
+		)
 	default:
 		return ctrl.Result{}, nil
 	}
-
-	if err = r.Client.Status().Update(ctx, cfBuild); err != nil {
-		r.Log.Error(err, "Error when updating CFBuild status")
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
 }
 
-func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
+func isBuildCompleted(cfBuild *korifiv1alpha1.CFBuild) bool {
+	return meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType) != nil
+}
+
+func isBuildStaged(cfBuild *korifiv1alpha1.CFBuild) bool {
+	return meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType) != nil
+}
+
+func (r *CFBuildReconciler) createBuildWorkloadAndPatchStatus(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
 	namespace := cfBuild.Namespace
 	desiredWorkload := korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
@@ -192,10 +215,14 @@ func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Conte
 		return fmt.Errorf("createBuildWorkloadIfNotExists: %w", err)
 	}
 
-	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
-	if err := r.Client.Status().Update(ctx, cfBuild); err != nil {
-		r.Log.Error(err, "Error when updating CFBuild status")
-		return fmt.Errorf("failed updating CFBuild status: %w", err)
+	err = k8s.PatchStatusConditions(ctx, r.Client, cfBuild, metav1.Condition{
+		Type:    korifiv1alpha1.StagingConditionType,
+		Status:  metav1.ConditionTrue,
+		Reason:  "BuildWorkload",
+		Message: "BuildWorkload",
+	})
+	if err != nil {
+		return fmt.Errorf("patch cfbuild status: %w", err)
 	}
 
 	return nil
@@ -244,24 +271,6 @@ func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, 
 		}
 	}
 	return nil
-}
-
-// getConditionOrSetAsUnknown is a helper function that retrieves the value of the provided conditionType, like
-// "Succeeded" and returns the value: "True", "False", or "Unknown". If the value is not present, the pointer to the
-// list of conditions provided to the function is used to add an entry to the list of Conditions with a value of
-// "Unknown" and "Unknown" is returned
-func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType string) metav1.ConditionStatus {
-	if conditionStatus := meta.FindStatusCondition(*conditions, conditionType); conditionStatus != nil {
-		return conditionStatus.Status
-	}
-
-	meta.SetStatusCondition(conditions, metav1.Condition{
-		Type:    conditionType,
-		Status:  metav1.ConditionUnknown,
-		Reason:  "Unknown",
-		Message: "Unknown",
-	})
-	return metav1.ConditionUnknown
 }
 
 // SetupWithManager sets up the controller with the Manager.

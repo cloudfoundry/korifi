@@ -10,13 +10,13 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,20 +60,14 @@ var _ = Describe("CFServiceBinding", func() {
 			k8sClient.Create(context.Background(), vcapServicesSecret),
 		).To(Succeed())
 
-		originalApp := desiredCFApp.DeepCopy()
-		desiredCFApp.Status = korifiv1alpha1.CFAppStatus{
-			Conditions:             nil,
-			ObservedDesiredState:   korifiv1alpha1.StoppedState,
-			VCAPServicesSecretName: vcapSecretName,
-		}
-		meta.SetStatusCondition(&desiredCFApp.Status.Conditions, metav1.Condition{
+		Expect(k8s.PatchStatus(context.Background(), k8sClient, desiredCFApp, func() {
+			desiredCFApp.Status.ObservedDesiredState = korifiv1alpha1.StoppedState
+			desiredCFApp.Status.VCAPServicesSecretName = vcapSecretName
+		}, metav1.Condition{
 			Type:   "Ready",
 			Status: metav1.ConditionTrue,
 			Reason: "testing",
-		})
-		Expect(
-			k8sClient.Status().Patch(context.Background(), desiredCFApp, client.MergeFrom(originalApp)),
-		).To(Succeed())
+		})).To(Succeed())
 
 		secretType = "mongodb"
 		secretProvider = "cloud-aws"

@@ -79,6 +79,6 @@ func init() {
 	SchemeBuilder.Register(&TaskWorkload{}, &TaskWorkloadList{})
 }
 
-func (t *TaskWorkload) StatusConditions() []metav1.Condition {
-	return t.Status.Conditions
+func (t *TaskWorkload) StatusConditions() *[]metav1.Condition {
+	return &t.Status.Conditions
 }

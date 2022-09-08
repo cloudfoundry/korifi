@@ -6,6 +6,8 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -35,6 +37,19 @@ type CFClient struct {
 		result1 error
 	}
 	deleteReturnsOnCall map[int]struct {
+		result1 error
+	}
+	DeleteAllOfStub        func(context.Context, client.Object, ...client.DeleteAllOfOption) error
+	deleteAllOfMutex       sync.RWMutex
+	deleteAllOfArgsForCall []struct {
+		arg1 context.Context
+		arg2 client.Object
+		arg3 []client.DeleteAllOfOption
+	}
+	deleteAllOfReturns struct {
+		result1 error
+	}
+	deleteAllOfReturnsOnCall map[int]struct {
 		result1 error
 	}
 	GetStub        func(context.Context, types.NamespacedName, client.Object) error
@@ -76,6 +91,26 @@ type CFClient struct {
 	}
 	patchReturnsOnCall map[int]struct {
 		result1 error
+	}
+	RESTMapperStub        func() meta.RESTMapper
+	rESTMapperMutex       sync.RWMutex
+	rESTMapperArgsForCall []struct {
+	}
+	rESTMapperReturns struct {
+		result1 meta.RESTMapper
+	}
+	rESTMapperReturnsOnCall map[int]struct {
+		result1 meta.RESTMapper
+	}
+	SchemeStub        func() *runtime.Scheme
+	schemeMutex       sync.RWMutex
+	schemeArgsForCall []struct {
+	}
+	schemeReturns struct {
+		result1 *runtime.Scheme
+	}
+	schemeReturnsOnCall map[int]struct {
+		result1 *runtime.Scheme
 	}
 	StatusStub        func() client.StatusWriter
 	statusMutex       sync.RWMutex
@@ -226,6 +261,69 @@ func (fake *CFClient) DeleteReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.deleteReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFClient) DeleteAllOf(arg1 context.Context, arg2 client.Object, arg3 ...client.DeleteAllOfOption) error {
+	fake.deleteAllOfMutex.Lock()
+	ret, specificReturn := fake.deleteAllOfReturnsOnCall[len(fake.deleteAllOfArgsForCall)]
+	fake.deleteAllOfArgsForCall = append(fake.deleteAllOfArgsForCall, struct {
+		arg1 context.Context
+		arg2 client.Object
+		arg3 []client.DeleteAllOfOption
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteAllOfStub
+	fakeReturns := fake.deleteAllOfReturns
+	fake.recordInvocation("DeleteAllOf", []interface{}{arg1, arg2, arg3})
+	fake.deleteAllOfMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFClient) DeleteAllOfCallCount() int {
+	fake.deleteAllOfMutex.RLock()
+	defer fake.deleteAllOfMutex.RUnlock()
+	return len(fake.deleteAllOfArgsForCall)
+}
+
+func (fake *CFClient) DeleteAllOfCalls(stub func(context.Context, client.Object, ...client.DeleteAllOfOption) error) {
+	fake.deleteAllOfMutex.Lock()
+	defer fake.deleteAllOfMutex.Unlock()
+	fake.DeleteAllOfStub = stub
+}
+
+func (fake *CFClient) DeleteAllOfArgsForCall(i int) (context.Context, client.Object, []client.DeleteAllOfOption) {
+	fake.deleteAllOfMutex.RLock()
+	defer fake.deleteAllOfMutex.RUnlock()
+	argsForCall := fake.deleteAllOfArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFClient) DeleteAllOfReturns(result1 error) {
+	fake.deleteAllOfMutex.Lock()
+	defer fake.deleteAllOfMutex.Unlock()
+	fake.DeleteAllOfStub = nil
+	fake.deleteAllOfReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFClient) DeleteAllOfReturnsOnCall(i int, result1 error) {
+	fake.deleteAllOfMutex.Lock()
+	defer fake.deleteAllOfMutex.Unlock()
+	fake.DeleteAllOfStub = nil
+	if fake.deleteAllOfReturnsOnCall == nil {
+		fake.deleteAllOfReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteAllOfReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -420,6 +518,112 @@ func (fake *CFClient) PatchReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *CFClient) RESTMapper() meta.RESTMapper {
+	fake.rESTMapperMutex.Lock()
+	ret, specificReturn := fake.rESTMapperReturnsOnCall[len(fake.rESTMapperArgsForCall)]
+	fake.rESTMapperArgsForCall = append(fake.rESTMapperArgsForCall, struct {
+	}{})
+	stub := fake.RESTMapperStub
+	fakeReturns := fake.rESTMapperReturns
+	fake.recordInvocation("RESTMapper", []interface{}{})
+	fake.rESTMapperMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFClient) RESTMapperCallCount() int {
+	fake.rESTMapperMutex.RLock()
+	defer fake.rESTMapperMutex.RUnlock()
+	return len(fake.rESTMapperArgsForCall)
+}
+
+func (fake *CFClient) RESTMapperCalls(stub func() meta.RESTMapper) {
+	fake.rESTMapperMutex.Lock()
+	defer fake.rESTMapperMutex.Unlock()
+	fake.RESTMapperStub = stub
+}
+
+func (fake *CFClient) RESTMapperReturns(result1 meta.RESTMapper) {
+	fake.rESTMapperMutex.Lock()
+	defer fake.rESTMapperMutex.Unlock()
+	fake.RESTMapperStub = nil
+	fake.rESTMapperReturns = struct {
+		result1 meta.RESTMapper
+	}{result1}
+}
+
+func (fake *CFClient) RESTMapperReturnsOnCall(i int, result1 meta.RESTMapper) {
+	fake.rESTMapperMutex.Lock()
+	defer fake.rESTMapperMutex.Unlock()
+	fake.RESTMapperStub = nil
+	if fake.rESTMapperReturnsOnCall == nil {
+		fake.rESTMapperReturnsOnCall = make(map[int]struct {
+			result1 meta.RESTMapper
+		})
+	}
+	fake.rESTMapperReturnsOnCall[i] = struct {
+		result1 meta.RESTMapper
+	}{result1}
+}
+
+func (fake *CFClient) Scheme() *runtime.Scheme {
+	fake.schemeMutex.Lock()
+	ret, specificReturn := fake.schemeReturnsOnCall[len(fake.schemeArgsForCall)]
+	fake.schemeArgsForCall = append(fake.schemeArgsForCall, struct {
+	}{})
+	stub := fake.SchemeStub
+	fakeReturns := fake.schemeReturns
+	fake.recordInvocation("Scheme", []interface{}{})
+	fake.schemeMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFClient) SchemeCallCount() int {
+	fake.schemeMutex.RLock()
+	defer fake.schemeMutex.RUnlock()
+	return len(fake.schemeArgsForCall)
+}
+
+func (fake *CFClient) SchemeCalls(stub func() *runtime.Scheme) {
+	fake.schemeMutex.Lock()
+	defer fake.schemeMutex.Unlock()
+	fake.SchemeStub = stub
+}
+
+func (fake *CFClient) SchemeReturns(result1 *runtime.Scheme) {
+	fake.schemeMutex.Lock()
+	defer fake.schemeMutex.Unlock()
+	fake.SchemeStub = nil
+	fake.schemeReturns = struct {
+		result1 *runtime.Scheme
+	}{result1}
+}
+
+func (fake *CFClient) SchemeReturnsOnCall(i int, result1 *runtime.Scheme) {
+	fake.schemeMutex.Lock()
+	defer fake.schemeMutex.Unlock()
+	fake.SchemeStub = nil
+	if fake.schemeReturnsOnCall == nil {
+		fake.schemeReturnsOnCall = make(map[int]struct {
+			result1 *runtime.Scheme
+		})
+	}
+	fake.schemeReturnsOnCall[i] = struct {
+		result1 *runtime.Scheme
+	}{result1}
+}
+
 func (fake *CFClient) Status() client.StatusWriter {
 	fake.statusMutex.Lock()
 	ret, specificReturn := fake.statusReturnsOnCall[len(fake.statusArgsForCall)]
@@ -543,12 +747,18 @@ func (fake *CFClient) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
+	fake.deleteAllOfMutex.RLock()
+	defer fake.deleteAllOfMutex.RUnlock()
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
 	fake.patchMutex.RLock()
 	defer fake.patchMutex.RUnlock()
+	fake.rESTMapperMutex.RLock()
+	defer fake.rESTMapperMutex.RUnlock()
+	fake.schemeMutex.RLock()
+	defer fake.schemeMutex.RUnlock()
 	fake.statusMutex.RLock()
 	defer fake.statusMutex.RUnlock()
 	fake.updateMutex.RLock()

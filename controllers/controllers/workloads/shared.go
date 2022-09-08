@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,25 +21,7 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 //counterfeiter:generate -o fake -fake-name CFClient . CFClient
-type CFClient interface {
-	Get(ctx context.Context, key client.ObjectKey, obj client.Object) error
-	Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error
-	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
-	Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error
-	Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error
-	Status() client.StatusWriter
-	Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error
-}
-
-// This is a helper function for updating local copy of status conditions
-func setStatusConditionOnLocalCopy(conditions *[]metav1.Condition, conditionType string, conditionStatus metav1.ConditionStatus, reason, message string) {
-	meta.SetStatusCondition(conditions, metav1.Condition{
-		Type:    conditionType,
-		Status:  conditionStatus,
-		Reason:  reason,
-		Message: message,
-	})
-}
+type CFClient client.Client
 
 func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string) error {
 	namespace := &corev1.Namespace{
@@ -198,25 +179,6 @@ func finalize(ctx context.Context, kClient client.Client, log logr.Logger, orgOr
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func updateStatus(ctx context.Context, client client.Client, orgOrSpace client.Object, conditionStatus metav1.ConditionStatus) error {
-	switch obj := orgOrSpace.(type) {
-	case *korifiv1alpha1.CFOrg:
-		cfOrg := new(korifiv1alpha1.CFOrg)
-		obj.DeepCopyInto(cfOrg)
-		setStatusConditionOnLocalCopy(&cfOrg.Status.Conditions, StatusConditionReady, conditionStatus, StatusConditionReady, "")
-		err := client.Status().Update(ctx, cfOrg)
-		return err
-	case *korifiv1alpha1.CFSpace:
-		cfSpace := new(korifiv1alpha1.CFSpace)
-		obj.DeepCopyInto(cfSpace)
-		setStatusConditionOnLocalCopy(&cfSpace.Status.Conditions, StatusConditionReady, conditionStatus, StatusConditionReady, "")
-		err := client.Status().Update(ctx, cfSpace)
-		return err
-	default:
-		return fmt.Errorf("unknown object passed to updateStatus function")
-	}
 }
 
 func getNamespace(ctx context.Context, client client.Client, namespaceName string) (*corev1.Namespace, bool) {

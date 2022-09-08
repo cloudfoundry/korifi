@@ -9,11 +9,11 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -90,42 +90,46 @@ func (r *CFAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:    StatusConditionStaged,
-		Status:  metav1.ConditionFalse,
-		Reason:  "appStaged",
-		Message: "",
-	})
+	statusConditions := []metav1.Condition{
+		{
+			Type:    StatusConditionStaged,
+			Status:  metav1.ConditionFalse,
+			Reason:  "appStaged",
+			Message: "",
+		},
 
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:    StatusConditionRunning,
-		Status:  metav1.ConditionFalse,
-		Reason:  "unimplemented",
-		Message: "",
-	})
+		{
+			Type:    StatusConditionRunning,
+			Status:  metav1.ConditionFalse,
+			Reason:  "unimplemented",
+			Message: "",
+		},
+	}
 
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
-		return r.updateStatusAndReturn(ctx, cfApp, nil)
+		return ctrl.Result{}, k8s.PatchStatusConditions(ctx, r.Client, cfApp, statusConditions...)
 	}
 
 	droplet, err := r.getDroplet(ctx, cfApp)
 	if err != nil {
-		return r.updateStatusAndReturn(ctx, cfApp, err)
+		if statusErr := k8s.PatchStatusConditions(ctx, r.Client, cfApp, statusConditions...); statusErr != nil {
+			return ctrl.Result{}, statusErr
+		}
+		return ctrl.Result{}, err
 	}
 
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+	statusConditions = append(statusConditions, metav1.Condition{
 		Type:    StatusConditionStaged,
 		Status:  metav1.ConditionTrue,
 		Reason:  "appStaged",
 		Message: "",
 	})
 
-	err = r.startApp(ctx, cfApp, droplet)
-	if err != nil {
-		return r.updateStatusAndReturn(ctx, cfApp, err)
+	if err = k8s.PatchStatusConditions(ctx, r.Client, cfApp, statusConditions...); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return r.updateStatusAndReturn(ctx, cfApp, nil)
+	return ctrl.Result{}, r.startApp(ctx, cfApp, droplet)
 }
 
 func (r *CFAppReconciler) getDroplet(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.BuildDropletStatus, error) {
@@ -448,12 +452,4 @@ func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cf
 		return statusErr
 	}
 	return nil
-}
-
-func (r *CFAppReconciler) updateStatusAndReturn(ctx context.Context, cfApp *korifiv1alpha1.CFApp, err error) (ctrl.Result, error) {
-	if statusErr := r.Client.Status().Update(ctx, cfApp); statusErr != nil {
-		r.Log.Error(statusErr, "unable to update CFApp status")
-		return ctrl.Result{}, statusErr
-	}
-	return ctrl.Result{}, err
 }

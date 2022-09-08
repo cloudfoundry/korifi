@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
 // CFOrgReconciler reconciles a CFOrg object
@@ -105,14 +106,6 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	readyCondition := getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
-	if readyCondition == metav1.ConditionUnknown {
-		if err = r.client.Status().Update(ctx, cfOrg); err != nil {
-			r.log.Error(err, fmt.Sprintf("Error when trying to set status conditions on CFOrg %s/%s", req.Namespace, req.Name))
-			return ctrl.Result{}, err
-		}
-	}
-
 	err = r.addFinalizer(ctx, cfOrg)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error adding finalizer on CFOrg %s/%s", req.Namespace, req.Name))
@@ -147,10 +140,15 @@ func (r *CFOrgReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	cfOrg.Status.GUID = namespace.Name
-	err = updateStatus(ctx, r.client, cfOrg, metav1.ConditionTrue)
+	err = k8s.PatchStatus(ctx, r.client, cfOrg, func() {
+		cfOrg.Status.GUID = namespace.Name
+	}, metav1.Condition{
+		Type:   StatusConditionReady,
+		Status: metav1.ConditionTrue,
+		Reason: StatusConditionReady,
+	})
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error updating status on CFOrg %s/%s", req.Namespace, req.Name))
+		r.log.Error(err, fmt.Sprintf("Error patching status on CFOrg %s/%s", req.Namespace, req.Name))
 		return ctrl.Result{}, err
 	}
 

@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -82,15 +81,12 @@ var _ = Describe("SpaceRepository", func() {
 
 			createNamespace(ctx, anchorNamespace, space.Name, map[string]string{korifiv1alpha1.SpaceNameLabel: space.Spec.DisplayName})
 
-			meta.SetStatusCondition(&(space.Status.Conditions), metav1.Condition{
+			Expect(k8s.PatchStatusConditions(ctx, k8sClient, space, metav1.Condition{
 				Type:    "Ready",
 				Status:  metav1.ConditionTrue,
 				Reason:  "blah",
 				Message: "blah",
-			})
-			Expect(
-				k8sClient.Status().Update(ctx, space),
-			).To(Succeed())
+			})).To(Succeed())
 		}
 
 		BeforeEach(func() {

@@ -5,6 +5,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CFBuildReconciler Integration Tests", func() {
@@ -315,25 +315,23 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					k8sClient.Create(ctx, serviceBinding2),
 				).To(Succeed())
 
-				createdServiceBinding1 := serviceBinding1.DeepCopy()
-				createdServiceBinding1.Status.Binding.Name = secret1.Name
-				meta.SetStatusCondition(&createdServiceBinding1.Status.Conditions, metav1.Condition{
+				Expect(k8s.PatchStatus(ctx, k8sClient, serviceBinding1, func() {
+					serviceBinding1.Status.Binding.Name = secret1.Name
+				}, metav1.Condition{
 					Type:    "BindingSecretAvailable",
 					Status:  metav1.ConditionTrue,
 					Reason:  "SecretFound",
 					Message: "",
-				})
-				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding1, client.MergeFrom(serviceBinding1))).To(Succeed())
+				})).To(Succeed())
 
-				createdServiceBinding2 := serviceBinding2.DeepCopy()
-				createdServiceBinding2.Status.Binding.Name = secret2.Name
-				meta.SetStatusCondition(&createdServiceBinding2.Status.Conditions, metav1.Condition{
+				Expect(k8s.PatchStatus(ctx, k8sClient, serviceBinding2, func() {
+					serviceBinding2.Status.Binding.Name = secret2.Name
+				}, metav1.Condition{
 					Type:    "BindingSecretAvailable",
 					Status:  metav1.ConditionTrue,
 					Reason:  "SecretFound",
 					Message: "",
-				})
-				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding2, client.MergeFrom(serviceBinding2))).To(Succeed())
+				})).To(Succeed())
 			})
 
 			It("creates a BuildWorkload with the underlying secret mapped onto it", func() {
@@ -442,8 +440,12 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				Eventually(func() error {
 					return k8sClient.Get(testCtx, lookupKey, workload)
 				}).Should(Succeed())
-				setBuildWorkloadStatus(workload, succeededConditionType, metav1.ConditionFalse)
-				Expect(k8sClient.Status().Update(testCtx, workload)).To(Succeed())
+
+				Expect(k8s.PatchStatusConditions(testCtx, k8sClient, workload, metav1.Condition{
+					Type:   succeededConditionType,
+					Status: metav1.ConditionFalse,
+					Reason: "shrug",
+				})).To(Succeed())
 			})
 
 			It("sets the CFBuild status condition Succeeded = False", func() {
@@ -485,17 +487,21 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					},
 				}
 
-				setBuildWorkloadStatus(workload, succeededConditionType, "True")
-				workload.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
-					Registry: korifiv1alpha1.Registry{
-						Image:            buildImageRef,
-						ImagePullSecrets: []corev1.LocalObjectReference{{Name: imagePullSecretName}},
-					},
-					Stack:        buildStack,
-					Ports:        returnedPorts,
-					ProcessTypes: returnedProcessTypes,
-				}
-				Expect(k8sClient.Status().Update(ctx, workload)).To(Succeed())
+				Expect(k8s.PatchStatus(ctx, k8sClient, workload, func() {
+					workload.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+						Registry: korifiv1alpha1.Registry{
+							Image:            buildImageRef,
+							ImagePullSecrets: []corev1.LocalObjectReference{{Name: imagePullSecretName}},
+						},
+						Stack:        buildStack,
+						Ports:        returnedPorts,
+						ProcessTypes: returnedProcessTypes,
+					}
+				}, metav1.Condition{
+					Type:   succeededConditionType,
+					Status: metav1.ConditionTrue,
+					Reason: "shrug",
+				})).To(Succeed())
 			})
 
 			It("sets the CFBuild status condition Succeeded = True", func() {
@@ -525,11 +531,3 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		})
 	})
 })
-
-func setBuildWorkloadStatus(workload *korifiv1alpha1.BuildWorkload, conditionType string, conditionStatus metav1.ConditionStatus) {
-	meta.SetStatusCondition(&workload.Status.Conditions, metav1.Condition{
-		Type:   conditionType,
-		Status: conditionStatus,
-		Reason: "shrug",
-	})
-}
