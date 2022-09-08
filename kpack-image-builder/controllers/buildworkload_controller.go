@@ -176,14 +176,13 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	kpackReadyStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
 	if kpackReadyStatusCondition.IsFalse() {
-		failureStatusConditionMessage := kpackReadyStatusCondition.Reason + ":" + kpackReadyStatusCondition.Message
-		setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionFalse, "kpack", failureStatusConditionMessage)
+		setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionFalse, "BuildFailed", "Check build log output")
 		if err = r.Client.Status().Update(ctx, buildWorkload); err != nil {
 			r.Log.Error(err, "Error when updating buildWorkload status")
 			return ctrl.Result{}, err
 		}
 	} else if kpackReadyStatusCondition.IsTrue() {
-		setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionTrue, "kpack", "kpack")
+		setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionTrue, "BuildSucceeded", "Image built successfully")
 
 		serviceAccountName := kpackServiceAccount
 		serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
@@ -265,7 +264,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		return err
 	}
 
-	setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionUnknown, "Unknown", "Unknown")
+	setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionUnknown, "BuildRunning", "Waiting for image build to complete")
 	if err := r.Client.Status().Update(ctx, buildWorkload); err != nil {
 		r.Log.Error(err, "Error when updating buildWorkload status")
 		return err

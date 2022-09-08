@@ -222,7 +222,7 @@ var _ = Describe("BuildRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(buildRecord.State).To(Equal("FAILED"))
 						Expect(buildRecord.DropletGUID).To(BeEmpty())
-						Expect(buildRecord.StagingErrorMsg).To(Equal(StagingError + ": " + StagingErrorMessage))
+						Expect(buildRecord.StagingErrorMsg).To(Equal(StagingErrorMessage))
 					})
 				})
 			})

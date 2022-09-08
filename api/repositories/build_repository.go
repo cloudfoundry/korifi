@@ -191,7 +191,7 @@ func cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRecord {
 		case metav1.ConditionFalse:
 			toReturn.State = BuildStateFailed
 			conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, SucceededConditionType)
-			toReturn.StagingErrorMsg = fmt.Sprintf("%v: %v", conditionStatus.Reason, conditionStatus.Message)
+			toReturn.StagingErrorMsg = conditionStatus.Message
 		}
 	}
 
