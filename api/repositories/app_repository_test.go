@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -117,7 +118,7 @@ var _ = Describe("AppRepository", func() {
 
 			When("the app has staged condition false", func() {
 				BeforeEach(func() {
-					Expect(conditions.PatchStatus(testCtx, k8sClient, cfApp, metav1.Condition{
+					Expect(k8s.PatchStatus(testCtx, k8sClient, cfApp, metav1.Condition{
 						Type:    workloads.StatusConditionStaged,
 						Status:  metav1.ConditionFalse,
 						Reason:  "appStaged",
@@ -125,7 +126,7 @@ var _ = Describe("AppRepository", func() {
 					})).To(Succeed())
 				})
 
-				FIt("sets IsStaged to false", func() {
+				It("sets IsStaged to false", func() {
 					Expect(getErr).ToNot(HaveOccurred())
 					Expect(app.IsStaged).To(BeFalse())
 				})
@@ -1385,11 +1386,8 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-	Expect(conditions.PatchStatus1(context.Background(), k8sClient, cfApp, func(a *korifiv1alpha1.CFApp) {
-		a.Status.ObservedDesiredState = "STOPPED"
-		a.Status.VCAPServicesSecretName = "vcap-secret"
-		a.Status.Conditions = []metav1.Condition{}
-	})).To(Succeed())
+	cfApp.Status.ObservedDesiredState = "STOPPED"
+	Expect(k8s.PatchStatus(context.Background(), k8sClient, cfApp)).To(Succeed())
 
 	return cfApp
 }

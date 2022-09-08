@@ -8,9 +8,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -81,7 +81,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		}
 
 		serviceBinding.Status.Binding.Name = "service-secret-name"
-		Expect(conditions.PatchStatus(ctx, k8sClient, serviceBinding, metav1.Condition{
+		Expect(k8s.PatchStatus(ctx, k8sClient, serviceBinding, metav1.Condition{
 			Type:    repositories.VCAPServicesSecretAvailableCondition,
 			Status:  metav1.ConditionTrue,
 			Reason:  "blah",

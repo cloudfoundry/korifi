@@ -9,9 +9,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -77,7 +77,7 @@ var _ = Describe("OrgRepository", func() {
 
 			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{korifiv1alpha1.OrgNameLabel: org.Spec.DisplayName})
 
-			Expect(conditions.PatchStatus(ctx, k8sClient, org, metav1.Condition{
+			Expect(k8s.PatchStatus(ctx, k8sClient, org, metav1.Condition{
 				Type:    "Ready",
 				Status:  metav1.ConditionTrue,
 				Reason:  "blah",
@@ -211,14 +211,14 @@ var _ = Describe("OrgRepository", func() {
 
 		When("the org is not ready", func() {
 			BeforeEach(func() {
-				Expect(conditions.PatchStatus(ctx, k8sClient, cfOrg1, metav1.Condition{
+				Expect(k8s.PatchStatus(ctx, k8sClient, cfOrg1, metav1.Condition{
 					Type:    "Ready",
 					Status:  metav1.ConditionFalse,
 					Reason:  "because",
 					Message: "because",
 				})).To(Succeed())
 
-				Expect(conditions.PatchStatus(ctx, k8sClient, cfOrg2, metav1.Condition{
+				Expect(k8s.PatchStatus(ctx, k8sClient, cfOrg2, metav1.Condition{
 					Type:    "Ready",
 					Status:  metav1.ConditionUnknown,
 					Reason:  "because",

@@ -28,9 +28,9 @@ import (
 	"os"
 	"path"
 
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -168,7 +168,7 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if kpackReadyStatusCondition.IsFalse() {
 		failureStatusConditionMessage := kpackReadyStatusCondition.Reason + ":" + kpackReadyStatusCondition.Message
 
-		err = conditions.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+		err = k8s.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "kpack",
@@ -195,7 +195,7 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, err
 		}
 
-		err = conditions.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+		err = k8s.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionTrue,
 			Reason:  "kpack",
@@ -266,7 +266,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		return err
 	}
 
-	err = conditions.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+	err = k8s.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
 		Type:    korifiv1alpha1.SucceededConditionType,
 		Status:  metav1.ConditionUnknown,
 		Reason:  "Unknown",

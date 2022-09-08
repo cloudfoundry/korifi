@@ -36,9 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
 const (
@@ -149,7 +149,7 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
 
-	err = conditions.PatchStatus(ctx, r.k8sClient, cfTask, filterConditions(taskWorkload.Status.Conditions)...)
+	err = k8s.PatchStatus(ctx, r.k8sClient, cfTask, filterConditions(taskWorkload.Status.Conditions)...)
 	return ctrl.Result{}, err
 }
 

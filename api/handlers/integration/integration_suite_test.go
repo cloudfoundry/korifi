@@ -17,8 +17,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -185,7 +185,7 @@ func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOr
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	Expect(conditions.PatchStatus(ctx, k8sClient, cfOrg, metav1.Condition{
+	Expect(k8s.PatchStatus(ctx, k8sClient, cfOrg, metav1.Condition{
 		Type:    "Ready",
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",
@@ -224,7 +224,7 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 
 	cfSpace.Status.GUID = cfSpace.Name
-	Expect(conditions.PatchStatus(ctx, k8sClient, cfSpace, metav1.Condition{
+	Expect(k8s.PatchStatus(ctx, k8sClient, cfSpace, metav1.Condition{
 		Type:    "Ready",
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",

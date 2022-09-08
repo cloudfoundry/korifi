@@ -1,4 +1,4 @@
-package conditions
+package k8s
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 )
 
 type RuntimeObjectWithDeepCopy[T any] interface {
-	RuntimeObjectWithStatusConditions
-
+	client.Object
+	StatusConditions() *[]metav1.Condition
 	DeepCopy() T
 }
 
@@ -19,11 +19,5 @@ func PatchStatus[T RuntimeObjectWithDeepCopy[T]](ctx context.Context, k8sClient 
 	for _, condition := range conditions {
 		meta.SetStatusCondition(obj.StatusConditions(), condition)
 	}
-	return k8sClient.Status().Patch(ctx, obj, client.MergeFrom(originalObj))
-}
-
-func PatchStatus1[T RuntimeObjectWithDeepCopy[T]](ctx context.Context, k8sClient client.Client, obj T, modificator func(T)) error {
-	originalObj := obj.DeepCopy()
-	modificator(obj)
 	return k8sClient.Status().Patch(ctx, obj, client.MergeFrom(originalObj))
 }

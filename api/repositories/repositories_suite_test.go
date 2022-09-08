@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -142,16 +143,12 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	originalCfOrg := cfOrg.DeepCopy()
-	cfOrg.Status.GUID = guid
-	cfOrg.Status.Conditions = []metav1.Condition{{
-		Type:               "Ready",
-		Status:             metav1.ConditionTrue,
-		Reason:             "cus",
-		Message:            "cus",
-		LastTransitionTime: metav1.Now(),
-	}}
-	Expect(k8sClient.Status().Patch(ctx, cfOrg, client.MergeFrom(originalCfOrg))).To(Succeed())
+	Expect(k8s.PatchStatus(ctx, k8sClient, cfOrg, metav1.Condition{
+		Type:    "Ready",
+		Status:  metav1.ConditionTrue,
+		Reason:  "cus",
+		Message: "cus",
+	})).To(Succeed())
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

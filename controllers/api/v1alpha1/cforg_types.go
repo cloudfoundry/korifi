@@ -43,6 +43,7 @@ type CFOrgStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	Conditions []metav1.Condition `json:"conditions"`
 
+	// +optional
 	GUID string `json:"guid"`
 }
 

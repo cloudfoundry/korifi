@@ -29,8 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -99,7 +99,7 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 		info.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{}
 		info.Status.Buildpacks = []v1alpha1.BuildReconcilerInfoStatusBuildpack{}
 
-		err = conditions.PatchStatus(ctx, r.Client, info, metav1.Condition{
+		err = k8s.PatchStatus(ctx, r.Client, info, metav1.Condition{
 			Type:    ReadyConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "cluster_builder_missing",
@@ -114,7 +114,7 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 	updatedTimestamp := lastUpdatedTime(clusterBuilder.ObjectMeta)
 	info.Status.Stacks = clusterBuilderToStacks(clusterBuilder, updatedTimestamp)
 	info.Status.Buildpacks = clusterBuilderToBuildpacks(clusterBuilder, updatedTimestamp)
-	err = conditions.PatchStatus(ctx, r.Client, info, metav1.Condition{
+	err = k8s.PatchStatus(ctx, r.Client, info, metav1.Condition{
 		Type:    ReadyConditionType,
 		Status:  metav1.ConditionTrue,
 		Reason:  "cluster_builder_exists",

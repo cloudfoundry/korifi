@@ -8,9 +8,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -256,7 +256,7 @@ var _ = Describe("SpaceRepository", func() {
 
 		When("the space anchor is not ready", func() {
 			BeforeEach(func() {
-				Expect(conditions.PatchStatus(ctx, k8sClient, space11, metav1.Condition{
+				Expect(k8s.PatchStatus(ctx, k8sClient, space11, metav1.Condition{
 					Type:    "Ready",
 					Status:  metav1.ConditionFalse,
 					Reason:  "cus",
@@ -264,7 +264,7 @@ var _ = Describe("SpaceRepository", func() {
 				})).To(Succeed())
 			})
 
-			FIt("does not list it", func() {
+			It("does not list it", func() {
 				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 				Expect(err).NotTo(HaveOccurred())
 

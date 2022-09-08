@@ -36,6 +36,7 @@ type CFSpaceStatus struct {
 	// Conditions capture the current status of the CFSpace
 	Conditions []metav1.Condition `json:"conditions"`
 
+	// +optional
 	GUID string `json:"guid"`
 }
 

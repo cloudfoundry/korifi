@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -221,7 +221,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						g.Expect(err).NotTo(HaveOccurred())
 					}).Should(Succeed())
 
-					Expect(conditions.PatchStatus(context.Background(), k8sClient, updatedBuildWorkload, metav1.Condition{
+					Expect(k8s.PatchStatus(context.Background(), k8sClient, updatedBuildWorkload, metav1.Condition{
 						Type:    korifiv1alpha1.SucceededConditionType,
 						Status:  metav1.ConditionUnknown,
 						Reason:  "thinking",

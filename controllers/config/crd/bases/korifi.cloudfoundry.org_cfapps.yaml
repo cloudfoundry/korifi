@@ -184,8 +184,6 @@ spec:
                 type: string
             required:
             - conditions
-            - observedDesiredState
-            - vcapServicesSecretName
             type: object
         type: object
     served: true

@@ -53,9 +53,11 @@ type CFAppStatus struct {
 	// Conditions capture the current status of the App
 	Conditions []metav1.Condition `json:"conditions"`
 
+	// +optional
 	ObservedDesiredState DesiredState `json:"observedDesiredState"`
 
 	// VCAPServicesSecretName contains the name of the CFApp's VCAP_SERVICES Secret assumed to be in the same namespace
+	// +optional
 	VCAPServicesSecretName string `json:"vcapServicesSecretName"`
 }
 

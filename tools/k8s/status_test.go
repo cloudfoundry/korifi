@@ -1,11 +1,11 @@
-package conditions_test
+package k8s_test
 
 import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -20,13 +20,6 @@ var _ = Describe("Set Conditions", func() {
 		ctx        context.Context
 	)
 
-	initStatus := func(space *korifiv1alpha1.CFSpace) error {
-		originalSpace := space.DeepCopy()
-		space.Status.GUID = "space-123"
-		space.Status.Conditions = []metav1.Condition{}
-		return k8sClient.Status().Patch(context.Background(), space, client.MergeFrom(originalSpace))
-	}
-
 	BeforeEach(func() {
 		ctx = context.Background()
 		space = &korifiv1alpha1.CFSpace{
@@ -40,11 +33,10 @@ var _ = Describe("Set Conditions", func() {
 		}
 
 		Expect(k8sClient.Create(context.Background(), space)).To(Succeed())
-		Expect(initStatus(space)).To(Succeed())
 	})
 
 	JustBeforeEach(func() {
-		setCondErr = conditions.PatchStatus(ctx, k8sClient, space, metav1.Condition{
+		setCondErr = k8s.PatchStatus(ctx, k8sClient, space, metav1.Condition{
 			Type:    "Ready",
 			Status:  metav1.ConditionTrue,
 			Reason:  "whatevs",

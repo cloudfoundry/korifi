@@ -5,8 +5,8 @@ import (
 	"time"
 
 	. "code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -119,7 +119,7 @@ func createBuildReconcilerInfoWithCleanup(ctx context.Context, name, stack strin
 		})
 	}
 
-	Expect(conditions.PatchStatus(ctx, k8sClient, buildReconcilerInfo, metav1.Condition{
+	Expect(k8s.PatchStatus(ctx, k8sClient, buildReconcilerInfo, metav1.Condition{
 		Type:   "Ready",
 		Status: metav1.ConditionTrue,
 		Reason: "testing",

@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -43,7 +44,7 @@ var _ = Describe("TaskRepository", func() {
 			})
 		}
 
-		ExpectWithOffset(1, conditions.PatchStatus(ctx, k8sClient, task, taskConditions...)).To(Succeed())
+		ExpectWithOffset(1, k8s.PatchStatus(ctx, k8sClient, task, taskConditions...)).To(Succeed())
 	}
 
 	defaultStatusValues := func(task *korifiv1alpha1.CFTask, seqId int64, dropletId string) *korifiv1alpha1.CFTask {
@@ -280,7 +281,7 @@ var _ = Describe("TaskRepository", func() {
 			When("the task was cancelled", func() {
 				BeforeEach(func() {
 					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
-					Expect(conditions.PatchStatus(ctx, k8sClient, cfTask, metav1.Condition{
+					Expect(k8s.PatchStatus(ctx, k8sClient, cfTask, metav1.Condition{
 						Type:   korifiv1alpha1.TaskFailedConditionType,
 						Status: metav1.ConditionTrue,
 						Reason: "taskCanceled",

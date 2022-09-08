@@ -6,9 +6,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -114,7 +114,7 @@ var _ = Describe("DropletRepository", func() {
 						},
 						Ports: []int32{8080, 443},
 					}
-					Expect(conditions.PatchStatus(ctx, k8sClient, build,
+					Expect(k8s.PatchStatus(ctx, k8sClient, build,
 						metav1.Condition{
 							Type:    "Staging",
 							Status:  metav1.ConditionFalse,
@@ -177,7 +177,7 @@ var _ = Describe("DropletRepository", func() {
 			When("status.Droplet is not set", func() {
 				When("status.Conditions \"Staging\": Unknown, \"Succeeded\": Unknown, is set", func() {
 					BeforeEach(func() {
-						Expect(conditions.PatchStatus(ctx, k8sClient, build,
+						Expect(k8s.PatchStatus(ctx, k8sClient, build,
 							metav1.Condition{
 								Type:    "Staging",
 								Status:  metav1.ConditionUnknown,
@@ -200,7 +200,7 @@ var _ = Describe("DropletRepository", func() {
 
 				When("status.Conditions \"Staging\": True, \"Succeeded\": Unknown, is set", func() {
 					BeforeEach(func() {
-						Expect(conditions.PatchStatus(ctx, k8sClient, build,
+						Expect(k8s.PatchStatus(ctx, k8sClient, build,
 							metav1.Condition{
 								Type:    "Staging",
 								Status:  metav1.ConditionTrue,
@@ -223,7 +223,7 @@ var _ = Describe("DropletRepository", func() {
 
 				When("status.Conditions \"Staging\": False, \"Succeeded\": False, is set", func() {
 					BeforeEach(func() {
-						Expect(conditions.PatchStatus(ctx, k8sClient, build,
+						Expect(k8s.PatchStatus(ctx, k8sClient, build,
 							metav1.Condition{
 								Type:    "Staging",
 								Status:  metav1.ConditionTrue,
@@ -325,7 +325,7 @@ var _ = Describe("DropletRepository", func() {
 				},
 				Ports: []int32{8080, 443},
 			}
-			Expect(conditions.PatchStatus(ctx, k8sClient, build,
+			Expect(k8s.PatchStatus(ctx, k8sClient, build,
 				metav1.Condition{
 					Type:    "Staging",
 					Status:  metav1.ConditionFalse,

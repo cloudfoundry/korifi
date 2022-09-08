@@ -127,7 +127,6 @@ spec:
                 type: string
             required:
             - conditions
-            - guid
             type: object
         type: object
     served: true

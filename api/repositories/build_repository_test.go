@@ -12,9 +12,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
 var _ = Describe("BuildRepository", func() {
@@ -171,7 +171,7 @@ var _ = Describe("BuildRepository", func() {
 
 				When("status.Conditions \"Staging\": False, \"Succeeded\": True, is set", func() {
 					BeforeEach(func() {
-						Expect(conditions.PatchStatus(ctx, k8sClient, build2,
+						Expect(k8s.PatchStatus(ctx, k8sClient, build2,
 							metav1.Condition{
 								Type:    StagingConditionType,
 								Status:  metav1.ConditionFalse,
@@ -203,7 +203,7 @@ var _ = Describe("BuildRepository", func() {
 					)
 
 					BeforeEach(func() {
-						Expect(conditions.PatchStatus(ctx, k8sClient, build2,
+						Expect(k8s.PatchStatus(ctx, k8sClient, build2,
 							metav1.Condition{
 								Type:    StagingConditionType,
 								Status:  metav1.ConditionFalse,
