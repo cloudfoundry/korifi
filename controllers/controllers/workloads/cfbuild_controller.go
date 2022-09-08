@@ -124,7 +124,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	switch workloadSucceededStatus.Status {
 	case metav1.ConditionFalse:
-		failureStatusConditionMessage := fmt.Sprintf("%s:%s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message)
+		failureStatusConditionMessage := fmt.Sprintf("%s: %s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message)
 		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
 		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionFalse, "BuildWorkload", failureStatusConditionMessage)
 	case metav1.ConditionTrue:
