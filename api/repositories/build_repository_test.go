@@ -171,7 +171,7 @@ var _ = Describe("BuildRepository", func() {
 
 				When("status.Conditions \"Staging\": False, \"Succeeded\": True, is set", func() {
 					BeforeEach(func() {
-						Expect(k8s.PatchStatus(ctx, k8sClient, build2,
+						Expect(k8s.PatchStatusConditions(ctx, k8sClient, build2,
 							metav1.Condition{
 								Type:    StagingConditionType,
 								Status:  metav1.ConditionFalse,
@@ -203,7 +203,7 @@ var _ = Describe("BuildRepository", func() {
 					)
 
 					BeforeEach(func() {
-						Expect(k8s.PatchStatus(ctx, k8sClient, build2,
+						Expect(k8s.PatchStatusConditions(ctx, k8sClient, build2,
 							metav1.Condition{
 								Type:    StagingConditionType,
 								Status:  metav1.ConditionFalse,

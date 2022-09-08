@@ -92,42 +92,40 @@ var _ = Describe("DropletRepository", func() {
 
 			When("status.Droplet is set", func() {
 				BeforeEach(func() {
-					build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
-						Stack: dropletStack,
-						Registry: korifiv1alpha1.Registry{
-							Image: registryImage,
-							ImagePullSecrets: []corev1.LocalObjectReference{
-								{
-									Name: registryImageSecret,
+					Expect(k8s.PatchStatus(ctx, k8sClient, build, func() {
+						build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+							Stack: dropletStack,
+							Registry: korifiv1alpha1.Registry{
+								Image: registryImage,
+								ImagePullSecrets: []corev1.LocalObjectReference{
+									{
+										Name: registryImageSecret,
+									},
 								},
 							},
-						},
-						ProcessTypes: []korifiv1alpha1.ProcessType{
-							{
-								Type:    "rake",
-								Command: "bundle exec rake",
+							ProcessTypes: []korifiv1alpha1.ProcessType{
+								{
+									Type:    "rake",
+									Command: "bundle exec rake",
+								},
+								{
+									Type:    "web",
+									Command: "bundle exec rackup config.ru -p $PORT",
+								},
 							},
-							{
-								Type:    "web",
-								Command: "bundle exec rackup config.ru -p $PORT",
-							},
-						},
-						Ports: []int32{8080, 443},
-					}
-					Expect(k8s.PatchStatus(ctx, k8sClient, build,
-						metav1.Condition{
-							Type:    "Staging",
-							Status:  metav1.ConditionFalse,
-							Reason:  "kpack",
-							Message: "kpack",
-						},
-						metav1.Condition{
-							Type:    "Succeeded",
-							Status:  metav1.ConditionTrue,
-							Reason:  "Unknown",
-							Message: "Unknown",
-						},
-					)).To(Succeed())
+							Ports: []int32{8080, 443},
+						}
+					}, metav1.Condition{
+						Type:    "Staging",
+						Status:  metav1.ConditionFalse,
+						Reason:  "kpack",
+						Message: "kpack",
+					}, metav1.Condition{
+						Type:    "Succeeded",
+						Status:  metav1.ConditionTrue,
+						Reason:  "Unknown",
+						Message: "Unknown",
+					})).To(Succeed())
 				})
 
 				It("should eventually return a droplet record with fields set to expected values", func() {
@@ -177,7 +175,7 @@ var _ = Describe("DropletRepository", func() {
 			When("status.Droplet is not set", func() {
 				When("status.Conditions \"Staging\": Unknown, \"Succeeded\": Unknown, is set", func() {
 					BeforeEach(func() {
-						Expect(k8s.PatchStatus(ctx, k8sClient, build,
+						Expect(k8s.PatchStatusConditions(ctx, k8sClient, build,
 							metav1.Condition{
 								Type:    "Staging",
 								Status:  metav1.ConditionUnknown,
@@ -200,7 +198,7 @@ var _ = Describe("DropletRepository", func() {
 
 				When("status.Conditions \"Staging\": True, \"Succeeded\": Unknown, is set", func() {
 					BeforeEach(func() {
-						Expect(k8s.PatchStatus(ctx, k8sClient, build,
+						Expect(k8s.PatchStatusConditions(ctx, k8sClient, build,
 							metav1.Condition{
 								Type:    "Staging",
 								Status:  metav1.ConditionTrue,
@@ -223,7 +221,7 @@ var _ = Describe("DropletRepository", func() {
 
 				When("status.Conditions \"Staging\": False, \"Succeeded\": False, is set", func() {
 					BeforeEach(func() {
-						Expect(k8s.PatchStatus(ctx, k8sClient, build,
+						Expect(k8s.PatchStatusConditions(ctx, k8sClient, build,
 							metav1.Condition{
 								Type:    "Staging",
 								Status:  metav1.ConditionTrue,
@@ -303,42 +301,40 @@ var _ = Describe("DropletRepository", func() {
 				},
 			}
 			Expect(k8sClient.Create(testCtx, build)).To(Succeed())
-			build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
-				Stack: dropletStack,
-				Registry: korifiv1alpha1.Registry{
-					Image: registryImage,
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{
-							Name: registryImageSecret,
+			Expect(k8s.PatchStatus(ctx, k8sClient, build, func() {
+				build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+					Stack: dropletStack,
+					Registry: korifiv1alpha1.Registry{
+						Image: registryImage,
+						ImagePullSecrets: []corev1.LocalObjectReference{
+							{
+								Name: registryImageSecret,
+							},
 						},
 					},
-				},
-				ProcessTypes: []korifiv1alpha1.ProcessType{
-					{
-						Type:    "rake",
-						Command: "bundle exec rake",
+					ProcessTypes: []korifiv1alpha1.ProcessType{
+						{
+							Type:    "rake",
+							Command: "bundle exec rake",
+						},
+						{
+							Type:    "web",
+							Command: "bundle exec rackup config.ru -p $PORT",
+						},
 					},
-					{
-						Type:    "web",
-						Command: "bundle exec rackup config.ru -p $PORT",
-					},
-				},
-				Ports: []int32{8080, 443},
-			}
-			Expect(k8s.PatchStatus(ctx, k8sClient, build,
-				metav1.Condition{
-					Type:    "Staging",
-					Status:  metav1.ConditionFalse,
-					Reason:  "kpack",
-					Message: "kpack",
-				},
-				metav1.Condition{
-					Type:    "Succeeded",
-					Status:  metav1.ConditionTrue,
-					Reason:  "Unknown",
-					Message: "Unknown",
-				},
-			)).To(Succeed())
+					Ports: []int32{8080, 443},
+				}
+			}, metav1.Condition{
+				Type:    "Staging",
+				Status:  metav1.ConditionFalse,
+				Reason:  "kpack",
+				Message: "kpack",
+			}, metav1.Condition{
+				Type:    "Succeeded",
+				Status:  metav1.ConditionTrue,
+				Reason:  "Unknown",
+				Message: "Unknown",
+			})).To(Succeed())
 		})
 
 		When("the packageGUIDs message parameter is provided", func() {

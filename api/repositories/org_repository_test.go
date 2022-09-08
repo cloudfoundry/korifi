@@ -77,7 +77,7 @@ var _ = Describe("OrgRepository", func() {
 
 			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{korifiv1alpha1.OrgNameLabel: org.Spec.DisplayName})
 
-			Expect(k8s.PatchStatus(ctx, k8sClient, org, metav1.Condition{
+			Expect(k8s.PatchStatusConditions(ctx, k8sClient, org, metav1.Condition{
 				Type:    "Ready",
 				Status:  metav1.ConditionTrue,
 				Reason:  "blah",
@@ -211,14 +211,14 @@ var _ = Describe("OrgRepository", func() {
 
 		When("the org is not ready", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchStatus(ctx, k8sClient, cfOrg1, metav1.Condition{
+				Expect(k8s.PatchStatusConditions(ctx, k8sClient, cfOrg1, metav1.Condition{
 					Type:    "Ready",
 					Status:  metav1.ConditionFalse,
 					Reason:  "because",
 					Message: "because",
 				})).To(Succeed())
 
-				Expect(k8s.PatchStatus(ctx, k8sClient, cfOrg2, metav1.Condition{
+				Expect(k8s.PatchStatusConditions(ctx, k8sClient, cfOrg2, metav1.Condition{
 					Type:    "Ready",
 					Status:  metav1.ConditionUnknown,
 					Reason:  "because",

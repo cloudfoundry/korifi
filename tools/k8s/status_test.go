@@ -13,11 +13,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Set Conditions", func() {
+var _ = Describe("Kubernetes Status", func() {
 	var (
-		space      *korifiv1alpha1.CFSpace
-		setCondErr error
-		ctx        context.Context
+		ctx      context.Context
+		space    *korifiv1alpha1.CFSpace
+		patchErr error
 	)
 
 	BeforeEach(func() {
@@ -35,39 +35,83 @@ var _ = Describe("Set Conditions", func() {
 		Expect(k8sClient.Create(context.Background(), space)).To(Succeed())
 	})
 
-	JustBeforeEach(func() {
-		setCondErr = k8s.PatchStatus(ctx, k8sClient, space, metav1.Condition{
-			Type:    "Ready",
-			Status:  metav1.ConditionTrue,
-			Reason:  "whatevs",
-			Message: "whatevs",
+	Describe("PatchStatusConditions", func() {
+		JustBeforeEach(func() {
+			patchErr = k8s.PatchStatusConditions(ctx, k8sClient, space, metav1.Condition{
+				Type:    "Ready",
+				Status:  metav1.ConditionTrue,
+				Reason:  "whatevs",
+				Message: "whatevs",
+			})
+		})
+
+		It("mutates the original object conditions", func() {
+			Expect(patchErr).NotTo(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(space.Status.Conditions, "Ready")).To(BeTrue())
+		})
+
+		It("updates the object in K8S", func() {
+			Expect(patchErr).NotTo(HaveOccurred())
+			updatedSpace := &korifiv1alpha1.CFSpace{}
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(space), updatedSpace)).To(Succeed())
+			Expect(meta.IsStatusConditionTrue(updatedSpace.Status.Conditions, "Ready")).To(BeTrue())
+		})
+
+		When("patching the status fails", func() {
+			var cancel context.CancelFunc
+			BeforeEach(func() {
+				ctx, cancel = context.WithDeadline(ctx, time.Now().Add(-1*time.Minute))
+			})
+
+			AfterEach(func() {
+				cancel()
+			})
+
+			It("returns an error", func() {
+				Expect(patchErr).To(MatchError(ContainSubstring("deadline exceeded")))
+			})
 		})
 	})
 
-	It("mutates the original object conditions", func() {
-		Expect(setCondErr).NotTo(HaveOccurred())
-		Expect(meta.IsStatusConditionTrue(space.Status.Conditions, "Ready")).To(BeTrue())
-	})
-
-	It("updates the object in K8S", func() {
-		Expect(setCondErr).NotTo(HaveOccurred())
-		updatedSpace := &korifiv1alpha1.CFSpace{}
-		Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(space), updatedSpace)).To(Succeed())
-		Expect(meta.IsStatusConditionTrue(updatedSpace.Status.Conditions, "Ready")).To(BeTrue())
-	})
-
-	When("patching the status fails", func() {
-		var cancel context.CancelFunc
-		BeforeEach(func() {
-			ctx, cancel = context.WithDeadline(ctx, time.Now().Add(-1*time.Minute))
+	Describe("PatchStatus", func() {
+		JustBeforeEach(func() {
+			patchErr = k8s.PatchStatus(ctx, k8sClient, space, func() {
+				space.Status.GUID = "foo"
+			}, metav1.Condition{
+				Type:    "Ready",
+				Status:  metav1.ConditionTrue,
+				Reason:  "whatevs",
+				Message: "whatevs",
+			})
 		})
 
-		AfterEach(func() {
-			cancel()
+		It("mutates the original object conditions", func() {
+			Expect(patchErr).NotTo(HaveOccurred())
+			Expect(space.Status.GUID).To(Equal("foo"))
+			Expect(meta.IsStatusConditionTrue(space.Status.Conditions, "Ready")).To(BeTrue())
 		})
 
-		It("returns an error", func() {
-			Expect(setCondErr).To(MatchError(ContainSubstring("deadline exceeded")))
+		It("updates the object in K8S", func() {
+			Expect(patchErr).NotTo(HaveOccurred())
+			updatedSpace := &korifiv1alpha1.CFSpace{}
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(space), updatedSpace)).To(Succeed())
+			Expect(updatedSpace.Status.GUID).To(Equal("foo"))
+			Expect(meta.IsStatusConditionTrue(updatedSpace.Status.Conditions, "Ready")).To(BeTrue())
+		})
+
+		When("patching the status fails", func() {
+			var cancel context.CancelFunc
+			BeforeEach(func() {
+				ctx, cancel = context.WithDeadline(ctx, time.Now().Add(-1*time.Minute))
+			})
+
+			AfterEach(func() {
+				cancel()
+			})
+
+			It("returns an error", func() {
+				Expect(patchErr).To(MatchError(ContainSubstring("deadline exceeded")))
+			})
 		})
 	})
 })

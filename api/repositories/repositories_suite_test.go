@@ -143,7 +143,7 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	Expect(k8s.PatchStatus(ctx, k8sClient, cfOrg, metav1.Condition{
+	Expect(k8s.PatchStatusConditions(ctx, k8sClient, cfOrg, metav1.Condition{
 		Type:    "Ready",
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",

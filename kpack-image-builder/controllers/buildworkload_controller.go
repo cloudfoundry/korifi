@@ -168,7 +168,7 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if kpackReadyStatusCondition.IsFalse() {
 		failureStatusConditionMessage := kpackReadyStatusCondition.Reason + ":" + kpackReadyStatusCondition.Message
 
-		err = k8s.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+		err = k8s.PatchStatusConditions(ctx, r.Client, buildWorkload, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "kpack",
@@ -189,13 +189,15 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, err
 		}
 
-		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
+		dropletStatus, err := r.generateDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
 		if err != nil {
 			r.Log.Error(err, "Error when compiling the DropletStatus")
 			return ctrl.Result{}, err
 		}
 
-		err = k8s.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+		err = k8s.PatchStatus(ctx, r.Client, buildWorkload, func() {
+			buildWorkload.Status.Droplet = dropletStatus
+		}, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionTrue,
 			Reason:  "kpack",
@@ -266,7 +268,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		return err
 	}
 
-	err = k8s.PatchStatus(ctx, r.Client, buildWorkload, metav1.Condition{
+	err = k8s.PatchStatusConditions(ctx, r.Client, buildWorkload, metav1.Condition{
 		Type:    korifiv1alpha1.SucceededConditionType,
 		Status:  metav1.ConditionUnknown,
 		Reason:  "Unknown",

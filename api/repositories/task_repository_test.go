@@ -29,7 +29,7 @@ var _ = Describe("TaskRepository", func() {
 		controllerSync      *sync.WaitGroup
 	)
 
-	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
+	patchStatusConditions := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
 		if task.Status.Conditions == nil {
 			task.Status.Conditions = []metav1.Condition{}
 		}
@@ -44,7 +44,7 @@ var _ = Describe("TaskRepository", func() {
 			})
 		}
 
-		ExpectWithOffset(1, k8s.PatchStatus(ctx, k8sClient, task, taskConditions...)).To(Succeed())
+		ExpectWithOffset(1, k8s.PatchStatusConditions(ctx, k8sClient, task, taskConditions...)).To(Succeed())
 	}
 
 	defaultStatusValues := func(task *korifiv1alpha1.CFTask, seqId int64, dropletId string) *korifiv1alpha1.CFTask {
@@ -114,7 +114,7 @@ var _ = Describe("TaskRepository", func() {
 
 		BeforeEach(func() {
 			dummyTaskController = func(cft *korifiv1alpha1.CFTask) {
-				setStatusAndUpdate(
+				patchStatusConditions(
 					defaultStatusValues(cft, 6, cfApp.Spec.CurrentDropletRef.Name),
 					korifiv1alpha1.TaskInitializedConditionType,
 				)
@@ -199,7 +199,7 @@ var _ = Describe("TaskRepository", func() {
 			}
 			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
 
-			setStatusAndUpdate(defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name))
+			patchStatusConditions(defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name))
 		})
 
 		JustBeforeEach(func() {
@@ -223,7 +223,7 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the task is ready", func() {
 				BeforeEach(func() {
-					setStatusAndUpdate(
+					patchStatusConditions(
 						defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name),
 						korifiv1alpha1.TaskInitializedConditionType,
 					)
@@ -246,7 +246,7 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the task is running", func() {
 				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
+					patchStatusConditions(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
 				})
 
 				It("returns the running task", func() {
@@ -257,7 +257,7 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the task has succeeded", func() {
 				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType, korifiv1alpha1.TaskSucceededConditionType)
+					patchStatusConditions(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType, korifiv1alpha1.TaskSucceededConditionType)
 				})
 
 				It("returns the succeeded task", func() {
@@ -268,7 +268,7 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the task has failed", func() {
 				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType, korifiv1alpha1.TaskFailedConditionType)
+					patchStatusConditions(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType, korifiv1alpha1.TaskFailedConditionType)
 				})
 
 				It("returns the failed task", func() {
@@ -280,8 +280,8 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the task was cancelled", func() {
 				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
-					Expect(k8s.PatchStatus(ctx, k8sClient, cfTask, metav1.Condition{
+					patchStatusConditions(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
+					Expect(k8s.PatchStatusConditions(ctx, k8sClient, cfTask, metav1.Condition{
 						Type:   korifiv1alpha1.TaskFailedConditionType,
 						Status: metav1.ConditionTrue,
 						Reason: "taskCanceled",
@@ -426,7 +426,7 @@ var _ = Describe("TaskRepository", func() {
 
 				When("app guid and sequence IDs are passed as a filter", func() {
 					BeforeEach(func() {
-						setStatusAndUpdate(
+						patchStatusConditions(
 							defaultStatusValues(task2, 2, cfApp2.Spec.CurrentDropletRef.Name),
 							korifiv1alpha1.TaskInitializedConditionType,
 						)
@@ -444,7 +444,7 @@ var _ = Describe("TaskRepository", func() {
 							},
 						}
 						Expect(k8sClient.Create(context.Background(), task21)).To(Succeed())
-						setStatusAndUpdate(
+						patchStatusConditions(
 							defaultStatusValues(task21, 21, cfApp2.Spec.CurrentDropletRef.Name),
 							korifiv1alpha1.TaskInitializedConditionType,
 						)
@@ -484,7 +484,7 @@ var _ = Describe("TaskRepository", func() {
 		BeforeEach(func() {
 			dummyTaskController = func(cft *korifiv1alpha1.CFTask) {
 				if cft.Spec.Canceled {
-					setStatusAndUpdate(cft, korifiv1alpha1.TaskCanceledConditionType)
+					patchStatusConditions(cft, korifiv1alpha1.TaskCanceledConditionType)
 				}
 			}
 
@@ -507,7 +507,7 @@ var _ = Describe("TaskRepository", func() {
 			cfTask.Status.MemoryMB = 256
 			cfTask.Status.DiskQuotaMB = 128
 			cfTask.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
-			setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
+			patchStatusConditions(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
 		})
 
 		JustBeforeEach(func() {

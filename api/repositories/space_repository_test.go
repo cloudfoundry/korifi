@@ -256,7 +256,7 @@ var _ = Describe("SpaceRepository", func() {
 
 		When("the space anchor is not ready", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchStatus(ctx, k8sClient, space11, metav1.Condition{
+				Expect(k8s.PatchStatusConditions(ctx, k8sClient, space11, metav1.Condition{
 					Type:    "Ready",
 					Status:  metav1.ConditionFalse,
 					Reason:  "cus",

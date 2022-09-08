@@ -221,7 +221,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						g.Expect(err).NotTo(HaveOccurred())
 					}).Should(Succeed())
 
-					Expect(k8s.PatchStatus(context.Background(), k8sClient, updatedBuildWorkload, metav1.Condition{
+					Expect(k8s.PatchStatusConditions(context.Background(), k8sClient, updatedBuildWorkload, metav1.Condition{
 						Type:    korifiv1alpha1.SucceededConditionType,
 						Status:  metav1.ConditionUnknown,
 						Reason:  "thinking",

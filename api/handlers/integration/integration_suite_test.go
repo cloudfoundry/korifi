@@ -185,7 +185,7 @@ func createOrgWithCleanup(ctx context.Context, name string) *korifiv1alpha1.CFOr
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	Expect(k8s.PatchStatus(ctx, k8sClient, cfOrg, metav1.Condition{
+	Expect(k8s.PatchStatusConditions(ctx, k8sClient, cfOrg, metav1.Condition{
 		Type:    "Ready",
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",
@@ -223,8 +223,9 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 	}
 	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 
-	cfSpace.Status.GUID = cfSpace.Name
-	Expect(k8s.PatchStatus(ctx, k8sClient, cfSpace, metav1.Condition{
+	Expect(k8s.PatchStatus(ctx, k8sClient, cfSpace, func() {
+		cfSpace.Status.GUID = cfSpace.Name
+	}, metav1.Condition{
 		Type:    "Ready",
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",

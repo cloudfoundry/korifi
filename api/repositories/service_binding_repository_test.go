@@ -80,8 +80,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 			return
 		}
 
-		serviceBinding.Status.Binding.Name = "service-secret-name"
-		Expect(k8s.PatchStatus(ctx, k8sClient, serviceBinding, metav1.Condition{
+		Expect(k8s.PatchStatus(ctx, k8sClient, serviceBinding, func() {
+			serviceBinding.Status.Binding.Name = "service-secret-name"
+		}, metav1.Condition{
 			Type:    repositories.VCAPServicesSecretAvailableCondition,
 			Status:  metav1.ConditionTrue,
 			Reason:  "blah",

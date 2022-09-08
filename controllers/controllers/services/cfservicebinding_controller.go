@@ -130,8 +130,9 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.handleGetError(ctx, err, cfServiceBinding, BindingSecretAvailableCondition, "SecretNotFound", "Binding secret")
 	}
 
-	cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
-	k8s.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
+	k8s.PatchStatus(ctx, r.Client, cfServiceBinding, func() {
+		cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
+	}, metav1.Condition{
 		Type:    BindingSecretAvailableCondition,
 		Status:  metav1.ConditionTrue,
 		Reason:  "SecretFound",
@@ -143,7 +144,7 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if cfApp.Status.VCAPServicesSecretName == "" {
 		r.log.Info("Did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
-		err = k8s.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
+		err = k8s.PatchStatusConditions(ctx, r.Client, cfServiceBinding, metav1.Condition{
 			Type:    VCAPServicesSecretAvailableCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  "SecretNotFound",
@@ -180,7 +181,7 @@ func (r *CFServiceBindingReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.finalizeCFServiceBinding(ctx, cfServiceBinding)
 	}
 
-	err = k8s.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
+	err = k8s.PatchStatusConditions(ctx, r.Client, cfServiceBinding, metav1.Condition{
 		Type:    VCAPServicesSecretAvailableCondition,
 		Status:  metav1.ConditionTrue,
 		Reason:  "SecretFound",
@@ -244,8 +245,9 @@ func (r *CFServiceBindingReconciler) finalizeCFServiceBinding(ctx context.Contex
 
 func (r *CFServiceBindingReconciler) handleGetError(ctx context.Context, err error, cfServiceBinding *korifiv1alpha1.CFServiceBinding, conditionType, notFoundReason, objectType string) (ctrl.Result, error) {
 	if apierrors.IsNotFound(err) {
-		cfServiceBinding.Status.Binding.Name = ""
-		statusErr := k8s.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
+		statusErr := k8s.PatchStatus(ctx, r.Client, cfServiceBinding, func() {
+			cfServiceBinding.Status.Binding.Name = ""
+		}, metav1.Condition{
 			Type:    conditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  notFoundReason,
@@ -258,7 +260,7 @@ func (r *CFServiceBindingReconciler) handleGetError(ctx context.Context, err err
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
-	statusErr := k8s.PatchStatus(ctx, r.Client, cfServiceBinding, metav1.Condition{
+	statusErr := k8s.PatchStatusConditions(ctx, r.Client, cfServiceBinding, metav1.Condition{
 		Type:    conditionType,
 		Status:  metav1.ConditionFalse,
 		Reason:  "UnknownError",

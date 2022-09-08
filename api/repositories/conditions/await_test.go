@@ -7,11 +7,11 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Await", func() {
@@ -55,14 +55,11 @@ var _ = Describe("Await", func() {
 				defer GinkgoRecover()
 				defer wg.Done()
 
-				taskCopy := task.DeepCopy()
-				meta.SetStatusCondition(&taskCopy.Status.Conditions, metav1.Condition{
+				Expect(k8s.PatchStatusConditions(context.Background(), k8sClient, task, metav1.Condition{
 					Type:   korifiv1alpha1.TaskInitializedConditionType,
 					Status: metav1.ConditionTrue,
 					Reason: "initialized",
-				})
-
-				Expect(k8sClient.Status().Patch(context.Background(), taskCopy, client.MergeFrom(task))).To(Succeed())
+				})).To(Succeed())
 			}()
 		})
 

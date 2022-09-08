@@ -96,10 +96,10 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err != nil {
 		r.Log.Error(err, "Error when fetching ClusterBuilder")
 
-		info.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{}
-		info.Status.Buildpacks = []v1alpha1.BuildReconcilerInfoStatusBuildpack{}
-
-		err = k8s.PatchStatus(ctx, r.Client, info, metav1.Condition{
+		err = k8s.PatchStatus(ctx, r.Client, info, func() {
+			info.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{}
+			info.Status.Buildpacks = []v1alpha1.BuildReconcilerInfoStatusBuildpack{}
+		}, metav1.Condition{
 			Type:    ReadyConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "cluster_builder_missing",
@@ -111,10 +111,11 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	updatedTimestamp := lastUpdatedTime(clusterBuilder.ObjectMeta)
-	info.Status.Stacks = clusterBuilderToStacks(clusterBuilder, updatedTimestamp)
-	info.Status.Buildpacks = clusterBuilderToBuildpacks(clusterBuilder, updatedTimestamp)
-	err = k8s.PatchStatus(ctx, r.Client, info, metav1.Condition{
+	err = k8s.PatchStatus(ctx, r.Client, info, func() {
+		updatedTimestamp := lastUpdatedTime(clusterBuilder.ObjectMeta)
+		info.Status.Stacks = clusterBuilderToStacks(clusterBuilder, updatedTimestamp)
+		info.Status.Buildpacks = clusterBuilderToBuildpacks(clusterBuilder, updatedTimestamp)
+	}, metav1.Condition{
 		Type:    ReadyConditionType,
 		Status:  metav1.ConditionTrue,
 		Reason:  "cluster_builder_exists",

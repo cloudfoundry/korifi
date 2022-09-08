@@ -99,30 +99,31 @@ func createBuildReconcilerInfoWithCleanup(ctx context.Context, name, stack strin
 		Expect(k8sClient.Delete(ctx, buildReconcilerInfo)).To(Succeed())
 	})
 
-	creationTimestamp := metav1.Time{Time: time.Now().Add(-24 * time.Hour)}
-	updatedTimestamp := metav1.Time{Time: time.Now().Add(-30 * time.Second)}
+	Expect(k8s.PatchStatus(ctx, k8sClient, buildReconcilerInfo, func() {
+		for _, b := range buildpacks {
+			creationTimestamp := metav1.Time{Time: time.Now().Add(-24 * time.Hour)}
+			updatedTimestamp := metav1.Time{Time: time.Now().Add(-30 * time.Second)}
+			buildReconcilerInfo.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{
+				{
+					Name:              stack,
+					CreationTimestamp: metav1.Time{Time: time.Now()},
+					UpdatedTimestamp:  metav1.Time{Time: time.Now()},
+				},
+			}
 
-	buildReconcilerInfo.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{
-		{
-			Name:              stack,
-			CreationTimestamp: metav1.Time{Time: time.Now()},
-			UpdatedTimestamp:  metav1.Time{Time: time.Now()},
-		},
-	}
-	for _, b := range buildpacks {
-		buildReconcilerInfo.Status.Buildpacks = append(buildReconcilerInfo.Status.Buildpacks, v1alpha1.BuildReconcilerInfoStatusBuildpack{
-			Name:              b.name,
-			Version:           b.version,
-			Stack:             stack,
-			CreationTimestamp: creationTimestamp,
-			UpdatedTimestamp:  updatedTimestamp,
-		})
-	}
-
-	Expect(k8s.PatchStatus(ctx, k8sClient, buildReconcilerInfo, metav1.Condition{
+			buildReconcilerInfo.Status.Buildpacks = append(buildReconcilerInfo.Status.Buildpacks, v1alpha1.BuildReconcilerInfoStatusBuildpack{
+				Name:              b.name,
+				Version:           b.version,
+				Stack:             stack,
+				CreationTimestamp: creationTimestamp,
+				UpdatedTimestamp:  updatedTimestamp,
+			})
+		}
+	}, metav1.Condition{
 		Type:   "Ready",
 		Status: metav1.ConditionTrue,
 		Reason: "testing",
 	})).To(Succeed())
+
 	return buildReconcilerInfo
 }

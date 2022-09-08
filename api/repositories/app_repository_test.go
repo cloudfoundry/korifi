@@ -118,7 +118,7 @@ var _ = Describe("AppRepository", func() {
 
 			When("the app has staged condition false", func() {
 				BeforeEach(func() {
-					Expect(k8s.PatchStatus(testCtx, k8sClient, cfApp, metav1.Condition{
+					Expect(k8s.PatchStatusConditions(testCtx, k8sClient, cfApp, metav1.Condition{
 						Type:    workloads.StatusConditionStaged,
 						Status:  metav1.ConditionFalse,
 						Reason:  "appStaged",
@@ -1386,8 +1386,9 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-	cfApp.Status.ObservedDesiredState = "STOPPED"
-	Expect(k8s.PatchStatus(context.Background(), k8sClient, cfApp)).To(Succeed())
+	Expect(k8s.PatchStatus(context.Background(), k8sClient, cfApp, func() {
+		cfApp.Status.ObservedDesiredState = "STOPPED"
+	})).To(Succeed())
 
 	return cfApp
 }

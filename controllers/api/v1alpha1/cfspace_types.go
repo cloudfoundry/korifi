@@ -34,6 +34,7 @@ type CFSpaceSpec struct {
 // CFSpaceStatus defines the observed state of CFSpace
 type CFSpaceStatus struct {
 	// Conditions capture the current status of the CFSpace
+	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 
 	// +optional

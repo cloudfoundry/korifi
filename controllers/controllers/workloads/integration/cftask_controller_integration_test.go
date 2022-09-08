@@ -15,6 +15,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
 var _ = Describe("CFTaskReconciler Integration Tests", func() {
@@ -48,26 +49,25 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		}
 		Expect(k8sClient.Create(ctx, cfDroplet)).To(Succeed())
 
-		cfDropletCopy := cfDroplet.DeepCopy()
-		cfDropletCopy.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
-			Registry: korifiv1alpha1.Registry{
-				Image: "registry.io/my/image",
-				ImagePullSecrets: []corev1.LocalObjectReference{{
-					Name: "registry-secret",
+		Expect(k8s.PatchStatus(context.Background(), k8sClient, cfDroplet, func() {
+			cfDroplet.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+				Registry: korifiv1alpha1.Registry{
+					Image: "registry.io/my/image",
+					ImagePullSecrets: []corev1.LocalObjectReference{{
+						Name: "registry-secret",
+					}},
+				},
+				ProcessTypes: []korifiv1alpha1.ProcessType{{
+					Type:    "web",
+					Command: "cmd",
 				}},
-			},
-			ProcessTypes: []korifiv1alpha1.ProcessType{{
-				Type:    "web",
-				Command: "cmd",
-			}},
-			Ports: []int32{8080},
-		}
-		meta.SetStatusCondition(&cfDropletCopy.Status.Conditions, metav1.Condition{
+				Ports: []int32{8080},
+			}
+		}, metav1.Condition{
 			Type:   "type",
 			Status: "Unknown",
 			Reason: "reason",
-		})
-		Expect(k8sClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
+		})).To(Succeed())
 
 		envSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{

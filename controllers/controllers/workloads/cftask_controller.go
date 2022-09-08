@@ -149,7 +149,7 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.updateStatusAndReturn(ctx, cfTask, err)
 	}
 
-	err = k8s.PatchStatus(ctx, r.k8sClient, cfTask, filterConditions(taskWorkload.Status.Conditions)...)
+	err = k8s.PatchStatusConditions(ctx, r.k8sClient, cfTask, filterConditions(taskWorkload.Status.Conditions)...)
 	return ctrl.Result{}, err
 }
 
