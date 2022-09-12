@@ -116,7 +116,7 @@ var _ = BeforeSuite(func() {
 
 	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	Expect((&korifiv1alpha1.CFProcess{}).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(korifiv1alpha1.NewCFProcessDefaulter().SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
