@@ -176,16 +176,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			patchAppWithDroplet(context.Background(), k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
 		})
 
-		labelSelectorForAppAndProcess := func(appGUID, processType string) labels.Selector {
-			labelSelectorMap := labels.Set{
-				CFAppLabelKey:         appGUID,
-				CFProcessTypeLabelKey: processType,
-			}
-			selector, selectorValidationErr := labelSelectorMap.AsValidatedSelector()
-			Expect(selectorValidationErr).NotTo(HaveOccurred())
-			return selector
-		}
-
 		When("CFProcesses do not exist for the app", func() {
 			It("eventually creates CFProcess for each process listed on the droplet", func() {
 				testCtx := context.Background()
@@ -301,32 +291,36 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				beforeCtx := context.Background()
 				cfProcessForTypeWebGUID = GenerateGUID()
 				cfProcessForTypeWeb = BuildCFProcessCRObject(cfProcessForTypeWebGUID, namespaceGUID, cfAppGUID, processTypeWeb, processTypeWebCommand)
+				cfProcessForTypeWeb.Spec.Command = ""
 				Expect(k8sClient.Create(beforeCtx, cfProcessForTypeWeb)).To(Succeed())
 			})
 
-			It("eventually creates CFProcess for only the missing processTypes", func() {
-				testCtx := context.Background()
+			When("a process from processTypes does not exist", func() {
+				It("creates it", func() {
+					Expect(findProcessWithType(cfApp, processTypeWorker)).NotTo(BeNil())
+				})
+			})
 
-				// Checking for worker type first ensures that we wait long enough for processes to be created.
-				cfProcessList := korifiv1alpha1.CFProcessList{}
-				Eventually(func() []korifiv1alpha1.CFProcess {
-					Expect(
-						k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{
-							LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, processTypeWorker),
-							Namespace:     cfApp.Namespace,
-						}),
-					).To(Succeed())
-					return cfProcessList.Items
-				}).Should(HaveLen(1), "Count of CFProcess is not equal to 1")
+			It("sets the command on the web process to the droplet value for the web process if empty", func() {
+				Eventually(func(g Gomega) {
+					proc := findProcessWithType(cfApp, processTypeWeb)
+					g.Expect(proc.Spec.Command).To(Equal(processTypeWebCommand))
+				}).Should(Succeed())
+			})
 
-				cfProcessList = korifiv1alpha1.CFProcessList{}
-				Expect(
-					k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{
-						LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, processTypeWorker),
-						Namespace:     cfApp.Namespace,
-					}),
-				).To(Succeed())
-				Expect(cfProcessList.Items).Should(HaveLen(1), "Count of CFProcess is not equal to 1")
+			When("the command on the web process is not empty", func() {
+				BeforeEach(func() {
+					patchProcess(cfProcessForTypeWeb, func(p *korifiv1alpha1.CFProcess) {
+						p.Spec.Command = "something else"
+					})
+				})
+
+				It("should not change the command", func() {
+					Consistently(func(g Gomega) {
+						proc := findProcessWithType(cfApp, processTypeWeb)
+						Expect(proc.Spec.Command).To(Equal("something else"))
+					}).Should(Succeed())
+				})
 			})
 		})
 
@@ -573,4 +567,35 @@ func getApp(nsGUID, appGUID string) (*korifiv1alpha1.CFApp, error) {
 	createdCFApp := &korifiv1alpha1.CFApp{}
 	err := k8sClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
 	return createdCFApp, err
+}
+
+func findProcessWithType(cfApp *korifiv1alpha1.CFApp, processType string) *korifiv1alpha1.CFProcess {
+	ctx := context.Background()
+	cfProcessList := &korifiv1alpha1.CFProcessList{}
+
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.List(ctx, cfProcessList, &client.ListOptions{
+			LabelSelector: labelSelectorForAppAndProcess(cfApp.Name, processType),
+			Namespace:     cfApp.Namespace,
+		})).To(Succeed())
+		g.Expect(cfProcessList.Items).To(HaveLen(1))
+	}).Should(Succeed())
+
+	return &cfProcessList.Items[0]
+}
+
+func patchProcess(proc *korifiv1alpha1.CFProcess, mutate func(*korifiv1alpha1.CFProcess)) {
+	updatedProc := proc.DeepCopy()
+	mutate(updatedProc)
+	Expect(k8sClient.Patch(context.Background(), updatedProc, client.MergeFrom(proc))).To(Succeed())
+}
+
+func labelSelectorForAppAndProcess(appGUID, processType string) labels.Selector {
+	labelSelectorMap := labels.Set{
+		CFAppLabelKey:         appGUID,
+		CFProcessTypeLabelKey: processType,
+	}
+	selector, selectorValidationErr := labelSelectorMap.AsValidatedSelector()
+	Expect(selectorValidationErr).NotTo(HaveOccurred())
+	return selector
 }

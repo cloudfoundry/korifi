@@ -146,17 +146,24 @@ func (r *CFAppReconciler) getDroplet(ctx context.Context, cfApp *korifiv1alpha1.
 }
 
 func (r *CFAppReconciler) startApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp, droplet *korifiv1alpha1.BuildDropletStatus) error {
-	for _, process := range addWebIfMissing(droplet.ProcessTypes) {
-		processExistsForType, err := r.checkCFProcessExistsForType(ctx, cfApp.Name, cfApp.Namespace, process.Type)
+	logger := r.Log.WithValues("appName", cfApp.Name, "appNamespace", cfApp.Namespace)
+	for _, dropletProcess := range addWebIfMissing(droplet.ProcessTypes) {
+		existingProcess, err := r.fetchProcessByType(ctx, cfApp.Name, cfApp.Namespace, dropletProcess.Type)
 		if err != nil {
-			r.Log.Error(err, "Error when checking if CFProcess exists")
+			logger.Error(err, "Error when fetching  cfprocess by type", "processType", dropletProcess.Type)
 			return err
 		}
 
-		if !processExistsForType {
-			err = r.createCFProcess(ctx, process, droplet.Ports, cfApp)
+		if existingProcess != nil {
+			err = r.updateCFProcessCommand(ctx, existingProcess, dropletProcess.Command)
 			if err != nil {
-				r.Log.Error(err, fmt.Sprintf("Error creating CFProcess for Type: %s", process.Type))
+				r.Log.Error(err, fmt.Sprintf("Error updating CFProcess for Type: %s", dropletProcess.Type))
+				return err
+			}
+		} else {
+			err = r.createCFProcess(ctx, dropletProcess, droplet.Ports, cfApp)
+			if err != nil {
+				r.Log.Error(err, fmt.Sprintf("Error creating CFProcess for Type: %s", dropletProcess.Type))
 				return err
 			}
 		}
@@ -172,6 +179,16 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 		}
 	}
 	return append([]korifiv1alpha1.ProcessType{{Type: processTypeWeb}}, processTypes...)
+}
+
+func (r *CFAppReconciler) updateCFProcessCommand(ctx context.Context, process *korifiv1alpha1.CFProcess, command string) error {
+	if process.Spec.Command != "" {
+		return nil
+	}
+
+	originalProcess := process.DeepCopy()
+	process.Spec.Command = command
+	return r.Client.Patch(ctx, process, client.MergeFrom(originalProcess))
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
@@ -229,24 +246,29 @@ func (r *CFAppReconciler) getHealthCheckType(ctx context.Context, processType st
 	return processHealthCheckType, nil
 }
 
-func (r *CFAppReconciler) checkCFProcessExistsForType(ctx context.Context, appGUID string, namespace string, processType string) (bool, error) {
+func (r *CFAppReconciler) fetchProcessByType(ctx context.Context, appGUID, appNamespace, processType string) (*korifiv1alpha1.CFProcess, error) {
+	logger := r.Log.WithValues("appName", appGUID, "appNamespace", appNamespace)
 	selector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
 		korifiv1alpha1.CFProcessTypeLabelKey: processType,
 	})
 	if err != nil {
-		r.Log.Error(err, "Error initializing label selector")
-		return false, err
+		logger.Error(err, "Error initializing label selector")
+		return nil, err
 	}
 
 	cfProcessList := korifiv1alpha1.CFProcessList{}
-	err = r.Client.List(ctx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: namespace})
+	err = r.Client.List(ctx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: appNamespace})
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error fetching CFProcess for Type: %s", processType))
-		return false, err
+		logger.Error(err, "Error listing CFProcesses with label selector", "processType", processType)
+		return nil, err
 	}
 
-	return len(cfProcessList.Items) > 0, nil
+	if len(cfProcessList.Items) == 0 {
+		return nil, nil
+	}
+
+	return &cfProcessList.Items[0], nil
 }
 
 func getDesiredInstanceCount(processType string) int {
