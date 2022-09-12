@@ -24,15 +24,16 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 		)
 
 		var (
-			cfAppGUID     string
-			cfProcessGUID string
+			cfAppGUID        string
+			cfProcessGUID    string
+			cfProcess        *korifiv1alpha1.CFProcess
+			createdCFProcess *korifiv1alpha1.CFProcess
 		)
 
 		BeforeEach(func() {
-			beforeCtx := context.Background()
 			cfAppGUID = GenerateGUID()
 			cfProcessGUID = GenerateGUID()
-			cfProcess := &korifiv1alpha1.CFProcess{
+			cfProcess = &korifiv1alpha1.CFProcess{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFProcess",
 					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
@@ -52,35 +53,38 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 					Ports: []int32{},
 				},
 			}
-			Expect(k8sClient.Create(beforeCtx, cfProcess)).To(Succeed())
 		})
 
-		AfterEach(func() {
-			matchCFProcess := &korifiv1alpha1.CFProcess{
-				ObjectMeta: metav1.ObjectMeta{
+		JustBeforeEach(func() {
+			Expect(k8sClient.Create(context.Background(), cfProcess)).To(Succeed())
+			createdCFProcess = new(korifiv1alpha1.CFProcess)
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{
 					Name:      cfProcessGUID,
 					Namespace: namespace,
-				},
-			}
-			Expect(k8sClient.Delete(context.Background(), matchCFProcess)).To(Succeed())
+				}, createdCFProcess)).To(Succeed())
+			}).Should(Succeed())
 		})
 
-		It("should add the appropriate labels", func() {
-			testCtx := context.Background()
-			cfProcessLookupKey := types.NamespacedName{Name: cfProcessGUID, Namespace: namespace}
-			createdCFProcess := new(korifiv1alpha1.CFProcess)
+		Describe("default labels", func() {
+			It("adds the appropriate labels", func() {
+				Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessGUIDLabelKey, cfProcessGUID))
+				Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessTypeLabelKey, cfProcessType))
+				Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
+			})
 
-			Eventually(func() map[string]string {
-				err := k8sClient.Get(testCtx, cfProcessLookupKey, createdCFProcess)
-				if err != nil {
-					return nil
-				}
-				return createdCFProcess.ObjectMeta.Labels
-			}).ShouldNot(BeEmpty(), "CFProcess resource does not have any metadata.labels")
+			When("there are other existing labels on the CFProcess record", func() {
+				BeforeEach(func() {
+					cfProcess.Labels = map[string]string{
+						"anotherLabel": "process-label",
+					}
+				})
 
-			Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessGUIDLabelKey, cfProcessGUID))
-			Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessTypeLabelKey, cfProcessType))
-			Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
+				It("preserves them", func() {
+					Expect(createdCFProcess.ObjectMeta.Labels).To(HaveLen(4))
+					Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "process-label"))
+				})
+			})
 		})
 	})
 })
