@@ -23,7 +23,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const processNamePrefix = "cf-proc"
+const (
+	ProcessTypeWeb    = "web"
+	processNamePrefix = "cf-proc"
+)
 
 // CFProcessSpec defines the desired state of CFProcess
 type CFProcessSpec struct {

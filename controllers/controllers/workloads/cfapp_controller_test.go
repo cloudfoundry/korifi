@@ -6,7 +6,6 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"
@@ -199,12 +198,6 @@ var _ = Describe("CFAppReconciler", func() {
 			fakeClient,
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			&config.ControllerConfig{
-				CFProcessDefaults: config.CFProcessDefaults{
-					MemoryMB:    0,
-					DiskQuotaMB: 0,
-				},
-			},
 		)
 		ctx = context.Background()
 		req = ctrl.Request{
@@ -465,7 +458,7 @@ var _ = Describe("CFAppReconciler", func() {
 
 			When("adding the finalizer to the CFApp returns an error", func() {
 				BeforeEach(func() {
-					cfApp.ObjectMeta.Finalizers = []string{}
+					cfApp.Finalizers = []string{}
 					cfAppPatchErr = errors.New("failed to patch CFApp")
 				})
 
@@ -478,7 +471,7 @@ var _ = Describe("CFAppReconciler", func() {
 
 	When("a CFApp is being deleted", func() {
 		BeforeEach(func() {
-			cfApp.ObjectMeta.DeletionTimestamp = &metav1.Time{
+			cfApp.DeletionTimestamp = &metav1.Time{
 				Time: time.Now(),
 			}
 		})

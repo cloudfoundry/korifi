@@ -108,7 +108,6 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFApp"),
-		controllerConfig,
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

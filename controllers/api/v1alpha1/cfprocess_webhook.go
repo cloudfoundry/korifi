@@ -56,6 +56,7 @@ func (d *CFProcessDefaulter) Default(ctx context.Context, obj runtime.Object) er
 
 	d.defaultLabels(process)
 	d.defaultResources(process)
+	d.defaultInstances(process)
 
 	return nil
 }
@@ -81,5 +82,11 @@ func (d *CFProcessDefaulter) defaultResources(process *CFProcess) {
 
 	if process.Spec.DiskQuotaMB == 0 {
 		process.Spec.DiskQuotaMB = d.defaultDiskQuotaMB
+	}
+}
+
+func (d *CFProcessDefaulter) defaultInstances(process *CFProcess) {
+	if process.Spec.ProcessType == "web" && process.Spec.DesiredInstances == 0 {
+		process.Spec.DesiredInstances = 1
 	}
 }
