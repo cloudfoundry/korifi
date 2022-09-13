@@ -57,6 +57,7 @@ func (d *CFProcessDefaulter) Default(ctx context.Context, obj runtime.Object) er
 	d.defaultLabels(process)
 	d.defaultResources(process)
 	d.defaultInstances(process)
+	d.defaultHealthCheck(process)
 
 	return nil
 }
@@ -89,4 +90,17 @@ func (d *CFProcessDefaulter) defaultInstances(process *CFProcess) {
 	if process.Spec.ProcessType == "web" && process.Spec.DesiredInstances == 0 {
 		process.Spec.DesiredInstances = 1
 	}
+}
+
+func (d *CFProcessDefaulter) defaultHealthCheck(process *CFProcess) {
+	if process.Spec.HealthCheck.Type != "" {
+		return
+	}
+
+	if process.Spec.ProcessType == ProcessTypeWeb {
+		process.Spec.HealthCheck.Type = "port"
+		return
+	}
+
+	process.Spec.HealthCheck.Type = "process"
 }

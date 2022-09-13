@@ -196,7 +196,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Expect(createdCFProcess.Spec.Command).To(Equal(process.Command), "cfprocess command does not match with droplet command")
 					Expect(createdCFProcess.Spec.AppRef.Name).To(Equal(cfAppGUID), "cfprocess app ref does not match app-guid")
 					Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
-					Expect(createdCFProcess.Spec.HealthCheck.Type).To(Equal(korifiv1alpha1.HealthCheckType("process")))
 
 					Expect(createdCFProcess.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 						{
@@ -256,7 +255,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				Expect(k8sClient.Create(context.Background(), cfRoute)).To(Succeed())
 			})
 
-			It("eventually creates CFProcess for each process with the correct health check type", func() {
+			It("eventually creates CFProcess for each process", func() {
 				testCtx := context.Background()
 				droplet := cfBuild.Status.Droplet
 				processTypes := droplet.ProcessTypes
@@ -271,12 +270,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 						).To(Succeed())
 						return cfProcessList.Items
 					}).Should(HaveLen(1), "expected CFProcess to eventually be created")
-					createdCFProcess := cfProcessList.Items[0]
-					if process.Type == "web" {
-						Expect(createdCFProcess.Spec.HealthCheck.Type).To(Equal(korifiv1alpha1.HealthCheckType("port")))
-					} else {
-						Expect(createdCFProcess.Spec.HealthCheck.Type).To(Equal(korifiv1alpha1.HealthCheckType("process")))
-					}
 				}
 			})
 		})
@@ -414,7 +407,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					}).Should(HaveLen(1), "expected CFProcess to eventually be created")
 					createdCFProcess := cfProcessList.Items[0]
 					Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
-					Expect(string(createdCFProcess.Spec.HealthCheck.Type)).To(Equal("process"))
 				}
 			})
 		})

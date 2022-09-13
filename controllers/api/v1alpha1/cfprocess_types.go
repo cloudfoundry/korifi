@@ -68,7 +68,7 @@ type HealthCheck struct {
 }
 
 // HealthCheckType used to ensure illegal HealthCheckTypes are not passed
-// +kubebuilder:validation:Enum=http;port;process
+// +kubebuilder:validation:Enum=http;port;process;""
 type HealthCheckType string
 
 // HealthCheckData used to pass through input parameters to liveness probe

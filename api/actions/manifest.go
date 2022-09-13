@@ -14,9 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
-const (
-	portHealthCheckType = "port"
-)
 
 type Manifest struct {
 	appRepo           CFAppRepository
@@ -88,7 +85,7 @@ func (a *Manifest) createApp(ctx context.Context, authInfo authorization.Info, s
 
 	for index := range appInfo.Processes {
 		processInfo := appInfo.Processes[index]
-		err = a.createProcess(ctx, authInfo, appInfo, processInfo, appRecord, []repositories.RouteRecord{})
+		err = a.createProcess(ctx, authInfo, appInfo, processInfo, appRecord)
 		if err != nil {
 			return repositories.AppRecord{}, err
 		}
@@ -103,12 +100,7 @@ func (a *Manifest) createProcess(
 	appInfo payloads.ManifestApplication,
 	processInfo payloads.ManifestApplicationProcess,
 	appRecord repositories.AppRecord,
-	existingAppRoutes []repositories.RouteRecord,
 ) error {
-	if processInfo.Type == processTypeWeb && processInfo.HealthCheckType == nil {
-		processInfo.HealthCheckType = computeDefaultWebProcessHealthCheckType(appInfo, existingAppRoutes)
-	}
-
 	message := processInfo.ToProcessCreateMessage(appRecord.GUID, appRecord.SpaceGUID)
 	return a.processRepo.CreateProcess(ctx, authInfo, message)
 }
@@ -118,7 +110,7 @@ func (a *Manifest) applyToUpdateApp(ctx context.Context, authInfo authorization.
 	if err != nil {
 		return err
 	}
-	err = a.updateApp(ctx, authInfo, appRecord, appInfo, existingAppRoutes)
+	err = a.updateApp(ctx, authInfo, appRecord, appInfo)
 	if err != nil {
 		return err
 	}
@@ -126,7 +118,7 @@ func (a *Manifest) applyToUpdateApp(ctx context.Context, authInfo authorization.
 	return a.configureRoutes(ctx, authInfo, appInfo, appRecord, existingAppRoutes)
 }
 
-func (a *Manifest) updateApp(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication, existingAppRoutes []repositories.RouteRecord) error {
+func (a *Manifest) updateApp(ctx context.Context, authInfo authorization.Info, appRecord repositories.AppRecord, appInfo payloads.ManifestApplication) error {
 	_, err := a.appRepo.CreateOrPatchAppEnvVars(ctx, authInfo, repositories.CreateOrPatchAppEnvVarsMessage{
 		AppGUID:              appRecord.GUID,
 		AppEtcdUID:           appRecord.EtcdUID,
@@ -138,7 +130,7 @@ func (a *Manifest) updateApp(ctx context.Context, authInfo authorization.Info, a
 	}
 
 	for _, processInfo := range appInfo.Processes {
-		err = a.createOrPatchProcess(ctx, authInfo, appRecord, appInfo, processInfo, existingAppRoutes)
+		err = a.createOrPatchProcess(ctx, authInfo, appRecord, appInfo, processInfo)
 		if err != nil {
 			return err
 		}
@@ -153,29 +145,17 @@ func (a *Manifest) createOrPatchProcess(
 	appRecord repositories.AppRecord,
 	appInfo payloads.ManifestApplication,
 	processInfo payloads.ManifestApplicationProcess,
-	existingAppRoutes []repositories.RouteRecord,
 ) error {
 	process, err := a.processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, appRecord.GUID, processInfo.Type, appRecord.SpaceGUID)
 	if err != nil {
 		if errors.As(err, new(apierrors.NotFoundError)) {
-			return a.createProcess(ctx, authInfo, appInfo, processInfo, appRecord, existingAppRoutes)
+			return a.createProcess(ctx, authInfo, appInfo, processInfo, appRecord)
 		}
 		return err
 	}
 
 	_, err = a.processRepo.PatchProcess(ctx, authInfo, processInfo.ToProcessPatchMessage(process.GUID, appRecord.SpaceGUID))
 	return err
-}
-
-func computeDefaultWebProcessHealthCheckType(appInfo payloads.ManifestApplication, existingAppRoutes []repositories.RouteRecord) *string {
-	hasRoutes := len(appInfo.Routes) > 0 || appInfo.DefaultRoute || appInfo.RandomRoute || len(existingAppRoutes) > 0
-
-	if hasRoutes {
-		healthCheckType := portHealthCheckType
-		return &healthCheckType
-	}
-
-	return nil
 }
 
 func (a *Manifest) configureRoutes(ctx context.Context, authInfo authorization.Info, appInfo payloads.ManifestApplication, appRecord repositories.AppRecord, existingAppRoutes []repositories.RouteRecord) error {

@@ -85,6 +85,7 @@ spec:
                     - http
                     - port
                     - process
+                    - ""
                     type: string
                 required:
                 - data

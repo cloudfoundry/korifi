@@ -28,8 +28,6 @@ const (
 	StatusConditionRestarting = "Restarting"
 	StatusConditionRunning    = "Running"
 	StatusConditionStaged     = "Staged"
-	processHealthCheckType    = "process"
-	portHealthCheckType       = "port"
 	finalizerName             = "cfApp.korifi.cloudfoundry.org"
 )
 
@@ -188,10 +186,6 @@ func (r *CFAppReconciler) updateCFProcessCommand(ctx context.Context, process *k
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
-	healthCheckType, err := r.getHealthCheckType(ctx, process.Type, cfApp)
-	if err != nil {
-		return err
-	}
 	desiredCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfApp.Namespace,
@@ -204,39 +198,17 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 			AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
 			ProcessType: process.Type,
 			Command:     process.Command,
-			HealthCheck: korifiv1alpha1.HealthCheck{
-				Type: korifiv1alpha1.HealthCheckType(healthCheckType),
-				Data: korifiv1alpha1.HealthCheckData{
-					InvocationTimeoutSeconds: 0,
-					TimeoutSeconds:           0,
-				},
-			},
-			Ports: ports,
+			Ports:       ports,
 		},
 	}
 	desiredCFProcess.SetStableName(cfApp.Name)
 
-	err = controllerutil.SetOwnerReference(cfApp, desiredCFProcess, r.Scheme)
-	if err != nil {
+	if err := controllerutil.SetOwnerReference(cfApp, desiredCFProcess, r.Scheme); err != nil {
 		r.Log.Error(err, "failed to set OwnerRef on CFProcess")
 		return err
 	}
 
 	return r.Client.Create(ctx, desiredCFProcess)
-}
-
-func (r *CFAppReconciler) getHealthCheckType(ctx context.Context, processType string, cfApp *korifiv1alpha1.CFApp) (string, error) {
-	if processType == korifiv1alpha1.ProcessTypeWeb {
-		cfRoutes, err := r.getCFRoutes(ctx, cfApp.Name, cfApp.Namespace)
-		if err != nil {
-			return "", err
-		}
-		if len(cfRoutes) > 0 {
-			return portHealthCheckType, nil
-		}
-	}
-
-	return processHealthCheckType, nil
 }
 
 func (r *CFAppReconciler) fetchProcessByType(ctx context.Context, appGUID, appNamespace, processType string) (*korifiv1alpha1.CFProcess, error) {
