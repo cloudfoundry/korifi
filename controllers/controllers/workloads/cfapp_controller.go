@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -326,7 +326,7 @@ func (r *CFAppReconciler) finalizeCFAppRoutes(ctx context.Context, cfApp *korifi
 
 func (r *CFAppReconciler) finalizeCFAppTasks(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
 	tasksList := korifiv1alpha1.CFTaskList{}
-	err := r.Client.List(ctx, &tasksList, client.InNamespace(cfApp.Namespace), client.MatchingFields{IndexAppTasks: cfApp.Name})
+	err := r.Client.List(ctx, &tasksList, client.InNamespace(cfApp.Namespace), client.MatchingFields{shared.IndexAppTasks: cfApp.Name})
 	if err != nil {
 		return err
 	}
@@ -366,7 +366,7 @@ func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID
 
 func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfAppNamespace string) ([]korifiv1alpha1.CFRoute, error) {
 	var foundRoutes korifiv1alpha1.CFRouteList
-	matchingFields := client.MatchingFields{IndexRouteDestinationAppName: cfAppGUID}
+	matchingFields := client.MatchingFields{shared.IndexRouteDestinationAppName: cfAppGUID}
 	err := r.Client.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("failed to List CFRoutes for CFApp %s/%s", cfAppNamespace, cfAppGUID))
