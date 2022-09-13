@@ -12,10 +12,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
-
 const (
-	processTypeWeb      = "web"
 	portHealthCheckType = "port"
 )
 
@@ -61,13 +60,13 @@ func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, space
 
 func appendWebProcessIfMissing(appInfo payloads.ManifestApplication) []payloads.ManifestApplicationProcess {
 	for _, process := range appInfo.Processes {
-		if process.Type == processTypeWeb {
+		if process.Type == korifiv1alpha1.ProcessTypeWeb {
 			return appInfo.Processes
 		}
 	}
 
 	return append(appInfo.Processes, payloads.ManifestApplicationProcess{
-		Type:   processTypeWeb,
+		Type:   korifiv1alpha1.ProcessTypeWeb,
 		Memory: appInfo.Memory,
 	})
 }
@@ -280,7 +279,7 @@ func (a *Manifest) createOrUpdateRoutes(ctx context.Context, authInfo authorizat
 		NewDestinations: []repositories.DestinationMessage{
 			{
 				AppGUID:     appRecord.GUID,
-				ProcessType: processTypeWeb,
+				ProcessType: korifiv1alpha1.ProcessTypeWeb,
 				Port:        8080,
 				Protocol:    "http1",
 			},
