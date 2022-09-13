@@ -2,6 +2,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kpack
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.25
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -298,7 +301,7 @@ metadata:
   name: build-init-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/build-init@sha256:f225708a153bf9f759a8c07c2424b15f830ac7ab8bfbcb1be95ffd146d5e9e9c
+  image: gcr.io/cf-build-service-public/kpack/build-init@sha256:8869483600a9bd4e44bac1351b46e3a389197049acf572101bc72f00187b032d
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -306,7 +309,7 @@ metadata:
   name: build-init-windows-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/build-init-windows@sha256:f6d77ac86afeaa2431dda6a7b1c9814b84d620b3b64c35ecc0e3e876a0cf5609
+  image: gcr.io/cf-build-service-public/kpack/build-init-windows@sha256:b8868ea6a23afdc0a3a76630519174caa9794c37ed1023976fa30690514d1d96
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -314,7 +317,7 @@ metadata:
   name: rebase-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/rebase@sha256:10df77ba496bd5c7b78cb109b63710c22f6b5380c0f543d3adb1dda47f338ace
+  image: gcr.io/cf-build-service-public/kpack/rebase@sha256:1089cd53b2180c6006fe52bdf592a43f7fe27ec2b5a720971ef2e977363eb7f7
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -330,7 +333,7 @@ metadata:
   name: completion-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/completion@sha256:2e483f449a4c80f29eea7b273466b34c03561f4edee3d0dae4dcf4b39369adc6
+  image: gcr.io/cf-build-service-public/kpack/completion@sha256:16da41e9dd2fdea79bc4823ac19e2f2aa647c30fafd92657b2180530c7e240f8
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -338,7 +341,7 @@ metadata:
   name: completion-windows-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/completion-windows@sha256:00b7b6a2f34b5b9160eca7fe79a7af2fb75ac1741155f6557478c6d56dbc7098
+  image: gcr.io/cf-build-service-public/kpack/completion-windows@sha256:e4ac40fbae09b08b25c321b6302bd53488f2b8d9a13565f8e975eda40f9fe4af
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -354,15 +357,28 @@ spec:
     metadata:
       labels:
         app: kpack-controller
-        version: 0.6.2-rc.4
+        version: 0.7.0-rc.12
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       priorityClassName: kpack-control-plane
       serviceAccountName: controller
       nodeSelector:
         kubernetes.io/os: linux
       containers:
       - name: controller
-        image: gcr.io/cf-build-service-public/kpack/controller@sha256:68dbfa42b086d31c6e5fac1be36356fa6af1dc2bbe46861b7547e7945375caed
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          privileged: false
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+        image: gcr.io/cf-build-service-public/kpack/controller@sha256:b82458999575902e05e509efd761526a09b5db503095625e2b62377583ad15f7
         env:
         - name: ENABLE_PRIORITY_CLASSES
           value: "false"
@@ -750,15 +766,28 @@ spec:
       labels:
         app: kpack-webhook
         role: webhook
-        version: 0.6.2-rc.4
+        version: 0.7.0-rc.12
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       priorityClassName: kpack-control-plane
       serviceAccountName: webhook
       nodeSelector:
         kubernetes.io/os: linux
       containers:
       - name: webhook
-        image: gcr.io/cf-build-service-public/kpack/webhook@sha256:ea3ff384f243f5e0c55ad868e895a313cf1fe9c58ee0ccbcfbc5eb6b56b307f5
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          privileged: false
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+        image: gcr.io/cf-build-service-public/kpack/webhook@sha256:412d9d8b78d65d1c3623134c8dac9b5f7d08cb88d3ce195d08d46a632743f7b6
         ports:
         - name: https-webhook
           containerPort: 8443
@@ -858,6 +887,14 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - ""
+  resources:
+  - namespaces/finalizers
+  verbs:
+  - update
+  resourceNames:
+  - kpack
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
@@ -865,6 +902,7 @@ rules:
   - defaults.webhook.kpack.io
   verbs:
   - update
+  - delete
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
@@ -881,6 +919,7 @@ rules:
   - validation.webhook.kpack.io
   verbs:
   - update
+  - delete
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
