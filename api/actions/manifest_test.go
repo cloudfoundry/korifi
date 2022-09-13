@@ -193,91 +193,6 @@ var _ = Describe("ApplyManifest", func() {
 		})
 	})
 
-	When("the manifest includes application resource properties, and a web process", func() {
-		BeforeEach(func() {
-			manifest = payloads.Manifest{
-				Version: 1,
-				Applications: []payloads.ManifestApplication{
-					{
-						Name:   appName,
-						Memory: tools.PtrTo("128M"),
-						Processes: []payloads.ManifestApplicationProcess{
-							{
-								Type:   "web",
-								Memory: tools.PtrTo("256M"),
-							},
-						},
-					},
-				},
-			}
-
-			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
-			appRepo.CreateAppReturns(repositories.AppRecord{GUID: appGUID}, nil)
-		})
-
-		When("health check type is specified in the manifest", func() {
-			BeforeEach(func() {
-				healthCheckTypeHttp := "http"
-				manifest.Applications[0].Processes[0].HealthCheckType = &healthCheckTypeHttp
-			})
-
-			It("sets the health check type to http", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("http"))
-			})
-		})
-
-		When("no-route is set to true in the manifest", func() {
-			BeforeEach(func() {
-				manifest.Applications[0].NoRoute = true
-			})
-
-			It("sets the health check type to process", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("process"))
-			})
-		})
-
-		When("default route is set to true in the manifest", func() {
-			BeforeEach(func() {
-				manifest.Applications[0].DefaultRoute = true
-			})
-
-			It("sets the health check type to port", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
-			})
-		})
-
-		When("random route is set to true in the manifest", func() {
-			BeforeEach(func() {
-				manifest.Applications[0].RandomRoute = true
-			})
-
-			It("sets the health check type to port", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
-			})
-		})
-
-		When("routes are specified in the manifest", func() {
-			BeforeEach(func() {
-				route := "my-route.mydomain.org"
-				manifest.Applications[0].Routes = []payloads.ManifestRoute{{Route: &route}}
-			})
-
-			It("sets the health check type to port", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
-			})
-		})
-	})
-
 	When("the app does not exist", func() {
 		BeforeEach(func() {
 			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
@@ -342,31 +257,6 @@ var _ = Describe("ApplyManifest", func() {
 				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
 				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
 				Expect(processMessage.HealthCheck.Type).To(Equal("process"))
-			})
-		})
-
-		When("the web process does not have a health check type set", func() {
-			BeforeEach(func() {
-				manifest.Applications[0].Processes[0].Type = "web"
-				manifest.Applications[0].Processes[0].HealthCheckType = nil
-			})
-
-			It("defaults to port health check type", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("port"))
-			})
-
-			When("there are no routes to the app", func() {
-				BeforeEach(func() {
-					manifest.Applications[0].Routes = nil
-				})
-
-				It("does not set the health check type", func() {
-					Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-					_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-					Expect(processMessage.HealthCheck.Type).To(Equal("port"))
-				})
 			})
 		})
 
@@ -486,19 +376,6 @@ var _ = Describe("ApplyManifest", func() {
 
 				It("returns an error", func() {
 					Expect(applyErr).To(MatchError(ContainSubstring("boom")))
-				})
-			})
-
-			When("the process type is web without healthcheck type", func() {
-				BeforeEach(func() {
-					manifest.Applications[0].Processes[0].Type = "web"
-					manifest.Applications[0].Processes[0].HealthCheckType = nil
-				})
-
-				It("sets the health check type to port", func() {
-					Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-					_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-					Expect(processMessage.HealthCheck.Type).To(Equal("port"))
 				})
 			})
 		})

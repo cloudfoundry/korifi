@@ -47,10 +47,7 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 						Name: cfAppGUID,
 					},
 					ProcessType: cfProcessType,
-					HealthCheck: korifiv1alpha1.HealthCheck{
-						Type: "http",
-					},
-					Ports: []int32{},
+					Ports:       []int32{},
 				},
 			}
 		})
@@ -137,6 +134,42 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 
 					It("leaves instances unchanged", func() {
 						Expect(createdCFProcess.Spec.DesiredInstances).To(Equal(42))
+					})
+				})
+			})
+		})
+
+		Describe("healthcheck", func() {
+			It("defaults healthcheck type to process", func() {
+				Expect(createdCFProcess.Spec.HealthCheck.Type).To(BeEquivalentTo("process"))
+			})
+
+			When("the type is already set", func() {
+				BeforeEach(func() {
+					cfProcess.Spec.HealthCheck.Type = "http"
+				})
+
+				It("preserves the value", func() {
+					Expect(createdCFProcess.Spec.HealthCheck.Type).To(BeEquivalentTo("http"))
+				})
+			})
+
+			When("the process is of type web", func() {
+				BeforeEach(func() {
+					cfProcess.Spec.ProcessType = "web"
+				})
+
+				It("defaults the type to port", func() {
+					Expect(createdCFProcess.Spec.HealthCheck.Type).To(BeEquivalentTo("port"))
+				})
+
+				When("the type is already set", func() {
+					BeforeEach(func() {
+						cfProcess.Spec.HealthCheck.Type = "http"
+					})
+
+					It("preserves the value", func() {
+						Expect(createdCFProcess.Spec.HealthCheck.Type).To(BeEquivalentTo("http"))
 					})
 				})
 			})
