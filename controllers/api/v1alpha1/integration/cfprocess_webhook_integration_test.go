@@ -86,5 +86,34 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 				})
 			})
 		})
+
+		Describe("default memory and disk", func() {
+			It("sets the configured default memory and disk", func() {
+				Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(defaultMemoryMB))
+				Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(defaultDiskQuotaMB))
+			})
+
+			When("the process already has a memory value set", func() {
+				BeforeEach(func() {
+					cfProcess.Spec.MemoryMB = 42
+				})
+
+				It("preserves it", func() {
+					Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(42))
+					Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(defaultDiskQuotaMB))
+				})
+			})
+
+			When("the process already has a memory value set", func() {
+				BeforeEach(func() {
+					cfProcess.Spec.DiskQuotaMB = 42
+				})
+
+				It("preserves it", func() {
+					Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(defaultMemoryMB))
+					Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(42))
+				})
+			})
+		})
 	})
 })

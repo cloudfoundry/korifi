@@ -45,6 +45,11 @@ import (
 	//+kubebuilder:scaffold:imports
 )
 
+const (
+	defaultMemoryMB    = 128
+	defaultDiskQuotaMB = 256
+)
+
 var (
 	cancel          context.CancelFunc
 	testEnv         *envtest.Environment
@@ -116,7 +121,7 @@ var _ = BeforeSuite(func() {
 
 	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	Expect(korifiv1alpha1.NewCFProcessDefaulter().SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(korifiv1alpha1.NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
