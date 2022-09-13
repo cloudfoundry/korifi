@@ -66,7 +66,7 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
-		Describe("default labels", func() {
+		Describe("labels", func() {
 			It("adds the appropriate labels", func() {
 				Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessGUIDLabelKey, cfProcessGUID))
 				Expect(createdCFProcess.ObjectMeta.Labels).To(HaveKeyWithValue(cfProcessTypeLabelKey, cfProcessType))
@@ -87,7 +87,7 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 			})
 		})
 
-		Describe("default memory and disk", func() {
+		Describe("memory and disk", func() {
 			It("sets the configured default memory and disk", func() {
 				Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(defaultMemoryMB))
 				Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(defaultDiskQuotaMB))
@@ -112,6 +112,32 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 				It("preserves it", func() {
 					Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(defaultMemoryMB))
 					Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(42))
+				})
+			})
+		})
+
+		Describe("instances", func() {
+			It("leaves zero desired instances as zero", func() {
+				Expect(createdCFProcess.Spec.DesiredInstances).To(Equal(0))
+			})
+
+			When("the process is of type web", func() {
+				BeforeEach(func() {
+					cfProcess.Spec.ProcessType = "web"
+				})
+
+				It("defaults instances to 1", func() {
+					Expect(createdCFProcess.Spec.DesiredInstances).To(Equal(1))
+				})
+
+				When("the process has the instance number set", func() {
+					BeforeEach(func() {
+						cfProcess.Spec.DesiredInstances = 42
+					})
+
+					It("leaves instances unchanged", func() {
+						Expect(createdCFProcess.Spec.DesiredInstances).To(Equal(42))
+					})
 				})
 			})
 		})

@@ -6,8 +6,6 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
@@ -32,20 +30,18 @@ const (
 	StatusConditionStaged     = "Staged"
 	processHealthCheckType    = "process"
 	portHealthCheckType       = "port"
-	processTypeWeb            = "web"
 	finalizerName             = "cfApp.korifi.cloudfoundry.org"
 )
 
 // CFAppReconciler reconciles a CFApp object
 type CFAppReconciler struct {
-	Client           client.Client
-	Scheme           *runtime.Scheme
-	Log              logr.Logger
-	ControllerConfig *config.ControllerConfig
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
-func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig) *CFAppReconciler {
-	return &CFAppReconciler{Client: k8sClient, Scheme: scheme, Log: log, ControllerConfig: controllerConfig}
+func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger) *CFAppReconciler {
+	return &CFAppReconciler{Client: k8sClient, Scheme: scheme, Log: log}
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete
@@ -174,11 +170,11 @@ func (r *CFAppReconciler) startApp(ctx context.Context, cfApp *korifiv1alpha1.CF
 
 func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1.ProcessType {
 	for _, p := range processTypes {
-		if p.Type == processTypeWeb {
+		if p.Type == korifiv1alpha1.ProcessTypeWeb {
 			return processTypes
 		}
 	}
-	return append([]korifiv1alpha1.ProcessType{{Type: processTypeWeb}}, processTypes...)
+	return append([]korifiv1alpha1.ProcessType{{Type: korifiv1alpha1.ProcessTypeWeb}}, processTypes...)
 }
 
 func (r *CFAppReconciler) updateCFProcessCommand(ctx context.Context, process *korifiv1alpha1.CFProcess, command string) error {
@@ -215,10 +211,7 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 					TimeoutSeconds:           0,
 				},
 			},
-			DesiredInstances: getDesiredInstanceCount(process.Type),
-			MemoryMB:         r.ControllerConfig.CFProcessDefaults.MemoryMB,
-			DiskQuotaMB:      r.ControllerConfig.CFProcessDefaults.DiskQuotaMB,
-			Ports:            ports,
+			Ports: ports,
 		},
 	}
 	desiredCFProcess.SetStableName(cfApp.Name)
@@ -233,7 +226,7 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 }
 
 func (r *CFAppReconciler) getHealthCheckType(ctx context.Context, processType string, cfApp *korifiv1alpha1.CFApp) (string, error) {
-	if processType == processTypeWeb {
+	if processType == korifiv1alpha1.ProcessTypeWeb {
 		cfRoutes, err := r.getCFRoutes(ctx, cfApp.Name, cfApp.Namespace)
 		if err != nil {
 			return "", err
@@ -269,13 +262,6 @@ func (r *CFAppReconciler) fetchProcessByType(ctx context.Context, appGUID, appNa
 	}
 
 	return &cfProcessList.Items[0], nil
-}
-
-func getDesiredInstanceCount(processType string) int {
-	if processType == processTypeWeb {
-		return 1
-	}
-	return 0
 }
 
 func (r *CFAppReconciler) addFinalizer(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
@@ -340,7 +326,7 @@ func (r *CFAppReconciler) finalizeCFAppRoutes(ctx context.Context, cfApp *korifi
 
 func (r *CFAppReconciler) finalizeCFAppTasks(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
 	tasksList := korifiv1alpha1.CFTaskList{}
-	err := r.Client.List(ctx, &tasksList, client.InNamespace(cfApp.Namespace), client.MatchingFields{shared.IndexAppTasks: cfApp.Name})
+	err := r.Client.List(ctx, &tasksList, client.InNamespace(cfApp.Namespace), client.MatchingFields{IndexAppTasks: cfApp.Name})
 	if err != nil {
 		return err
 	}
