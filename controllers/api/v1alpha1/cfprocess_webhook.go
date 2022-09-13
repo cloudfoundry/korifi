@@ -27,10 +27,16 @@ import (
 // log is for logging in this package.
 var cfprocesslog = logf.Log.WithName("cfprocess-resource")
 
-type CFProcessDefaulter struct{}
+type CFProcessDefaulter struct {
+	defaultMemoryMB    int64
+	defaultDiskQuotaMB int64
+}
 
-func NewCFProcessDefaulter() *CFProcessDefaulter {
-	return &CFProcessDefaulter{}
+func NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB int64) *CFProcessDefaulter {
+	return &CFProcessDefaulter{
+		defaultMemoryMB:    defaultMemoryMB,
+		defaultDiskQuotaMB: defaultDiskQuotaMB,
+	}
 }
 
 func (d *CFProcessDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -48,6 +54,13 @@ func (d *CFProcessDefaulter) Default(ctx context.Context, obj runtime.Object) er
 	process := obj.(*CFProcess)
 	cfprocesslog.Info("Mutating CFProcess webhook handler", "name", process.Name)
 
+	d.defaultLabels(process)
+	d.defaultResources(process)
+
+	return nil
+}
+
+func (d *CFProcessDefaulter) defaultLabels(process *CFProcess) {
 	processLabels := process.GetLabels()
 
 	if processLabels == nil {
@@ -59,6 +72,14 @@ func (d *CFProcessDefaulter) Default(ctx context.Context, obj runtime.Object) er
 	processLabels[CFAppGUIDLabelKey] = process.Spec.AppRef.Name
 
 	process.SetLabels(processLabels)
+}
 
-	return nil
+func (d *CFProcessDefaulter) defaultResources(process *CFProcess) {
+	if process.Spec.MemoryMB == 0 {
+		process.Spec.MemoryMB = d.defaultMemoryMB
+	}
+
+	if process.Spec.DiskQuotaMB == 0 {
+		process.Spec.DiskQuotaMB = d.defaultDiskQuotaMB
+	}
 }
