@@ -32,11 +32,10 @@ import (
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
-	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
-	"github.com/pivotal/kpack/pkg/registry"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -66,13 +65,9 @@ type RegistryAuthFetcher func(ctx context.Context, namespace string) (remote.Opt
 
 func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAuthFetcher {
 	return func(ctx context.Context, namespace string) (remote.Option, error) {
-		keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(privilegedK8sClient)
-		if err != nil {
-			return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", err)
-		}
-		keychain, err := keychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
-			Namespace:      namespace,
-			ServiceAccount: kpackServiceAccount,
+		keychain, err := k8schain.New(ctx, privilegedK8sClient, k8schain.Options{
+			Namespace:          namespace,
+			ServiceAccountName: kpackServiceAccount,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
