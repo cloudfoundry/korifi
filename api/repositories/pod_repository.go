@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -125,12 +124,7 @@ func (r *PodRepo) ListPodStats(ctx context.Context, authInfo authorization.Info,
 
 		podMetrics, err := r.metricsFetcher(ctx, p.Namespace, p.Name)
 		if err != nil {
-			errorMsg := err.Error()
-			if strings.Contains(errorMsg, "not found") ||
-				strings.Contains(errorMsg, "the server could not find the requested resource") {
-				continue
-			}
-			return nil, err
+			continue
 		}
 		metricsMap := aggregateContainerMetrics(podMetrics.Containers)
 		if len(metricsMap) == 0 {
