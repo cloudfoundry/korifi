@@ -2,6 +2,7 @@ package payloads
 
 import (
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
 type DestinationListCreate struct {
@@ -26,7 +27,7 @@ type DestinationAppProcess struct {
 func (dc DestinationListCreate) ToMessage(routeRecord repositories.RouteRecord) repositories.AddDestinationsToRouteMessage {
 	addDestinations := make([]repositories.DestinationMessage, 0, len(dc.Destinations))
 	for _, destination := range dc.Destinations {
-		processType := "web"
+		processType := korifiv1alpha1.ProcessTypeWeb
 		if destination.App.Process != nil {
 			processType = destination.App.Process.Type
 		}

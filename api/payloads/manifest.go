@@ -3,13 +3,9 @@ package payloads
 import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"code.cloudfoundry.org/bytefmt"
-)
-
-const (
-	processTypeWeb         = "web"
-	processHealthCheckType = "process"
 )
 
 type Manifest struct {
@@ -61,72 +57,47 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 }
 
 func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID string) repositories.CreateProcessMessage {
-	var (
-		command                      string
-		healthCheckType              string
-		healthCheckHTTPEndpoint      string
-		instances                    int
-		healthCheckTimeout           int64
-		healthCheckInvocationTimeout int64
-		diskQuotaMB                  uint64
-		memoryQuotaMB                uint64
-	)
-
-	healthCheckType = processHealthCheckType
-	if p.Type == processTypeWeb {
-		instances = 1
-	} else {
-		instances = 0
+	msg := repositories.CreateProcessMessage{
+		AppGUID:   appGUID,
+		SpaceGUID: spaceGUID,
+		Type:      p.Type,
 	}
 
 	if p.Command != nil {
-		command = *p.Command
+		msg.Command = *p.Command
 	}
 	if p.HealthCheckHTTPEndpoint != nil {
-		healthCheckHTTPEndpoint = *p.HealthCheckHTTPEndpoint
+		msg.HealthCheck.Data.HTTPEndpoint = *p.HealthCheckHTTPEndpoint
 	}
 	if p.HealthCheckInvocationTimeout != nil {
-		healthCheckInvocationTimeout = *p.HealthCheckInvocationTimeout
+		msg.HealthCheck.Data.InvocationTimeoutSeconds = *p.HealthCheckInvocationTimeout
 	}
 	if p.Timeout != nil {
-		healthCheckTimeout = *p.Timeout
+		msg.HealthCheck.Data.TimeoutSeconds = *p.Timeout
 	}
 	if p.HealthCheckType != nil {
-		healthCheckType = normalizeHealthCheckType(*p.HealthCheckType)
+		msg.HealthCheck.Type = *p.HealthCheckType
+		if msg.HealthCheck.Type == "none" {
+			msg.HealthCheck.Type = "process"
+		}
 	}
 	if p.Instances != nil {
-		instances = *p.Instances
+		msg.DesiredInstances = *p.Instances
 	}
 
-	diskQuotaMB = uint64(1024)
-	if p.DiskQuota != nil {
-		// error ignored intentionally, since the manifest yaml is validated in handlers
-		diskQuotaMB, _ = bytefmt.ToMegabytes(*p.DiskQuota)
-	}
-
-	memoryQuotaMB = uint64(1024)
 	if p.Memory != nil {
 		// error ignored intentionally, since the manifest yaml is validated in handlers
-		memoryQuotaMB, _ = bytefmt.ToMegabytes(*p.Memory)
+		memoryQuotaMB, _ := bytefmt.ToMegabytes(*p.Memory)
+		msg.MemoryMB = int64(memoryQuotaMB)
 	}
 
-	return repositories.CreateProcessMessage{
-		AppGUID:     appGUID,
-		SpaceGUID:   spaceGUID,
-		Type:        p.Type,
-		Command:     command,
-		DiskQuotaMB: int64(diskQuotaMB),
-		HealthCheck: repositories.HealthCheck{
-			Type: healthCheckType,
-			Data: repositories.HealthCheckData{
-				HTTPEndpoint:             healthCheckHTTPEndpoint,
-				InvocationTimeoutSeconds: healthCheckInvocationTimeout,
-				TimeoutSeconds:           healthCheckTimeout,
-			},
-		},
-		DesiredInstances: instances,
-		MemoryMB:         int64(memoryQuotaMB),
+	if p.DiskQuota != nil {
+		// error ignored intentionally, since the manifest yaml is validated in handlers
+		diskQuotaMB, _ := bytefmt.ToMegabytes(*p.DiskQuota)
+		msg.DiskQuotaMB = int64(diskQuotaMB)
 	}
+
+	return msg
 }
 
 func (p ManifestApplicationProcess) ToProcessPatchMessage(processGUID, spaceGUID string) repositories.PatchProcessMessage {
@@ -140,8 +111,10 @@ func (p ManifestApplicationProcess) ToProcessPatchMessage(processGUID, spaceGUID
 		DesiredInstances:                    p.Instances,
 	}
 	if p.HealthCheckType != nil {
-		healthCheckType := normalizeHealthCheckType(*p.HealthCheckType)
-		message.HealthCheckType = &healthCheckType
+		message.HealthCheckType = p.HealthCheckType
+		if *message.HealthCheckType == "none" {
+			message.HealthCheckType = tools.PtrTo("process")
+		}
 	}
 	if p.DiskQuota != nil {
 		diskQuotaMB, _ := bytefmt.ToMegabytes(*p.DiskQuota)
@@ -154,15 +127,4 @@ func (p ManifestApplicationProcess) ToProcessPatchMessage(processGUID, spaceGUID
 		message.MemoryMB = &int64MMB
 	}
 	return message
-}
-
-func normalizeHealthCheckType(healthCheckType string) string {
-	const NoneHealthCheckType = "none"
-
-	switch healthCheckType {
-	case NoneHealthCheckType:
-		return string(korifiv1alpha1.ProcessHealthCheckType)
-	default:
-		return healthCheckType
-	}
 }

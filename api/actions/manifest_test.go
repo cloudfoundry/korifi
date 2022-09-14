@@ -189,7 +189,6 @@ var _ = Describe("ApplyManifest", func() {
 			_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
 			Expect(processMessage.AppGUID).To(Equal(appGUID))
 			Expect(processMessage.Type).To(Equal("web"))
-			Expect(processMessage.MemoryMB).To(Equal(int64(128)))
 		})
 	})
 
@@ -245,18 +244,6 @@ var _ = Describe("ApplyManifest", func() {
 
 			It("returns an error", func() {
 				Expect(applyErr).To(MatchError(ContainSubstring("boom")))
-			})
-		})
-
-		When("a non-web process does not have a health check type set", func() {
-			BeforeEach(func() {
-				manifest.Applications[0].Processes[0].HealthCheckType = nil
-			})
-
-			It("defaults to process health check type", func() {
-				Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-				_, _, processMessage := processRepo.CreateProcessArgsForCall(0)
-				Expect(processMessage.HealthCheck.Type).To(Equal("process"))
 			})
 		})
 

@@ -87,7 +87,7 @@ func (d *CFProcessDefaulter) defaultResources(process *CFProcess) {
 }
 
 func (d *CFProcessDefaulter) defaultInstances(process *CFProcess) {
-	if process.Spec.ProcessType == "web" && process.Spec.DesiredInstances == 0 {
+	if process.Spec.ProcessType == ProcessTypeWeb && process.Spec.DesiredInstances == 0 {
 		process.Spec.DesiredInstances = 1
 	}
 }
