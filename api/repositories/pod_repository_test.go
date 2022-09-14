@@ -308,40 +308,17 @@ var _ = Describe("PodRepository", func() {
 
 			When("MetricFetcherFunction return an metrics resource not found error", func() {
 				BeforeEach(func() {
-					metricFetcherFn.Returns(nil, errors.New("the server could not find the requested resource"))
-				})
-				It("fetches all the pods and sets the usage stats with empty values", func() {
-					Expect(listStatsErr).NotTo(HaveOccurred())
-					Expect(records).To(ConsistOf(
-						[]PodStatsRecord{
-							{Type: "web", Index: 0, State: "RUNNING"},
-							{Type: "web", Index: 1, State: "DOWN"},
-						},
-					))
-				})
-			})
-
-			When("MetricsFetcherFunction returns a not found error for the PodMetrics", func() {
-				BeforeEach(func() {
-					metricFetcherFn.Returns(nil, errors.New("podmetrics.metrics.k8s.io \\\"Blah\\\" not found"))
-				})
-				It("fetches all the pods and sets the usage stats with empty values", func() {
-					Expect(listStatsErr).NotTo(HaveOccurred())
-					Expect(records).To(ConsistOf(
-						[]PodStatsRecord{
-							{Type: "web", Index: 0, State: "RUNNING"},
-							{Type: "web", Index: 1, State: "DOWN"},
-						},
-					))
-				})
-			})
-
-			When("MetricFetcherFunction return some other error", func() {
-				BeforeEach(func() {
 					metricFetcherFn.Returns(nil, errors.New("boom"))
 				})
-				It("returns the error", func() {
-					Expect(listStatsErr.Error()).To(ContainSubstring("boom"))
+
+				It("fetches all the pods and sets the usage stats with empty values", func() {
+					Expect(listStatsErr).NotTo(HaveOccurred())
+					Expect(records).To(ConsistOf(
+						[]PodStatsRecord{
+							{Type: "web", Index: 0, State: "RUNNING"},
+							{Type: "web", Index: 1, State: "DOWN"},
+						},
+					))
 				})
 			})
 
