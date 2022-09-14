@@ -82,62 +82,17 @@ var _ = Describe("ManifestApplicationProcess", func() {
 		When("only type is specified", func() {
 			BeforeEach(func() {
 				processInfo = ManifestApplicationProcess{}
+				processInfo.Type = "bob"
 			})
 
-			When(`type is "web"`, func() {
-				BeforeEach(func() {
-					processInfo.Type = "web"
-				})
+			It("returns a CreateProcessMessage with only type, appGUID and spaceGUID set", func() {
+				message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
 
-				It("returns a CreateProcessMessage with defaulted values", func() {
-					message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
-
-					Expect(message).To(Equal(repositories.CreateProcessMessage{
-						Type:             "web",
-						AppGUID:          appGUID,
-						SpaceGUID:        spaceGUID,
-						DesiredInstances: 1,
-						Command:          "",
-						DiskQuotaMB:      1024,
-						HealthCheck: repositories.HealthCheck{
-							Type: "process",
-							Data: repositories.HealthCheckData{
-								HTTPEndpoint:             "",
-								TimeoutSeconds:           0, // this isn't nullable
-								InvocationTimeoutSeconds: 0, // this isn't nullable
-							},
-						},
-						MemoryMB: 1024,
-					}))
-				})
-			})
-
-			When(`type is not "web"`, func() {
-				BeforeEach(func() {
-					processInfo.Type = "worker"
-				})
-
-				It("returns a CreateProcessMessage with defaulted values", func() {
-					message := processInfo.ToProcessCreateMessage(appGUID, spaceGUID)
-
-					Expect(message).To(Equal(repositories.CreateProcessMessage{
-						Type:             "worker",
-						AppGUID:          appGUID,
-						SpaceGUID:        spaceGUID,
-						DesiredInstances: 0,
-						Command:          "",
-						DiskQuotaMB:      1024,
-						HealthCheck: repositories.HealthCheck{
-							Type: "process",
-							Data: repositories.HealthCheckData{
-								HTTPEndpoint:             "",
-								TimeoutSeconds:           0, // this isn't nullable
-								InvocationTimeoutSeconds: 0, // this isn't nullable
-							},
-						},
-						MemoryMB: 1024,
-					}))
-				})
+				Expect(message).To(Equal(repositories.CreateProcessMessage{
+					Type:      "bob",
+					AppGUID:   appGUID,
+					SpaceGUID: spaceGUID,
+				}))
 			})
 		})
 	})

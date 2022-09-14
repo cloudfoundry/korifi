@@ -228,7 +228,7 @@ func (r *CFTaskReconciler) getWebProcess(ctx context.Context, cfApp *korifiv1alp
 	var processList korifiv1alpha1.CFProcessList
 	err := r.k8sClient.List(ctx, &processList, client.InNamespace(cfApp.Namespace), client.MatchingLabels{
 		korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
-		korifiv1alpha1.CFProcessTypeLabelKey: "web",
+		korifiv1alpha1.CFProcessTypeLabelKey: korifiv1alpha1.ProcessTypeWeb,
 	})
 	if err != nil {
 		r.logger.Error(err, "failed to list app processes")
