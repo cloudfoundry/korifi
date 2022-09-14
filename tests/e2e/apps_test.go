@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 )
@@ -503,7 +502,7 @@ var _ = Describe("Apps", func() {
 		})
 
 		JustBeforeEach(func() {
-			Eventually(func(g gomega.Gomega) {
+			Eventually(func(g Gomega) {
 				resp, err := certClient.R().
 					SetResult(&result).
 					Get("/v3/apps/" + appGUID + "/env")

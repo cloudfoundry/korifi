@@ -76,7 +76,7 @@ func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1
 	serviceEnvs := []ServiceDetails{}
 	for _, currentServiceBinding := range serviceBindings.Items {
 		// If finalizing do not append
-		if !currentServiceBinding.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !currentServiceBinding.DeletionTimestamp.IsZero() {
 			continue
 		}
 

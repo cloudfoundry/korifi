@@ -40,6 +40,7 @@ type CFServiceBindingSpec struct {
 type CFServiceBindingStatus struct {
 	// A reference to the Secret containing the credentials (same as spec.secretName).
 	// This is required to conform to the Kubernetes Service Bindings spec
+	// +optional
 	Binding v1.LocalObjectReference `json:"binding"`
 
 	// Conditions capture the current status of the CFServiceBinding
