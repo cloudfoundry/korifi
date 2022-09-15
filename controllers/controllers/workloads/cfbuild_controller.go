@@ -24,6 +24,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -49,8 +51,9 @@ type CFBuildReconciler struct {
 	EnvBuilder       EnvBuilder
 }
 
-func NewCFBuildReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig, envBuilder EnvBuilder) *CFBuildReconciler {
-	return &CFBuildReconciler{Client: k8sClient, Scheme: scheme, Log: log, ControllerConfig: controllerConfig, EnvBuilder: envBuilder}
+func NewCFBuildReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig, envBuilder EnvBuilder) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild] {
+	buildReconciler := CFBuildReconciler{Client: k8sClient, Scheme: scheme, Log: log, ControllerConfig: controllerConfig, EnvBuilder: envBuilder}
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](log, k8sClient, &buildReconciler)
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
@@ -60,33 +63,17 @@ func NewCFBuildReconciler(k8sClient client.Client, scheme *runtime.Scheme, log l
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/status,verbs=get
 
-func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfBuild := new(korifiv1alpha1.CFBuild)
-	err := r.Client.Get(ctx, req.NamespacedName, cfBuild)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "Error when fetching CFBuild")
-		}
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
+func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild) (ctrl.Result, error) {
 	cfApp := new(korifiv1alpha1.CFApp)
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
 	if err != nil {
 		r.Log.Error(err, "Error when fetching CFApp")
 		return ctrl.Result{}, err
 	}
 
-	originalCFBuild := cfBuild.DeepCopy()
 	err = controllerutil.SetOwnerReference(cfApp, cfBuild, r.Scheme)
 	if err != nil {
 		r.Log.Error(err, "unable to set owner reference on CFBuild")
-		return ctrl.Result{}, err
-	}
-
-	err = r.Client.Patch(ctx, cfBuild, client.MergeFrom(originalCFBuild))
-	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFBuild %s/%s", req.Namespace, cfBuild.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -105,7 +92,7 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if stagingStatus == metav1.ConditionUnknown {
-		err = r.createBuildWorkloadAndUpdateStatus(ctx, cfBuild, cfApp, cfPackage)
+		err = r.createBuildWorkload(ctx, cfBuild, cfApp, cfPackage)
 		return ctrl.Result{}, err
 	}
 
@@ -135,15 +122,10 @@ func (r *CFBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if err = r.Client.Status().Update(ctx, cfBuild); err != nil {
-		r.Log.Error(err, "Error when updating CFBuild status")
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 
-func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
+func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
 	namespace := cfBuild.Namespace
 	desiredWorkload := korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
@@ -194,10 +176,6 @@ func (r *CFBuildReconciler) createBuildWorkloadAndUpdateStatus(ctx context.Conte
 	}
 
 	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
-	if err := r.Client.Status().Update(ctx, cfBuild); err != nil {
-		r.Log.Error(err, "Error when updating CFBuild status")
-		return fmt.Errorf("failed updating CFBuild status: %w", err)
-	}
 
 	return nil
 }
@@ -265,8 +243,7 @@ func getConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType st
 	return metav1.ConditionUnknown
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFBuild{}).
 		Watches(
@@ -280,6 +257,5 @@ func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					},
 				})
 				return requests
-			})).
-		Complete(r)
+			}))
 }

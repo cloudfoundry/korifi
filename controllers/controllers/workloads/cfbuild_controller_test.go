@@ -10,6 +10,7 @@ import (
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,7 +54,7 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		buildWorkload      *korifiv1alpha1.BuildWorkload
 		buildWorkloadError error
-		cfBuildReconciler  *CFBuildReconciler
+		cfBuildReconciler  *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild]
 		req                ctrl.Request
 		ctx                context.Context
 
@@ -245,7 +246,7 @@ var _ = Describe("CFBuildReconciler", func() {
 
 			When("update status conditions returns an error", func() {
 				BeforeEach(func() {
-					fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
+					fakeStatusWriter.PatchReturns(errors.New("failing on purpose"))
 				})
 
 				It("should return an error", func() {
@@ -356,7 +357,7 @@ var _ = Describe("CFBuildReconciler", func() {
 
 				When("update status conditions returns an error", func() {
 					BeforeEach(func() {
-						fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
+						fakeStatusWriter.PatchReturns(errors.New("failing on purpose"))
 					})
 
 					It("returns an error", func() {
@@ -373,7 +374,7 @@ var _ = Describe("CFBuildReconciler", func() {
 
 				When("update status conditions returns an error", func() {
 					BeforeEach(func() {
-						fakeStatusWriter.UpdateReturns(errors.New("failing on purpose"))
+						fakeStatusWriter.PatchReturns(errors.New("failing on purpose"))
 					})
 
 					It("should return an error", func() {
