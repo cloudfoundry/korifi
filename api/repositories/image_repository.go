@@ -13,13 +13,11 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	registryv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/pivotal/kpack/pkg/dockercreds/k8sdockercreds"
-	kpackregistry "github.com/pivotal/kpack/pkg/registry"
 
 	authv1 "k8s.io/api/authorization/v1"
-	corev1 "k8s.io/api/core/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 )
 
@@ -127,13 +125,9 @@ func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo autho
 }
 
 func (r *ImageRepository) getCredentials(ctx context.Context) (remote.Option, error) {
-	keychainFactory, err := k8sdockercreds.NewSecretKeychainFactory(r.privilegedK8sClient)
-	if err != nil {
-		return nil, fmt.Errorf("error in k8sdockercreds.NewSecretKeychainFactory: %w", apierrors.FromK8sError(err, SourceImageResourceType))
-	}
-	keychain, err := keychainFactory.KeychainForSecretRef(ctx, kpackregistry.SecretRef{
+	keychain, err := k8schain.New(ctx, r.privilegedK8sClient, k8schain.Options{
 		Namespace:        r.rootNamespace,
-		ImagePullSecrets: []corev1.LocalObjectReference{{Name: r.registrySecretName}},
+		ImagePullSecrets: []string{r.registrySecretName},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", apierrors.FromK8sError(err, SourceImageResourceType))
