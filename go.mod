@@ -28,7 +28,7 @@ require (
 	github.com/onsi/gomega v1.20.2
 	github.com/pivotal/kpack v0.7.0
 	github.com/projectcontour/contour v1.22.1
-	github.com/vmware-tanzu/carvel-vendir v0.30.0
+	github.com/vmware-tanzu/carvel-vendir v0.31.0
 	golang.org/x/text v0.3.7
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -45,6 +45,7 @@ require (
 require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11 // indirect
 	github.com/Azure/go-autorest/autorest/azure/cli v0.4.5 // indirect
+	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.16.5 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.15.10 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.5 // indirect
@@ -60,10 +61,11 @@ require (
 	github.com/aws/smithy-go v1.11.3 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220517224237-e6f29200ae04 // indirect
 	github.com/bmatcuk/doublestar v1.2.1 // indirect
+	github.com/cheggaaa/pb/v3 v3.1.0 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08 // indirect
 	github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72 // indirect
 	github.com/cppforlife/color v1.9.1-0.20200716202919-6706ac40b835 // indirect
-	github.com/cppforlife/go-cli-ui v0.0.0-20200716203538-1e47f820817f // indirect
+	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220301182634-bfe2ffc6b6bd // indirect
@@ -71,8 +73,11 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/hashicorp/go-version v1.2.1 // indirect
 	github.com/k14s/semver/v4 v4.0.1-0.20210701191048-266d47ac6115 // indirect
+	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/otiai10/copy v1.2.0 // indirect
-	github.com/vito/go-interact v0.0.0-20171111012221-fa338ed9e9ec // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/vito/go-interact v1.0.1 // indirect
+	github.com/vmware-tanzu/carvel-imgpkg v0.32.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
 
@@ -126,7 +131,7 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -149,10 +154,10 @@ require (
 	go.uber.org/zap v1.23.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20220728211354-c7608f3a8462 // indirect
+	golang.org/x/net v0.0.0-20220906165146-f3363e06e74c // indirect
 	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
+	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035 // indirect
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9 // indirect
 	golang.org/x/tools v0.1.12 // indirect
