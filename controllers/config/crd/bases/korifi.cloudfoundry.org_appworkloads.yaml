@@ -194,8 +194,6 @@ spec:
                 type: array
               processType:
                 type: string
-              reconcilerName:
-                type: string
               resources:
                 description: ResourceRequirements describes the compute resource requirements.
                 properties:
@@ -222,6 +220,8 @@ spec:
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                 type: object
+              runnerName:
+                type: string
               version:
                 type: string
             required:
@@ -232,7 +232,7 @@ spec:
             - imagePullSecrets
             - instances
             - processType
-            - reconcilerName
+            - runnerName
             - version
             type: object
           status:

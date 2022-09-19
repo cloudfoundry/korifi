@@ -42,9 +42,9 @@ func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 				Endpoint:  "/healthz",
 				TimeoutMs: uint(60000),
 			},
-			Ports:          []int32{8888, 9999},
-			Instances:      1,
-			ReconcilerName: "statefulset-runner",
+			Ports:      []int32{8888, 9999},
+			Instances:  1,
+			RunnerName: "statefulset-runner",
 			Resources: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceEphemeralStorage: resource.MustParse("2048Mi"),

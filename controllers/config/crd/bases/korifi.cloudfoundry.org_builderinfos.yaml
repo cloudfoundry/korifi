@@ -5,21 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
-  name: buildreconcilerinfos.korifi.cloudfoundry.org
+  name: builderinfos.korifi.cloudfoundry.org
 spec:
   group: korifi.cloudfoundry.org
   names:
-    kind: BuildReconcilerInfo
-    listKind: BuildReconcilerInfoList
-    plural: buildreconcilerinfos
-    singular: buildreconcilerinfo
+    kind: BuilderInfo
+    listKind: BuilderInfoList
+    plural: builderinfos
+    singular: builderinfo
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: BuildReconcilerInfo is the Schema for the buildreconcilerinfos
-          API
+        description: BuilderInfo is the Schema for the builderinfos API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -34,10 +33,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: BuildReconcilerInfoSpec defines the desired state of BuildReconcilerInfo
+            description: BuilderInfoSpec defines the desired state of BuilderInfo
             type: object
           status:
-            description: BuildReconcilerInfoStatus defines the observed state of BuildReconcilerInfo
+            description: BuilderInfoStatus defines the observed state of BuilderInfo
             properties:
               buildpacks:
                 items:

@@ -48,7 +48,7 @@ var _ = Describe("AppWorkloadsController", func() {
 				Health:           korifiv1alpha1.Healthcheck{},
 				Ports:            []int32{8080},
 				Instances:        5,
-				ReconcilerName:   "statefulset-runner",
+				RunnerName:       "statefulset-runner",
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceEphemeralStorage: resource.MustParse("100Mi"),

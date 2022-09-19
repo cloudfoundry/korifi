@@ -38,12 +38,12 @@ import (
 )
 
 const (
-	BuildReconcilerInfoName = "kpack-image-builder"
-	ReadyConditionType      = "Ready"
+	BuilderInfoName    = "kpack-image-builder"
+	ReadyConditionType = "Ready"
 )
 
-func NewBuildReconcilerInfoReconciler(c client.Client, scheme *runtime.Scheme, log logr.Logger, clusterBuilderName, rootNamespaceName string) *BuildReconcilerInfoReconciler {
-	return &BuildReconcilerInfoReconciler{
+func NewBuilderInfoReconciler(c client.Client, scheme *runtime.Scheme, log logr.Logger, clusterBuilderName, rootNamespaceName string) *BuilderInfoReconciler {
+	return &BuilderInfoReconciler{
 		Client:             c,
 		Scheme:             scheme,
 		Log:                log,
@@ -52,8 +52,8 @@ func NewBuildReconcilerInfoReconciler(c client.Client, scheme *runtime.Scheme, l
 	}
 }
 
-// BuildReconcilerInfoReconciler reconciles a BuildReconcilerInfo object
-type BuildReconcilerInfoReconciler struct {
+// BuilderInfoReconciler reconciles a BuilderInfo object
+type BuilderInfoReconciler struct {
 	client.Client
 	Scheme             *runtime.Scheme
 	Log                logr.Logger
@@ -61,9 +61,9 @@ type BuildReconcilerInfoReconciler struct {
 	RootNamespaceName  string
 }
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
@@ -71,22 +71,22 @@ type BuildReconcilerInfoReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the BuildReconcilerInfo object against the actual cluster state, and then
+// the BuilderInfo object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if req.Name != BuildReconcilerInfoName || req.Namespace != r.RootNamespaceName {
+func (r *BuilderInfoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if req.Name != BuilderInfoName || req.Namespace != r.RootNamespaceName {
 		return ctrl.Result{}, nil
 	}
 
-	info := new(v1alpha1.BuildReconcilerInfo)
+	info := new(v1alpha1.BuilderInfo)
 	err := r.Client.Get(ctx, req.NamespacedName, info)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "Error when fetching BuildReconcilerInfo")
+			r.Log.Error(err, "Error when fetching BuilderInfo")
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -96,8 +96,8 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err != nil {
 		r.Log.Error(err, "Error when fetching ClusterBuilder")
 
-		info.Status.Stacks = []v1alpha1.BuildReconcilerInfoStatusStack{}
-		info.Status.Buildpacks = []v1alpha1.BuildReconcilerInfoStatusBuildpack{}
+		info.Status.Stacks = []v1alpha1.BuilderInfoStatusStack{}
+		info.Status.Buildpacks = []v1alpha1.BuilderInfoStatusBuildpack{}
 		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
 			Type:    ReadyConditionType,
 			Status:  metav1.ConditionFalse,
@@ -106,7 +106,7 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 		})
 		err = r.Client.Status().Update(ctx, info)
 		if err != nil {
-			r.Log.Error(err, "Error when updating BuildReconcilerInfo.status for failure")
+			r.Log.Error(err, "Error when updating BuilderInfo.status for failure")
 		}
 		return ctrl.Result{}, err
 	}
@@ -122,19 +122,19 @@ func (r *BuildReconcilerInfoReconciler) Reconcile(ctx context.Context, req ctrl.
 	})
 	err = r.Client.Status().Update(ctx, info)
 	if err != nil {
-		r.Log.Error(err, "Error when updating BuildReconcilerInfo.status for success")
+		r.Log.Error(err, "Error when updating BuilderInfo.status for success")
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func clusterBuilderToStacks(clusterBuilder *buildv1alpha2.ClusterBuilder, updatedTimestamp metav1.Time) []v1alpha1.BuildReconcilerInfoStatusStack {
+func clusterBuilderToStacks(clusterBuilder *buildv1alpha2.ClusterBuilder, updatedTimestamp metav1.Time) []v1alpha1.BuilderInfoStatusStack {
 	if clusterBuilder.Status.Stack.ID == "" {
-		return []v1alpha1.BuildReconcilerInfoStatusStack{}
+		return []v1alpha1.BuilderInfoStatusStack{}
 	}
 
-	return []v1alpha1.BuildReconcilerInfoStatusStack{
+	return []v1alpha1.BuilderInfoStatusStack{
 		{
 			Name:              clusterBuilder.Status.Stack.ID,
 			Description:       "",
@@ -144,10 +144,10 @@ func clusterBuilderToStacks(clusterBuilder *buildv1alpha2.ClusterBuilder, update
 	}
 }
 
-func clusterBuilderToBuildpacks(builder *buildv1alpha2.ClusterBuilder, updatedTimestamp metav1.Time) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
-	buildpackRecords := make([]v1alpha1.BuildReconcilerInfoStatusBuildpack, 0, len(builder.Status.Order))
+func clusterBuilderToBuildpacks(builder *buildv1alpha2.ClusterBuilder, updatedTimestamp metav1.Time) []v1alpha1.BuilderInfoStatusBuildpack {
+	buildpackRecords := make([]v1alpha1.BuilderInfoStatusBuildpack, 0, len(builder.Status.Order))
 	for _, orderEntry := range builder.Status.Order {
-		buildpackRecords = append(buildpackRecords, v1alpha1.BuildReconcilerInfoStatusBuildpack{
+		buildpackRecords = append(buildpackRecords, v1alpha1.BuilderInfoStatusBuildpack{
 			Name:              orderEntry.Group[0].Id,
 			Stack:             builder.Status.Stack.ID,
 			Version:           orderEntry.Group[0].Version,
@@ -170,9 +170,9 @@ func lastUpdatedTime(metadata metav1.ObjectMeta) metav1.Time {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BuildReconcilerInfoReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BuilderInfoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.BuildReconcilerInfo{}).
+		For(&v1alpha1.BuilderInfo{}).
 		Watches(
 			&source.Kind{Type: new(buildv1alpha2.ClusterBuilder)},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
@@ -180,7 +180,7 @@ func (r *BuildReconcilerInfoReconciler) SetupWithManager(mgr ctrl.Manager) error
 				if obj.GetName() == r.ClusterBuilderName {
 					requests = append(requests, reconcile.Request{
 						NamespacedName: types.NamespacedName{
-							Name:      BuildReconcilerInfoName,
+							Name:      BuilderInfoName,
 							Namespace: r.RootNamespaceName,
 						},
 					})

@@ -151,7 +151,7 @@ rules:
 - apiGroups:
     - korifi.cloudfoundry.org
   resources:
-    - buildreconcilerinfos
+    - builderinfos
   verbs:
     - get
     - list

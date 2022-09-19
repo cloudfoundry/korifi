@@ -14,7 +14,7 @@ resources:
 - bases/korifi.cloudfoundry.org_cfspaces.yaml
 - bases/korifi.cloudfoundry.org_buildworkloads.yaml
 - bases/korifi.cloudfoundry.org_cftasks.yaml
-- bases/korifi.cloudfoundry.org_buildreconcilerinfos.yaml
+- bases/korifi.cloudfoundry.org_builderinfos.yaml
 - bases/korifi.cloudfoundry.org_appworkloads.yaml
 - bases/korifi.cloudfoundry.org_taskworkloads.yaml
 #+kubebuilder:scaffold:crdkustomizeresource

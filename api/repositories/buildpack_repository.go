@@ -43,7 +43,7 @@ func NewBuildpackRepository(buildReconciler string, userClientFactory authorizat
 }
 
 func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo authorization.Info) ([]BuildpackRecord, error) {
-	var buildReconcilerInfo v1alpha1.BuildReconcilerInfo
+	var builderInfo v1alpha1.BuilderInfo
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -56,19 +56,19 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 			Namespace: r.rootNamespace,
 			Name:      r.buildReconciler,
 		},
-		&buildReconcilerInfo,
+		&builderInfo,
 	)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("no BuildReconcilerInfo %q resource found in %q namespace", r.buildReconciler, r.rootNamespace)
+			return nil, fmt.Errorf("no BuilderInfo %q resource found in %q namespace", r.buildReconciler, r.rootNamespace)
 		}
 		return nil, apierrors.FromK8sError(err, BuildpackResourceType)
 	}
 
-	return buildReconcilerInfoToBuildpackRecords(buildReconcilerInfo), nil
+	return builderInfoToBuildpackRecords(builderInfo), nil
 }
 
-func buildReconcilerInfoToBuildpackRecords(info v1alpha1.BuildReconcilerInfo) []BuildpackRecord {
+func builderInfoToBuildpackRecords(info v1alpha1.BuilderInfo) []BuildpackRecord {
 	buildpackRecords := make([]BuildpackRecord, 0, len(info.Status.Buildpacks))
 
 	for i, b := range info.Status.Buildpacks {

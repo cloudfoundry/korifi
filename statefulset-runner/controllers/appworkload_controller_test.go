@@ -394,7 +394,7 @@ var _ = Describe("AppWorkload Reconcile", func() {
 
 		When("reconciler name on the AppWorkload is not statefulset-runner", func() {
 			BeforeEach(func() {
-				appWorkload.Spec.ReconcilerName = "MyCustomReconciler"
+				appWorkload.Spec.RunnerName = "MyCustomReconciler"
 			})
 
 			It("does not create/patch statefulset", func() {
@@ -434,10 +434,10 @@ var _ = Describe("AppWorkload Reconcile", func() {
 					Namespace: testNamespace,
 				},
 				Spec: korifiv1alpha1.AppWorkloadSpec{
-					GUID:           "test-sts",
-					Version:        "1",
-					Instances:      2,
-					ReconcilerName: "statefulset-runner",
+					GUID:       "test-sts",
+					Version:    "1",
+					Instances:  2,
+					RunnerName: "statefulset-runner",
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
 							corev1.ResourceEphemeralStorage: resource.MustParse("10Mi"),

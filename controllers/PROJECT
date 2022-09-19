@@ -124,9 +124,9 @@ resources:
     namespaced: true
   controller: true
   domain: cloudfoundry.org
-  group: korifi.cloudfoundry.org
-  kind: BuildReconcilerInfo
-  path: code.cloudfoundry.org/korifi/controllers/apis/korifi.cloudfoundry.org/v1alpha1
-  plural: buildreconcilerinfos
+  group: korifi
+  kind: BuilderInfo
+  path: code.cloudfoundry.org/korifi/controllers/api/v1alpha1
+  plural: builderinfos
   version: v1alpha1
 version: "3"

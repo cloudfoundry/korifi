@@ -14,8 +14,8 @@ type ControllerConfig struct {
 	TaskTTL                     string            `yaml:"taskTTL"`
 	WorkloadsTLSSecretName      string            `yaml:"workloads_tls_secret_name"`
 	WorkloadsTLSSecretNamespace string            `yaml:"workloads_tls_secret_namespace"`
-	BuildReconciler             string            `yaml:"buildReconciler"`
-	AppReconciler               string            `yaml:"appReconciler"`
+	BuilderName                 string            `yaml:"builderName"`
+	RunnerName                  string            `yaml:"runnerName"`
 }
 
 type CFProcessDefaults struct {

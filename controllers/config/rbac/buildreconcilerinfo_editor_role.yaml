@@ -1,13 +1,13 @@
-# permissions for end users to edit buildreconcilerinfos.
+# permissions for end users to edit builderinfos.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: buildreconcilerinfo-editor-role
+  name: builderinfo-editor-role
 rules:
 - apiGroups:
   - korifi.cloudfoundry.org.cloudfoundry.org
   resources:
-  - buildreconcilerinfos
+  - builderinfos
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org.cloudfoundry.org
   resources:
-  - buildreconcilerinfos/status
+  - builderinfos/status
   verbs:
   - get

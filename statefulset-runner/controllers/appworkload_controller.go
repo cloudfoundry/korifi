@@ -114,7 +114,7 @@ func (r *AppWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if appWorkload.Spec.ReconcilerName != AppWorkloadReconcilerName {
+	if appWorkload.Spec.RunnerName != AppWorkloadReconcilerName {
 		return ctrl.Result{}, nil
 	}
 

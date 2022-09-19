@@ -36,8 +36,8 @@ var _ = Describe("LoadFromPath", func() {
 			TaskTTL:                     "taskTTL",
 			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
 			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
-			BuildReconciler:             "buildReconciler",
-			AppReconciler:               "statefulset-runner",
+			BuilderName:                 "buildReconciler",
+			RunnerName:                  "statefulset-runner",
 		}
 		configYAML, err := yaml.Marshal(config)
 		Expect(err).NotTo(HaveOccurred())
@@ -65,8 +65,8 @@ var _ = Describe("LoadFromPath", func() {
 			TaskTTL:                     "taskTTL",
 			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
 			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
-			BuildReconciler:             "buildReconciler",
-			AppReconciler:               "statefulset-runner",
+			BuilderName:                 "buildReconciler",
+			RunnerName:                  "statefulset-runner",
 		}))
 	})
 })

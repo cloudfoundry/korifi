@@ -38,7 +38,7 @@ type BuildWorkloadSpec struct {
 
 	Services []v1.ObjectReference `json:"services,omitempty"`
 
-	ReconcilerName string `json:"reconcilerName"`
+	BuilderName string `json:"builderName"`
 }
 
 // BuildWorkloadStatus defines the observed state of BuildWorkload
