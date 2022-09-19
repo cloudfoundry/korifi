@@ -270,7 +270,8 @@ func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceA
 		},
 		Secrets: []corev1.ObjectReference{
 			{Name: serviceAccountName + "-token-someguid"},
-			{Name: "a-secret-i-like"},
+			{Name: serviceAccountName + "-dockercfg-someguid"},
+			{Name: packageRegistrySecretName},
 		},
 	}
 	Expect(k8sClient.Create(ctx, &serviceAccount)).To(Succeed())
