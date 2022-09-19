@@ -160,7 +160,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 							"Name": Equal(serviceAccount.Name),
 						}),
-						"Secrets": ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal("a-secret-i-like")})),
+						"Secrets": ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)})),
 					}),
 				))
 			}).Should(Succeed())
