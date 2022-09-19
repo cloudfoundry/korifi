@@ -3,17 +3,18 @@ package actions
 import (
 	"context"
 
+	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 type ProcessStats struct {
-	processRepo CFProcessRepository
-	podRepo     PodRepository
-	appRepo     CFAppRepository
+	processRepo shared.CFProcessRepository
+	podRepo     shared.PodRepository
+	appRepo     shared.CFAppRepository
 }
 
-func NewProcessStats(processRepo CFProcessRepository, podRepo PodRepository, appRepo CFAppRepository) *ProcessStats {
+func NewProcessStats(processRepo shared.CFProcessRepository, podRepo shared.PodRepository, appRepo shared.CFAppRepository) *ProcessStats {
 	return &ProcessStats{
 		processRepo,
 		podRepo,

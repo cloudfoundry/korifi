@@ -1,4 +1,4 @@
-package actions
+package shared
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 )
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
 
 type CFProcessRepository interface {
@@ -16,7 +15,6 @@ type CFProcessRepository interface {
 	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) ([]repositories.ProcessRecord, error)
 	ScaleProcess(context.Context, authorization.Info, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
 	CreateProcess(context.Context, authorization.Info, repositories.CreateProcessMessage) error
-	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
 	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 }
 
@@ -55,5 +53,5 @@ type CFRouteRepository interface {
 	GetOrCreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
-	DeleteRoute(ctx context.Context, authInfo authorization.Info, message repositories.DeleteRouteMessage) error
+	RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error)
 }
