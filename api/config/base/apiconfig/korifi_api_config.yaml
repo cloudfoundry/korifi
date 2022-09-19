@@ -1,5 +1,9 @@
 externalFQDN: "api.example.org"
 internalPort: 9000
+idleTimeout: 900
+readTimeout: 900
+readHeaderTimeout: 10
+writeTimeout: 900
 
 rootNamespace: cf
 buildReconciler: kpack-image-builder
