@@ -6,7 +6,7 @@ import (
 	"time"
 
 	. "code.cloudfoundry.org/korifi/api/actions"
-	"code.cloudfoundry.org/korifi/api/actions/fake"
+	"code.cloudfoundry.org/korifi/api/actions/shared/fake"
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"

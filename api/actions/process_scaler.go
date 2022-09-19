@@ -3,17 +3,18 @@ package actions
 import (
 	"context"
 
+	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 type ProcessScaler struct {
-	appRepo     CFAppRepository
-	processRepo CFProcessRepository
+	appRepo     shared.CFAppRepository
+	processRepo shared.CFProcessRepository
 }
 
-func NewProcessScaler(appRepo CFAppRepository, processRepo CFProcessRepository) *ProcessScaler {
+func NewProcessScaler(appRepo shared.CFAppRepository, processRepo shared.CFProcessRepository) *ProcessScaler {
 	return &ProcessScaler{
 		appRepo:     appRepo,
 		processRepo: processRepo,

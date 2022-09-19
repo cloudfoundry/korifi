@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/api/actions"
+	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -207,4 +207,4 @@ func (fake *CFBuildRepository) recordInvocation(key string, args []interface{}) 
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ actions.CFBuildRepository = new(CFBuildRepository)
+var _ shared.CFBuildRepository = new(CFBuildRepository)

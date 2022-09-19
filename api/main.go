@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/actions"
+	"code.cloudfoundry.org/korifi/api/actions/manifest"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/handlers"
@@ -145,11 +146,11 @@ func main() {
 	processScaler := actions.NewProcessScaler(appRepo, processRepo)
 	processStats := actions.NewProcessStats(processRepo, podRepo, appRepo)
 	manifest := actions.NewManifest(
-		appRepo,
 		domainRepo,
-		processRepo,
-		routeRepo,
 		config.DefaultDomainName,
+		manifest.NewStateCollector(appRepo, domainRepo, processRepo, routeRepo),
+		manifest.NewNormalizer(config.DefaultDomainName),
+		manifest.NewApplier(appRepo, domainRepo, processRepo, routeRepo),
 	)
 	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 
