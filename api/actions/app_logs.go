@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 
+	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -14,12 +15,12 @@ import (
 )
 
 type AppLogs struct {
-	appRepo   CFAppRepository
-	buildRepo CFBuildRepository
-	podRepo   PodRepository
+	appRepo   shared.CFAppRepository
+	buildRepo shared.CFBuildRepository
+	podRepo   shared.PodRepository
 }
 
-func NewAppLogs(appRepo CFAppRepository, buildRepo CFBuildRepository, podRepo PodRepository) *AppLogs {
+func NewAppLogs(appRepo shared.CFAppRepository, buildRepo shared.CFBuildRepository, podRepo shared.PodRepository) *AppLogs {
 	return &AppLogs{
 		appRepo:   appRepo,
 		buildRepo: buildRepo,

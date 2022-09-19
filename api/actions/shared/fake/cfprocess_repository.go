@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/api/actions"
+	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -36,23 +36,6 @@ type CFProcessRepository struct {
 		result2 error
 	}
 	getProcessReturnsOnCall map[int]struct {
-		result1 repositories.ProcessRecord
-		result2 error
-	}
-	GetProcessByAppTypeAndSpaceStub        func(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
-	getProcessByAppTypeAndSpaceMutex       sync.RWMutex
-	getProcessByAppTypeAndSpaceArgsForCall []struct {
-		arg1 context.Context
-		arg2 authorization.Info
-		arg3 string
-		arg4 string
-		arg5 string
-	}
-	getProcessByAppTypeAndSpaceReturns struct {
-		result1 repositories.ProcessRecord
-		result2 error
-	}
-	getProcessByAppTypeAndSpaceReturnsOnCall map[int]struct {
 		result1 repositories.ProcessRecord
 		result2 error
 	}
@@ -229,74 +212,6 @@ func (fake *CFProcessRepository) GetProcessReturnsOnCall(i int, result1 reposito
 		})
 	}
 	fake.getProcessReturnsOnCall[i] = struct {
-		result1 repositories.ProcessRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFProcessRepository) GetProcessByAppTypeAndSpace(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string, arg5 string) (repositories.ProcessRecord, error) {
-	fake.getProcessByAppTypeAndSpaceMutex.Lock()
-	ret, specificReturn := fake.getProcessByAppTypeAndSpaceReturnsOnCall[len(fake.getProcessByAppTypeAndSpaceArgsForCall)]
-	fake.getProcessByAppTypeAndSpaceArgsForCall = append(fake.getProcessByAppTypeAndSpaceArgsForCall, struct {
-		arg1 context.Context
-		arg2 authorization.Info
-		arg3 string
-		arg4 string
-		arg5 string
-	}{arg1, arg2, arg3, arg4, arg5})
-	stub := fake.GetProcessByAppTypeAndSpaceStub
-	fakeReturns := fake.getProcessByAppTypeAndSpaceReturns
-	fake.recordInvocation("GetProcessByAppTypeAndSpace", []interface{}{arg1, arg2, arg3, arg4, arg5})
-	fake.getProcessByAppTypeAndSpaceMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFProcessRepository) GetProcessByAppTypeAndSpaceCallCount() int {
-	fake.getProcessByAppTypeAndSpaceMutex.RLock()
-	defer fake.getProcessByAppTypeAndSpaceMutex.RUnlock()
-	return len(fake.getProcessByAppTypeAndSpaceArgsForCall)
-}
-
-func (fake *CFProcessRepository) GetProcessByAppTypeAndSpaceCalls(stub func(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)) {
-	fake.getProcessByAppTypeAndSpaceMutex.Lock()
-	defer fake.getProcessByAppTypeAndSpaceMutex.Unlock()
-	fake.GetProcessByAppTypeAndSpaceStub = stub
-}
-
-func (fake *CFProcessRepository) GetProcessByAppTypeAndSpaceArgsForCall(i int) (context.Context, authorization.Info, string, string, string) {
-	fake.getProcessByAppTypeAndSpaceMutex.RLock()
-	defer fake.getProcessByAppTypeAndSpaceMutex.RUnlock()
-	argsForCall := fake.getProcessByAppTypeAndSpaceArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
-}
-
-func (fake *CFProcessRepository) GetProcessByAppTypeAndSpaceReturns(result1 repositories.ProcessRecord, result2 error) {
-	fake.getProcessByAppTypeAndSpaceMutex.Lock()
-	defer fake.getProcessByAppTypeAndSpaceMutex.Unlock()
-	fake.GetProcessByAppTypeAndSpaceStub = nil
-	fake.getProcessByAppTypeAndSpaceReturns = struct {
-		result1 repositories.ProcessRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFProcessRepository) GetProcessByAppTypeAndSpaceReturnsOnCall(i int, result1 repositories.ProcessRecord, result2 error) {
-	fake.getProcessByAppTypeAndSpaceMutex.Lock()
-	defer fake.getProcessByAppTypeAndSpaceMutex.Unlock()
-	fake.GetProcessByAppTypeAndSpaceStub = nil
-	if fake.getProcessByAppTypeAndSpaceReturnsOnCall == nil {
-		fake.getProcessByAppTypeAndSpaceReturnsOnCall = make(map[int]struct {
-			result1 repositories.ProcessRecord
-			result2 error
-		})
-	}
-	fake.getProcessByAppTypeAndSpaceReturnsOnCall[i] = struct {
 		result1 repositories.ProcessRecord
 		result2 error
 	}{result1, result2}
@@ -507,8 +422,6 @@ func (fake *CFProcessRepository) Invocations() map[string][][]interface{} {
 	defer fake.createProcessMutex.RUnlock()
 	fake.getProcessMutex.RLock()
 	defer fake.getProcessMutex.RUnlock()
-	fake.getProcessByAppTypeAndSpaceMutex.RLock()
-	defer fake.getProcessByAppTypeAndSpaceMutex.RUnlock()
 	fake.listProcessesMutex.RLock()
 	defer fake.listProcessesMutex.RUnlock()
 	fake.patchProcessMutex.RLock()
@@ -534,4 +447,4 @@ func (fake *CFProcessRepository) recordInvocation(key string, args []interface{}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ actions.CFProcessRepository = new(CFProcessRepository)
+var _ shared.CFProcessRepository = new(CFProcessRepository)
