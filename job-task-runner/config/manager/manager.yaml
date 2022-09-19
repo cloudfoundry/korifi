@@ -23,6 +23,9 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
       labels:
         control-plane: controller-manager
     spec:
@@ -54,8 +57,10 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
-        # TODO(user): Configure the resources accordingly based on the project requirements.
-        # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        ports:
+          - containerPort: 8080
+            name: metrics
+            protocol: TCP
         resources:
           limits:
             cpu: 500m
