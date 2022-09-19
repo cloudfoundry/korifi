@@ -454,10 +454,10 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			It("sets the CFBuild status condition Succeeded = False", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				createdCFBuild := new(korifiv1alpha1.CFBuild)
-				Eventually(func(g Gomega) metav1.ConditionStatus {
+				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
-					return meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType).Status
-				}).Should(Equal(metav1.ConditionFalse))
+					g.Expect(meta.IsStatusConditionFalse(createdCFBuild.Status.Conditions, succeededConditionType)).To(BeTrue())
+				}).Should(Succeed())
 			})
 		})
 
