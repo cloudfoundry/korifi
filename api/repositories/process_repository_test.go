@@ -303,6 +303,21 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(updatedCFProcess.Spec.MemoryMB).To(Equal(memoryScaleMB))
 			})
 
+			When("scaling down a process to 0 instances", func() {
+				It("works", func() {
+					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{Instances: pointerTo(0)}
+					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), authInfo, *scaleProcessMessage)
+					Expect(scaleProcessErr).ToNot(HaveOccurred())
+
+					Expect(scaleProcessRecord.DesiredInstances).To(Equal(0))
+
+					var updatedCFProcess korifiv1alpha1.CFProcess
+					Expect(k8sClient.Get(ctx, client.ObjectKey{Name: process1GUID, Namespace: space1.Name}, &updatedCFProcess)).To(Succeed())
+
+					Expect(updatedCFProcess.Spec.DesiredInstances).To(PointTo(Equal(0)))
+				})
+			})
+
 			When("the process does not exist", func() {
 				It("returns an error", func() {
 					scaleProcessMessage.GUID = "i-dont-exist"
