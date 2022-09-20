@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -219,7 +220,7 @@ func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID st
 					TimeoutSeconds:           0,
 				},
 			},
-			DesiredInstances: 0,
+			DesiredInstances: tools.PtrTo(0),
 			MemoryMB:         1024,
 			DiskQuotaMB:      100,
 			Ports:            []int32{8080},

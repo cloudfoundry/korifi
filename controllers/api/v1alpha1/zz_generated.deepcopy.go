@@ -994,6 +994,11 @@ func (in *CFProcessSpec) DeepCopyInto(out *CFProcessSpec) {
 	*out = *in
 	out.AppRef = in.AppRef
 	out.HealthCheck = in.HealthCheck
+	if in.DesiredInstances != nil {
+		in, out := &in.DesiredInstances, &out.DesiredInstances
+		*out = new(int)
+		**out = **in
+	}
 	if in.Ports != nil {
 		in, out := &in.Ports, &out.Ports
 		*out = make([]int32, len(*in))

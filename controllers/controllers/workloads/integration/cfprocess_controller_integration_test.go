@@ -158,7 +158,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.Spec.ProcessType).To(Equal(processTypeWeb))
 				g.Expect(appWorkload.Spec.AppGUID).To(Equal(cfApp.Name))
 				g.Expect(appWorkload.Spec.Ports).To(Equal(cfProcess.Spec.Ports))
-				g.Expect(appWorkload.Spec.Instances).To(Equal(int32(cfProcess.Spec.DesiredInstances)))
+				g.Expect(appWorkload.Spec.Instances).To(Equal(int32(*cfProcess.Spec.DesiredInstances)))
 
 				g.Expect(appWorkload.Spec.Resources.Limits.StorageEphemeral()).To(matchers.RepresentResourceQuantity(cfProcess.Spec.DiskQuotaMB, "Mi"))
 				g.Expect(appWorkload.Spec.Resources.Limits.Memory()).To(matchers.RepresentResourceQuantity(cfProcess.Spec.MemoryMB, "Mi"))

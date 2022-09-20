@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,7 +73,7 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(processRecord.AppGUID).To(Equal(app1GUID))
 				Expect(processRecord.Type).To(Equal(cfProcess1.Spec.ProcessType))
 				Expect(processRecord.Command).To(Equal(cfProcess1.Spec.Command))
-				Expect(processRecord.DesiredInstances).To(Equal(cfProcess1.Spec.DesiredInstances))
+				Expect(processRecord.DesiredInstances).To(Equal(*cfProcess1.Spec.DesiredInstances))
 				Expect(processRecord.MemoryMB).To(Equal(cfProcess1.Spec.MemoryMB))
 				Expect(processRecord.DiskQuotaMB).To(Equal(cfProcess1.Spec.DiskQuotaMB))
 				Expect(processRecord.Ports).To(Equal(cfProcess1.Spec.Ports))
@@ -261,7 +262,7 @@ var _ = Describe("ProcessRepo", func() {
 					if instances != nil {
 						Expect(scaleProcessRecord.DesiredInstances).To(Equal(*instances))
 					} else {
-						Expect(scaleProcessRecord.DesiredInstances).To(Equal(cfProcess.Spec.DesiredInstances))
+						Expect(scaleProcessRecord.DesiredInstances).To(Equal(*cfProcess.Spec.DesiredInstances))
 					}
 					if diskMB != nil {
 						Expect(scaleProcessRecord.DiskQuotaMB).To(Equal(*diskMB))
@@ -297,7 +298,7 @@ var _ = Describe("ProcessRepo", func() {
 					&updatedCFProcess,
 				)).To(Succeed())
 
-				Expect(updatedCFProcess.Spec.DesiredInstances).To(Equal(instanceScale))
+				Expect(updatedCFProcess.Spec.DesiredInstances).To(gstruct.PointTo(Equal(instanceScale)))
 				Expect(updatedCFProcess.Spec.DiskQuotaMB).To(Equal(diskScaleMB))
 				Expect(updatedCFProcess.Spec.MemoryMB).To(Equal(memoryScaleMB))
 			})
@@ -360,7 +361,7 @@ var _ = Describe("ProcessRepo", func() {
 							TimeoutSeconds:           10,
 						},
 					},
-					DesiredInstances: 42,
+					DesiredInstances: tools.PtrTo(42),
 					MemoryMB:         456,
 					DiskQuotaMB:      123,
 					Ports:            []int32{},
@@ -468,7 +469,7 @@ var _ = Describe("ProcessRepo", func() {
 								TimeoutSeconds:           2,
 							},
 						},
-						DesiredInstances: 1,
+						DesiredInstances: tools.PtrTo(1),
 						MemoryMB:         2,
 						DiskQuotaMB:      3,
 						Ports:            []int32{8080},
@@ -549,7 +550,7 @@ var _ = Describe("ProcessRepo", func() {
 									TimeoutSeconds:           10,
 								},
 							},
-							DesiredInstances: 42,
+							DesiredInstances: tools.PtrTo(42),
 							MemoryMB:         456,
 							DiskQuotaMB:      123,
 							Ports:            []int32{8080},
@@ -597,7 +598,7 @@ var _ = Describe("ProcessRepo", func() {
 									TimeoutSeconds:           42,
 								},
 							},
-							DesiredInstances: 5,
+							DesiredInstances: tools.PtrTo(5),
 							MemoryMB:         123,
 							DiskQuotaMB:      3,
 							Ports:            []int32{8080},

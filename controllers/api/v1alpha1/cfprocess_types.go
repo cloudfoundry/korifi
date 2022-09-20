@@ -43,7 +43,7 @@ type CFProcessSpec struct {
 	HealthCheck HealthCheck `json:"healthCheck"`
 
 	// Specifies the desired number of Process replicas to deploy
-	DesiredInstances int `json:"desiredInstances"`
+	DesiredInstances *int `json:"desiredInstances,omitempty"`
 
 	// Specifies the Process memory limit in MiB
 	MemoryMB int64 `json:"memoryMB"`

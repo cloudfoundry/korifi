@@ -236,7 +236,9 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	desiredAppWorkload.Spec.Image = cfBuild.Status.Droplet.Registry.Image
 	desiredAppWorkload.Spec.ImagePullSecrets = cfBuild.Status.Droplet.Registry.ImagePullSecrets
 	desiredAppWorkload.Spec.Ports = cfProcess.Spec.Ports
-	desiredAppWorkload.Spec.Instances = int32(cfProcess.Spec.DesiredInstances)
+	if cfProcess.Spec.DesiredInstances != nil {
+		desiredAppWorkload.Spec.Instances = int32(*cfProcess.Spec.DesiredInstances)
+	}
 
 	desiredAppWorkload.Spec.Env = generateEnvVars(appPort, envVars)
 	desiredAppWorkload.Spec.Health = korifiv1alpha1.Healthcheck{

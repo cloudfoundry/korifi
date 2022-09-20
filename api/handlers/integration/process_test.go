@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -71,7 +72,7 @@ var _ = Describe("Process", func() {
 							TimeoutSeconds:           0,
 						},
 					},
-					DesiredInstances: 1,
+					DesiredInstances: tools.PtrTo(1),
 					MemoryMB:         500,
 					DiskQuotaMB:      512,
 					Ports:            []int32{8080},
