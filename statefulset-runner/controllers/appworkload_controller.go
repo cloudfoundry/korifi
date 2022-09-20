@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -269,8 +268,8 @@ func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) 
 		ports = append(ports, corev1.ContainerPort{ContainerPort: port})
 	}
 
-	livenessProbe := CreateLivenessProbe(appWorkload)
-	readinessProbe := CreateReadinessProbe(appWorkload)
+	livenessProbe := appWorkload.Spec.LivenessProbe
+	readinessProbe := appWorkload.Spec.ReadinessProbe
 
 	containers := []corev1.Container{
 		{
@@ -392,69 +391,6 @@ func StatefulSetLabelSelector(appWorkload *korifiv1alpha1.AppWorkload) *metav1.L
 			LabelVersion: appWorkload.Spec.Version,
 		},
 	}
-}
-
-func CreateLivenessProbe(appWorkload korifiv1alpha1.AppWorkload) *corev1.Probe {
-	initialDelay := toSeconds(appWorkload.Spec.Health.TimeoutMs)
-
-	if appWorkload.Spec.Health.Type == "http" {
-		return createHTTPProbe(appWorkload, initialDelay, LivenessFailureThreshold)
-	}
-
-	if appWorkload.Spec.Health.Type == "port" {
-		return createPortProbe(appWorkload, initialDelay, LivenessFailureThreshold)
-	}
-
-	return nil
-}
-
-func CreateReadinessProbe(appWorkload korifiv1alpha1.AppWorkload) *corev1.Probe {
-	if appWorkload.Spec.Health.Type == "http" {
-		return createHTTPProbe(appWorkload, 0, ReadinessFailureThreshold)
-	}
-
-	if appWorkload.Spec.Health.Type == "port" {
-		return createPortProbe(appWorkload, 0, ReadinessFailureThreshold)
-	}
-
-	return nil
-}
-
-func createPortProbe(appWorkload korifiv1alpha1.AppWorkload, initialDelay, failureThreshold int32) *corev1.Probe {
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			TCPSocket: tcpSocketAction(appWorkload),
-		},
-		InitialDelaySeconds: initialDelay,
-		FailureThreshold:    failureThreshold,
-	}
-}
-
-func createHTTPProbe(appWorkload korifiv1alpha1.AppWorkload, initialDelay, failureThreshold int32) *corev1.Probe {
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: httpGetAction(appWorkload),
-		},
-		InitialDelaySeconds: initialDelay,
-		FailureThreshold:    failureThreshold,
-	}
-}
-
-func httpGetAction(appWorkload korifiv1alpha1.AppWorkload) *corev1.HTTPGetAction {
-	return &corev1.HTTPGetAction{
-		Path: appWorkload.Spec.Health.Endpoint,
-		Port: intstr.IntOrString{Type: intstr.Int, IntVal: appWorkload.Spec.Health.Port},
-	}
-}
-
-func tcpSocketAction(appWorkload korifiv1alpha1.AppWorkload) *corev1.TCPSocketAction {
-	return &corev1.TCPSocketAction{
-		Port: intstr.IntOrString{Type: intstr.Int, IntVal: appWorkload.Spec.Health.Port},
-	}
-}
-
-func toSeconds(millis uint) int32 {
-	return int32(millis / 1000) //nolint:gomnd
 }
 
 func hash(s string) (string, error) {

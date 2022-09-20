@@ -3,6 +3,8 @@ package controllers_test
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,11 +38,25 @@ func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 			},
 			ProcessType: "worker",
 			Env:         []corev1.EnvVar{},
-			Health: korifiv1alpha1.Healthcheck{
-				Type:      "http",
-				Port:      int32(8080),
-				Endpoint:  "/healthz",
-				TimeoutMs: uint(60000),
+			LivenessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/healthz",
+						Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(8080)},
+					},
+				},
+				InitialDelaySeconds: 0,
+				FailureThreshold:    4,
+			},
+			ReadinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/healthz",
+						Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(8080)},
+					},
+				},
+				InitialDelaySeconds: 0,
+				FailureThreshold:    1,
 			},
 			Ports:      []int32{8888, 9999},
 			Instances:  1,

@@ -322,7 +322,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		When("the process has a health check", func() {
 			BeforeEach(func() {
 				ctx := context.Background()
-				cfProcess.Spec.HealthCheck.Type = "process"
+				cfProcess.Spec.HealthCheck.Type = "http"
 				cfProcess.Spec.Ports = []int32{}
 				Expect(k8sClient.Update(ctx, cfProcess)).To(Succeed())
 			})
@@ -348,8 +348,13 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					return ""
 				}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for AppWorkload/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
-				Expect(appWorkload.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
-				Expect(appWorkload.Spec.Health.Port).To(BeEquivalentTo(9000))
+				Expect(appWorkload.Spec.LivenessProbe).NotTo(BeNil())
+				Expect(appWorkload.Spec.LivenessProbe.HTTPGet).NotTo(BeNil())
+				Expect(appWorkload.Spec.LivenessProbe.HTTPGet.Port.IntValue()).To(BeEquivalentTo(9000))
+
+				Expect(appWorkload.Spec.ReadinessProbe).NotTo(BeNil())
+				Expect(appWorkload.Spec.ReadinessProbe.HTTPGet).NotTo(BeNil())
+				Expect(appWorkload.Spec.ReadinessProbe.HTTPGet.Port.IntValue()).To(BeEquivalentTo(9000))
 			})
 		})
 	})
@@ -454,7 +459,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			ctx := context.Background()
 
-			cfProcess.Spec.HealthCheck.Type = "process"
+			cfProcess.Spec.HealthCheck.Type = "http"
 			cfProcess.Spec.Ports = []int32{}
 			Expect(
 				k8sClient.Update(ctx, cfProcess),
@@ -487,8 +492,13 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				return ""
 			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for AppWorkload/%s in namespace %s to be created", testProcessGUID, testNamespace))
 
-			Expect(appWorkload.Spec.Health.Type).To(Equal(string(cfProcess.Spec.HealthCheck.Type)))
-			Expect(appWorkload.Spec.Health.Port).To(BeEquivalentTo(8080))
+			Expect(appWorkload.Spec.LivenessProbe).NotTo(BeNil())
+			Expect(appWorkload.Spec.LivenessProbe.HTTPGet).NotTo(BeNil())
+			Expect(appWorkload.Spec.LivenessProbe.HTTPGet.Port.IntValue()).To(BeEquivalentTo(8080))
+
+			Expect(appWorkload.Spec.ReadinessProbe).NotTo(BeNil())
+			Expect(appWorkload.Spec.ReadinessProbe.HTTPGet).NotTo(BeNil())
+			Expect(appWorkload.Spec.ReadinessProbe.HTTPGet.Port.IntValue()).To(BeEquivalentTo(8080))
 		})
 	})
 })
