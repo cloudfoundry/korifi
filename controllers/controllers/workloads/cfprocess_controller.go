@@ -247,7 +247,7 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 	}
-	desiredAppWorkload.Spec.ReconcilerName = r.ControllerConfig.AppReconciler
+	desiredAppWorkload.Spec.RunnerName = r.ControllerConfig.RunnerName
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredAppWorkload, r.Scheme)
 	if err != nil {

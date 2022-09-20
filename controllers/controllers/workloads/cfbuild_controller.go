@@ -146,8 +146,8 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
 				},
 			},
-			ReconcilerName: r.ControllerConfig.BuildReconciler,
-			Buildpacks:     cfBuild.Spec.Lifecycle.Data.Buildpacks,
+			BuilderName: r.ControllerConfig.BuilderName,
+			Buildpacks:  cfBuild.Spec.Lifecycle.Data.Buildpacks,
 		},
 	}
 

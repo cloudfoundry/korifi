@@ -1,5 +1,5 @@
-buildReconciler: kpack-image-builder
-appReconciler: statefulset-runner
+builderName: kpack-image-builder
+runnerName: statefulset-runner
 cfProcessDefaults:
   memoryMB: 1024
   diskQuotaMB: 1024

@@ -5,4 +5,4 @@ namespace: cf # The root namespace for the korifi deployment. Change if necessar
 namePrefix: ""
 
 resources:
-  - build_reconciler_info.yaml
+  - builder_info.yaml

@@ -23,30 +23,30 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// BuildReconcilerInfoSpec defines the desired state of BuildReconcilerInfo
-type BuildReconcilerInfoSpec struct {
+// BuilderInfoSpec defines the desired state of BuilderInfo
+type BuilderInfoSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
-// BuildReconcilerInfoStatus defines the observed state of BuildReconcilerInfo
-type BuildReconcilerInfoStatus struct {
+// BuilderInfoStatus defines the observed state of BuilderInfo
+type BuilderInfoStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Stacks     []BuildReconcilerInfoStatusStack     `json:"stacks"`
-	Buildpacks []BuildReconcilerInfoStatusBuildpack `json:"buildpacks"`
-	Conditions []metav1.Condition                   `json:"conditions"`
+	Stacks     []BuilderInfoStatusStack     `json:"stacks"`
+	Buildpacks []BuilderInfoStatusBuildpack `json:"buildpacks"`
+	Conditions []metav1.Condition           `json:"conditions"`
 }
 
-type BuildReconcilerInfoStatusStack struct {
+type BuilderInfoStatusStack struct {
 	Name              string      `json:"name"`
 	Description       string      `json:"description"`
 	CreationTimestamp metav1.Time `json:"creationTimestamp"`
 	UpdatedTimestamp  metav1.Time `json:"updatedTimestamp"`
 }
 
-type BuildReconcilerInfoStatusBuildpack struct {
+type BuilderInfoStatusBuildpack struct {
 	Name              string      `json:"name"`
 	Version           string      `json:"version"`
 	Stack             string      `json:"stack"`
@@ -56,26 +56,26 @@ type BuildReconcilerInfoStatusBuildpack struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=buildreconcilerinfos
+//+kubebuilder:resource:path=builderinfos
 
-// BuildReconcilerInfo is the Schema for the buildreconcilerinfos API
-type BuildReconcilerInfo struct {
+// BuilderInfo is the Schema for the builderinfos API
+type BuilderInfo struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BuildReconcilerInfoSpec   `json:"spec,omitempty"`
-	Status BuildReconcilerInfoStatus `json:"status,omitempty"`
+	Spec   BuilderInfoSpec   `json:"spec,omitempty"`
+	Status BuilderInfoStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// BuildReconcilerInfoList contains a list of BuildReconcilerInfo
-type BuildReconcilerInfoList struct {
+// BuilderInfoList contains a list of BuilderInfo
+type BuilderInfoList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BuildReconcilerInfo `json:"items"`
+	Items           []BuilderInfo `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&BuildReconcilerInfo{}, &BuildReconcilerInfoList{})
+	SchemeBuilder.Register(&BuilderInfo{}, &BuilderInfoList{})
 }

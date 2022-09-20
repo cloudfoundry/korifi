@@ -16,7 +16,7 @@ const (
 )
 
 type BuildpackRepository struct {
-	buildReconciler   string
+	builderName       string
 	userClientFactory authorization.UserK8sClientFactory
 	rootNamespace     string
 }
@@ -34,16 +34,16 @@ type ListBuildpacksMessage struct {
 	OrderBy []string
 }
 
-func NewBuildpackRepository(buildReconciler string, userClientFactory authorization.UserK8sClientFactory, rootNamespace string) *BuildpackRepository {
+func NewBuildpackRepository(builderName string, userClientFactory authorization.UserK8sClientFactory, rootNamespace string) *BuildpackRepository {
 	return &BuildpackRepository{
-		buildReconciler:   buildReconciler,
+		builderName:       builderName,
 		userClientFactory: userClientFactory,
 		rootNamespace:     rootNamespace,
 	}
 }
 
 func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo authorization.Info) ([]BuildpackRecord, error) {
-	var buildReconcilerInfo v1alpha1.BuildReconcilerInfo
+	var builderInfo v1alpha1.BuilderInfo
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -54,21 +54,21 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 		ctx,
 		types.NamespacedName{
 			Namespace: r.rootNamespace,
-			Name:      r.buildReconciler,
+			Name:      r.builderName,
 		},
-		&buildReconcilerInfo,
+		&builderInfo,
 	)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("no BuildReconcilerInfo %q resource found in %q namespace", r.buildReconciler, r.rootNamespace)
+			return nil, fmt.Errorf("no BuilderInfo %q resource found in %q namespace", r.builderName, r.rootNamespace)
 		}
 		return nil, apierrors.FromK8sError(err, BuildpackResourceType)
 	}
 
-	return buildReconcilerInfoToBuildpackRecords(buildReconcilerInfo), nil
+	return builderInfoToBuildpackRecords(builderInfo), nil
 }
 
-func buildReconcilerInfoToBuildpackRecords(info v1alpha1.BuildReconcilerInfo) []BuildpackRecord {
+func builderInfoToBuildpackRecords(info v1alpha1.BuilderInfo) []BuildpackRecord {
 	buildpackRecords := make([]BuildpackRecord, 0, len(info.Status.Buildpacks))
 
 	for i, b := range info.Status.Buildpacks {

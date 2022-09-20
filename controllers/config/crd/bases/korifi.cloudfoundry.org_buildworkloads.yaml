@@ -43,6 +43,8 @@ spec:
                 required:
                 - name
                 type: object
+              builderName:
+                type: string
               buildpacks:
                 items:
                   type: string
@@ -155,8 +157,6 @@ spec:
                   - name
                   type: object
                 type: array
-              reconcilerName:
-                type: string
               services:
                 items:
                   description: "ObjectReference contains enough information to let
@@ -253,7 +253,7 @@ spec:
                 type: object
             required:
             - buildRef
-            - reconcilerName
+            - builderName
             type: object
           status:
             description: BuildWorkloadStatus defines the observed state of BuildWorkload

@@ -45,7 +45,7 @@ type AppWorkloadSpec struct {
 	Instances int32 `json:"instances"`
 
 	// +kubebuilder:validation:Required
-	ReconcilerName string `json:"reconcilerName"`
+	RunnerName string `json:"runnerName"`
 
 	// +kubebuilder:validation:Optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`

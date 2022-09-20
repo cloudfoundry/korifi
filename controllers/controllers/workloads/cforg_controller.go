@@ -70,9 +70,9 @@ const (
 /* These rbac annotations are not used directly by this controller.
    However, the application's service account must have them to create roles and servicebindings for CF roles,
    since a service account cannot grant permission that it itself does not have */
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildreconcilerinfos/finalizers,verbs=update
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/finalizers,verbs=update
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;update

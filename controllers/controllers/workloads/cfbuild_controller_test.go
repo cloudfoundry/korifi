@@ -112,7 +112,7 @@ var _ = Describe("CFBuildReconciler", func() {
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 			&config.ControllerConfig{
-				BuildReconciler: "myCustomBuildReconciler",
+				BuilderName: "myCustomBuildReconciler",
 			},
 			fakeEnvBuilder,
 		)
@@ -179,7 +179,7 @@ var _ = Describe("CFBuildReconciler", func() {
 				_, obj, _ := fakeClient.CreateArgsForCall(0)
 				actualWorkload, ok := obj.(*korifiv1alpha1.BuildWorkload)
 				Expect(ok).To(BeTrue(), "create wasn't passed a buildWorkload")
-				Expect(actualWorkload.Spec.ReconcilerName).To(Equal("myCustomBuildReconciler"))
+				Expect(actualWorkload.Spec.BuilderName).To(Equal("myCustomBuildReconciler"))
 			})
 		})
 

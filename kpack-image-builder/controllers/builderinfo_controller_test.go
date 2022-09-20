@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
+var _ = Describe("BuilderInfoReconciler", Serial, func() {
 	const (
 		stack                  = "ubuntu-kreepy-koala"
 		golangBuildpackName    = "golang"
@@ -31,7 +31,7 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 
 	var (
 		clusterBuilder *buildv1alpha2.ClusterBuilder
-		info           *v1alpha1.BuildReconcilerInfo
+		info           *v1alpha1.BuilderInfo
 	)
 
 	BeforeEach(func() {
@@ -77,23 +77,23 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 			Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 		})
 
-		When("the BuildReconcilerInfo is first created", func() {
+		When("the BuilderInfo is first created", func() {
 			JustBeforeEach(func() {
-				info = &v1alpha1.BuildReconcilerInfo{
+				info = &v1alpha1.BuilderInfo{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      controllers.BuildReconcilerInfoName,
+						Name:      controllers.BuilderInfoName,
 						Namespace: rootNamespace.Name,
 					},
 				}
 				Expect(k8sClient.Create(context.Background(), info)).To(Succeed())
 			})
 
-			It("sets the buildpacks on the BuildReconcilerInfo", func() {
+			It("sets the buildpacks on the BuilderInfo", func() {
 				lookupKey := types.NamespacedName{
-					Name:      controllers.BuildReconcilerInfoName,
+					Name:      controllers.BuilderInfoName,
 					Namespace: rootNamespace.Name,
 				}
-				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
+				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
@@ -121,12 +121,12 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 				Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
 			})
 
-			It("sets the stacks on the BuildReconcilerInfo", func() {
+			It("sets the stacks on the BuilderInfo", func() {
 				lookupKey := types.NamespacedName{
-					Name:      controllers.BuildReconcilerInfoName,
+					Name:      controllers.BuilderInfoName,
 					Namespace: rootNamespace.Name,
 				}
-				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusStack {
+				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusStack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Stacks
 				}).Should(HaveLen(1))
@@ -135,7 +135,7 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 			})
 		})
 
-		When("the ClusterBuilder changes after the BuildReconcilerInfo has reconciled", func() {
+		When("the ClusterBuilder changes after the BuilderInfo has reconciled", func() {
 			const (
 				rustBuildpackName    = "rust"
 				rustBuildpackVersion = "42.0"
@@ -143,19 +143,19 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 			)
 
 			BeforeEach(func() {
-				info = &v1alpha1.BuildReconcilerInfo{
+				info = &v1alpha1.BuilderInfo{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      controllers.BuildReconcilerInfoName,
+						Name:      controllers.BuilderInfoName,
 						Namespace: rootNamespace.Name,
 					},
 				}
 				Expect(k8sClient.Create(context.Background(), info)).To(Succeed())
 
 				lookupKey := types.NamespacedName{
-					Name:      controllers.BuildReconcilerInfoName,
+					Name:      controllers.BuilderInfoName,
 					Namespace: rootNamespace.Name,
 				}
-				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
+				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
@@ -184,12 +184,12 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 				Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 			})
 
-			It("updates the buildpacks on the BuildReconcilerInfo", func() {
+			It("updates the buildpacks on the BuilderInfo", func() {
 				lookupKey := types.NamespacedName{
-					Name:      controllers.BuildReconcilerInfoName,
+					Name:      controllers.BuilderInfoName,
 					Namespace: rootNamespace.Name,
 				}
-				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
+				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).Should(HaveLen(4))
@@ -217,21 +217,21 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 				Expect(meta.IsStatusConditionTrue(info.Status.Conditions, "Ready")).To(BeTrue())
 			})
 
-			It("updates the stacks on the BuildReconcilerInfo", func() {
+			It("updates the stacks on the BuilderInfo", func() {
 				lookupKey := types.NamespacedName{
-					Name:      controllers.BuildReconcilerInfoName,
+					Name:      controllers.BuilderInfoName,
 					Namespace: rootNamespace.Name,
 				}
-				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusStack {
+				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusStack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Stacks
 				}).Should(ConsistOf(HaveField("Name", newStack)))
 			})
 		})
 
-		When("a BuildReconcilerInfo with the wrong name exists", func() {
+		When("a BuilderInfo with the wrong name exists", func() {
 			JustBeforeEach(func() {
-				info = &v1alpha1.BuildReconcilerInfo{
+				info = &v1alpha1.BuilderInfo{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "some-other-build-reconciler",
 						Namespace: rootNamespace.Name,
@@ -242,14 +242,14 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 
 			It("doesn't modify that resource", func() {
 				lookupKey := client.ObjectKeyFromObject(info)
-				Consistently(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
+				Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).Should(BeEmpty())
 			})
 		})
 
-		When("the BuildReconcilerInfo is in a namespace other than the root namespace", func() {
+		When("the BuilderInfo is in a namespace other than the root namespace", func() {
 			JustBeforeEach(func() {
 				wrongNamespace := &v1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
@@ -258,9 +258,9 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 				}
 				Expect(k8sClient.Create(context.Background(), wrongNamespace)).To(Succeed())
 
-				info = &v1alpha1.BuildReconcilerInfo{
+				info = &v1alpha1.BuilderInfo{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      controllers.BuildReconcilerInfoName,
+						Name:      controllers.BuilderInfoName,
 						Namespace: wrongNamespace.Name,
 					},
 				}
@@ -269,7 +269,7 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 
 			It("doesn't modify that resource", func() {
 				lookupKey := client.ObjectKeyFromObject(info)
-				Consistently(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
+				Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).Should(BeEmpty())
@@ -281,9 +281,9 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 		var wrongClusterBuilder *buildv1alpha2.ClusterBuilder
 
 		BeforeEach(func() {
-			info = &v1alpha1.BuildReconcilerInfo{
+			info = &v1alpha1.BuilderInfo{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      controllers.BuildReconcilerInfoName,
+					Name:      controllers.BuilderInfoName,
 					Namespace: rootNamespace.Name,
 				},
 			}
@@ -314,9 +314,9 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 			Expect(k8sClient.Delete(context.Background(), wrongClusterBuilder)).To(Succeed())
 		})
 
-		It("doesn't set the buildpacks on the BuildReconcilerInfo", func() {
+		It("doesn't set the buildpacks on the BuilderInfo", func() {
 			lookupKey := client.ObjectKeyFromObject(info)
-			Consistently(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
+			Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
 				g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 				return info.Status.Buildpacks
 			}).Should(BeEmpty())
@@ -351,12 +351,12 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 				Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 			})
 
-			It("sets the buildpacks on the BuildReconcilerInfo", func() {
+			It("sets the buildpacks on the BuilderInfo", func() {
 				lookupKey := types.NamespacedName{
-					Name:      controllers.BuildReconcilerInfoName,
+					Name:      controllers.BuilderInfoName,
 					Namespace: rootNamespace.Name,
 				}
-				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusBuildpack {
+				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
@@ -371,7 +371,7 @@ var _ = Describe("BuildReconcilerInfoReconciler", Serial, func() {
 
 			It("sets the stack", func() {
 				lookupKey := client.ObjectKeyFromObject(info)
-				Eventually(func(g Gomega) []v1alpha1.BuildReconcilerInfoStatusStack {
+				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusStack {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
 					return info.Status.Stacks
 				}).Should(HaveLen(1))

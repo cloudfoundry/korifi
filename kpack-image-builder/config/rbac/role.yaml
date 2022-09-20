@@ -25,7 +25,7 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - buildreconcilerinfos
+  - builderinfos
   verbs:
   - create
   - delete
@@ -37,13 +37,13 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - buildreconcilerinfos/finalizers
+  - builderinfos/finalizers
   verbs:
   - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - buildreconcilerinfos/status
+  - builderinfos/status
   verbs:
   - get
   - patch

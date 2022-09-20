@@ -412,11 +412,11 @@ func buildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1al
 			BuildRef: korifiv1alpha1.RequiredLocalObjectReference{
 				Name: cfBuildGUID,
 			},
-			Source:         source,
-			Buildpacks:     buildpacks,
-			Env:            env,
-			Services:       services,
-			ReconcilerName: reconcilerName,
+			Source:      source,
+			Buildpacks:  buildpacks,
+			Env:         env,
+			Services:    services,
+			BuilderName: reconcilerName,
 		},
 	}
 }

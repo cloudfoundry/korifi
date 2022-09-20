@@ -127,7 +127,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 			&config.ControllerConfig{
-				AppReconciler: "myCustomAppReconciler",
+				RunnerName: "myCustomAppReconciler",
 			},
 			envBuilder,
 		)
@@ -270,7 +270,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 				_, obj, _ := fakeClient.CreateArgsForCall(0)
 				actualWorkload, ok := obj.(*korifiv1alpha1.AppWorkload)
 				Expect(ok).To(BeTrue(), "create wasn't passed a appWorkload")
-				Expect(actualWorkload.Spec.ReconcilerName).To(Equal("myCustomAppReconciler"))
+				Expect(actualWorkload.Spec.RunnerName).To(Equal("myCustomAppReconciler"))
 			})
 		})
 

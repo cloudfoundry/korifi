@@ -129,8 +129,8 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if buildWorkload.Spec.ReconcilerName != kpackReconcilerName {
-		// Stop reconciling since the buildWorkload.Spec.ReconcilerName does not match this builder
+	if buildWorkload.Spec.BuilderName != kpackReconcilerName {
+		// Stop reconciling since the buildWorkload.Spec.BuilderName does not match this builder
 		return ctrl.Result{}, nil
 	}
 

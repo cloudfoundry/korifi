@@ -132,10 +132,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(
-		controllers.NewBuildReconcilerInfoReconciler(
+		controllers.NewBuilderInfoReconciler(
 			k8sManager.GetClient(),
 			k8sManager.GetScheme(),
-			ctrl.Log.WithName("kpack-image-builder").WithName("BuildReconcilerInfo"),
+			ctrl.Log.WithName("kpack-image-builder").WithName("BuilderInfo"),
 			clusterBuilderName,
 			controllerConfig.CFRootNamespace,
 		).SetupWithManager(k8sManager),

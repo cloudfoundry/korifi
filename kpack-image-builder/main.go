@@ -124,14 +124,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.NewBuildReconcilerInfoReconciler(
+	if err = controllers.NewBuilderInfoReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("BuildReconcilerInfoReconciler"),
+		ctrl.Log.WithName("controllers").WithName("BuilderInfoReconciler"),
 		controllerConfig.ClusterBuilderName,
 		controllerConfig.CFRootNamespace,
 	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "BuildReconcilerInfo")
+		setupLog.Error(err, "unable to create controller", "controller", "BuilderInfo")
 		os.Exit(1)
 	}
 

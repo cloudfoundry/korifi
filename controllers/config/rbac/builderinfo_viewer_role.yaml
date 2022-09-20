@@ -1,13 +1,13 @@
-# permissions for end users to view buildreconcilerinfos.
+# permissions for end users to view builderInfoss.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: buildreconcilerinfo-viewer-role
+  name: builderinfo-viewer-role
 rules:
 - apiGroups:
   - korifi.cloudfoundry.org.cloudfoundry.org
   resources:
-  - buildreconcilerinfos
+  - builderinfos
   verbs:
   - get
   - list
@@ -15,6 +15,6 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org.cloudfoundry.org
   resources:
-  - buildreconcilerinfos/status
+  - builderinfos/status
   verbs:
   - get
