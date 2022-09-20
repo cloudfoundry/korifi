@@ -106,7 +106,6 @@ spec:
                 type: string
             required:
             - appRef
-            - desiredInstances
             - diskQuotaMB
             - healthCheck
             - memoryMB

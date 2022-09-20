@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -162,7 +163,7 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 	}
 	cfProcess := baseCFProcess.DeepCopy()
 	if scaleProcessMessage.Instances != nil {
-		cfProcess.Spec.DesiredInstances = *scaleProcessMessage.Instances
+		cfProcess.Spec.DesiredInstances = scaleProcessMessage.Instances
 	}
 	if scaleProcessMessage.MemoryMB != nil {
 		cfProcess.Spec.MemoryMB = *scaleProcessMessage.MemoryMB
@@ -202,7 +203,7 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 				Type: korifiv1alpha1.HealthCheckType(message.HealthCheck.Type),
 				Data: korifiv1alpha1.HealthCheckData(message.HealthCheck.Data),
 			},
-			DesiredInstances: message.DesiredInstances,
+			DesiredInstances: tools.PtrTo(message.DesiredInstances),
 			MemoryMB:         message.MemoryMB,
 			DiskQuotaMB:      message.DiskQuotaMB,
 			Ports:            []int32{},
@@ -253,7 +254,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 		updatedProcess.Spec.Command = *message.Command
 	}
 	if message.DesiredInstances != nil {
-		updatedProcess.Spec.DesiredInstances = *message.DesiredInstances
+		updatedProcess.Spec.DesiredInstances = message.DesiredInstances
 	}
 	if message.MemoryMB != nil {
 		updatedProcess.Spec.MemoryMB = *message.MemoryMB
@@ -330,7 +331,7 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		AppGUID:          cfProcess.Spec.AppRef.Name,
 		Type:             cfProcess.Spec.ProcessType,
 		Command:          cfProcess.Spec.Command,
-		DesiredInstances: cfProcess.Spec.DesiredInstances,
+		DesiredInstances: *cfProcess.Spec.DesiredInstances,
 		MemoryMB:         cfProcess.Spec.MemoryMB,
 		DiskQuotaMB:      cfProcess.Spec.DiskQuotaMB,
 		Ports:            cfProcess.Spec.Ports,

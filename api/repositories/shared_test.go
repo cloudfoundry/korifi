@@ -5,6 +5,7 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/gomega"
@@ -133,7 +134,7 @@ func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, 
 					TimeoutSeconds:           0,
 				},
 			},
-			DesiredInstances: 1,
+			DesiredInstances: tools.PtrTo(1),
 			MemoryMB:         500,
 			DiskQuotaMB:      512,
 			Ports:            []int32{8080},
