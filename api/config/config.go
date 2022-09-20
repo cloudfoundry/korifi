@@ -22,7 +22,7 @@ type APIConfig struct {
 	ServerURL string
 
 	RootNamespace                            string                 `yaml:"rootNamespace"`
-	BuildReconciler                          string                 `yaml:"buildReconciler"`
+	BuilderName                              string                 `yaml:"builderName"`
 	PackageRegistryBase                      string                 `yaml:"packageRegistryBase"`
 	PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
 	DefaultDomainName                        string                 `yaml:"defaultDomainName"`
@@ -87,8 +87,8 @@ func (c *APIConfig) validate() error {
 		}
 	}
 
-	if c.BuildReconciler == "" {
-		return errors.New("BuildReconciler must have a value")
+	if c.BuilderName == "" {
+		return errors.New("BuilderName must have a value")
 	}
 
 	return nil

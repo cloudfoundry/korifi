@@ -16,7 +16,7 @@ const (
 )
 
 type BuildpackRepository struct {
-	buildReconciler   string
+	builderName       string
 	userClientFactory authorization.UserK8sClientFactory
 	rootNamespace     string
 }
@@ -34,9 +34,9 @@ type ListBuildpacksMessage struct {
 	OrderBy []string
 }
 
-func NewBuildpackRepository(buildReconciler string, userClientFactory authorization.UserK8sClientFactory, rootNamespace string) *BuildpackRepository {
+func NewBuildpackRepository(builderName string, userClientFactory authorization.UserK8sClientFactory, rootNamespace string) *BuildpackRepository {
 	return &BuildpackRepository{
-		buildReconciler:   buildReconciler,
+		builderName:       builderName,
 		userClientFactory: userClientFactory,
 		rootNamespace:     rootNamespace,
 	}
@@ -54,13 +54,13 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 		ctx,
 		types.NamespacedName{
 			Namespace: r.rootNamespace,
-			Name:      r.buildReconciler,
+			Name:      r.builderName,
 		},
 		&builderInfo,
 	)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("no BuilderInfo %q resource found in %q namespace", r.buildReconciler, r.rootNamespace)
+			return nil, fmt.Errorf("no BuilderInfo %q resource found in %q namespace", r.builderName, r.rootNamespace)
 		}
 		return nil, apierrors.FromK8sError(err, BuildpackResourceType)
 	}

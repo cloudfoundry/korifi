@@ -20,13 +20,13 @@ var _ = Describe("BuildpackRepository", func() {
 	var buildpackRepo *BuildpackRepository
 
 	BeforeEach(func() {
-		buildpackRepo = NewBuildpackRepository(buildReconciler, userClientFactory, rootNamespace)
+		buildpackRepo = NewBuildpackRepository(builderName, userClientFactory, rootNamespace)
 	})
 
 	Describe("ListBuildpacks", func() {
-		When("the configured BuildReconciler exists", func() {
+		When("a controller with the configured BuilderName exists", func() {
 			BeforeEach(func() {
-				createBuilderInfoWithCleanup(ctx, buildReconciler, "io.buildpacks.stacks.bionic", []buildpackInfo{
+				createBuilderInfoWithCleanup(ctx, builderName, "io.buildpacks.stacks.bionic", []buildpackInfo{
 					{name: "paketo-buildpacks/buildpack-1-1", version: "1.1"},
 					{name: "paketo-buildpacks/buildpack-2-1", version: "2.1"},
 					{name: "paketo-buildpacks/buildpack-3-1", version: "3.1"},
@@ -59,14 +59,14 @@ var _ = Describe("BuildpackRepository", func() {
 			})
 		})
 
-		When("there no BuildReconcilers exist", func() {
+		When("no build reconcilers exist", func() {
 			It("errors", func() {
 				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
-				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("no BuilderInfo %q resource found in %q namespace", buildReconciler, rootNamespace))))
+				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("no BuilderInfo %q resource found in %q namespace", builderName, rootNamespace))))
 			})
 		})
 
-		When("configured BuildReconciler is not found", func() {
+		When("the build reconciler with the configured BuilderName is not found", func() {
 			BeforeEach(func() {
 				createBuilderInfoWithCleanup(ctx, "ignored-name1", "io.buildpacks.stacks.bionic", []buildpackInfo{
 					{name: "paketo-buildpacks/buildpack-1-1", version: "1.1"},
@@ -78,7 +78,7 @@ var _ = Describe("BuildpackRepository", func() {
 
 			It("errors", func() {
 				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
-				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("no BuilderInfo %q resource found in %q namespace", buildReconciler, rootNamespace))))
+				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("no BuilderInfo %q resource found in %q namespace", builderName, rootNamespace))))
 			})
 		})
 	})
