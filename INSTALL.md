@@ -9,7 +9,7 @@ The following lines will guide you through the process of deploying a [released 
 
 - Tools:
   - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl);
-  - [cf](https://docs.cloudfoundry.org/cf-cli/install-go-cli.html) CLI version 8.1 or greater;
+  - [cf](https://docs.cloudfoundry.org/cf-cli/install-go-cli.html) CLI version 8.5 or greater;
   - [Helm](https://helm.sh/docs/intro/install/).
 - Resources:
   - Kubernetes cluster of one of the [upstream releases](https://kubernetes.io/releases/);
@@ -43,17 +43,22 @@ You will need to update the following configuration files:
 
 - `korifi-kpack-image-builder.yml`
 
-  Change the value of `kpackImageTag` in the `korifi-kpack-build-config` `ConfigMap`. `kpackImageTag` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be [valid for the registry](#image-registry-configuration).
+  Change the value of `kpackImageTag` in the `korifi-kpack-build-config` `ConfigMap`. `kpackImageTag` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
 
   ```yaml
   kpackImageTag: us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplets
   ```
 
+  - If using **DockerHub**, `kpackImageTag` should be `index.docker.io/<username>`.
+  - If using **GCP**, `kpackImageTag` should be `gcr.io/<project-id>/droplets`.
+
 - `korifi-api.yml`
 
   - Change the following values in the `korifi-api-config-*` `ConfigMap`.
 
-    - `packageRegistryBase` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be [valid for the registry](#image-registry-configuration).
+    - `packageRegistryBase` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
+      - If using **DockerHub**, `packageRegistryBase` should be `index.docker.io/<username>`.
+      - If using **GCP**, `packageRegistryBase` should be `gcr.io/<project-id>/packages`.
     - `externalFQDN` is the domain name that will be used by the Korifi API, and is usually of the format `api.$BASE_DOMAIN`.
     - `defaultDomainName` is the default base domain name for the apps deployed by Korifi, and is usually of the format `apps.$BASE_DOMAIN`.
 
@@ -79,31 +84,7 @@ You will need to update the following configuration files:
         # ...
     ```
 
-### Image Registry Configuration
-
-#### DockerHub
-
-- The `cluster_builder.yaml` `spec.tag` should be in the format `index.docker.io/<username>/korifi-cluster-builder`.
-- The `korifi-kpack-image-builder.yml` `kpackImageTag` should be in the format `index.docker.io/<username>`.
-  - It will be combined with the GUID of the Kpack Image resource to create the full URI of the droplet image for an application.
-- The `korifi-api.yml` `packageRegistryBase` should be in the format `index.docker.io/<username>`.
-  - It will be combined with the GUID of the CFPackage resource to create the full URI of the package image for an application.
-
-> **Note**
-> DockerHub does not support nested directories so `kpackImageTag` and `packageRegistryBase` must point to the user's directory
-
-#### GCR
-
-- The `cluster_builder.yaml` `spec.tag` should be in the format `gcr.io/<project-id>/korifi-cluster-builder`.
-- The `korifi-kpack-image-builder.yml` `kpackImageTag` should be in the format `gcr.io/<project-id>/droplets`.
-  - It will be combined with the GUID of the Kpack Image resource to create the full URI of the droplet image for an application.
-- The korifi-api.yml `packageRegistryBase` should be in the format `gcr.io/<project-id>/packages`.
-  - It will be combined with the GUID of the CFPackage resource to create the full URI of the package image for an application.
-
-> **Note**
-> GCR supports nested directories, so you can organize your images as desired.
-
-#### Registries with Custom CA
+### Registries with Custom CA
 
 See [_Using container registry signed by custom CA_](docs/using-container-registry-signed-by-custom-ca.md).
 
@@ -111,7 +92,8 @@ See [_Using container registry signed by custom CA_](docs/using-container-regist
 
 Create the following resources:
 
-```yaml
+```sh
+cat <<EOF | kubectl create -f -
 ---
 apiVersion: v1
 kind: Namespace
@@ -120,7 +102,6 @@ metadata:
   labels:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -137,11 +118,22 @@ subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: User
     name: $ADMIN_USERNAME
+EOF
 ```
 
-### Container registry credentials
+## Dependencies
 
-Use the following command to create a `Secret` that Korifi will use to connect to your container registry:
+### Cert-Manager
+
+[Cert-Manager](https://cert-manager.io) allows us to automatically create internal certificates within the cluster. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
+
+### Kpack
+
+[Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md) to install the latest version.
+
+#### Container registry credentials `Secret`
+
+Use the following command to create a `Secret` that Kpack will use to connect to your container registry:
 
 ```sh
 kubectl create secret docker-registry image-registry-credentials \
@@ -153,46 +145,55 @@ kubectl create secret docker-registry image-registry-credentials \
 
 Make sure the value of `--docker-server` is a valid [URI authority](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2).
 
-#### DockerHub
+- If using **DockerHub**:
+  - `--docker-server` should be `https://index.docker.io/v1/`;
+  - `--docker-username` should be your DockerHub user;
+  - `--docker-password` can be either your DockerHub password or a [generated personal access token](https://hub.docker.com/settings/security?generateToken=true).
+- If using **GCR**:
+  - `--docker-server` should be `gcr.io`;
+  - `--docker-username` should be `_json_key`;
+  - `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
 
-When using DockerHub:
+#### `ServiceAccount`
 
-- the `docker-server` should be `https://index.docker.io/v1/`;
-- the `docker-username` should be your DockerHub user;
-- the `docker-password` can be either your DockerHub password or a generated personal access token.
+Use the following command to create a `ServiceAccount` associated to the `Secret` you have just created:
 
-#### GCR
-
-When using GCR:
-
-- the `docker-server` should be `gcr.io`;
-- the `docker-username` should be `_json_key`;
-- the `docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
-
-## Dependencies
-
-### Cert-Manager
-
-[Cert-Manager](https://cert-manager.io) allows us to create internal automatically certificates within the cluster. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
-
-### Kpack
-
-[Kpack](https://github.com/pivotal/kpack) powers our source-to-image build process. Follow the [tutorial](https://github.com/pivotal/kpack/blob/main/docs/tutorial.md) to install the latest version and configure a stack, store and builder. Ensure that the name of the builder matches the value of the `clusterBuilderName` configuration from the `korifi-kpack-image-builder.yml` config file. For the service account, use the following definition:
-
-```yaml
+```sh
+cat <<EOF | kubectl create -f -
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kpack-service-account
-  namespace: cf
+  namespace: $ROOT_NAMESPACE
   annotations:
     cloudfoundry.org/propagate-service-account: "true"
 secrets:
   - name: image-registry-credentials
 imagePullSecrets:
   - name: image-registry-credentials
+EOF
 ```
+
+#### `ClusterStore`
+
+Follow the [documentation](https://github.com/pivotal/kpack/blob/main/docs/store.md) to create a `ClusterStore` for your cluster.
+
+#### `ClusterStack`:
+
+Follow the [documentation](https://github.com/pivotal/kpack/blob/main/docs/stack.md) to create a `ClusterStack` for your cluster.
+
+#### `ClusterBuilder`
+
+Follow the [documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md#cluster-builders) to create a `ClusterBuilder` for your cluster. Make sure that:
+
+- `metadata.name` matches `clusterBuilderName` in `korifi-kpack-image-builder.yml`;
+- `spec.tag` points to your container registry:
+  - if using **DockerHub**, it should be `index.docker.io/<username>/korifi-cluster-builder`;
+  - if using **GCP**, it should be `gcr.io/<project-id>/korifi-cluster-builder`;
+- `spec.stack` references to the previously created `ClusterStack`;
+- `spec.store` references to the previously created `ClusterStore`;
+- `spec.serviceAccountRef` references the previously created `ServiceAccount`.
 
 ### Contour
 
@@ -212,7 +213,7 @@ We use the [Service Binding Specification for Kubernetes](https://github.com/ser
 Create DNS entries for the Korifi API and for the apps running on Korifi. They should match the [configuration](#configuration):
 
 - The Korifi API entry should match `externalFQDN`. In our example, that would be `api.korifi.example.org`.
-- The apps entry should be a wildcard matching `defaultDomainName`: In our example, `\*.apps.korifi.example.org`.
+- The apps entry should be a wildcard matching `defaultDomainName`: In our example, `*.apps.korifi.example.org`.
 
 The DNS entries should point to the load balancer endpoint created by Contour when installed. To discover your endpoint, run:
 
@@ -269,7 +270,7 @@ EOF
 
 ```sh
 cf api https://api.$BASE_DOMAIN --skip-ssl-validation
-cf login # select the $ADMIN_USERNAME entry
+cf auth $ADMIN_USERNAME
 cf create-org org1
 cf create-space -o org1 space1
 cf target -o org1

@@ -27,11 +27,17 @@ EOF
 
 ## Initial setup
 
-You don't need to export the environment variables. We wil use the following values:
+Export the following environment variables:
 
-- `cf` as our root namespace;
-- `cf-admin` as our admin username: you will need to create this (check [`scripts/create-new-user.sh`](./scripts/create-new-user.sh) for an example of how we do this in our development environments);
-- `vcap.me` as our base domain: it will conveniently [resolve to `127.0.0.1`](https://www.nslookup.io/domains/vcap.me/dns-records), which is exactly what we need.
+```sh
+export ROOT_NAMESPACE="cf"
+export ADMIN_USERNAME="cf-admin"
+export BASE_DOMAIN="vcap.me"
+```
+
+You will need to create the `cf-admin` user: check [`scripts/create-new-user.sh`](./scripts/create-new-user.sh) for an example of how we do this in our development environments.
+
+`vcap.me` will conveniently [resolve to `127.0.0.1`](https://www.nslookup.io/domains/vcap.me/dns-records), which is exactly what we need.
 
 ## Configuration
 
@@ -71,51 +77,11 @@ We recommend you use [DockerHub](https://hub.docker.com/) as your image registry
 
 ## Root namespace setup
 
-As per the instructions, create the following:
-
-```yaml
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: cf
-  labels:
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/audit: restricted
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: default-admin-binding
-  namespace: cf
-  annotations:
-    cloudfoundry.org/propagate-cf-role: "true"
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: korifi-controllers-admin
-subjects:
-  - apiGroup: rbac.authorization.k8s.io
-    kind: User
-    name: cf-admin
-```
-
-### Container registry credentials
-
-We recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub. Then run the following command, as described in the instructions:
-
-```sh
-kubectl create secret docker-registry image-registry-credentials \
-    --docker-username="<your-dockerhub-username>" \
-    --docker-password="<your-dockerhub-access-token>" \
-    --docker-server="https://index.docker.io/v1/" \
-    --namespace cf
-```
+No changes here, follow the instructions.
 
 ## Dependencies
 
-No changes here, follow the instructions.
+No changes here, follow the instructions. For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub.
 
 ## DNS
 
@@ -134,28 +100,8 @@ Given you don't have any DNS records, you want to use the following values for `
 
 ## Default CF Domain
 
-As per the instructions:
-
-```sh
-cat <<EOF | kubectl apply --namespace cf -f -
-apiVersion: korifi.cloudfoundry.org/v1alpha1
-kind: CFDomain
-metadata:
-  name: default-domain
-  namespace: cf
-spec:
-  name: apps.vcap.me
-EOF
-```
+No changes here, follow the instructions.
 
 ## Test Korifi
 
-```sh
-cf api https://api.vcap.me --skip-ssl-validation
-cf login # select the cf-admin entry
-cf create-org org1
-cf create-space -o org1 space1
-cf target -o org1
-cd <directory of a test cf app>
-cf push test-app
-```
+No changes here, follow the instructions.
