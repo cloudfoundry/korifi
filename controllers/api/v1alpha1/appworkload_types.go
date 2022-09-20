@@ -38,7 +38,8 @@ type AppWorkloadSpec struct {
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets"`
 	Command          []string                      `json:"command,omitempty"`
 	Env              []corev1.EnvVar               `json:"env,omitempty"`
-	Health           Healthcheck                   `json:"health"`
+	LivenessProbe    *corev1.Probe                 `json:"livenessProbe,omitempty"`
+	ReadinessProbe   *corev1.Probe                 `json:"readinessProbe,omitempty"`
 	Ports            []int32                       `json:"ports,omitempty"`
 
 	// +kubebuilder:default:=1
@@ -49,14 +50,6 @@ type AppWorkloadSpec struct {
 
 	// +kubebuilder:validation:Optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-}
-
-type Healthcheck struct {
-	Type     string `json:"type"`
-	Port     int32  `json:"port"`
-	Endpoint string `json:"endpoint"`
-	// +kubebuilder:validation:Format:=uint8
-	TimeoutMs uint `json:"timeoutMs"`
 }
 
 // AppWorkloadStatus defines the observed state of AppWorkload

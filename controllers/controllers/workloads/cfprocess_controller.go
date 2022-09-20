@@ -35,12 +35,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+const (
+	LivenessFailureThreshold  = 4
+	ReadinessFailureThreshold = 1
 )
 
 //counterfeiter:generate -o fake -fake-name EnvBuilder . EnvBuilder
@@ -241,12 +247,8 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	}
 
 	desiredAppWorkload.Spec.Env = generateEnvVars(appPort, envVars)
-	desiredAppWorkload.Spec.Health = korifiv1alpha1.Healthcheck{
-		Type:      string(cfProcess.Spec.HealthCheck.Type),
-		Port:      int32(appPort),
-		Endpoint:  cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
-		TimeoutMs: uint(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
-	}
+	desiredAppWorkload.Spec.LivenessProbe = createLivenessProbe(cfProcess, int32(appPort))
+	desiredAppWorkload.Spec.ReadinessProbe = createReadinessProbe(cfProcess, int32(appPort))
 	desiredAppWorkload.Spec.RunnerName = r.ControllerConfig.RunnerName
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredAppWorkload, r.Scheme)
@@ -338,6 +340,68 @@ func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CF
 		return []string{"/cnb/lifecycle/launcher", process.Spec.Command}
 	} else {
 		return []string{"/bin/sh", "-c", process.Spec.Command}
+	}
+}
+
+func createLivenessProbe(cfProcess *korifiv1alpha1.CFProcess, port int32) *corev1.Probe {
+	initialDelay := int32(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds)
+	healthCheckType := string(cfProcess.Spec.HealthCheck.Type)
+
+	if healthCheckType == "http" {
+		return createHTTPProbe(cfProcess.Spec.HealthCheck.Data.HTTPEndpoint, port, initialDelay, LivenessFailureThreshold)
+	}
+
+	if healthCheckType == "port" {
+		return createPortProbe(port, initialDelay, LivenessFailureThreshold)
+	}
+
+	return nil
+}
+
+func createReadinessProbe(cfProcess *korifiv1alpha1.CFProcess, port int32) *corev1.Probe {
+	healthCheckType := string(cfProcess.Spec.HealthCheck.Type)
+
+	if healthCheckType == "http" {
+		return createHTTPProbe(cfProcess.Spec.HealthCheck.Data.HTTPEndpoint, port, 0, ReadinessFailureThreshold)
+	}
+
+	if healthCheckType == "port" {
+		return createPortProbe(port, 0, ReadinessFailureThreshold)
+	}
+
+	return nil
+}
+
+func createPortProbe(port, initialDelay, failureThreshold int32) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: tcpSocketAction(port),
+		},
+		InitialDelaySeconds: initialDelay,
+		FailureThreshold:    failureThreshold,
+	}
+}
+
+func createHTTPProbe(endpoint string, port, initialDelay, failureThreshold int32) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: httpGetAction(endpoint, port),
+		},
+		InitialDelaySeconds: initialDelay,
+		FailureThreshold:    failureThreshold,
+	}
+}
+
+func httpGetAction(endpoint string, port int32) *corev1.HTTPGetAction {
+	return &corev1.HTTPGetAction{
+		Path: endpoint,
+		Port: intstr.IntOrString{Type: intstr.Int, IntVal: port},
+	}
+}
+
+func tcpSocketAction(port int32) *corev1.TCPSocketAction {
+	return &corev1.TCPSocketAction{
+		Port: intstr.IntOrString{Type: intstr.Int, IntVal: port},
 	}
 }
 
