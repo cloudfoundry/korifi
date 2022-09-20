@@ -57,6 +57,7 @@ var _ = Describe("SpaceManifestHandler", func() {
                 - name: app1
                   default-route: true
                   memory: 128M
+                  disk-quota: 256M
                   processes:
                   - type: web
                     command: start-web.sh
@@ -90,6 +91,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 				Expect(payload.Applications[0].Name).To(Equal("app1"))
 				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
 				Expect(payload.Applications[0].Memory).To(PointTo(Equal("128M")))
+				Expect(payload.Applications[0].DiskQuota).To(PointTo(Equal("256M")))
 
 				Expect(payload.Applications[0].Processes).To(HaveLen(1))
 				Expect(payload.Applications[0].Processes[0].Type).To(Equal("web"))

@@ -9,6 +9,16 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type processParams struct {
+	Memory    *string
+	DiskQuota *string
+}
+
+type (
+	appParams       processParams
+	effectiveParams processParams
+)
+
 var _ = Describe("Normalizer", func() {
 	var (
 		normalizer        manifest.Normalizer
@@ -68,49 +78,105 @@ var _ = Describe("Normalizer", func() {
 			Expect(normalizedAppInfo.Processes).To(ConsistOf(payloads.ManifestApplicationProcess{Type: "bob"}))
 		})
 
-		When("the app has a top-level memory value set", func() {
-			BeforeEach(func() {
-				appInfo.Memory = tools.PtrTo("256M")
-			})
+		DescribeTable("creating a web process when top level values are provided",
+			func(app appParams) {
+				appInfo.Memory = app.Memory
+				appInfo.DiskQuota = app.DiskQuota
 
-			It("creates a `web` process with that memory value", func() {
-				Expect(normalizedAppInfo.Processes).To(ContainElement(payloads.ManifestApplicationProcess{
-					Type:   "web",
-					Memory: tools.PtrTo("256M"),
-				}))
-			})
+				updatedAppInfo := normalizer.Normalize(appInfo, appState)
+				webProc := getWebProcess(updatedAppInfo)
 
-			When("the `web` process already exists", func() {
-				BeforeEach(func() {
-					appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
-						Type:    "web",
-						Command: tools.PtrTo("foo"),
-					})
+				Expect(webProc.Memory).To(Equal(app.Memory))
+				Expect(webProc.DiskQuota).To(Equal(app.DiskQuota))
+			},
+
+			Entry("memory only", appParams{Memory: tools.PtrTo("512M")}),
+			Entry("disk_quota only", appParams{DiskQuota: tools.PtrTo("2G")}),
+			Entry("memory and disk_quota", appParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}),
+		)
+
+		DescribeTable("updating a web process when top level values are provided",
+			func(app appParams, process processParams, effective effectiveParams) {
+				appInfo.Memory = app.Memory
+				appInfo.DiskQuota = app.DiskQuota
+
+				appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
+					Type:      "web",
+					Memory:    process.Memory,
+					DiskQuota: process.DiskQuota,
 				})
 
-				It("updates it", func() {
-					Expect(normalizedAppInfo.Processes).To(ContainElement(payloads.ManifestApplicationProcess{
-						Type:    "web",
-						Command: tools.PtrTo("foo"),
-						Memory:  tools.PtrTo("256M"),
-					}))
-				})
+				updatedAppInfo := normalizer.Normalize(appInfo, appState)
+				webProc := getWebProcess(updatedAppInfo)
 
-				When("the `web` process already sets its memory", func() {
-					BeforeEach(func() {
-						appInfo.Processes[len(appInfo.Processes)-1].Memory = tools.PtrTo("512M")
-					})
+				Expect(webProc.Memory).To(Equal(effective.Memory))
+				Expect(webProc.DiskQuota).To(Equal(effective.DiskQuota))
+			},
 
-					It("does not override it", func() {
-						Expect(normalizedAppInfo.Processes).To(ContainElement(payloads.ManifestApplicationProcess{
-							Type:    "web",
-							Command: tools.PtrTo("foo"),
-							Memory:  tools.PtrTo("512M"),
-						}))
-					})
-				})
-			})
-		})
+			Entry("empty proc with app memory and disk quota",
+				appParams{
+					Memory:    tools.PtrTo("512M"),
+					DiskQuota: tools.PtrTo("2G"),
+				},
+				processParams{},
+				effectiveParams{
+					Memory:    tools.PtrTo("512M"),
+					DiskQuota: tools.PtrTo("2G"),
+				}),
+			Entry("empty proc with app memory",
+				appParams{
+					Memory: tools.PtrTo("512M"),
+				},
+				processParams{},
+				effectiveParams{
+					Memory: tools.PtrTo("512M"),
+				}),
+			Entry("empty proc with disk quota",
+				appParams{
+					DiskQuota: tools.PtrTo("2G"),
+				},
+				processParams{},
+				effectiveParams{
+					DiskQuota: tools.PtrTo("2G"),
+				}),
+			Entry("value from proc memory used",
+				appParams{
+					Memory:    tools.PtrTo("256M"),
+					DiskQuota: tools.PtrTo("2G"),
+				},
+				processParams{
+					Memory: tools.PtrTo("512M"),
+				},
+				effectiveParams{
+					Memory:    tools.PtrTo("512M"),
+					DiskQuota: tools.PtrTo("2G"),
+				}),
+			Entry("value from proc disk_quota used",
+				appParams{
+					Memory:    tools.PtrTo("256M"),
+					DiskQuota: tools.PtrTo("2G"),
+				},
+				processParams{
+					DiskQuota: tools.PtrTo("3G"),
+				},
+				effectiveParams{
+					Memory:    tools.PtrTo("256M"),
+					DiskQuota: tools.PtrTo("3G"),
+				}),
+			Entry("values from proc memory and disk_quota used",
+				appParams{
+					Memory:    tools.PtrTo("256M"),
+					DiskQuota: tools.PtrTo("2G"),
+				},
+				processParams{
+					Memory:    tools.PtrTo("512M"),
+					DiskQuota: tools.PtrTo("3G"),
+				},
+				effectiveParams{
+					Memory:    tools.PtrTo("512M"),
+					DiskQuota: tools.PtrTo("3G"),
+				}),
+		)
 	})
 
 	Describe("route normalization", func() {
@@ -195,3 +261,14 @@ var _ = Describe("Normalizer", func() {
 		})
 	})
 })
+
+func getWebProcess(appInfo payloads.ManifestApplication) payloads.ManifestApplicationProcess {
+	for _, proc := range appInfo.Processes {
+		if proc.Type == "web" {
+			return proc
+		}
+	}
+
+	Fail("no web process")
+	return payloads.ManifestApplicationProcess{}
+}
