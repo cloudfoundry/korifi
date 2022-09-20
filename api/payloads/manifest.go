@@ -20,6 +20,7 @@ type ManifestApplication struct {
 	RandomRoute  bool                         `yaml:"random-route"`
 	NoRoute      bool                         `yaml:"no-route"`
 	Memory       *string                      `yaml:"memory" validate:"megabytestring"`
+	DiskQuota    *string                      `yaml:"disk-quota" validate:"megabytestring"`
 	Processes    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
 	Routes       []ManifestRoute              `yaml:"routes" validate:"dive"`
 	Buildpacks   []string                     `yaml:"buildpacks"`

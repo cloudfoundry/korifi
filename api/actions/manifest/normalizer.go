@@ -33,6 +33,13 @@ func (n Normalizer) Normalize(appInfo payloads.ManifestApplication, appState App
 	}
 }
 
+func procValIfSet[T any](appVal, procVal *T) *T {
+	if procVal == nil {
+		return appVal
+	}
+	return procVal
+}
+
 func (n Normalizer) normalizeProcesses(appInfo payloads.ManifestApplication, appState AppState) []payloads.ManifestApplicationProcess {
 	processes := appInfo.Processes
 
@@ -44,15 +51,14 @@ func (n Normalizer) normalizeProcesses(appInfo payloads.ManifestApplication, app
 		}
 	}
 
-	if appInfo.Memory != nil {
+	if appInfo.Memory != nil || appInfo.DiskQuota != nil {
 		if webProc == nil {
 			processes = append(processes, payloads.ManifestApplicationProcess{Type: korifiv1alpha1.ProcessTypeWeb})
 			webProc = &processes[len(processes)-1]
 		}
 
-		if webProc.Memory == nil {
-			webProc.Memory = appInfo.Memory
-		}
+		webProc.Memory = procValIfSet(appInfo.Memory, webProc.Memory)
+		webProc.DiskQuota = procValIfSet(appInfo.DiskQuota, webProc.DiskQuota)
 	}
 
 	return processes
