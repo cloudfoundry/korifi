@@ -273,6 +273,10 @@ func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceA
 			{Name: serviceAccountName + "-dockercfg-someguid"},
 			{Name: packageRegistrySecretName},
 		},
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{Name: serviceAccountName + "-dockercfg-someguid"},
+			{Name: packageRegistrySecretName},
+		},
 	}
 	Expect(k8sClient.Create(ctx, &serviceAccount)).To(Succeed())
 	return serviceAccount

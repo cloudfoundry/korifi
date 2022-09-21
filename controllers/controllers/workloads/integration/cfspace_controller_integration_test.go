@@ -151,7 +151,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
-		It("removes service account tokens from the propagated secret", func() {
+		It("removes all secret references other than the package registry secret from the propagated service account", func() {
 			Eventually(func(g Gomega) {
 				var createdServiceAccounts corev1.ServiceAccountList
 				g.Expect(k8sClient.List(ctx, &createdServiceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
@@ -160,7 +160,8 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 							"Name": Equal(serviceAccount.Name),
 						}),
-						"Secrets": ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)})),
+						"ImagePullSecrets": ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)})),
+						"Secrets":          ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)})),
 					}),
 				))
 			}).Should(Succeed())

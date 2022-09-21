@@ -186,12 +186,17 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 				}
 				newServiceAccount.Labels[korifiv1alpha1.PropagatedFromLabel] = r.rootNamespace
 				newServiceAccount.Annotations = serviceAccount.Annotations
-				newServiceAccount.ImagePullSecrets = serviceAccount.ImagePullSecrets
+				newServiceAccount.ImagePullSecrets = []corev1.LocalObjectReference{}
 				newServiceAccount.Secrets = []corev1.ObjectReference{}
 				// some versions of k8s will add their own secret references which will not be available in the new namespace, so we will only reference the package registry secret we explicitly propagate.
 				for i := range serviceAccount.Secrets {
 					if serviceAccount.Secrets[i].Name == r.packageRegistrySecretName {
 						newServiceAccount.Secrets = append(newServiceAccount.Secrets, serviceAccount.Secrets[i])
+					}
+				}
+				for i := range serviceAccount.ImagePullSecrets {
+					if serviceAccount.ImagePullSecrets[i].Name == r.packageRegistrySecretName {
+						newServiceAccount.ImagePullSecrets = append(newServiceAccount.ImagePullSecrets, serviceAccount.ImagePullSecrets[i])
 					}
 				}
 
