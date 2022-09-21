@@ -93,10 +93,7 @@ No changes here, follow the instructions.
 
 ## TLS certificates
 
-Given you don't have any DNS records, you want to use the following values for `CN`/`SAN`:
-
-- for the API, use `localhost`;
-- for the apps, use `*.vcap.me`.
+No changes here, follow the instructions.
 
 ## Default CF Domain
 

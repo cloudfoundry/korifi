@@ -123,9 +123,9 @@ EOF
 
 ## Dependencies
 
-### Cert-Manager
+### cert-Manager
 
-[Cert-Manager](https://cert-manager.io) allows us to automatically create internal certificates within the cluster. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
+[cert-Manager](https://cert-manager.io) allows us to automatically create internal certificates within the cluster. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
 
 ### Kpack
 
@@ -239,16 +239,41 @@ kubectl apply -f korifi-statefulset-runner.yml
 
 ## TLS certificates
 
-Generate TLS certificates for both the Korifi API and the apps running on Korifi, associated to [the DNS entries you created above](#dns).
+Generate TLS certificates for both the Korifi API and the apps running on Korifi, associated to [the DNS entries you created above](#dns), and provide them to Korifi by creating the `korifi-api-ingress-cert` and the `korifi-workloads-ingress-cert` secrets.
 
-Provide them to Korifi by creating the `korifi-api-ingress-cert` and the `korifi-workloads-ingress-cert` secrets:
+You can do this by leveraging cert-manager. Here's an example using the self-signed `Issuer`s that already ship with Korifi:
 
 ```sh
-kubectl -n korifi-api-system create secret tls korifi-api-ingress-cert --cert=<your-api-tls-cert-file> --key=<your-api-tls-key-file>
-kubectl -n korifi-controllers-system create secret tls korifi-workloads-ingress-cert --cert=<your-workloads-tls-cert-file> --key=<your-workloads-tls-key-file>
+cat <<EOF | kubectl create -f -
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: korifi-api-ingress-cert
+  namespace: korifi-api-system
+spec:
+  commonName: api.$BASE_DOMAIN
+  dnsNames:
+  - api.$BASE_DOMAIN
+  issuerRef:
+    kind: Issuer
+    name: korifi-api-selfsigned-issuer
+  secretName: korifi-api-ingress-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: korifi-workloads-ingress-cert
+  namespace: korifi-controllers-system
+spec:
+  commonName: \*.apps.$BASE_DOMAIN
+  dnsNames:
+  - \*.apps.$BASE_DOMAIN
+  issuerRef:
+    kind: Issuer
+    name: korifi-workloads-selfsigned-issuer
+  secretName: korifi-workloads-ingress-cert
+EOF
 ```
-
-The [`create_tls_secret` function in `scripts/common.sh`](https://github.com/cloudfoundry/korifi/blob/fd1aed6a8f406cb8d67cb5c214280e55db59901e/scripts/common.sh#L48-L91) shows how we do this for our development environments.
 
 ## Default CF Domain
 
