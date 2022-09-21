@@ -138,7 +138,8 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 
-	v.RegisterStructValidation(checkRandomRouteAndDefaultRouteConflict, payloads.ManifestApplication{})
+	v.RegisterStructValidation(validateManifest, payloads.ManifestApplication{})
+	v.RegisterStructValidation(checkDiskQuotaUnderscoreAndHyphenProc, payloads.ManifestApplicationProcess{})
 
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
 
@@ -172,6 +173,16 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 
+	err = v.RegisterTranslation("both-disk-quotas-set", trans, func(ut ut.Translator) error {
+		return ut.Add("both-disk-quotas-set", "Cannot set both 'disk-quota' and 'disk_quota' in manifest", false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("both-disk-quotas-set", fe.Field())
+		return t
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return v, trans, nil
 }
 
@@ -188,11 +199,32 @@ func registerDefaultTranslator(v *validator.Validate) (ut.Translator, error) {
 	return trans, nil
 }
 
-func checkRandomRouteAndDefaultRouteConflict(sl validator.StructLevel) {
+func validateManifest(sl validator.StructLevel) {
 	manifestApplication := sl.Current().Interface().(payloads.ManifestApplication)
+	checkRandomRouteAndDefaultRouteConflict(manifestApplication, sl)
+	checkDiskQuotaUnderscoreAndHyphenApp(manifestApplication, sl)
+}
 
+func checkRandomRouteAndDefaultRouteConflict(manifestApplication payloads.ManifestApplication, sl validator.StructLevel) {
 	if manifestApplication.DefaultRoute && manifestApplication.RandomRoute {
 		sl.ReportError(manifestApplication.DefaultRoute, "defaultRoute", "DefaultRoute", "Random-route and Default-route may not be used together", "")
+	}
+}
+
+func checkDiskQuotaUnderscoreAndHyphenApp(manifestApplication payloads.ManifestApplication, sl validator.StructLevel) {
+	//nolint:staticcheck
+	if manifestApplication.DiskQuota != nil && manifestApplication.AltDiskQuota != nil {
+		//nolint:staticcheck
+		sl.ReportError(manifestApplication.AltDiskQuota, "disk-quota", "AltDiskQuota", "both-disk-quotas-set", "")
+	}
+}
+
+func checkDiskQuotaUnderscoreAndHyphenProc(sl validator.StructLevel) {
+	manifestProcess := sl.Current().Interface().(payloads.ManifestApplicationProcess)
+
+	//nolint:staticcheck
+	if manifestProcess.DiskQuota != nil && manifestProcess.AltDiskQuota != nil {
+		sl.ReportError(manifestProcess.AltDiskQuota, "disk-quota", "AltDiskQuota", "both-disk-quotas-set", "")
 	}
 }
 

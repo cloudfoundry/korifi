@@ -57,7 +57,7 @@ var _ = Describe("SpaceManifestHandler", func() {
                 - name: app1
                   default-route: true
                   memory: 128M
-                  disk-quota: 256M
+                  disk_quota: 256M
                   processes:
                   - type: web
                     command: start-web.sh
@@ -331,6 +331,40 @@ var _ = Describe("SpaceManifestHandler", func() {
 
 			It("response with an unprocessable entity error", func() {
 				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].defaultRoute' Error:Field validation for 'defaultRoute' failed on the 'Random-route and Default-route may not be used together' tag")
+			})
+		})
+
+		When("app disk-quota and app disk_quota are both set", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: app1
+                  disk-quota: 128M
+                  disk_quota: 128M
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Cannot set both 'disk-quota' and 'disk_quota' in manifest")
+			})
+		})
+
+		When("process disk-quota and process disk_quota are both set", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: app1
+                  processes:
+                  - type: foo
+                    disk-quota: 128M
+                    disk_quota: 128M
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Cannot set both 'disk-quota' and 'disk_quota' in manifest")
 			})
 		})
 	})

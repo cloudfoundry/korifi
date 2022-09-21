@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 type processParams struct {
@@ -257,6 +258,35 @@ var _ = Describe("Normalizer", func() {
 				It("does not add a random route", func() {
 					Expect(normalizedAppInfo.Routes).To(BeEmpty())
 				})
+			})
+		})
+	})
+
+	Describe("deprecated disk-quota handling", func() {
+		When("disk-quota is set on process", func() {
+			BeforeEach(func() {
+				appInfo.Processes = []payloads.ManifestApplicationProcess{
+					{
+						Type:         "bob",
+						AltDiskQuota: tools.PtrTo("123M"),
+					},
+				}
+			})
+
+			It("sets the value to disk_quota", func() {
+				Expect(normalizedAppInfo.Processes[0].DiskQuota).To(gstruct.PointTo(Equal("123M")))
+			})
+		})
+
+		When("disk-quota is set on app", func() {
+			BeforeEach(func() {
+				//nolint:staticcheck
+				appInfo.AltDiskQuota = tools.PtrTo("123M")
+			})
+
+			It("sets the value to disk_quota", func() {
+				webProc := getWebProcess(normalizedAppInfo)
+				Expect(webProc.DiskQuota).To(gstruct.PointTo(Equal("123M")))
 			})
 		})
 	})
