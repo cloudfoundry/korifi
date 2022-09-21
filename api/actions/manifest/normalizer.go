@@ -20,6 +20,7 @@ func NewNormalizer(defaultDomainName string) Normalizer {
 }
 
 func (n Normalizer) Normalize(appInfo payloads.ManifestApplication, appState AppState) payloads.ManifestApplication {
+	fixDeprecatedFields(&appInfo)
 	processes := n.normalizeProcesses(appInfo, appState)
 	routes := n.normalizeRoutes(appInfo, appState)
 
@@ -38,6 +39,20 @@ func procValIfSet[T any](appVal, procVal *T) *T {
 		return appVal
 	}
 	return procVal
+}
+
+func fixDeprecatedFields(appInfo *payloads.ManifestApplication) {
+	if appInfo.DiskQuota == nil {
+		//nolint:staticcheck
+		appInfo.DiskQuota = appInfo.AltDiskQuota
+	}
+
+	for i := range appInfo.Processes {
+		if appInfo.Processes[i].DiskQuota == nil {
+			//nolint:staticcheck
+			appInfo.Processes[i].DiskQuota = appInfo.Processes[i].AltDiskQuota
+		}
+	}
 }
 
 func (n Normalizer) normalizeProcesses(appInfo payloads.ManifestApplication, appState AppState) []payloads.ManifestApplicationProcess {

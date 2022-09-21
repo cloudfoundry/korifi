@@ -14,22 +14,32 @@ type Manifest struct {
 }
 
 type ManifestApplication struct {
-	Name         string                       `yaml:"name" validate:"required"`
-	Env          map[string]string            `yaml:"env"`
-	DefaultRoute bool                         `yaml:"default-route"`
-	RandomRoute  bool                         `yaml:"random-route"`
-	NoRoute      bool                         `yaml:"no-route"`
-	Memory       *string                      `yaml:"memory" validate:"megabytestring"`
-	DiskQuota    *string                      `yaml:"disk-quota" validate:"megabytestring"`
+	Name         string            `yaml:"name" validate:"required"`
+	Env          map[string]string `yaml:"env"`
+	DefaultRoute bool              `yaml:"default-route"`
+	RandomRoute  bool              `yaml:"random-route"`
+	NoRoute      bool              `yaml:"no-route"`
+	Memory       *string           `yaml:"memory" validate:"megabytestring"`
+	DiskQuota    *string           `yaml:"disk_quota" validate:"megabytestring"`
+	// AltDiskQuota supports `disk-quota` with a hyphen for backwards compatibility.
+	// Do not set both DiskQuota and AltDiskQuota.
+	//
+	// Deprecated: Use DiskQuota instead
+	AltDiskQuota *string                      `yaml:"disk-quota" validate:"megabytestring"`
 	Processes    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
 	Routes       []ManifestRoute              `yaml:"routes" validate:"dive"`
 	Buildpacks   []string                     `yaml:"buildpacks"`
 }
 
 type ManifestApplicationProcess struct {
-	Type                         string  `yaml:"type" validate:"required"`
-	Command                      *string `yaml:"command"`
-	DiskQuota                    *string `yaml:"disk_quota" validate:"megabytestring"`
+	Type      string  `yaml:"type" validate:"required"`
+	Command   *string `yaml:"command"`
+	DiskQuota *string `yaml:"disk_quota" validate:"megabytestring"`
+	// AltDiskQuota supports `disk-quota` with a hyphen for backwards compatibility.
+	// Do not set both DiskQuota and AltDiskQuota.
+	//
+	// Deprecated: Use DiskQuota instead
+	AltDiskQuota                 *string `yaml:"disk-quota" validate:"megabytestring"`
 	HealthCheckHTTPEndpoint      *string `yaml:"health-check-http-endpoint"`
 	HealthCheckInvocationTimeout *int64  `yaml:"health-check-invocation-timeout"`
 	HealthCheckType              *string `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
