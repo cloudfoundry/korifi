@@ -8,9 +8,11 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("LoadFromPath", func() {
@@ -18,6 +20,7 @@ var _ = Describe("LoadFromPath", func() {
 		configPath string
 		retConfig  *config.ControllerConfig
 		retErr     error
+		cfg        config.ControllerConfig
 	)
 
 	BeforeEach(func() {
@@ -26,10 +29,11 @@ var _ = Describe("LoadFromPath", func() {
 		configPath, err = os.MkdirTemp("", "config")
 		Expect(err).NotTo(HaveOccurred())
 
-		config := config.ControllerConfig{
+		cfg = config.ControllerConfig{
 			CFProcessDefaults: config.CFProcessDefaults{
 				MemoryMB:    1024,
 				DiskQuotaMB: 512,
+				Timeout:     tools.PtrTo(int64(30)),
 			},
 			CFRootNamespace:             "rootNamespace",
 			PackageRegistrySecretName:   "packageRegistrySecretName",
@@ -39,10 +43,6 @@ var _ = Describe("LoadFromPath", func() {
 			BuilderName:                 "buildReconciler",
 			RunnerName:                  "statefulset-runner",
 		}
-		configYAML, err := yaml.Marshal(config)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(os.WriteFile(filepath.Join(configPath, "file1"), configYAML, 0o644)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -50,6 +50,10 @@ var _ = Describe("LoadFromPath", func() {
 	})
 
 	JustBeforeEach(func() {
+		configYAML, err := yaml.Marshal(cfg)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(os.WriteFile(filepath.Join(configPath, "file1"), configYAML, 0o644)).To(Succeed())
 		retConfig, retErr = config.LoadFromPath(configPath)
 	})
 
@@ -59,6 +63,7 @@ var _ = Describe("LoadFromPath", func() {
 			CFProcessDefaults: config.CFProcessDefaults{
 				MemoryMB:    1024,
 				DiskQuotaMB: 512,
+				Timeout:     tools.PtrTo(int64(30)),
 			},
 			CFRootNamespace:             "rootNamespace",
 			PackageRegistrySecretName:   "packageRegistrySecretName",
@@ -68,6 +73,16 @@ var _ = Describe("LoadFromPath", func() {
 			BuilderName:                 "buildReconciler",
 			RunnerName:                  "statefulset-runner",
 		}))
+	})
+
+	When("timeout is not set", func() {
+		BeforeEach(func() {
+			cfg.CFProcessDefaults.Timeout = nil
+		})
+
+		It("uses the default", func() {
+			Expect(retConfig.CFProcessDefaults.Timeout).To(gstruct.PointTo(Equal(int64(60))))
+		})
 	})
 })
 

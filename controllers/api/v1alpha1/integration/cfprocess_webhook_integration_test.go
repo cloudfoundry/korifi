@@ -85,10 +85,11 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 		})
 	})
 
-	Describe("memory and disk", func() {
-		It("sets the configured default memory and disk", func() {
+	Describe("memory, disk and timeout", func() {
+		It("sets the configured default memory, disk and timeout", func() {
 			Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(defaultMemoryMB))
 			Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(defaultDiskQuotaMB))
+			Expect(createdCFProcess.Spec.HealthCheck.Data.TimeoutSeconds).To(BeEquivalentTo(defaultTimeout))
 		})
 
 		When("the process already has a memory value set", func() {
@@ -98,18 +99,32 @@ var _ = Describe("CFProcessMutatingWebhook Integration Tests", func() {
 
 			It("preserves it", func() {
 				Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(42))
+				Expect(createdCFProcess.Spec.HealthCheck.Data.TimeoutSeconds).To(BeEquivalentTo(defaultTimeout))
 				Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(defaultDiskQuotaMB))
 			})
 		})
 
-		When("the process already has a memory value set", func() {
+		When("the process already has a disk value set", func() {
 			BeforeEach(func() {
 				cfProcess.Spec.DiskQuotaMB = 42
 			})
 
 			It("preserves it", func() {
 				Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(defaultMemoryMB))
+				Expect(createdCFProcess.Spec.HealthCheck.Data.TimeoutSeconds).To(BeEquivalentTo(defaultTimeout))
 				Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(42))
+			})
+		})
+
+		When("the process already has a timeout value set", func() {
+			BeforeEach(func() {
+				cfProcess.Spec.HealthCheck.Data.TimeoutSeconds = 16
+			})
+
+			It("preserves it", func() {
+				Expect(createdCFProcess.Spec.MemoryMB).To(BeEquivalentTo(defaultMemoryMB))
+				Expect(createdCFProcess.Spec.DiskQuotaMB).To(BeEquivalentTo(defaultDiskQuotaMB))
+				Expect(createdCFProcess.Spec.HealthCheck.Data.TimeoutSeconds).To(BeEquivalentTo(16))
 			})
 		})
 	})

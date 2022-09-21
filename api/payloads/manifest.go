@@ -31,7 +31,7 @@ type ManifestApplication struct {
 	HealthCheckHTTPEndpoint      *string                      `yaml:"health-check-http-endpoint"`
 	HealthCheckInvocationTimeout *int64                       `yaml:"health-check-invocation-timeout"`
 	HealthCheckType              *string                      `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
-	Timeout                      *int64                       `yaml:"timeout"`
+	Timeout                      *int64                       `yaml:"timeout" validate:"omitempty,gt=0"`
 	Processes                    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
 	Routes                       []ManifestRoute              `yaml:"routes" validate:"dive"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
@@ -51,7 +51,7 @@ type ManifestApplicationProcess struct {
 	HealthCheckType              *string `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
 	Instances                    *int    `yaml:"instances" validate:"omitempty,gte=0"`
 	Memory                       *string `yaml:"memory" validate:"megabytestring"`
-	Timeout                      *int64  `yaml:"timeout"`
+	Timeout                      *int64  `yaml:"timeout" validate:"omitempty,gt=0"`
 }
 
 type ManifestRoute struct {
