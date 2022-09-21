@@ -464,8 +464,6 @@ spec:
                     format: int32
                     type: integer
                 type: object
-              reconcilerName:
-                type: string
               resources:
                 description: ResourceRequirements describes the compute resource requirements.
                 properties:
