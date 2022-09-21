@@ -50,47 +50,24 @@ EOF
   kubectl delete csr "${csr_name}"
 }
 
-function create_tls_secret() {
-  local secret_name=${1:?}
-  local secret_namespace=${2:?}
-  local tls_cn=${3:?}
+function create_tls_cert() {
+  local name=${1:?}
+  local component=${2:?}
+  local cn=${3:?}
 
-  tmp_dir=$(mktemp -d -t cf-tls-XXXXXX)
-  trap "rm -rf $tmp_dir" RETURN
-
-  opensslVersion="$(openssl version)"
-  if [[ $opensslVersion =~ ^OpenSSL ]]; then
-    openssl req -x509 -newkey rsa:4096 \
-      -keyout ${tmp_dir}/tls.key \
-      -out ${tmp_dir}/tls.crt \
-      -nodes \
-      -subj "/CN=${tls_cn}" \
-      -addext "subjectAltName = DNS:${tls_cn}" \
-      -days 365 2>/dev/null
-  elif [[ $opensslVersion =~ ^LibreSSL ]]; then
-    openssl req -x509 -newkey rsa:4096 \
-      -keyout ${tmp_dir}/tls.key \
-      -out ${tmp_dir}/tls.crt \
-      -nodes \
-      -subj "/CN=${tls_cn}" \
-      -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[ SAN ]\nsubjectAltName='DNS:${tls_cn}'")) \
-      -days 365 2>/dev/null
-  else
-    echo "OpenSSL $(openssl version) not supported"
-    exit 1
-  fi
-
-  cat <<EOF >${tmp_dir}/kustomization.yml
-secretGenerator:
-- name: ${secret_name}
-  namespace: ${secret_namespace}
-  files:
-  - tls.crt=tls.crt
-  - tls.key=tls.key
-  type: "kubernetes.io/tls"
-generatorOptions:
-  disableNameSuffixHash: true
+  cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: $name
+  namespace: $component-system
+spec:
+  commonName: $cn
+  dnsNames:
+  - $cn
+  issuerRef:
+    kind: Issuer
+    name: $component-selfsigned-issuer
+  secretName: $name
 EOF
-
-  kubectl apply -k $tmp_dir
 }

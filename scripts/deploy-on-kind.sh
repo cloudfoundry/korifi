@@ -241,7 +241,7 @@ function deploy_korifi_controllers() {
       make deploy-controllers
     fi
 
-    create_tls_secret "korifi-workloads-ingress-cert" "korifi-controllers-system" "*.vcap.me"
+    create_tls_cert "korifi-workloads-ingress-cert" "korifi-controllers" "\*.vcap.me"
   }
   popd >/dev/null
 
@@ -280,7 +280,7 @@ function deploy_korifi_api() {
       make deploy-api-kind
     fi
 
-    create_tls_secret "korifi-api-ingress-cert" "korifi-api-system" "localhost"
+    create_tls_cert "korifi-api-ingress-cert" "korifi-api" "api.vcap.me"
   }
   popd >/dev/null
 

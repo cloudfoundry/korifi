@@ -83,8 +83,8 @@ function install_dependencies() {
 
 function deploy_korifi() {
   kubectl apply -f "$release_dir" --recursive
-  create_tls_secret "korifi-workloads-ingress-cert" "korifi-controllers-system" "*.vcap.me"
-  create_tls_secret "korifi-api-ingress-cert" "korifi-api-system" "localhost"
+  create_tls_cert "korifi-workloads-ingress-cert" "korifi-controllers" "\*.vcap.me"
+  create_tls_cert "korifi-api-ingress-cert" "korifi-api" "api.vcap.me"
 
   kubectl rollout status deployment/korifi-controllers-controller-manager -w -n korifi-controllers-system
   kubectl rollout status deployment/korifi-api-deployment -w -n korifi-api-system
