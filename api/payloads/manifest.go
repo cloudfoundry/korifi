@@ -19,6 +19,7 @@ type ManifestApplication struct {
 	DefaultRoute bool              `yaml:"default-route"`
 	RandomRoute  bool              `yaml:"random-route"`
 	NoRoute      bool              `yaml:"no-route"`
+	Command      *string           `yaml:"command"`
 	Instances    *int              `yaml:"instances" validate:"omitempty,gte=0"`
 	Memory       *string           `yaml:"memory" validate:"megabytestring"`
 	DiskQuota    *string           `yaml:"disk_quota" validate:"megabytestring"`
