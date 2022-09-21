@@ -11,6 +11,7 @@ import (
 )
 
 type prcParams struct {
+	Command   *string
 	Memory    *string
 	DiskQuota *string
 	Instances *int
@@ -85,6 +86,7 @@ var _ = Describe("Normalizer", func() {
 				appInfo.Memory = app.Memory
 				appInfo.DiskQuota = app.DiskQuota
 				appInfo.Instances = app.Instances
+				appInfo.Command = app.Command
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
 				webProc := getWebProcess(updatedAppInfo)
@@ -92,8 +94,10 @@ var _ = Describe("Normalizer", func() {
 				Expect(webProc.Memory).To(Equal(app.Memory))
 				Expect(webProc.DiskQuota).To(Equal(app.DiskQuota))
 				Expect(webProc.Instances).To(Equal(app.Instances))
+				Expect(webProc.Command).To(Equal(app.Command))
 			},
 
+			Entry("command only", appParams{Command: tools.PtrTo("echo boo")}),
 			Entry("memory only", appParams{Memory: tools.PtrTo("512M")}),
 			Entry("disk_quota only", appParams{DiskQuota: tools.PtrTo("2G")}),
 			Entry("instances only", appParams{Instances: tools.PtrTo(3)}),
@@ -105,12 +109,14 @@ var _ = Describe("Normalizer", func() {
 				appInfo.Memory = app.Memory
 				appInfo.DiskQuota = app.DiskQuota
 				appInfo.Instances = app.Instances
+				appInfo.Command = app.Command
 
 				appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
 					Type:      "web",
 					Memory:    process.Memory,
 					DiskQuota: process.DiskQuota,
 					Instances: process.Instances,
+					Command:   process.Command,
 				})
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
@@ -119,6 +125,7 @@ var _ = Describe("Normalizer", func() {
 				Expect(webProc.Memory).To(Equal(effective.Memory))
 				Expect(webProc.DiskQuota).To(Equal(effective.DiskQuota))
 				Expect(webProc.Instances).To(Equal(effective.Instances))
+				Expect(webProc.Command).To(Equal(effective.Command))
 			},
 
 			Entry("empty proc with app memory",
@@ -133,6 +140,10 @@ var _ = Describe("Normalizer", func() {
 				appParams{Instances: tools.PtrTo(3)},
 				prcParams{},
 				expParams{Instances: tools.PtrTo(3)}),
+			Entry("empty proc with command",
+				appParams{Command: tools.PtrTo("echo foo")},
+				prcParams{},
+				expParams{Command: tools.PtrTo("echo foo")}),
 			Entry("value from proc memory used",
 				appParams{Memory: tools.PtrTo("256M")},
 				prcParams{Memory: tools.PtrTo("512M")},
@@ -145,6 +156,10 @@ var _ = Describe("Normalizer", func() {
 				appParams{Instances: tools.PtrTo(2)},
 				prcParams{Instances: tools.PtrTo(3)},
 				expParams{Instances: tools.PtrTo(3)}),
+			Entry("value from proc command used",
+				appParams{Command: tools.PtrTo("echo bar")},
+				prcParams{Command: tools.PtrTo("echo foo")},
+				expParams{Command: tools.PtrTo("echo foo")}),
 			Entry("fields are individually defaulted from the app if not set on process",
 				appParams{
 					Memory:    tools.PtrTo("256M"),
@@ -152,11 +167,13 @@ var _ = Describe("Normalizer", func() {
 				},
 				prcParams{
 					Instances: tools.PtrTo(3),
+					Command:   tools.PtrTo("echo boo"),
 				},
 				expParams{
 					Instances: tools.PtrTo(3),
 					Memory:    tools.PtrTo("256M"),
 					DiskQuota: tools.PtrTo("2G"),
+					Command:   tools.PtrTo("echo boo"),
 				}),
 		)
 	})
