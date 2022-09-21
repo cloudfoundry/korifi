@@ -19,6 +19,7 @@ type ManifestApplication struct {
 	DefaultRoute bool              `yaml:"default-route"`
 	RandomRoute  bool              `yaml:"random-route"`
 	NoRoute      bool              `yaml:"no-route"`
+	Instances    *int              `yaml:"instances" validate:"omitempty,gte=0"`
 	Memory       *string           `yaml:"memory" validate:"megabytestring"`
 	DiskQuota    *string           `yaml:"disk_quota" validate:"megabytestring"`
 	// AltDiskQuota supports `disk-quota` with a hyphen for backwards compatibility.

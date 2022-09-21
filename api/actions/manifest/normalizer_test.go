@@ -10,14 +10,15 @@ import (
 	"github.com/onsi/gomega/gstruct"
 )
 
-type processParams struct {
+type prcParams struct {
 	Memory    *string
 	DiskQuota *string
+	Instances *int
 }
 
 type (
-	appParams       processParams
-	effectiveParams processParams
+	appParams prcParams
+	expParams prcParams
 )
 
 var _ = Describe("Normalizer", func() {
@@ -83,28 +84,33 @@ var _ = Describe("Normalizer", func() {
 			func(app appParams) {
 				appInfo.Memory = app.Memory
 				appInfo.DiskQuota = app.DiskQuota
+				appInfo.Instances = app.Instances
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
 				webProc := getWebProcess(updatedAppInfo)
 
 				Expect(webProc.Memory).To(Equal(app.Memory))
 				Expect(webProc.DiskQuota).To(Equal(app.DiskQuota))
+				Expect(webProc.Instances).To(Equal(app.Instances))
 			},
 
 			Entry("memory only", appParams{Memory: tools.PtrTo("512M")}),
 			Entry("disk_quota only", appParams{DiskQuota: tools.PtrTo("2G")}),
+			Entry("instances only", appParams{Instances: tools.PtrTo(3)}),
 			Entry("memory and disk_quota", appParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}),
 		)
 
 		DescribeTable("updating a web process when top level values are provided",
-			func(app appParams, process processParams, effective effectiveParams) {
+			func(app appParams, process prcParams, effective expParams) {
 				appInfo.Memory = app.Memory
 				appInfo.DiskQuota = app.DiskQuota
+				appInfo.Instances = app.Instances
 
 				appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
 					Type:      "web",
 					Memory:    process.Memory,
 					DiskQuota: process.DiskQuota,
+					Instances: process.Instances,
 				})
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
@@ -112,70 +118,45 @@ var _ = Describe("Normalizer", func() {
 
 				Expect(webProc.Memory).To(Equal(effective.Memory))
 				Expect(webProc.DiskQuota).To(Equal(effective.DiskQuota))
+				Expect(webProc.Instances).To(Equal(effective.Instances))
 			},
 
-			Entry("empty proc with app memory and disk quota",
-				appParams{
-					Memory:    tools.PtrTo("512M"),
-					DiskQuota: tools.PtrTo("2G"),
-				},
-				processParams{},
-				effectiveParams{
-					Memory:    tools.PtrTo("512M"),
-					DiskQuota: tools.PtrTo("2G"),
-				}),
 			Entry("empty proc with app memory",
-				appParams{
-					Memory: tools.PtrTo("512M"),
-				},
-				processParams{},
-				effectiveParams{
-					Memory: tools.PtrTo("512M"),
-				}),
+				appParams{Memory: tools.PtrTo("512M")},
+				prcParams{},
+				expParams{Memory: tools.PtrTo("512M")}),
 			Entry("empty proc with disk quota",
-				appParams{
-					DiskQuota: tools.PtrTo("2G"),
-				},
-				processParams{},
-				effectiveParams{
-					DiskQuota: tools.PtrTo("2G"),
-				}),
+				appParams{DiskQuota: tools.PtrTo("2G")},
+				prcParams{},
+				expParams{DiskQuota: tools.PtrTo("2G")}),
+			Entry("empty proc with instances",
+				appParams{Instances: tools.PtrTo(3)},
+				prcParams{},
+				expParams{Instances: tools.PtrTo(3)}),
 			Entry("value from proc memory used",
-				appParams{
-					Memory:    tools.PtrTo("256M"),
-					DiskQuota: tools.PtrTo("2G"),
-				},
-				processParams{
-					Memory: tools.PtrTo("512M"),
-				},
-				effectiveParams{
-					Memory:    tools.PtrTo("512M"),
-					DiskQuota: tools.PtrTo("2G"),
-				}),
+				appParams{Memory: tools.PtrTo("256M")},
+				prcParams{Memory: tools.PtrTo("512M")},
+				expParams{Memory: tools.PtrTo("512M")}),
 			Entry("value from proc disk_quota used",
+				appParams{DiskQuota: tools.PtrTo("2G")},
+				prcParams{DiskQuota: tools.PtrTo("3G")},
+				expParams{DiskQuota: tools.PtrTo("3G")}),
+			Entry("value from proc instances used",
+				appParams{Instances: tools.PtrTo(2)},
+				prcParams{Instances: tools.PtrTo(3)},
+				expParams{Instances: tools.PtrTo(3)}),
+			Entry("fields are individually defaulted from the app if not set on process",
 				appParams{
 					Memory:    tools.PtrTo("256M"),
 					DiskQuota: tools.PtrTo("2G"),
 				},
-				processParams{
-					DiskQuota: tools.PtrTo("3G"),
+				prcParams{
+					Instances: tools.PtrTo(3),
 				},
-				effectiveParams{
-					Memory:    tools.PtrTo("256M"),
-					DiskQuota: tools.PtrTo("3G"),
-				}),
-			Entry("values from proc memory and disk_quota used",
-				appParams{
+				expParams{
+					Instances: tools.PtrTo(3),
 					Memory:    tools.PtrTo("256M"),
 					DiskQuota: tools.PtrTo("2G"),
-				},
-				processParams{
-					Memory:    tools.PtrTo("512M"),
-					DiskQuota: tools.PtrTo("3G"),
-				},
-				effectiveParams{
-					Memory:    tools.PtrTo("512M"),
-					DiskQuota: tools.PtrTo("3G"),
 				}),
 		)
 	})
