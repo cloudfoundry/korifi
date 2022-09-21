@@ -85,8 +85,8 @@ var _ = Describe("Normalizer", func() {
 			Expect(normalizedAppInfo.Processes).To(ConsistOf(payloads.ManifestApplicationProcess{Type: "bob"}))
 		})
 
-		DescribeTable("creating a web process when top level values are provided",
-			func(app appParams) {
+		DescribeTable("when app-level values are provided",
+			func(app appParams, createProc bool, process prcParams, effective expParams) {
 				appInfo.Memory = app.Memory
 				appInfo.DiskQuota = app.DiskQuota
 				appInfo.Instances = app.Instances
@@ -96,52 +96,19 @@ var _ = Describe("Normalizer", func() {
 				appInfo.HealthCheckInvocationTimeout = app.HealthCheckInvocationTimeout
 				appInfo.Timeout = app.Timeout
 
-				updatedAppInfo := normalizer.Normalize(appInfo, appState)
-				webProc := getWebProcess(updatedAppInfo)
-
-				Expect(webProc.Memory).To(Equal(app.Memory))
-				Expect(webProc.DiskQuota).To(Equal(app.DiskQuota))
-				Expect(webProc.Instances).To(Equal(app.Instances))
-				Expect(webProc.Command).To(Equal(app.Command))
-				Expect(webProc.HealthCheckHTTPEndpoint).To(Equal(app.HealthCheckHTTPEndpoint))
-				Expect(webProc.HealthCheckType).To(Equal(app.HealthCheckType))
-				Expect(webProc.HealthCheckInvocationTimeout).To(Equal(app.HealthCheckInvocationTimeout))
-				Expect(webProc.Timeout).To(Equal(app.Timeout))
-			},
-
-			Entry("command only", appParams{Command: tools.PtrTo("echo boo")}),
-			Entry("memory only", appParams{Memory: tools.PtrTo("512M")}),
-			Entry("disk_quota only", appParams{DiskQuota: tools.PtrTo("2G")}),
-			Entry("instances only", appParams{Instances: tools.PtrTo(3)}),
-			Entry("healthcheck endpoint only", appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}),
-			Entry("healthcheck type only", appParams{HealthCheckType: tools.PtrTo("typo")}),
-			Entry("healthcheck invocation timeout only", appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(64))}),
-			Entry("timeout only", appParams{Timeout: tools.PtrTo(int64(12))}),
-			Entry("memory and disk_quota", appParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}),
-		)
-
-		DescribeTable("updating a web process when top level values are provided",
-			func(app appParams, process prcParams, effective expParams) {
-				appInfo.Memory = app.Memory
-				appInfo.DiskQuota = app.DiskQuota
-				appInfo.Instances = app.Instances
-				appInfo.Command = app.Command
-				appInfo.HealthCheckHTTPEndpoint = app.HealthCheckHTTPEndpoint
-				appInfo.HealthCheckType = app.HealthCheckType
-				appInfo.HealthCheckInvocationTimeout = app.HealthCheckInvocationTimeout
-				appInfo.Timeout = app.Timeout
-
-				appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
-					Type:                         "web",
-					Memory:                       process.Memory,
-					DiskQuota:                    process.DiskQuota,
-					Instances:                    process.Instances,
-					Command:                      process.Command,
-					HealthCheckHTTPEndpoint:      process.HealthCheckHTTPEndpoint,
-					HealthCheckType:              process.HealthCheckType,
-					HealthCheckInvocationTimeout: process.HealthCheckInvocationTimeout,
-					Timeout:                      process.Timeout,
-				})
+				if createProc {
+					appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
+						Type:                         "web",
+						Memory:                       process.Memory,
+						DiskQuota:                    process.DiskQuota,
+						Instances:                    process.Instances,
+						Command:                      process.Command,
+						HealthCheckHTTPEndpoint:      process.HealthCheckHTTPEndpoint,
+						HealthCheckType:              process.HealthCheckType,
+						HealthCheckInvocationTimeout: process.HealthCheckInvocationTimeout,
+						Timeout:                      process.Timeout,
+					})
+				}
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
 				webProc := getWebProcess(updatedAppInfo)
@@ -156,75 +123,100 @@ var _ = Describe("Normalizer", func() {
 				Expect(webProc.Timeout).To(Equal(effective.Timeout))
 			},
 
+			// without an existing web process
+			Entry("app-level command only",
+				appParams{Command: tools.PtrTo("echo boo")}, false, prcParams{},
+				expParams{Command: tools.PtrTo("echo boo")}),
+			Entry("app-level memory only",
+				appParams{Memory: tools.PtrTo("512M")}, false, prcParams{},
+				expParams{Memory: tools.PtrTo("512M")}),
+			Entry("app-level disk_quota only",
+				appParams{DiskQuota: tools.PtrTo("2G")}, false, prcParams{},
+				expParams{DiskQuota: tools.PtrTo("2G")}),
+			Entry("app-level instances only",
+				appParams{Instances: tools.PtrTo(3)}, false, prcParams{},
+				expParams{Instances: tools.PtrTo(3)}),
+			Entry("app-level healthcheck endpoint only",
+				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}, false, prcParams{},
+				expParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}),
+			Entry("app-level healthcheck type only",
+				appParams{HealthCheckType: tools.PtrTo("typo")}, false, prcParams{},
+				expParams{HealthCheckType: tools.PtrTo("typo")}),
+			Entry("app-level healthcheck invocation timeout only",
+				appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(64))}, false, prcParams{},
+				expParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(64))}),
+			Entry("app-level timeout only",
+				appParams{Timeout: tools.PtrTo(int64(12))}, false, prcParams{},
+				expParams{Timeout: tools.PtrTo(int64(12))}),
+			Entry("a combination of fields",
+				appParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}, false, prcParams{},
+				expParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}),
+
+			// with an existing web process without the given value set
 			Entry("empty proc with app memory",
-				appParams{Memory: tools.PtrTo("512M")},
-				prcParams{},
+				appParams{Memory: tools.PtrTo("512M")}, true, prcParams{},
 				expParams{Memory: tools.PtrTo("512M")}),
 			Entry("empty proc with disk quota",
-				appParams{DiskQuota: tools.PtrTo("2G")},
-				prcParams{},
+				appParams{DiskQuota: tools.PtrTo("2G")}, true, prcParams{},
 				expParams{DiskQuota: tools.PtrTo("2G")}),
 			Entry("empty proc with instances",
-				appParams{Instances: tools.PtrTo(3)},
-				prcParams{},
+				appParams{Instances: tools.PtrTo(3)}, true, prcParams{},
 				expParams{Instances: tools.PtrTo(3)}),
 			Entry("empty proc with command",
-				appParams{Command: tools.PtrTo("echo foo")},
-				prcParams{},
+				appParams{Command: tools.PtrTo("echo foo")}, true, prcParams{},
 				expParams{Command: tools.PtrTo("echo foo")}),
 			Entry("empty proc with healthcheck endpoint",
-				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")},
-				prcParams{},
+				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}, true, prcParams{},
 				expParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}),
 			Entry("empty proc with healthcheck type",
-				appParams{HealthCheckType: tools.PtrTo("type1")},
-				prcParams{},
+				appParams{HealthCheckType: tools.PtrTo("type1")}, true, prcParams{},
 				expParams{HealthCheckType: tools.PtrTo("type1")}),
 			Entry("empty proc with healthcheck invocation timeout",
-				appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(45))},
-				prcParams{},
+				appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(45))}, true, prcParams{},
 				expParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(45))}),
 			Entry("empty proc with timeout",
-				appParams{Timeout: tools.PtrTo(int64(32))},
-				prcParams{},
+				appParams{Timeout: tools.PtrTo(int64(32))}, true, prcParams{},
 				expParams{Timeout: tools.PtrTo(int64(32))}),
+
+			// with an existing web process with the given value set
 			Entry("value from proc memory used",
-				appParams{Memory: tools.PtrTo("256M")},
+				appParams{Memory: tools.PtrTo("256M")}, true,
 				prcParams{Memory: tools.PtrTo("512M")},
 				expParams{Memory: tools.PtrTo("512M")}),
 			Entry("value from proc disk_quota used",
-				appParams{DiskQuota: tools.PtrTo("2G")},
+				appParams{DiskQuota: tools.PtrTo("2G")}, true,
 				prcParams{DiskQuota: tools.PtrTo("3G")},
 				expParams{DiskQuota: tools.PtrTo("3G")}),
 			Entry("value from proc instances used",
-				appParams{Instances: tools.PtrTo(2)},
+				appParams{Instances: tools.PtrTo(2)}, true,
 				prcParams{Instances: tools.PtrTo(3)},
 				expParams{Instances: tools.PtrTo(3)}),
 			Entry("value from proc command used",
-				appParams{Command: tools.PtrTo("echo bar")},
+				appParams{Command: tools.PtrTo("echo bar")}, true,
 				prcParams{Command: tools.PtrTo("echo foo")},
 				expParams{Command: tools.PtrTo("echo foo")}),
 			Entry("value from proc healthcheck endpoint used",
-				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/apphealth")},
+				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/apphealth")}, true,
 				prcParams{HealthCheckHTTPEndpoint: tools.PtrTo("/prchealth")},
 				expParams{HealthCheckHTTPEndpoint: tools.PtrTo("/prchealth")}),
 			Entry("value from proc healthcheck type used",
-				appParams{HealthCheckType: tools.PtrTo("apptype")},
+				appParams{HealthCheckType: tools.PtrTo("apptype")}, true,
 				prcParams{HealthCheckType: tools.PtrTo("proctype")},
 				expParams{HealthCheckType: tools.PtrTo("proctype")}),
 			Entry("value from proc healthcheck invocation timeout used",
-				appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(345))},
+				appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(345))}, true,
 				prcParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(34))},
 				expParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(34))}),
 			Entry("value from proc timeout used",
-				appParams{Timeout: tools.PtrTo(int64(25))},
+				appParams{Timeout: tools.PtrTo(int64(25))}, true,
 				prcParams{Timeout: tools.PtrTo(int64(2))},
 				expParams{Timeout: tools.PtrTo(int64(2))}),
+
 			Entry("fields are individually defaulted from the app if not set on process",
 				appParams{
 					Memory:    tools.PtrTo("256M"),
 					DiskQuota: tools.PtrTo("2G"),
-				},
+				}, true,
 				prcParams{
 					Instances: tools.PtrTo(3),
 					Command:   tools.PtrTo("echo boo"),
