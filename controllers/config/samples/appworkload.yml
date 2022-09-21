@@ -29,3 +29,4 @@ spec:
   diskMiB: 50
   cpuMillicores: 5
   processType: web
+  runnerName: statefulset-runner
