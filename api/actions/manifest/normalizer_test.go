@@ -11,11 +11,14 @@ import (
 )
 
 type prcParams struct {
-	Command                 *string
-	Memory                  *string
-	DiskQuota               *string
-	Instances               *int
-	HealthCheckHTTPEndpoint *string
+	Command                      *string
+	Memory                       *string
+	DiskQuota                    *string
+	Instances                    *int
+	HealthCheckHTTPEndpoint      *string
+	HealthCheckInvocationTimeout *int64
+	HealthCheckType              *string
+	Timeout                      *int64
 }
 
 type (
@@ -89,6 +92,9 @@ var _ = Describe("Normalizer", func() {
 				appInfo.Instances = app.Instances
 				appInfo.Command = app.Command
 				appInfo.HealthCheckHTTPEndpoint = app.HealthCheckHTTPEndpoint
+				appInfo.HealthCheckType = app.HealthCheckType
+				appInfo.HealthCheckInvocationTimeout = app.HealthCheckInvocationTimeout
+				appInfo.Timeout = app.Timeout
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
 				webProc := getWebProcess(updatedAppInfo)
@@ -98,6 +104,9 @@ var _ = Describe("Normalizer", func() {
 				Expect(webProc.Instances).To(Equal(app.Instances))
 				Expect(webProc.Command).To(Equal(app.Command))
 				Expect(webProc.HealthCheckHTTPEndpoint).To(Equal(app.HealthCheckHTTPEndpoint))
+				Expect(webProc.HealthCheckType).To(Equal(app.HealthCheckType))
+				Expect(webProc.HealthCheckInvocationTimeout).To(Equal(app.HealthCheckInvocationTimeout))
+				Expect(webProc.Timeout).To(Equal(app.Timeout))
 			},
 
 			Entry("command only", appParams{Command: tools.PtrTo("echo boo")}),
@@ -105,6 +114,9 @@ var _ = Describe("Normalizer", func() {
 			Entry("disk_quota only", appParams{DiskQuota: tools.PtrTo("2G")}),
 			Entry("instances only", appParams{Instances: tools.PtrTo(3)}),
 			Entry("healthcheck endpoint only", appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}),
+			Entry("healthcheck type only", appParams{HealthCheckType: tools.PtrTo("typo")}),
+			Entry("healthcheck invocation timeout only", appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(64))}),
+			Entry("timeout only", appParams{Timeout: tools.PtrTo(int64(12))}),
 			Entry("memory and disk_quota", appParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}),
 		)
 
@@ -115,14 +127,20 @@ var _ = Describe("Normalizer", func() {
 				appInfo.Instances = app.Instances
 				appInfo.Command = app.Command
 				appInfo.HealthCheckHTTPEndpoint = app.HealthCheckHTTPEndpoint
+				appInfo.HealthCheckType = app.HealthCheckType
+				appInfo.HealthCheckInvocationTimeout = app.HealthCheckInvocationTimeout
+				appInfo.Timeout = app.Timeout
 
 				appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
-					Type:                    "web",
-					Memory:                  process.Memory,
-					DiskQuota:               process.DiskQuota,
-					Instances:               process.Instances,
-					Command:                 process.Command,
-					HealthCheckHTTPEndpoint: process.HealthCheckHTTPEndpoint,
+					Type:                         "web",
+					Memory:                       process.Memory,
+					DiskQuota:                    process.DiskQuota,
+					Instances:                    process.Instances,
+					Command:                      process.Command,
+					HealthCheckHTTPEndpoint:      process.HealthCheckHTTPEndpoint,
+					HealthCheckType:              process.HealthCheckType,
+					HealthCheckInvocationTimeout: process.HealthCheckInvocationTimeout,
+					Timeout:                      process.Timeout,
 				})
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
@@ -133,6 +151,9 @@ var _ = Describe("Normalizer", func() {
 				Expect(webProc.Instances).To(Equal(effective.Instances))
 				Expect(webProc.Command).To(Equal(effective.Command))
 				Expect(webProc.HealthCheckHTTPEndpoint).To(Equal(effective.HealthCheckHTTPEndpoint))
+				Expect(webProc.HealthCheckType).To(Equal(effective.HealthCheckType))
+				Expect(webProc.HealthCheckInvocationTimeout).To(Equal(effective.HealthCheckInvocationTimeout))
+				Expect(webProc.Timeout).To(Equal(effective.Timeout))
 			},
 
 			Entry("empty proc with app memory",
@@ -151,10 +172,22 @@ var _ = Describe("Normalizer", func() {
 				appParams{Command: tools.PtrTo("echo foo")},
 				prcParams{},
 				expParams{Command: tools.PtrTo("echo foo")}),
-			Entry("empty proc with healhcheck endpoint",
+			Entry("empty proc with healthcheck endpoint",
 				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")},
 				prcParams{},
 				expParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}),
+			Entry("empty proc with healthcheck type",
+				appParams{HealthCheckType: tools.PtrTo("type1")},
+				prcParams{},
+				expParams{HealthCheckType: tools.PtrTo("type1")}),
+			Entry("empty proc with healthcheck invocation timeout",
+				appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(45))},
+				prcParams{},
+				expParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(45))}),
+			Entry("empty proc with timeout",
+				appParams{Timeout: tools.PtrTo(int64(32))},
+				prcParams{},
+				expParams{Timeout: tools.PtrTo(int64(32))}),
 			Entry("value from proc memory used",
 				appParams{Memory: tools.PtrTo("256M")},
 				prcParams{Memory: tools.PtrTo("512M")},
@@ -171,10 +204,22 @@ var _ = Describe("Normalizer", func() {
 				appParams{Command: tools.PtrTo("echo bar")},
 				prcParams{Command: tools.PtrTo("echo foo")},
 				expParams{Command: tools.PtrTo("echo foo")}),
-			Entry("value from proc healthcheck used",
+			Entry("value from proc healthcheck endpoint used",
 				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/apphealth")},
 				prcParams{HealthCheckHTTPEndpoint: tools.PtrTo("/prchealth")},
 				expParams{HealthCheckHTTPEndpoint: tools.PtrTo("/prchealth")}),
+			Entry("value from proc healthcheck type used",
+				appParams{HealthCheckType: tools.PtrTo("apptype")},
+				prcParams{HealthCheckType: tools.PtrTo("proctype")},
+				expParams{HealthCheckType: tools.PtrTo("proctype")}),
+			Entry("value from proc healthcheck invocation timeout used",
+				appParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(345))},
+				prcParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(34))},
+				expParams{HealthCheckInvocationTimeout: tools.PtrTo(int64(34))}),
+			Entry("value from proc timeout used",
+				appParams{Timeout: tools.PtrTo(int64(25))},
+				prcParams{Timeout: tools.PtrTo(int64(2))},
+				expParams{Timeout: tools.PtrTo(int64(2))}),
 			Entry("fields are individually defaulted from the app if not set on process",
 				appParams{
 					Memory:    tools.PtrTo("256M"),
