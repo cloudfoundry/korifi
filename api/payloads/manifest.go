@@ -27,11 +27,14 @@ type ManifestApplication struct {
 	// Do not set both DiskQuota and AltDiskQuota.
 	//
 	// Deprecated: Use DiskQuota instead
-	AltDiskQuota            *string                      `yaml:"disk-quota" validate:"megabytestring"`
-	HealthCheckHTTPEndpoint *string                      `yaml:"health-check-http-endpoint"`
-	Processes               []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
-	Routes                  []ManifestRoute              `yaml:"routes" validate:"dive"`
-	Buildpacks              []string                     `yaml:"buildpacks"`
+	AltDiskQuota                 *string                      `yaml:"disk-quota" validate:"megabytestring"`
+	HealthCheckHTTPEndpoint      *string                      `yaml:"health-check-http-endpoint"`
+	HealthCheckInvocationTimeout *int64                       `yaml:"health-check-invocation-timeout"`
+	HealthCheckType              *string                      `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
+	Timeout                      *int64                       `yaml:"timeout"`
+	Processes                    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
+	Routes                       []ManifestRoute              `yaml:"routes" validate:"dive"`
+	Buildpacks                   []string                     `yaml:"buildpacks"`
 }
 
 type ManifestApplicationProcess struct {
