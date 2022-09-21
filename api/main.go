@@ -306,12 +306,23 @@ func main() {
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)
 	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
+
+	
+	srv := &http.Server{
+		Addr:         portString,
+		Handler:      router,
+		IdleTimeout: time.Duration(config.IdleTimeout * int(time.Second)),
+		ReadTimeout:  time.Duration(config.ReadTimeout * int(time.Second)),
+		ReadHeaderTimeout: time.Duration(config.ReadHeaderTimeout * int(time.Second)),
+		WriteTimeout: time.Duration(config.WriteTimeout * int(time.Second)),
+	}
+
 	if tlsFound {
 		log.Println("Listening with TLS on ", portString)
-		log.Fatal(http.ListenAndServeTLS(portString, path.Join(tlsPath, "tls.crt"), path.Join(tlsPath, "tls.key"), router))
+		log.Fatal(srv.ListenAndServeTLS(path.Join(tlsPath, "tls.crt"), path.Join(tlsPath, "tls.key")))
 	} else {
 		log.Println("Listening without TLS on ", portString)
-		log.Fatal(http.ListenAndServe(portString, router))
+		log.Fatal(srv.ListenAndServe())
 	}
 }
 
