@@ -48,6 +48,7 @@ import (
 const (
 	defaultMemoryMB    = 128
 	defaultDiskQuotaMB = 256
+	defaultTimeout     = 60
 )
 
 var (
@@ -121,7 +122,8 @@ var _ = BeforeSuite(func() {
 
 	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	Expect(korifiv1alpha1.NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(korifiv1alpha1.NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB, defaultTimeout).
+		SetupWebhookWithManager(mgr)).To(Succeed())
 
 	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr)).To(Succeed())
 

@@ -266,6 +266,7 @@ func main() {
 		if err = korifiv1alpha1.NewCFProcessDefaulter(
 			controllerConfig.CFProcessDefaults.MemoryMB,
 			controllerConfig.CFProcessDefaults.DiskQuotaMB,
+			*controllerConfig.CFProcessDefaults.Timeout,
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFProcess")
 			os.Exit(1)

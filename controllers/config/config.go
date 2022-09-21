@@ -19,17 +19,25 @@ type ControllerConfig struct {
 }
 
 type CFProcessDefaults struct {
-	MemoryMB    int64 `yaml:"memoryMB"`
-	DiskQuotaMB int64 `yaml:"diskQuotaMB"`
+	MemoryMB    int64  `yaml:"memoryMB"`
+	DiskQuotaMB int64  `yaml:"diskQuotaMB"`
+	Timeout     *int64 `yaml:"timeout"`
 }
 
-const defaultTaskTTL = 30 * 24 * time.Hour
+const (
+	defaultTaskTTL       = 30 * 24 * time.Hour
+	defaultTimeout int64 = 60
+)
 
 func LoadFromPath(path string) (*ControllerConfig, error) {
 	var config ControllerConfig
 	err := tools.LoadConfigInto(&config, path)
 	if err != nil {
 		return nil, err
+	}
+
+	if config.CFProcessDefaults.Timeout == nil {
+		config.CFProcessDefaults.Timeout = tools.PtrTo(defaultTimeout)
 	}
 
 	return &config, nil

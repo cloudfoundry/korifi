@@ -3,6 +3,7 @@ runnerName: statefulset-runner
 cfProcessDefaults:
   memoryMB: 1024
   diskQuotaMB: 1024
+  timeout: 60
 cfRootNamespace: cf
 packageRegistrySecretName: image-registry-credentials # Create this secret in the rootNamespace
 # taskTTL should be series of numbers and units (d: days, h: hours, m: minutes, s: seconds)
