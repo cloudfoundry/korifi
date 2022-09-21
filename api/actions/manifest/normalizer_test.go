@@ -11,10 +11,11 @@ import (
 )
 
 type prcParams struct {
-	Command   *string
-	Memory    *string
-	DiskQuota *string
-	Instances *int
+	Command                 *string
+	Memory                  *string
+	DiskQuota               *string
+	Instances               *int
+	HealthCheckHTTPEndpoint *string
 }
 
 type (
@@ -87,6 +88,7 @@ var _ = Describe("Normalizer", func() {
 				appInfo.DiskQuota = app.DiskQuota
 				appInfo.Instances = app.Instances
 				appInfo.Command = app.Command
+				appInfo.HealthCheckHTTPEndpoint = app.HealthCheckHTTPEndpoint
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
 				webProc := getWebProcess(updatedAppInfo)
@@ -95,12 +97,14 @@ var _ = Describe("Normalizer", func() {
 				Expect(webProc.DiskQuota).To(Equal(app.DiskQuota))
 				Expect(webProc.Instances).To(Equal(app.Instances))
 				Expect(webProc.Command).To(Equal(app.Command))
+				Expect(webProc.HealthCheckHTTPEndpoint).To(Equal(app.HealthCheckHTTPEndpoint))
 			},
 
 			Entry("command only", appParams{Command: tools.PtrTo("echo boo")}),
 			Entry("memory only", appParams{Memory: tools.PtrTo("512M")}),
 			Entry("disk_quota only", appParams{DiskQuota: tools.PtrTo("2G")}),
 			Entry("instances only", appParams{Instances: tools.PtrTo(3)}),
+			Entry("healthcheck endpoint only", appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}),
 			Entry("memory and disk_quota", appParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}),
 		)
 
@@ -110,13 +114,15 @@ var _ = Describe("Normalizer", func() {
 				appInfo.DiskQuota = app.DiskQuota
 				appInfo.Instances = app.Instances
 				appInfo.Command = app.Command
+				appInfo.HealthCheckHTTPEndpoint = app.HealthCheckHTTPEndpoint
 
 				appInfo.Processes = append(appInfo.Processes, payloads.ManifestApplicationProcess{
-					Type:      "web",
-					Memory:    process.Memory,
-					DiskQuota: process.DiskQuota,
-					Instances: process.Instances,
-					Command:   process.Command,
+					Type:                    "web",
+					Memory:                  process.Memory,
+					DiskQuota:               process.DiskQuota,
+					Instances:               process.Instances,
+					Command:                 process.Command,
+					HealthCheckHTTPEndpoint: process.HealthCheckHTTPEndpoint,
 				})
 
 				updatedAppInfo := normalizer.Normalize(appInfo, appState)
@@ -126,6 +132,7 @@ var _ = Describe("Normalizer", func() {
 				Expect(webProc.DiskQuota).To(Equal(effective.DiskQuota))
 				Expect(webProc.Instances).To(Equal(effective.Instances))
 				Expect(webProc.Command).To(Equal(effective.Command))
+				Expect(webProc.HealthCheckHTTPEndpoint).To(Equal(effective.HealthCheckHTTPEndpoint))
 			},
 
 			Entry("empty proc with app memory",
@@ -144,6 +151,10 @@ var _ = Describe("Normalizer", func() {
 				appParams{Command: tools.PtrTo("echo foo")},
 				prcParams{},
 				expParams{Command: tools.PtrTo("echo foo")}),
+			Entry("empty proc with healhcheck endpoint",
+				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")},
+				prcParams{},
+				expParams{HealthCheckHTTPEndpoint: tools.PtrTo("/health")}),
 			Entry("value from proc memory used",
 				appParams{Memory: tools.PtrTo("256M")},
 				prcParams{Memory: tools.PtrTo("512M")},
@@ -160,6 +171,10 @@ var _ = Describe("Normalizer", func() {
 				appParams{Command: tools.PtrTo("echo bar")},
 				prcParams{Command: tools.PtrTo("echo foo")},
 				expParams{Command: tools.PtrTo("echo foo")}),
+			Entry("value from proc healthcheck used",
+				appParams{HealthCheckHTTPEndpoint: tools.PtrTo("/apphealth")},
+				prcParams{HealthCheckHTTPEndpoint: tools.PtrTo("/prchealth")},
+				expParams{HealthCheckHTTPEndpoint: tools.PtrTo("/prchealth")}),
 			Entry("fields are individually defaulted from the app if not set on process",
 				appParams{
 					Memory:    tools.PtrTo("256M"),
