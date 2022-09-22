@@ -1278,8 +1278,8 @@ github.com/phpdave11/gofpdi v1.0.13/go.mod h1:vBmVV0Do6hSBHC8uKUQ71JGW+ZGQq74llk
 github.com/pierrec/lz4 v1.0.2-0.20190131084431-473cd7ce01a1/go.mod h1:3/3N9NVKO0jef7pBehbT1qWhCMrIgbYNnFAZCqQ5LRc=
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pierrec/lz4 v2.5.2+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
-github.com/pivotal/kpack v0.7.0 h1:Go3+lyxax1yEyIG9wr6ufWq5Uqr0OmJeL1OUNBvGtcs=
-github.com/pivotal/kpack v0.7.0/go.mod h1:IfF7WPlvsAVFsbB5EcgELxUcGRPaaybSjY2rkFY70xM=
+github.com/pivotal/kpack v0.7.1 h1:ICAfMLUJrp3UB8EiSKhrm1gJfLcEJH/9KTD5LRe8wc4=
+github.com/pivotal/kpack v0.7.1/go.mod h1:IfF7WPlvsAVFsbB5EcgELxUcGRPaaybSjY2rkFY70xM=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1-0.20171018195549-f15c970de5b7/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
