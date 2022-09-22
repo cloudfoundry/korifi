@@ -38,6 +38,7 @@ type BuildWorkloadSpec struct {
 
 	Services []v1.ObjectReference `json:"services,omitempty"`
 
+	// +kubebuilder:validation:Required
 	BuilderName string `json:"builderName"`
 }
 
