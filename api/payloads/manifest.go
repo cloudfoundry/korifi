@@ -98,9 +98,7 @@ func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID st
 			msg.HealthCheck.Type = "process"
 		}
 	}
-	if p.Instances != nil {
-		msg.DesiredInstances = *p.Instances
-	}
+	msg.DesiredInstances = p.Instances
 
 	if p.Memory != nil {
 		// error ignored intentionally, since the manifest yaml is validated in handlers

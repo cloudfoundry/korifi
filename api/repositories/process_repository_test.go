@@ -12,7 +12,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -298,7 +297,7 @@ var _ = Describe("ProcessRepo", func() {
 					&updatedCFProcess,
 				)).To(Succeed())
 
-				Expect(updatedCFProcess.Spec.DesiredInstances).To(gstruct.PointTo(Equal(instanceScale)))
+				Expect(updatedCFProcess.Spec.DesiredInstances).To(PointTo(Equal(instanceScale)))
 				Expect(updatedCFProcess.Spec.DiskQuotaMB).To(Equal(diskScaleMB))
 				Expect(updatedCFProcess.Spec.MemoryMB).To(Equal(memoryScaleMB))
 			})
@@ -345,7 +344,7 @@ var _ = Describe("ProcessRepo", func() {
 						TimeoutSeconds:           10,
 					},
 				},
-				DesiredInstances: 42,
+				DesiredInstances: tools.PtrTo(42),
 				MemoryMB:         456,
 			})
 		})

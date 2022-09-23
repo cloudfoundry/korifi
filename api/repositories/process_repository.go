@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -81,7 +80,7 @@ type CreateProcessMessage struct {
 	Command          string
 	DiskQuotaMB      int64
 	HealthCheck      HealthCheck
-	DesiredInstances int
+	DesiredInstances *int
 	MemoryMB         int64
 }
 
@@ -203,7 +202,7 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 				Type: korifiv1alpha1.HealthCheckType(message.HealthCheck.Type),
 				Data: korifiv1alpha1.HealthCheckData(message.HealthCheck.Data),
 			},
-			DesiredInstances: tools.PtrTo(message.DesiredInstances),
+			DesiredInstances: message.DesiredInstances,
 			MemoryMB:         message.MemoryMB,
 			DiskQuotaMB:      message.DiskQuotaMB,
 			Ports:            []int32{},

@@ -260,7 +260,7 @@ var _ = Describe("Apps", func() {
 
 		BeforeEach(func() {
 			appGUID = pushTestApp(space1GUID, appBitsFile)
-			processGUID = getProcess(appGUID, "web")
+			processGUID = getProcess(appGUID, "web").GUID
 		})
 
 		JustBeforeEach(func() {
@@ -436,7 +436,7 @@ var _ = Describe("Apps", func() {
 
 		BeforeEach(func() {
 			appGUID = pushTestApp(space1GUID, appBitsFile)
-			processGUID = getProcess(appGUID, "web")
+			processGUID = getProcess(appGUID, "web").GUID
 		})
 
 		Describe("Scale a process", func() {

@@ -217,9 +217,14 @@ type cfErrs struct {
 	Errors []cfErr
 }
 
+type processResourceList struct {
+	Resources []processResource `json:"resources"`
+}
+
 type processResource struct {
-	resource `json:",inline"`
-	Type     string `json:"type"`
+	resource  `json:",inline"`
+	Type      string `json:"type"`
+	Instances int    `json:"instances"`
 }
 
 type cfErr struct {
@@ -499,8 +504,8 @@ func getEnv(appName string) map[string]interface{} {
 	return env
 }
 
-func getProcess(appGUID, processType string) string {
-	var processList resourceList
+func getProcess(appGUID, processType string) processResource {
+	var processList processResourceList
 	EventuallyWithOffset(1, func(g Gomega) {
 		resp, err := adminClient.R().
 			SetResult(&processList).
@@ -512,7 +517,7 @@ func getProcess(appGUID, processType string) string {
 	}).Should(Succeed())
 
 	ExpectWithOffset(1, processList.Resources).To(HaveLen(1))
-	return processList.Resources[0].GUID
+	return processList.Resources[0]
 }
 
 func createServiceInstance(spaceGUID, name string) string {

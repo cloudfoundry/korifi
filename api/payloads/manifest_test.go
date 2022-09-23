@@ -49,7 +49,7 @@ var _ = Describe("ManifestApplicationProcess", func() {
 							InvocationTimeoutSeconds: 90,
 						},
 					},
-					DesiredInstances: 3,
+					DesiredInstances: tools.PtrTo(3),
 					MemoryMB:         1024,
 				}))
 			})
