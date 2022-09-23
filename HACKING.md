@@ -111,6 +111,26 @@ scripts/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
 ```
 
 ---
+
+## Image tagging conventions
+
+We store korifi docker images on docker hub.
+These are:
+
+-   korifi-api
+-   korifi-controllers
+-   korifi-kpack-image-builder
+-   korifi-statefulset-runner
+-   korifi-job-task-runner
+
+Each time a commit is merged into the main branch, a image will be stored tagged with a `dev` tag.
+The format is `dev-<next-release>-<commit sha>`.
+
+When a new korifi version is released, the images will be tagged with the release version, e.g. `0.2.0`.
+These will also be tagged as `latest`.
+This way the `latest` tag always refers to the latest _release_ and not the head of the main branch.
+
+---
 ## Build, Install and Deploy to a K8s cluster
 Set the $IMG_CONTROLLERS and $IMG_API environment variables to locations where you have push/pull access. For example:
 ```sh
