@@ -132,11 +132,15 @@ This way the `latest` tag always refers to the latest _release_ and not the head
 
 ---
 ## Build, Install and Deploy to a K8s cluster
-Set the $IMG_CONTROLLERS and $IMG_API environment variables to locations where you have push/pull access. For example:
+
+Set the $IMG_XXX environment variables to locations where you have push/pull access. For example:
 ```sh
 export IMG_CONTROLLERS=foo/korifi-controllers:bar #Replace this with your image ref
 export IMG_API=foo/korifi-api:bar #Replace this with your image ref
-make generate-controllers docker-build docker-push deploy
+export IMG_KIB=foo/korifi-kpack-image-builder:bar #Replace this with your image ref
+export IMG_SSR=foo/korifi-statefulset-runner:bar #Replace this with your image ref
+export IMG_JTR=foo/korifi-job-task-runner:bar #Replace this with your image ref
+make generate docker-build docker-push deploy
 ```
 *This will generate the CRD bases, build and push images with the repository and tags specified by the environment variables, install CRDs and deploy the controller manager and API Shim.*
 
