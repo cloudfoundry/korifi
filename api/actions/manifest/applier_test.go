@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -159,7 +160,7 @@ var _ = Describe("Applier", func() {
 			Expect(createMsg.Command).To(Equal("echo foo"))
 			Expect(createMsg.DiskQuotaMB).To(BeEquivalentTo(512))
 			Expect(createMsg.MemoryMB).To(BeEquivalentTo(756))
-			Expect(createMsg.DesiredInstances).To(Equal(2))
+			Expect(createMsg.DesiredInstances).To(gstruct.PointTo(Equal(2)))
 			Expect(createMsg.HealthCheck).To(Equal(repositories.HealthCheck{
 				Type: "http",
 				Data: repositories.HealthCheckData{
@@ -176,7 +177,7 @@ var _ = Describe("Applier", func() {
 			Expect(createMsg.Command).To(Equal("echo bar"))
 			Expect(createMsg.DiskQuotaMB).To(BeEquivalentTo(256))
 			Expect(createMsg.MemoryMB).To(BeEquivalentTo(1024))
-			Expect(createMsg.DesiredInstances).To(Equal(3))
+			Expect(createMsg.DesiredInstances).To(gstruct.PointTo(Equal(3)))
 			Expect(createMsg.HealthCheck).To(Equal(repositories.HealthCheck{
 				Type: "port",
 				Data: repositories.HealthCheckData{

@@ -26,7 +26,7 @@ var _ = Describe("Processes", func() {
 		errResp = cfErrs{}
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 		appGUID = pushTestApp(spaceGUID, appBitsFile)
-		processGUID = getProcess(appGUID, "web")
+		processGUID = getProcess(appGUID, "web").GUID
 	})
 
 	AfterEach(func() {

@@ -303,12 +303,13 @@ var _ = Describe("Spaces", func() {
 			resultErr     cfErrs
 			manifestBytes []byte
 			manifest      manifestResource
+			appName       string
 		)
 
 		BeforeEach(func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
-			appName := generateGUID("manifested-app")
+			appName = generateGUID("manifested-app")
 
 			route := fmt.Sprintf("%s.%s", appName, appFQDN)
 			command := "whatever"
@@ -349,7 +350,7 @@ var _ = Describe("Spaces", func() {
 					createSpaceRole("space_developer", certUserName, spaceGUID)
 				})
 
-				It("succeeds with a job redirect", func() {
+				It("succeeds", func() {
 					Expect(resp).To(SatisfyAll(
 						HaveRestyStatusCode(http.StatusAccepted),
 						HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
@@ -361,6 +362,17 @@ var _ = Describe("Spaces", func() {
 						g.Expect(err).NotTo(HaveOccurred())
 						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 					}).Should(Succeed())
+
+					var apps resourceList
+					appsResp, err := restyClient.R().
+						SetResult(&apps).
+						Get("/v3/apps?names=" + appName)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(appsResp).To(HaveRestyStatusCode(http.StatusOK))
+					Expect(apps.Resources).To(HaveLen(1))
+
+					process := getProcess(apps.Resources[0].GUID, "web")
+					Expect(process.Instances).To(Equal(1))
 				})
 			})
 
