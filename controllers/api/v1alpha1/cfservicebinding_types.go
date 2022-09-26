@@ -26,19 +26,19 @@ import (
 
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
 type CFServiceBindingSpec struct {
-	// DisplayName defines the name of the Service Binding
+	// The mutable, user-friendly name of the service binding. Unlike metadata.name, the user can change this field
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Specifies the Service this binding uses
+	// The Service this binding uses. When created by the korifi API, this will refer to a CFServiceInstance
 	Service v1.ObjectReference `json:"service"`
 
-	// Specifies the App that owns this process
+	// A reference to the CFApp that owns this service binding. The CFApp must be in the same namespace
 	AppRef v1.LocalObjectReference `json:"appRef"`
 }
 
 // CFServiceBindingStatus defines the observed state of CFServiceBinding
 type CFServiceBindingStatus struct {
-	// A reference to the Secret containing the credentials (same as spec.secretName).
+	// A reference to the Secret containing the credentials.
 	// This is required to conform to the Kubernetes Service Bindings spec
 	// +optional
 	Binding v1.LocalObjectReference `json:"binding"`

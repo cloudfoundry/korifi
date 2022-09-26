@@ -188,9 +188,6 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 							},
 						},
 					},
-					Status: korifiv1alpha1.AppWorkloadStatus{
-						ReadyReplicas: 0,
-					},
 				}
 			})
 

@@ -111,14 +111,6 @@ var _ = Describe("AppWorkloadsController", func() {
 				statefulset.Status.Replicas = appWorkload.Spec.Instances
 				Expect(k8sClient.Status().Patch(ctx, statefulset, client.MergeFrom(ogStatefulset))).To(Succeed())
 			})
-
-			It("eventually updates status.readyReplicas to the same value as the desired number of instances", func() {
-				actualAppWorkload := new(korifiv1alpha1.AppWorkload)
-				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: appWorkload.Name, Namespace: namespaceName}, actualAppWorkload)).To(Succeed())
-					g.Expect(actualAppWorkload.Status.ReadyReplicas).To(Equal(appWorkload.Spec.Instances))
-				}).Should(Succeed())
-			})
 		})
 	})
 

@@ -32,7 +32,7 @@ type CFOrgSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// DisplayName that is displayed to users
+	// The mutable, user-friendly name of the CFOrg. Unlike metadata.name, the user can change this field.
 	// +kubebuilder:validation:Pattern="^[-\\w]+$"
 	DisplayName string `json:"displayName"`
 }

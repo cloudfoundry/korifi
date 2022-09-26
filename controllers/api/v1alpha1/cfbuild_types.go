@@ -23,14 +23,14 @@ import (
 
 // CFBuildSpec defines the desired state of CFBuild
 type CFBuildSpec struct {
-	// Specifies the CFPackage associated with this build
+	// The CFPackage associated with this build. Must be in the same namespace
 	PackageRef v1.LocalObjectReference `json:"packageRef"`
-	// Specifies the CFApp associated with this build
+	// The CFApp associated with this build. Must be in the same namespace
 	AppRef v1.LocalObjectReference `json:"appRef"`
 
-	// Specifies the memory request for the staging image
+	// The memory limit for the pod that will stage the image
 	StagingMemoryMB int `json:"stagingMemoryMB"`
-	// Specifies the disk request for the staging image - Do we need this?
+	// The disk limit for the pod that will stage the image
 	StagingDiskMB int `json:"stagingDiskMB"`
 
 	// Specifies the buildpacks and stack for the build
@@ -46,16 +46,16 @@ type CFBuildStatus struct {
 
 // BuildDropletStatus defines the observed state of the CFBuild's Droplet or runnable image
 type BuildDropletStatus struct {
-	// Specifies the Container registry image, and secrets to access
+	// The Container registry image, and secrets to access
 	Registry Registry `json:"registry"`
 
-	// Specifies the stack used to build the Droplet
+	// The stack used to build the Droplet
 	Stack string `json:"stack"`
 
-	// Specifies the process types and associated start commands for the Droplet
+	// The process types and associated start commands for the Droplet
 	ProcessTypes []ProcessType `json:"processTypes"`
 
-	// Specifies the exposed ports for the application
+	// The exposed ports for the application
 	Ports []int32 `json:"ports"`
 }
 

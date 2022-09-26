@@ -36,7 +36,8 @@ spec:
             description: CFProcessSpec defines the desired state of CFProcess
             properties:
               appRef:
-                description: Specifies the App that owns this process
+                description: A reference to the CFApp that owns this CFProcess. The
+                  CFApp must be in the same namespace.
                 properties:
                   name:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -45,26 +46,26 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               command:
-                description: Specifies the Command(k8s) ENTRYPOINT(Docker) of the
-                  Process
+                description: Command string used to run this process on the app image.
+                  This is analogous to command in k8s and ENTRYPOINT in Docker
                 type: string
               desiredInstances:
-                description: Specifies the desired number of Process replicas to deploy
+                description: The desired number of replicas to deploy
                 type: integer
               diskQuotaMB:
-                description: Specifies the Process disk limit in MiB
+                description: The disk limit in MiB
                 format: int64
                 type: integer
               healthCheck:
-                description: Specifies the Liveness Probe (k8s) details of the Process
+                description: Used to build the Liveness and Readiness Probes for the
+                  process' AppWorkload.
                 properties:
                   data:
-                    description: Specifies the input parameters for the liveness probe/health
-                      check in kubernetes
+                    description: The input parameters for the liveness and readiness
+                      probes in kubernetes
                     properties:
                       httpEndpoint:
-                        description: HTTPEndpoint is only used by an "http" liveness
-                          probe
+                        description: The http endpoint to use with "http" healthchecks
                         type: string
                       invocationTimeoutSeconds:
                         format: int64
@@ -77,10 +78,10 @@ spec:
                     - timeoutSeconds
                     type: object
                   type:
-                    description: 'Specifies the type of Health Check the App process
-                      will use Valid values are: "http": http health check "port":
-                      TCP health check "process" (default): checks if process for
-                      start command is still alive'
+                    description: The type of Health Check the App process will use
+                      Valid values are "http", "port", and "process". For processType
+                      "web", the default type is "port". For all other processes,
+                      the default is "process".
                     enum:
                     - http
                     - port
@@ -92,17 +93,17 @@ spec:
                 - type
                 type: object
               memoryMB:
-                description: Specifies the Process memory limit in MiB
+                description: The memory limit in MiB
                 format: int64
                 type: integer
               ports:
-                description: Specifies the Process ports to expose
+                description: The ports to expose
                 items:
                   format: int32
                   type: integer
                 type: array
               processType:
-                description: Specifies the name of the process in the App
+                description: The name of the process within the CFApp (e.g. "web")
                 type: string
             required:
             - appRef
@@ -184,13 +185,8 @@ spec:
                   - type
                   type: object
                 type: array
-              runningInstances:
-                description: RunningInstances captures the actual number of Process
-                  replicas
-                type: integer
             required:
             - conditions
-            - runningInstances
             type: object
         type: object
     served: true

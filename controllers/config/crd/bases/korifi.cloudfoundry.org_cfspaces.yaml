@@ -43,7 +43,8 @@ spec:
             description: CFSpaceSpec defines the desired state of CFSpace
             properties:
               displayName:
-                description: DisplayName of the space displayed to the user
+                description: The mutable, user-friendly name of the space. Unlike
+                  metadata.name, the user can change this field
                 pattern: ^[-\w]+$
                 type: string
             required:

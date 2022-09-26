@@ -30,21 +30,27 @@ type AppWorkloadSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// +kubebuilder:validation:Required
-	GUID             string                        `json:"GUID"`
-	Version          string                        `json:"version"`
-	AppGUID          string                        `json:"appGUID"`
-	ProcessType      string                        `json:"processType"`
-	Image            string                        `json:"image"`
+	GUID        string `json:"GUID"`
+	Version     string `json:"version"`
+	AppGUID     string `json:"appGUID"`
+	ProcessType string `json:"processType"`
+	Image       string `json:"image"`
+
+	// An optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
+	// If specified, these secrets will be passed to individual puller implementations for them to use.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets"`
-	Command          []string                      `json:"command,omitempty"`
-	Env              []corev1.EnvVar               `json:"env,omitempty"`
-	LivenessProbe    *corev1.Probe                 `json:"livenessProbe,omitempty"`
-	ReadinessProbe   *corev1.Probe                 `json:"readinessProbe,omitempty"`
-	Ports            []int32                       `json:"ports,omitempty"`
+
+	Command        []string        `json:"command,omitempty"`
+	Env            []corev1.EnvVar `json:"env,omitempty"`
+	LivenessProbe  *corev1.Probe   `json:"livenessProbe,omitempty"`
+	ReadinessProbe *corev1.Probe   `json:"readinessProbe,omitempty"`
+	Ports          []int32         `json:"ports,omitempty"`
 
 	// +kubebuilder:default:=1
 	Instances int32 `json:"instances"`
 
+	// The name of the runner that should reconcile this AppWorkload resource and execute running its instances
 	// +kubebuilder:validation:Required
 	RunnerName string `json:"runnerName"`
 
@@ -54,7 +60,8 @@ type AppWorkloadSpec struct {
 
 // AppWorkloadStatus defines the observed state of AppWorkload
 type AppWorkloadStatus struct {
-	ReadyReplicas int32 `json:"readyReplicas"`
+	// Conditions capture the current status of the observed generation of the AppWorkload
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true

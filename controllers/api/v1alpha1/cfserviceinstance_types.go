@@ -30,10 +30,10 @@ const (
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
 type CFServiceInstanceSpec struct {
-	// DisplayName defines the name of the Service Instance
+	// The mutable, user-friendly name of the service instance. Unlike metadata.name, the user can change this field
 	DisplayName string `json:"displayName"`
 
-	// Name of a secret containing the service credentials
+	// Name of a secret containing the service credentials. The Secret must be in the same namespace
 	SecretName string `json:"secretName"`
 
 	// Type of the Service Instance. Must be `user-provided`

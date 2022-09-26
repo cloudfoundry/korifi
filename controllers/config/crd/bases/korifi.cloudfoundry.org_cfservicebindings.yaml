@@ -43,7 +43,8 @@ spec:
             description: CFServiceBindingSpec defines the desired state of CFServiceBinding
             properties:
               appRef:
-                description: Specifies the App that owns this process
+                description: A reference to the CFApp that owns this service binding.
+                  The CFApp must be in the same namespace
                 properties:
                   name:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -52,10 +53,12 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               displayName:
-                description: DisplayName defines the name of the Service Binding
+                description: The mutable, user-friendly name of the service binding.
+                  Unlike metadata.name, the user can change this field
                 type: string
               service:
-                description: Specifies the Service this binding uses
+                description: The Service this binding uses. When created by the korifi
+                  API, this will refer to a CFServiceInstance
                 properties:
                   apiVersion:
                     description: API version of the referent.
@@ -99,9 +102,8 @@ spec:
             description: CFServiceBindingStatus defines the observed state of CFServiceBinding
             properties:
               binding:
-                description: A reference to the Secret containing the credentials
-                  (same as spec.secretName). This is required to conform to the Kubernetes
-                  Service Bindings spec
+                description: A reference to the Secret containing the credentials.
+                  This is required to conform to the Kubernetes Service Bindings spec
                 properties:
                   name:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
