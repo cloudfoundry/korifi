@@ -36,7 +36,8 @@ spec:
             description: CFBuildSpec defines the desired state of CFBuild
             properties:
               appRef:
-                description: Specifies the CFApp associated with this build
+                description: The CFApp associated with this build. Must be in the
+                  same namespace
                 properties:
                   name:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -48,21 +49,24 @@ spec:
                 description: Specifies the buildpacks and stack for the build
                 properties:
                   data:
-                    description: Lifecycle data used to specify details for the Lifecycle
+                    description: Data used to specify details for the Lifecycle
                     properties:
                       buildpacks:
-                        description: List of buildpacks used to build the app
+                        description: Buildpacks to include in auto-detection when
+                          building the app image. If no values are specified, then
+                          all available buildpacks will be used for auto-detection
                         items:
                           type: string
                         type: array
                       stack:
+                        description: Stack to use when building the app image
                         type: string
                     required:
                     - stack
                     type: object
                   type:
-                    description: 'Specifies the CF Lifecycle type: Valid values are:
-                      "buildpack": stage the app using buildpacks'
+                    description: The CF Lifecycle type. Only "buildpack" is currently
+                      allowed
                     enum:
                     - buildpack
                     type: string
@@ -71,7 +75,8 @@ spec:
                 - type
                 type: object
               packageRef:
-                description: Specifies the CFPackage associated with this build
+                description: The CFPackage associated with this build. Must be in
+                  the same namespace
                 properties:
                   name:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -80,11 +85,10 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               stagingDiskMB:
-                description: Specifies the disk request for the staging image - Do
-                  we need this?
+                description: The disk limit for the pod that will stage the image
                 type: integer
               stagingMemoryMB:
-                description: Specifies the memory request for the staging image
+                description: The memory limit for the pod that will stage the image
                 type: integer
             required:
             - appRef
@@ -170,14 +174,14 @@ spec:
                   CFBuild's Droplet or runnable image
                 properties:
                   ports:
-                    description: Specifies the exposed ports for the application
+                    description: The exposed ports for the application
                     items:
                       format: int32
                       type: integer
                     type: array
                   processTypes:
-                    description: Specifies the process types and associated start
-                      commands for the Droplet
+                    description: The process types and associated start commands for
+                      the Droplet
                     items:
                       description: ProcessType is a map of process names and associated
                         start commands for the Droplet
@@ -192,15 +196,14 @@ spec:
                       type: object
                     type: array
                   registry:
-                    description: Specifies the Container registry image, and secrets
-                      to access
+                    description: The Container registry image, and secrets to access
                     properties:
                       image:
-                        description: Image specifies the location of the source image
+                        description: The location of the source image
                         type: string
                       imagePullSecrets:
-                        description: ImagePullSecrets specifies a list of secrets
-                          required to access the image
+                        description: A list of secrets required to pull the image
+                          from its repository
                         items:
                           description: LocalObjectReference contains enough information
                             to let you locate the referenced object inside the same
@@ -217,7 +220,7 @@ spec:
                     - image
                     type: object
                   stack:
-                    description: Specifies the stack used to build the Droplet
+                    description: The stack used to build the Droplet
                     type: string
                 required:
                 - ports

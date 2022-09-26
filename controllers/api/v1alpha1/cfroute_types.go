@@ -31,15 +31,13 @@ const (
 
 // Destination defines a target for a CFRoute, does not carry meaning outside of a CF context
 type Destination struct {
-	// GUID is required to support CF V3 Destination endpoints
+	// A unique identifier for this route destination. Required to support CF V3 Destination endpoints
 	GUID string `json:"guid"`
-	// Port is optional, defaults to ProcessModel::DEFAULT_HTTP_PORT
+	// The port to use for the destination. Port is optional, and defaults to ProcessModel::DEFAULT_HTTP_PORT
 	Port int `json:"port,omitempty"`
-	// App ref is required, part of the identity of a running process to which traffic may be routed
-	// We use a ref because the app must exist
+	// A required reference to the CFApp that will receive traffic. The CFApp must be in the same namespace
 	AppRef v1.LocalObjectReference `json:"appRef"`
-	// Process type is required, part of the identity of a running process to which traffic may be routed
-	// We use process type instead of processRef because a process of the type may not exist at time of destination creation
+	// The process type on the CFApp app which will receive traffic
 	ProcessType string `json:"processType"`
 	// Protocol is required, must be "http1"
 	// +kubebuilder:validation:Enum=http1
@@ -55,15 +53,16 @@ type CFRouteSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Host is optional, defaults to empty. For cf push default route, uses the name of the app.
+	// The subdomain of the route within the domain. Host is optional and defaults to empty.
+	// When the host is empty, then the name of the app will be used
 	Host string `json:"host,omitempty"`
-	// Path is optional, defaults to empty.
+	// Path is optional, defaults to empty
 	Path string `json:"path,omitempty"`
-	// Protocol is optional, defaults to http. Dependent on allow-listed protocols on domain.
+	// Protocol is optional, defaults to http. Dependent on allow-listed protocols on domain
 	Protocol Protocol `json:"protocol,omitempty"`
-	// Domain ref is required, provides base domain name and allowed protocol info.
+	// A reference to the CFDomain this CFRoute is assigned to, including name and namespace
 	DomainRef v1.ObjectReference `json:"domainRef"`
-	// Destinations are optional, a route can exist independently of being mapped to apps.
+	// Destinations are optional. A route can exist without any destinations, independently of any CFApps
 	Destinations []Destination `json:"destinations,omitempty"`
 }
 
@@ -71,14 +70,13 @@ type CFRouteSpec struct {
 type CFRouteStatus struct {
 	CurrentStatus CurrentStatus `json:"currentStatus"`
 	Description   string        `json:"description"`
-	// FQDN captures the fully-qualified domain name for the route
+	// The fully-qualified domain name for the route
 	FQDN string `json:"fqdn,omitempty"`
 
-	// URI captures the URI (FQDN + path) for the route
+	// The URI (FQDN + path) for the route
 	URI string `json:"uri,omitempty"`
 
-	// Destinations capture the observed state of the destinations
-	// mainly for recording the target port of the underlying service
+	// The observed state of the destinations. This is mainly used to record the target port of the underlying service
 	Destinations []Destination `json:"destinations,omitempty"`
 
 	// Conditions capture the current status of the route

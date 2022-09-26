@@ -43,7 +43,8 @@ spec:
             description: CFOrgSpec defines the desired state of CFOrg
             properties:
               displayName:
-                description: DisplayName that is displayed to users
+                description: The mutable, user-friendly name of the CFOrg. Unlike
+                  metadata.name, the user can change this field.
                 pattern: ^[-\w]+$
                 type: string
             required:

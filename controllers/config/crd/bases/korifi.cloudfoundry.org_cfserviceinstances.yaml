@@ -43,10 +43,12 @@ spec:
             description: CFServiceInstanceSpec defines the desired state of CFServiceInstance
             properties:
               displayName:
-                description: DisplayName defines the name of the Service Instance
+                description: The mutable, user-friendly name of the service instance.
+                  Unlike metadata.name, the user can change this field
                 type: string
               secretName:
-                description: Name of a secret containing the service credentials
+                description: Name of a secret containing the service credentials.
+                  The Secret must be in the same namespace
                 type: string
               tags:
                 description: Tags are used by apps to identify service instances

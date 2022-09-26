@@ -23,24 +23,22 @@ import (
 
 // CFAppSpec defines the desired state of CFApp
 type CFAppSpec struct {
-	// DisplayName defines the name of the app
+	// The mutable, user-friendly name of the app. Unlike metadata.name, the user can change this field.
 	// This is more restrictive than CC's app model- to make default route validation errors less likely
 	// +kubebuilder:validation:Pattern="^[-\\w]+$"
 	DisplayName string `json:"displayName"`
 
-	// Specifies the current state of the CFApp
-	// Allowed values are:
-	// "STARTED": App is started
-	// "STOPPED": App is stopped
+	// The user-requested state of the CFApp. The currently-applied state of the CFApp is in status.ObservedDesiredState.
+	// Allowed values are "STARTED", and "STOPPED".
 	DesiredState DesiredState `json:"desiredState"`
 
-	// Lifecycle specifies how to build droplets
+	// Specifies how to build images for the app
 	Lifecycle Lifecycle `json:"lifecycle"`
 
-	// Name of a secret containing a map of multiple environment variables passed to every CFProcess of the app
+	// The name of a Secret in the same namespace, which contains the environment variables to be set on every one of its running containers (via AppWorkload)
 	EnvSecretName string `json:"envSecretName,omitempty"`
 
-	// CurrentDropletRef provides reference to the droplet currently assigned (active) for the app
+	// A reference to the CFBuild currently assigned to the app. The CFBuild must be in the same namespace.
 	CurrentDropletRef v1.LocalObjectReference `json:"currentDropletRef,omitempty"`
 }
 
@@ -53,9 +51,10 @@ type CFAppStatus struct {
 	// Conditions capture the current status of the App
 	Conditions []metav1.Condition `json:"conditions"`
 
+	// ObservedDesiredState specifies the currently-applied state of the CFApp (which may be different from spec.DesiredState)
 	ObservedDesiredState DesiredState `json:"observedDesiredState"`
 
-	// VCAPServicesSecretName contains the name of the CFApp's VCAP_SERVICES Secret assumed to be in the same namespace
+	// VCAPServicesSecretName contains the name of the CFApp's VCAP_SERVICES Secret, which should exist in the same namespace
 	VCAPServicesSecretName string `json:"vcapServicesSecretName"`
 }
 

@@ -156,13 +156,6 @@ func (r *AppWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	appWorkload.Status.ReadyReplicas = updatedStatefulSet.Status.ReadyReplicas
-	err = r.Client.Status().Update(ctx, &appWorkload)
-	if err != nil {
-		r.Log.Error(err, "Error when updating AppWorkload status")
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 

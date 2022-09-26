@@ -23,15 +23,13 @@ import (
 
 // CFPackageSpec defines the desired state of CFPackage
 type CFPackageSpec struct {
-	// Type specifies the package type
-	// Valid values are:
-	// "bits": package to upload source code
+	// The package type. Only "bits" is currently allowed.
 	Type PackageType `json:"type"`
 
-	// AppRef reference to the CFApp that owns this package
+	// Reference the CFApp that owns this package. The CFApp must be in the same namespace.
 	AppRef v1.LocalObjectReference `json:"appRef"`
 
-	// Source contains the details for the source image(bits)
+	// Contains the details for the source image (e.g. its bits)
 	Source PackageSource `json:"source,omitempty"`
 }
 
@@ -40,7 +38,7 @@ type CFPackageSpec struct {
 type PackageType string
 
 type PackageSource struct {
-	// registry ( Source code is an OCI image in a registry that contains application source)
+	// registry (i.e an OCI image in a registry that contains application source)
 	Registry Registry `json:"registry"`
 }
 

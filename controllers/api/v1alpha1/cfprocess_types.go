@@ -30,40 +30,38 @@ const (
 
 // CFProcessSpec defines the desired state of CFProcess
 type CFProcessSpec struct {
-	// Specifies the App that owns this process
+	// A reference to the CFApp that owns this CFProcess. The CFApp must be in the same namespace.
 	AppRef v1.LocalObjectReference `json:"appRef"`
 
-	// Specifies the name of the process in the App
+	// The name of the process within the CFApp (e.g. "web")
 	ProcessType string `json:"processType"`
 
-	// Specifies the Command(k8s) ENTRYPOINT(Docker) of the Process
+	// Command string used to run this process on the app image. This is analogous to command in k8s and ENTRYPOINT in Docker
 	Command string `json:"command,omitempty"`
 
-	// Specifies the Liveness Probe (k8s) details of the Process
+	// Used to build the Liveness and Readiness Probes for the process' AppWorkload.
 	HealthCheck HealthCheck `json:"healthCheck"`
 
-	// Specifies the desired number of Process replicas to deploy
+	// The desired number of replicas to deploy
 	DesiredInstances *int `json:"desiredInstances,omitempty"`
 
-	// Specifies the Process memory limit in MiB
+	// The memory limit in MiB
 	MemoryMB int64 `json:"memoryMB"`
 
-	// Specifies the Process disk limit in MiB
+	// The disk limit in MiB
 	DiskQuotaMB int64 `json:"diskQuotaMB"`
 
-	// Specifies the Process ports to expose
+	// The ports to expose
 	Ports []int32 `json:"ports"`
 }
 
 type HealthCheck struct {
-	// Specifies the type of Health Check the App process will use
-	// Valid values are:
-	// "http": http health check
-	// "port": TCP health check
-	// "process" (default): checks if process for start command is still alive
+	// The type of Health Check the App process will use
+	// Valid values are "http", "port", and "process".
+	// For processType "web", the default type is "port". For all other processes, the default is "process".
 	Type HealthCheckType `json:"type"`
 
-	// Specifies the input parameters for the liveness probe/health check in kubernetes
+	// The input parameters for the liveness and readiness probes in kubernetes
 	Data HealthCheckData `json:"data"`
 }
 
@@ -73,7 +71,7 @@ type HealthCheckType string
 
 // HealthCheckData used to pass through input parameters to liveness probe
 type HealthCheckData struct {
-	// HTTPEndpoint is only used by an "http" liveness probe
+	// The http endpoint to use with "http" healthchecks
 	HTTPEndpoint string `json:"httpEndpoint,omitempty"`
 
 	InvocationTimeoutSeconds int64 `json:"invocationTimeoutSeconds"`
@@ -82,8 +80,6 @@ type HealthCheckData struct {
 
 // CFProcessStatus defines the observed state of CFProcess
 type CFProcessStatus struct {
-	// RunningInstances captures the actual number of Process replicas
-	RunningInstances int `json:"runningInstances"`
 	// Conditions capture the current status of the Process
 	Conditions []metav1.Condition `json:"conditions"`
 }

@@ -26,18 +26,22 @@ import (
 
 // BuildWorkloadSpec defines the desired state of BuildWorkload
 type BuildWorkloadSpec struct {
-	// this is a reference to the object requesting the build
+	// A reference to the CFBuild that requested the build. The CFBuild must be in the same namespace
 	BuildRef RequiredLocalObjectReference `json:"buildRef"`
 
-	// Source contains the details for the source image(bits)
+	// The details necessary to pull the image containing the application source
 	Source PackageSource `json:"source,omitempty"`
 
+	// Buildpacks to include in auto-detection when building the app image.
+	// If no values are specified, then all available buildpacks will be used for auto-detection
 	Buildpacks []string `json:"buildpacks,omitempty"`
 
+	// The environment variables to set on the container that builds the image
 	Env []v1.EnvVar `json:"env,omitempty"`
 
 	Services []v1.ObjectReference `json:"services,omitempty"`
 
+	// The name of the builder that should reconcile this BuildWorkload resource and execute the image building
 	// +kubebuilder:validation:Required
 	BuilderName string `json:"builderName"`
 }

@@ -36,7 +36,8 @@ spec:
             description: BuildWorkloadSpec defines the desired state of BuildWorkload
             properties:
               buildRef:
-                description: this is a reference to the object requesting the build
+                description: A reference to the CFBuild that requested the build.
+                  The CFBuild must be in the same namespace
                 properties:
                   name:
                     type: string
@@ -44,12 +45,19 @@ spec:
                 - name
                 type: object
               builderName:
+                description: The name of the builder that should reconcile this BuildWorkload
+                  resource and execute the image building
                 type: string
               buildpacks:
+                description: Buildpacks to include in auto-detection when building
+                  the app image. If no values are specified, then all available buildpacks
+                  will be used for auto-detection
                 items:
                   type: string
                 type: array
               env:
+                description: The environment variables to set on the container that
+                  builds the image
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -221,18 +229,19 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               source:
-                description: Source contains the details for the source image(bits)
+                description: The details necessary to pull the image containing the
+                  application source
                 properties:
                   registry:
-                    description: registry ( Source code is an OCI image in a registry
-                      that contains application source)
+                    description: registry (i.e an OCI image in a registry that contains
+                      application source)
                     properties:
                       image:
-                        description: Image specifies the location of the source image
+                        description: The location of the source image
                         type: string
                       imagePullSecrets:
-                        description: ImagePullSecrets specifies a list of secrets
-                          required to access the image
+                        description: A list of secrets required to pull the image
+                          from its repository
                         items:
                           description: LocalObjectReference contains enough information
                             to let you locate the referenced object inside the same
@@ -333,14 +342,14 @@ spec:
                   CFBuild's Droplet or runnable image
                 properties:
                   ports:
-                    description: Specifies the exposed ports for the application
+                    description: The exposed ports for the application
                     items:
                       format: int32
                       type: integer
                     type: array
                   processTypes:
-                    description: Specifies the process types and associated start
-                      commands for the Droplet
+                    description: The process types and associated start commands for
+                      the Droplet
                     items:
                       description: ProcessType is a map of process names and associated
                         start commands for the Droplet
@@ -355,15 +364,14 @@ spec:
                       type: object
                     type: array
                   registry:
-                    description: Specifies the Container registry image, and secrets
-                      to access
+                    description: The Container registry image, and secrets to access
                     properties:
                       image:
-                        description: Image specifies the location of the source image
+                        description: The location of the source image
                         type: string
                       imagePullSecrets:
-                        description: ImagePullSecrets specifies a list of secrets
-                          required to access the image
+                        description: A list of secrets required to pull the image
+                          from its repository
                         items:
                           description: LocalObjectReference contains enough information
                             to let you locate the referenced object inside the same
@@ -380,7 +388,7 @@ spec:
                     - image
                     type: object
                   stack:
-                    description: Specifies the stack used to build the Droplet
+                    description: The stack used to build the Droplet
                     type: string
                 required:
                 - ports
