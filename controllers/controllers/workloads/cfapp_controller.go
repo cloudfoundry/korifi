@@ -163,9 +163,9 @@ func (r *CFAppReconciler) updateCFProcessCommand(ctx context.Context, process *k
 		return nil
 	}
 
-	originalProcess := process.DeepCopy()
-	process.Spec.Command = command
-	return r.k8sClient.Patch(ctx, process, client.MergeFrom(originalProcess))
+	return k8s.Patch(ctx, r.k8sClient, process, func() {
+		process.Spec.Command = command
+	})
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
@@ -255,7 +255,7 @@ func (r *CFAppReconciler) finalizeCFAppRoutes(ctx context.Context, cfApp *korifi
 		return err
 	}
 
-	err = r.removeRouteDestinations(ctx, cfApp.Name, cfRoutes)
+	err = r.updateRouteDestinations(ctx, cfApp.Name, cfRoutes)
 	if err != nil {
 		return err
 	}
@@ -280,10 +280,9 @@ func (r *CFAppReconciler) finalizeCFAppTasks(ctx context.Context, cfApp *korifiv
 	return nil
 }
 
-func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []korifiv1alpha1.CFRoute) error {
-	var updatedDestinations []korifiv1alpha1.Destination
+func (r *CFAppReconciler) updateRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []korifiv1alpha1.CFRoute) error {
 	for i := range cfRoutes {
-		originalCFRoute := cfRoutes[i].DeepCopy()
+		var updatedDestinations []korifiv1alpha1.Destination
 		if cfRoutes[i].Spec.Destinations != nil {
 			for _, destination := range cfRoutes[i].Spec.Destinations {
 				if destination.AppRef.Name != cfAppGUID {
@@ -293,10 +292,11 @@ func (r *CFAppReconciler) removeRouteDestinations(ctx context.Context, cfAppGUID
 				}
 			}
 		}
-		cfRoutes[i].Spec.Destinations = updatedDestinations
-		err := r.k8sClient.Patch(ctx, &cfRoutes[i], client.MergeFrom(originalCFRoute))
+		err := k8s.Patch(ctx, r.k8sClient, &cfRoutes[i], func() {
+			cfRoutes[i].Spec.Destinations = updatedDestinations
+		})
 		if err != nil {
-			r.log.Error(err, "failed to patch cfRoute to remove a destination")
+			r.log.Error(err, "failed to patch cfRoute to update destinations")
 			return err
 		}
 	}

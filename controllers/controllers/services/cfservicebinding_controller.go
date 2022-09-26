@@ -146,13 +146,13 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		return r.handleGetError(ctx, err, cfServiceBinding, VCAPServicesSecretAvailableCondition, "SecretNotFound", "Secret")
 	}
 
-	updatedVcapServicesSecret := vcapServicesSecret.DeepCopy()
-	secretData := map[string][]byte{}
-	secretData["VCAP_SERVICES"] = []byte(vcapServicesData)
-	updatedVcapServicesSecret.Data = secretData
-	err = r.k8sClient.Patch(ctx, updatedVcapServicesSecret, client.MergeFrom(vcapServicesSecret))
+	err = k8s.Patch(ctx, r.k8sClient, vcapServicesSecret, func() {
+		secretData := map[string][]byte{}
+		secretData["VCAP_SERVICES"] = []byte(vcapServicesData)
+		vcapServicesSecret.Data = secretData
+	})
 	if err != nil {
-		r.log.Error(err, "failed to patch vcap services secret", "CFServiceBinding", cfServiceBinding)
+		r.log.Error(err, "failed to patch vcap services secret", "CFServiceBinding", cfServiceBinding, "secretName", vcapServicesSecret.Name)
 		return ctrl.Result{}, err
 	}
 
