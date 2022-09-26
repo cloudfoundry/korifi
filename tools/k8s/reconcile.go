@@ -11,13 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ObjectWithDeepCopy[T any] interface {
-	*T
-
-	client.Object
-	DeepCopy() *T
-}
-
 type ObjectReconciler[T any, PT ObjectWithDeepCopy[T]] interface {
 	ReconcileResource(ctx context.Context, obj PT) (ctrl.Result, error)
 	SetupWithManager(mgr ctrl.Manager) *builder.Builder
@@ -50,22 +43,16 @@ func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	originalObj := obj.DeepCopy()
+	var (
+		result      ctrl.Result
+		delegateErr error
+	)
 
-	result, delegateErr := r.objectReconciler.ReconcileResource(ctx, obj)
-	// copy obj as next update will reset the status
-	reconciledObjCopy := obj.DeepCopy()
-
-	err = r.k8sClient.Patch(ctx, obj, client.MergeFrom(PT(originalObj)))
-
+	err = Patch(ctx, r.k8sClient, obj, func() {
+		result, delegateErr = r.objectReconciler.ReconcileResource(ctx, obj)
+	})
 	if err != nil {
-		log.Error(err, "patch main object failed")
-		return ctrl.Result{}, err
-	}
-
-	err = r.k8sClient.Status().Patch(ctx, PT(reconciledObjCopy), client.MergeFrom(PT(originalObj)))
-	if err != nil {
-		log.Error(err, "patch object status failed")
+		log.Error(err, "patch object failed")
 		return ctrl.Result{}, err
 	}
 
