@@ -261,9 +261,6 @@ func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) 
 		ports = append(ports, corev1.ContainerPort{ContainerPort: port})
 	}
 
-	livenessProbe := appWorkload.Spec.LivenessProbe
-	readinessProbe := appWorkload.Spec.ReadinessProbe
-
 	containers := []corev1.Container{
 		{
 			Name:            ApplicationContainerName,
@@ -281,9 +278,9 @@ func (r *AppWorkloadReconciler) Convert(appWorkload korifiv1alpha1.AppWorkload) 
 					Type: corev1.SeccompProfileTypeRuntimeDefault,
 				},
 			},
-			Resources:      appWorkload.Spec.Resources,
-			LivenessProbe:  livenessProbe,
-			ReadinessProbe: readinessProbe,
+			Resources:     appWorkload.Spec.Resources,
+			StartupProbe:  appWorkload.Spec.StartupProbe,
+			LivenessProbe: appWorkload.Spec.LivenessProbe,
 		},
 	}
 

@@ -38,6 +38,16 @@ func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 			},
 			ProcessType: "worker",
 			Env:         []corev1.EnvVar{},
+			StartupProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/healthz",
+						Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(8080)},
+					},
+				},
+				FailureThreshold: 30,
+				PeriodSeconds:    2,
+			},
 			LivenessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -45,18 +55,8 @@ func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 						Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(8080)},
 					},
 				},
-				InitialDelaySeconds: 0,
-				FailureThreshold:    4,
-			},
-			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/healthz",
-						Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(8080)},
-					},
-				},
-				InitialDelaySeconds: 0,
-				FailureThreshold:    1,
+				PeriodSeconds:    30,
+				FailureThreshold: 1,
 			},
 			Ports:      []int32{8888, 9999},
 			Instances:  1,

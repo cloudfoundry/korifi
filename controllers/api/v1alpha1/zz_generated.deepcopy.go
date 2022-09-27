@@ -106,6 +106,11 @@ func (in *AppWorkloadSpec) DeepCopyInto(out *AppWorkloadSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.StartupProbe != nil {
+		in, out := &in.StartupProbe, &out.StartupProbe
+		*out = new(v1.Probe)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.LivenessProbe != nil {
 		in, out := &in.LivenessProbe, &out.LivenessProbe
 		*out = new(v1.Probe)

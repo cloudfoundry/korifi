@@ -46,7 +46,7 @@ var _ = Describe("AppWorkloadsController", func() {
 				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "something"}},
 				Env:              []corev1.EnvVar{},
 				LivenessProbe:    &corev1.Probe{},
-				ReadinessProbe:   &corev1.Probe{},
+				StartupProbe:     &corev1.Probe{},
 				Ports:            []int32{8080},
 				Instances:        5,
 				RunnerName:       "statefulset-runner",

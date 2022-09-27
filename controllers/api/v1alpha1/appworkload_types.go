@@ -43,6 +43,7 @@ type AppWorkloadSpec struct {
 
 	Command        []string        `json:"command,omitempty"`
 	Env            []corev1.EnvVar `json:"env,omitempty"`
+	StartupProbe   *corev1.Probe   `json:"startupProbe,omitempty"`
 	LivenessProbe  *corev1.Probe   `json:"livenessProbe,omitempty"`
 	ReadinessProbe *corev1.Probe   `json:"readinessProbe,omitempty"`
 	Ports          []int32         `json:"ports,omitempty"`

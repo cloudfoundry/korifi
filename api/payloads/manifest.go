@@ -29,9 +29,9 @@ type ManifestApplication struct {
 	// Deprecated: Use DiskQuota instead
 	AltDiskQuota                 *string                      `yaml:"disk-quota" validate:"megabytestring"`
 	HealthCheckHTTPEndpoint      *string                      `yaml:"health-check-http-endpoint"`
-	HealthCheckInvocationTimeout *int64                       `yaml:"health-check-invocation-timeout"`
+	HealthCheckInvocationTimeout *int64                       `yaml:"health-check-invocation-timeout" validate:"omitempty,gte=1"`
 	HealthCheckType              *string                      `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
-	Timeout                      *int64                       `yaml:"timeout" validate:"omitempty,gt=0"`
+	Timeout                      *int64                       `yaml:"timeout" validate:"omitempty,gte=1"`
 	Processes                    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
 	Routes                       []ManifestRoute              `yaml:"routes" validate:"dive"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
@@ -47,11 +47,11 @@ type ManifestApplicationProcess struct {
 	// Deprecated: Use DiskQuota instead
 	AltDiskQuota                 *string `yaml:"disk-quota" validate:"megabytestring"`
 	HealthCheckHTTPEndpoint      *string `yaml:"health-check-http-endpoint"`
-	HealthCheckInvocationTimeout *int64  `yaml:"health-check-invocation-timeout"`
+	HealthCheckInvocationTimeout *int64  `yaml:"health-check-invocation-timeout" validate:"omitempty,gte=1"`
 	HealthCheckType              *string `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
 	Instances                    *int    `yaml:"instances" validate:"omitempty,gte=0"`
 	Memory                       *string `yaml:"memory" validate:"megabytestring"`
-	Timeout                      *int64  `yaml:"timeout" validate:"omitempty,gt=0"`
+	Timeout                      *int64  `yaml:"timeout" validate:"omitempty,gte=1"`
 }
 
 type ManifestRoute struct {
