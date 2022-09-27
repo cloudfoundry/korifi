@@ -101,20 +101,12 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(*statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.SeccompProfile).To(Equal(corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}))
 	})
 
-	It("should set the liveness probe", func() {
-		probe := statefulSet.Spec.Template.Spec.Containers[0].LivenessProbe
-		Expect(probe).NotTo(BeNil())
-		Expect(probe.ProbeHandler.HTTPGet).NotTo(BeNil())
-		Expect(probe.ProbeHandler.HTTPGet.Path).To(Equal("/healthz"))
-		Expect(probe.ProbeHandler.HTTPGet.Port.IntValue()).To(Equal(8080))
+	It("should set the startup probe", func() {
+		Expect(statefulSet.Spec.Template.Spec.Containers[0].StartupProbe).To(Equal(appWorkload.Spec.StartupProbe))
 	})
 
-	It("should set the readiness probe", func() {
-		probe := statefulSet.Spec.Template.Spec.Containers[0].ReadinessProbe
-		Expect(probe).NotTo(BeNil())
-		Expect(probe.ProbeHandler.HTTPGet).NotTo(BeNil())
-		Expect(probe.ProbeHandler.HTTPGet.Path).To(Equal("/healthz"))
-		Expect(probe.ProbeHandler.HTTPGet.Port.IntValue()).To(Equal(8080))
+	It("should set the liveness probe", func() {
+		Expect(statefulSet.Spec.Template.Spec.Containers[0].LivenessProbe).To(Equal(appWorkload.Spec.LivenessProbe))
 	})
 
 	It("should not automount service account token", func() {

@@ -288,6 +288,82 @@ var _ = Describe("SpaceManifestHandler", func() {
 			})
 		})
 
+		When("a process's healthcheck timeout is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    timeout: 0
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Timeout must be 1 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("a process's healthcheck invocation timeout is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    health-check-invocation-timeout: 0
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("HealthCheckInvocationTimeout must be 1 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("app healthcheck timeout is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                applications:
+                - name: test-app
+                  timeout: 0
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Timeout must be 1 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("app healthcheck invocation timeout is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                applications:
+                - name: test-app
+                  health-check-invocation-timeout: 0
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("HealthCheckInvocationTimeout must be 1 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
 		When("applying the manifest errors", func() {
 			BeforeEach(func() {
 				requestBody = strings.NewReader(`---

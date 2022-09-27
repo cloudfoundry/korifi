@@ -44,11 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const (
-	LivenessFailureThreshold  = 4
-	ReadinessFailureThreshold = 1
-)
-
 //counterfeiter:generate -o fake -fake-name EnvBuilder . EnvBuilder
 type EnvBuilder interface {
 	BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error)
@@ -247,7 +242,8 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	}
 
 	desiredAppWorkload.Spec.Env = generateEnvVars(appPort, envVars)
-	desiredAppWorkload.Spec.LivenessProbe, desiredAppWorkload.Spec.ReadinessProbe = livenessAndReadinessProbes(cfProcess, appPort)
+	desiredAppWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPort)
+	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPort)
 	desiredAppWorkload.Spec.RunnerName = r.ControllerConfig.RunnerName
 
 	err := controllerutil.SetOwnerReference(cfProcess, &desiredAppWorkload, r.Scheme)
@@ -342,31 +338,48 @@ func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CF
 	}
 }
 
-func livenessAndReadinessProbes(cfProcess *korifiv1alpha1.CFProcess, port int) (*corev1.Probe, *corev1.Probe) {
+func makeProbeHandler(cfProcess *korifiv1alpha1.CFProcess, port int) corev1.ProbeHandler {
 	var probeHandler corev1.ProbeHandler
-	switch string(cfProcess.Spec.HealthCheck.Type) {
-	case "process":
-		return nil, nil
-	case "http":
+
+	switch cfProcess.Spec.HealthCheck.Type {
+	case korifiv1alpha1.HTTPHealthCheckType:
 		probeHandler.HTTPGet = &corev1.HTTPGetAction{
 			Path: cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
 			Port: intstr.FromInt(port),
 		}
-	case "port":
-		probeHandler.TCPSocket = &corev1.TCPSocketAction{Port: intstr.FromInt(port)}
+	case korifiv1alpha1.PortHealthCheckType:
+		probeHandler.TCPSocket = &corev1.TCPSocketAction{
+			Port: intstr.FromInt(port),
+		}
 	}
 
-	healthCheckTimeout := int32(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds)
-	livenessProbe := probe(probeHandler, healthCheckTimeout, LivenessFailureThreshold)
-	readinessProbe := probe(probeHandler, 0, ReadinessFailureThreshold)
-	return livenessProbe, readinessProbe
+	return probeHandler
 }
 
-func probe(probeHandler corev1.ProbeHandler, initialDelaySeconds, failureThreshold int32) *corev1.Probe {
+func startupProbe(cfProcess *korifiv1alpha1.CFProcess, port int) *corev1.Probe {
+	if cfProcess.Spec.HealthCheck.Type == korifiv1alpha1.ProcessHealthCheckType {
+		return nil
+	}
+
 	return &corev1.Probe{
-		ProbeHandler:        probeHandler,
-		InitialDelaySeconds: initialDelaySeconds,
-		FailureThreshold:    failureThreshold,
+		ProbeHandler:   makeProbeHandler(cfProcess, port),
+		TimeoutSeconds: int32(cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds),
+		PeriodSeconds:  2,
+		FailureThreshold: int32(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds/2 +
+			(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds)%2),
+	}
+}
+
+func livenessProbe(cfProcess *korifiv1alpha1.CFProcess, port int) *corev1.Probe {
+	if cfProcess.Spec.HealthCheck.Type == korifiv1alpha1.ProcessHealthCheckType {
+		return nil
+	}
+
+	return &corev1.Probe{
+		ProbeHandler:     makeProbeHandler(cfProcess, port),
+		TimeoutSeconds:   int32(cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds),
+		PeriodSeconds:    30,
+		FailureThreshold: 1,
 	}
 }
 
