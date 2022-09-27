@@ -8,7 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,9 +31,6 @@ var _ = Describe("CFSpace Reconciler", func() {
 		rootNamespace             = "root-namespace"
 	)
 	var (
-		fakeClient       *fake.Client
-		fakeStatusWriter *fake.StatusWriter
-
 		cfSpaceGUID string
 
 		cfSpace            *korifiv1alpha1.CFSpace
@@ -52,7 +49,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 		createKpackServiceAccountError     error
 		createKpackServiceAccountCallCount int
 
-		cfSpaceReconciler *CFSpaceReconciler
+		cfSpaceReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace]
 		ctx               context.Context
 		req               ctrl.Request
 
@@ -61,8 +58,6 @@ var _ = Describe("CFSpace Reconciler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(fake.Client)
-
 		cfSpaceGUID = PrefixedGUID("cf-space")
 
 		cfSpace = BuildCFSpaceObject(cfSpaceGUID, defaultNamespace)
@@ -144,10 +139,6 @@ var _ = Describe("CFSpace Reconciler", func() {
 			}
 		}
 
-		// Configure mock status update to succeed
-		fakeStatusWriter = &fake.StatusWriter{}
-		fakeClient.StatusReturns(fakeStatusWriter)
-
 		// configure a CFSpaceReconciler with the client
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfSpaceReconciler = NewCFSpaceReconciler(
@@ -176,8 +167,8 @@ var _ = Describe("CFSpace Reconciler", func() {
 		})
 
 		It("validates the condition on the CFSpace is set to Unknown", func() {
-			Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
-			_, updatedCFSpace, _ := fakeStatusWriter.UpdateArgsForCall(0)
+			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+			_, updatedCFSpace, _, _ := fakeStatusWriter.PatchArgsForCall(0)
 			castCFSpace, ok := updatedCFSpace.(*korifiv1alpha1.CFSpace)
 			Expect(ok).To(BeTrue(), "Cast to v1alpha1.CFOrg failed")
 			Expect(meta.IsStatusConditionPresentAndEqual(castCFSpace.Status.Conditions, StatusConditionReady, metav1.ConditionUnknown)).To(BeTrue(), "Status Condition "+StatusConditionReady+" was not True as expected")
@@ -196,7 +187,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 		When("update CFSpace status to unknown returns an error", func() {
 			BeforeEach(func() {
-				fakeStatusWriter.UpdateReturns(errors.New("update CFSpace status failed"))
+				fakeStatusWriter.PatchReturns(errors.New("update CFSpace status failed"))
 			})
 
 			It("should return an error", func() {
@@ -278,7 +269,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 
 	When("a CFSpace is being deleted", func() {
 		BeforeEach(func() {
-			cfSpace.ObjectMeta.DeletionTimestamp = &metav1.Time{
+			cfSpace.DeletionTimestamp = &metav1.Time{
 				Time: time.Now(),
 			}
 		})

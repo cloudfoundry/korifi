@@ -13,7 +13,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
-	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,9 +27,6 @@ import (
 
 var _ = Describe("CFServiceInstance.Reconcile", func() {
 	var (
-		fakeClient       *fake.Client
-		fakeStatusWriter *fake.StatusWriter
-
 		cfServiceInstance       *korifiv1alpha1.CFServiceInstance
 		cfServiceInstanceSecret *corev1.Secret
 
@@ -37,7 +34,7 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 		getCFServiceInstanceSecretError   error
 		patchCFServiceInstanceStatusError error
 
-		cfServiceInstanceReconciler *CFServiceInstanceReconciler
+		cfServiceInstanceReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance]
 		ctx                         context.Context
 		req                         ctrl.Request
 
@@ -49,10 +46,6 @@ var _ = Describe("CFServiceInstance.Reconcile", func() {
 		getCFServiceInstanceError = nil
 		getCFServiceInstanceSecretError = nil
 		patchCFServiceInstanceStatusError = nil
-
-		fakeClient = new(fake.Client)
-		fakeStatusWriter = new(fake.StatusWriter)
-		fakeClient.StatusReturns(fakeStatusWriter)
 
 		cfServiceInstance = new(korifiv1alpha1.CFServiceInstance)
 		cfServiceInstanceSecret = new(corev1.Secret)

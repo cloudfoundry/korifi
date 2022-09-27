@@ -8,7 +8,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,9 +33,6 @@ const (
 
 var _ = Describe("CFAppReconciler", func() {
 	var (
-		fakeClient       *fake.Client
-		fakeStatusWriter *fake.StatusWriter
-
 		cfAppGUID     string
 		cfBuildGUID   string
 		cfPackageGUID string
@@ -65,8 +61,6 @@ var _ = Describe("CFAppReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(fake.Client)
-
 		cfAppGUID = "cf-app-guid"
 		cfPackageGUID = "cf-package-guid"
 		cfBuildGUID = "cf-build-guid"
@@ -100,9 +94,6 @@ var _ = Describe("CFAppReconciler", func() {
 				panic("TestClient Get provided a weird obj")
 			}
 		}
-
-		fakeStatusWriter = &fake.StatusWriter{}
-		fakeClient.StatusReturns(fakeStatusWriter)
 
 		cfProcessList := korifiv1alpha1.CFProcessList{}
 		cfProcessListErr = nil

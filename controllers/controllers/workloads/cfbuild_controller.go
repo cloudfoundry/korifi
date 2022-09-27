@@ -44,15 +44,15 @@ import (
 
 // CFBuildReconciler reconciles a CFBuild object
 type CFBuildReconciler struct {
-	Client           client.Client
-	Scheme           *runtime.Scheme
-	Log              logr.Logger
-	ControllerConfig *config.ControllerConfig
-	EnvBuilder       EnvBuilder
+	k8sClient        client.Client
+	scheme           *runtime.Scheme
+	log              logr.Logger
+	controllerConfig *config.ControllerConfig
+	envBuilder       EnvBuilder
 }
 
 func NewCFBuildReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig, envBuilder EnvBuilder) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild] {
-	buildReconciler := CFBuildReconciler{Client: k8sClient, Scheme: scheme, Log: log, ControllerConfig: controllerConfig, EnvBuilder: envBuilder}
+	buildReconciler := CFBuildReconciler{k8sClient: k8sClient, scheme: scheme, log: log, controllerConfig: controllerConfig, envBuilder: envBuilder}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](log, k8sClient, &buildReconciler)
 }
 
@@ -65,22 +65,22 @@ func NewCFBuildReconciler(k8sClient client.Client, scheme *runtime.Scheme, log l
 
 func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild) (ctrl.Result, error) {
 	cfApp := new(korifiv1alpha1.CFApp)
-	err := r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching CFApp")
+		r.log.Error(err, "Error when fetching CFApp")
 		return ctrl.Result{}, err
 	}
 
-	err = controllerutil.SetOwnerReference(cfApp, cfBuild, r.Scheme)
+	err = controllerutil.SetOwnerReference(cfApp, cfBuild, r.scheme)
 	if err != nil {
-		r.Log.Error(err, "unable to set owner reference on CFBuild")
+		r.log.Error(err, "unable to set owner reference on CFBuild")
 		return ctrl.Result{}, err
 	}
 
 	cfPackage := new(korifiv1alpha1.CFPackage)
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching CFPackage")
+		r.log.Error(err, "Error when fetching CFPackage")
 		return ctrl.Result{}, err
 	}
 
@@ -97,9 +97,9 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 	}
 
 	var buildWorkload korifiv1alpha1.BuildWorkload
-	err = r.Client.Get(ctx, client.ObjectKeyFromObject(cfBuild), &buildWorkload)
+	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), &buildWorkload)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching BuildWorkload")
+		r.log.Error(err, "Error when fetching BuildWorkload")
 		// Ignore NotFound errors to account for eventual consistency
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -111,12 +111,34 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 
 	switch workloadSucceededStatus.Status {
 	case metav1.ConditionFalse:
-		failureStatusConditionMessage := fmt.Sprintf("%s: %s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message)
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionFalse, "BuildWorkload", failureStatusConditionMessage)
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.StagingConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "BuildWorkload",
+			Message: "BuildWorkload",
+		})
+
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "BuildWorkload",
+			Message: fmt.Sprintf("%s: %s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message),
+		})
 	case metav1.ConditionTrue:
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionFalse, "BuildWorkload", "BuildWorkload")
-		setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.StagingConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "BuildWorkload",
+			Message: "BuildWorkload",
+		})
+
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionTrue,
+			Reason:  "BuildWorkload",
+			Message: "BuildWorkload",
+		})
+
 		cfBuild.Status.Droplet = buildWorkload.Status.Droplet
 	default:
 		return ctrl.Result{}, nil
@@ -146,7 +168,7 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
 				},
 			},
-			BuilderName: r.ControllerConfig.BuilderName,
+			BuilderName: r.controllerConfig.BuilderName,
 			Buildpacks:  cfBuild.Spec.Lifecycle.Data.Buildpacks,
 		},
 	}
@@ -157,16 +179,16 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 	}
 	desiredWorkload.Spec.Services = buildServices
 
-	imageEnvironment, err := r.EnvBuilder.BuildEnv(ctx, cfApp)
+	imageEnvironment, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.Log.Error(err, "failed building environment")
+		r.log.Error(err, "failed building environment")
 		return fmt.Errorf("prepareEnvironment: %w", err)
 	}
 	desiredWorkload.Spec.Env = imageEnvironment
 
-	err = controllerutil.SetOwnerReference(cfBuild, &desiredWorkload, r.Scheme)
+	err = controllerutil.SetOwnerReference(cfBuild, &desiredWorkload, r.scheme)
 	if err != nil {
-		r.Log.Error(err, "failed to set OwnerRef on BuildWorkload")
+		r.log.Error(err, "failed to set OwnerRef on BuildWorkload")
 		return fmt.Errorf("failed to set OwnerRef on BuildWorkload: %w", err)
 	}
 
@@ -175,14 +197,19 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 		return fmt.Errorf("createBuildWorkloadIfNotExists: %w", err)
 	}
 
-	setStatusConditionOnLocalCopy(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, metav1.ConditionTrue, "BuildWorkload", "BuildWorkload")
+	meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+		Type:    korifiv1alpha1.StagingConditionType,
+		Status:  metav1.ConditionTrue,
+		Reason:  "BuildWorkload",
+		Message: "BuildWorkload",
+	})
 
 	return nil
 }
 
 func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace, appGUID string) ([]corev1.ObjectReference, error) {
 	serviceBindingsList := &korifiv1alpha1.CFServiceBindingList{}
-	err := r.Client.List(ctx, serviceBindingsList,
+	err := r.k8sClient.List(ctx, serviceBindingsList,
 		client.InNamespace(namespace),
 		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
 	)
@@ -200,7 +227,7 @@ func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace,
 			}
 			buildServices = append(buildServices, objRef)
 		} else {
-			r.Log.Info("binding secret name is empty")
+			r.log.Info("binding secret name is empty")
 			return nil, errors.New("binding secret name is empty")
 		}
 	}
@@ -209,16 +236,16 @@ func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace,
 
 func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {
 	var foundWorkload korifiv1alpha1.BuildWorkload
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(&desiredWorkload), &foundWorkload)
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(&desiredWorkload), &foundWorkload)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err = r.Client.Create(ctx, &desiredWorkload)
+			err = r.k8sClient.Create(ctx, &desiredWorkload)
 			if err != nil {
-				r.Log.Error(err, "Error when creating BuildWorkload")
+				r.log.Error(err, "Error when creating BuildWorkload")
 				return err
 			}
 		} else {
-			r.Log.Error(err, "Error when checking if BuildWorkload exists")
+			r.log.Error(err, "Error when checking if BuildWorkload exists")
 			return err
 		}
 	}
