@@ -15,7 +15,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
 	servicesfake "code.cloudfoundry.org/korifi/controllers/controllers/services/fake"
-	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,9 +30,7 @@ import (
 
 var _ = Describe("CFServiceBinding.Reconcile", func() {
 	var (
-		fakeClient       *fake.Client
-		fakeStatusWriter *fake.StatusWriter
-		fakeBuilder      *servicesfake.VCAPServicesSecretBuilder
+		fakeBuilder *servicesfake.VCAPServicesSecretBuilder
 
 		cfServiceBinding        *korifiv1alpha1.CFServiceBinding
 		cfServiceInstance       *korifiv1alpha1.CFServiceInstance
@@ -83,10 +80,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 		secretType = "secretType"
 		secretProvider = "secretProvider"
 
-		fakeClient = new(fake.Client)
 		fakeBuilder = new(servicesfake.VCAPServicesSecretBuilder)
-		fakeStatusWriter = new(fake.StatusWriter)
-		fakeClient.StatusReturns(fakeStatusWriter)
 
 		cfServiceBinding = new(korifiv1alpha1.CFServiceBinding)
 		cfServiceInstance = new(korifiv1alpha1.CFServiceInstance)

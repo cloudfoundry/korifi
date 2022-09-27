@@ -22,15 +22,17 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -57,14 +59,15 @@ func NewCFSpaceReconciler(
 	log logr.Logger,
 	packageRegistrySecretName string,
 	rootNamespace string,
-) *CFSpaceReconciler {
-	return &CFSpaceReconciler{
+) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace] {
+	spaceReconciler := CFSpaceReconciler{
 		client:                    client,
 		scheme:                    scheme,
 		log:                       log,
 		packageRegistrySecretName: packageRegistrySecretName,
 		rootNamespace:             rootNamespace,
 	}
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](log, client, &spaceReconciler)
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfspaces,verbs=get;list;watch;create;update;patch;delete
@@ -85,38 +88,19 @@ func NewCFSpaceReconciler(
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	cfSpace := new(korifiv1alpha1.CFSpace)
-	err := r.client.Get(ctx, req.NamespacedName, cfSpace)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFSpace %s/%s", req.Namespace, req.Name))
-		}
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
+func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) (ctrl.Result, error) {
+	getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
-	readyCondition := getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
-	if readyCondition == metav1.ConditionUnknown {
-		if err = r.client.Status().Update(ctx, cfSpace); err != nil {
-			r.log.Error(err, fmt.Sprintf("Error when trying to set status conditions on CFSpace %s/%s", req.Namespace, req.Name))
-			return ctrl.Result{}, err
-		}
-	}
-
-	err = r.addFinalizer(ctx, cfSpace)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error adding finalizer on CFSpace %s/%s", req.Namespace, req.Name))
-		return ctrl.Result{}, err
-	}
+	r.addFinalizer(ctx, cfSpace)
 
 	if !cfSpace.GetDeletionTimestamp().IsZero() {
 		return finalize(ctx, r.client, r.log, cfSpace, spaceFinalizerName)
 	}
 
 	labels := map[string]string{korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName}
-	err = createOrPatchNamespace(ctx, r.client, r.log, cfSpace, labels)
+	err := createOrPatchNamespace(ctx, r.client, r.log, cfSpace, labels)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error creating namespace for CFSpace %s/%s", req.Namespace, req.Name))
+		r.log.Error(err, fmt.Sprintf("Error creating namespace for CFSpace %s/%s", cfSpace.Namespace, cfSpace.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -127,28 +111,28 @@ func (r *CFSpaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	err = propagateSecrets(ctx, r.client, r.log, cfSpace, r.packageRegistrySecretName)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error propagating secrets into CFSpace %s/%s", req.Namespace, req.Name))
+		r.log.Error(err, fmt.Sprintf("Error propagating secrets into CFSpace %s/%s", cfSpace.Namespace, cfSpace.Name))
 		return ctrl.Result{}, err
 	}
 
 	err = reconcileRoleBindings(ctx, r.client, r.log, cfSpace)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFSpace %s/%s", req.Namespace, req.Name))
+		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFSpace %s/%s", cfSpace.Namespace, cfSpace.Name))
 		return ctrl.Result{}, err
 	}
 
 	err = r.reconcileServiceAccounts(ctx, cfSpace)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error propagating service accounts into CFSpace %s/%s", req.Namespace, req.Name))
+		r.log.Error(err, fmt.Sprintf("Error propagating service accounts into CFSpace %s/%s", cfSpace.Namespace, cfSpace.Name))
 		return ctrl.Result{}, err
 	}
 
 	cfSpace.Status.GUID = namespace.Name
-	err = updateStatus(ctx, r.client, cfSpace, metav1.ConditionTrue)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error updating status on CFSpace %s/%s", req.Namespace, req.Name))
-		return ctrl.Result{}, err
-	}
+	meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
+		Type:   StatusConditionReady,
+		Status: metav1.ConditionTrue,
+		Reason: StatusConditionReady,
+	})
 
 	return ctrl.Result{}, nil
 }
@@ -239,26 +223,16 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 	return nil
 }
 
-func (r *CFSpaceReconciler) addFinalizer(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) error {
+func (r *CFSpaceReconciler) addFinalizer(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) {
 	if controllerutil.ContainsFinalizer(cfSpace, spaceFinalizerName) {
-		return nil
+		return
 	}
 
-	originalCFSpace := cfSpace.DeepCopy()
 	controllerutil.AddFinalizer(cfSpace, spaceFinalizerName)
-
-	err := r.client.Patch(ctx, cfSpace, client.MergeFrom(originalCFSpace))
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error adding finalizer to CFSpace/%s", cfSpace.Name))
-		return err
-	}
-
 	r.log.Info(fmt.Sprintf("Finalizer added to CFSpace/%s", cfSpace.Name))
-	return nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFSpace{}).
 		Watches(
@@ -272,8 +246,7 @@ func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&source.Kind{Type: &corev1.ServiceAccount{}},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequestsForServiceAccount),
-		).
-		Complete(r)
+		)
 }
 
 func (r *CFSpaceReconciler) enqueueCFSpaceRequests(object client.Object) []reconcile.Request {

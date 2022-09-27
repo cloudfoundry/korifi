@@ -13,7 +13,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,9 +28,6 @@ import (
 
 var _ = Describe("CFOrgReconciler", func() {
 	var (
-		fakeClient       *fake.Client
-		fakeStatusWriter *fake.StatusWriter
-
 		cfOrgGUID                 string
 		packageRegistrySecretName string
 
@@ -48,7 +45,7 @@ var _ = Describe("CFOrgReconciler", func() {
 		namespacePatchErr  error
 		namespaceDeleteErr error
 
-		cfOrgReconciler *CFOrgReconciler
+		cfOrgReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg]
 		ctx             context.Context
 		req             ctrl.Request
 
@@ -57,8 +54,6 @@ var _ = Describe("CFOrgReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(fake.Client)
-
 		cfOrgGUID = PrefixedGUID("cf-org")
 		packageRegistrySecretName = "test-package-registry-secret"
 
@@ -126,10 +121,6 @@ var _ = Describe("CFOrgReconciler", func() {
 			}
 		}
 
-		// Configure mock status update to succeed
-		fakeStatusWriter = &fake.StatusWriter{}
-		fakeClient.StatusReturns(fakeStatusWriter)
-
 		// configure a CFOrgReconciler with the client
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfOrgReconciler = NewCFOrgReconciler(
@@ -157,8 +148,8 @@ var _ = Describe("CFOrgReconciler", func() {
 		})
 
 		It("validates the condition on the CFOrg is set to Unknown", func() {
-			Expect(fakeStatusWriter.UpdateCallCount()).To(Equal(1))
-			_, updatedCFOrg, _ := fakeStatusWriter.UpdateArgsForCall(0)
+			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+			_, updatedCFOrg, _, _ := fakeStatusWriter.PatchArgsForCall(0)
 			castCFOrg, ok := updatedCFOrg.(*korifiv1alpha1.CFOrg)
 			Expect(ok).To(BeTrue(), "Cast to korifiv1alpha1.CFOrg failed")
 			Expect(meta.IsStatusConditionPresentAndEqual(castCFOrg.Status.Conditions, StatusConditionReady, metav1.ConditionUnknown)).To(BeTrue(), "Status Condition "+StatusConditionReady+" was not True as expected")
@@ -177,7 +168,7 @@ var _ = Describe("CFOrgReconciler", func() {
 
 		When("update CFOrg status to unknown returns an error", func() {
 			BeforeEach(func() {
-				fakeStatusWriter.UpdateReturns(errors.New("update CFOrg status failed"))
+				fakeStatusWriter.PatchReturns(errors.New("update CFOrg status failed"))
 			})
 
 			It("should return an error", func() {
@@ -219,7 +210,7 @@ var _ = Describe("CFOrgReconciler", func() {
 
 	When("a CFOrg is being deleted", func() {
 		BeforeEach(func() {
-			cfOrg.ObjectMeta.DeletionTimestamp = &metav1.Time{
+			cfOrg.DeletionTimestamp = &metav1.Time{
 				Time: time.Now(),
 			}
 		})

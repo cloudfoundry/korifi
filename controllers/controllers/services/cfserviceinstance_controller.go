@@ -23,7 +23,9 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	corev1 "k8s.io/api/core/v1"
@@ -44,56 +46,45 @@ const (
 
 // CFServiceInstanceReconciler reconciles a CFServiceInstance object
 type CFServiceInstanceReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	k8sClient client.Client
+	scheme    *runtime.Scheme
+	log       logr.Logger
 }
 
-func NewCFServiceInstanceReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFServiceInstanceReconciler {
-	return &CFServiceInstanceReconciler{Client: client, Scheme: scheme, Log: log}
+func NewCFServiceInstanceReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	log logr.Logger,
+) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance] {
+	serviceInstanceReconciler := CFServiceInstanceReconciler{k8sClient: client, scheme: scheme, log: log}
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance](log, client, &serviceInstanceReconciler)
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
 
-func (r *CFServiceInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	result := ctrl.Result{}
-
-	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-	err := r.Client.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, cfServiceInstance)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "unable to fetch CFServiceInstance", req.Name, req.Namespace)
-		}
-		return result, client.IgnoreNotFound(err)
-	}
-
-	err = r.addFinalizer(ctx, cfServiceInstance)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+	r.addFinalizer(ctx, cfServiceInstance)
 
 	if !cfServiceInstance.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFServiceInstance(ctx, cfServiceInstance)
 	}
 
 	secret := new(corev1.Secret)
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: req.Namespace}, secret)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: cfServiceInstance.Namespace}, secret)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			setStatusErr := r.setStatus(ctx, cfServiceInstance, bindSecretUnavailableStatus(cfServiceInstance, "SecretNotFound", "Binding secret does not exist"))
-			if setStatusErr != nil {
-				return ctrl.Result{}, setStatusErr
-			}
-
+			cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "SecretNotFound", "Binding secret does not exist")
 			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 
-		return r.setStatusAndReturnError(ctx, cfServiceInstance, bindSecretUnavailableStatus(cfServiceInstance, "UnknownError", "Error occurred while fetching secret: "+err.Error()), err)
+		cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "UnknownError", "Error occurred while fetching secret: "+err.Error())
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, r.setStatus(ctx, cfServiceInstance, bindSecretAvailableStatus(cfServiceInstance))
+	cfServiceInstance.Status = bindSecretAvailableStatus(cfServiceInstance)
+	return ctrl.Result{}, nil
 }
 
 func bindSecretAvailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance) korifiv1alpha1.CFServiceInstanceStatus {
@@ -129,51 +120,22 @@ func bindSecretUnavailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInst
 	return status
 }
 
-func (r *CFServiceInstanceReconciler) setStatusAndReturnError(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, status korifiv1alpha1.CFServiceInstanceStatus, errToReturn error) (ctrl.Result, error) {
-	err := r.setStatus(ctx, cfServiceInstance, status)
-	if err != nil {
-		r.Log.Error(err, "unable to patch CFServiceInstance status")
-		return ctrl.Result{}, err
-
-	}
-
-	return ctrl.Result{}, errToReturn
-}
-
-func (r *CFServiceInstanceReconciler) setStatus(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, status korifiv1alpha1.CFServiceInstanceStatus) error {
-	originalCFServiceInstance := cfServiceInstance.DeepCopy()
-	cfServiceInstance.Status = status
-
-	return r.Client.Status().Patch(ctx, cfServiceInstance, client.MergeFrom(originalCFServiceInstance))
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFServiceInstance{}).
-		Complete(r)
+		For(&korifiv1alpha1.CFServiceInstance{})
 }
 
-func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) error {
+func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) {
 	if controllerutil.ContainsFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName) {
-		return nil
+		return
 	}
 
-	originalCFInstance := cfServiceInstance.DeepCopy()
 	controllerutil.AddFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName)
-
-	err := r.Client.Patch(ctx, cfServiceInstance, client.MergeFrom(originalCFInstance))
-	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error adding finalizer to CFServiceInstance/%s", cfServiceInstance.Name))
-		return err
-	}
-
-	r.Log.Info(fmt.Sprintf("Finalizer added to CFServiceInstance/%s", cfServiceInstance.Name))
-	return nil
+	r.log.Info(fmt.Sprintf("Finalizer added to CFServiceInstance/%s", cfServiceInstance.Name))
 }
 
 func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
-	logger := r.Log.WithValues("cfServiceInstanceName", cfServiceInstance.Name, "cfServiceInstanceNamespace", cfServiceInstance.Namespace)
+	logger := r.log.WithValues("cfServiceInstanceName", cfServiceInstance.Name, "cfServiceInstanceNamespace", cfServiceInstance.Namespace)
 	logger.Info("Reconciling deletion of CFServiceInstance")
 
 	if !controllerutil.ContainsFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName) {
@@ -181,7 +143,7 @@ func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Cont
 	}
 
 	cfServiceBindingList := &korifiv1alpha1.CFServiceBindingList{}
-	err := r.Client.List(ctx, cfServiceBindingList,
+	err := r.k8sClient.List(ctx, cfServiceBindingList,
 		client.InNamespace(cfServiceInstance.Namespace),
 		client.MatchingFields{shared.IndexServiceBindingServiceInstanceGUID: cfServiceInstance.Name},
 	)
@@ -191,19 +153,14 @@ func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Cont
 	}
 
 	for i, cfServiceBinding := range cfServiceBindingList.Items {
-		err = r.Client.Delete(ctx, &cfServiceBindingList.Items[i])
+		err = r.k8sClient.Delete(ctx, &cfServiceBindingList.Items[i])
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("Error deleting %s", cfServiceBinding.Name))
 			return ctrl.Result{}, err
 		}
 	}
 
-	originalCFServiceInstance := cfServiceInstance.DeepCopy()
 	controllerutil.RemoveFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName)
-	if err := r.Client.Patch(ctx, cfServiceInstance, client.MergeFrom(originalCFServiceInstance)); err != nil {
-		logger.Error(err, "Failed to remove finalizer")
-		return ctrl.Result{}, err
-	}
 
 	return ctrl.Result{}, nil
 }

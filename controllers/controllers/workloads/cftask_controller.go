@@ -32,12 +32,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
 const (
@@ -71,8 +72,8 @@ func NewCFTaskReconciler(
 	envBuilder EnvBuilder,
 	cfProcessDefaults config.CFProcessDefaults,
 	taskTTLDuration time.Duration,
-) *CFTaskReconciler {
-	return &CFTaskReconciler{
+) *k8s.PatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask] {
+	taskReconciler := CFTaskReconciler{
 		k8sClient:         client,
 		scheme:            scheme,
 		recorder:          recorder,
@@ -82,6 +83,7 @@ func NewCFTaskReconciler(
 		cfProcessDefaults: cfProcessDefaults,
 		taskTTLDuration:   taskTTLDuration,
 	}
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask](logger, client, &taskReconciler)
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks,verbs=get;list;watch;create;update;patch;delete
@@ -90,18 +92,7 @@ func NewCFTaskReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
-	cfTask := new(korifiv1alpha1.CFTask)
-	if err := r.k8sClient.Get(ctx, req.NamespacedName, cfTask); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		r.logger.Info("error-getting-cftask", "error", err)
-		return ctrl.Result{}, err
-	}
-
+func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifiv1alpha1.CFTask) (ctrl.Result, error) {
 	if r.alreadyExpired(cfTask) {
 		r.logger.Info("deleting-expired-task", "namespace", cfTask.Namespace, "name", cfTask.Name)
 		err := r.k8sClient.Delete(ctx, cfTask)
@@ -113,7 +104,7 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	if cfTask.Spec.Canceled {
 		err := r.handleCancelation(ctx, cfTask)
-		return r.updateStatusAndReturn(ctx, cfTask, err)
+		return r.reconcileResult(cfTask, err)
 	}
 
 	cfApp, err := r.getApp(ctx, cfTask)
@@ -134,23 +125,23 @@ func (r *CFTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	webProcess, err := r.getWebProcess(ctx, cfApp)
 	if err != nil {
 		r.logger.Error(err, "failed to get web processes")
-		return r.updateStatusAndReturn(ctx, cfTask, err)
+		return r.reconcileResult(cfTask, err)
 	}
 
 	env, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
 		r.logger.Error(err, "failed to build env")
-		return r.updateStatusAndReturn(ctx, cfTask, err)
+		return r.reconcileResult(cfTask, err)
 	}
 
 	taskWorkload, err := r.createOrPatchTaskWorkload(ctx, cfTask, cfDroplet, webProcess, env)
 	if err != nil {
-		return r.updateStatusAndReturn(ctx, cfTask, err)
+		return r.reconcileResult(cfTask, err)
 	}
 
 	r.setTaskStatus(cfTask, taskWorkload.Status.Conditions)
 
-	return r.updateStatusAndReturn(ctx, cfTask, nil)
+	return r.reconcileResult(cfTask, nil)
 }
 
 func (r *CFTaskReconciler) setTaskStatus(cfTask *korifiv1alpha1.CFTask, taskWorkloadConditions []metav1.Condition) {
@@ -167,11 +158,10 @@ func (r *CFTaskReconciler) setTaskStatus(cfTask *korifiv1alpha1.CFTask, taskWork
 	}
 }
 
-func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFTask{}).
-		Owns(&korifiv1alpha1.TaskWorkload{}).
-		Complete(r)
+		Owns(&korifiv1alpha1.TaskWorkload{})
 }
 
 func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CFTask) (*korifiv1alpha1.CFApp, error) {
@@ -323,7 +313,6 @@ func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifi
 			Reason:  "taskInitialized",
 			Message: "taskInitialized",
 		})
-
 	}
 
 	return nil
@@ -359,18 +348,7 @@ func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifi
 	return nil
 }
 
-func (r *CFTaskReconciler) updateStatusAndReturn(ctx context.Context, cfTask *korifiv1alpha1.CFTask, reconcileErr error) (ctrl.Result, error) {
-	orig := &korifiv1alpha1.CFTask{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cfTask.Name,
-			Namespace: cfTask.Namespace,
-		},
-	}
-	if statusErr := r.k8sClient.Status().Patch(ctx, cfTask, client.MergeFrom(orig)); statusErr != nil {
-		r.logger.Error(statusErr, "unable to patch CFTask status")
-		return ctrl.Result{}, statusErr
-	}
-
+func (r *CFTaskReconciler) reconcileResult(cfTask *korifiv1alpha1.CFTask, reconcileErr error) (ctrl.Result, error) {
 	if reconcileErr != nil {
 		return ctrl.Result{}, reconcileErr
 	}

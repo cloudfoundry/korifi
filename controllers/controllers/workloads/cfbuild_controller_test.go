@@ -9,7 +9,6 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,9 +33,6 @@ var _ = Describe("CFBuildReconciler", func() {
 	)
 
 	var (
-		fakeClient       *fake.Client
-		fakeStatusWriter *fake.StatusWriter
-
 		fakeEnvBuilder *workloadsfakes.EnvBuilder
 
 		cfAppGUID         string
@@ -63,8 +59,6 @@ var _ = Describe("CFBuildReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(fake.Client)
-
 		cfAppGUID = "cf-app-guid"
 		cfPackageGUID = "cf-package-guid"
 		cfBuildGUID = "cf-build-guid"
@@ -99,9 +93,6 @@ var _ = Describe("CFBuildReconciler", func() {
 				panic("test Client Get provided a weird obj")
 			}
 		}
-
-		fakeStatusWriter = new(fake.StatusWriter)
-		fakeClient.StatusReturns(fakeStatusWriter)
 
 		fakeEnvBuilder = new(workloadsfakes.EnvBuilder)
 		fakeEnvBuilder.BuildEnvReturns(buildEnv, nil)

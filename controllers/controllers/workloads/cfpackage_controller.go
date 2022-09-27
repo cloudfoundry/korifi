@@ -18,12 +18,12 @@ package workloads
 
 import (
 	"context"
-	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/go-logr/logr"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,13 +33,14 @@ import (
 
 // CFPackageReconciler reconciles a CFPackage object
 type CFPackageReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	k8sClient client.Client
+	scheme    *runtime.Scheme
+	log       logr.Logger
 }
 
-func NewCFPackageReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *CFPackageReconciler {
-	return &CFPackageReconciler{Client: client, Scheme: scheme, Log: log}
+func NewCFPackageReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *k8s.PatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage] {
+	pkgReconciler := CFPackageReconciler{k8sClient: client, scheme: scheme, log: log}
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage](log, client, &pkgReconciler)
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
@@ -55,33 +56,17 @@ func NewCFPackageReconciler(client client.Client, scheme *runtime.Scheme, log lo
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
-func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var cfPackage korifiv1alpha1.CFPackage
-	err := r.Client.Get(ctx, req.NamespacedName, &cfPackage)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "Error when fetching CFPackage")
-		}
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
+func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
 	var cfApp korifiv1alpha1.CFApp
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching CFApp")
+		r.log.Error(err, "Error when fetching CFApp")
 		return ctrl.Result{}, err
 	}
 
-	originalCFPackage := cfPackage.DeepCopy()
-	err = controllerutil.SetOwnerReference(&cfApp, &cfPackage, r.Scheme)
+	err = controllerutil.SetOwnerReference(&cfApp, cfPackage, r.scheme)
 	if err != nil {
-		r.Log.Error(err, "unable to set owner reference on CFPackage")
-		return ctrl.Result{}, err
-	}
-
-	err = r.Client.Patch(ctx, &cfPackage, client.MergeFrom(originalCFPackage))
-	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("Error setting owner reference on the CFPackage %s/%s", req.Namespace, cfPackage.Name))
+		r.log.Error(err, "unable to set owner reference on CFPackage")
 		return ctrl.Result{}, err
 	}
 
@@ -89,8 +74,7 @@ func (r *CFPackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFPackage{}).
-		Complete(r)
+		For(&korifiv1alpha1.CFPackage{})
 }

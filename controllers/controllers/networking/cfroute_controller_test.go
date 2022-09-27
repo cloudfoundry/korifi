@@ -8,7 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
-	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,9 +41,6 @@ const (
 
 var _ = Describe("CFRouteReconciler.Reconcile", func() {
 	var (
-		fakeClient       *fake.Client
-		fakeStatusWriter *fake.StatusWriter
-
 		cfDomain       *korifiv1alpha1.CFDomain
 		cfRoute        *korifiv1alpha1.CFRoute
 		httpProxyList  *contourv1.HTTPProxyList
@@ -64,7 +61,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 		listServicesError         error
 		patchCFRouteStatusError   error
 
-		cfRouteReconciler *CFRouteReconciler
+		cfRouteReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute]
 		ctx               context.Context
 		req               ctrl.Request
 
@@ -73,8 +70,6 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(fake.Client)
-
 		cfDomain = &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: testDomainGUID,
@@ -208,9 +203,6 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			}
 		}
 
-		fakeStatusWriter = &fake.StatusWriter{}
-		fakeClient.StatusReturns(fakeStatusWriter)
-
 		fakeStatusWriter.PatchStub = func(ctx context.Context, obj client.Object, patch client.Patch, option ...client.PatchOption) error {
 			return patchCFRouteStatusError
 		}
@@ -270,7 +262,14 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 			When("no workloadsTLSSecretName is set", func() {
 				BeforeEach(func() {
-					cfRouteReconciler.ControllerConfig.WorkloadsTLSSecretName = ""
+					cfRouteReconciler = NewCFRouteReconciler(
+						fakeClient,
+						scheme.Scheme,
+						zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+						&config.ControllerConfig{
+							WorkloadsTLSSecretNamespace: workloadsTLSSecretNamespace,
+						},
+					)
 				})
 
 				It("doesn't set TLS on the FQDN HTTProxy", func() {
@@ -291,7 +290,15 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 			When("a workloadsTLSSecretName is set", func() {
 				BeforeEach(func() {
-					cfRouteReconciler.ControllerConfig.WorkloadsTLSSecretName = "the-tls-secret"
+					cfRouteReconciler = NewCFRouteReconciler(
+						fakeClient,
+						scheme.Scheme,
+						zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+						&config.ControllerConfig{
+							WorkloadsTLSSecretNamespace: workloadsTLSSecretNamespace,
+							WorkloadsTLSSecretName:      "the-tls-secret",
+						},
+					)
 				})
 
 				It("set TLS on the FQDN HTTProxy", func() {
@@ -438,24 +445,6 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 
 				It("returns an error", func() {
 					Expect(reconcileErr).To(MatchError("found existing HTTPProxy with FQDN " + testFQDN + " in another space"))
-				})
-			})
-
-			When("adding the finalizer to the CFRoute returns an error", func() {
-				BeforeEach(func() {
-					cfRoute.Finalizers = []string{}
-					patchCFRouteError = errors.New("failed to patch CFRoute")
-					_, reconcileErr = cfRouteReconciler.Reconcile(ctx, req)
-				})
-
-				It("returns the error and sets an \"invalid\" status on the cfRoute", func() {
-					Expect(reconcileErr).To(MatchError("failed to patch CFRoute"))
-
-					Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
-					_, routeObj, _, _ := fakeStatusWriter.PatchArgsForCall(0)
-					updatedCFRoute, ok := routeObj.(*korifiv1alpha1.CFRoute)
-					Expect(ok).To(BeTrue())
-					expectCFRouteValidStatus(updatedCFRoute.Status, false)
 				})
 			})
 

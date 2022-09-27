@@ -5,6 +5,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -18,6 +19,17 @@ func TestNetworkingControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Networking Controllers Unit Test Suite")
 }
+
+var (
+	fakeClient       *fake.Client
+	fakeStatusWriter *fake.StatusWriter
+)
+
+var _ = BeforeEach(func() {
+	fakeClient = new(fake.Client)
+	fakeStatusWriter = &fake.StatusWriter{}
+	fakeClient.StatusReturns(fakeStatusWriter)
+})
 
 func expectCFRouteValidStatus(cfRouteStatus korifiv1alpha1.CFRouteStatus, valid bool, desc ...string) {
 	validCondition := meta.FindStatusCondition(cfRouteStatus.Conditions, "Valid")

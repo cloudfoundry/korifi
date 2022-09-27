@@ -11,7 +11,7 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfakes "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,7 +39,6 @@ const (
 
 var _ = Describe("CFProcessReconciler Unit Tests", func() {
 	var (
-		fakeClient *fake.Client
 		envBuilder *workloadsfakes.EnvBuilder
 
 		cfBuild     *korifiv1alpha1.CFBuild
@@ -55,7 +54,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		appWorkloadListError error
 		routeListError       error
 
-		cfProcessReconciler *CFProcessReconciler
+		cfProcessReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFProcess, *korifiv1alpha1.CFProcess]
 		ctx                 context.Context
 		req                 ctrl.Request
 
@@ -63,8 +62,6 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 	)
 
 	BeforeEach(func() {
-		fakeClient = new(fake.Client)
-
 		envBuilder = new(workloadsfakes.EnvBuilder)
 
 		cfApp = BuildCFAppCRObject(testAppGUID, testNamespace)

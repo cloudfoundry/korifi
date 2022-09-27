@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	workloadsfake "code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -28,9 +29,7 @@ import (
 
 var _ = Describe("CFTask Controller", func() {
 	var (
-		taskReconciler       workloads.CFTaskReconciler
-		k8sClient            *fake.Client
-		statusWriter         *fake.StatusWriter
+		taskReconciler       *k8s.PatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask]
 		eventRecorder        *fake.EventRecorder
 		seqIdGenerator       *workloadsfake.SeqIdGenerator
 		envBuilder           *workloadsfake.EnvBuilder
@@ -51,10 +50,6 @@ var _ = Describe("CFTask Controller", func() {
 	)
 
 	BeforeEach(func() {
-		k8sClient = new(fake.Client)
-		statusWriter = new(fake.StatusWriter)
-		k8sClient.StatusReturns(statusWriter)
-
 		eventRecorder = new(fake.EventRecorder)
 		seqIdGenerator = new(workloadsfake.SeqIdGenerator)
 		seqIdGenerator.GenerateReturns(314, nil)
@@ -63,8 +58,8 @@ var _ = Describe("CFTask Controller", func() {
 		logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		taskTTL = 5 * time.Minute
-		taskReconciler = *workloads.NewCFTaskReconciler(
-			k8sClient,
+		taskReconciler = workloads.NewCFTaskReconciler(
+			fakeClient,
 			scheme.Scheme,
 			eventRecorder,
 			logger,
@@ -111,7 +106,7 @@ var _ = Describe("CFTask Controller", func() {
 				Name:      "the-task-name",
 			},
 		}
-		k8sClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
+		fakeClient.GetStub = func(_ context.Context, namespacedName types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch t := obj.(type) {
 			case *korifiv1alpha1.CFTask:
 				*t = *cfTask.DeepCopy()
@@ -163,7 +158,7 @@ var _ = Describe("CFTask Controller", func() {
 			Spec: korifiv1alpha1.CFProcessSpec{MemoryMB: 512},
 		}}
 
-		k8sClient.ListStub = func(_ context.Context, l client.ObjectList, options ...client.ListOption) error {
+		fakeClient.ListStub = func(_ context.Context, l client.ObjectList, options ...client.ListOption) error {
 			switch t := l.(type) {
 			case *korifiv1alpha1.CFProcessList:
 				Expect(options).To(ConsistOf(
@@ -188,8 +183,8 @@ var _ = Describe("CFTask Controller", func() {
 	})
 
 	taskWithPatchedStatus := func() *korifiv1alpha1.CFTask {
-		ExpectWithOffset(1, statusWriter.PatchCallCount()).To(Equal(1))
-		_, object, _, _ := statusWriter.PatchArgsForCall(0)
+		ExpectWithOffset(1, fakeStatusWriter.PatchCallCount()).To(Equal(1))
+		_, object, _, _ := fakeStatusWriter.PatchArgsForCall(0)
 		task, ok := object.(*korifiv1alpha1.CFTask)
 		ExpectWithOffset(1, ok).To(BeTrue())
 
@@ -202,8 +197,8 @@ var _ = Describe("CFTask Controller", func() {
 			_, envApp := envBuilder.BuildEnvArgsForCall(0)
 			Expect(envApp.Name).To(Equal("the-app-guid"))
 
-			Expect(k8sClient.CreateCallCount()).To(Equal(1))
-			_, obj, _ := k8sClient.CreateArgsForCall(0)
+			Expect(fakeClient.CreateCallCount()).To(Equal(1))
+			_, obj, _ := fakeClient.CreateArgsForCall(0)
 			taskWorkload, ok := obj.(*korifiv1alpha1.TaskWorkload)
 			Expect(ok).To(BeTrue())
 
@@ -244,8 +239,8 @@ var _ = Describe("CFTask Controller", func() {
 			})
 
 			It("patches the task workload", func() {
-				Expect(k8sClient.PatchCallCount()).To(Equal(1))
-				_, actualObject, _, _ := k8sClient.PatchArgsForCall(0)
+				Expect(fakeClient.PatchCallCount()).To(BeNumerically(">", 0))
+				_, actualObject, _, _ := fakeClient.PatchArgsForCall(0)
 				actualTaskWorkload, ok := actualObject.(*korifiv1alpha1.TaskWorkload)
 				Expect(ok).To(BeTrue())
 
@@ -270,8 +265,8 @@ var _ = Describe("CFTask Controller", func() {
 				})
 
 				It("preserves existing labels", func() {
-					Expect(k8sClient.PatchCallCount()).To(Equal(1))
-					_, actualObject, _, _ := k8sClient.PatchArgsForCall(0)
+					Expect(fakeClient.PatchCallCount()).To(BeNumerically(">", 0))
+					_, actualObject, _, _ := fakeClient.PatchArgsForCall(0)
 					actualTaskWorkload, ok := actualObject.(*korifiv1alpha1.TaskWorkload)
 					Expect(ok).To(BeTrue())
 
@@ -399,7 +394,7 @@ var _ = Describe("CFTask Controller", func() {
 
 		When("creating the task workload fails", func() {
 			BeforeEach(func() {
-				k8sClient.CreateReturns(errors.New("create-task-workload-failure"))
+				fakeClient.CreateReturns(errors.New("create-task-workload-failure"))
 			})
 
 			It("returns an error", func() {
@@ -456,7 +451,7 @@ var _ = Describe("CFTask Controller", func() {
 
 		When("patching the CFTask status fails", func() {
 			BeforeEach(func() {
-				statusWriter.PatchReturns(errors.New("status-patch"))
+				fakeStatusWriter.PatchReturns(errors.New("status-patch"))
 			})
 
 			It("returns the error", func() {
@@ -576,7 +571,7 @@ var _ = Describe("CFTask Controller", func() {
 
 		When("it fails to retrieve the app's web process", func() {
 			BeforeEach(func() {
-				k8sClient.ListReturns(errors.New("boom"))
+				fakeClient.ListReturns(errors.New("boom"))
 			})
 
 			It("returns an error", func() {
@@ -611,8 +606,8 @@ var _ = Describe("CFTask Controller", func() {
 		})
 
 		It("deletes the underlying task workload", func() {
-			Expect(k8sClient.DeleteCallCount()).To(Equal(1))
-			_, actualObject, _ := k8sClient.DeleteArgsForCall(0)
+			Expect(fakeClient.DeleteCallCount()).To(Equal(1))
+			_, actualObject, _ := fakeClient.DeleteArgsForCall(0)
 			actualTaskWorkload, ok := actualObject.(*korifiv1alpha1.TaskWorkload)
 			Expect(ok).To(BeTrue())
 
@@ -626,7 +621,7 @@ var _ = Describe("CFTask Controller", func() {
 			})
 
 			It("does not attempt to create the task workload", func() {
-				Expect(k8sClient.CreateCallCount()).To(BeZero())
+				Expect(fakeClient.CreateCallCount()).To(BeZero())
 			})
 		})
 
@@ -673,7 +668,7 @@ var _ = Describe("CFTask Controller", func() {
 
 		When("deleting of the underlying task workload fails", func() {
 			BeforeEach(func() {
-				k8sClient.DeleteReturns(errors.New("boom"))
+				fakeClient.DeleteReturns(errors.New("boom"))
 			})
 
 			It("returns an error", func() {
@@ -688,7 +683,7 @@ var _ = Describe("CFTask Controller", func() {
 
 		When("underlying task workload does not exist", func() {
 			BeforeEach(func() {
-				k8sClient.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "task-workload"))
+				fakeClient.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "task-workload"))
 			})
 
 			It("sets the canceled condition on the korifi task", func() {
@@ -709,8 +704,8 @@ var _ = Describe("CFTask Controller", func() {
 		})
 
 		It("deletes the task", func() {
-			Expect(k8sClient.DeleteCallCount()).To(Equal(1))
-			_, deletedObject, _ := k8sClient.DeleteArgsForCall(0)
+			Expect(fakeClient.DeleteCallCount()).To(Equal(1))
+			_, deletedObject, _ := fakeClient.DeleteArgsForCall(0)
 			Expect(deletedObject.GetNamespace()).To(Equal("the-task-namespace"))
 			Expect(deletedObject.GetName()).To(Equal(cfTask.Name))
 		})
