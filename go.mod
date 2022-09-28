@@ -28,7 +28,6 @@ require (
 	github.com/onsi/gomega v1.20.2
 	github.com/pivotal/kpack v0.7.1
 	github.com/projectcontour/contour v1.22.1
-	github.com/vmware-tanzu/carvel-vendir v0.31.0
 	golang.org/x/text v0.3.7
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -45,7 +44,6 @@ require (
 require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11 // indirect
 	github.com/Azure/go-autorest/autorest/azure/cli v0.4.6 // indirect
-	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.16.14 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.17.5 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.18 // indirect
@@ -61,24 +59,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.17 // indirect
 	github.com/aws/smithy-go v1.13.2 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220906183739-a13b39e9d86d // indirect
-	github.com/bmatcuk/doublestar v1.2.1 // indirect
-	github.com/cheggaaa/pb/v3 v3.1.0 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08 // indirect
-	github.com/cppforlife/cobrautil v0.0.0-20200514214827-bb86e6965d72 // indirect
-	github.com/cppforlife/color v1.9.1-0.20200716202919-6706ac40b835 // indirect
-	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220301182634-bfe2ffc6b6bd // indirect
-	github.com/google/go-github v17.0.0+incompatible // indirect
-	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/hashicorp/go-version v1.2.1 // indirect
-	github.com/k14s/semver/v4 v4.0.1-0.20210701191048-266d47ac6115 // indirect
-	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/otiai10/copy v1.2.0 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/vito/go-interact v1.0.1 // indirect
-	github.com/vmware-tanzu/carvel-imgpkg v0.32.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
 
