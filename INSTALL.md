@@ -270,7 +270,7 @@ spec:
   - \*.apps.$BASE_DOMAIN
   issuerRef:
     kind: Issuer
-    name: korifi-workloads-selfsigned-issuer
+    name: korifi-controllers-selfsigned-issuer
   secretName: korifi-workloads-ingress-cert
 EOF
 ```
