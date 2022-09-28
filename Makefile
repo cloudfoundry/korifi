@@ -307,11 +307,12 @@ install-shfmt:
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
 
+VENDIR = $(shell go env GOPATH)/bin/vendir
 install-vendir:
-	go install github.com/vmware-tanzu/carvel-vendir/cmd/vendir
+	go install github.com/vmware-tanzu/carvel-vendir/cmd/vendir@latest
 
 vendir-update-dependencies: install-vendir
-	vendir sync --chdir tests
+	$(VENDIR) sync --chdir tests
 
 # go-install-tool will 'go get' any package $2 and install it to $1.
 define go-install-tool
