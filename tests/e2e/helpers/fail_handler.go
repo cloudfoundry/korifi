@@ -70,6 +70,24 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 				LabelValue: "controller-manager",
 				Container:  "manager",
 			},
+			{
+				Namespace:  "korifi-job-task-runner-system",
+				LabelKey:   "control-plane",
+				LabelValue: "controller-manager",
+				Container:  "manager",
+			},
+			{
+				Namespace:  "korifi-kpack-build-system",
+				LabelKey:   "control-plane",
+				LabelValue: "controller-manager",
+				Container:  "manager",
+			},
+			{
+				Namespace:  "korifi-statefulset-runner-system",
+				LabelKey:   "control-plane",
+				LabelValue: "controller-manager",
+				Container:  "manager",
+			},
 		})
 
 		if strings.Contains(message, "Droplet not found") {
