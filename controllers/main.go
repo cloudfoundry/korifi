@@ -138,14 +138,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (networkingcontrollers.NewCFDomainReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-		)).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
-			os.Exit(1)
-		}
-
 		if err = (workloadscontrollers.NewCFPackageReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
