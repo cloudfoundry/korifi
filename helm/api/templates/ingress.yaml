@@ -3,12 +3,9 @@ kind: HTTPProxy
 metadata:
   labels:
     app: korifi-api
-  name: proxy
+  name: korifi-api-proxy
+  namespace: {{ .Values.namespace }}
 spec:
-  virtualhost:
-    fqdn: API_URL
-    tls:
-      secretName: korifi-api-ingress-cert
   routes:
   - conditions:
     - prefix: /
@@ -17,6 +14,10 @@ spec:
       port: 443
       validation:
         caSecret: korifi-api-internal-cert
-        subjectName: $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc.cluster.local
+        subjectName: korifi-api-svc.{{ .Values.namespace }}.svc.cluster.local
     timeoutPolicy:
-      response: "5m"
+      response: 5m
+  virtualhost:
+    fqdn: {{ .Values.apiServer.url }}
+    tls:
+      secretName: korifi-api-ingress-cert

@@ -1,0 +1,43 @@
+global:
+  rootNamespace: cf
+
+namespace: korifi-api-system
+replicas: 1
+resources:
+  requests:
+    cpu: 50m
+    memory: 100Mi
+
+apiServer:
+  url: api.my-cf-domain.com # externalFQDN
+  # To override default port, set port to a non-zero value
+  port: 0
+  internalPort: 9000
+  timeouts:
+    read: 900
+    write: 900
+    idle: 900
+    readHeader: 10
+
+image: cloudfoundry/korifi-api:latest
+
+lifecycle:
+  type: buildpack
+  stack: cflinuxfs3
+  stagingRequirements:
+    memoryMB: 1024
+    diskMB: 1024
+
+builderName: kpack-image-builder
+packageRegistry:
+  # The container registry where app source packages will be stored
+  base: registry-org/package-repo-name
+  secretName: image-registry-credentials
+defaultDomainName: apps.my-cf-domain.com
+userCertificateExpirationWarningDuration: 168h
+
+authProxy:
+  host:
+  caCert:
+
+debug: false

@@ -21,8 +21,8 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 )
 
-//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get,namespace=ROOT_NAMESPACE
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get,namespace=ROOT_NAMESPACE
 
 const SourceImageResourceType = "SourceImage"
 
