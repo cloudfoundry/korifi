@@ -8,6 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/job-task-runner/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -24,11 +25,9 @@ import (
 
 var _ = Describe("TaskworkloadController", func() {
 	var (
-		k8sClient    *fake.Client
-		statusWriter *fake.StatusWriter
 		statusGetter *fake.TaskStatusGetter
 
-		reconciler           *controllers.TaskWorkloadReconciler
+		reconciler           *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload]
 		reconcileResult      ctrl.Result
 		reconcileErr         error
 		req                  ctrl.Request
@@ -39,15 +38,6 @@ var _ = Describe("TaskworkloadController", func() {
 		getExistingJobError  error
 		createJobError       error
 	)
-
-	taskWorkloadWithPatchedStatus := func() *korifiv1alpha1.TaskWorkload {
-		Expect(statusWriter.PatchCallCount()).To(Equal(1))
-		_, object, _, _ := statusWriter.PatchArgsForCall(0)
-		t, ok := object.(*korifiv1alpha1.TaskWorkload)
-		Expect(ok).To(BeTrue())
-
-		return t
-	}
 
 	BeforeEach(func() {
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
@@ -76,8 +66,7 @@ var _ = Describe("TaskworkloadController", func() {
 		getExistingJobError = nil
 		createJobError = nil
 
-		k8sClient = new(fake.Client)
-		k8sClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
+		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.TaskWorkload:
 				taskWorkload.DeepCopyInto(obj)
@@ -90,7 +79,7 @@ var _ = Describe("TaskworkloadController", func() {
 			}
 		}
 
-		k8sClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
+		fakeClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
 			switch obj := obj.(type) {
 			case *batchv1.Job:
 				createdJob.DeepCopyInto(obj)
@@ -100,9 +89,6 @@ var _ = Describe("TaskworkloadController", func() {
 			}
 		}
 
-		statusWriter = new(fake.StatusWriter)
-		k8sClient.StatusReturns(statusWriter)
-
 		statusGetter = new(fake.TaskStatusGetter)
 		statusGetter.GetStatusConditionsReturns([]metav1.Condition{{
 			Type:               "foo",
@@ -111,7 +97,7 @@ var _ = Describe("TaskworkloadController", func() {
 			Reason:             "something",
 		}}, nil)
 
-		reconciler = controllers.NewTaskWorkloadReconciler(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), k8sClient, scheme.Scheme, statusGetter, time.Hour)
+		reconciler = controllers.NewTaskWorkloadReconciler(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), fakeClient, scheme.Scheme, statusGetter, time.Hour)
 
 		req = ctrl.Request{NamespacedName: client.ObjectKeyFromObject(taskWorkload)}
 	})
@@ -160,8 +146,8 @@ var _ = Describe("TaskworkloadController", func() {
 			Expect(reconcileErr).NotTo(HaveOccurred())
 			Expect(reconcileResult).To(Equal(ctrl.Result{}))
 
-			Expect(k8sClient.CreateCallCount()).To(Equal(1))
-			_, createdObject, _ := k8sClient.CreateArgsForCall(0)
+			Expect(fakeClient.CreateCallCount()).To(Equal(1))
+			_, createdObject, _ := fakeClient.CreateArgsForCall(0)
 
 			job, ok := createdObject.(*batchv1.Job)
 			Expect(ok).To(BeTrue())
@@ -204,7 +190,11 @@ var _ = Describe("TaskworkloadController", func() {
 	})
 
 	It("sets the task status conditions", func() {
-		Expect(meta.IsStatusConditionTrue(taskWorkloadWithPatchedStatus().Status.Conditions, "foo")).To(BeTrue())
+		Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+		_, object, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+		patchedTaskWorkload, ok := object.(*korifiv1alpha1.TaskWorkload)
+		Expect(ok).To(BeTrue())
+		Expect(meta.IsStatusConditionTrue(patchedTaskWorkload.Status.Conditions, "foo")).To(BeTrue())
 	})
 
 	When("getting the status conditions fails", func() {
@@ -214,16 +204,6 @@ var _ = Describe("TaskworkloadController", func() {
 
 		It("returns the error", func() {
 			Expect(reconcileErr).To(MatchError(ContainSubstring("get-conditions-error")))
-		})
-	})
-
-	When("patching the workload status fails", func() {
-		BeforeEach(func() {
-			statusWriter.PatchReturns(errors.New("patch-failed"))
-		})
-
-		It("returns the error", func() {
-			Expect(reconcileErr).To(MatchError("patch-failed"))
 		})
 	})
 })

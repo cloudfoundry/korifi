@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/statefulset-runner/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,6 +19,17 @@ func TestAppWorkloadsController(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Suite")
 }
+
+var (
+	fakeClient       *fake.Client
+	fakeStatusWriter *fake.StatusWriter
+)
+
+var _ = BeforeEach(func() {
+	fakeClient = new(fake.Client)
+	fakeStatusWriter = &fake.StatusWriter{}
+	fakeClient.StatusReturns(fakeStatusWriter)
+})
 
 func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 	return &korifiv1alpha1.AppWorkload{

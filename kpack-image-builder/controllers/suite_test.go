@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -39,6 +40,7 @@ import (
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -55,7 +57,7 @@ var (
 	k8sClient               client.Client
 	testEnv                 *envtest.Environment
 	fakeImageProcessFetcher *fake.ImageProcessFetcher
-	buildWorkloadReconciler *controllers.BuildWorkloadReconciler
+	buildWorkloadReconciler *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload]
 	rootNamespace           *v1.Namespace
 	registryCAPath          string
 )
@@ -126,7 +128,7 @@ var _ = BeforeSuite(func() {
 		controllerConfig,
 		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient),
 		registryCAPath,
-		nil, // Overridden in a beforeEach below
+		fakeImageProcessFetcherInfocation,
 	)
 	err = (buildWorkloadReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -169,5 +171,8 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	fakeImageProcessFetcher = new(fake.ImageProcessFetcher)
-	buildWorkloadReconciler.ImageProcessFetcher = fakeImageProcessFetcher.Spy
 })
+
+func fakeImageProcessFetcherInfocation(imageRef string, credsOption remote.Option, transport remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error) {
+	return fakeImageProcessFetcher.Spy(imageRef, credsOption, transport)
+}

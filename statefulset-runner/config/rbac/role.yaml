@@ -25,7 +25,6 @@ rules:
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - korifi.cloudfoundry.org
@@ -40,7 +39,6 @@ rules:
   verbs:
   - get
   - patch
-  - update
 - apiGroups:
   - policy
   resources:
@@ -48,4 +46,4 @@ rules:
   verbs:
   - create
   - deletecollection
-  - update
+  - patch

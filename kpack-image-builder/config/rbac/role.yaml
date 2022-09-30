@@ -32,7 +32,6 @@ rules:
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - korifi.cloudfoundry.org
@@ -47,7 +46,6 @@ rules:
   verbs:
   - get
   - patch
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
@@ -58,7 +56,6 @@ rules:
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - korifi.cloudfoundry.org
@@ -73,7 +70,6 @@ rules:
   verbs:
   - get
   - patch
-  - update
 - apiGroups:
   - kpack.io
   resources:
@@ -98,7 +94,6 @@ rules:
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - kpack.io
@@ -113,4 +108,3 @@ rules:
   verbs:
   - get
   - patch
-  - update
