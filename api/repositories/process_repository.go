@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -154,29 +155,28 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 }
 
 func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {
-	baseCFProcess := &korifiv1alpha1.CFProcess{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      scaleProcessMessage.GUID,
-			Namespace: scaleProcessMessage.SpaceGUID,
-		},
-	}
-	cfProcess := baseCFProcess.DeepCopy()
-	if scaleProcessMessage.Instances != nil {
-		cfProcess.Spec.DesiredInstances = scaleProcessMessage.Instances
-	}
-	if scaleProcessMessage.MemoryMB != nil {
-		cfProcess.Spec.MemoryMB = *scaleProcessMessage.MemoryMB
-	}
-	if scaleProcessMessage.DiskMB != nil {
-		cfProcess.Spec.DiskQuotaMB = *scaleProcessMessage.DiskMB
-	}
-
 	userClient, err := r.clientFactory.BuildClient(authInfo)
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
 	}
 
-	err = userClient.Patch(ctx, cfProcess, client.MergeFrom(baseCFProcess))
+	cfProcess := &korifiv1alpha1.CFProcess{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scaleProcessMessage.GUID,
+			Namespace: scaleProcessMessage.SpaceGUID,
+		},
+	}
+	err = k8s.PatchSpec(ctx, userClient, cfProcess, func() {
+		if scaleProcessMessage.Instances != nil {
+			cfProcess.Spec.DesiredInstances = scaleProcessMessage.Instances
+		}
+		if scaleProcessMessage.MemoryMB != nil {
+			cfProcess.Spec.MemoryMB = *scaleProcessMessage.MemoryMB
+		}
+		if scaleProcessMessage.DiskMB != nil {
+			cfProcess.Spec.DiskQuotaMB = *scaleProcessMessage.DiskMB
+		}
+	})
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("failed to scale process %q: %w", scaleProcessMessage.GUID, apierrors.FromK8sError(err, ProcessResourceType))
 	}
@@ -242,40 +242,40 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
-	baseProcess := &korifiv1alpha1.CFProcess{
+
+	updatedProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.ProcessGUID,
 			Namespace: message.SpaceGUID,
 		},
 	}
-	updatedProcess := baseProcess.DeepCopy()
-	if message.Command != nil {
-		updatedProcess.Spec.Command = *message.Command
-	}
-	if message.DesiredInstances != nil {
-		updatedProcess.Spec.DesiredInstances = message.DesiredInstances
-	}
-	if message.MemoryMB != nil {
-		updatedProcess.Spec.MemoryMB = *message.MemoryMB
-	}
-	if message.DiskQuotaMB != nil {
-		updatedProcess.Spec.DiskQuotaMB = *message.DiskQuotaMB
-	}
-	if message.HealthCheckType != nil {
-		// TODO: how do we handle when the type changes? Clear the HTTPEndpoint when type != http? Should we require the endpoint when type == http?
-		updatedProcess.Spec.HealthCheck.Type = korifiv1alpha1.HealthCheckType(*message.HealthCheckType)
-	}
-	if message.HealthCheckHTTPEndpoint != nil {
-		updatedProcess.Spec.HealthCheck.Data.HTTPEndpoint = *message.HealthCheckHTTPEndpoint
-	}
-	if message.HealthCheckInvocationTimeoutSeconds != nil {
-		updatedProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds = *message.HealthCheckInvocationTimeoutSeconds
-	}
-	if message.HealthCheckTimeoutSeconds != nil {
-		updatedProcess.Spec.HealthCheck.Data.TimeoutSeconds = *message.HealthCheckTimeoutSeconds
-	}
-
-	err = userClient.Patch(ctx, updatedProcess, client.MergeFrom(baseProcess))
+	err = k8s.PatchSpec(ctx, userClient, updatedProcess, func() {
+		if message.Command != nil {
+			updatedProcess.Spec.Command = *message.Command
+		}
+		if message.DesiredInstances != nil {
+			updatedProcess.Spec.DesiredInstances = message.DesiredInstances
+		}
+		if message.MemoryMB != nil {
+			updatedProcess.Spec.MemoryMB = *message.MemoryMB
+		}
+		if message.DiskQuotaMB != nil {
+			updatedProcess.Spec.DiskQuotaMB = *message.DiskQuotaMB
+		}
+		if message.HealthCheckType != nil {
+			// TODO: how do we handle when the type changes? Clear the HTTPEndpoint when type != http? Should we require the endpoint when type == http?
+			updatedProcess.Spec.HealthCheck.Type = korifiv1alpha1.HealthCheckType(*message.HealthCheckType)
+		}
+		if message.HealthCheckHTTPEndpoint != nil {
+			updatedProcess.Spec.HealthCheck.Data.HTTPEndpoint = *message.HealthCheckHTTPEndpoint
+		}
+		if message.HealthCheckInvocationTimeoutSeconds != nil {
+			updatedProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds = *message.HealthCheckInvocationTimeoutSeconds
+		}
+		if message.HealthCheckTimeoutSeconds != nil {
+			updatedProcess.Spec.HealthCheck.Data.TimeoutSeconds = *message.HealthCheckTimeoutSeconds
+		}
+	})
 	if err != nil {
 		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 	}

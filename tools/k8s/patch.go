@@ -26,6 +26,9 @@ type ObjectWithDeepCopy[T any] interface {
 //		pod.Spec.RestartPolicy = corev1.RestartPolicyOnFailure
 //		pod.Status.Message = "hello"
 //	})
+//
+// Note that this function should be used when current user has permissions to
+// patch both object's spec and status, e.g. in controllers context
 func Patch[T any, PT ObjectWithDeepCopy[T]](
 	ctx context.Context,
 	k8sClient client.Client,
@@ -34,8 +37,6 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 ) error {
 	originalObj := PT(obj.DeepCopy())
 
-	// modify func takes no args, because it is a lambda that sees obj from the parent scope, e.g
-	// Patch(ctx, k8sClient
 	modify()
 
 	// Deep copy the original object after the modification is performed so
@@ -59,6 +60,34 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 	}
 
 	return nil
+}
+
+// PatchSpec updates k8s objects by calling k8s client `Patch`. It does not
+// patch the object status which makes it convenient to use in contexts where
+// the current user is not permitted to patch the status, such as within the
+// api repositories. The `modify` lambda is expected to mutate the `obj` but
+// does not take the object as an argument as the object should be visible in
+// the parent scope Example:
+//
+//	var pod *corev1.Pod
+//
+//	patchErr = k8s.PatchSpec(ctx, fakeClient, pod, func() {
+//	  pod.Spec.RestartPolicy = corev1.RestartPolicyOnFailure
+//	})
+//
+// Note that this function should be used when current user has permissions to
+// patch both object's spec and status, e.g. in controllers context
+func PatchSpec[T any, PT ObjectWithDeepCopy[T]](
+	ctx context.Context,
+	k8sClient client.Client,
+	obj PT,
+	modify func(),
+) error {
+	originalObj := PT(obj.DeepCopy())
+
+	modify()
+
+	return k8sClient.Patch(ctx, obj, client.MergeFrom(originalObj))
 }
 
 func hasStatus(obj runtime.Object) (bool, error) {
