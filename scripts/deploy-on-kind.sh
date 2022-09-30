@@ -283,8 +283,6 @@ function deploy_korifi_api() {
     create_tls_cert "korifi-api-ingress-cert" "korifi-api" "api.vcap.me"
   }
   popd >/dev/null
-
-  kubectl rollout status deployment/korifi-api-deployment -w -n korifi-api-system
 }
 
 function deploy_job_task_runner() {

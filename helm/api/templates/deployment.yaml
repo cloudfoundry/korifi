@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: korifi-api
+  name: korifi-api-deployment
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: korifi-api
+  template:
+    metadata:
+      labels:
+        app: korifi-api
+    spec:
+      containers:
+      - env:
+        - name: APICONFIG
+          value: /etc/korifi-api-config
+        - name: TLSCONFIG
+          value: /etc/korifi-tls-config
+        image: {{ .Values.image }}
+{{- if .Values.debug }}
+        command:
+        - "/dlv"
+        args:
+        - "--listen=:40000"
+        - "--headless=true"
+        - "--api-version=2"
+        - "exec"
+        - "/cfapi"
+        - "--continue"
+        - "--accept-multiclient"
+{{- end }}
+        name: korifi-api
+        ports:
+        - containerPort: {{ .Values.apiServer.internalPort }}
+          name: web
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+{{- if .Values.debug }}
+            add:
+            - SYS_PTRACE
+{{- end }}
+          runAsNonRoot: {{ not .Values.debug }}
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /etc/korifi-api-config
+          name: korifi-api-config
+          readOnly: true
+        - mountPath: /etc/korifi-tls-config
+          name: korifi-tls-config
+          readOnly: true
+      serviceAccountName: korifi-api-system-serviceaccount
+      volumes:
+      - configMap:
+          name: korifi-api-config
+        name: korifi-api-config
+      - name: korifi-tls-config
+        secret:
+          secretName: korifi-api-internal-cert

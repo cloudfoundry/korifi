@@ -46,7 +46,9 @@ help: ## Display this help.
 manifests: manifests-api manifests-controllers manifests-job-task-runner manifests-kpack-image-builder manifests-statefulset-runner
 
 manifests-api: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=system-clusterrole paths=./api/... output:rbac:artifacts:config=api/config/base/rbac
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=korifi-api-system-role paths=./api/... output:rbac:artifacts:config=helm/api/templates
+	sed -i.bak -e 's/ROOT_NAMESPACE/{{ .Values.global.rootNamespace }}/' helm/api/templates/role.yaml
+	rm -f helm/api/templates/role.yaml.bak
 
 manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./controllers/..." output:crd:artifacts:config=controllers/config/crd/bases output:rbac:artifacts:config=controllers/config/rbac output:webhook:artifacts:config=controllers/config/webhook
@@ -209,17 +211,34 @@ deploy-kind: install-crds deploy-controllers deploy-job-task-runner deploy-kpack
 
 deploy-kind-local: install-crds deploy-controllers-kind-local deploy-job-task-runner-kind-local deploy-kpack-image-builder-kind-local deploy-statefulset-runner deploy-api-kind-local
 
-deploy-api: set-image-ref-api
-	$(KUSTOMIZE) build api/config/base | kubectl apply -f -
 
-deploy-api-kind: set-image-ref-api
-	$(KUSTOMIZE) build api/config/overlays/kind | kubectl apply -f -
+helm-api-values =
 
-deploy-api-kind-local: set-image-ref-api
-	$(KUSTOMIZE) build api/config/overlays/kind-local-registry | kubectl apply -f -
+deploy-api: manifests-api
+	helm upgrade --install api helm/api \
+		--values=$(API_VALUES) \
+		--set=image=$(IMG_API) \
+		$(helm-api-values) \
+		--wait
 
-deploy-api-kind-local-debug: set-image-ref-api
-	$(KUSTOMIZE) build api/config/overlays/kind-api-debug | kubectl apply -f -
+APP_FQDN ?= vcap.me
+kind-api-values = \
+	--set=apiServer.url=localhost \
+	--set=defaultDomainName=$(APP_FQDN)
+local-registry = localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
+
+deploy-api-kind: helm-api-values = $(kind-api-values) \
+	--set=packageRegistry.base=gcr.io/cf-relint-greengrass/korifi/kpack/beta
+deploy-api-kind: deploy-api
+
+deploy-api-kind-local: helm-api-values = $(kind-api-values) \
+	--set=packageRegistry.base=$(local-registry)
+deploy-api-kind-local: deploy-api
+
+deploy-api-kind-local-debug: helm-api-values = $(kind-api-values) \
+	--set=packageRegistry.base=$(local-registry) \
+	--set=debug=true
+deploy-api-kind-local-debug: deploy-api
 
 deploy-controllers: set-image-ref-controllers
 	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
@@ -256,8 +275,8 @@ deploy-statefulset-runner-kind-local-debug:
 
 undeploy: undeploy-api undeploy-job-task-runner undeploy-kpack-image-builder undeploy-statefulset-runner undeploy-controllers
 
-undeploy-api: ## Undeploy api from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build api/config/base | kubectl delete -f -
+undeploy-api:
+	helm delete api --wait
 
 undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build controllers/config/default | kubectl delete -f -
@@ -271,10 +290,7 @@ undeploy-kpack-image-builder:
 undeploy-statefulset-runner:
 	make -C statefulset-runner undeploy
 
-set-image-ref: set-image-ref-api set-image-ref-controllers set-image-ref-job-task-runner set-image-ref-kpack-image-builder set-image-ref-statefulset-runner
-
-set-image-ref-api: manifests-api install-kustomize
-	cd api/config/base && $(KUSTOMIZE) edit set image cloudfoundry/korifi-api=${IMG_API}
+set-image-ref: set-image-ref-controllers set-image-ref-job-task-runner set-image-ref-kpack-image-builder set-image-ref-statefulset-runner
 
 set-image-ref-controllers: manifests-controllers install-kustomize
 	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-controllers=${IMG_CONTROLLERS}

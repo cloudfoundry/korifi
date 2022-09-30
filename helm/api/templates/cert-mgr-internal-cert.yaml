@@ -1,0 +1,28 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: korifi-api-internal-cert
+  namespace: {{ .Values.namespace }}
+spec:
+  commonName: korifi-api-svc.{{ .Values.namespace }}.svc.cluster.local
+  dnsNames:
+  - korifi-api-svc.{{ .Values.namespace }}.svc
+  - korifi-api-svc.{{ .Values.namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: korifi-api-selfsigned-issuer
+  secretName: korifi-api-internal-cert
+  subject:
+    organizations:
+    - korifi
+  usages:
+  - server auth
+
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: korifi-api-selfsigned-issuer
+  namespace: {{ .Values.namespace }}
+spec:
+  selfSigned: {}

@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: system-clusterrole
+  name: korifi-api-system-role
 rules:
 - apiGroups:
   - ""
@@ -11,18 +11,6 @@ rules:
   - namespaces
   verbs:
   - list
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - get
 - apiGroups:
   - authentication.k8s.io
   resources:
@@ -66,3 +54,23 @@ rules:
   - rolebindings
   verbs:
   - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  name: korifi-api-system-role
+  namespace: {{ .Values.global.rootNamespace }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - get

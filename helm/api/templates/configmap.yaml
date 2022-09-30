@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: korifi-api-config
+  namespace: {{ .Values.namespace }}
+data:
+  korifi_api_config.yaml: |
+    externalFQDN: {{ .Values.apiServer.url }}
+    externalPort: {{ .Values.externalPort }}
+    internalPort: {{ .Values.apiServer.internalPort }}
+    idleTimeout: {{ .Values.apiServer.timeouts.idle }}
+    readTimeout: {{ .Values.apiServer.timeouts.read }}
+    readHeaderTimeout: {{ .Values.apiServer.timeouts.readHeader }}
+    writeTimeout: {{ .Values.apiServer.timeouts.write }}
+    rootNamespace: {{ .Values.global.rootNamespace }}
+    builderName: {{ .Values.builderName }}
+    defaultLifecycleConfig:
+      type: {{ .Values.lifecycle.type }}
+      stack: {{ .Values.lifecycle.stack }}
+      stagingMemoryMB: {{ .Values.lifecycle.stagingRequirements.memoryMB }}
+      stagingDiskMB: {{ .Values.lifecycle.stagingRequirements.diskMB }}
+    packageRegistryBase: {{ .Values.packageRegistry.base }}
+    packageRegistrySecretName: {{ .Values.packageRegistry.secretName }}
+    defaultDomainName: {{ .Values.defaultDomainName }}
+    userCertificateExpirationWarningDuration: {{ .Values.userCertificateExpirationWarningDuration }}
+    authProxyHost: {{ .Values.authProxy.host }}
+    authProxyCACert: {{ .Values.authProxy.caCert }}
+
+  role_mappings_config.yaml: |
+    roleMappings:
+      admin:
+        name: korifi-controllers-admin
+        propagate: true
+      admin_read_only:
+        name: korifi-controllers-admin-read-only
+        propagate: true
+      cf_user:
+        name: korifi-controllers-root-namespace-user
+        propagate: false
+      global_auditor:
+        name: korifi-controllers-global-auditor
+        propagate: true
+      organization_auditor:
+        name: korifi-controllers-organization-auditor
+        propagate: false
+      organization_billing_manager:
+        name: korifi-controllers-organization-billing-manager
+        propagate: false
+      organization_manager:
+        name: korifi-controllers-organization-manager
+        propagate: true
+      organization_user:
+        name: korifi-controllers-organization-user
+        propagate: false
+      space_auditor:
+        name: korifi-controllers-space-auditor
+        propagate: false
+      space_developer:
+        name: korifi-controllers-space-developer
+        propagate: false
+      space_manager:
+        name: korifi-controllers-space-manager
+        propagate: false
+      space_supporter:
+        name: korifi-controllers-space-supporter
+        propagate: false
