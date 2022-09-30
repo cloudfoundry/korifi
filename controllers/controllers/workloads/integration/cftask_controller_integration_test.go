@@ -15,6 +15,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
 var _ = Describe("CFTaskReconciler Integration Tests", func() {
@@ -165,21 +166,21 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		})
 
 		It("SequenceID does not change on task update", func() {
-			var task korifiv1alpha1.CFTask
+			task := &korifiv1alpha1.CFTask{}
 
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, task)).To(Succeed())
 				g.Expect(task.Status.SequenceID).NotTo(BeZero())
 			}).Should(Succeed())
 
 			seqId := task.Status.SequenceID
 
-			updatedTask := task.DeepCopy()
-			updatedTask.Spec.Command = "foo bar"
-			Expect(k8sClient.Patch(ctx, updatedTask, client.MergeFrom(&task))).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, task, func() {
+				task.Spec.Command = "foo bar"
+			})).To(Succeed())
 
 			Consistently(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, task)).To(Succeed())
 				g.Expect(task.Status.SequenceID).To(Equal(seqId))
 			}).Should(Succeed())
 		})
@@ -288,8 +289,9 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		When("spec.canceled is set to true", func() {
 			BeforeEach(func() {
-				cfTask.Spec.Canceled = true
-				Expect(k8sClient.Update(ctx, cfTask)).To(Succeed())
+				Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+					cfTask.Spec.Canceled = true
+				})).To(Succeed())
 			})
 
 			It("sets the canceled status condition", func() {

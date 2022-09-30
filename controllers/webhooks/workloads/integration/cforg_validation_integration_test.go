@@ -95,15 +95,19 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 	})
 
 	Describe("Update", func() {
-		var updateErr error
+		var (
+			originalOrg1 *korifiv1alpha1.CFOrg
+			updateErr    error
+		)
 
 		BeforeEach(func() {
 			org1 = MakeCFOrg(org1Guid, rootNamespace, org1Name)
 			Expect(k8sClient.Create(ctx, org1)).To(Succeed())
+			originalOrg1 = org1.DeepCopy()
 		})
 
 		JustBeforeEach(func() {
-			updateErr = k8sClient.Update(context.Background(), org1)
+			updateErr = k8sClient.Patch(context.Background(), org1, client.MergeFrom(originalOrg1))
 		})
 
 		When("changing the name", func() {

@@ -7,6 +7,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -517,18 +518,18 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				return proxy.GetName()
 			}).ShouldNot(BeEmpty(), fmt.Sprintf("Timed out waiting for HTTPProxy/%s in namespace %s to be created", testFQDN, testNamespace))
 
-			originalCFRoute := cfRoute.DeepCopy()
 			// Why not just set up the CFRoute with this in the first place?
-			cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, korifiv1alpha1.Destination{
-				GUID: GenerateGUID(),
-				AppRef: corev1.LocalObjectReference{
-					Name: "app-guid-2",
-				},
-				ProcessType: "web",
-				Port:        8080,
-				Protocol:    "http1",
-			})
-			Expect(k8sClient.Patch(ctx, cfRoute, client.MergeFrom(originalCFRoute))).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, cfRoute, func() {
+				cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, korifiv1alpha1.Destination{
+					GUID: GenerateGUID(),
+					AppRef: corev1.LocalObjectReference{
+						Name: "app-guid-2",
+					},
+					ProcessType: "web",
+					Port:        8080,
+					Protocol:    "http1",
+				})
+			})).To(Succeed())
 		})
 
 		It("eventually reconciles the CFRoute to a child proxy with a route", func() {
@@ -662,10 +663,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			})
 
 			By("Deleting the destination from the CFRoute", func() {
-				originalCFRoute := cfRoute.DeepCopy()
-				cfRoute.Spec.Destinations = []korifiv1alpha1.Destination{}
-
-				Expect(k8sClient.Patch(ctx, cfRoute, client.MergeFrom(originalCFRoute))).To(Succeed())
+				Expect(k8s.Patch(ctx, k8sClient, cfRoute, func() {
+					cfRoute.Spec.Destinations = []korifiv1alpha1.Destination{}
+				})).To(Succeed())
 			})
 		})
 
