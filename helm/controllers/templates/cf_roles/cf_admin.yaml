@@ -1,0 +1,174 @@
+# The CF Admin Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: korifi-controllers-admin
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - patch
+  - get
+  - create
+
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - get
+  - create
+  - patch
+  - delete
+  - list
+  - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - get
+  - list
+  - create
+  - patch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - get
+  - list
+  - create
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - get
+  - list
+  - create
+  - delete
+
+- apiGroups:
+    - korifi.cloudfoundry.org
+  resources:
+    - cfservicebindings
+  verbs:
+    - get
+    - list
+    - create
+    - delete
+    - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfdomains
+  verbs:
+  - get
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cftasks
+  verbs:
+  - get
+  - create
+  - delete
+  - list
+  - patch
+  - watch
+
+- apiGroups:
+    - korifi.cloudfoundry.org
+  resources:
+    - builderinfos
+  verbs:
+    - get
+    - list
+    - watch
+
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch

@@ -19,7 +19,6 @@ import (
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,11 +54,11 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "..", "helm", "controllers", "templates", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
+			Paths: []string{filepath.Join("..", "..", "..", "..", "helm", "controllers", "templates", "manifests.yaml")},
 		},
 	}
 
@@ -80,7 +79,7 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	// Create root namespace
-	Expect(k8sClient.Create(ctx, &v1.Namespace{
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: rootNamespace,
 		},

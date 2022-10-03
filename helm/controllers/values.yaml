@@ -1,0 +1,27 @@
+global:
+  rootNamespace: cf
+  debug: false
+
+namespace: korifi-controllers-system
+replicas: 1
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 50m
+    memory: 100Mi
+
+image: cloudfoundry/korifi-controllers:latest
+reconcilers:
+  build: kpack-image-builder
+  app: statefulset-runner
+processDefaults:
+  memoryMB: 1024
+  diskQuotaMB: 1024
+packageRegistry:
+  secret: image-registry-credentials
+taskTTL: 30d
+workloadsTLSSecret:
+  name: korifi-workloads-ingress-cert
+  namespace: korifi-controllers-system

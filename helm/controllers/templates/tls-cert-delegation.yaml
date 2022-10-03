@@ -1,0 +1,10 @@
+apiVersion: projectcontour.io/v1
+kind: TLSCertificateDelegation
+metadata:
+  name: korifi-controllers-workloads-fallback-delegation
+  namespace: {{ .Values.namespace }}
+spec:
+  delegations:
+  - secretName: korifi-workloads-ingress-cert
+    targetNamespaces:
+    - '*'

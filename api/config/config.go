@@ -14,11 +14,11 @@ const (
 )
 
 type APIConfig struct {
-	InternalPort int `yaml:"internalPort"`
-	IdleTimeout int `yaml:"idleTimeout"`
-	ReadTimeout int `yaml:"readTimeout"`
+	InternalPort      int `yaml:"internalPort"`
+	IdleTimeout       int `yaml:"idleTimeout"`
+	ReadTimeout       int `yaml:"readTimeout"`
 	ReadHeaderTimeout int `yaml:"readHeaderTimeout"`
-	WriteTimeout int `yaml:"writeTimeout"`
+	WriteTimeout      int `yaml:"writeTimeout"`
 
 	ExternalFQDN string `yaml:"externalFQDN"`
 	ExternalPort int    `yaml:"externalPort"`

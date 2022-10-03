@@ -68,7 +68,7 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "controllers", "config", "crd", "bases"),
+			filepath.Join("..", "..", "helm", "controllers", "templates", "crd"),
 			filepath.Join("..", "..", "tests", "vendor", "kpack"),
 		},
 		ErrorIfCRDPathMissing: true,
@@ -223,7 +223,7 @@ func createNamespace(ctx context.Context, orgName, name string, labels map[strin
 }
 
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
-	filepath := filepath.Join("..", "..", "controllers", "config", "cf_roles", filename+".yaml")
+	filepath := filepath.Join("..", "..", "helm", "controllers", "templates", "cf_roles", filename+".yaml")
 	content, err := os.ReadFile(filepath)
 	Expect(err).NotTo(HaveOccurred())
 

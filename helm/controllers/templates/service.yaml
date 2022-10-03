@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: korifi-controllers-webhook-service
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+
+{{- if .Values.global.debug }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller-manager-debug-port
+  namespace: korifi-controllers-system
+spec:
+  ports:
+    - name: debug-30051
+      nodePort: 30051
+      port: 30051
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: korifi-controllers-controller-manager
+  type: NodePort
+{{- end }}

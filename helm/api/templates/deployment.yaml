@@ -22,7 +22,7 @@ spec:
         - name: TLSCONFIG
           value: /etc/korifi-tls-config
         image: {{ .Values.image }}
-{{- if .Values.debug }}
+{{- if .Values.global.debug }}
         command:
         - "/dlv"
         args:
@@ -47,11 +47,11 @@ spec:
           capabilities:
             drop:
             - ALL
-{{- if .Values.debug }}
+{{- if .Values.global.debug }}
             add:
             - SYS_PTRACE
 {{- end }}
-          runAsNonRoot: {{ not .Values.debug }}
+          runAsNonRoot: {{ not .Values.global.debug }}
           seccompProfile:
             type: RuntimeDefault
         volumeMounts:

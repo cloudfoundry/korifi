@@ -307,14 +307,13 @@ func main() {
 	portString := fmt.Sprintf(":%v", config.InternalPort)
 	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
 
-	
 	srv := &http.Server{
-		Addr:         portString,
-		Handler:      router,
-		IdleTimeout: time.Duration(config.IdleTimeout * int(time.Second)),
-		ReadTimeout:  time.Duration(config.ReadTimeout * int(time.Second)),
+		Addr:              portString,
+		Handler:           router,
+		IdleTimeout:       time.Duration(config.IdleTimeout * int(time.Second)),
+		ReadTimeout:       time.Duration(config.ReadTimeout * int(time.Second)),
 		ReadHeaderTimeout: time.Duration(config.ReadHeaderTimeout * int(time.Second)),
-		WriteTimeout: time.Duration(config.WriteTimeout * int(time.Second)),
+		WriteTimeout:      time.Duration(config.WriteTimeout * int(time.Second)),
 	}
 
 	if tlsFound {
