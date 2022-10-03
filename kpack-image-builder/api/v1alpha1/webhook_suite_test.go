@@ -63,7 +63,7 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "config", "webhook", "manifests.yaml")},
+			Paths: []string{filepath.Join("..", "..", "..", "helm", "kpack-image-builder", "templates", "manifests.yaml")},
 		},
 	}
 

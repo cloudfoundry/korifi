@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   labels:
     control-plane: controller-manager
-  name: korifi-controllers-controller-manager
+  name: korifi-kpack-build-controller-manager
   namespace: {{ .Values.namespace }}
 spec:
   replicas: {{ .Values.replicas }}
@@ -24,7 +24,7 @@ spec:
       - name: manager
         env:
         - name: CONTROLLERSCONFIG
-          value: /etc/korifi-controllers-config
+          value: /etc/kpack-build-controllers-config
         image: {{ .Values.image }}
 {{- if .Values.global.debug }}
         command:
@@ -38,11 +38,9 @@ spec:
         - "--continue"
         - "--accept-multiclient"
         - "--"
-        - "--health-probe-bind-address=:8081"
         - "--leader-elect"
 {{- else }}
         args:
-        - --health-probe-bind-address=:8081
         - --leader-elect
 {{- end }}
         livenessProbe:
@@ -73,6 +71,7 @@ spec:
             memory: {{ .Values.resources.requests.memory }}
         securityContext:
           allowPrivilegeEscalation: false
+          runAsNonRoot: {{ not .Values.global.debug }}
           capabilities:
             drop:
             - ALL
@@ -80,17 +79,18 @@ spec:
             add:
             - SYS_PTRACE
 {{- end }}
-          runAsNonRoot: {{ not .Values.global.debug }}
           seccompProfile:
             type: RuntimeDefault
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-        - mountPath: /etc/korifi-controllers-config
-          name: korifi-controllers-config
+        - mountPath: /etc/kpack-build-controllers-config
+          name: korifi-kpack-build-config
           readOnly: true
-      serviceAccountName: korifi-controllers-controller-manager
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: korifi-kpack-build-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert
@@ -98,5 +98,5 @@ spec:
           defaultMode: 420
           secretName: webhook-server-cert
       - configMap:
-          name: korifi-controllers-config
-        name: korifi-controllers-config
+          name: korifi-kpack-build-config
+        name: korifi-kpack-build-config

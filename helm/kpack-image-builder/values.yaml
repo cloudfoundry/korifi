@@ -1,0 +1,21 @@
+global:
+  rootNamespace: cf
+  debug: false
+
+namespace: korifi-kpack-build-system
+replicas: 1
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 50m
+    memory: 100Mi
+
+image: cloudfoundry/korifi-kpack-image-builder:latest
+
+packageRegistry:
+  # The container registry where built app images will be stored
+  base: registry-org/package-repo-name
+  secret: image-registry-credentials
+clusterBuilderName: cf-kpack-cluster-builder

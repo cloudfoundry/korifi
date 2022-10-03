@@ -41,7 +41,13 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:generateEmbeddedObjectMeta=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=korifi-kpack-build-manager-role crd:generateEmbeddedObjectMeta=true webhook paths="./..." output:rbac:artifacts:config=../helm/kpack-image-builder/templates output:webhook:artifacts:config=../helm/kpack-image-builder/templates
+	sed -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-kpack-build-serving-cert"' ../helm/kpack-image-builder/templates/manifests.yaml
+	sed -i.bak -e 's/name: \(webhook-service\)/name: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
+	sed -i.bak -e 's/namespace: \(system\)/namespace: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
+	sed -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
+	sed -i.bak -e '/failurePolicy:.*/a\  objectSelector:\n    matchExpressions:\n    - key: kpack.io/build\n      operator: Exists\n    - key: korifi.cloudfoundry.org/build-workload-name\n      operator: Exists' ../helm/kpack-image-builder/templates/manifests.yaml
+	rm -f ../helm/kpack-image-builder/templates/manifests.yaml.bak
 
 .PHONY: generate
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -87,35 +93,29 @@ kind-load-image:
 
 ##@ Deployment
 
-.PHONY: deploy
-deploy: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+helm-values =
+deploy: manifests
+	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
+		--set=image=$(IMG_KIB) \
+		$(helm-values) \
+		--wait
 
-.PHONY: deploy-kind-local
-deploy-kind-local: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/overlays/kind-local-registry | kubectl apply -f -
+kind-values = --set=packageRegistry.base=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images
+deploy-kind-local: helm-values = $(kind-values)
+deploy-kind-local: deploy
 
-.PHONY: deploy-kind-local-debug
-deploy-kind-local-debug: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/overlays/kind-controller-debug | kubectl apply -f -
+deploy-kind-local-debug: helm-values = $(kind-values) \
+	--set=global.debug=true
+deploy-kind-local-debug: deploy
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
-
-.PHONY: set-image-ref
-set-image-ref: install-kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-kpack-image-builder=${IMG_KIB}
+	helm delete kpack-image-builder --wait
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: install-controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
-
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-.PHONY: install-kustomize
-install-kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:
