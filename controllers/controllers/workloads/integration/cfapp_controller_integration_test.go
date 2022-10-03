@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -303,9 +304,9 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 			When("the command on the web process is not empty", func() {
 				BeforeEach(func() {
-					patchProcess(cfProcessForTypeWeb, func(p *korifiv1alpha1.CFProcess) {
-						p.Spec.Command = "something else"
-					})
+					Expect(k8s.Patch(context.Background(), k8sClient, cfProcessForTypeWeb, func() {
+						cfProcessForTypeWeb.Spec.Command = "something else"
+					})).To(Succeed())
 				})
 
 				It("should not change the command", func() {
@@ -574,12 +575,6 @@ func findProcessWithType(cfApp *korifiv1alpha1.CFApp, processType string) *korif
 	}).Should(Succeed())
 
 	return &cfProcessList.Items[0]
-}
-
-func patchProcess(proc *korifiv1alpha1.CFProcess, mutate func(*korifiv1alpha1.CFProcess)) {
-	updatedProc := proc.DeepCopy()
-	mutate(updatedProc)
-	Expect(k8sClient.Patch(context.Background(), updatedProc, client.MergeFrom(proc))).To(Succeed())
 }
 
 func labelSelectorForAppAndProcess(appGUID, processType string) labels.Selector {

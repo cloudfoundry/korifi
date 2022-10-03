@@ -113,15 +113,19 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 	})
 
 	Describe("Update", func() {
-		var updateErr error
+		var (
+			updateErr    error
+			originalApp1 *korifiv1alpha1.CFApp
+		)
 
 		BeforeEach(func() {
 			app1 = makeCFApp(app1Guid, namespace1, app1Name)
 			Expect(k8sClient.Create(ctx, app1)).To(Succeed())
+			originalApp1 = app1.DeepCopy()
 		})
 
 		JustBeforeEach(func() {
-			updateErr = k8sClient.Update(context.Background(), app1)
+			updateErr = k8sClient.Patch(context.Background(), app1, client.MergeFrom(originalApp1))
 		})
 
 		When("changing the name", func() {

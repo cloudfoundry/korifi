@@ -78,15 +78,16 @@ var _ = Describe("CFTask Creation", func() {
 
 var _ = Describe("CFTask Update", func() {
 	var (
-		cftask    korifiv1alpha1.CFTask
-		updateErr error
+		cftask         *korifiv1alpha1.CFTask
+		originalCFTask *korifiv1alpha1.CFTask
+		updateErr      error
 	)
 
 	BeforeEach(func() {
 		cfApp := makeCFApp(testutils.PrefixedGUID("cfapp"), rootNamespace, testutils.PrefixedGUID("appName"))
 		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-		cftask = korifiv1alpha1.CFTask{
+		cftask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testutils.GenerateGUID(),
 				Namespace: rootNamespace,
@@ -98,11 +99,12 @@ var _ = Describe("CFTask Update", func() {
 				},
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), &cftask)).To(Succeed())
+		Expect(k8sClient.Create(context.Background(), cftask)).To(Succeed())
+		originalCFTask = cftask.DeepCopy()
 	})
 
 	JustBeforeEach(func() {
-		updateErr = k8sClient.Update(context.Background(), &cftask)
+		updateErr = k8sClient.Patch(context.Background(), cftask, client.MergeFrom(originalCFTask))
 	})
 
 	When("canceled is not changed", func() {
@@ -126,7 +128,7 @@ var _ = Describe("CFTask Update", func() {
 
 		When("the cftask has a succeeded contdition", func() {
 			BeforeEach(func() {
-				setStatusCondition(&cftask, korifiv1alpha1.TaskSucceededConditionType)
+				setStatusCondition(cftask, korifiv1alpha1.TaskSucceededConditionType)
 			})
 
 			It("fails", func() {
@@ -141,7 +143,7 @@ var _ = Describe("CFTask Update", func() {
 
 		When("the cftask has a failed contdition", func() {
 			BeforeEach(func() {
-				setStatusCondition(&cftask, korifiv1alpha1.TaskFailedConditionType)
+				setStatusCondition(cftask, korifiv1alpha1.TaskFailedConditionType)
 			})
 
 			It("fails", func() {
@@ -156,8 +158,9 @@ var _ = Describe("CFTask Update", func() {
 
 		When("the task is already canceled before an update", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Update(context.Background(), &cftask)).To(Succeed())
-				setStatusCondition(&cftask, korifiv1alpha1.TaskSucceededConditionType)
+				Expect(k8sClient.Patch(context.Background(), cftask, client.MergeFrom(originalCFTask))).To(Succeed())
+				originalCFTask = cftask.DeepCopy()
+				setStatusCondition(cftask, korifiv1alpha1.TaskSucceededConditionType)
 				cftask.Spec.Command = "echo foo"
 			})
 

@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -189,16 +190,15 @@ func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, 
 		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	originalTask := &korifiv1alpha1.CFTask{
+	task := &korifiv1alpha1.CFTask{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: taskNamespace,
 			Name:      taskGUID,
 		},
 	}
-	task := originalTask.DeepCopy()
-	task.Spec.Canceled = true
-
-	err = userClient.Patch(ctx, task, client.MergeFrom(originalTask))
+	err = k8s.PatchResource(ctx, userClient, task, func() {
+		task.Spec.Canceled = true
+	})
 	if err != nil {
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}

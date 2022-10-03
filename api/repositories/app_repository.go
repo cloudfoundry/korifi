@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -440,16 +441,16 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 		return CurrentDropletRecord{}, fmt.Errorf("set-current-droplet: failed to create k8s user client: %w", err)
 	}
 
-	baseCFApp := &korifiv1alpha1.CFApp{
+	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.AppGUID,
 			Namespace: message.SpaceGUID,
 		},
 	}
-	cfApp := baseCFApp.DeepCopy()
-	cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: message.DropletGUID}
 
-	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
+	err = k8s.PatchResource(ctx, userClient, cfApp, func() {
+		cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: message.DropletGUID}
+	})
 	if err != nil {
 		return CurrentDropletRecord{}, fmt.Errorf("failed to set app droplet: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
@@ -466,21 +467,21 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 }
 
 func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization.Info, message SetAppDesiredStateMessage) (AppRecord, error) {
-	baseCFApp := &korifiv1alpha1.CFApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.AppGUID,
-			Namespace: message.SpaceGUID,
-		},
-	}
-	cfApp := baseCFApp.DeepCopy()
-	cfApp.Spec.DesiredState = korifiv1alpha1.DesiredState(message.DesiredState)
-
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	err = userClient.Patch(ctx, cfApp, client.MergeFrom(baseCFApp))
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.AppGUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+
+	err = k8s.PatchResource(ctx, userClient, cfApp, func() {
+		cfApp.Spec.DesiredState = korifiv1alpha1.DesiredState(message.DesiredState)
+	})
 	if err != nil {
 		return AppRecord{}, fmt.Errorf("failed to set app desired state: %w", apierrors.FromK8sError(err, AppResourceType))
 	}

@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
-	"code.cloudfoundry.org/korifi/statefulset-runner/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,15 +20,13 @@ import (
 var _ = Describe("PDB", func() {
 	var (
 		creator   *controllers.PDBUpdater
-		k8sClient *fake.Client
 		stSet     *appsv1.StatefulSet
 		ctx       context.Context
 		instances int32
 	)
 
 	BeforeEach(func() {
-		k8sClient = new(fake.Client)
-		creator = controllers.NewPDBUpdater(k8sClient)
+		creator = controllers.NewPDBUpdater(fakeClient)
 		instances = 2
 
 		stSet = &appsv1.StatefulSet{
@@ -67,9 +64,9 @@ var _ = Describe("PDB", func() {
 		})
 
 		It("creates a pod disruption budget", func() {
-			Expect(k8sClient.CreateCallCount()).To(Equal(1))
+			Expect(fakeClient.CreateCallCount()).To(Equal(1))
 
-			_, obj, createOpts := k8sClient.CreateArgsForCall(0)
+			_, obj, createOpts := fakeClient.CreateArgsForCall(0)
 
 			Expect(obj).To(BeAssignableToTypeOf(&policyv1.PodDisruptionBudget{}))
 			pdb := obj.(*policyv1.PodDisruptionBudget)
@@ -88,7 +85,7 @@ var _ = Describe("PDB", func() {
 
 		When("pod disruption budget creation fails", func() {
 			BeforeEach(func() {
-				k8sClient.CreateReturns(errors.New("boom"))
+				fakeClient.CreateReturns(errors.New("boom"))
 			})
 
 			It("should propagate the error", func() {
@@ -105,13 +102,13 @@ var _ = Describe("PDB", func() {
 			})
 
 			It("does not create but does try to delete pdb", func() {
-				Expect(k8sClient.CreateCallCount()).To(BeZero())
-				Expect(k8sClient.DeleteAllOfCallCount()).To(Equal(1))
+				Expect(fakeClient.CreateCallCount()).To(BeZero())
+				Expect(fakeClient.DeleteAllOfCallCount()).To(Equal(1))
 			})
 
 			When("there is no PDB already", func() {
 				BeforeEach(func() {
-					k8sClient.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "nope"))
+					fakeClient.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "nope"))
 				})
 
 				It("succeeds", func() {
@@ -121,7 +118,7 @@ var _ = Describe("PDB", func() {
 
 			When("deleting the PDB fails", func() {
 				BeforeEach(func() {
-					k8sClient.DeleteAllOfReturns(errors.New("oops"))
+					fakeClient.DeleteAllOfReturns(errors.New("oops"))
 				})
 
 				It("returns an error", func() {
@@ -132,7 +129,7 @@ var _ = Describe("PDB", func() {
 
 		When("the pod distruption budget already exists", func() {
 			BeforeEach(func() {
-				k8sClient.CreateReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "boom"))
+				fakeClient.CreateReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "boom"))
 			})
 
 			It("succeeds", func() {

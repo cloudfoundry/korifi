@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
@@ -349,22 +350,20 @@ func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization
 }
 
 func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsToRouteMessage) (RouteRecord, error) {
-	baseCFRoute := &korifiv1alpha1.CFRoute{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.RouteGUID,
-			Namespace: message.SpaceGUID,
-		},
-	}
-
-	cfRoute := baseCFRoute.DeepCopy()
-	cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
-
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
+	cfRoute := &korifiv1alpha1.CFRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.RouteGUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+	err = k8s.PatchResource(ctx, userClient, cfRoute, func() {
+		cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
+	})
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
@@ -373,14 +372,20 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 }
 
 func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message RemoveDestinationFromRouteMessage) (RouteRecord, error) {
-	baseCFRoute := &korifiv1alpha1.CFRoute{
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfRoute := &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.RouteGUID,
 			Namespace: message.SpaceGUID,
 		},
+		Spec: korifiv1alpha1.CFRouteSpec{
+			Destinations: destinationRecordsToCFDestinations(message.ExistingDestinations),
+		},
 	}
-
-	cfRoute := baseCFRoute.DeepCopy()
 
 	var newDestinationList []DestinationRecord
 	for _, dest := range message.ExistingDestinations {
@@ -393,15 +398,9 @@ func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 		return RouteRecord{}, apierrors.NewUnprocessableEntityError(nil, "Unable to unmap route from destination. Ensure the route has a destination with this guid.")
 	}
 
-	baseCFRoute.Spec.Destinations = destinationRecordsToCFDestinations(message.ExistingDestinations)
-	cfRoute.Spec.Destinations = destinationRecordsToCFDestinations(newDestinationList)
-
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(baseCFRoute))
+	err = k8s.PatchResource(ctx, userClient, cfRoute, func() {
+		cfRoute.Spec.Destinations = destinationRecordsToCFDestinations(newDestinationList)
+	})
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to remove destination from route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}

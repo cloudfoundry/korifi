@@ -8,13 +8,13 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CFSpaceValidatingWebhook", func() {
@@ -109,25 +109,16 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 	})
 
 	Describe("updating a space", func() {
-		var (
-			updatedCFSpace *korifiv1alpha1.CFSpace
-			err            error
-		)
-
 		BeforeEach(func() {
 			cfSpace = MakeCFSpace(orgNamespace, "my-space")
-			err = k8sClient.Create(ctx, cfSpace)
-			Expect(err).NotTo(HaveOccurred())
-			updatedCFSpace = cfSpace.DeepCopy()
+			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 		})
 
 		When("the space name is changed to another which is unique in the root CF namespace", func() {
-			BeforeEach(func() {
-				updatedCFSpace.Spec.DisplayName = "another-space"
-			})
-
 			It("succeeds", func() {
-				Expect(k8sClient.Patch(ctx, updatedCFSpace, client.MergeFrom(cfSpace))).To(Succeed())
+				Expect(k8s.Patch(ctx, k8sClient, cfSpace, func() {
+					cfSpace.Spec.DisplayName = "another-space"
+				})).To(Succeed())
 			})
 		})
 
@@ -135,11 +126,12 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 			BeforeEach(func() {
 				cfSpace2 = MakeCFSpace(orgNamespace, "another-space")
 				Expect(k8sClient.Create(ctx, cfSpace2)).To(Succeed())
-				updatedCFSpace.Spec.DisplayName = "another-space"
 			})
 
 			It("fails", func() {
-				Expect(k8sClient.Patch(ctx, updatedCFSpace, client.MergeFrom(cfSpace))).To(MatchError(ContainSubstring("Name must be unique per organization")))
+				Expect(k8s.Patch(ctx, k8sClient, cfSpace, func() {
+					cfSpace.Spec.DisplayName = "another-space"
+				})).To(MatchError(ContainSubstring("Name must be unique per organization")))
 			})
 		})
 	})

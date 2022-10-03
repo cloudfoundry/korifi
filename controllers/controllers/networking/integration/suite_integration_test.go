@@ -75,12 +75,6 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (NewCFDomainReconciler(
-		k8sManager.GetClient(),
-		k8sManager.GetScheme(),
-	)).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
 	err = (NewCFRouteReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),

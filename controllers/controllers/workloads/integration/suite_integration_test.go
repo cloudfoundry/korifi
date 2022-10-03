@@ -12,6 +12,7 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/jonboulle/clockwork"
 	. "github.com/onsi/ginkgo/v2"
@@ -241,8 +242,8 @@ func createClusterRole(ctx context.Context, k8sClient client.Client, name string
 	return role
 }
 
-func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, annotations map[string]string) rbacv1.RoleBinding {
-	roleBinding := rbacv1.RoleBinding{
+func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, annotations map[string]string) *rbacv1.RoleBinding {
+	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        roleBindingName,
 			Namespace:   namespace,
@@ -257,12 +258,12 @@ func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBinding
 			Name: roleReference,
 		},
 	}
-	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
+	Expect(k8sClient.Create(ctx, roleBinding)).To(Succeed())
 	return roleBinding
 }
 
-func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceAccountName, namespace string, annotations map[string]string) corev1.ServiceAccount {
-	serviceAccount := corev1.ServiceAccount{
+func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceAccountName, namespace string, annotations map[string]string) *corev1.ServiceAccount {
+	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        serviceAccountName,
 			Namespace:   namespace,
@@ -278,7 +279,7 @@ func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceA
 			{Name: packageRegistrySecretName},
 		},
 	}
-	Expect(k8sClient.Create(ctx, &serviceAccount)).To(Succeed())
+	Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
 	return serviceAccount
 }
 
@@ -293,14 +294,14 @@ func createNamespaceWithCleanup(ctx context.Context, k8sClient client.Client, na
 }
 
 func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID, buildGUID string) *korifiv1alpha1.CFApp {
-	baseCFApp := &korifiv1alpha1.CFApp{
+	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
 			Namespace: spaceGUID,
 		},
 	}
-	patchedCFApp := baseCFApp.DeepCopy()
-	patchedCFApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
-	Expect(k8sClient.Patch(ctx, patchedCFApp, client.MergeFrom(baseCFApp))).To(Succeed())
-	return baseCFApp
+	Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+		cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
+	})).To(Succeed())
+	return cfApp
 }

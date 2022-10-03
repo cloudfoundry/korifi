@@ -27,11 +27,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
@@ -56,36 +58,32 @@ type TaskWorkloadReconciler struct {
 	jobTTL       time.Duration
 }
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads,verbs=get;list;watch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads,verbs=get;list;watch;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/status,verbs=get;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;get;list;watch
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 
-func NewTaskWorkloadReconciler(logger logr.Logger, k8sClient client.Client, scheme *runtime.Scheme, statusGetter TaskStatusGetter, jobTTL time.Duration) *TaskWorkloadReconciler {
-	return &TaskWorkloadReconciler{
+func NewTaskWorkloadReconciler(
+	logger logr.Logger,
+	k8sClient client.Client,
+	scheme *runtime.Scheme,
+	statusGetter TaskStatusGetter,
+	jobTTL time.Duration,
+) *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload] {
+	taskReconciler := TaskWorkloadReconciler{
 		k8sClient:    k8sClient,
 		logger:       logger,
 		scheme:       scheme,
 		statusGetter: statusGetter,
 		jobTTL:       jobTTL,
 	}
+
+	return k8s.NewPatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload](logger, k8sClient, &taskReconciler)
 }
 
-func (r *TaskWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.logger.WithValues("namespace", req.Namespace, "name", req.Name)
-
-	taskWorkload := &korifiv1alpha1.TaskWorkload{}
-	err := r.k8sClient.Get(ctx, req.NamespacedName, taskWorkload)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("TaskWorkload not found")
-			return ctrl.Result{}, nil
-		}
-
-		logger.Error(err, "failed to get TaskWorkload")
-		return ctrl.Result{}, err
-	}
+func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload) (ctrl.Result, error) {
+	logger := r.logger.WithValues("namespace", taskWorkload.Namespace, "name", taskWorkload.Name)
 
 	job, err := r.getOrCreateJob(ctx, logger, taskWorkload)
 	if err != nil {
@@ -136,12 +134,10 @@ func (r TaskWorkloadReconciler) createJob(ctx context.Context, logger logr.Logge
 	return job, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.TaskWorkload{}).
-		Owns(&batchv1.Job{}).
-		Complete(r)
+		Owns(&batchv1.Job{})
 }
 
 func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
@@ -194,8 +190,6 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 }
 
 func (r *TaskWorkloadReconciler) updateTaskWorkloadStatus(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload, job *batchv1.Job) error {
-	originalTaskWorkload := taskWorkload.DeepCopy()
-
 	conditions, err := r.statusGetter.GetStatusConditions(ctx, job)
 	if err != nil {
 		return fmt.Errorf("failed to get status conditions for job %s:%s: %w", job.Namespace, job.Name, err)
@@ -205,5 +199,5 @@ func (r *TaskWorkloadReconciler) updateTaskWorkloadStatus(ctx context.Context, t
 		meta.SetStatusCondition(&taskWorkload.Status.Conditions, condition)
 	}
 
-	return r.k8sClient.Status().Patch(ctx, taskWorkload, client.MergeFrom(originalTaskWorkload))
+	return nil
 }

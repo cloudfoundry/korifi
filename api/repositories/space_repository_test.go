@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -539,10 +540,10 @@ var _ = Describe("SpaceRepository", func() {
 						"key-one": pointerTo("value-one"),
 						"key-two": pointerTo("value-two"),
 					}
-					origCFSpace := cfSpace.DeepCopy()
-					cfSpace.Labels = nil
-					cfSpace.Annotations = nil
-					Expect(k8sClient.Patch(ctx, cfSpace, client.MergeFrom(origCFSpace))).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfSpace, func() {
+						cfSpace.Labels = nil
+						cfSpace.Annotations = nil
+					})).To(Succeed())
 				})
 
 				It("returns the updated org record", func() {
@@ -584,18 +585,18 @@ var _ = Describe("SpaceRepository", func() {
 
 			When("the space already has labels and annotations", func() {
 				BeforeEach(func() {
-					origCFSpace := cfSpace.DeepCopy()
-					cfSpace.Labels = map[string]string{
-						"before-key-one": "value-one",
-						"before-key-two": "value-two",
-						"key-one":        "value-one",
-					}
-					cfSpace.Annotations = map[string]string{
-						"before-key-one": "value-one",
-						"before-key-two": "value-two",
-						"key-one":        "value-one",
-					}
-					Expect(k8sClient.Patch(ctx, cfSpace, client.MergeFrom(origCFSpace))).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfSpace, func() {
+						cfSpace.Labels = map[string]string{
+							"before-key-one": "value-one",
+							"before-key-two": "value-two",
+							"key-one":        "value-one",
+						}
+						cfSpace.Annotations = map[string]string{
+							"before-key-one": "value-one",
+							"before-key-two": "value-two",
+							"key-one":        "value-one",
+						}
+					})).To(Succeed())
 
 					labelsPatch = map[string]*string{
 						"key-one":        pointerTo("value-one-updated"),

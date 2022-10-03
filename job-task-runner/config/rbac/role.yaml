@@ -29,6 +29,7 @@ rules:
   verbs:
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - korifi.cloudfoundry.org
@@ -43,4 +44,3 @@ rules:
   verbs:
   - get
   - patch
-  - update

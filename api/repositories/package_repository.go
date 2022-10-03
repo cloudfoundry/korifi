@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -209,22 +210,21 @@ func applyPackageFilter(packages []korifiv1alpha1.CFPackage, message ListPackage
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
-	baseCFPackage := &korifiv1alpha1.CFPackage{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.GUID,
-			Namespace: message.SpaceGUID,
-		},
-	}
-	cfPackage := baseCFPackage.DeepCopy()
-	cfPackage.Spec.Source.Registry.Image = message.ImageRef
-	cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
-
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
 	}
 
-	err = userClient.Patch(ctx, cfPackage, client.MergeFrom(baseCFPackage))
+	cfPackage := &korifiv1alpha1.CFPackage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.GUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+	err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
+		cfPackage.Spec.Source.Registry.Image = message.ImageRef
+		cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
+	})
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}

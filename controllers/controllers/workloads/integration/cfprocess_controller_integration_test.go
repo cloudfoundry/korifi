@@ -8,6 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -180,10 +181,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		When("a CFApp desired state is updated to STOPPED", func() {
 			JustBeforeEach(func() {
 				eventuallyCreatedAppWorkloadShould(testProcessGUID, testNamespace, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
-
-				originalCFApp := cfApp.DeepCopy()
-				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
-				Expect(k8sClient.Patch(ctx, cfApp, client.MergeFrom(originalCFApp))).To(Succeed())
+				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+					cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
+				})).To(Succeed())
 			})
 
 			It("eventually deletes the AppWorkloads", func() {
@@ -231,12 +231,13 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
-			cfRoute.Status = korifiv1alpha1.CFRouteStatus{
-				CurrentStatus: "valid",
-				Description:   "ok",
-				Destinations:  []korifiv1alpha1.Destination{wrongDestination, destination},
-			}
-			Expect(k8sClient.Status().Update(ctx, cfRoute)).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, cfRoute, func() {
+				cfRoute.Status = korifiv1alpha1.CFRouteStatus{
+					CurrentStatus: "valid",
+					Description:   "ok",
+					Destinations:  []korifiv1alpha1.Destination{wrongDestination, destination},
+				}
+			})).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -257,11 +258,12 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		When("the process has a health check", func() {
 			BeforeEach(func() {
-				cfProcess.Spec.HealthCheck.Type = "http"
-				cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds = 3
-				cfProcess.Spec.HealthCheck.Data.TimeoutSeconds = 31
-				cfProcess.Spec.Ports = []int32{}
-				Expect(k8sClient.Update(ctx, cfProcess)).To(Succeed())
+				Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
+					cfProcess.Spec.HealthCheck.Type = "http"
+					cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds = 3
+					cfProcess.Spec.HealthCheck.Data.TimeoutSeconds = 31
+					cfProcess.Spec.Ports = []int32{}
+				})).To(Succeed())
 			})
 
 			It("eventually sets the correct health check port on the AppWorkload", func() {
@@ -383,15 +385,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			healthCheckInvocationTimeoutSeconds = 3
 		)
 		BeforeEach(func() {
-			cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
-				Type: "http",
-				Data: korifiv1alpha1.HealthCheckData{
-					HTTPEndpoint:             healthCheckEndpoint,
-					InvocationTimeoutSeconds: healthCheckInvocationTimeoutSeconds,
-					TimeoutSeconds:           healthCheckTimeoutSeconds,
-				},
-			}
-			Expect(k8sClient.Update(ctx, cfProcess)).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
+				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
+					Type: "http",
+					Data: korifiv1alpha1.HealthCheckData{
+						HTTPEndpoint:             healthCheckEndpoint,
+						InvocationTimeoutSeconds: healthCheckInvocationTimeoutSeconds,
+						TimeoutSeconds:           healthCheckTimeoutSeconds,
+					},
+				}
+			})).To(Succeed())
 
 			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
@@ -427,14 +430,15 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			healthCheckInvocationTimeoutSeconds = 3
 		)
 		BeforeEach(func() {
-			cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
-				Type: "port",
-				Data: korifiv1alpha1.HealthCheckData{
-					InvocationTimeoutSeconds: healthCheckInvocationTimeoutSeconds,
-					TimeoutSeconds:           healthCheckTimeoutSeconds,
-				},
-			}
-			Expect(k8sClient.Update(ctx, cfProcess)).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
+				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
+					Type: "port",
+					Data: korifiv1alpha1.HealthCheckData{
+						InvocationTimeoutSeconds: healthCheckInvocationTimeoutSeconds,
+						TimeoutSeconds:           healthCheckTimeoutSeconds,
+					},
+				}
+			})).To(Succeed())
 
 			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
@@ -463,8 +467,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 	When("the CFProcess has a process health check", func() {
 		BeforeEach(func() {
-			cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{Type: "process"}
-			Expect(k8sClient.Update(ctx, cfProcess)).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
+				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{Type: "process"}
+			})).To(Succeed())
 
 			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())

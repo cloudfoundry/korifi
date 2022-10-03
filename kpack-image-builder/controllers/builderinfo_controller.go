@@ -22,15 +22,17 @@ import (
 
 	"github.com/go-logr/logr"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,59 +44,44 @@ const (
 	ReadyConditionType = "Ready"
 )
 
-func NewBuilderInfoReconciler(c client.Client, scheme *runtime.Scheme, log logr.Logger, clusterBuilderName, rootNamespaceName string) *BuilderInfoReconciler {
-	return &BuilderInfoReconciler{
-		Client:             c,
-		Scheme:             scheme,
-		Log:                log,
-		ClusterBuilderName: clusterBuilderName,
-		RootNamespaceName:  rootNamespaceName,
+func NewBuilderInfoReconciler(
+	c client.Client,
+	scheme *runtime.Scheme,
+	log logr.Logger,
+	clusterBuilderName string,
+	rootNamespaceName string,
+) *k8s.PatchingReconciler[v1alpha1.BuilderInfo, *v1alpha1.BuilderInfo] {
+	builderInfoReconciler := BuilderInfoReconciler{
+		k8sClient:          c,
+		scheme:             scheme,
+		log:                log,
+		clusterBuilderName: clusterBuilderName,
+		rootNamespaceName:  rootNamespaceName,
 	}
+	return k8s.NewPatchingReconciler[v1alpha1.BuilderInfo, *v1alpha1.BuilderInfo](log, c, &builderInfoReconciler)
 }
 
 // BuilderInfoReconciler reconciles a BuilderInfo object
 type BuilderInfoReconciler struct {
-	client.Client
-	Scheme             *runtime.Scheme
-	Log                logr.Logger
-	ClusterBuilderName string
-	RootNamespaceName  string
+	k8sClient          client.Client
+	scheme             *runtime.Scheme
+	log                logr.Logger
+	clusterBuilderName string
+	rootNamespaceName  string
 }
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos,verbs=get;list;watch;create;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/status,verbs=get;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the BuilderInfo object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *BuilderInfoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if req.Name != BuilderInfoName || req.Namespace != r.RootNamespaceName {
-		return ctrl.Result{}, nil
-	}
-
-	info := new(v1alpha1.BuilderInfo)
-	err := r.Client.Get(ctx, req.NamespacedName, info)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "Error when fetching BuilderInfo")
-		}
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
+func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *v1alpha1.BuilderInfo) (ctrl.Result, error) {
 	clusterBuilder := new(buildv1alpha2.ClusterBuilder)
-	err = r.Client.Get(ctx, types.NamespacedName{Name: r.ClusterBuilderName}, clusterBuilder)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: r.clusterBuilderName}, clusterBuilder)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching ClusterBuilder")
+		r.log.Error(err, "Error when fetching ClusterBuilder")
 
 		info.Status.Stacks = []v1alpha1.BuilderInfoStatusStack{}
 		info.Status.Buildpacks = []v1alpha1.BuilderInfoStatusBuildpack{}
@@ -102,12 +89,8 @@ func (r *BuilderInfoReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			Type:    ReadyConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "cluster_builder_missing",
-			Message: fmt.Sprintf("Error fetching ClusterBuilder %q: %q", r.ClusterBuilderName, err),
+			Message: fmt.Sprintf("Error fetching ClusterBuilder %q: %q", r.clusterBuilderName, err),
 		})
-		err = r.Client.Status().Update(ctx, info)
-		if err != nil {
-			r.Log.Error(err, "Error when updating BuilderInfo.status for failure")
-		}
 		return ctrl.Result{}, err
 	}
 
@@ -118,13 +101,8 @@ func (r *BuilderInfoReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		Type:    ReadyConditionType,
 		Status:  metav1.ConditionTrue,
 		Reason:  "cluster_builder_exists",
-		Message: fmt.Sprintf("Found ClusterBuilder %q", r.ClusterBuilderName),
+		Message: fmt.Sprintf("Found ClusterBuilder %q", r.clusterBuilderName),
 	})
-	err = r.Client.Status().Update(ctx, info)
-	if err != nil {
-		r.Log.Error(err, "Error when updating BuilderInfo.status for success")
-		return ctrl.Result{}, err
-	}
 
 	return ctrl.Result{}, nil
 }
@@ -169,23 +147,31 @@ func lastUpdatedTime(metadata metav1.ObjectMeta) metav1.Time {
 	return latestTime
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *BuilderInfoReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BuilderInfoReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.BuilderInfo{}).
 		Watches(
 			&source.Kind{Type: new(buildv1alpha2.ClusterBuilder)},
 			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 				var requests []reconcile.Request
-				if obj.GetName() == r.ClusterBuilderName {
+				if obj.GetName() == r.clusterBuilderName {
 					requests = append(requests, reconcile.Request{
 						NamespacedName: types.NamespacedName{
 							Name:      BuilderInfoName,
-							Namespace: r.RootNamespaceName,
+							Namespace: r.rootNamespaceName,
 						},
 					})
 				}
 				return requests
 			})).
-		Complete(r)
+		WithEventFilter(predicate.NewPredicateFuncs(r.filterBuilderInfos))
+}
+
+func (r *BuilderInfoReconciler) filterBuilderInfos(object client.Object) bool {
+	builderInfo, ok := object.(*v1alpha1.BuilderInfo)
+	if !ok {
+		return true
+	}
+
+	return builderInfo.Name == BuilderInfoName && builderInfo.Namespace == r.rootNamespaceName
 }

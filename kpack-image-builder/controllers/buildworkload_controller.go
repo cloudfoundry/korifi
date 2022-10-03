@@ -30,6 +30,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
@@ -44,9 +45,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sclient "k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -80,81 +83,72 @@ func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAut
 //counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
 type ImageProcessFetcher func(imageRef string, credsOption remote.Option, transport remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error)
 
-func NewBuildWorkloadReconciler(c client.Client, scheme *runtime.Scheme, log logr.Logger, config *config.ControllerConfig, registryAuthFetcher RegistryAuthFetcher, registryCAPath string, imageProcessFetcher ImageProcessFetcher) *BuildWorkloadReconciler {
-	return &BuildWorkloadReconciler{
-		Client:              c,
-		Scheme:              scheme,
-		Log:                 log,
-		ControllerConfig:    config,
-		RegistryAuthFetcher: registryAuthFetcher,
-		RegistryCAPath:      registryCAPath,
-		ImageProcessFetcher: imageProcessFetcher,
+func NewBuildWorkloadReconciler(
+	c client.Client,
+	scheme *runtime.Scheme,
+	log logr.Logger,
+	config *config.ControllerConfig,
+	registryAuthFetcher RegistryAuthFetcher,
+	registryCAPath string,
+	imageProcessFetcher ImageProcessFetcher,
+) *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload] {
+	buildWorkloadReconciler := BuildWorkloadReconciler{
+		k8sClient:           c,
+		scheme:              scheme,
+		log:                 log,
+		controllerConfig:    config,
+		registryAuthFetcher: registryAuthFetcher,
+		registryCAPath:      registryCAPath,
+		imageProcessFetcher: imageProcessFetcher,
 	}
+	return k8s.NewPatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload](log, c, &buildWorkloadReconciler)
 }
 
 // BuildWorkloadReconciler reconciles a BuildWorkload object
 type BuildWorkloadReconciler struct {
-	client.Client
-	Scheme              *runtime.Scheme
-	Log                 logr.Logger
-	ControllerConfig    *config.ControllerConfig
-	RegistryAuthFetcher RegistryAuthFetcher
-	RegistryCAPath      string
-	ImageProcessFetcher ImageProcessFetcher
+	k8sClient           client.Client
+	scheme              *runtime.Scheme
+	log                 logr.Logger
+	controllerConfig    *config.ControllerConfig
+	registryAuthFetcher RegistryAuthFetcher
+	registryCAPath      string
+	imageProcessFetcher ImageProcessFetcher
 }
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/status,verbs=get;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/finalizers,verbs=update
 
-//+kubebuilder:rbac:groups=kpack.io,resources=images,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=kpack.io,resources=images,verbs=get;list;watch;create;patch;delete
+//+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=images/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	buildWorkload := new(korifiv1alpha1.BuildWorkload)
-	err := r.Client.Get(ctx, req.NamespacedName, buildWorkload)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			r.Log.Error(err, "Error when fetching CFBuildWorkload")
-		}
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	if buildWorkload.Spec.BuilderName != kpackReconcilerName {
-		// Stop reconciling since the buildWorkload.Spec.BuilderName does not match this builder
-		return ctrl.Result{}, nil
-	}
-
+func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (ctrl.Result, error) {
 	if len(buildWorkload.Spec.Buildpacks) > 0 {
 		// Specifying buildpacks is not supported
-		failureStatusConditionMessage := `Only buildpack auto-detection is supported. Specifying buildpacks is not allowed.`
-		setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionFalse, "InvalidBuildpacks", failureStatusConditionMessage)
-		err = r.Client.Status().Update(ctx, buildWorkload)
-		if err != nil {
-			r.Log.Error(err, "Error when updating buildWorkload status")
-		}
-		return ctrl.Result{}, err
+		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "InvalidBuildpacks",
+			Message: `Only buildpack auto-detection is supported. Specifying buildpacks is not allowed.`,
+		})
+
+		return ctrl.Result{}, nil
 	}
 
 	succeededStatus := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 
 	if succeededStatus != nil && succeededStatus.Status != metav1.ConditionUnknown {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	if succeededStatus == nil {
-		err = r.ensureKpackImageRequirements(ctx, buildWorkload)
+		err := r.ensureKpackImageRequirements(ctx, buildWorkload)
 		if err != nil {
-			r.Log.Info("Kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
+			r.log.Info("Kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
 			return ctrl.Result{}, err
 		}
 
@@ -162,40 +156,41 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	var kpackImage buildv1alpha2.Image
-	err = r.Client.Get(ctx, client.ObjectKeyFromObject(buildWorkload), &kpackImage)
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), &kpackImage)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching Kpack Image")
+		r.log.Error(err, "Error when fetching Kpack Image")
 		// Ignore Image NotFound errors to account for eventual consistency
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	kpackReadyStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
 	if kpackReadyStatusCondition.IsFalse() {
-		setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionFalse, "BuildFailed", "Check build log output")
-		if err = r.Client.Status().Update(ctx, buildWorkload); err != nil {
-			r.Log.Error(err, "Error when updating buildWorkload status")
-			return ctrl.Result{}, err
-		}
+		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "BuildFailed",
+			Message: "Check build log output",
+		})
 	} else if kpackReadyStatusCondition.IsTrue() {
-		setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionTrue, "BuildSucceeded", "Image built successfully")
+		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionTrue,
+			Reason:  "BuildSucceeded",
+			Message: "Image built successfully",
+		})
 
 		serviceAccountName := kpackServiceAccount
-		serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: req.Namespace}
+		serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: buildWorkload.Namespace}
 		foundServiceAccount := corev1.ServiceAccount{}
-		err = r.Client.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
+		err = r.k8sClient.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
 		if err != nil {
-			r.Log.Error(err, "Error when fetching kpack ServiceAccount")
+			r.log.Error(err, "Error when fetching kpack ServiceAccount")
 			return ctrl.Result{}, err
 		}
 
 		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
 		if err != nil {
-			r.Log.Error(err, "Error when compiling the DropletStatus")
-			return ctrl.Result{}, err
-		}
-
-		if err := r.Client.Status().Update(ctx, buildWorkload); err != nil {
-			r.Log.Error(err, "Error when updating CFBuild status")
+			r.log.Error(err, "Error when compiling the DropletStatus")
 			return ctrl.Result{}, err
 		}
 	}
@@ -205,7 +200,7 @@ func (r *BuildWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
 	for _, secret := range buildWorkload.Spec.Source.Registry.ImagePullSecrets {
-		err := r.Client.Get(ctx, types.NamespacedName{Namespace: buildWorkload.Namespace, Name: secret.Name}, &corev1.Secret{})
+		err := r.k8sClient.Get(ctx, types.NamespacedName{Namespace: buildWorkload.Namespace, Name: secret.Name}, &corev1.Secret{})
 		if err != nil {
 			return err
 		}
@@ -216,7 +211,7 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
 	serviceAccountName := kpackServiceAccount
-	kpackImageTag := path.Join(r.ControllerConfig.KpackImageTag, buildWorkload.Name)
+	kpackImageTag := path.Join(r.controllerConfig.KpackImageTag, buildWorkload.Name)
 	kpackImageName := buildWorkload.Name
 	kpackImageNamespace := buildWorkload.Namespace
 	desiredKpackImage := buildv1alpha2.Image{
@@ -231,7 +226,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 			Tag: kpackImageTag,
 			Builder: corev1.ObjectReference{
 				Kind:       clusterBuilderKind,
-				Name:       r.ControllerConfig.ClusterBuilderName,
+				Name:       r.controllerConfig.ClusterBuilderName,
 				APIVersion: clusterBuilderAPIVersion,
 			},
 			ServiceAccountName: serviceAccountName,
@@ -248,9 +243,9 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		},
 	}
 
-	err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.Scheme)
+	err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.scheme)
 	if err != nil {
-		r.Log.Error(err, "failed to set OwnerRef on Kpack Image")
+		r.log.Error(err, "failed to set OwnerRef on Kpack Image")
 		return err
 	}
 
@@ -259,61 +254,53 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		return err
 	}
 
-	setSucceededConditionOnLocalCopy(&buildWorkload.Status.Conditions, metav1.ConditionUnknown, "BuildRunning", "Waiting for image build to complete")
-	if err := r.Client.Status().Update(ctx, buildWorkload); err != nil {
-		r.Log.Error(err, "Error when updating buildWorkload status")
-		return err
-	}
+	meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+		Type:    korifiv1alpha1.SucceededConditionType,
+		Status:  metav1.ConditionUnknown,
+		Reason:  "BuildRunning",
+		Message: "Waiting for image build to complete",
+	})
 
 	return nil
 }
 
 func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha2.Image) error {
 	var foundKpackImage buildv1alpha2.Image
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(&desiredKpackImage), &foundKpackImage)
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(&desiredKpackImage), &foundKpackImage)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err = r.Client.Create(ctx, &desiredKpackImage)
+			err = r.k8sClient.Create(ctx, &desiredKpackImage)
 			if err != nil {
-				r.Log.Error(err, "Error when creating kpack image")
+				r.log.Error(err, "Error when creating kpack image")
 				return err
 			}
 		} else {
-			r.Log.Error(err, "Error when checking if kpack image exists")
+			r.log.Error(err, "Error when checking if kpack image exists")
 			return err
 		}
 	}
 	return nil
 }
 
-func setSucceededConditionOnLocalCopy(conditions *[]metav1.Condition, conditionStatus metav1.ConditionStatus, reason, message string) {
-	meta.SetStatusCondition(conditions, metav1.Condition{
-		Type:    korifiv1alpha1.SucceededConditionType,
-		Status:  conditionStatus,
-		Reason:  reason,
-		Message: message,
-	})
-}
-
 func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*korifiv1alpha1.BuildDropletStatus, error) {
 	imageRef := kpackImage.Status.LatestImage
 
-	credentials, err := r.RegistryAuthFetcher(ctx, kpackImage.Namespace)
+	credentials, err := r.registryAuthFetcher(ctx, kpackImage.Namespace)
 	if err != nil {
-		r.Log.Error(err, "Error when fetching registry credentials for Droplet image")
+		r.log.Error(err, "Error when fetching registry credentials for Droplet image")
 		return nil, err
 	}
 
-	transport, err := configureTransport(r.RegistryCAPath)
+	transport, err := configureTransport(r.registryCAPath)
 	if err != nil {
-		r.Log.Error(err, "Error when configuring http transport for Droplet image")
+		r.log.Error(err, "Error when configuring http transport for Droplet image")
 		return nil, err
 	}
 
 	// Use the credentials to get the values of Ports and ProcessTypes
-	dropletProcessTypes, dropletPorts, err := r.ImageProcessFetcher(imageRef, credentials, transport)
+	dropletProcessTypes, dropletPorts, err := r.imageProcessFetcher(imageRef, credentials, transport)
 	if err != nil {
-		r.Log.Error(err, "Error when compiling droplet image details")
+		r.log.Error(err, "Error when compiling droplet image details")
 		return nil, err
 	}
 
@@ -354,8 +341,7 @@ func configureTransport(caCertPath string) (remote.Option, error) {
 	return remote.WithTransport(transport), nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.BuildWorkload{}).
 		Watches(
@@ -370,5 +356,15 @@ func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				})
 				return requests
 			})).
-		Complete(r)
+		WithEventFilter(predicate.NewPredicateFuncs(filterBuildWorkloads))
+}
+
+func filterBuildWorkloads(object client.Object) bool {
+	buildWorkload, ok := object.(*korifiv1alpha1.BuildWorkload)
+	if !ok {
+		return true
+	}
+
+	// Only reconcile buildworkloads that have their Spec.BuilderName matching this builder
+	return buildWorkload.Spec.BuilderName == kpackReconcilerName
 }

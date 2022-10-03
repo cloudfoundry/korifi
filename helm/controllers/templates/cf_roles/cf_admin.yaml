@@ -36,7 +36,6 @@ rules:
   - list
   - watch
   - create
-  - update
   - patch
   - delete
 
@@ -49,7 +48,6 @@ rules:
   - list
   - watch
   - create
-  - update
   - patch
   - delete
 
@@ -133,7 +131,6 @@ rules:
   - get
   - list
   - patch
-  - update
   - watch
 
 - apiGroups:

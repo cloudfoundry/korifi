@@ -216,27 +216,9 @@ rules:
   resources:
   - cfdomains
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfdomains/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfdomains/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:

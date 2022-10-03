@@ -32,9 +32,9 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		imageRegistrySecret                          *v1.Secret
 		role                                         *rbacv1.ClusterRole
 		username                                     string
-		roleBinding                                  rbacv1.RoleBinding
-		roleBindingWithPropagateAnnotationSetToFalse rbacv1.RoleBinding
-		roleBindingWithMissingPropagateAnnotation    rbacv1.RoleBinding
+		roleBinding                                  *rbacv1.RoleBinding
+		roleBindingWithPropagateAnnotationSetToFalse *rbacv1.RoleBinding
+		roleBindingWithMissingPropagateAnnotation    *rbacv1.RoleBinding
 	)
 
 	BeforeEach(func() {
@@ -158,7 +158,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 	})
 
 	When("role-bindings are added/updated in root-ns after CFOrg creation", func() {
-		var newlyCreatedRoleBinding rbacv1.RoleBinding
+		var newlyCreatedRoleBinding *rbacv1.RoleBinding
 		BeforeEach(func() {
 			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -199,7 +199,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
-			Expect(k8sClient.Delete(testCtx, &roleBinding)).To(Succeed())
+			Expect(k8sClient.Delete(testCtx, roleBinding)).To(Succeed())
 		})
 
 		It("deletes the corresponding role binding in CFOrg", func() {

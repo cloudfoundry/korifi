@@ -91,11 +91,13 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
+	logger := ctrl.Log.WithName("statefulset-runner").WithName("AppWorkload")
 	appWorkloadReconciler := NewAppWorkloadReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
+		NewAppWorkloadToStatefulsetConverter(logger, k8sManager.GetScheme()),
 		NewPDBUpdater(k8sManager.GetClient()),
-		ctrl.Log.WithName("statefulset-runner").WithName("AppWorkload"),
+		logger,
 	)
 	err = (appWorkloadReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

@@ -7,7 +7,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
-	"code.cloudfoundry.org/korifi/job-task-runner/controllers/fake"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -24,7 +23,6 @@ var _ = Describe("StatusGetter", func() {
 		job           *batchv1.Job
 		conditions    []metav1.Condition
 		conditionsErr error
-		k8sClient     *fake.Client
 	)
 
 	BeforeEach(func() {
@@ -32,8 +30,7 @@ var _ = Describe("StatusGetter", func() {
 			Status: batchv1.JobStatus{},
 		}
 
-		k8sClient = new(fake.Client)
-		statusGetter = controllers.NewStatusGetter(ctrl.Log.WithName("test"), k8sClient)
+		statusGetter = controllers.NewStatusGetter(ctrl.Log.WithName("test"), fakeClient)
 	})
 
 	JustBeforeEach(func() {
@@ -154,7 +151,7 @@ var _ = Describe("StatusGetter", func() {
 				},
 			}
 
-			k8sClient.ListStub = func(ctx context.Context, objList client.ObjectList, opts ...client.ListOption) error {
+			fakeClient.ListStub = func(ctx context.Context, objList client.ObjectList, opts ...client.ListOption) error {
 				list, ok := objList.(*corev1.PodList)
 				Expect(ok).To(BeTrue())
 				*list = podList
@@ -168,8 +165,8 @@ var _ = Describe("StatusGetter", func() {
 			failedCondition := meta.FindStatusCondition(conditions, korifiv1alpha1.TaskFailedConditionType)
 			Expect(failedCondition.LastTransitionTime).To(Equal(later))
 
-			Expect(k8sClient.ListCallCount()).To(Equal(1))
-			_, listObj, opts := k8sClient.ListArgsForCall(0)
+			Expect(fakeClient.ListCallCount()).To(Equal(1))
+			_, listObj, opts := fakeClient.ListArgsForCall(0)
 			Expect(listObj).To(BeAssignableToTypeOf(&corev1.PodList{}))
 			Expect(opts).To(ContainElement(client.InNamespace("my-ns")))
 			Expect(opts).To(ContainElement(client.MatchingLabels{"job-name": "my-job"}))
@@ -179,7 +176,7 @@ var _ = Describe("StatusGetter", func() {
 
 		When("listing the job pods fails", func() {
 			BeforeEach(func() {
-				k8sClient.ListReturns(errors.New("boom"))
+				fakeClient.ListReturns(errors.New("boom"))
 			})
 
 			It("returns the error", func() {

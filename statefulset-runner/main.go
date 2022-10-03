@@ -87,11 +87,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	logger := ctrl.Log.WithName("controllers").WithName("AppWorkloadReconciler")
 	if err = controllers.NewAppWorkloadReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
+		controllers.NewAppWorkloadToStatefulsetConverter(logger, mgr.GetScheme()),
 		controllers.NewPDBUpdater(mgr.GetClient()),
-		ctrl.Log.WithName("controllers").WithName("AppWorkloadReconciler"),
+		logger,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
 		os.Exit(1)

@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -773,10 +774,10 @@ var _ = Describe("AppRepository", func() {
 						"key-one": pointerTo("value-one"),
 						"key-two": pointerTo("value-two"),
 					}
-					origCFApp := cfApp.DeepCopy()
-					cfApp.Labels = nil
-					cfApp.Annotations = nil
-					Expect(k8sClient.Patch(ctx, cfApp, client.MergeFrom(origCFApp))).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Labels = nil
+						cfApp.Annotations = nil
+					})).To(Succeed())
 				})
 
 				It("returns the updated org record", func() {
@@ -828,18 +829,18 @@ var _ = Describe("AppRepository", func() {
 						"key-two":        pointerTo("value-two"),
 						"before-key-two": nil,
 					}
-					origCFApp := cfApp.DeepCopy()
-					cfApp.Labels = map[string]string{
-						"before-key-one": "value-one",
-						"before-key-two": "value-two",
-						"key-one":        "value-one",
-					}
-					cfApp.Annotations = map[string]string{
-						"before-key-one": "value-one",
-						"before-key-two": "value-two",
-						"key-one":        "value-one",
-					}
-					Expect(k8sClient.Patch(ctx, cfApp, client.MergeFrom(origCFApp))).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Labels = map[string]string{
+							"before-key-one": "value-one",
+							"before-key-two": "value-two",
+							"key-one":        "value-one",
+						}
+						cfApp.Annotations = map[string]string{
+							"before-key-one": "value-one",
+							"before-key-two": "value-two",
+							"key-one":        "value-one",
+						}
+					})).To(Succeed())
 				})
 
 				It("returns the updated app record", func() {
@@ -1221,9 +1222,9 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user can read secrets in the space", func() {
 			BeforeEach(func() {
-				ogCFApp := cfApp.DeepCopy()
-				cfApp.Spec.EnvSecretName = secretName
-				Expect(k8sClient.Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+				Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+					cfApp.Spec.EnvSecretName = secretName
+				})).To(Succeed())
 
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
@@ -1326,10 +1327,9 @@ var _ = Describe("AppRepository", func() {
 			When("the EnvSecret doesn't exist", func() {
 				BeforeEach(func() {
 					secretName = "doIReallyExist"
-
-					ogCFApp := cfApp.DeepCopy()
-					cfApp.Spec.EnvSecretName = secretName
-					Expect(k8sClient.Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Spec.EnvSecretName = secretName
+					})).To(Succeed())
 				})
 
 				It("errors", func() {
@@ -1355,10 +1355,9 @@ var _ = Describe("AppRepository", func() {
 		When("EnvSecretName is blank", func() {
 			BeforeEach(func() {
 				secretName = ""
-
-				ogCFApp := cfApp.DeepCopy()
-				cfApp.Spec.EnvSecretName = secretName
-				Expect(k8sClient.Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+				Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+					cfApp.Spec.EnvSecretName = secretName
+				})).To(Succeed())
 			})
 
 			It("returns an empty map", func() {

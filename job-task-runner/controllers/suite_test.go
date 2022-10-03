@@ -19,6 +19,7 @@ package controllers_test
 import (
 	"testing"
 
+	"code.cloudfoundry.org/korifi/job-task-runner/controllers/fake"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -27,3 +28,14 @@ func TestJobTaskWorkloadController(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Job TaskWorkload Controller Suite")
 }
+
+var (
+	fakeClient       *fake.Client
+	fakeStatusWriter *fake.StatusWriter
+)
+
+var _ = BeforeEach(func() {
+	fakeClient = new(fake.Client)
+	fakeStatusWriter = &fake.StatusWriter{}
+	fakeClient.StatusReturns(fakeStatusWriter)
+})

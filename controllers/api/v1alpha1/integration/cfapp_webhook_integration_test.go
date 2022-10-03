@@ -6,6 +6,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -101,9 +102,11 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 				},
 			}
 			Expect(k8sClient.Create(testCtx, cfApp)).To(Succeed())
-			cfApp.Status.Conditions = []metav1.Condition{}
-			cfApp.Status.ObservedDesiredState = cfApp.Spec.DesiredState
-			Expect(k8sClient.Status().Update(testCtx, cfApp)).To(Succeed())
+			Expect(k8s.Patch(testCtx, k8sClient, cfApp, func() {
+				cfApp.Status.VCAPServicesSecretName = "vcap-services-secret"
+				cfApp.Status.Conditions = []metav1.Condition{}
+				cfApp.Status.ObservedDesiredState = cfApp.Spec.DesiredState
+			})).To(Succeed())
 
 			Eventually(func() string {
 				updatedCFApp := &korifiv1alpha1.CFApp{}
@@ -114,8 +117,9 @@ var _ = Describe("CFAppMutatingWebhook Integration Tests", func() {
 				return string(updatedCFApp.Status.ObservedDesiredState)
 			}).Should(Equal(string(cfApp.Spec.DesiredState)))
 
-			cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
-			Expect(k8sClient.Update(testCtx, cfApp)).To(Succeed())
+			Expect(k8s.Patch(testCtx, k8sClient, cfApp, func() {
+				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
+			})).To(Succeed())
 		})
 
 		AfterEach(func() {
