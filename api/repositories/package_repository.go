@@ -221,7 +221,7 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 			Namespace: message.SpaceGUID,
 		},
 	}
-	err = k8s.PatchSpec(ctx, userClient, cfPackage, func() {
+	err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
 		cfPackage.Spec.Source.Registry.Image = message.ImageRef
 		cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
 	})

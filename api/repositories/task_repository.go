@@ -196,7 +196,7 @@ func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, 
 			Name:      taskGUID,
 		},
 	}
-	err = k8s.PatchSpec(ctx, userClient, task, func() {
+	err = k8s.PatchResource(ctx, userClient, task, func() {
 		task.Spec.Canceled = true
 	})
 	if err != nil {

@@ -122,7 +122,7 @@ var _ = Describe("Kubernetes Patch", func() {
 		})
 	})
 
-	Describe("PatchSpec", func() {
+	Describe("PatchResource", func() {
 		var (
 			pod        *corev1.Pod
 			patchedPod *corev1.Pod
@@ -152,7 +152,7 @@ var _ = Describe("Kubernetes Patch", func() {
 		})
 
 		JustBeforeEach(func() {
-			patchErr = k8s.PatchSpec(ctx, k8sClient, pod, func() {
+			patchErr = k8s.PatchResource(ctx, k8sClient, pod, func() {
 				pod.Spec.Containers[0].Image = "alpine"
 				pod.Status.Message = "bye"
 			})

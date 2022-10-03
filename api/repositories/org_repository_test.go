@@ -302,7 +302,7 @@ var _ = Describe("OrgRepository", func() {
 
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("the-org"))
-			Expect(k8s.PatchSpec(ctx, k8sClient, cfOrg, func() {
+			Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
 				cfOrg.Labels = map[string]string{
 					"test-label-key": "test-label-val",
 				}
@@ -434,7 +434,7 @@ var _ = Describe("OrgRepository", func() {
 						"key-one": pointerTo("value-one"),
 						"key-two": pointerTo("value-two"),
 					}
-					Expect(k8s.PatchSpec(ctx, k8sClient, cfOrg, func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
 						cfOrg.Labels = nil
 						cfOrg.Annotations = nil
 					})).To(Succeed())
@@ -488,7 +488,7 @@ var _ = Describe("OrgRepository", func() {
 						"key-two":        pointerTo("value-two"),
 						"before-key-two": nil,
 					}
-					Expect(k8s.PatchSpec(ctx, k8sClient, cfOrg, func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
 						cfOrg.Labels = map[string]string{
 							"before-key-one": "value-one",
 							"before-key-two": "value-two",

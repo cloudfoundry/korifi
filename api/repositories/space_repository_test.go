@@ -540,7 +540,7 @@ var _ = Describe("SpaceRepository", func() {
 						"key-one": pointerTo("value-one"),
 						"key-two": pointerTo("value-two"),
 					}
-					Expect(k8s.PatchSpec(ctx, k8sClient, cfSpace, func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfSpace, func() {
 						cfSpace.Labels = nil
 						cfSpace.Annotations = nil
 					})).To(Succeed())
@@ -585,7 +585,7 @@ var _ = Describe("SpaceRepository", func() {
 
 			When("the space already has labels and annotations", func() {
 				BeforeEach(func() {
-					Expect(k8s.PatchSpec(ctx, k8sClient, cfSpace, func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfSpace, func() {
 						cfSpace.Labels = map[string]string{
 							"before-key-one": "value-one",
 							"before-key-two": "value-two",

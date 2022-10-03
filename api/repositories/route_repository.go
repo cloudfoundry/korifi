@@ -361,7 +361,7 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 			Namespace: message.SpaceGUID,
 		},
 	}
-	err = k8s.PatchSpec(ctx, userClient, cfRoute, func() {
+	err = k8s.PatchResource(ctx, userClient, cfRoute, func() {
 		cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
 	})
 	if err != nil {
@@ -398,7 +398,7 @@ func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 		return RouteRecord{}, apierrors.NewUnprocessableEntityError(nil, "Unable to unmap route from destination. Ensure the route has a destination with this guid.")
 	}
 
-	err = k8s.PatchSpec(ctx, userClient, cfRoute, func() {
+	err = k8s.PatchResource(ctx, userClient, cfRoute, func() {
 		cfRoute.Spec.Destinations = destinationRecordsToCFDestinations(newDestinationList)
 	})
 	if err != nil {

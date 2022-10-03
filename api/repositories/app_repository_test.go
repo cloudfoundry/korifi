@@ -774,7 +774,7 @@ var _ = Describe("AppRepository", func() {
 						"key-one": pointerTo("value-one"),
 						"key-two": pointerTo("value-two"),
 					}
-					Expect(k8s.PatchSpec(ctx, k8sClient, cfApp, func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
 						cfApp.Labels = nil
 						cfApp.Annotations = nil
 					})).To(Succeed())
@@ -829,7 +829,7 @@ var _ = Describe("AppRepository", func() {
 						"key-two":        pointerTo("value-two"),
 						"before-key-two": nil,
 					}
-					Expect(k8s.PatchSpec(ctx, k8sClient, cfApp, func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
 						cfApp.Labels = map[string]string{
 							"before-key-one": "value-one",
 							"before-key-two": "value-two",
@@ -1222,7 +1222,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user can read secrets in the space", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchSpec(ctx, k8sClient, cfApp, func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
 					cfApp.Spec.EnvSecretName = secretName
 				})).To(Succeed())
 
@@ -1327,7 +1327,7 @@ var _ = Describe("AppRepository", func() {
 			When("the EnvSecret doesn't exist", func() {
 				BeforeEach(func() {
 					secretName = "doIReallyExist"
-					Expect(k8s.PatchSpec(ctx, k8sClient, cfApp, func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
 						cfApp.Spec.EnvSecretName = secretName
 					})).To(Succeed())
 				})
@@ -1355,7 +1355,7 @@ var _ = Describe("AppRepository", func() {
 		When("EnvSecretName is blank", func() {
 			BeforeEach(func() {
 				secretName = ""
-				Expect(k8s.PatchSpec(ctx, k8sClient, cfApp, func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
 					cfApp.Spec.EnvSecretName = secretName
 				})).To(Succeed())
 			})

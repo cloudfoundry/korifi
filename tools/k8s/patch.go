@@ -62,7 +62,7 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 	return nil
 }
 
-// PatchSpec updates k8s objects by calling k8s client `Patch`. It does not
+// PatchResource updates k8s objects by calling k8s client `Patch`. It does not
 // patch the object status which makes it convenient to use in contexts where
 // the current user is not permitted to patch the status, such as within the
 // api repositories. The `modify` lambda is expected to mutate the `obj` but
@@ -71,13 +71,13 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 //
 //	var pod *corev1.Pod
 //
-//	patchErr = k8s.PatchSpec(ctx, fakeClient, pod, func() {
+//	patchErr = k8s.PatchResource(ctx, fakeClient, pod, func() {
 //	  pod.Spec.RestartPolicy = corev1.RestartPolicyOnFailure
 //	})
 //
 // Note that this function should be used when current user has permissions to
 // patch both object's spec and status, e.g. in controllers context
-func PatchSpec[T any, PT ObjectWithDeepCopy[T]](
+func PatchResource[T any, PT ObjectWithDeepCopy[T]](
 	ctx context.Context,
 	k8sClient client.Client,
 	obj PT,

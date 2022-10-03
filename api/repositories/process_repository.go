@@ -166,7 +166,7 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 			Namespace: scaleProcessMessage.SpaceGUID,
 		},
 	}
-	err = k8s.PatchSpec(ctx, userClient, cfProcess, func() {
+	err = k8s.PatchResource(ctx, userClient, cfProcess, func() {
 		if scaleProcessMessage.Instances != nil {
 			cfProcess.Spec.DesiredInstances = scaleProcessMessage.Instances
 		}
@@ -249,7 +249,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 			Namespace: message.SpaceGUID,
 		},
 	}
-	err = k8s.PatchSpec(ctx, userClient, updatedProcess, func() {
+	err = k8s.PatchResource(ctx, userClient, updatedProcess, func() {
 		if message.Command != nil {
 			updatedProcess.Spec.Command = *message.Command
 		}

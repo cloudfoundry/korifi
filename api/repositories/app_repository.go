@@ -448,7 +448,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 		},
 	}
 
-	err = k8s.PatchSpec(ctx, userClient, cfApp, func() {
+	err = k8s.PatchResource(ctx, userClient, cfApp, func() {
 		cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: message.DropletGUID}
 	})
 	if err != nil {
@@ -479,7 +479,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 		},
 	}
 
-	err = k8s.PatchSpec(ctx, userClient, cfApp, func() {
+	err = k8s.PatchResource(ctx, userClient, cfApp, func() {
 		cfApp.Spec.DesiredState = korifiv1alpha1.DesiredState(message.DesiredState)
 	})
 	if err != nil {
