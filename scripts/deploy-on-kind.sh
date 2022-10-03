@@ -354,8 +354,6 @@ function deploy_kpack_image_builder() {
     fi
   }
   popd >/dev/null
-
-  kubectl rollout status deployment/korifi-kpack-build-controller-manager -w -n korifi-kpack-build-system
 }
 
 function deploy_statefulset_runner() {

@@ -29,6 +29,10 @@ var _ = Describe("Buildpack Pod Mutating Webhook", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testutils.PrefixedGUID("pod"),
 				Namespace: namespace,
+				Labels: map[string]string{
+					"kpack.io/build": "foo",
+					"korifi.cloudfoundry.org/build-workload-name": "bar",
+				},
 			},
 			Spec: corev1.PodSpec{
 				InitContainers: []corev1.Container{{
