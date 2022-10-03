@@ -73,10 +73,10 @@ var _ = BeforeSuite(func() {
 	cancel = cancelFunc
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "..", "helm", "controllers", "templates", "crd")},
 		ErrorIfCRDPathMissing: false,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
+			Paths: []string{filepath.Join("..", "..", "..", "..", "helm", "controllers", "templates", "manifests.yaml")},
 		},
 	}
 

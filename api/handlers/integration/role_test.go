@@ -26,9 +26,9 @@ var _ = Describe("Role", func() {
 	BeforeEach(func() {
 		// NOTE: This creates an arbitrary mapping that is not representative of production mapping
 		roleMappings := map[string]config.Role{
-			"space_developer":      {Name: "cf-space-developer"},
-			"organization_manager": {Name: "cf-organization-manager"},
-			"cf_user":              {Name: "cf-root-namespace-user"},
+			"space_developer":      {Name: "korifi-controllers-space-developer"},
+			"organization_manager": {Name: "korifi-controllers-organization-manager"},
+			"cf_user":              {Name: "korifi-controllers-root-namespace-user"},
 		}
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, clientFactory, nsPermissions, time.Minute)
 		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)

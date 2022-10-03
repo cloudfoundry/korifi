@@ -51,7 +51,13 @@ manifests-api: install-controller-gen ## Generate WebhookConfiguration, ClusterR
 	rm -f helm/api/templates/role.yaml.bak
 
 manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./controllers/..." output:crd:artifacts:config=controllers/config/crd/bases output:rbac:artifacts:config=controllers/config/rbac output:webhook:artifacts:config=controllers/config/webhook
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=korifi-controllers-manager-role webhook paths="./controllers/..." output:crd:artifacts:config=helm/controllers/templates/crd output:rbac:artifacts:config=helm/controllers/templates output:webhook:artifacts:config=helm/controllers/templates
+	sed -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-controllers-serving-cert"' helm/controllers/templates/manifests.yaml
+	sed -i.bak -e 's/name: \(webhook-service\)/name: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
+	sed -i.bak -e 's/namespace: \(system\)/namespace: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
+	sed -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
+	rm -f helm/controllers/templates/manifests.yaml.bak
+
 
 manifests-job-task-runner:
 	make -C job-task-runner manifests
@@ -216,7 +222,6 @@ helm-api-values =
 
 deploy-api: manifests-api
 	helm upgrade --install api helm/api \
-		--values=$(API_VALUES) \
 		--set=image=$(IMG_API) \
 		$(helm-api-values) \
 		--wait
@@ -237,17 +242,23 @@ deploy-api-kind-local: deploy-api
 
 deploy-api-kind-local-debug: helm-api-values = $(kind-api-values) \
 	--set=packageRegistry.base=$(local-registry) \
-	--set=debug=true
+	--set=global.debug=true
 deploy-api-kind-local-debug: deploy-api
 
-deploy-controllers: set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/default | kubectl apply -f -
+helm-controllers-values =
+deploy-controllers: manifests-controllers
+	helm upgrade --install controllers helm/controllers \
+		--set=image=$(IMG_CONTROLLERS) \
+		$(helm-controllers-values) \
+		--wait
 
-deploy-controllers-kind-local: set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind-local-registry | kubectl apply -f -
+kind-controllers-values = --set=taskTTL=5s
+deploy-controllers-kind-local: helm-controllers-values = $(kind-controllers-values)
+deploy-controllers-kind-local: deploy-controllers
 
-deploy-controllers-kind-local-debug: set-image-ref-controllers
-	$(KUSTOMIZE) build controllers/config/overlays/kind-controller-debug | kubectl apply -f -
+deploy-controllers-kind-local-debug: helm-controllers-values = $(kind-controllers-values) \
+	--set=global.debug=true
+deploy-controllers-kind-local-debug: deploy-controllers
 
 deploy-job-task-runner:
 	make -C job-task-runner deploy
@@ -278,8 +289,8 @@ undeploy: undeploy-api undeploy-job-task-runner undeploy-kpack-image-builder und
 undeploy-api:
 	helm delete api --wait
 
-undeploy-controllers: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/default | kubectl delete -f -
+undeploy-controllers:
+	helm delete controllers --wait
 
 undeploy-job-task-runner:
 	make -C job-task-runner undeploy
@@ -290,10 +301,7 @@ undeploy-kpack-image-builder:
 undeploy-statefulset-runner:
 	make -C statefulset-runner undeploy
 
-set-image-ref: set-image-ref-controllers set-image-ref-job-task-runner set-image-ref-kpack-image-builder set-image-ref-statefulset-runner
-
-set-image-ref-controllers: manifests-controllers install-kustomize
-	cd controllers/config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-controllers=${IMG_CONTROLLERS}
+set-image-ref: set-image-ref-job-task-runner set-image-ref-kpack-image-builder set-image-ref-statefulset-runner
 
 set-image-ref-job-task-runner:
 	make -C job-task-runner set-image-ref

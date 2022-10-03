@@ -216,7 +216,7 @@ function deploy_korifi_controllers() {
 
   pushd "${ROOT_DIR}" >/dev/null
   {
-    export IMG_CONTROLLERS=${IMG_CONTROLLERS:-"korifi-controllers:$(uuidgen)"}
+    export IMG_CONTROLLERS=${IMG_CONTROLLERS:-"korifi-controllers:$(korifiCodeSha)"}
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
 
     make generate-controllers
@@ -252,13 +252,18 @@ function deploy_korifi_controllers() {
   fi
 }
 
+function korifiCodeSha() {
+  find "$ROOT_DIR" -type f -name "*.go" -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d " " -f 1
+
+}
+
 function deploy_korifi_api() {
   if [[ -n "${controllers_only}" ]]; then return 0; fi
   echo "Deploying korifi-api..."
 
   pushd "${ROOT_DIR}" >/dev/null
   {
-    export IMG_API=${IMG_API:-"korifi-api:$(uuidgen)"}
+    export IMG_API=${IMG_API:-"korifi-api:$(korifiCodeSha)"}
 
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       if [[ -z "${debug}" ]]; then
@@ -291,7 +296,7 @@ function deploy_job_task_runner() {
 
   pushd "${ROOT_DIR}/job-task-runner" >/dev/null
   {
-    export IMG_JTR=${IMG_JTR:-"korifi-job-task-runner:$(uuidgen)"}
+    export IMG_JTR=${IMG_JTR:-"korifi-job-task-runner:$(korifiCodeSha)"}
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
 
     make generate
@@ -323,7 +328,7 @@ function deploy_kpack_image_builder() {
 
   pushd "${ROOT_DIR}/kpack-image-builder" >/dev/null
   {
-    export IMG_KIB=${IMG_KIB:-"korifi-kpack-image-builder:$(uuidgen)"}
+    export IMG_KIB=${IMG_KIB:-"korifi-kpack-image-builder:$(korifiCodeSha)"}
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
 
     make generate
@@ -359,7 +364,7 @@ function deploy_statefulset_runner() {
 
   pushd "${ROOT_DIR}/statefulset-runner" >/dev/null
   {
-    export IMG_SSR=${IMG_SSR:-"korifi-statefulset-runner:$(uuidgen)"}
+    export IMG_SSR=${IMG_SSR:-"korifi-statefulset-runner:$(korifiCodeSha)"}
     export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
 
     make generate

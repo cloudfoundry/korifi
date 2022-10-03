@@ -1,0 +1,13 @@
+# The CF Space Auditor Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: korifi-controllers-space-auditor
+rules:
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - get
+  - list

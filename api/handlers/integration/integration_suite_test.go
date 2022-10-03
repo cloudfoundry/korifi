@@ -74,7 +74,7 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "controllers", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "helm", "controllers", "templates", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -252,7 +252,7 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 }
 
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
-	filepath := filepath.Join("..", "..", "..", "controllers", "config", "cf_roles", filename+".yaml")
+	filepath := filepath.Join("..", "..", "..", "helm", "controllers", "templates", "cf_roles", filename+".yaml")
 	content, err := os.ReadFile(filepath)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -261,7 +261,6 @@ func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole
 	err = runtime.DecodeInto(decoder, content, clusterRole)
 	Expect(err).NotTo(HaveOccurred())
 
-	clusterRole.Name = "cf-" + clusterRole.Name
 	Expect(k8sClient.Create(ctx, clusterRole)).To(Succeed())
 
 	return clusterRole

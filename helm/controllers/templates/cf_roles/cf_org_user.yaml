@@ -1,0 +1,22 @@
+# The CF Organization User Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: korifi-controllers-organization-user
+rules:
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cforgs
+  verbs:
+  - get
+  - list
+  - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfspaces
+  verbs:
+  - list
+  - get

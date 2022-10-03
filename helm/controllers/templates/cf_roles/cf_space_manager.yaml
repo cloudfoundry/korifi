@@ -1,0 +1,69 @@
+# The CF Space Manager Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: korifi-controllers-space-manager
+rules:
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfapps
+  verbs:
+  - get
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfpackages
+  verbs:
+  - get
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfprocesses
+  verbs:
+  - get
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfbuilds
+  verbs:
+  - get
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - get
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceinstances
+  verbs:
+  - list
+  - get
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - get
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cftasks
+  verbs:
+  - get
+  - list
