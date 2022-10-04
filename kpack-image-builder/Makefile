@@ -41,7 +41,13 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=korifi-kpack-build-manager-role crd:generateEmbeddedObjectMeta=true webhook paths="./..." output:rbac:artifacts:config=../helm/kpack-image-builder/templates output:webhook:artifacts:config=../helm/kpack-image-builder/templates
+	$(CONTROLLER_GEN) \
+		paths="./..." \
+		webhook \
+		rbac:roleName=korifi-kpack-build-manager-role \
+		output:webhook:artifacts:config=../helm/kpack-image-builder/templates \
+		output:rbac:artifacts:config=../helm/kpack-image-builder/templates
+
 	sed -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-kpack-build-serving-cert"' ../helm/kpack-image-builder/templates/manifests.yaml
 	sed -i.bak -e 's/name: \(webhook-service\)/name: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
 	sed -i.bak -e 's/namespace: system/namespace: "{{ .Values.namespace }}"/' ../helm/kpack-image-builder/templates/manifests.yaml
