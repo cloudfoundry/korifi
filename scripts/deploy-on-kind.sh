@@ -384,8 +384,6 @@ function deploy_statefulset_runner() {
     fi
   }
   popd >/dev/null
-
-  kubectl rollout status deployment/korifi-statefulset-runner-controller-manager -w -n korifi-statefulset-runner-system
 }
 
 ensure_kind_cluster "${cluster}"

@@ -311,13 +311,10 @@ undeploy-kpack-image-builder:
 undeploy-statefulset-runner:
 	make -C statefulset-runner undeploy
 
-set-image-ref: set-image-ref-job-task-runner set-image-ref-statefulset-runner
+set-image-ref: set-image-ref-job-task-runner
 
 set-image-ref-job-task-runner:
 	make -C job-task-runner set-image-ref
-
-set-image-ref-statefulset-runner:
-	make -C statefulset-runner set-image-ref
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.

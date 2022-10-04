@@ -64,7 +64,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		ErrorIfCRDPathMissing: false,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "config", "webhook", "generated")},
+			Paths: []string{filepath.Join("..", "..", "..", "helm", "statefulset-runner", "templates", "manifests.yaml")},
 		},
 	}
 

@@ -1,0 +1,15 @@
+global:
+  rootNamespace: cf
+  debug: false
+
+namespace: korifi-statefulset-runner-system
+replicas: 1
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+image: cloudfoundry/korifi-statefulset-runner:latest

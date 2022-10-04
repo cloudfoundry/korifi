@@ -1,33 +1,24 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: webhook-service
-  namespace: system
-spec:
-  ports:
-  - port: 443
-    protocol: TCP
-    targetPort: 9443
-  selector:
-    control-plane: controller-manager
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: mutating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-statefulset-runner-serving-cert"
+  creationTimestamp: null
+  name: korifi-statefulset-runner-mutating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: korifi-statefulset-runner-webhook-service
+      namespace: "{{ .Values.namespace }}"
       path: /mutate--v1-pod
   failurePolicy: Fail
-  name: mstspod.korifi.cloudfoundry.org
   objectSelector:
     matchLabels:
       korifi.cloudfoundry.org/add-stsr-index: "true"
+  name: mstspod.korifi.cloudfoundry.org
   rules:
   - apiGroups:
     - ""
