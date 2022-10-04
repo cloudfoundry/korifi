@@ -13,7 +13,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-kpack-build-webhook-service
-      namespace: korifi-kpack-build-system
+      namespace: "{{ .Values.namespace }}"
       path: /mutate--v1-pod
   failurePolicy: Ignore
   objectSelector:

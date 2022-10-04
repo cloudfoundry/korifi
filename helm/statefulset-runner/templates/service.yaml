@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: korifi-statefulset-runner-webhook-service
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+
+{{- if .Values.global.debug }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: korifi-statefulset-runner-controller-manager-debug-port
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+    - name: debug-30054
+      nodePort: 30054
+      port: 30054
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: korifi-statefulset-runner-controller-manager
+  type: NodePort
+{{- end }}
