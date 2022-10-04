@@ -39,10 +39,12 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
-
 .PHONY: manifests
 manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=taskworkload-manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) \
+		paths="./..." \
+		rbac:roleName=korifi-job-task-runner-taskworkload-manager-role \
+		output:rbac:artifacts:config=../helm/job-task-runner/templates
 
 .PHONY: generate
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -92,40 +94,35 @@ kind-load-image:
 
 ##@ Deployment
 
-ifndef ignore-not-found
-  ignore-not-found = false
-endif
+helm-values =
+deploy: manifests
+	helm upgrade --install job-task-runner ../helm/job-task-runner \
+		--set=image=$(IMG_JTR) \
+		$(helm-values) \
+		--wait
 
-.PHONY: deploy
-deploy: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+kind-values = --set=jobTTL=5s
+deploy-kind-local: helm-values = $(kind-values)
+deploy-kind-local: deploy
 
-.PHONY: deploy-kind-local
-deploy-kind-local: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/overlays/kind-local-registry | kubectl apply -f -
-
-.PHONY: deploy-kind-local-debug
-deploy-kind-local-debug: manifests set-image-ref ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/overlays/kind-controller-debug | kubectl apply -f -
+deploy-kind-local-debug: helm-values = $(kind-values) \
+	--set=global.debug=true
+deploy-kind-local-debug: deploy
 
 .PHONY: undeploy
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	@if helm status job-task-runner 2>/dev/null; then \
+		helm delete job-task-runner --wait; \
+	else \
+		echo "job-task-runner chart not found - skipping"; \
+	fi
 
-.PHONY: set-image-ref
-set-image-ref: kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image cloudfoundry/korifi-job-task-runner=${IMG_JTR}
 
 ##@ Build Dependencies
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: install-controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
-
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-.PHONY: kustomize
-kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:

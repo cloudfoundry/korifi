@@ -1,4 +1,0 @@
-configMapGenerator:
-- files:
-  - job_task_runner_config.yaml
-  name: config

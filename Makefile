@@ -297,10 +297,18 @@ deploy-statefulset-runner-kind-local-debug:
 undeploy: undeploy-api undeploy-job-task-runner undeploy-kpack-image-builder undeploy-statefulset-runner undeploy-controllers
 
 undeploy-api:
-	helm delete api --wait
+	@if helm status api 2>/dev/null; then \
+		helm delete api --wait; \
+	else \
+		echo "api chart not found - skipping"; \
+	fi
 
 undeploy-controllers:
-	helm delete controllers --wait
+	@if helm status controllers 2>/dev/null; then \
+		helm delete controllers --wait; \
+	else \
+		echo "controllers chart not found - skipping"; \
+	fi
 
 undeploy-job-task-runner:
 	make -C job-task-runner undeploy
@@ -311,18 +319,9 @@ undeploy-kpack-image-builder:
 undeploy-statefulset-runner:
 	make -C statefulset-runner undeploy
 
-set-image-ref: set-image-ref-job-task-runner
-
-set-image-ref-job-task-runner:
-	make -C job-task-runner set-image-ref
-
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
-
-KUSTOMIZE = $(shell pwd)/controllers/bin/kustomize
-install-kustomize: ## Download kustomize locally if necessary.
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:

@@ -1,9 +1,9 @@
----
+{{- if .Values.global.debug }}
 apiVersion: v1
 kind: Service
 metadata:
   name: korifi-job-task-runner-controller-manager-debug-port
-  namespace: korifi-job-task-runner-system
+  name: {{ .Values.namespace }}
 spec:
   ports:
     - name: debug-30055
@@ -14,3 +14,4 @@ spec:
   selector:
     app: korifi-job-task-runner-controller-manager
   type: NodePort
+{{- end }}
