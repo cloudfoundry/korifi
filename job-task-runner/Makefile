@@ -111,7 +111,11 @@ deploy-kind-local-debug: deploy
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	helm delete job-task-runner --wait
+	@if helm status job-task-runner 2>/dev/null; then \
+		helm delete job-task-runner --wait; \
+	else \
+		echo "job-task-runner chart not found - skipping"; \
+	fi
 
 
 ##@ Build Dependencies

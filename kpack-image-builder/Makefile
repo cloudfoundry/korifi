@@ -116,7 +116,11 @@ deploy-kind-local-debug: deploy
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	helm delete kpack-image-builder --wait
+	@if helm status kpack-image-builder 2>/dev/null; then \
+		helm delete kpack-image-builder --wait; \
+	else \
+		echo "kpack-image-builder chart not found - skipping"; \
+	fi
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: install-controller-gen

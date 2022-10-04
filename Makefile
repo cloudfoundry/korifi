@@ -297,10 +297,18 @@ deploy-statefulset-runner-kind-local-debug:
 undeploy: undeploy-api undeploy-job-task-runner undeploy-kpack-image-builder undeploy-statefulset-runner undeploy-controllers
 
 undeploy-api:
-	helm delete api --wait
+	@if helm status api 2>/dev/null; then \
+		helm delete api --wait; \
+	else \
+		echo "api chart not found - skipping"; \
+	fi
 
 undeploy-controllers:
-	helm delete controllers --wait
+	@if helm status controllers 2>/dev/null; then \
+		helm delete controllers --wait; \
+	else \
+		echo "controllers chart not found - skipping"; \
+	fi
 
 undeploy-job-task-runner:
 	make -C job-task-runner undeploy

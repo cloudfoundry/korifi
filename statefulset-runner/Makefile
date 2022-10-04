@@ -119,7 +119,11 @@ deploy-kind-local-debug: deploy
 
 .PHONY: undeploy
 undeploy:
-	helm delete statefulset-runner --wait
+	@if helm status statefulset-runner 2>/dev/null; then \
+		helm delete statefulset-runner --wait; \
+	else \
+		echo "statefulset-runner chart not found - skipping"; \
+	fi
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: install-controller-gen
