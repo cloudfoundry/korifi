@@ -13,7 +13,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
   name: mcfapp.korifi.cloudfoundry.org
@@ -34,7 +34,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfbuild
   failurePolicy: Fail
   name: mcfbuild.korifi.cloudfoundry.org
@@ -55,7 +55,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfpackage
   failurePolicy: Fail
   name: mcfpackage.korifi.cloudfoundry.org
@@ -76,7 +76,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess
   failurePolicy: Fail
   name: mcfprocess.korifi.cloudfoundry.org
@@ -97,7 +97,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfroute
   failurePolicy: Fail
   name: mcfroute.korifi.cloudfoundry.org
@@ -126,7 +126,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cfdomain
   failurePolicy: Fail
   name: vcfdomain.korifi.cloudfoundry.org
@@ -147,7 +147,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cfroute
   failurePolicy: Fail
   name: vcfroute.korifi.cloudfoundry.org
@@ -169,7 +169,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding
   failurePolicy: Fail
   name: vcfservicebinding.korifi.cloudfoundry.org
@@ -191,7 +191,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance
   failurePolicy: Fail
   name: vcfserviceinstance.korifi.cloudfoundry.org
@@ -213,7 +213,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cfapp
   failurePolicy: Fail
   name: vcfapp.korifi.cloudfoundry.org
@@ -235,7 +235,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cforg
   failurePolicy: Fail
   name: vcforg.korifi.cloudfoundry.org
@@ -257,7 +257,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cfspace
   failurePolicy: Fail
   name: vcfspace.korifi.cloudfoundry.org
@@ -279,7 +279,7 @@ webhooks:
   clientConfig:
     service:
       name: korifi-controllers-webhook-service
-      namespace: korifi-controllers-system
+      namespace: "{{ .Values.namespace }}"
       path: /validate-korifi-cloudfoundry-org-v1alpha1-cftask
   failurePolicy: Fail
   name: vcftask.korifi.cloudfoundry.org

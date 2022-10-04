@@ -44,7 +44,7 @@ manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole 
 	$(CONTROLLER_GEN) rbac:roleName=korifi-kpack-build-manager-role crd:generateEmbeddedObjectMeta=true webhook paths="./..." output:rbac:artifacts:config=../helm/kpack-image-builder/templates output:webhook:artifacts:config=../helm/kpack-image-builder/templates
 	sed -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-kpack-build-serving-cert"' ../helm/kpack-image-builder/templates/manifests.yaml
 	sed -i.bak -e 's/name: \(webhook-service\)/name: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
-	sed -i.bak -e 's/namespace: \(system\)/namespace: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
+	sed -i.bak -e 's/namespace: system/namespace: "{{ .Values.namespace }}"/' ../helm/kpack-image-builder/templates/manifests.yaml
 	sed -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
 	sed -i.bak -e '/failurePolicy:.*/a\  objectSelector:\n    matchExpressions:\n    - key: kpack.io/build\n      operator: Exists\n    - key: korifi.cloudfoundry.org/build-workload-name\n      operator: Exists' ../helm/kpack-image-builder/templates/manifests.yaml
 	rm -f ../helm/kpack-image-builder/templates/manifests.yaml.bak

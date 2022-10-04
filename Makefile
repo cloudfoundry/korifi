@@ -54,7 +54,7 @@ manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, 
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=korifi-controllers-manager-role webhook paths="./controllers/..." output:crd:artifacts:config=helm/controllers/templates/crd output:rbac:artifacts:config=helm/controllers/templates output:webhook:artifacts:config=helm/controllers/templates
 	sed -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-controllers-serving-cert"' helm/controllers/templates/manifests.yaml
 	sed -i.bak -e 's/name: \(webhook-service\)/name: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
-	sed -i.bak -e 's/namespace: \(system\)/namespace: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
+	sed -i.bak -e 's/namespace: system/namespace: "{{ .Values.namespace }}"/' helm/controllers/templates/manifests.yaml
 	sed -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
 	rm -f helm/controllers/templates/manifests.yaml.bak
 
