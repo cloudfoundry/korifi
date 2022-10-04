@@ -111,19 +111,6 @@ if [[ -n "${debug}" ]]; then
   fi
 fi
 
-# undo *_IMG changes in config and reference
-function clean_up_img_refs() {
-  echo
-  echo "Resetting image references..."
-  cd "${ROOT_DIR}"
-  unset IMG_CONTROLLERS
-  unset IMG_API
-  unset IMG_JTR
-  unset IMG_KIB
-  unset IMG_SSR
-  make set-image-ref
-}
-
 function ensure_kind_cluster() {
   if [[ -n "${controllers_only}" ]]; then return 0; fi
   if [[ -n "${api_only}" ]]; then return 0; fi
@@ -318,8 +305,6 @@ function deploy_job_task_runner() {
     fi
   }
   popd >/dev/null
-
-  kubectl rollout status deployment/korifi-job-task-runner-controller-manager -w -n korifi-job-task-runner-system
 }
 
 function deploy_kpack_image_builder() {
@@ -390,7 +375,6 @@ ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
 
-trap 'clean_up_img_refs' EXIT
 deploy_korifi_controllers
 deploy_job_task_runner
 deploy_kpack_image_builder
