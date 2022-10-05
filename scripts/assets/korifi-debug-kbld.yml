@@ -1,0 +1,33 @@
+---
+apiVersion: kbld.k14s.io/v1alpha1
+kind: Config
+sources:
+- image: cloudfoundry/korifi-api:latest
+  path: .
+  docker:
+    buildx:
+      file: api/remote-debug/Dockerfile
+
+- image: cloudfoundry/korifi-controllers:latest
+  path: .
+  docker:
+    buildx:
+      file: controllers/remote-debug/Dockerfile
+
+- image: cloudfoundry/korifi-job-task-runner:latest
+  path: .
+  docker:
+    buildx:
+      file: job-task-runner/remote-debug/Dockerfile
+
+- image: cloudfoundry/korifi-kpack-image-builder:latest
+  path: .
+  docker:
+    buildx:
+      file: kpack-image-builder/remote-debug/Dockerfile
+
+- image: cloudfoundry/korifi-statefulset-runner:latest
+  path: .
+  docker:
+    buildx:
+      file: statefulset-runner/remote-debug/Dockerfile

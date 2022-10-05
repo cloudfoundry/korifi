@@ -1,0 +1,18 @@
+global:
+  rootNamespace: cf
+  debug: false
+
+api:
+  image: cloudfoundry/korifi-api:latest
+
+controllers:
+  image: cloudfoundry/korifi-controllers:latest
+
+kpack-image-builder:
+  image: cloudfoundry/korifi-kpack-image-builder:latest
+
+statefulset-runner:
+  image: cloudfoundry/korifi-statefulset-runner:latest
+
+job-task-runner:
+  image: cloudfoundry/korifi-job-task-runner:latest

@@ -100,9 +100,6 @@ docker-build-debug: ## Build docker image with the manager.
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG_SSR}
 
-kind-load-image:
-	kind load docker-image --name ${CLUSTER_NAME} ${IMG_SSR}
-
 ##@ Deployment
 
 helm-values =
