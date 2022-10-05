@@ -1,6 +1,0 @@
-apiVersion: korifi.cloudfoundry.org/v1alpha1
-kind: BuilderInfo
-metadata:
-  name: kpack-image-builder
-  namespace: {{ .Values.global.rootNamespace }}
-spec: null

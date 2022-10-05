@@ -58,7 +58,7 @@ manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, 
 		crd \
 		rbac:roleName=korifi-controllers-manager-role \
 		webhook \
-		output:crd:artifacts:config=helm/korifi/crds \
+		output:crd:artifacts:config=helm/controllers/templates/crds \
 		output:rbac:artifacts:config=helm/controllers/templates \
 		output:webhook:artifacts:config=helm/controllers/templates
 
