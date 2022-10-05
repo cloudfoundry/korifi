@@ -1,6 +1,7 @@
 global:
   rootNamespace: cf
   debug: false
+  defaultAppDomainName: apps.my-cf-domain.com
 
 include: true
 namespace: korifi-controllers-system
