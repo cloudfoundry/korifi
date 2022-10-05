@@ -1,0 +1,33 @@
+---
+apiVersion: kbld.k14s.io/v1alpha1
+kind: Config
+sources:
+- image: cloudfoundry/korifi-api:latest
+  path: .
+  docker:
+    buildx:
+      file: api/Dockerfile
+
+- image: cloudfoundry/korifi-controllers:latest
+  path: .
+  docker:
+    buildx:
+      file: controllers/Dockerfile
+
+- image: cloudfoundry/korifi-job-task-runner:latest
+  path: .
+  docker:
+    buildx:
+      file: job-task-runner/Dockerfile
+
+- image: cloudfoundry/korifi-kpack-image-builder:latest
+  path: .
+  docker:
+    buildx:
+      file: kpack-image-builder/Dockerfile
+
+- image: cloudfoundry/korifi-statefulset-runner:latest
+  path: .
+  docker:
+    buildx:
+      file: statefulset-runner/Dockerfile

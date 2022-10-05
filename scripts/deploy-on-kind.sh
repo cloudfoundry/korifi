@@ -22,16 +22,6 @@ flags:
   -v, --verbose
       Verbose output (bash -x).
 
-  -c, --controllers-only
-      Skips all steps except for building and installing
-      controllers. (This will fail unless the script is
-      being re-run.)
-
-  -a, --api-only
-      Skips all steps except for building and installing
-      the API shim. (This will fail unless the script is
-      being re-run.)
-
   -d, --default-domain
       Creates the vcap.me CF domain.
 
@@ -50,8 +40,6 @@ EOF
 
 cluster=""
 use_local_registry=""
-controllers_only=""
-api_only=""
 default_domain=""
 debug=""
 
@@ -60,14 +48,6 @@ while [[ $# -gt 0 ]]; do
   case $i in
     -l | --use-local-registry)
       use_local_registry="true"
-      shift
-      ;;
-    -c | --controllers-only)
-      controllers_only="true"
-      shift
-      ;;
-    -a | --api-only)
-      api_only="true"
       shift
       ;;
     -d | --default-domain)
@@ -112,9 +92,6 @@ if [[ -n "${debug}" ]]; then
 fi
 
 function ensure_kind_cluster() {
-  if [[ -n "${controllers_only}" ]]; then return 0; fi
-  if [[ -n "${api_only}" ]]; then return 0; fi
-
   if ! kind get clusters | grep -q "${cluster}"; then
     cat <<EOF | kind create cluster --name "${cluster}" --wait 5m --config=-
 kind: Cluster
@@ -165,8 +142,6 @@ EOF
 
 function ensure_local_registry() {
   if [[ -z "${use_local_registry}" ]]; then return 0; fi
-  if [[ -n "${controllers_only}" ]]; then return 0; fi
-  if [[ -n "${api_only}" ]]; then return 0; fi
 
   helm repo add twuni https://helm.twun.io
   # the htpasswd value below is username: user, password: password encoded using `htpasswd` binary
@@ -178,9 +153,6 @@ function ensure_local_registry() {
 }
 
 function install_dependencies() {
-  if [[ -n "${controllers_only}" ]]; then return 0; fi
-  if [[ -n "${api_only}" ]]; then return 0; fi
-
   pushd "${ROOT_DIR}" >/dev/null
   {
     if [[ -n "${use_local_registry}" ]]; then
@@ -197,186 +169,54 @@ function install_dependencies() {
   popd >/dev/null
 }
 
-function deploy_korifi_controllers() {
-  if [[ -n "${api_only}" ]]; then return 0; fi
-  echo "Deploying korifi-controllers..."
-
+function deploy_korifi() {
   pushd "${ROOT_DIR}" >/dev/null
   {
-    export IMG_CONTROLLERS=${IMG_CONTROLLERS:-"korifi-controllers:$(korifiCodeSha)"}
-    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
-
-    make generate-controllers
 
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      if [[ -z "${debug}" ]]; then
-        make docker-build-controllers
-      else
-        make docker-build-controllers-debug
+      echo "Building korifi values file..."
+
+      make generate manifests
+
+      kbld_file="scripts/assets/korifi-kbld.yml"
+      if [[ -n "$debug" ]]; then
+        kbld_file="scripts/assets/korifi-debug-kbld.yml"
       fi
+
+      kbld \
+        -f "$kbld_file" \
+        -f "scripts/assets/values-template.yaml" \
+        --images-annotation=false >"scripts/assets/values.yaml"
+
+      awk '/image:/ {print $2}' scripts/assets/values.yaml | while read -r img; do
+        kind load docker-image --name "$cluster" "$img"
+      done
     fi
 
-    CLUSTER_NAME="$cluster" make kind-load-controllers-image
+    echo "Deploying korifi..."
+    helm dependency update helm/korifi
 
-    if [[ -n "${use_local_registry}" ]]; then
-      if [[ -z "${debug}" ]]; then
-        make deploy-controllers-kind-local
-      else
-        make deploy-controllers-kind-local-debug
-      fi
-    else
-      make deploy-controllers
+    doDebug="false"
+    if [[ -n "${debug}" ]]; then
+      doDebug="true"
     fi
+
+    helm upgrade --install korifi helm/korifi \
+      --values=scripts/assets/values.yaml \
+      --set=global.debug="$doDebug" \
+      --wait
 
     create_tls_cert "korifi-workloads-ingress-cert" "korifi-controllers" "\*.vcap.me"
+    create_tls_cert "korifi-api-ingress-cert" "korifi-api" "api.vcap.me"
   }
   popd >/dev/null
-
-  kubectl rollout status deployment/korifi-controllers-controller-manager -w -n korifi-controllers-system
 
   if [[ -n "${default_domain}" ]]; then
     sed 's/vcap\.me/'${APP_FQDN:-vcap.me}'/' ${CONTROLLER_DIR}/config/samples/cfdomain.yaml | kubectl apply -f-
   fi
 }
 
-function korifiCodeSha() {
-  find "$ROOT_DIR" -type f -name "*.go" -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -d " " -f 1
-
-}
-
-function deploy_korifi_api() {
-  if [[ -n "${controllers_only}" ]]; then return 0; fi
-  echo "Deploying korifi-api..."
-
-  pushd "${ROOT_DIR}" >/dev/null
-  {
-    export IMG_API=${IMG_API:-"korifi-api:$(korifiCodeSha)"}
-
-    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      if [[ -z "${debug}" ]]; then
-        make docker-build-api
-      else
-        make docker-build-api-debug
-      fi
-    fi
-
-    CLUSTER_NAME="$cluster" make kind-load-api-image
-
-    if [[ -n "${use_local_registry}" ]]; then
-      if [[ -z "${debug}" ]]; then
-        make deploy-api-kind-local
-      else
-        make deploy-api-kind-local-debug
-      fi
-    else
-      make deploy-api-kind
-    fi
-
-    create_tls_cert "korifi-api-ingress-cert" "korifi-api" "api.vcap.me"
-  }
-  popd >/dev/null
-}
-
-function deploy_job_task_runner() {
-  if [[ -n "${api_only}" ]]; then return 0; fi
-  echo "Deploying job-task-runner..."
-
-  pushd "${ROOT_DIR}/job-task-runner" >/dev/null
-  {
-    export IMG_JTR=${IMG_JTR:-"korifi-job-task-runner:$(korifiCodeSha)"}
-    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
-
-    make generate
-
-    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      if [[ -z "${debug}" ]]; then
-        make docker-build
-      else
-        make docker-build-debug
-      fi
-    fi
-
-    CLUSTER_NAME="$cluster" make kind-load-image
-
-    if [[ -n "${debug}" ]]; then
-      make deploy-kind-local-debug
-    else
-      make deploy
-    fi
-  }
-  popd >/dev/null
-}
-
-function deploy_kpack_image_builder() {
-  if [[ -n "${api_only}" ]]; then return 0; fi
-  echo "Deploying kpack-image-builder..."
-
-  pushd "${ROOT_DIR}/kpack-image-builder" >/dev/null
-  {
-    export IMG_KIB=${IMG_KIB:-"korifi-kpack-image-builder:$(korifiCodeSha)"}
-    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
-
-    make generate
-
-    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      if [[ -z "${debug}" ]]; then
-        make docker-build
-      else
-        make docker-build-debug
-      fi
-    fi
-
-    CLUSTER_NAME="$cluster" make kind-load-image
-
-    if [[ -n "${use_local_registry}" ]]; then
-      if [[ -z "${debug}" ]]; then
-        make deploy-kind-local
-      else
-        make deploy-kind-local-debug
-      fi
-    else
-      make deploy
-    fi
-  }
-  popd >/dev/null
-}
-
-function deploy_statefulset_runner() {
-  if [[ -n "${api_only}" ]]; then return 0; fi
-  echo "Deploying statefulset-runner..."
-
-  pushd "${ROOT_DIR}/statefulset-runner" >/dev/null
-  {
-    export IMG_SSR=${IMG_SSR:-"korifi-statefulset-runner:$(korifiCodeSha)"}
-    export KUBEBUILDER_ASSETS="${ROOT_DIR}/testbin/bin"
-
-    make generate
-
-    if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
-      if [[ -z "${debug}" ]]; then
-        make docker-build
-      else
-        make docker-build-debug
-      fi
-    fi
-
-    CLUSTER_NAME="$cluster" make kind-load-image
-
-    if [[ -n "${debug}" ]]; then
-      make deploy-kind-local-debug
-    else
-      make deploy
-    fi
-  }
-  popd >/dev/null
-}
-
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
-
-deploy_korifi_controllers
-deploy_job_task_runner
-deploy_kpack_image_builder
-deploy_statefulset_runner
-deploy_korifi_api
+deploy_korifi

@@ -58,7 +58,7 @@ manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, 
 		crd \
 		rbac:roleName=korifi-controllers-manager-role \
 		webhook \
-		output:crd:artifacts:config=helm/controllers/templates/crd \
+		output:crd:artifacts:config=helm/korifi/crds \
 		output:rbac:artifacts:config=helm/controllers/templates \
 		output:webhook:artifacts:config=helm/controllers/templates
 
@@ -195,23 +195,6 @@ docker-push-kpack-image-builder:
 
 docker-push-statefulset-runner:
 	make -C statefulset-runner docker-push
-
-kind-load-images: kind-load-api-image kind-load-controllers-image kind-load-job-task-runner-image kind-load-kpack-image-builder-image kind-load-statefulset-runner-image
-
-kind-load-api-image:
-	kind load docker-image --name ${CLUSTER_NAME} ${IMG_API}
-
-kind-load-controllers-image:
-	kind load docker-image --name ${CLUSTER_NAME} ${IMG_CONTROLLERS}
-
-kind-load-job-task-runner-image:
-	make -C job-task-runner kind-load-image
-
-kind-load-kpack-image-builder-image:
-	make -C kpack-image-builder kind-load-image
-
-kind-load-statefulset-runner-image:
-	make -C statefulset-runner kind-load-image
 
 ##@ Deployment
 
