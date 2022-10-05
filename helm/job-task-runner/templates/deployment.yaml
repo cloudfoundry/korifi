@@ -42,7 +42,7 @@ spec:
         env:
         - name: JOBTASKRUNNERCONFIG
           value: /etc/korifi-job-task-runner-config
-        image: cloudfoundry/korifi-job-task-runner:latest
+        image: {{ .Values.image }}
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
