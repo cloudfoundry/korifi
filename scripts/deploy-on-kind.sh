@@ -4,11 +4,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="${ROOT_DIR}/scripts"
-API_DIR="${ROOT_DIR}/api"
-CONTROLLER_DIR="${ROOT_DIR}/controllers"
-export PATH="${PATH}:${API_DIR}/bin"
-
-source "$SCRIPT_DIR/common.sh"
 
 function usage_text() {
   cat <<EOF
@@ -197,9 +192,6 @@ function deploy_korifi() {
       --values=scripts/assets/values.yaml \
       --set=global.debug="$doDebug" \
       --wait
-
-    create_tls_cert "korifi-workloads-ingress-cert" "korifi-controllers" "\*.vcap.me"
-    create_tls_cert "korifi-api-ingress-cert" "korifi-api" "api.vcap.me"
   }
   popd >/dev/null
 }

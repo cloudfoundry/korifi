@@ -2,6 +2,7 @@ global:
   rootNamespace: cf
   debug: false
   defaultAppDomainName: apps.my-cf-domain.com
+  generateIngressCertificates: false
 
 include: true
 namespace: korifi-api-system
