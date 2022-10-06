@@ -6,7 +6,7 @@ metadata:
 data:
   korifi_api_config.yaml: |
     externalFQDN: {{ .Values.apiServer.url }}
-    externalPort: {{ .Values.externalPort }}
+    externalPort: {{ .Values.externalPort | default 0 }}
     internalPort: {{ .Values.apiServer.internalPort }}
     idleTimeout: {{ .Values.apiServer.timeouts.idle }}
     readTimeout: {{ .Values.apiServer.timeouts.read }}
@@ -23,8 +23,8 @@ data:
     packageRegistrySecretName: {{ .Values.packageRegistry.secret }}
     defaultDomainName: {{ .Values.global.defaultAppDomainName }}
     userCertificateExpirationWarningDuration: {{ .Values.userCertificateExpirationWarningDuration }}
-    authProxyHost: {{ .Values.authProxy.host }}
-    authProxyCACert: {{ .Values.authProxy.caCert }}
+    authProxyHost: "{{ .Values.authProxy.host }}"
+    authProxyCACert: "{{ .Values.authProxy.caCert }}"
 
   role_mappings_config.yaml: |
     roleMappings:
