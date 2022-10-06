@@ -80,48 +80,7 @@ fi
 
 function ensure_kind_cluster() {
   if ! kind get clusters | grep -q "${cluster}"; then
-    cat <<EOF | kind create cluster --name "${cluster}" --wait 5m --config=-
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry]
-    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localregistry-docker-registry.default.svc.cluster.local:30050"]
-        endpoint = ["http://127.0.0.1:30050"]
-    [plugins."io.containerd.grpc.v1.cri".registry.configs]
-      [plugins."io.containerd.grpc.v1.cri".registry.configs."127.0.0.1:30050".tls]
-        insecure_skip_verify = true
-featureGates:
-  EphemeralContainers: true
-nodes:
-- role: control-plane
-  extraPortMappings:
-  - containerPort: 80
-    hostPort: 80
-    protocol: TCP
-  - containerPort: 443
-    hostPort: 443
-    protocol: TCP
-  - containerPort: 30050
-    hostPort: 30050
-    protocol: TCP
-  - containerPort: 30051
-    hostPort: 30051
-    protocol: TCP
-  - containerPort: 30052
-    hostPort: 30052
-    protocol: TCP
-  - containerPort: 30053
-    hostPort: 30053
-    protocol: TCP
-  - containerPort: 30054
-    hostPort: 30054
-    protocol: TCP
-  - containerPort: 30055
-    hostPort: 30055
-    protocol: TCP
-EOF
+    kind create cluster --name "${cluster}" --wait 5m --config="$SCRIPT_DIR/assets/kind-config.yaml"
   fi
 
   kind export kubeconfig --name "${cluster}"
@@ -142,13 +101,6 @@ function ensure_local_registry() {
 function install_dependencies() {
   pushd "${ROOT_DIR}" >/dev/null
   {
-    if [[ -n "${use_local_registry}" ]]; then
-      export DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
-      export DOCKER_USERNAME="user"
-      export DOCKER_PASSWORD="password"
-      export KPACK_TAG="localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta"
-    fi
-
     export INSECURE_TLS_METRICS_SERVER=true
 
     "${SCRIPT_DIR}/install-dependencies.sh"
@@ -196,7 +148,27 @@ function deploy_korifi() {
   popd >/dev/null
 }
 
+function create_registry_secret() {
+  if [[ -n "${use_local_registry}" ]]; then
+    DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
+    DOCKER_USERNAME="user"
+    DOCKER_PASSWORD="password"
+  fi
+
+  if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSWORD:=}" ]]; then
+    if kubectl get -n cf secret image-registry-credentials >/dev/null 2>&1; then
+      kubectl delete -n cf secret image-registry-credentials
+    fi
+
+    kubectl create secret -n cf docker-registry image-registry-credentials \
+      --docker-server=${DOCKER_SERVER} \
+      --docker-username=${DOCKER_USERNAME} \
+      --docker-password="${DOCKER_PASSWORD}"
+  fi
+}
+
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
 deploy_korifi
+create_registry_secret

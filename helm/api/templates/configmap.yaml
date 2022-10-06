@@ -19,8 +19,8 @@ data:
       stack: {{ .Values.lifecycle.stack }}
       stagingMemoryMB: {{ .Values.lifecycle.stagingRequirements.memoryMB }}
       stagingDiskMB: {{ .Values.lifecycle.stagingRequirements.diskMB }}
-    packageRegistryBase: {{ .Values.packageRegistry.base }}
-    packageRegistrySecretName: {{ .Values.packageRegistry.secret }}
+    packageRegistryBase: {{ .Values.packageRegistry }}
+    packageRegistrySecretName: {{ .Values.global.packageRegistrySecret }}
     defaultDomainName: {{ .Values.global.defaultAppDomainName }}
     userCertificateExpirationWarningDuration: {{ .Values.userCertificateExpirationWarningDuration }}
     authProxyHost: "{{ .Values.authProxy.host }}"

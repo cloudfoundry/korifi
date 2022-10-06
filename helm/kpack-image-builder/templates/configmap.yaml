@@ -7,5 +7,4 @@ data:
   kpack_build_controllers_config.yaml: |
     cfRootNamespace: {{ .Values.global.rootNamespace }}
     clusterBuilderName: {{ .Values.clusterBuilderName }}
-    kpackImageTag: {{ .Values.packageRegistry.base }}
-    packageRegistrySecretName: {{ .Values.packageRegistry.secret }}
+    kpackImageTag: {{ .Values.packageRegistry }}

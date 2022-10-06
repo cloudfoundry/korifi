@@ -3,6 +3,7 @@ global:
   debug: false
   defaultAppDomainName: apps.my-cf-domain.com
   generateIngressCertificates: false
+  packageRegistrySecret: image-registry-credentials
 
 include: true
 namespace: korifi-api-system
@@ -33,10 +34,7 @@ lifecycle:
     diskMB: 1024
 
 builderName: kpack-image-builder
-packageRegistry:
-  # The container registry where app source packages will be stored
-  base: registry-org/package-repo-name
-  secret: image-registry-credentials
+packageRegistry: registry-org/package-repo-name
 userCertificateExpirationWarningDuration: 168h
 
 authProxy:
