@@ -15,9 +15,6 @@ Usage:
   $(basename "$0")
 
 flags:
-  -g, --gcr-service-account-json
-      (optional) Filepath to the GCP Service Account JSON describing a service account
-      that has permissions to write to the project's container repository.
   -i, --insecure-tls-metrics-server
       (optional) Provide insecure TLS args to Metrics Server. This is useful for distributions such as Kind, Minikube, etc.
 EOF
@@ -27,14 +24,6 @@ EOF
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
-    -g=* | --gcr-service-account-json=*)
-      GCP_SERVICE_ACCOUNT_JSON_FILE="${i#*=}"
-      shift
-      ;;
-    -g | --gcr-service-account-json)
-      GCP_SERVICE_ACCOUNT_JSON_FILE="${2}"
-      shift 2
-      ;;
     -i | --insecure-tls-metrics-server)
       INSECURE_TLS_METRICS_SERVER=true
       shift
@@ -46,12 +35,6 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-
-echo "************************************************"
-echo " Creating CF Namespace and cf-admin RoleBinding"
-echo "************************************************"
-
-kubectl apply -f "${DEP_DIR}/cf-setup.yaml"
 
 echo "**************************"
 echo " Creating 'cf-admin' user"
@@ -78,36 +61,6 @@ kubectl apply -f "$VENDOR_DIR/kpack"
 # become ready on M1 Macs. With this change the ClusterBuilder becomes ready in the time it takes this script to run.
 kubectl patch -n kpack deployment kpack-controller -p \
   '{"spec": {"template": {"spec": {"containers": [{"name": "controller", "resources": {"limits": {"cpu": "500m"}}}]}}}}'
-
-if [[ -n "${GCP_SERVICE_ACCOUNT_JSON_FILE:=}" ]]; then
-  DOCKER_SERVER="gcr.io"
-  DOCKER_USERNAME="_json_key"
-  DOCKER_PASSWORD="$(cat ${GCP_SERVICE_ACCOUNT_JSON_FILE})"
-fi
-if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSWORD:=}" ]]; then
-  if kubectl get -n cf secret image-registry-credentials >/dev/null 2>&1; then
-    kubectl delete -n cf secret image-registry-credentials
-  fi
-
-  kubectl create secret -n cf docker-registry image-registry-credentials \
-    --docker-server=${DOCKER_SERVER} \
-    --docker-username=${DOCKER_USERNAME} \
-    --docker-password="${DOCKER_PASSWORD}"
-fi
-
-kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterbuilders.kpack.io
-kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstores.kpack.io
-kubectl -n kpack wait --for condition=established --timeout=60s crd/clusterstacks.kpack.io
-
-kubectl apply -f "${DEP_DIR}/kpack/service_account.yaml"
-kubectl apply -f "${DEP_DIR}/kpack/cluster_stack.yaml" \
-  -f "${DEP_DIR}/kpack/cluster_store.yaml"
-
-if [[ -n "${KPACK_TAG:=}" ]]; then
-  sed "s|tag: gcr\.io.*$|tag: $KPACK_TAG|" "$DEP_DIR/kpack/cluster_builder.yaml" | kubectl apply -f-
-else
-  kubectl apply -f "${DEP_DIR}/kpack/cluster_builder.yaml"
-fi
 
 echo "********************"
 echo " Installing Contour"

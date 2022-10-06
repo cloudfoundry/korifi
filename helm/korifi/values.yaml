@@ -3,6 +3,10 @@ global:
   debug: false
   defaultAppDomainName: apps.my-cf-domain.com
   generateIngressCertificates: false
+  packageRegistrySecret: image-registry-credentials
+
+createAdminUser: false
+adminUserName: cf-admin
 
 api:
   image: cloudfoundry/korifi-api:latest
