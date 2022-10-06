@@ -20,7 +20,6 @@ import (
 
 var _ = Describe("Spaces", func() {
 	const spacesBase = "/v3/spaces"
-	const registryCredentialsSecretName = "image-registry-credentials"
 
 	var (
 		now           time.Time
