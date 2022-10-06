@@ -41,7 +41,6 @@ var _ = Describe("Spaces", func() {
 
 		spaceHandler = apis.NewSpaceHandler(
 			*serverURL,
-			registryCredentialsSecretName,
 			spaceRepo,
 			decoderValidator,
 		)

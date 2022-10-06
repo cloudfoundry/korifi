@@ -237,7 +237,6 @@ func main() {
 
 		handlers.NewSpaceHandler(
 			*serverURL,
-			config.PackageRegistrySecretName,
 			spaceRepo,
 			decoderValidator,
 		),

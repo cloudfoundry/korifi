@@ -109,9 +109,8 @@ var _ = Describe("SpaceRepository", func() {
 			}
 
 			space, createErr = spaceRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
-				Name:                     spaceName,
-				OrganizationGUID:         orgGUID,
-				ImageRegistryCredentials: "imageRegistryCredentials",
+				Name:             spaceName,
+				OrganizationGUID: orgGUID,
 			})
 		})
 
