@@ -1,6 +1,8 @@
 global:
   rootNamespace: cf
   debug: false
+  defaultAppDomainName: apps.my-cf-domain.com
+  generateIngressCertificates: false
 
 include: true
 namespace: korifi-api-system
@@ -35,7 +37,6 @@ packageRegistry:
   # The container registry where app source packages will be stored
   base: registry-org/package-repo-name
   secret: image-registry-credentials
-defaultDomainName: apps.my-cf-domain.com
 userCertificateExpirationWarningDuration: 168h
 
 authProxy:

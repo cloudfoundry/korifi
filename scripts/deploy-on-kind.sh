@@ -4,11 +4,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="${ROOT_DIR}/scripts"
-API_DIR="${ROOT_DIR}/api"
-CONTROLLER_DIR="${ROOT_DIR}/controllers"
-export PATH="${PATH}:${API_DIR}/bin"
-
-source "$SCRIPT_DIR/common.sh"
 
 function usage_text() {
   cat <<EOF
@@ -21,9 +16,6 @@ flags:
 
   -v, --verbose
       Verbose output (bash -x).
-
-  -d, --default-domain
-      Creates the vcap.me CF domain.
 
   -D, --debug
       Builds controller and api images with debugging hooks and
@@ -40,7 +32,6 @@ EOF
 
 cluster=""
 use_local_registry=""
-default_domain=""
 debug=""
 
 while [[ $# -gt 0 ]]; do
@@ -48,10 +39,6 @@ while [[ $# -gt 0 ]]; do
   case $i in
     -l | --use-local-registry)
       use_local_registry="true"
-      shift
-      ;;
-    -d | --default-domain)
-      default_domain="true"
       shift
       ;;
     -D | --debug)
@@ -205,15 +192,8 @@ function deploy_korifi() {
       --values=scripts/assets/values.yaml \
       --set=global.debug="$doDebug" \
       --wait
-
-    create_tls_cert "korifi-workloads-ingress-cert" "korifi-controllers" "\*.vcap.me"
-    create_tls_cert "korifi-api-ingress-cert" "korifi-api" "api.vcap.me"
   }
   popd >/dev/null
-
-  if [[ -n "${default_domain}" ]]; then
-    sed 's/vcap\.me/'${APP_FQDN:-vcap.me}'/' ${CONTROLLER_DIR}/config/samples/cfdomain.yaml | kubectl apply -f-
-  fi
 }
 
 ensure_kind_cluster "${cluster}"
