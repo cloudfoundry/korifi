@@ -38,4 +38,4 @@ spec:
         command:
         - sh
         - -c
-        - "kubectl -n {{ .Values.global.rootNamespace }} delete builderinfo kpack-image-builder"
+        - "kubectl -n {{ .Values.global.rootNamespace }} delete builderinfo kpack-image-builder --ignore-not-found"
