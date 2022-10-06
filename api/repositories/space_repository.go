@@ -22,9 +22,8 @@ const (
 )
 
 type CreateSpaceMessage struct {
-	Name                     string
-	OrganizationGUID         string
-	ImageRegistryCredentials string
+	Name             string
+	OrganizationGUID string
 }
 
 type ListSpacesMessage struct {

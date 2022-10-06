@@ -33,20 +33,18 @@ type SpaceRepository interface {
 }
 
 type SpaceHandler struct {
-	handlerWrapper          *AuthAwareHandlerFuncWrapper
-	spaceRepo               SpaceRepository
-	apiBaseURL              url.URL
-	imageRegistrySecretName string
-	decoderValidator        *DecoderValidator
+	handlerWrapper   *AuthAwareHandlerFuncWrapper
+	spaceRepo        SpaceRepository
+	apiBaseURL       url.URL
+	decoderValidator *DecoderValidator
 }
 
-func NewSpaceHandler(apiBaseURL url.URL, imageRegistrySecretName string, spaceRepo SpaceRepository, decoderValidator *DecoderValidator) *SpaceHandler {
+func NewSpaceHandler(apiBaseURL url.URL, spaceRepo SpaceRepository, decoderValidator *DecoderValidator) *SpaceHandler {
 	return &SpaceHandler{
-		handlerWrapper:          NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("SpaceHandler")),
-		apiBaseURL:              apiBaseURL,
-		imageRegistrySecretName: imageRegistrySecretName,
-		spaceRepo:               spaceRepo,
-		decoderValidator:        decoderValidator,
+		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("SpaceHandler")),
+		apiBaseURL:       apiBaseURL,
+		spaceRepo:        spaceRepo,
+		decoderValidator: decoderValidator,
 	}
 }
 
@@ -56,7 +54,7 @@ func (h *SpaceHandler) spaceCreateHandler(ctx context.Context, logger logr.Logge
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate payload")
 	}
 
-	space := payload.ToMessage(h.imageRegistrySecretName)
+	space := payload.ToMessage()
 	record, err := h.spaceRepo.CreateSpace(ctx, authInfo, space)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(
