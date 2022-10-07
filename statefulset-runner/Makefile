@@ -102,17 +102,21 @@ docker-push: ## Push docker image with the manager.
 
 ##@ Deployment
 
-helm-values =
+SSR_VALUES ?= ../helm/statefulset-runner/values.yaml
 deploy: manifests
 	helm upgrade --install statefulset-runner ../helm/statefulset-runner \
+		--values=$(SSR_VALUES) \
 		--set=image=$(IMG_SSR) \
-		$(helm-values) \
 		--wait
 
 deploy-kind-local: deploy
 
-deploy-kind-local-debug: helm-values = --set=global.debug=true
-deploy-kind-local-debug: deploy
+deploy-kind-local-debug: manifests
+	helm upgrade --install statefulset-runner ../helm/statefulset-runner \
+		--values=$(SSR_VALUES) \
+		--set=image=$(IMG_SSR) \
+		--set=global.debug=true \
+		--wait
 
 .PHONY: undeploy
 undeploy:
