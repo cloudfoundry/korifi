@@ -39,49 +39,21 @@ You will need to create the `cf-admin` user: check [`scripts/create-new-user.sh`
 
 `vcap.me` will conveniently [resolve to `127.0.0.1`](https://www.nslookup.io/domains/vcap.me/dns-records), which is exactly what we need.
 
-## Configuration
+## Registries
 
-We recommend you use [DockerHub](https://hub.docker.com/) as your image registry. As specified by the instructions, you should use the following values in the configuration files:
+We recommend you use [DockerHub](https://hub.docker.com/) as your image registry.
 
-- `korifi-kpack-image-builder.yml`
+When using `helm install`, you should set the following helm values:
 
-  ```yaml
-  kpackImageTag: index.docker.io/<username>
-  ```
-
-- `korifi-api.yml`
-
-  - `korifi-api-config-*` `ConfigMap`
-
-    ```yaml
-    packageRegistryBase: index.docker.io/<username>
-    externalFQDN: api.vcap.me
-    defaultDomainName: apps.vcap.me
-    ```
-
-  - `korifi-api-proxy` `HTTPProxy`
-
-    ```yaml
-    apiVersion: projectcontour.io/v1
-    kind: HTTPProxy
-    metadata:
-      # ...
-      name: korifi-api-proxy
-      namespace: korifi-api-system
-    spec:
-      # ...
-      virtualhost:
-        fqdn: api.vcap.me
-        # ...
-    ```
-
-## Root namespace setup
-
-No changes here, follow the instructions.
+```
+  --set=api.packageRegistry=index.docker.io/<username> \
+  --set=kpack-image-builder.exampleClusterBuilder.kpackBuilderRegistry=index.docker.io/<username> \
+  --set=kpack-image-builder.packageRegistry=index.docker.io/<username>
+```
 
 ## Dependencies
 
-No changes here, follow the instructions. For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub.
+No changes here, follow the instructions.
 
 ## DNS
 
@@ -89,15 +61,11 @@ You can skip this section.
 
 ## Deploy Korifi
 
-No changes here, follow the instructions.
+No changes here, follow the instructions using the registry values from above.
 
-## TLS certificates
+## Post-install Configuration
 
-No changes here, follow the instructions.
-
-## Default CF Domain
-
-No changes here, follow the instructions.
+For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub. No changes otherwise.
 
 ## Test Korifi
 
