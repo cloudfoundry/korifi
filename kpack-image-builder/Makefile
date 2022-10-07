@@ -39,6 +39,7 @@ help: ## Display this help.
 
 ##@ Development
 
+webhooks-file = ../helm/kpack-image-builder/templates/manifests.yaml
 .PHONY: manifests
 manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) \
@@ -47,13 +48,11 @@ manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole 
 		rbac:roleName=korifi-kpack-build-manager-role \
 		output:webhook:artifacts:config=../helm/kpack-image-builder/templates \
 		output:rbac:artifacts:config=../helm/kpack-image-builder/templates
-
-	sed -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-kpack-build-serving-cert"' ../helm/kpack-image-builder/templates/manifests.yaml
-	sed -i.bak -e 's/name: \(webhook-service\)/name: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
-	sed -i.bak -e 's/namespace: system/namespace: "{{ .Values.namespace }}"/' ../helm/kpack-image-builder/templates/manifests.yaml
-	sed -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-kpack-build-\1/' ../helm/kpack-image-builder/templates/manifests.yaml
-	sed -i.bak -e '/failurePolicy:.*/a\  objectSelector:\n    matchExpressions:\n    - key: kpack.io/build\n      operator: Exists\n    - key: korifi.cloudfoundry.org/build-workload-name\n      operator: Exists' ../helm/kpack-image-builder/templates/manifests.yaml
-	rm -f ../helm/kpack-image-builder/templates/manifests.yaml.bak
+	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Values.namespace }}/korifi-kpack-build-serving-cert")' $(webhooks-file)
+	yq -i 'with(.metadata; .name="korifi-kpack-build-" + .name)' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Values.namespace }}")' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-kpack-build-" + .clientConfig.service.name)' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .objectSelector.matchExpressions=[{"key":"kpack.io/build", "operator":"Exists"},{"key":"korifi.cloudfoundry.org/build-workload-name", "operator":"Exists"}])' $(webhooks-file)
 
 .PHONY: generate
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
