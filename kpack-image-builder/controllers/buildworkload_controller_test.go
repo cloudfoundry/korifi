@@ -7,6 +7,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -235,10 +236,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						return k8sClient.Get(context.Background(), kpackImageLookupKey, createdKpackImage)
 					}).Should(Succeed())
 
-					setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionTrue)
-					createdKpackImage.Status.LatestImage = "some-org/my-image@sha256:some-sha"
-					createdKpackImage.Status.LatestStack = "cflinuxfs3"
-					Expect(k8sClient.Status().Update(context.Background(), createdKpackImage)).To(Succeed())
+					Expect(k8s.Patch(context.Background(), k8sClient, createdKpackImage, func() {
+						setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionTrue)
+						createdKpackImage.Status.LatestImage = "some-org/my-image@sha256:some-sha"
+						createdKpackImage.Status.LatestStack = "cflinuxfs3"
+					})).To(Succeed())
 				})
 
 				JustBeforeEach(func() {
@@ -248,13 +250,14 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						g.Expect(err).NotTo(HaveOccurred())
 					}).Should(Succeed())
 
-					meta.SetStatusCondition(&updatedBuildWorkload.Status.Conditions, metav1.Condition{
-						Type:    korifiv1alpha1.SucceededConditionType,
-						Status:  metav1.ConditionUnknown,
-						Reason:  "thinking",
-						Message: "thunking",
-					})
-					Expect(k8sClient.Status().Update(context.Background(), updatedBuildWorkload)).To(Succeed())
+					Expect(k8s.Patch(context.Background(), k8sClient, updatedBuildWorkload, func() {
+						meta.SetStatusCondition(&updatedBuildWorkload.Status.Conditions, metav1.Condition{
+							Type:    korifiv1alpha1.SucceededConditionType,
+							Status:  metav1.ConditionUnknown,
+							Reason:  "thinking",
+							Message: "thunking",
+						})
+					})).To(Succeed())
 				})
 
 				It("doesn't continue to reconcile the object", func() {
@@ -286,8 +289,9 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		When("the image build failed", func() {
 			BeforeEach(func() {
-				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionFalse)
-				Expect(k8sClient.Status().Update(context.Background(), createdKpackImage)).To(Succeed())
+				Expect(k8s.Patch(context.Background(), k8sClient, createdKpackImage, func() {
+					setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionFalse)
+				})).To(Succeed())
 			})
 
 			It("sets the Succeeded conditions to False", func() {
@@ -318,10 +322,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				returnedPorts = []int32{8080, 8443}
 				fakeImageProcessFetcher.Returns(returnedProcessTypes, returnedPorts, nil)
 
-				setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionTrue)
-				createdKpackImage.Status.LatestImage = kpackBuildImageRef
-				createdKpackImage.Status.LatestStack = kpackImageLatestStack
-				Expect(k8sClient.Status().Update(context.Background(), createdKpackImage)).To(Succeed())
+				Expect(k8s.Patch(context.Background(), k8sClient, createdKpackImage, func() {
+					setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionTrue)
+					createdKpackImage.Status.LatestImage = kpackBuildImageRef
+					createdKpackImage.Status.LatestStack = kpackImageLatestStack
+				})).To(Succeed())
 			})
 
 			It("sets the Succeeded condition to True", func() {
