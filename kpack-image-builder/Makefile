@@ -95,20 +95,27 @@ docker-push: ## Push docker image with the manager.
 
 ##@ Deployment
 
-helm-values =
+KIB_VALUES ?= ../helm/kpack-image-builder/values.yaml
 deploy: manifests
 	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
+		--values=$(KIB_VALUES) \
 		--set=image=$(IMG_KIB) \
-		$(helm-values) \
 		--wait
 
-kind-values = --set=packageRegistry.base=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images
-deploy-kind-local: helm-values = $(kind-values)
-deploy-kind-local: deploy
+deploy-kind-local: manifests
+	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
+		--values=$(KIB_VALUES) \
+		--set=image=$(IMG_KIB) \
+		--set=packageRegistry=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images \
+		--wait
 
-deploy-kind-local-debug: helm-values = $(kind-values) \
-	--set=global.debug=true
-deploy-kind-local-debug: deploy
+deploy-kind-local-debug: manifests
+	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
+		--values=$(KIB_VALUES) \
+		--set=image=$(IMG_KIB) \
+		--set=packageRegistry=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images \
+		--set=global.debug=true \
+		--wait
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.

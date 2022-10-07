@@ -209,47 +209,65 @@ deploy-kind: install-crds deploy-controllers deploy-job-task-runner deploy-kpack
 deploy-kind-local: install-crds deploy-controllers-kind-local deploy-job-task-runner-kind-local deploy-kpack-image-builder-kind-local deploy-statefulset-runner deploy-api-kind-local
 
 
-helm-api-values =
 
+API_VALUES ?= helm/api/values.yaml
 deploy-api: manifests-api
 	helm upgrade --install api helm/api \
+		--values=$(API_VALUES) \
 		--set=image=$(IMG_API) \
-		$(helm-api-values) \
 		--wait
 
 APP_FQDN ?= vcap.me
-kind-api-values = \
-	--set=apiServer.url=localhost \
-	--set=defaultDomainName=$(APP_FQDN)
-local-registry = localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
-
-deploy-api-kind: helm-api-values = $(kind-api-values) \
-	--set=packageRegistry.base=gcr.io/cf-relint-greengrass/korifi/kpack/beta
-deploy-api-kind: deploy-api
-
-deploy-api-kind-local: helm-api-values = $(kind-api-values) \
-	--set=packageRegistry.base=$(local-registry)
-deploy-api-kind-local: deploy-api
-
-deploy-api-kind-local-debug: helm-api-values = $(kind-api-values) \
-	--set=packageRegistry.base=$(local-registry) \
-	--set=global.debug=true
-deploy-api-kind-local-debug: deploy-api
-
-helm-controllers-values =
-deploy-controllers: manifests-controllers
-	helm upgrade --install controllers helm/controllers \
-		--set=image=$(IMG_CONTROLLERS) \
-		$(helm-controllers-values) \
+deploy-api-kind: manifests-api
+	helm upgrade --install api helm/api \
+		--values=$(API_VALUES) \
+		--set=apiServer.url=localhost \
+		--set=defaultDomainName=$(APP_FQDN) \
+		--set=packageRegistry.base=gcr.io/cf-relint-greengrass/korifi/kpack/beta \
 		--wait
 
-kind-controllers-values = --set=taskTTL=5s
-deploy-controllers-kind-local: helm-controllers-values = $(kind-controllers-values)
-deploy-controllers-kind-local: deploy-controllers
+local-registry = localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
+deploy-api-kind-local: manifests-api
+	helm upgrade --install api helm/api \
+		--values=$(API_VALUES) \
+		--set=image=$(IMG_API) \
+		--set=apiServer.url=localhost \
+		--set=defaultDomainName=$(APP_FQDN) \
+		--set=packageRegistry.base=$(local-registry) \
+		--wait
 
-deploy-controllers-kind-local-debug: helm-controllers-values = $(kind-controllers-values) \
-	--set=global.debug=true
-deploy-controllers-kind-local-debug: deploy-controllers
+deploy-api-kind-local-debug: manifests-api
+	helm upgrade --install api helm/api \
+		--values=$(API_VALUES) \
+		--set=image=$(IMG_API) \
+		--set=apiServer.url=localhost \
+		--set=defaultDomainName=$(APP_FQDN) \
+		--set=packageRegistry.base=$(local-registry) \
+		--set=global.debug=true \
+		--wait
+
+
+CONTROLLERS_VALUES ?= helm/controllers/values.yaml
+deploy-controllers: manifests-controllers
+	helm upgrade --install controllers helm/controllers \
+		--values=$(CONTROLLERS_VALUES)\
+		--set=image=$(IMG_CONTROLLERS) \
+		--wait
+
+deploy-controllers-kind-local: manifests-controllers
+	helm upgrade --install controllers helm/controllers \
+		--values=$(CONTROLLERS_VALUES)\
+		--set=image=$(IMG_CONTROLLERS) \
+		--set=taskTTL=5s \
+		--wait
+
+deploy-controllers-kind-local-debug: manifests-controllers
+	helm upgrade --install controllers helm/controllers \
+		--values=$(CONTROLLERS_VALUES)\
+		--set=image=$(IMG_CONTROLLERS) \
+		--set=taskTTL=5s \
+		--set=global.debug=true \
+		--wait
 
 deploy-job-task-runner:
 	make -C job-task-runner deploy

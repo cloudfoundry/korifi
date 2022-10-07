@@ -91,20 +91,27 @@ docker-push: ## Push docker image with the manager.
 
 ##@ Deployment
 
-helm-values =
+JTR_VALUES ?= ../helm/job-task-runner/values.yaml
 deploy: manifests
 	helm upgrade --install job-task-runner ../helm/job-task-runner \
+		--values=$(JTR_VALUES) \
 		--set=image=$(IMG_JTR) \
-		$(helm-values) \
 		--wait
 
-kind-values = --set=jobTTL=5s
-deploy-kind-local: helm-values = $(kind-values)
-deploy-kind-local: deploy
+deploy-kind-local: manifests
+	helm upgrade --install job-task-runner ../helm/job-task-runner \
+		--values=$(JTR_VALUES) \
+		--set=image=$(IMG_JTR) \
+		--set=jobTTL=5s \
+		--wait
 
-deploy-kind-local-debug: helm-values = $(kind-values) \
-	--set=global.debug=true
-deploy-kind-local-debug: deploy
+deploy-kind-local-debug: manifests
+	helm upgrade --install job-task-runner ../helm/job-task-runner \
+		--values=$(JTR_VALUES) \
+		--set=image=$(IMG_JTR) \
+		--set=jobTTL=5s \
+		--set=global.debug=true \
+		--wait
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
