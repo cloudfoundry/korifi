@@ -106,8 +106,7 @@ A sample VSCode `launch.json` configuration is provided below:
 ---
 ## Install all dependencies with script
 ```sh
-# modify kpack dependency files to point towards your registry
-scripts/install-dependencies.sh -g "<PATH_TO_GCR_CREDENTIALS>"
+scripts/install-dependencies.sh
 ```
 
 ---
