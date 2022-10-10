@@ -12,6 +12,13 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+# Use gsed on Mac, sed on linux
+ifeq (,$(shell which gsed))
+SED=sed
+else
+SED=gsed
+endif
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -40,7 +47,6 @@ help: ## Display this help.
 
 ##@ Development
 
-webhooks-file = ../helm/statefulset-runner/templates/manifests.yaml
 .PHONY: manifests
 manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) \
@@ -50,11 +56,12 @@ manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole 
 		output:rbac:artifacts:config=../helm/statefulset-runner/templates \
 		output:webhook:artifacts:config=../helm/statefulset-runner/templates
 
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Values.namespace }}/korifi-statefulset-runner-serving-cert")' $(webhooks-file)
-	yq -i 'with(.metadata; .name="korifi-statefulset-runner-" + .name)' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Values.namespace }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-statefulset-runner-" + .clientConfig.service.name)' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .objectSelector.matchLabels["korifi.cloudfoundry.org/add-stsr-index"]="true")' $(webhooks-file)
+	$(SED) -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-statefulset-runner-serving-cert"' ../helm/statefulset-runner/templates/manifests.yaml
+	$(SED) -i.bak -e 's/name: \(webhook-service\)/name: korifi-statefulset-runner-\1/' ../helm/statefulset-runner/templates/manifests.yaml
+	$(SED) -i.bak -e 's/namespace: system/namespace: "{{ .Values.namespace }}"/' ../helm/statefulset-runner/templates/manifests.yaml
+	$(SED) -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-statefulset-runner-\1/' ../helm/statefulset-runner/templates/manifests.yaml
+	$(SED) -i.bak -e '/failurePolicy:.*/a\  objectSelector:\n    matchLabels:\n      korifi.cloudfoundry.org/add-stsr-index: "true"' ../helm/statefulset-runner/templates/manifests.yaml
+	rm -f ../helm/statefulset-runner/templates/manifests.yaml.bak
 
 
 .PHONY: generate

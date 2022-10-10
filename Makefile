@@ -16,6 +16,13 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+# Use gsed on Mac, sed on linux
+ifeq (,$(shell which gsed))
+SED=sed
+else
+SED=gsed
+endif
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -49,9 +56,9 @@ manifests-api: install-controller-gen ## Generate WebhookConfiguration, ClusterR
 		paths=./api/... output:rbac:artifacts:config=helm/api/templates \
 		rbac:roleName=korifi-api-system-role
 
-	yq -i 'with(.metadata | select(.namespace == "ROOT_NAMESPACE"); .namespace="{{ .Values.global.rootNamespace }}")' helm/api/templates/role.yaml
+	$(SED) -i.bak -e 's/ROOT_NAMESPACE/{{ .Values.global.rootNamespace }}/' helm/api/templates/role.yaml
+	rm -f helm/api/templates/role.yaml.bak
 
-webhooks-file = helm/controllers/templates/manifests.yaml
 manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) \
 		paths="./controllers/..." \
@@ -61,10 +68,12 @@ manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, 
 		output:crd:artifacts:config=helm/controllers/templates/crds \
 		output:rbac:artifacts:config=helm/controllers/templates \
 		output:webhook:artifacts:config=helm/controllers/templates
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Values.namespace }}/korifi-controllers-serving-cert")' $(webhooks-file)
-	yq -i 'with(.metadata; .name="korifi-controllers-" + .name)' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Values.namespace }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-controllers-" + .clientConfig.service.name)' $(webhooks-file)
+
+	$(SED) -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-controllers-serving-cert"' helm/controllers/templates/manifests.yaml
+	$(SED) -i.bak -e 's/name: \(webhook-service\)/name: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
+	$(SED) -i.bak -e 's/namespace: system/namespace: "{{ .Values.namespace }}"/' helm/controllers/templates/manifests.yaml
+	$(SED) -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
+	rm -f helm/controllers/templates/manifests.yaml.bak
 
 
 manifests-job-task-runner:
