@@ -16,9 +16,7 @@ global:
   # The secret to use when pushing source and droplet images to the package registry
   packageRegistrySecret: image-registry-credentials
 
-# Set to false to omit admin user role-binding creation
-createAdminUser: true
-# Name of admin user to use in above role-binding creation
+# Name of admin user that will be bound to the cf admin role
 adminUserName: cf-admin
 
 # API component configuration
