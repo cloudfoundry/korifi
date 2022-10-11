@@ -2,8 +2,6 @@ global:
   defaultAppDomainName: vcap.me
   generateIngressCertificates: true
 
-createAdminUser: true
-
 api:
   apiServer:
     url: localhost
