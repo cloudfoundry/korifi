@@ -32,7 +32,7 @@ spec:
   serviceAccountRef:
     name: kpack-service-account
     namespace: {{ .Values.global.rootNamespace }}
-  tag: {{ required "exampleClusterBuilder.kpackBuilderRegistry is required when clusterBuilderName is unset" .Values.exampleClusterBuilder.kpackBuilderRegistry }}
+  tag: {{ required "builderRegistry is required when clusterBuilderName is unset" .Values.builderRegistry }}
   stack:
     name: cf-default-stack
     kind: ClusterStack

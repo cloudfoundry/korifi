@@ -19,8 +19,7 @@ job-task-runner:
 kpack-image-builder:
   image: cloudfoundry/korifi-kpack-image-builder:latest
   packageRegistry: localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images
-  exampleClusterBuilder:
-    kpackBuilderRegistry: localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta
+  builderRegistry: localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta
 
 statefulset-runner:
   image: cloudfoundry/korifi-statefulset-runner:latest

@@ -154,9 +154,8 @@ kpack-image-builder:
   # The name of the cluster builder kpack has been configured with.
   # Leave blank to let kpack-image-builder create an example cluster builder
   clusterBuilderName: cf-kpack-cluster-builder
-  exampleClusterBuilder:
-    # registry location to store cluster builder image
-    kpackBuilderRegistry: registry-org/kpack-builder-repo-name
+  # registry location to store cluster builder image when clusterBuilderName not provided
+  builderRegistry: registry-org/kpack-builder-repo-name
 
 statefulset-runner:
   # Deploy the statefulset-runner component
