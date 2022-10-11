@@ -14,5 +14,8 @@ dependencies:
 - name: kpack-image-builder
   repository: file://../kpack-image-builder
   version: 0.1.0
-digest: sha256:f2768d375ee98f3609c4d3bd4992e63801f3ad6526e1026809166fa544363c5c
-generated: "2022-10-04T18:30:37.997542114+03:00"
+- name: contour-router
+  repository: file://../contour-router
+  version: 0.1.0
+digest: sha256:2a82e115bc2e58d600af8a8d504bed241d0bf3241168fb3436a8992da2fbd3d2
+generated: "2022-10-10T18:38:41.87080052+03:00"

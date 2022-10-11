@@ -1,21 +1,18 @@
 package config
 
 import (
-	"path/filepath"
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
 )
 
 type ControllerConfig struct {
-	CFProcessDefaults           CFProcessDefaults `yaml:"cfProcessDefaults"`
-	CFRootNamespace             string            `yaml:"cfRootNamespace"`
-	PackageRegistrySecretName   string            `yaml:"packageRegistrySecretName"`
-	TaskTTL                     string            `yaml:"taskTTL"`
-	WorkloadsTLSSecretName      string            `yaml:"workloads_tls_secret_name"`
-	WorkloadsTLSSecretNamespace string            `yaml:"workloads_tls_secret_namespace"`
-	BuilderName                 string            `yaml:"builderName"`
-	RunnerName                  string            `yaml:"runnerName"`
+	CFProcessDefaults         CFProcessDefaults `yaml:"cfProcessDefaults"`
+	CFRootNamespace           string            `yaml:"cfRootNamespace"`
+	PackageRegistrySecretName string            `yaml:"packageRegistrySecretName"`
+	TaskTTL                   string            `yaml:"taskTTL"`
+	BuilderName               string            `yaml:"builderName"`
+	RunnerName                string            `yaml:"runnerName"`
 }
 
 type CFProcessDefaults struct {
@@ -41,13 +38,6 @@ func LoadFromPath(path string) (*ControllerConfig, error) {
 	}
 
 	return &config, nil
-}
-
-func (c ControllerConfig) WorkloadsTLSSecretNameWithNamespace() string {
-	if c.WorkloadsTLSSecretName == "" {
-		return ""
-	}
-	return filepath.Join(c.WorkloadsTLSSecretNamespace, c.WorkloadsTLSSecretName)
 }
 
 func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {

@@ -1,0 +1,22 @@
+global:
+  rootNamespace: cf
+  debug: false
+  generateIngressCertificates: false
+  defaultAppDomainName: apps.my-cf-domain.com
+
+include: true
+namespace: korifi-contour-router-system
+replicas: 1
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+image: cloudfoundry/korifi-contour-router:latest
+
+workloadsTLSSecret:
+  name: korifi-workloads-ingress-cert
+  namespace: korifi-contour-router-system

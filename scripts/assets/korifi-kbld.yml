@@ -31,3 +31,9 @@ sources:
   docker:
     buildx:
       file: statefulset-runner/Dockerfile
+
+- image: cloudfoundry/korifi-contour-router:latest
+  path: .
+  docker:
+    buildx:
+      file: contour-router/Dockerfile

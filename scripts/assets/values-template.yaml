@@ -27,3 +27,6 @@ kpack-image-builder:
 
 statefulset-runner:
   image: cloudfoundry/korifi-statefulset-runner:latest
+
+contour-router:
+  image: cloudfoundry/korifi-contour-router:latest

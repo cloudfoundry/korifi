@@ -63,18 +63,6 @@ rules:
   - patch
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - apps
   resources:
   - statefulsets
@@ -315,17 +303,9 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - cfroutes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - cfroutes/status
   verbs:
   - get
-  - patch
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
@@ -476,30 +456,6 @@ rules:
   - podsecuritypolicies
   verbs:
   - use
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - httpproxies
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - httpproxies/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - httpproxies/status
-  verbs:
-  - get
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

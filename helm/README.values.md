@@ -106,10 +106,6 @@ controllers:
     diskQuotaMB: 1024
   # How long before the CFTask object is deleted after the task has completed
   taskTTL: 30d
-  # The TLS secret used when setting up app route
-  workloadsTLSSecret:
-    name: korifi-workloads-ingress-cert
-    namespace: korifi-controllers-system
 
 job-task-runner:
   # Deploy the job-task-runner component
@@ -179,4 +175,28 @@ statefulset-runner:
 
   # Docker image
   image: cloudfoundry/korifi-statefulset-runner:latest
+
+contour-router:
+  # Deploy the contour-router component
+  include: true
+  # Namespace of the contour-router resources
+  namespace: korifi-contour-router-system
+  # Number of replicas
+  replicas: 1
+  # Resource requests and limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
+  # Docker image
+  image: cloudfoundry/korifi-contour-router:latest
+
+  # The TLS secret used when setting up app route
+  workloadsTLSSecret:
+    name: korifi-workloads-ingress-cert
+    namespace: korifi-contour-router-system
 ```

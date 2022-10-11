@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/korifi/contour-router/config"
+	. "code.cloudfoundry.org/korifi/contour-router/controllers"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,7 +33,7 @@ func TestNetworkingControllers(t *testing.T) {
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Networking Controllers Integration Suite")
+	RunSpecs(t, "Contour Router Integration Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -47,8 +47,8 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		// TODO: Reconcile with CRDInstallOptions
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "helm", "controllers", "templates", "crds"),
-			filepath.Join("..", "..", "..", "..", "tests", "vendor", "contour"),
+			filepath.Join("..", "..", "..", "helm", "controllers", "templates", "crds"),
+			filepath.Join("..", "..", "..", "tests", "vendor", "contour"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -79,11 +79,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFRoute"),
-		&config.ControllerConfig{
-			CFProcessDefaults: config.CFProcessDefaults{
-				MemoryMB:    500,
-				DiskQuotaMB: 512,
-			},
+		&config.ContourRouterConfig{
 			WorkloadsTLSSecretName:      "korifi-workloads-ingress-cert",
 			WorkloadsTLSSecretNamespace: "korifi-controllers-system",
 		},

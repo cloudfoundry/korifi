@@ -1,0 +1,17 @@
+{{- if .Values.global.debug }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: korifi-contour-router-controller-manager-debug-port
+  name: {{ .Values.namespace }}
+spec:
+  ports:
+    - name: debug-30056
+      nodePort: 30056
+      port: 30056
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: korifi-contour-router-controller-manager
+  type: NodePort
+{{- end }}

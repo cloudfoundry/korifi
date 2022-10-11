@@ -25,6 +25,7 @@ flags:
         localhost:30053 (kpack-image-builder)
         localhost:30054 (statefulset-runner)
         localhost:30055 (job-task-runner)
+        localhost:30056 (contour-router)
 
 EOF
   exit 1

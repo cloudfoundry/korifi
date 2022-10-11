@@ -2,7 +2,6 @@ global:
   rootNamespace: cf
   debug: false
   defaultAppDomainName: apps.my-cf-domain.com
-  generateIngressCertificates: false
   packageRegistrySecret: image-registry-credentials
 
 include: true
@@ -24,6 +23,3 @@ processDefaults:
   memoryMB: 1024
   diskQuotaMB: 1024
 taskTTL: 30d
-workloadsTLSSecret:
-  name: korifi-workloads-ingress-cert
-  namespace: korifi-controllers-system

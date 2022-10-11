@@ -99,10 +99,8 @@ var _ = BeforeSuite(func() {
 			MemoryMB:    500,
 			DiskQuotaMB: 512,
 		},
-		CFRootNamespace:             cfRootNamespace,
-		PackageRegistrySecretName:   packageRegistrySecretName,
-		WorkloadsTLSSecretName:      "korifi-workloads-ingress-cert",
-		WorkloadsTLSSecretNamespace: "korifi-controllers-system",
+		CFRootNamespace:           cfRootNamespace,
+		PackageRegistrySecretName: packageRegistrySecretName,
 	}
 
 	err = (NewCFAppReconciler(

@@ -24,7 +24,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	networkingcontrollers "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 	servicescontrollers "code.cloudfoundry.org/korifi/controllers/controllers/services"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	workloadscontrollers "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
@@ -36,7 +35,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
 	"github.com/jonboulle/clockwork"
-	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -60,7 +58,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(contourv1.AddToScheme(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
@@ -155,16 +152,6 @@ func main() {
 			env.NewBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
-			os.Exit(1)
-		}
-
-		if err = (networkingcontrollers.NewCFRouteReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFRoute"),
-			controllerConfig,
-		)).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 			os.Exit(1)
 		}
 

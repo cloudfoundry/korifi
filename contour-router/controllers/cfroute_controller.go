@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package networking
+package controllers
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/contour-router/config"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -49,14 +49,14 @@ type CFRouteReconciler struct {
 	client           client.Client
 	scheme           *runtime.Scheme
 	log              logr.Logger
-	controllerConfig *config.ControllerConfig
+	controllerConfig *config.ContourRouterConfig
 }
 
 func NewCFRouteReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	controllerConfig *config.ControllerConfig,
+	controllerConfig *config.ContourRouterConfig,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute] {
 	routeReconciler := CFRouteReconciler{client: client, scheme: scheme, log: log, controllerConfig: controllerConfig}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute](log, client, &routeReconciler)
@@ -66,13 +66,13 @@ func NewCFRouteReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/finalizers,verbs=update
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;create;patch;update
-
 //+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies/status,verbs=get
 //+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch
 
 func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
 	if !cfRoute.GetDeletionTimestamp().IsZero() {

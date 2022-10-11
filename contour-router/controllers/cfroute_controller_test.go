@@ -1,13 +1,13 @@
-package networking_test
+package controllers_test
 
 import (
 	"context"
 	"errors"
 	"time"
 
+	"code.cloudfoundry.org/korifi/contour-router/config"
+	. "code.cloudfoundry.org/korifi/contour-router/controllers"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -213,7 +213,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 			fakeClient,
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			&config.ControllerConfig{
+			&config.ContourRouterConfig{
 				WorkloadsTLSSecretNamespace: workloadsTLSSecretNamespace,
 			},
 		)
@@ -266,7 +266,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 						fakeClient,
 						scheme.Scheme,
 						zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-						&config.ControllerConfig{
+						&config.ContourRouterConfig{
 							WorkloadsTLSSecretNamespace: workloadsTLSSecretNamespace,
 						},
 					)
@@ -294,7 +294,7 @@ var _ = Describe("CFRouteReconciler.Reconcile", func() {
 						fakeClient,
 						scheme.Scheme,
 						zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-						&config.ControllerConfig{
+						&config.ContourRouterConfig{
 							WorkloadsTLSSecretNamespace: workloadsTLSSecretNamespace,
 							WorkloadsTLSSecretName:      "the-tls-secret",
 						},

@@ -22,3 +22,6 @@ statefulset-runner:
 
 job-task-runner:
   image: cloudfoundry/korifi-job-task-runner:latest
+
+contour-router:
+  image: cloudfoundry/korifi-contour-router:latest

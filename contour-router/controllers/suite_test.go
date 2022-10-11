@@ -1,4 +1,4 @@
-package networking_test
+package controllers_test
 
 import (
 	"testing"
@@ -17,7 +17,7 @@ func TestNetworkingControllers(t *testing.T) {
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Networking Controllers Unit Test Suite")
+	RunSpecs(t, "Contour Router Unit Test Suite")
 }
 
 var (

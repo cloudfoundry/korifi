@@ -26,3 +26,7 @@ dependencies:
     repository: file://../kpack-image-builder
     version: 0.1.0
     condition: kpack-image-builder.include
+  - name: contour-router
+    repository: file://../contour-router
+    version: 0.1.0
+    condition: contour-router.include

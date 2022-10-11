@@ -35,13 +35,11 @@ var _ = Describe("LoadFromPath", func() {
 				DiskQuotaMB: 512,
 				Timeout:     tools.PtrTo(int64(30)),
 			},
-			CFRootNamespace:             "rootNamespace",
-			PackageRegistrySecretName:   "packageRegistrySecretName",
-			TaskTTL:                     "taskTTL",
-			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
-			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
-			BuilderName:                 "buildReconciler",
-			RunnerName:                  "statefulset-runner",
+			CFRootNamespace:           "rootNamespace",
+			PackageRegistrySecretName: "packageRegistrySecretName",
+			TaskTTL:                   "taskTTL",
+			BuilderName:               "buildReconciler",
+			RunnerName:                "statefulset-runner",
 		}
 	})
 
@@ -65,13 +63,11 @@ var _ = Describe("LoadFromPath", func() {
 				DiskQuotaMB: 512,
 				Timeout:     tools.PtrTo(int64(30)),
 			},
-			CFRootNamespace:             "rootNamespace",
-			PackageRegistrySecretName:   "packageRegistrySecretName",
-			TaskTTL:                     "taskTTL",
-			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
-			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
-			BuilderName:                 "buildReconciler",
-			RunnerName:                  "statefulset-runner",
+			CFRootNamespace:           "rootNamespace",
+			PackageRegistrySecretName: "packageRegistrySecretName",
+			TaskTTL:                   "taskTTL",
+			BuilderName:               "buildReconciler",
+			RunnerName:                "statefulset-runner",
 		}))
 	})
 

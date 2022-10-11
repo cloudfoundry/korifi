@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: korifi-contour-router-config
+  namespace: {{ .Values.namespace }}
+data:
+  korifi_contour_router_config.yaml: |-
+    workloads_tls_secret_name: {{ .Values.workloadsTLSSecret.name }}
+    workloads_tls_secret_namespace: {{ .Values.workloadsTLSSecret.namespace }}

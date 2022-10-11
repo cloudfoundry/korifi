@@ -13,5 +13,3 @@ data:
     cfRootNamespace: {{ .Values.global.rootNamespace }}
     packageRegistrySecretName: {{ .Values.global.packageRegistrySecret }}
     taskTTL: {{ .Values.taskTTL }}
-    workloads_tls_secret_name: {{ .Values.workloadsTLSSecret.name }}
-    workloads_tls_secret_namespace: {{ .Values.workloadsTLSSecret.namespace }}

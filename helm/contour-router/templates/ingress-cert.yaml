@@ -10,6 +10,6 @@ spec:
   - \*.{{ .Values.global.defaultAppDomainName }}
   issuerRef:
     kind: Issuer
-    name: korifi-controllers-selfsigned-issuer
+    name: korifi-contour-router-selfsigned-issuer
   secretName: korifi-workloads-ingress-cert
 {{- end}}

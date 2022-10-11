@@ -49,7 +49,7 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: manifests-api manifests-controllers manifests-job-task-runner manifests-kpack-image-builder manifests-statefulset-runner
+manifests: manifests-api manifests-controllers manifests-job-task-runner manifests-kpack-image-builder manifests-statefulset-runner manifests-contour-router
 
 manifests-api: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) \
@@ -85,7 +85,10 @@ manifests-kpack-image-builder:
 manifests-statefulset-runner:
 	make -C statefulset-runner manifests
 
-generate: generate-controllers generate-job-task-runner generate-kpack-image-builder generate-statefulset-runner
+manifests-contour-router:
+	make -C contour-router manifests
+
+generate: generate-controllers generate-job-task-runner generate-kpack-image-builder generate-statefulset-runner generate-contour-router
 
 generate-controllers: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="controllers/hack/boilerplate.go.txt" paths="./controllers/..."
@@ -98,6 +101,9 @@ generate-kpack-image-builder:
 
 generate-statefulset-runner:
 	make -C statefulset-runner generate
+
+generate-contour-router:
+	make -C contour-router generate
 
 generate-fakes:
 	go generate ./...
@@ -112,7 +118,7 @@ vet: ## Run go vet against code.
 lint:
 	golangci-lint run -v
 
-test: lint test-controllers-api test-job-task-runner test-kpack-image-builder test-statefulset-runner test-e2e
+test: lint test-controllers-api test-job-task-runner test-kpack-image-builder test-statefulset-runner test-contour-router test-e2e
 
 test-controllers-api: test-api test-controllers
 
@@ -130,6 +136,9 @@ test-kpack-image-builder:
 
 test-statefulset-runner:
 	make -C statefulset-runner test
+
+test-contour-router:
+	make -C contour-router test
 
 test-e2e: install-ginkgo
 	./scripts/run-tests.sh tests/e2e
@@ -154,7 +163,10 @@ run-kpack-image-builder:
 run-statefulset-runner:
 	make -C statefulset-runner run
 
-docker-build: docker-build-api docker-build-controllers docker-build-job-task-runner docker-build-kpack-image-builder docker-build-statefulset-runner
+run-contour-router:
+	make -C contour-router run
+
+docker-build: docker-build-api docker-build-controllers docker-build-job-task-runner docker-build-kpack-image-builder docker-build-statefulset-runner docker-build-contour-router
 
 docker-build-api:
 	docker buildx build --load -f api/Dockerfile -t ${IMG_API} .
@@ -186,7 +198,13 @@ docker-build-statefulset-runner:
 docker-build-statefulset-runner-debug:
 	make -C statefulset-runner docker-build-debug
 
-docker-push: docker-push-api docker-push-controllers docker-push-job-task-runner docker-push-kpack-image-builder docker-push-statefulset-runner
+docker-build-contour-router:
+	make -C contour-router docker-build
+
+docker-build-contour-router-debug:
+	make -C contour-router docker-build-debug
+
+docker-push: docker-push-api docker-push-controllers docker-push-job-task-runner docker-push-kpack-image-builder docker-push-statefulset-runner docker-push-contour-router
 
 docker-push-api:
 	docker push ${IMG_API}
@@ -203,6 +221,9 @@ docker-push-kpack-image-builder:
 docker-push-statefulset-runner:
 	make -C statefulset-runner docker-push
 
+docker-push-contour-router:
+	make -C contour-router docker-push
+
 ##@ Deployment
 
 install-crds: manifests-controllers install-kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
@@ -211,11 +232,11 @@ install-crds: manifests-controllers install-kustomize ## Install CRDs into the K
 uninstall-crds: manifests-controllers install-kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build controllers/config/crd | kubectl delete -f -
 
-deploy: deploy-controllers deploy-job-task-runner deploy-kpack-image-builder deploy-statefulset-runner deploy-api
+deploy: deploy-controllers deploy-job-task-runner deploy-kpack-image-builder deploy-statefulset-runner deploy-api deploy-contour-router
 
-deploy-kind: install-crds deploy-controllers deploy-job-task-runner deploy-kpack-image-builder deploy-statefulset-runner deploy-api-kind
+deploy-kind: install-crds deploy-controllers deploy-job-task-runner deploy-kpack-image-builder deploy-statefulset-runner deploy-api-kind deploy-contour-router
 
-deploy-kind-local: install-crds deploy-controllers-kind-local deploy-job-task-runner-kind-local deploy-kpack-image-builder-kind-local deploy-statefulset-runner deploy-api-kind-local
+deploy-kind-local: install-crds deploy-controllers-kind-local deploy-job-task-runner-kind-local deploy-kpack-image-builder-kind-local deploy-statefulset-runner deploy-api-kind-local deploy-contour-router
 
 
 
@@ -302,7 +323,13 @@ deploy-statefulset-runner:
 deploy-statefulset-runner-kind-local-debug:
 	make -C statefulset-runner deploy-kind-local-debug
 
-undeploy: undeploy-api undeploy-job-task-runner undeploy-kpack-image-builder undeploy-statefulset-runner undeploy-controllers
+deploy-contour-router:
+	make -C statefulset-runner deploy
+
+deploy-contour-router-kind-local-debug:
+	make -C statefulset-runner deploy-kind-local-debug
+
+undeploy: undeploy-api undeploy-job-task-runner undeploy-kpack-image-builder undeploy-statefulset-runner undeploy-contour-router undeploy-controllers
 
 undeploy-api:
 	@if helm status api 2>/dev/null; then \
@@ -326,6 +353,9 @@ undeploy-kpack-image-builder:
 
 undeploy-statefulset-runner:
 	make -C statefulset-runner undeploy
+
+undeploy-contour-router:
+	make -C contour-router undeploy
 
 CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
