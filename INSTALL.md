@@ -72,7 +72,6 @@ As of v0.4.0 Korifi is distributed as a helm chart. You can set the required con
 helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<version>/korifi-<version>.tgz \
     --set=global.generateIngressCertificates=true \
     --set=global.rootNamespace=$ROOT_NAMESPACE \
-    --set=createAdminUser=true \
     --set=adminUserName=$ADMIN_USERNAME \
     --set=api.apiServer.url=api.$BASE_DOMAIN \
     --set=global.defaultAppDomainName=apps.$BASE_DOMAIN \
@@ -86,8 +85,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
 
 - `global.generateIngressCertificates` when set to `true` generates self-signed certificates for the applications and API HTTP endpoint
 - `global.rootNamespace` is the name of the CF root namespace containing base CF resources, like CFOrgs.
-- `createAdminUser` when set to `true` creates the rolebinding between the `$ADMIN_USERNAME` and the cf-admin role.
-- `adminUserName` is the username used above.
+- `adminUserName` is the username that will be bound to the cf admin role.
 - `api.apiServer.url` is the domain name that will be used by the Korifi API, and is usually of the format `api.$BASE_DOMAIN`.
 - `global.defaultAppDomainName` is the default base domain name for the apps deployed by Korifi, and is usually of the format `apps.$BASE_DOMAIN`.
 - `api.packageRegistry` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be valid for the registry.

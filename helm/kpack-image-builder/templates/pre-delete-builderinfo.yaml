@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: delete-builderinfo
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -10,7 +10,7 @@ metadata:
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
   annotations:
     "helm.sh/hook": pre-delete
-    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-weight": "0"
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
 spec:
   template:
@@ -21,7 +21,7 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name | quote }}
         helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     spec:
-      serviceAccountName: korifi-kpack-build-controller-manager
+      serviceAccountName: delete-builderinfo-service-account
       restartPolicy: Never
       containers:
       - name: pre-delete-builderinfo
@@ -39,3 +39,51 @@ spec:
         - sh
         - -c
         - "kubectl -n {{ .Values.global.rootNamespace }} delete builderinfo kpack-image-builder --ignore-not-found"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: delete-builderinfo-service-account
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-10"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: delete-builderinfo-role
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-10"
+rules:
+- apiGroups:
+  - "korifi.cloudfoundry.org"
+  resources:
+  - builderinfos
+  verbs:
+  - get
+  - list
+  - delete
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: delete-builderinfo-role-binding
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-5"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: delete-builderinfo-role
+subjects:
+- kind: ServiceAccount
+  name: delete-builderinfo-service-account
+  namespace: {{ .Release.Namespace }}
