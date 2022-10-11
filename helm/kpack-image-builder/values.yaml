@@ -18,5 +18,4 @@ image: cloudfoundry/korifi-kpack-image-builder:latest
 
 packageRegistry: registry-org/package-repo-name
 clusterBuilderName:
-exampleClusterBuilder:
-  kpackBuilderRegistry: registry-org/kpack-builder-repo-name
+builderRegistry: registry-org/kpack-builder-repo-name

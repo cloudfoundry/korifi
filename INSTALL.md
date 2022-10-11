@@ -76,7 +76,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
     --set=api.apiServer.url=api.$BASE_DOMAIN \
     --set=global.defaultAppDomainName=apps.$BASE_DOMAIN \
     --set=api.packageRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/packages \
-    --set=kpack-image-builder.exampleClusterBuilder.kpackBuilderRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack \
+    --set=kpack-image-builder.builderRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack \
     --set=kpack-image-builder.packageRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplets
 ```
 
@@ -90,7 +90,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
 - `api.packageRegistry` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
   - If using **DockerHub**, `api.packageRegistry` should be `index.docker.io/<username>`.
   - If using **GCR**, `api.packageRegistry` should be `gcr.io/<project-id>/packages`.
-- `kpack-image-builder.exampleClusterBuilder.kpackBuilderRegistry` is the registry location for the kpack builder image. This is part of the example cluster builder configuration that is created when `kpack-image-builder.clusterBuilderName` is left empty.
+- `kpack-image-builder.builderRegistry` is the registry location for the kpack builder image. This is part of the example cluster builder configuration that is created when `kpack-image-builder.clusterBuilderName` is left empty.
 - `kpack-image-builder.packageRegistry` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
   - If using **DockerHub**, `kpack-image-builder.packageRegistry` should be `index.docker.io/<username>`.
   - If using **GCR**, `kpack-image-builder.packageRegistry` should be `gcr.io/<project-id>/droplets`.
