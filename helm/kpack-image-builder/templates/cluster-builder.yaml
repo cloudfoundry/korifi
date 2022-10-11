@@ -1,4 +1,4 @@
-{{- if .Values.exampleClusterBuilder.create }}
+{{- if not .Values.clusterBuilderName }}
 apiVersion: kpack.io/v1alpha2
 kind: ClusterStore
 metadata:
@@ -27,12 +27,12 @@ spec:
 apiVersion: kpack.io/v1alpha2
 kind: ClusterBuilder
 metadata:
-  name: {{ .Values.clusterBuilderName }}
+  name: cf-kpack-cluster-builder
 spec:
   serviceAccountRef:
     name: kpack-service-account
     namespace: {{ .Values.global.rootNamespace }}
-  tag: {{ .Values.exampleClusterBuilder.kpackBuilderRegistry }}
+  tag: {{ required "exampleClusterBuilder.kpackBuilderRegistry is required when clusterBuilderName is unset" .Values.exampleClusterBuilder.kpackBuilderRegistry }}
   stack:
     name: cf-default-stack
     kind: ClusterStack

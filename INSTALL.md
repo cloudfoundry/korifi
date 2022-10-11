@@ -76,7 +76,6 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
     --set=api.apiServer.url=api.$BASE_DOMAIN \
     --set=global.defaultAppDomainName=apps.$BASE_DOMAIN \
     --set=api.packageRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/packages \
-    --set=kpack-image-builder.exampleClusterBuilder.create=true \
     --set=kpack-image-builder.exampleClusterBuilder.kpackBuilderRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack \
     --set=kpack-image-builder.packageRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplets
 ```
@@ -91,8 +90,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
 - `api.packageRegistry` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
   - If using **DockerHub**, `api.packageRegistry` should be `index.docker.io/<username>`.
   - If using **GCR**, `api.packageRegistry` should be `gcr.io/<project-id>/packages`.
-- `kpack-image-builder.exampleClusterBuilder.create` activates creation of the example kpack cluster builder, store and stack resources.
-- `kpack-image-builder.exampleClusterBuilder.kpackBuilderRegistry` is the registry location for the kpack builder image (pushed by kpack).
+- `kpack-image-builder.exampleClusterBuilder.kpackBuilderRegistry` is the registry location for the kpack builder image. This is part of the example cluster builder configuration that is created when `kpack-image-builder.clusterBuilderName` is left empty.
 - `kpack-image-builder.packageRegistry` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
   - If using **DockerHub**, `kpack-image-builder.packageRegistry` should be `index.docker.io/<username>`.
   - If using **GCR**, `kpack-image-builder.packageRegistry` should be `gcr.io/<project-id>/droplets`.
@@ -103,16 +101,17 @@ The chart provides various other values that can be set. See [helm/README.values
 
 If you are using an authentication proxy with your cluster to enable SSO, you must alter the above `helm install` command to set the following values:
 
--   Set the `api.authProxy.host` helm value to the IP address of your cluster's auth proxy.
--   Set the `api.authProxy.caCert` helm value to the CA certificate of your cluster's auth proxy.
+- Set the `api.authProxy.host` helm value to the IP address of your cluster's auth proxy.
+- Set the `api.authProxy.caCert` helm value to the CA certificate of your cluster's auth proxy.
 
 ## Post-install Configuration
 
 ### Kpack Configuration
 
-The korifi helm chart will create an example kpack configuration (cluster builder, cluster store and cluster stack) if the `kpack-image-builder.exampleClusterBuilder.create` helm property has been set to `true`.
-You can opt out of doing that by setting the property to `false` (that's the default value).
-In that case you have to configure those yourself.
+The korifi helm chart will create an example kpack configuration (cluster builder, cluster store and cluster stack) if the `kpack-image-builder.clusterBuilderName` helm property is left unset.
+If you want to use your own kpack configuration, supply the name of the cluster builder in that property.
+
+To create your own kpack configuration, you will need a cluster store, a cluster stack and a cluster builder:
 
 #### `ClusterStore`
 
@@ -126,13 +125,13 @@ Follow the [documentation](https://github.com/pivotal/kpack/blob/main/docs/stack
 
 Follow the [documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md#cluster-builders) to create a `ClusterBuilder` for your cluster. Make sure that:
 
--   `metadata.name` matches the `korifi-image-builder.clusterBuilderName` helm value (default is `cf-kpack-cluster-builder`)
--   `spec.tag` points to your container registry:
-    -   if using **DockerHub**, it should be `index.docker.io/<username>/korifi-cluster-builder`;
-    -   if using **GCP**, it should be `gcr.io/<project-id>/korifi-cluster-builder`;
--   `spec.stack` references to the previously created `ClusterStack`;
--   `spec.store` references to the previously created `ClusterStore`;
--   `spec.serviceAccountRef` should be `kpack-service-account`.
+- `metadata.name` matches the `korifi-image-builder.clusterBuilderName` helm value
+- `spec.tag` points to your container registry:
+  - if using **DockerHub**, it should be `index.docker.io/<username>/korifi-cluster-builder`;
+  - if using **GCP**, it should be `gcr.io/<project-id>/korifi-cluster-builder`;
+- `spec.stack` references to the previously created `ClusterStack`;
+- `spec.store` references to the previously created `ClusterStore`;
+- `spec.serviceAccountRef` should be `kpack-service-account`.
 
 ### Container registry credentials `Secret`
 
