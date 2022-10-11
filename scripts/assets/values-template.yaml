@@ -20,7 +20,6 @@ kpack-image-builder:
   image: cloudfoundry/korifi-kpack-image-builder:latest
   packageRegistry: localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images
   exampleClusterBuilder:
-    create: true
     kpackBuilderRegistry: localregistry-docker-registry.default.svc.cluster.local:30050/cf-relint-greengrass/korifi/kpack/beta
 
 statefulset-runner:

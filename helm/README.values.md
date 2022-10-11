@@ -151,11 +151,10 @@ kpack-image-builder:
 
   # The image registry where droplet images are pushed to
   packageRegistry: registry-org/package-repo-name
-  # The name of the cluster builder kpack has been configured with
+  # The name of the cluster builder kpack has been configured with.
+  # Leave blank to let kpack-image-builder create an example cluster builder
   clusterBuilderName: cf-kpack-cluster-builder
   exampleClusterBuilder:
-    # create an example cluster store, stack and builder
-    create: false
     # registry location to store cluster builder image
     kpackBuilderRegistry: registry-org/kpack-builder-repo-name
 
