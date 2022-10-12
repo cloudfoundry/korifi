@@ -61,7 +61,7 @@ api:
   # ID of the builder to use on source packages
   builderName: kpack-image-builder
   # The container registry where app source packages will be stored
-  packageRegistry: registry-org/package-repo-name
+  packageRegistry: index.docker.io/my-dockerhub-username
   # Warn if user cert provided for login has a long expiry
   userCertificateExpirationWarningDuration: 168h
 
@@ -150,12 +150,12 @@ kpack-image-builder:
   image: cloudfoundry/korifi-kpack-image-builder:latest
 
   # The image registry where droplet images are pushed to
-  dropletRegistry: registry-org/droplet-repo-name
+  dropletRegistry: index.docker.io/my-dockerhub-username
   # The name of the cluster builder kpack has been configured with.
   # Leave blank to let kpack-image-builder create an example cluster builder
   clusterBuilderName: cf-kpack-cluster-builder
-  # registry location to store cluster builder image when clusterBuilderName not provided
-  builderRegistry: registry-org/kpack-builder-repo-name
+  # docker repository to store cluster builder image (required when clusterBuilderName not provided)
+  builderRepository: index.docker.io/my-dockerhub-username
 
 statefulset-runner:
   # Deploy the statefulset-runner component

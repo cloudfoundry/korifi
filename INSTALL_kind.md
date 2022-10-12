@@ -47,7 +47,7 @@ When using `helm install`, you should set the following helm values:
 
 ```
   --set=api.packageRegistry=index.docker.io/<username> \
-  --set=kpack-image-builder.builderRegistry=index.docker.io/<username> \
+  --set=kpack-image-builder.builderRepository=index.docker.io/<username>/kpack-builder \
   --set=kpack-image-builder.packageRegistry=index.docker.io/<username>
 ```
 
