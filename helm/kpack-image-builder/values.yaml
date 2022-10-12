@@ -16,6 +16,6 @@ resources:
 
 image: cloudfoundry/korifi-kpack-image-builder:latest
 
-packageRegistry: registry-org/package-repo-name
+dropletRegistry: registry-org/droplet-repo-name
 clusterBuilderName:
 builderRegistry: registry-org/kpack-builder-repo-name

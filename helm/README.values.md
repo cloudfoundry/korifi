@@ -150,7 +150,7 @@ kpack-image-builder:
   image: cloudfoundry/korifi-kpack-image-builder:latest
 
   # The image registry where droplet images are pushed to
-  packageRegistry: registry-org/package-repo-name
+  dropletRegistry: registry-org/droplet-repo-name
   # The name of the cluster builder kpack has been configured with.
   # Leave blank to let kpack-image-builder create an example cluster builder
   clusterBuilderName: cf-kpack-cluster-builder

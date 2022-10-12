@@ -7,27 +7,27 @@ The following lines will guide you through the process of deploying a [released 
 
 ## Prerequisites
 
--   Tools:
-    -   [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl);
-    -   [cf](https://docs.cloudfoundry.org/cf-cli/install-go-cli.html) CLI version 8.5 or greater;
-    -   [Helm](https://helm.sh/docs/intro/install/).
--   Resources:
-    -   Kubernetes cluster of one of the [upstream releases](https://kubernetes.io/releases/);
-    -   Container Registry on which you have write permissions.
+- Tools:
+  - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl);
+  - [cf](https://docs.cloudfoundry.org/cf-cli/install-go-cli.html) CLI version 8.5 or greater;
+  - [Helm](https://helm.sh/docs/intro/install/).
+- Resources:
+  - Kubernetes cluster of one of the [upstream releases](https://kubernetes.io/releases/);
+  - Container Registry on which you have write permissions.
 
 This document was tested on:
 
--   [EKS](https://aws.amazon.com/eks/), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
--   [GKE](https://cloud.google.com/kubernetes-engine), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
--   [kind](https://kind.sigs.k8s.io/), using [DockerHub](https://hub.docker.com/) (see [_Install Korifi on kind_](./INSTALL_kind.md)).
+- [EKS](https://aws.amazon.com/eks/), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
+- [GKE](https://cloud.google.com/kubernetes-engine), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
+- [kind](https://kind.sigs.k8s.io/), using [DockerHub](https://hub.docker.com/) (see [_Install Korifi on kind_](./INSTALL_kind.md)).
 
 ## Initial setup
 
 The following environment variables will be needed throughout this guide:
 
--   `ROOT_NAMESPACE`: the namespace at the root of the Korifi org and space hierarchy. The default value is `cf`.
--   `ADMIN_USERNAME`: the name of the Kubernetes user who will have CF admin privileges on the Korifi installation. For security reasons, you should choose or create a user that is different from your cluster admin user. To provision new users, follow the user management instructions specific for your cluster's [authentication configuration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) or create a [new (short-lived) client certificate for user authentication](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user).
--   `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
+- `ROOT_NAMESPACE`: the namespace at the root of the Korifi org and space hierarchy. The default value is `cf`.
+- `ADMIN_USERNAME`: the name of the Kubernetes user who will have CF admin privileges on the Korifi installation. For security reasons, you should choose or create a user that is different from your cluster admin user. To provision new users, follow the user management instructions specific for your cluster's [authentication configuration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) or create a [new (short-lived) client certificate for user authentication](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user).
+- `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
 
 Here are the example values we'll use in this guide:
 
@@ -75,9 +75,9 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
     --set=adminUserName=$ADMIN_USERNAME \
     --set=api.apiServer.url=api.$BASE_DOMAIN \
     --set=global.defaultAppDomainName=apps.$BASE_DOMAIN \
-    --set=api.packageRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/packages \
-    --set=kpack-image-builder.builderRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack \
-    --set=kpack-image-builder.packageRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplets
+    --set=api.packageRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/source-package \
+    --set=kpack-image-builder.builderRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack-builder \
+    --set=kpack-image-builder.dropletRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplet
 ```
 
 ### Description of helm values
@@ -90,8 +90,8 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
 - `api.packageRegistry` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
   - If using **DockerHub**, `api.packageRegistry` should be `index.docker.io/<username>`.
   - If using **GCR**, `api.packageRegistry` should be `gcr.io/<project-id>/packages`.
-- `kpack-image-builder.builderRegistry` is the registry location for the kpack builder image. This is part of the example cluster builder configuration that is created when `kpack-image-builder.clusterBuilderName` is left empty.
-- `kpack-image-builder.packageRegistry` specifies the tag prefix used for the images built by Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
+- `kpack-image-builder.builderRegistry` is the registry tag for the kpack builder image. This is part of the example cluster builder configuration that is created when `kpack-image-builder.clusterBuilderName` is left empty.
+- `kpack-image-builder.dropletRegistry` specifies the tag prefix used for the droplet images built by Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
   - If using **DockerHub**, `kpack-image-builder.packageRegistry` should be `index.docker.io/<username>`.
   - If using **GCR**, `kpack-image-builder.packageRegistry` should be `gcr.io/<project-id>/droplets`.
 
@@ -146,14 +146,14 @@ kubectl --namespace "$ROOT_NAMESPACE" create secret docker-registry image-regist
 
 Make sure the value of `--docker-server` is a valid [URI authority](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2).
 
--   If using **DockerHub**:
-    -   `--docker-server` should be `https://index.docker.io/v1/`;
-    -   `--docker-username` should be your DockerHub user;
-    -   `--docker-password` can be either your DockerHub password or a [generated personal access token](https://hub.docker.com/settings/security?generateToken=true).
--   If using **GCR**:
-    -   `--docker-server` should be `gcr.io`;
-    -   `--docker-username` should be `_json_key`;
-    -   `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
+- If using **DockerHub**:
+  - `--docker-server` should be `https://index.docker.io/v1/`;
+  - `--docker-username` should be your DockerHub user;
+  - `--docker-password` can be either your DockerHub password or a [generated personal access token](https://hub.docker.com/settings/security?generateToken=true).
+- If using **GCR**:
+  - `--docker-server` should be `gcr.io`;
+  - `--docker-username` should be `_json_key`;
+  - `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
 
 ### TLS certificates
 
@@ -170,8 +170,8 @@ with the appropriate values.
 
 Create DNS entries for the Korifi API and for the apps running on Korifi. They should match the halm values when [deploying korifi](#deploy korifi):
 
--   The Korifi API entry should match the `api.apiServer.url` helm value. In our example, that would be `api.korifi.example.org`.
--   The apps entry should be a wildcard matching the `global.defaultAppDomainName` helm value: In our example, `*.apps.korifi.example.org`.
+- The Korifi API entry should match the `api.apiServer.url` helm value. In our example, that would be `api.korifi.example.org`.
+- The apps entry should be a wildcard matching the `global.defaultAppDomainName` helm value: In our example, `*.apps.korifi.example.org`.
 
 The DNS entries should point to the load balancer endpoint created by Contour when installed. To discover your endpoint, run:
 
