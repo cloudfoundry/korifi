@@ -24,8 +24,8 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/jonboulle/clockwork v0.3.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
-	github.com/onsi/ginkgo/v2 v2.2.0
-	github.com/onsi/gomega v1.21.1
+	github.com/onsi/ginkgo/v2 v2.3.0
+	github.com/onsi/gomega v1.22.1
 	github.com/pivotal/kpack v0.7.1
 	github.com/projectcontour/contour v1.22.1
 	golang.org/x/text v0.3.7
