@@ -56,16 +56,10 @@ func (a *Applier) applyApp(
 	if appState.App.GUID == "" {
 		appRecord, err := a.appRepo.CreateApp(ctx, authInfo, appInfo.ToAppCreateMessage(spaceGUID))
 		return AppState{App: appRecord}, err
+	} else {
+		_, err := a.appRepo.PatchApp(ctx, authInfo, appInfo.ToAppPatchMessage(appState.App.GUID, spaceGUID))
+		return appState, err
 	}
-
-	_, err := a.appRepo.CreateOrPatchAppEnvVars(ctx, authInfo, repositories.CreateOrPatchAppEnvVarsMessage{
-		AppGUID:              appState.App.GUID,
-		AppEtcdUID:           appState.App.EtcdUID,
-		SpaceGUID:            appState.App.SpaceGUID,
-		EnvironmentVariables: appInfo.Env,
-	})
-
-	return appState, err
 }
 
 func (a *Applier) applyProcesses(
