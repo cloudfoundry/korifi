@@ -56,36 +56,37 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 			return
 		}
 
+		namespace := "korifi"
 		printPodsLogs(clientset, []podContainerDescriptor{
 			{
-				Namespace:     "korifi-api-system",
+				Namespace:     namespace,
 				LabelKey:      "app",
 				LabelValue:    "korifi-api",
 				Container:     "korifi-api",
 				CorrelationId: correlationId(),
 			},
 			{
-				Namespace:  "korifi-controllers-system",
-				LabelKey:   "control-plane",
-				LabelValue: "controller-manager",
+				Namespace:  namespace,
+				LabelKey:   "app",
+				LabelValue: "korifi-controllers",
 				Container:  "manager",
 			},
 			{
-				Namespace:  "korifi-job-task-runner-system",
-				LabelKey:   "control-plane",
-				LabelValue: "controller-manager",
+				Namespace:  namespace,
+				LabelKey:   "app",
+				LabelValue: "korifi-job-task-runner",
 				Container:  "manager",
 			},
 			{
-				Namespace:  "korifi-kpack-build-system",
-				LabelKey:   "control-plane",
-				LabelValue: "controller-manager",
+				Namespace:  namespace,
+				LabelKey:   "app",
+				LabelValue: "korifi-kpack-image-builder",
 				Container:  "manager",
 			},
 			{
-				Namespace:  "korifi-statefulset-runner-system",
-				LabelKey:   "control-plane",
-				LabelValue: "controller-manager",
+				Namespace:  namespace,
+				LabelKey:   "app",
+				LabelValue: "korifi-statefulset-runner",
 				Container:  "manager",
 			},
 		})

@@ -2,14 +2,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: korifi-kpack-build-webhook-service
-  namespace: {{ .Values.namespace }}
 spec:
   ports:
   - port: 443
     protocol: TCP
     targetPort: 9443
   selector:
-    control-plane: controller-manager
+    app: korifi-kpack-image-builder
 
 {{- if .Values.global.debug }}
 ---
@@ -17,7 +16,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: korifi-kpack-image-builder-controller-manager-debug-port
-  namespace: {{ .Values.namespace }}
 spec:
   ports:
   - name: debug-30053
@@ -26,6 +24,6 @@ spec:
     protocol: TCP
     targetPort: 40000
   selector:
-    app: korifi-kpack-image-builder-controller-manager
+    app: korifi-kpack-image-builder
   type: NodePort
 {{- end }}

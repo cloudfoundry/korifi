@@ -4,7 +4,6 @@ metadata:
   labels:
     app: korifi-api
   name: korifi-api-proxy
-  namespace: {{ .Values.namespace }}
 spec:
   routes:
   - conditions:
@@ -14,7 +13,7 @@ spec:
       port: 443
       validation:
         caSecret: korifi-api-internal-cert
-        subjectName: korifi-api-svc.{{ .Values.namespace }}.svc.cluster.local
+        subjectName: korifi-api-svc.{{ .Release.Namespace }}.svc.cluster.local
     timeoutPolicy:
       response: 5m
   virtualhost:

@@ -136,11 +136,23 @@ function deploy_korifi() {
     helm dependency update helm/korifi
 
     doDebug="false"
+    secLevel="restricted"
     if [[ -n "${debug}" ]]; then
       doDebug="true"
+      secLevel="privileged"
     fi
 
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    pod-security.kubernetes.io/enforce: $secLevel
+  name: korifi
+EOF
+
     helm upgrade --install korifi helm/korifi \
+      --namespace korifi \
       --values=scripts/assets/values.yaml \
       --set=global.debug="$doDebug" \
       --wait

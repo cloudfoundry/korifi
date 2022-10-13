@@ -2,14 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    control-plane: controller-manager
+    app: korifi-statefulset-runner
   name: korifi-statefulset-runner-controller-manager
-  namespace: {{ .Values.namespace }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app: korifi-statefulset-runner
   template:
     metadata:
       annotations:
@@ -18,7 +17,7 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
       labels:
-        control-plane: controller-manager
+        app: korifi-statefulset-runner
     spec:
       containers:
       - name: manager
@@ -89,4 +88,4 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: webhook-server-cert
+          secretName: statefulset-runner-webhook-server-cert

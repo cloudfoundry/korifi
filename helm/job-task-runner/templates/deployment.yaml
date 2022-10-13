@@ -2,14 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    control-plane: controller-manager
+    app: korifi-job-task-runner
   name: korifi-job-task-runner-controller-manager
-  namespace: {{ .Values.namespace }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app: korifi-job-task-runner
   template:
     metadata:
       annotations:
@@ -19,7 +18,7 @@ spec:
         prometheus.io/scrape: "true"
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
       labels:
-        control-plane: controller-manager
+        app: korifi-job-task-runner
     spec:
       containers:
       - name: manager

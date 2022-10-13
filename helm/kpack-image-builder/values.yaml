@@ -4,7 +4,6 @@ global:
   packageRegistrySecret: image-registry-credentials
 
 include: true
-namespace: korifi-kpack-build-system
 replicas: 1
 resources:
   limits:

@@ -2,14 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    control-plane: controller-manager
+    app: korifi-kpack-image-builder
   name: korifi-kpack-build-controller-manager
-  namespace: {{ .Values.namespace }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app: korifi-kpack-image-builder
   template:
     metadata:
       annotations:
@@ -19,7 +18,7 @@ spec:
         prometheus.io/scrape: "true"
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
       labels:
-        control-plane: controller-manager
+        app: korifi-kpack-image-builder
     spec:
       containers:
       - name: manager
@@ -97,7 +96,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: webhook-server-cert
+          secretName: kpack-image-builder-webhook-server-cert
       - configMap:
           name: korifi-kpack-build-config
         name: korifi-kpack-build-config

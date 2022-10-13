@@ -3,7 +3,6 @@ global:
   debug: false
 
 include: true
-namespace: korifi-job-task-runner-system
 replicas: 1
 resources:
   limits:
