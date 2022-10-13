@@ -143,6 +143,16 @@ var _ = Describe("AppWorkload Reconcile", func() {
 				Expect(reconcileErr).To(MatchError("big sad"))
 			})
 		})
+
+		When("reconciler name on the AppWorkload is not statefulset-runner", func() {
+			BeforeEach(func() {
+				appWorkload.Spec.RunnerName = "MyCustomReconciler"
+			})
+
+			It("does not create/patch statefulset", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
+			})
+		})
 	})
 
 	When("the appworkload is being deleted", func() {
