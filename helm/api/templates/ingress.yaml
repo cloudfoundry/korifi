@@ -1,23 +1,66 @@
-apiVersion: projectcontour.io/v1
-kind: HTTPProxy
+{{/* apiVersion: projectcontour.io/v1 */}}
+{{/* kind: HTTPProxy */}}
+{{/* metadata: */}}
+{{/*   labels: */}}
+{{/*     app: korifi-api */}}
+{{/*   name: korifi-api-proxy */}}
+{{/*   namespace: {{ .Values.namespace }} */}}
+{{/* spec: */}}
+{{/*   routes: */}}
+{{/*   - conditions: */}}
+{{/*     - prefix: / */}}
+{{/*     services: */}}
+{{/*     - name: korifi-api-svc */}}
+{{/*       port: 443 */}}
+{{/*       validation: */}}
+{{/*         caSecret: korifi-api-internal-cert */}}
+{{/*         subjectName: korifi-api-svc.{{ .Values.namespace }}.svc.cluster.local */}}
+{{/*     timeoutPolicy: */}}
+{{/*       response: 5m */}}
+{{/*   virtualhost: */}}
+{{/*     fqdn: {{ .Values.apiServer.url }} */}}
+{{/*     tls: */}}
+{{/*       secretName: korifi-api-ingress-cert */}}
+
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
 metadata:
-  labels:
-    app: korifi-api
-  name: korifi-api-proxy
+  name: korifi-api-gateway
+  namespace: {{ .Values.namespace }}
+  annotations:
+    networking.istio.io/service-type: NodePort
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: {{ .Values.apiServer.url }}
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Selector
+    tls:
+      mode: Passthrough
+      certificateRefs:
+      - name: korifi-api-ingress-cert
+
+
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: korifi-https
   namespace: {{ .Values.namespace }}
 spec:
-  routes:
-  - conditions:
-    - prefix: /
-    services:
+  parentRefs:
+  - name: korifi-api-gateway
+    namespace: {{ .Values.namespace }}
+  hostnames: [ {{ .Values.apiServer.url }} ]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
     - name: korifi-api-svc
       port: 443
-      validation:
-        caSecret: korifi-api-internal-cert
-        subjectName: korifi-api-svc.{{ .Values.namespace }}.svc.cluster.local
-    timeoutPolicy:
-      response: 5m
-  virtualhost:
-    fqdn: {{ .Values.apiServer.url }}
-    tls:
-      secretName: korifi-api-ingress-cert

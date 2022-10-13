@@ -63,16 +63,20 @@ kubectl patch -n kpack deployment kpack-controller -p \
   '{"spec": {"template": {"spec": {"containers": [{"name": "controller", "resources": {"limits": {"cpu": "500m"}}}]}}}}'
 
 echo "********************"
-echo " Installing Contour"
+echo " Installing Gateway API CRDs"
 echo "********************"
 
-# Temporarily resolve an issue with contour running on Apple silicon.
-# This fix can be removed once the latest version of contour uses envoy v1.23.1 or newer
-if command -v kbld &>/dev/null; then
-  kbld --image-map-file "${DEP_DIR}/contour/kbld-image-mapping-to-fix-envoy-v1.23-bug.json" -f "$VENDOR_DIR/contour" | kubectl apply -f -
-else
-  kubectl apply -f "$VENDOR_DIR/contour"
-fi
+kubectl get crd gateways.gateway.networking.k8s.io ||
+  { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/?ref=v0.5.1" | kubectl apply -f -; }
+kubectl get crd tlsroutes.gateway.networking.k8s.io ||
+  { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v0.5.1" | kubectl apply -f -; }
+
+echo "********************"
+echo " Installing Istio"
+echo "********************"
+
+"$VENDOR_DIR/istio/bin/istioctl" install --set profile=demo -y
+kubectl patch service istio-ingressgateway -n istio-system --patch-file "$VENDOR_DIR/istio/patch-ingressgateway-nodeport.yaml"
 
 echo "************************************"
 echo " Installing Service Binding Runtime"

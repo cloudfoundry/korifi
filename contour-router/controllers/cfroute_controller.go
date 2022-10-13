@@ -66,10 +66,6 @@ func NewCFRouteReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/finalizers,verbs=update
 
-//+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies/status,verbs=get
-//+kubebuilder:rbac:groups=projectcontour.io,resources=httpproxies/finalizers,verbs=update
-
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch
