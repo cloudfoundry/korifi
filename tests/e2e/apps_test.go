@@ -477,6 +477,40 @@ var _ = Describe("Apps", func() {
 				})
 			})
 		})
+
+		Describe("Stop the app", func() {
+			var result map[string]interface{}
+			var errResp cfErrs
+
+			BeforeEach(func() {
+				createSpaceRole("space_developer", certUserName, space1GUID)
+			})
+
+			JustBeforeEach(func() {
+				var err error
+				resp, err = certClient.R().
+					SetError(&errResp).
+					SetResult(&result).
+					Post("/v3/apps/" + appGUID + "/actions/stop")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("succeeds", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result).To(HaveKeyWithValue("state", "STOPPED"))
+			})
+
+			It("eventually increments the app-rev annotation", func() {
+				Eventually(func(g Gomega) {
+					resp, err := certClient.R().
+						SetResult(&result).
+						Get("/v3/apps/" + appGUID)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "1"))))
+				}).Should(Succeed())
+			})
+		})
 	})
 
 	Describe("Fetch app env", func() {
