@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"go.uber.org/zap/zapcore"
 	"net/http"
 	"net/url"
 	"os"
@@ -63,6 +63,7 @@ func main() {
 	zapOpts := zap.Options{
 		// TODO: this needs to be configurable
 		Development: false,
+		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
@@ -316,11 +317,19 @@ func main() {
 	}
 
 	if tlsFound {
-		log.Println("Listening with TLS on ", portString)
-		log.Fatal(srv.ListenAndServeTLS(path.Join(tlsPath, "tls.crt"), path.Join(tlsPath, "tls.key")))
+		ctrl.Log.Info("Listening with TLS on " + portString)
+		err := srv.ListenAndServeTLS(path.Join(tlsPath, "tls.crt"), path.Join(tlsPath, "tls.key"))
+		if err != nil {
+			ctrl.Log.Error(err, "error serving TLS")
+			os.Exit(1)
+		}
 	} else {
-		log.Println("Listening without TLS on ", portString)
-		log.Fatal(srv.ListenAndServe())
+		ctrl.Log.Info("Listening without TLS on " + portString)
+		err := srv.ListenAndServe()
+		if err != nil {
+			ctrl.Log.Error(err, "error serving HTTP")
+			os.Exit(1)
+		}
 	}
 }
 
