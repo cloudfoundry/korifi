@@ -3,13 +3,12 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: korifi-api-ingress-cert
-  namespace: {{ .Values.namespace }}
 spec:
   commonName: {{ .Values.apiServer.url }}
   dnsNames:
   - {{ .Values.apiServer.url }}
   issuerRef:
     kind: Issuer
-    name: korifi-api-selfsigned-issuer
+    name: selfsigned-issuer
   secretName: korifi-api-ingress-cert
 {{- end }}

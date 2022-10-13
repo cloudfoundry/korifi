@@ -2,20 +2,11 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: korifi-kpack-build-serving-cert
-  namespace: {{ .Values.namespace }}
 spec:
   dnsNames:
-  - korifi-kpack-build-webhook-service.{{ .Values.namespace }}.svc
-  - korifi-kpack-build-webhook-service.{{ .Values.namespace }}.svc.cluster.local
+  - korifi-kpack-build-webhook-service.{{ .Release.Namespace }}.svc
+  - korifi-kpack-build-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
   issuerRef:
     kind: Issuer
-    name: korifi-kpack-build-selfsigned-issuer
-  secretName: webhook-server-cert
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: korifi-kpack-build-selfsigned-issuer
-  namespace: {{ .Values.namespace }}
-spec:
-  selfSigned: {}
+    name: selfsigned-issuer
+  secretName: kpack-image-builder-webhook-server-cert

@@ -6,7 +6,6 @@ global:
   packageRegistrySecret: image-registry-credentials
 
 include: true
-namespace: korifi-api-system
 replicas: 1
 resources:
   requests:

@@ -23,8 +23,6 @@ adminUserName: cf-admin
 api:
   # Deploy the API component
   include: true
-  # Namespace for the API resources
-  namespace: korifi-api-system
   # Number of replicas
   replicas: 1
   # Resource requests
@@ -77,8 +75,6 @@ api:
 controllers:
   # Deploy the controllers component
   include: true
-  # Namespace for the controllers resources
-  namespace: korifi-controllers-system
   # Number of replicas
   replicas: 1
   # Resource requests and limits
@@ -107,13 +103,10 @@ controllers:
   # The TLS secret used when setting up app route
   workloadsTLSSecret:
     name: korifi-workloads-ingress-cert
-    namespace: korifi-controllers-system
 
 job-task-runner:
   # Deploy the job-task-runner component
   include: true
-  # Namespace of the job-task-runner resources
-  namespace: korifi-job-task-runner-system
   # Number of replicas
   replicas: 1
   # Resource requests and limits
@@ -133,8 +126,6 @@ job-task-runner:
 kpack-image-builder:
   # Deploy the kpack-image-builder component
   include: true
-  # Namespace of the kpack-image-builder resources
-  namespace: korifi-kpack-build-system
   # Number of replicas
   replicas: 1
   # Resource requests and limits
@@ -160,8 +151,6 @@ kpack-image-builder:
 statefulset-runner:
   # Deploy the statefulset-runner component
   include: true
-  # Namespace of the statefulset-runner resources
-  namespace: korifi-statefulset-runner-system
   # Number of replicas
   replicas: 1
   # Resource requests and limits

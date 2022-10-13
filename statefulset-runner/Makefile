@@ -56,9 +56,9 @@ manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole 
 		output:rbac:artifacts:config=../helm/statefulset-runner/templates \
 		output:webhook:artifacts:config=../helm/statefulset-runner/templates
 
-	$(SED) -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Values.namespace }}/korifi-statefulset-runner-serving-cert"' ../helm/statefulset-runner/templates/manifests.yaml
+	$(SED) -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/korifi-statefulset-runner-serving-cert"' ../helm/statefulset-runner/templates/manifests.yaml
 	$(SED) -i.bak -e 's/name: \(webhook-service\)/name: korifi-statefulset-runner-\1/' ../helm/statefulset-runner/templates/manifests.yaml
-	$(SED) -i.bak -e 's/namespace: system/namespace: "{{ .Values.namespace }}"/' ../helm/statefulset-runner/templates/manifests.yaml
+	$(SED) -i.bak -e 's/namespace: system/namespace: "{{ .Release.Namespace }}"/' ../helm/statefulset-runner/templates/manifests.yaml
 	$(SED) -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-statefulset-runner-\1/' ../helm/statefulset-runner/templates/manifests.yaml
 	$(SED) -i.bak -e '/failurePolicy:.*/a\  objectSelector:\n    matchLabels:\n      korifi.cloudfoundry.org/add-stsr-index: "true"' ../helm/statefulset-runner/templates/manifests.yaml
 	rm -f ../helm/statefulset-runner/templates/manifests.yaml.bak

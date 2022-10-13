@@ -6,7 +6,6 @@ global:
   packageRegistrySecret: image-registry-credentials
 
 include: true
-namespace: korifi-controllers-system
 replicas: 1
 resources:
   limits:
@@ -26,4 +25,3 @@ processDefaults:
 taskTTL: 30d
 workloadsTLSSecret:
   name: korifi-workloads-ingress-cert
-  namespace: korifi-controllers-system
