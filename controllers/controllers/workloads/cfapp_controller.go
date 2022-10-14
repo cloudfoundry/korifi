@@ -67,6 +67,14 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 		return ctrl.Result{}, err
 	}
 
+	if cfApp.Status.ObservedDesiredState != cfApp.Spec.DesiredState {
+		cfApp.Status.ObservedDesiredState = cfApp.Spec.DesiredState
+	}
+
+	if cfApp.Status.Conditions == nil {
+		cfApp.Status.Conditions = make([]metav1.Condition, 0)
+	}
+
 	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
 		Type:    StatusConditionStaged,
 		Status:  metav1.ConditionFalse,
@@ -380,11 +388,5 @@ func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cf
 
 	cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
 
-	if cfApp.Status.ObservedDesiredState != cfApp.Spec.DesiredState {
-		cfApp.Status.ObservedDesiredState = cfApp.Spec.DesiredState
-	}
-	if cfApp.Status.Conditions == nil {
-		cfApp.Status.Conditions = make([]metav1.Condition, 0)
-	}
 	return nil
 }
