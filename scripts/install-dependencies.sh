@@ -62,14 +62,14 @@ kubectl apply -f "$VENDOR_DIR/kpack"
 kubectl patch -n kpack deployment kpack-controller -p \
   '{"spec": {"template": {"spec": {"containers": [{"name": "controller", "resources": {"limits": {"cpu": "500m"}}}]}}}}'
 
-echo "********************"
-echo " Installing Gateway API CRDs"
-echo "********************"
+# echo "********************"
+# echo " Installing Gateway API CRDs"
+# echo "********************"
 
-kubectl get crd gateways.gateway.networking.k8s.io ||
-  { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/?ref=v0.5.1" | kubectl apply -f -; }
-kubectl get crd tlsroutes.gateway.networking.k8s.io ||
-  { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v0.5.1" | kubectl apply -f -; }
+# kubectl get crd gateways.gateway.networking.k8s.io ||
+#   { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/?ref=v0.5.1" | kubectl apply -f -; }
+# kubectl get crd tlsroutes.gateway.networking.k8s.io ||
+#   { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v0.5.1" | kubectl apply -f -; }
 
 echo "********************"
 echo " Installing Istio"

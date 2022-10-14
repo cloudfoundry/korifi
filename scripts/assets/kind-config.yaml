@@ -14,10 +14,10 @@ featureGates:
 nodes:
 - role: control-plane
   extraPortMappings:
-  - containerPort: 80
+  - containerPort: 32000
     hostPort: 80
     protocol: TCP
-  - containerPort: 443
+  - containerPort: 32001
     hostPort: 443
     protocol: TCP
   - containerPort: 30050

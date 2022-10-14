@@ -6,7 +6,7 @@ createAdminUser: true
 
 api:
   apiServer:
-    url: localhost
+    url: vcap.me
   image: cloudfoundry/korifi-api:latest
   packageRegistry: localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
 
