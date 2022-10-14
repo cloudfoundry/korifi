@@ -4,6 +4,7 @@ metadata:
   labels:
     app: korifi-controllers
   name: korifi-controllers-controller-manager
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:

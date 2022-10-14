@@ -4,6 +4,7 @@ metadata:
   labels:
     app: korifi-api
   name: korifi-api-deployment
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:

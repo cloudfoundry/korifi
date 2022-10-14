@@ -2,6 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: korifi-api-internal-cert
+  namespace: {{ .Release.Namespace }}
 spec:
   commonName: korifi-api-svc.{{ .Release.Namespace }}.svc.cluster.local
   dnsNames:

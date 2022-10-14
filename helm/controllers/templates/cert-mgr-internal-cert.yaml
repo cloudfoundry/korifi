@@ -2,6 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: korifi-controllers-serving-cert
+  namespace: {{ .Release.Namespace }}
 spec:
   dnsNames:
   - korifi-controllers-webhook-service.{{ .Release.Namespace }}.svc

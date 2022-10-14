@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: korifi-job-task-runner-config
+  namespace: {{ .Release.Namespace }}
 data:
   job_task_runner_config.yaml: |
     jobTTL: {{ .Values.jobTTL }}

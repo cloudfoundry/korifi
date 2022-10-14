@@ -4,6 +4,7 @@ metadata:
   labels:
     app: korifi-kpack-image-builder
   name: korifi-kpack-build-controller-manager
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:

@@ -4,6 +4,7 @@ metadata:
   labels:
     app: korifi-api
   name: korifi-api-proxy
+  namespace: {{ .Release.Namespace }}
 spec:
   routes:
   - conditions:

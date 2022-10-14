@@ -4,6 +4,7 @@ metadata:
   labels:
     app: korifi-job-task-runner
   name: korifi-job-task-runner-controller-manager
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
