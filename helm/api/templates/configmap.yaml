@@ -6,6 +6,7 @@ metadata:
 data:
   korifi_api_config.yaml: |
     externalFQDN: {{ .Values.apiServer.url }}
+    defaultExternalProtocol: {{ .Values.apiServer.protocol }}
     externalPort: {{ .Values.externalPort | default 0 }}
     internalPort: {{ .Values.apiServer.internalPort }}
     idleTimeout: {{ .Values.apiServer.timeouts.idle }}

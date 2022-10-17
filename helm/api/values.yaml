@@ -17,6 +17,7 @@ apiServer:
   url: api.my-cf-domain.com # externalFQDN
   # To override default port, set port to a non-zero value
   port: 0
+  protocol: http
   internalPort: 9000
   timeouts:
     read: 900

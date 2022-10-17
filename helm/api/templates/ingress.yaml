@@ -23,52 +23,6 @@
 {{/*       secretName: korifi-api-ingress-cert */}}
 
 
-{{/* ---- Gateway API */}}
-
-{{/* apiVersion: gateway.networking.k8s.io/v1alpha2 */}}
-{{/* kind: Gateway */}}
-{{/* metadata: */}}
-{{/*   name: korifi-api-gateway */}}
-{{/*   namespace: {{ .Values.namespace }} */}}
-{{/*   annotations: */}}
-{{/*     networking.istio.io/service-type: NodePort */}}
-{{/* spec: */}}
-{{/*   gatewayClassName: istio */}}
-{{/*   listeners: */}}
-{{/*   - name: default */}}
-{{/*     hostname: {{ .Values.apiServer.url }} */}}
-{{/*     port: 443 */}}
-{{/*     protocol: HTTPS */}}
-{{/*     allowedRoutes: */}}
-{{/*       namespaces: */}}
-{{/*         from: All */}}
-{{/*     tls: */}}
-{{/*       mode: Passthrough */}}
-{{/*       certificateRefs: */}}
-{{/*       - name: korifi-api-ingress-cert */}}
-
-
-{{/* --- */}}
-{{/* apiVersion: gateway.networking.k8s.io/v1alpha2 */}}
-{{/* kind: HTTPRoute */}}
-{{/* metadata: */}}
-{{/*   name: korifi-https */}}
-{{/*   namespace: {{ .Values.namespace }} */}}
-{{/* spec: */}}
-{{/*   parentRefs: */}}
-{{/*   - name: korifi-api-gateway */}}
-{{/*     namespace: {{ .Values.namespace }} */}}
-{{/*   hostnames: [ {{ .Values.apiServer.url }} ] */}}
-{{/*   rules: */}}
-{{/*   - matches: */}}
-{{/*     - path: */}}
-{{/*         type: PathPrefix */}}
-{{/*         value: / */}}
-{{/*     backendRefs: */}}
-{{/*     - name: korifi-api-svc */}}
-{{/*       port: 443 */}}
-
-
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -76,19 +30,15 @@ metadata:
   name: korifi-api-gateway
 spec:
   selector:
-    istio: ingressgateway # use istio default ingress gateway
+    istio: ingressgateway # use istio default controller
   servers:
   - port:
-      number: 443
-      name: https
-      protocol: HTTPS
-    tls:
-      mode: PASSTHROUGH
+      number: 80
+      name: http
+      protocol: HTTP
     hosts:
-    - {{ .Values.apiServer.url }}
-
+    - "*"
 ---
-
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -96,16 +46,15 @@ metadata:
   name: korifi-api
 spec:
   hosts:
-  - {{ .Values.apiServer.url }}
+  - "*"
   gateways:
   - korifi-api-gateway
-  tls:
+  http:
   - match:
-    - port: 443
-      sniHosts:
-      - {{ .Values.apiServer.url }}
+    - uri:
+        prefix: /
     route:
     - destination:
         host: korifi-api-svc
         port:
-          number: 443
+          number: 80

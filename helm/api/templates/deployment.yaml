@@ -19,8 +19,10 @@ spec:
       - env:
         - name: APICONFIG
           value: /etc/korifi-api-config
+{{- if eq .Values.apiServer.protocol "https" }}
         - name: TLSCONFIG
           value: /etc/korifi-tls-config
+{{- end }}
         image: {{ .Values.image }}
 {{- if .Values.global.debug }}
         command:
@@ -58,14 +60,18 @@ spec:
         - mountPath: /etc/korifi-api-config
           name: korifi-api-config
           readOnly: true
+{{- if eq .Values.apiServer.protocol "https" }}
         - mountPath: /etc/korifi-tls-config
           name: korifi-tls-config
           readOnly: true
+{{- end }}
       serviceAccountName: korifi-api-system-serviceaccount
       volumes:
       - configMap:
           name: korifi-api-config
         name: korifi-api-config
+{{- if eq .Values.apiServer.protocol "https" }}
       - name: korifi-tls-config
         secret:
           secretName: korifi-api-internal-cert
+{{- end }}

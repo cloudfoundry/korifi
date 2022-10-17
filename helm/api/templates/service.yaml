@@ -10,9 +10,9 @@ metadata:
 spec:
   ports:
   - name: web
-    port: 443
+    port: 80
     protocol: TCP
-    targetPort: web
+    targetPort: 9000
   selector:
     app: korifi-api
   type: ClusterIP
