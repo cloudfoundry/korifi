@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: korifi-job-task-runner-controller-manager-debug-port
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
     - name: debug-30055

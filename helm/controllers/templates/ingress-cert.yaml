@@ -3,6 +3,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: korifi-workloads-ingress-cert
+  namespace: {{ .Release.Namespace }}
 spec:
   commonName: \*.{{ .Values.global.defaultAppDomainName }}
   dnsNames:

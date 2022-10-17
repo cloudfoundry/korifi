@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: korifi-controllers-webhook-service
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
   - port: 443
@@ -15,7 +16,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: controller-manager-debug-port
-  namespace: korifi-controllers-system
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
     - name: debug-30051

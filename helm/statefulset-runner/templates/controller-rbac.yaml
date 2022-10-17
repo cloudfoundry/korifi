@@ -2,12 +2,14 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: korifi-statefulset-runner-controller-manager
+  namespace: {{ .Release.Namespace }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: korifi-statefulset-runner-leader-election-role
+  namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups:
   - ""
@@ -46,6 +48,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: korifi-statefulset-runner-leader-election-rolebinding
+  namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
