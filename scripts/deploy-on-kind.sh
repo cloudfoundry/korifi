@@ -11,8 +11,15 @@ Usage:
   $(basename "$0") <kind cluster name>
 
 flags:
-  -l, --use-local-registry
-      Deploys a local container registry to the kind cluster.
+  -r, --use-custom-registry
+      Instead of using the default local registry, use the registry
+      described by the follow set of env vars:
+      - DOCKER_SERVER
+      - DOCKER_USERNAME
+      - DOCKER_PASSWORD
+      - PACKAGE_REGISTRY
+      - DROPLET_REGISTRY
+      - KPACK_BUILDER_REPOSITORY
 
   -v, --verbose
       Verbose output (bash -x).
@@ -31,14 +38,16 @@ EOF
 }
 
 cluster=""
-use_local_registry=""
+use_custom_registry=""
 debug=""
 
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
-    -l | --use-local-registry)
-      use_local_registry="true"
+    -r | --use-custom-registry)
+      use_custom_registry="true"
+      # blow up if required vars not set
+      echo "$DOCKER_SERVER $DOCKER_USERNAME $DOCKER_PASSWORD $PACKAGE_REGISTRY $DROPLET_REGISTRY $KPACK_BUILDER_REPOSITORY" >/dev/null
       shift
       ;;
     -D | --debug)
@@ -71,13 +80,6 @@ if [[ -z "${cluster}" ]]; then
   exit 1
 fi
 
-if [[ -n "${debug}" ]]; then
-  if [[ -z "${use_local_registry}" ]]; then
-    echo -e "Error: currently debugging requires local registry (only because Kustomize is hard, not for real reasons)" >&2
-    exit 1
-  fi
-fi
-
 function ensure_kind_cluster() {
   if ! kind get clusters | grep -q "${cluster}"; then
     kind create cluster --name "${cluster}" --wait 5m --config="$SCRIPT_DIR/assets/kind-config.yaml"
@@ -87,7 +89,7 @@ function ensure_kind_cluster() {
 }
 
 function ensure_local_registry() {
-  if [[ -z "${use_local_registry}" ]]; then return 0; fi
+  if [[ -n "${use_custom_registry}" ]]; then return 0; fi
 
   helm repo add twuni https://helm.twun.io
   # the htpasswd value below is username: user, password: password encoded using `htpasswd` binary
@@ -151,17 +153,28 @@ metadata:
   name: korifi
 EOF
 
-    helm upgrade --install korifi helm/korifi \
-      --namespace korifi \
-      --values=scripts/assets/values.yaml \
-      --set=global.debug="$doDebug" \
-      --wait
+    if [[ -n "$use_custom_registry" ]]; then
+      helm upgrade --install korifi helm/korifi \
+        --namespace korifi \
+        --values=scripts/assets/values.yaml \
+        --set=global.debug="$doDebug" \
+        --set=api.packageRegistry="$PACKAGE_REGISTRY" \
+        --set=kpack-image-builder.dropletRegistry="$DROPLET_REGISTRY" \
+        --set=kpack-image-builder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+        --wait
+    else
+      helm upgrade --install korifi helm/korifi \
+        --namespace korifi \
+        --values=scripts/assets/values.yaml \
+        --set=global.debug="$doDebug" \
+        --wait
+    fi
   }
   popd >/dev/null
 }
 
 function create_registry_secret() {
-  if [[ -n "${use_local_registry}" ]]; then
+  if [[ -z "${use_custom_registry}" ]]; then
     DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
     DOCKER_USERNAME="user"
     DOCKER_PASSWORD="password"
