@@ -41,6 +41,10 @@ export BASE_DOMAIN="korifi.example.org"
 
 See [_Using container registry signed by custom CA_](docs/using-container-registry-signed-by-custom-ca.md).
 
+### Free Dockerhub accounts
+
+Dockerhub allows only one private repository per free account. In case the dockerhub account you configure Korifi with has the `private` [default repository privacy](https://hub.docker.com/settings/default-privacy) enabled, then Korifi would only be able to create a single repository and would get `UNAUTHORIZED: authentication required` error when trying to push to a subsequent repository. This could either cause build errors during `cf push`, or the kpack cluster builder may never become ready. Therefore you should either set the default repository privacy to `public`, or upgrade your dockerhub subscription plan. As of today, the `Pro` subscription plan provides unlimited private repositories.
+
 ## Dependencies
 
 ### cert-Manager
