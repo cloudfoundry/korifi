@@ -43,7 +43,7 @@ else
   export API_SERVER_ROOT="${API_SERVER_ROOT:-https://localhost}"
 
   if [ -z "${SKIP_DEPLOY:-}" ]; then
-    "${SCRIPT_DIR}/deploy-on-kind.sh" -l e2e
+    "${SCRIPT_DIR}/deploy-on-kind.sh" e2e
   fi
 
   # creates user keys/certs and service accounts and exports vars for them
