@@ -151,47 +151,46 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 	}
 
 	serviceAccountMap := make(map[string]struct{})
-	for _, serviceAccount := range serviceAccounts.Items {
-		if serviceAccount.Annotations[korifiv1alpha1.PropagateServiceAccountAnnotation] == "true" {
+	for _, rootServiceAccount := range serviceAccounts.Items {
+		if rootServiceAccount.Annotations[korifiv1alpha1.PropagateServiceAccountAnnotation] == "true" {
+			serviceAccountMap[rootServiceAccount.Name] = struct{}{}
 
-			serviceAccountMap[serviceAccount.Name] = struct{}{}
-
-			newServiceAccount := &corev1.ServiceAccount{
+			spaceServiceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceAccount.Name,
+					Name:      rootServiceAccount.Name,
 					Namespace: space.GetName(),
 				},
+				ImagePullSecrets: []corev1.LocalObjectReference{},
+				Secrets:          []corev1.ObjectReference{},
+			}
+			// some versions of k8s will add their own secret references which will not be available in the new namespace, so we will only reference the package registry secret we explicitly propagate.
+			for i := range rootServiceAccount.Secrets {
+				if rootServiceAccount.Secrets[i].Name == r.packageRegistrySecretName {
+					spaceServiceAccount.Secrets = append(spaceServiceAccount.Secrets, rootServiceAccount.Secrets[i])
+				}
+			}
+			for i := range rootServiceAccount.ImagePullSecrets {
+				if rootServiceAccount.ImagePullSecrets[i].Name == r.packageRegistrySecretName {
+					spaceServiceAccount.ImagePullSecrets = append(spaceServiceAccount.ImagePullSecrets, rootServiceAccount.ImagePullSecrets[i])
+				}
 			}
 
-			result, err = controllerutil.CreateOrPatch(ctx, r.client, newServiceAccount, func() error {
-				newServiceAccount.Labels = serviceAccount.Labels
-				if newServiceAccount.Labels == nil {
-					newServiceAccount.Labels = map[string]string{}
+			result, err = controllerutil.CreateOrPatch(ctx, r.client, spaceServiceAccount, func() error {
+				spaceServiceAccount.Labels = rootServiceAccount.Labels
+				if spaceServiceAccount.Labels == nil {
+					spaceServiceAccount.Labels = map[string]string{}
 				}
-				newServiceAccount.Labels[korifiv1alpha1.PropagatedFromLabel] = r.rootNamespace
-				newServiceAccount.Annotations = serviceAccount.Annotations
-				newServiceAccount.ImagePullSecrets = []corev1.LocalObjectReference{}
-				newServiceAccount.Secrets = []corev1.ObjectReference{}
-				// some versions of k8s will add their own secret references which will not be available in the new namespace, so we will only reference the package registry secret we explicitly propagate.
-				for i := range serviceAccount.Secrets {
-					if serviceAccount.Secrets[i].Name == r.packageRegistrySecretName {
-						newServiceAccount.Secrets = append(newServiceAccount.Secrets, serviceAccount.Secrets[i])
-					}
-				}
-				for i := range serviceAccount.ImagePullSecrets {
-					if serviceAccount.ImagePullSecrets[i].Name == r.packageRegistrySecretName {
-						newServiceAccount.ImagePullSecrets = append(newServiceAccount.ImagePullSecrets, serviceAccount.ImagePullSecrets[i])
-					}
-				}
+				spaceServiceAccount.Labels[korifiv1alpha1.PropagatedFromLabel] = r.rootNamespace
+				spaceServiceAccount.Annotations = rootServiceAccount.Annotations
 
 				return nil
 			})
 			if err != nil {
-				r.log.Error(err, fmt.Sprintf("Error creating/patching service accounts %s/%s", newServiceAccount.Namespace, newServiceAccount.Name))
+				r.log.Error(err, fmt.Sprintf("Error creating/patching service accounts %s/%s", spaceServiceAccount.Namespace, spaceServiceAccount.Name))
 				return err
 			}
 
-			r.log.Info(fmt.Sprintf("Service Account %s/%s %s", newServiceAccount.Namespace, newServiceAccount.Name, result))
+			r.log.Info(fmt.Sprintf("Service Account %s/%s %s", spaceServiceAccount.Namespace, spaceServiceAccount.Name, result))
 
 		}
 	}

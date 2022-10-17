@@ -239,7 +239,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		})
 	})
 
-	When("service accounts are added/updated in the root namespace after CFSpace creation", func() {
+	When("service accounts are added in the root namespace after CFSpace creation", func() {
 		var newlyCreatedServiceAccount *corev1.ServiceAccount
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
@@ -272,6 +272,48 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 						}),
 					}),
 				))
+			}).Should(Succeed())
+		})
+	})
+
+	When("service accounts are updated in the root namespace after CFSpace creation", func() {
+		var (
+			rootServiceAccount       *corev1.ServiceAccount
+			propagatedServiceAccount corev1.ServiceAccount
+		)
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var createdSpace korifiv1alpha1.CFSpace
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
+			}, 20*time.Second).Should(Succeed())
+
+			rootServiceAccount = createServiceAccount(ctx, k8sClient, PrefixedGUID("existing-service-account"), cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-service-account": "true"})
+			// Ensure that the service account is propagated into the CFSpace namespace
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: rootServiceAccount.Name, Namespace: cfSpace.Name}, &propagatedServiceAccount)
+			}).Should(Succeed())
+
+			// Simulate k8s adding a token secret to the propagated service account
+			origPropagatedServiceAccount := propagatedServiceAccount.DeepCopy()
+			propagatedServiceAccount.Secrets = append(propagatedServiceAccount.Secrets, corev1.ObjectReference{Name: "some-token-secret"})
+			Expect(k8sClient.Patch(ctx, &propagatedServiceAccount, client.MergeFrom(origPropagatedServiceAccount))).To(Succeed())
+
+			// Add a new secret to the root copy of the service account
+			origRootServiceAccount := rootServiceAccount.DeepCopy()
+			rootServiceAccount.Secrets = append(rootServiceAccount.Secrets, corev1.ObjectReference{Name: "ignore-me-please"})
+			Expect(k8sClient.Patch(ctx, rootServiceAccount, client.MergeFrom(origRootServiceAccount))).To(Succeed())
+		})
+
+		It("doesn't modify the secrets on the propagated service account", func() {
+			Consistently(func(g Gomega) {
+				var updatedPropagatedServiceAccount corev1.ServiceAccount
+				g.Expect(
+					k8sClient.Get(ctx, client.ObjectKeyFromObject(&propagatedServiceAccount), &updatedPropagatedServiceAccount),
+				).To(Succeed())
+				g.Expect(updatedPropagatedServiceAccount.Secrets).To(Equal(propagatedServiceAccount.Secrets))
+				g.Expect(updatedPropagatedServiceAccount.ImagePullSecrets).To(Equal(propagatedServiceAccount.ImagePullSecrets))
 			}).Should(Succeed())
 		})
 	})
