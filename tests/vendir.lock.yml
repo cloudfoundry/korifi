@@ -14,8 +14,8 @@ directories:
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/60209406
     path: metrics-server-local
   - githubRelease:
-      tag: v1.9.1
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/72867571
+      tag: v1.10.0
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/80082781
     path: cert-manager
   - git:
       commitTitle: Update Contour Docker image to v1.22.1....
