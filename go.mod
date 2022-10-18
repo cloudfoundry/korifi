@@ -5,6 +5,7 @@ go 1.18
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
+	github.com/Masterminds/semver v1.5.0
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/buildpacks/lifecycle v0.14.2
 	github.com/buildpacks/pack v0.27.0
@@ -24,6 +25,7 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/jonboulle/clockwork v0.3.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
+	github.com/mileusna/useragent v1.2.1
 	github.com/onsi/ginkgo/v2 v2.3.1
 	github.com/onsi/gomega v1.22.1
 	github.com/pivotal/kpack v0.7.1

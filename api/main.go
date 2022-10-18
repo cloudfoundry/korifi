@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"time"
+
+	"go.uber.org/zap/zapcore"
 
 	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/actions/manifest"
@@ -297,6 +298,7 @@ func main() {
 	authInfoParser := authorization.NewInfoParser()
 	router.Use(
 		handlers.NewCorrelationIDMiddleware().Middleware,
+		handlers.NewCFCliVersionMiddleware().Middleware,
 		handlers.NewHTTPLogging().Middleware,
 		handlers.NewAuthenticationMiddleware(
 			authInfoParser,
