@@ -63,25 +63,8 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
-        resources:
-          limits:
-            cpu: {{ .Values.resources.limits.cpu }}
-            memory: {{ .Values.resources.limits.memory }}
-          requests:
-            cpu: {{ .Values.resources.requests.cpu }}
-            memory: {{ .Values.resources.requests.memory }}
-        securityContext:
-          allowPrivilegeEscalation: false
-          runAsNonRoot: {{ not .Values.global.debug }}
-          capabilities:
-            drop:
-            - ALL
-{{- if .Values.global.debug }}
-            add:
-            - SYS_PTRACE
-{{- end }}
-          seccompProfile:
-            type: RuntimeDefault
+        {{- include "korifi.resources" . | indent 8 }}
+        {{- include "korifi.securityContext" . | indent 8 }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
@@ -89,8 +72,6 @@ spec:
         - mountPath: /etc/kpack-build-controllers-config
           name: korifi-kpack-build-config
           readOnly: true
-      securityContext:
-        runAsNonRoot: true
       serviceAccountName: korifi-kpack-build-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

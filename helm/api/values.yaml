@@ -38,3 +38,7 @@ lifecycle:
 builderName: kpack-image-builder
 packageRepositoryPrefix: index.docker.io/my-dockerhub-username
 userCertificateExpirationWarningDuration: 168h
+
+# authProxy:
+#   host:
+#   caCert:
