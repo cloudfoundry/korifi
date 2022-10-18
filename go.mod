@@ -28,7 +28,7 @@ require (
 	github.com/onsi/gomega v1.22.1
 	github.com/pivotal/kpack v0.7.1
 	github.com/projectcontour/contour v1.22.1
-	golang.org/x/text v0.3.8
+	golang.org/x/text v0.4.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.25.3
@@ -155,7 +155,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apiextensions-apiserver v0.25.0 // indirect
 	k8s.io/component-base v0.25.3 // indirect
-	k8s.io/klog/v2 v2.70.2-0.20220707122935-0990e81f1a8f // indirect
+	k8s.io/klog/v2 v2.70.2-0.20220707122935-0990e81f1a8f
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	knative.dev/pkg v0.0.0-20220816153547-f78a00694307 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
