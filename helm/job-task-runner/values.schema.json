@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "properties": {
+    "global": {
+      "description": "global values that are shared between korifi and all subcharts",
+      "properties": {
+        "rootNamespace": {
+          "description": "name of the root namespace",
+          "type": "string"
+        },
+        "debug": {
+          "description": "run the dlv command and expose debugging ports",
+          "type": "boolean"
+        }
+      },
+      "required": ["rootNamespace"],
+      "type": "object"
+    },
+    "include": {
+      "description": "determines if this subchart is included in the korifi chart",
+      "type": "boolean"
+    },
+    "replicas": {
+      "description": "number of replicas in the api deployment",
+      "type": "integer"
+    },
+    "resources": {
+      "description": "k8s resources",
+      "type": "object",
+      "properties": {
+        "requests": {
+          "description": "resource requests",
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "description": "cpu request",
+              "type": "string"
+            },
+            "memory": {
+              "description": "memory request",
+              "type": "string"
+            }
+          }
+        },
+        "limits": {
+          "description": "resource limits",
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "description": "cpu limit",
+              "type": "string"
+            },
+            "memory": {
+              "description": "memory limit",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "image": {
+      "description": "docker image for job task runner",
+      "type": "string"
+    },
+    "jobTTL": {
+      "description": "period after which to delete a completed job",
+      "type": "string"
+    }
+  },
+  "required": ["global", "include", "image", "jobTTL"],
+  "title": "Values",
+  "type": "object"
+}
