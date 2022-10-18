@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "properties": {
+    "global": {
+      "description": "global values that are shared between korifi and all subcharts",
+      "properties": {
+        "rootNamespace": {
+          "description": "name of the root namespace",
+          "type": "string"
+        },
+        "debug": {
+          "description": "run the dlv command and expose debugging ports",
+          "type": "boolean"
+        },
+        "defaultAppDomainName": {
+          "description": "default domain name suffix for apps",
+          "type": "string"
+        },
+        "generateIngressCertificates": {
+          "description": "create self-signed certificates for ingress using cert-manager",
+          "type": "boolean"
+        },
+        "packageRegistrySecret": {
+          "description": "name of the secret containing credentials to access the package registry",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rootNamespace",
+        "defaultAppDomainName",
+        "packageRegistrySecret"
+      ],
+      "type": "object"
+    },
+    "include": {
+      "description": "determines if this subchart is included in the korifi chart",
+      "type": "boolean"
+    },
+    "replicas": {
+      "description": "number of replicas in the api deployment",
+      "type": "integer"
+    },
+    "resources": {
+      "description": "k8s resources",
+      "type": "object",
+      "properties": {
+        "requests": {
+          "description": "resource requests",
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "description": "cpu request",
+              "type": "string"
+            },
+            "memory": {
+              "description": "memory request",
+              "type": "string"
+            }
+          }
+        },
+        "limits": {
+          "description": "resource limits",
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "description": "cpu limit",
+              "type": "string"
+            },
+            "memory": {
+              "description": "memory limit",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "image": {
+      "description": "docker image for controllers server",
+      "type": "string"
+    },
+    "reconcilers": {
+      "type": "object",
+      "properties": {
+        "build": {
+          "description": "name of the build controller",
+          "type": "string"
+        },
+        "app": {
+          "description": "name of the app runner controller",
+          "type": "string"
+        }
+      },
+      "required": ["build", "app"]
+    },
+    "processDefaults": {
+      "type": "object",
+      "properties": {
+        "memoryMB": {
+          "description": "default memory for apps",
+          "type": "integer"
+        },
+        "diskQuotaMB": {
+          "description": "default disk quota for apps",
+          "type": "integer"
+        }
+      },
+      "required": ["memoryMB", "diskQuotaMB"]
+    },
+    "taskTTL": {
+      "description": "period after which to delete a completed task",
+      "type": "string"
+    },
+    "workloadsTLSSecret": {
+      "description": "name of secret containing TLS certs / key for serving app routes",
+      "type": "string"
+    }
+  },
+  "required": [
+    "global",
+    "include",
+    "image",
+    "reconcilers",
+    "taskTTL",
+    "workloadsTLSSecret"
+  ],
+  "title": "Values",
+  "type": "object"
+}
