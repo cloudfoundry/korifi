@@ -1,0 +1,38 @@
+{{- define "korifi.resources" }}
+{{- if .Values.resources }}
+resources:
+  {{- if .Values.resources.requests }}
+  requests:
+    {{- if .Values.resources.requests.cpu }}
+    cpu: {{ .Values.resources.requests.cpu }}
+    {{- end }}
+    {{- if .Values.resources.requests.memory }}
+    memory: {{ .Values.resources.requests.memory }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.resources.limits }}
+  limits:
+    {{- if .Values.resources.limits.cpu }}
+    cpu: {{ .Values.resources.limits.cpu }}
+    {{- end }}
+    {{- if .Values.resources.limits.memory }}
+    memory: {{ .Values.resources.limits.memory }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "korifi.securityContext" }}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+{{- if .Values.global.debug }}
+    add:
+    - SYS_PTRACE
+{{- end }}
+  runAsNonRoot: {{ not .Values.global.debug }}
+  seccompProfile:
+    type: RuntimeDefault
+{{- end }}

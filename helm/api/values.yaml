@@ -11,6 +11,9 @@ resources:
   requests:
     cpu: 50m
     memory: 100Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
 
 apiServer:
   url: api.my-cf-domain.com # externalFQDN
