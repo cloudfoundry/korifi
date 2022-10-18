@@ -19,6 +19,7 @@ package workloads
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -160,18 +161,15 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 					Name:      rootServiceAccount.Name,
 					Namespace: space.GetName(),
 				},
-				ImagePullSecrets: []corev1.LocalObjectReference{},
-				Secrets:          []corev1.ObjectReference{},
 			}
+
+			var rootPackageRegistrySecret *corev1.ObjectReference
+
 			// some versions of k8s will add their own secret references which will not be available in the new namespace, so we will only reference the package registry secret we explicitly propagate.
 			for i := range rootServiceAccount.Secrets {
 				if rootServiceAccount.Secrets[i].Name == r.packageRegistrySecretName {
-					spaceServiceAccount.Secrets = append(spaceServiceAccount.Secrets, rootServiceAccount.Secrets[i])
-				}
-			}
-			for i := range rootServiceAccount.ImagePullSecrets {
-				if rootServiceAccount.ImagePullSecrets[i].Name == r.packageRegistrySecretName {
-					spaceServiceAccount.ImagePullSecrets = append(spaceServiceAccount.ImagePullSecrets, rootServiceAccount.ImagePullSecrets[i])
+					rootPackageRegistrySecret = &rootServiceAccount.Secrets[i]
+					break
 				}
 			}
 
@@ -182,6 +180,13 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 				}
 				spaceServiceAccount.Labels[korifiv1alpha1.PropagatedFromLabel] = r.rootNamespace
 				spaceServiceAccount.Annotations = rootServiceAccount.Annotations
+
+				spaceServiceAccount.Secrets = keepTokenSecrets(spaceServiceAccount.Name, spaceServiceAccount.Secrets)
+				if rootPackageRegistrySecret != nil {
+					spaceServiceAccount.Secrets = append(spaceServiceAccount.Secrets, *rootPackageRegistrySecret)
+				}
+
+				spaceServiceAccount.ImagePullSecrets = rootServiceAccount.ImagePullSecrets
 
 				return nil
 			})
@@ -220,6 +225,16 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 	}
 
 	return nil
+}
+
+func keepTokenSecrets(serviceAccountName string, secretRefs []corev1.ObjectReference) []corev1.ObjectReference {
+	var results []corev1.ObjectReference
+	for _, secretRef := range secretRefs {
+		if strings.HasPrefix(secretRef.Name, serviceAccountName+"-token-") {
+			results = append(results, secretRef)
+		}
+	}
+	return results
 }
 
 func (r *CFSpaceReconciler) addFinalizer(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) {
