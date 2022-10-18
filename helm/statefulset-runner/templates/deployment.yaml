@@ -6,7 +6,7 @@ metadata:
   name: korifi-statefulset-runner-controller-manager
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: {{ .Values.replicas }}
+  replicas: {{ .Values.replicas | default 1}}
   selector:
     matchLabels:
       app: korifi-statefulset-runner
