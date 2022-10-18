@@ -6,7 +6,7 @@ metadata:
   name: korifi-api-deployment
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: {{ .Values.replicas }}
+  replicas: {{ .Values.replicas | default 1}}
   selector:
     matchLabels:
       app: korifi-api
@@ -40,22 +40,8 @@ spec:
         ports:
         - containerPort: {{ .Values.apiServer.internalPort }}
           name: web
-        resources:
-          requests:
-            cpu: {{ .Values.resources.requests.cpu }}
-            memory: {{ .Values.resources.requests.memory }}
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-{{- if .Values.global.debug }}
-            add:
-            - SYS_PTRACE
-{{- end }}
-          runAsNonRoot: {{ not .Values.global.debug }}
-          seccompProfile:
-            type: RuntimeDefault
+        {{- include "korifi.resources" . | indent 8 }}
+        {{- include "korifi.securityContext" . | indent 8 }}
         volumeMounts:
         - mountPath: /etc/korifi-api-config
           name: korifi-api-config

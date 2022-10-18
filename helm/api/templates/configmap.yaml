@@ -23,8 +23,10 @@ data:
     packageRegistrySecretName: {{ .Values.global.packageRegistrySecret }}
     defaultDomainName: {{ .Values.global.defaultAppDomainName }}
     userCertificateExpirationWarningDuration: {{ .Values.userCertificateExpirationWarningDuration }}
-    authProxyHost: "{{ .Values.authProxy.host }}"
-    authProxyCACert: "{{ .Values.authProxy.caCert }}"
+    {{- if .Values.authProxy }}
+    authProxyHost: {{ .Values.authProxy.host | quote }}
+    authProxyCACert: {{ .Values.authProxy.caCert | quote }}
+    {{- end }}
 
   role_mappings_config.yaml: |
     roleMappings:

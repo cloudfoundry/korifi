@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "properties": {
+    "global": {
+      "description": "global values that are shared between korifi and all subcharts",
+      "properties": {
+        "rootNamespace": {
+          "description": "name of the root namespace",
+          "type": "string"
+        },
+        "debug": {
+          "description": "run the dlv command and expose debugging ports",
+          "type": "boolean"
+        },
+        "defaultAppDomainName": {
+          "description": "default domain name suffix for apps",
+          "type": "string"
+        },
+        "generateIngressCertificates": {
+          "description": "create self-signed certificates for ingress using cert-manager",
+          "type": "boolean"
+        },
+        "packageRegistrySecret": {
+          "description": "name of the secret containing credentials to access the package registry",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rootNamespace",
+        "defaultAppDomainName",
+        "packageRegistrySecret"
+      ],
+      "type": "object"
+    },
+    "include": {
+      "description": "determines if this subchart is included in the korifi chart",
+      "type": "boolean"
+    },
+    "replicas": {
+      "description": "number of replicas in the api deployment",
+      "type": "integer"
+    },
+    "resources": {
+      "description": "k8s resources",
+      "type": "object",
+      "properties": {
+        "requests": {
+          "description": "resource requests",
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "description": "cpu request",
+              "type": "string"
+            },
+            "memory": {
+              "description": "memory request",
+              "type": "string"
+            }
+          }
+        },
+        "limits": {
+          "description": "resource limits",
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "description": "cpu limit",
+              "type": "string"
+            },
+            "memory": {
+              "description": "memory limit",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "apiServer": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "description": "API domain and path",
+          "type": "string"
+        },
+        "port": {
+          "description": "external port - zero indicates use the default port",
+          "type": "integer"
+        },
+        "internalPort": {
+          "description": "internal port number",
+          "type": "integer"
+        },
+        "timeouts": {
+          "type": "object",
+          "properties": {
+            "read": {
+              "description": "read timeout",
+              "type": "integer"
+            },
+            "write": {
+              "description": "write timeout",
+              "type": "integer"
+            },
+            "idle": {
+              "description": "idle timeout",
+              "type": "integer"
+            },
+            "readHeader": {
+              "description": "read header timeout",
+              "type": "integer"
+            }
+          },
+          "required": ["read", "write", "idle", "readHeader"]
+        }
+      },
+      "required": ["url", "port", "internalPort", "timeouts"]
+    },
+    "image": {
+      "description": "docker image for api server",
+      "type": "string"
+    },
+    "lifecycle": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "lifecycle type",
+          "type": "string",
+          "enum": ["buildpack"]
+        },
+        "stack": {
+          "description": "stack",
+          "type": "string"
+        },
+        "stagingRequirements": {
+          "type": "object",
+          "properties": {
+            "memoryMB": {
+              "description": "memory in MB for staging",
+              "type": "integer"
+            },
+            "diskMB": {
+              "description": "disk in MB for staging",
+              "type": "integer"
+            }
+          },
+          "required": ["memoryMB", "diskMB"]
+        }
+      },
+      "required": ["type", "stack", "stagingRequirements"]
+    },
+    "builderName": {
+      "description": "name of the component to use for building droplets",
+      "type": "string"
+    },
+    "packageRepositoryPrefix": {
+      "description": "prefix of full path to docker image used to store package",
+      "type": "string"
+    },
+    "userCertificateExpirationWarningDuration": {
+      "description": "warn if client cert expires after this duration",
+      "type": "string"
+    },
+    "authProxy": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "description": "optional host to use for k8s API (e.g. when pinniped proxies the API)",
+          "type": "string"
+        },
+        "caCert": {
+          "description": "optional CA Cert to use for k8s API (e.g. when pinniped proxies the API)",
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "global",
+    "include",
+    "apiServer",
+    "image",
+    "lifecycle",
+    "builderName",
+    "packageRepositoryPrefix",
+    "userCertificateExpirationWarningDuration"
+  ],
+  "title": "Values",
+  "type": "object"
+}
