@@ -58,8 +58,8 @@ api:
 
   # ID of the builder to use on source packages
   builderName: kpack-image-builder
-  # The container registry where app source packages will be stored
-  packageRegistry: index.docker.io/my-dockerhub-username
+  # Prefix to the container repository where app source packages will be stored
+  packageRepositoryPrefix: index.docker.io/my-dockerhub-username
   # Warn if user cert provided for login has a long expiry
   userCertificateExpirationWarningDuration: 168h
 
@@ -101,8 +101,7 @@ controllers:
   # How long before the CFTask object is deleted after the task has completed
   taskTTL: 30d
   # The TLS secret used when setting up app route
-  workloadsTLSSecret:
-    name: korifi-workloads-ingress-cert
+  workloadsTLSSecret: korifi-workloads-ingress-cert
 
 job-task-runner:
   # Deploy the job-task-runner component
@@ -140,8 +139,8 @@ kpack-image-builder:
   # Docker image
   image: cloudfoundry/korifi-kpack-image-builder:latest
 
-  # The image registry where droplet images are pushed to
-  dropletRegistry: index.docker.io/my-dockerhub-username
+  # Prefix to the docker image repository where droplet images are stored
+  dropletRepositoryPrefix: index.docker.io/my-dockerhub-username
   # The name of the cluster builder kpack has been configured with.
   # Leave blank to let kpack-image-builder create an example cluster builder
   clusterBuilderName: cf-kpack-cluster-builder

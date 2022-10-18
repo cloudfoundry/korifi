@@ -23,5 +23,4 @@ processDefaults:
   memoryMB: 1024
   diskQuotaMB: 1024
 taskTTL: 30d
-workloadsTLSSecret:
-  name: korifi-workloads-ingress-cert
+workloadsTLSSecret: korifi-workloads-ingress-cert

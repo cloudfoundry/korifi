@@ -33,7 +33,7 @@ lifecycle:
     diskMB: 1024
 
 builderName: kpack-image-builder
-packageRegistry: index.docker.io/my-dockerhub-username
+packageRepositoryPrefix: index.docker.io/my-dockerhub-username
 userCertificateExpirationWarningDuration: 168h
 
 authProxy:

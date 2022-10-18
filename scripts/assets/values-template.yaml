@@ -6,7 +6,7 @@ api:
   apiServer:
     url: localhost
   image: cloudfoundry/korifi-api:latest
-  packageRegistry: localregistry-docker-registry.default.svc.cluster.local:30050/sources
+  packageRepositoryPrefix: localregistry-docker-registry.default.svc.cluster.local:30050/sources
 
 controllers:
   taskTTL: 5s
@@ -18,7 +18,7 @@ job-task-runner:
 
 kpack-image-builder:
   image: cloudfoundry/korifi-kpack-image-builder:latest
-  dropletRegistry: localregistry-docker-registry.default.svc.cluster.local:30050/droplets
+  dropletRepositoryPrefix: localregistry-docker-registry.default.svc.cluster.local:30050/droplets
   builderRepository: localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder
 
 statefulset-runner:

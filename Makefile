@@ -232,7 +232,7 @@ deploy-api-kind: manifests-api
 		--values=$(API_VALUES) \
 		--set=apiServer.url=localhost \
 		--set=defaultDomainName=$(APP_FQDN) \
-		--set=packageRegistry.base=gcr.io/cf-relint-greengrass/korifi/kpack/beta \
+		--set=packageRepositoryPrefix=gcr.io/cf-relint-greengrass/korifi/kpack/beta \
 		--wait
 
 local-registry = localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
@@ -242,7 +242,7 @@ deploy-api-kind-local: manifests-api
 		--set=image=$(IMG_API) \
 		--set=apiServer.url=localhost \
 		--set=defaultDomainName=$(APP_FQDN) \
-		--set=packageRegistry.base=$(local-registry) \
+		--set=packageRepositoryPrefix=$(local-registry) \
 		--wait
 
 deploy-api-kind-local-debug: manifests-api
@@ -251,7 +251,7 @@ deploy-api-kind-local-debug: manifests-api
 		--set=image=$(IMG_API) \
 		--set=apiServer.url=localhost \
 		--set=defaultDomainName=$(APP_FQDN) \
-		--set=packageRegistry.base=$(local-registry) \
+		--set=packageRepositoryPrefix=$(local-registry) \
 		--set=global.debug=true \
 		--wait
 

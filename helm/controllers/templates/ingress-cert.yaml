@@ -11,5 +11,5 @@ spec:
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
-  secretName: korifi-workloads-ingress-cert
+  secretName: {{ .Values.workloadsTLSSecret }}
 {{- end}}

@@ -15,6 +15,6 @@ resources:
 
 image: cloudfoundry/korifi-kpack-image-builder:latest
 
-dropletRegistry: index.docker.io/my-dockerhub-username
+dropletRepositoryPrefix: index.docker.io/my-dockerhub-username
 clusterBuilderName:
 builderRepository: index.docker.io/my-dockerhub-username/kpack-builder
