@@ -114,14 +114,14 @@ deploy-kind-local: manifests
 	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
 		--values=$(KIB_VALUES) \
 		--set=image=$(IMG_KIB) \
-		--set=packageRegistry=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images \
+		--set=dropletRepositoryPrefix=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images \
 		--wait
 
 deploy-kind-local-debug: manifests
 	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
 		--values=$(KIB_VALUES) \
 		--set=image=$(IMG_KIB) \
-		--set=packageRegistry=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images \
+		--set=dropletRepositoryPrefix=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images \
 		--set=global.debug=true \
 		--wait
 

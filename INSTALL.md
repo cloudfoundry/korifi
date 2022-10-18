@@ -79,9 +79,9 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
     --set=adminUserName=$ADMIN_USERNAME \
     --set=api.apiServer.url=api.$BASE_DOMAIN \
     --set=global.defaultAppDomainName=apps.$BASE_DOMAIN \
-    --set=api.packageRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/source-package \
+    --set=api.packageRepositoryPrefix=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/source-package \
     --set=kpack-image-builder.builderRepository=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack-builder \
-    --set=kpack-image-builder.dropletRegistry=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplet
+    --set=kpack-image-builder.dropletRepositoryPrefix=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplet
 ```
 
 ### Description of helm values
@@ -91,15 +91,15 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<v
 - `adminUserName` is the username that will be bound to the cf admin role.
 - `api.apiServer.url` is the domain name that will be used by the Korifi API, and is usually of the format `api.$BASE_DOMAIN`.
 - `global.defaultAppDomainName` is the default base domain name for the apps deployed by Korifi, and is usually of the format `apps.$BASE_DOMAIN`.
-- `api.packageRegistry` specifies the tag prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
-  - If using **DockerHub**, `api.packageRegistry` should be `index.docker.io/<username>`.
-  - If using **GCR**, `api.packageRegistry` should be `gcr.io/<project-id>/packages`.
+- `api.packageRepositoryPrefix` specifies the prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
+  - If using **DockerHub**, `api.packageRepositoryPrefix` should be `index.docker.io/<username>`.
+  - If using **GCR**, `api.packageRepositoryPrefix` should be `gcr.io/<project-id>/packages`.
 - `kpack-image-builder.builderRepository` is the docker repository URL for the kpack builder image. This is part of the example cluster builder configuration that is created when `kpack-image-builder.clusterBuilderName` is left empty.
   - If using **DockerHub**, `kpack-image-builder.builderRepository` should be `index.docker.io/<username>/kpack-builder`.
   - If using **GCR**, `kpack-image-builder.builderRepository` should be `gcr.io/<project-id>/kpack-builder`.
-- `kpack-image-builder.dropletRegistry` specifies the tag prefix used for the droplet images built by Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
-  - If using **DockerHub**, `kpack-image-builder.packageRegistry` should be `index.docker.io/<username>`.
-  - If using **GCR**, `kpack-image-builder.packageRegistry` should be `gcr.io/<project-id>/droplets`.
+- `kpack-image-builder.dropletRepositoryPrefix` specifies the prefix used for the droplet images built by Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
+  - If using **DockerHub**, `kpack-image-builder.dropletRepositoryPrefix` should be `index.docker.io/<username>`.
+  - If using **GCR**, `kpack-image-builder.dropletRepositoryPrefix` should be `gcr.io/<project-id>/droplets`.
 
 The chart provides various other values that can be set. See [helm/README.values.md](./helm/README.values.md) for details.
 
