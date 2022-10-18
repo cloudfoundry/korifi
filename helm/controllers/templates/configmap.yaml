@@ -13,3 +13,4 @@ data:
     cfRootNamespace: {{ .Values.global.rootNamespace }}
     packageRegistrySecretName: {{ .Values.global.packageRegistrySecret }}
     taskTTL: {{ .Values.taskTTL }}
+    enforcePodSecurityStandards: {{ .Values.enforcePodSecurityStandards }}

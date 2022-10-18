@@ -190,6 +190,7 @@ func main() {
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
 			controllerConfig.PackageRegistrySecretName,
 			controllerConfig.CFRootNamespace,
+			controllerConfig.EnforcePodSecurityStandards,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
 			os.Exit(1)

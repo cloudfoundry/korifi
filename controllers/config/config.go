@@ -7,12 +7,13 @@ import (
 )
 
 type ControllerConfig struct {
-	CFProcessDefaults         CFProcessDefaults `yaml:"cfProcessDefaults"`
-	CFRootNamespace           string            `yaml:"cfRootNamespace"`
-	PackageRegistrySecretName string            `yaml:"packageRegistrySecretName"`
-	TaskTTL                   string            `yaml:"taskTTL"`
-	BuilderName               string            `yaml:"builderName"`
-	RunnerName                string            `yaml:"runnerName"`
+	CFProcessDefaults           CFProcessDefaults `yaml:"cfProcessDefaults"`
+	CFRootNamespace             string            `yaml:"cfRootNamespace"`
+	PackageRegistrySecretName   string            `yaml:"packageRegistrySecretName"`
+	TaskTTL                     string            `yaml:"taskTTL"`
+	EnforcePodSecurityStandards bool              `yaml:"enforce_pod_security_standards"`
+	BuilderName                 string            `yaml:"builderName"`
+	RunnerName                  string            `yaml:"runnerName"`
 }
 
 type CFProcessDefaults struct {

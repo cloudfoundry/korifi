@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -35,8 +34,6 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 		for key, value := range labels {
 			namespace.Labels[key] = value
 		}
-		namespace.Labels[api.EnforceLevelLabel] = string(api.LevelRestricted)
-		namespace.Labels[api.AuditLevelLabel] = string(api.LevelRestricted)
 
 		return nil
 	})

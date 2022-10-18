@@ -147,6 +147,7 @@ var _ = Describe("CFSpace Reconciler", func() {
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
 			packageRegistrySecretName,
 			rootNamespace,
+			true,
 		)
 		ctx = context.Background()
 		req = ctrl.Request{

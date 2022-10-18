@@ -23,3 +23,8 @@ processDefaults:
   memoryMB: 1024
   diskQuotaMB: 1024
 taskTTL: 30d
+
+# istio's sidecar requires additional capabilities and cannot start if pod
+# security standards are enforced. When using istio we should switch
+# enforcement off.
+enforcePodSecurityStandards: false

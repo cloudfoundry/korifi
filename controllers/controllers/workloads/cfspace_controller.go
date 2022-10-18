@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,11 +47,12 @@ const (
 
 // CFSpaceReconciler reconciles a CFSpace object
 type CFSpaceReconciler struct {
-	client                    client.Client
-	scheme                    *runtime.Scheme
-	log                       logr.Logger
-	packageRegistrySecretName string
-	rootNamespace             string
+	client                      client.Client
+	scheme                      *runtime.Scheme
+	log                         logr.Logger
+	packageRegistrySecretName   string
+	rootNamespace               string
+	enforcePodSecurityStandards bool
 }
 
 func NewCFSpaceReconciler(
@@ -59,13 +61,15 @@ func NewCFSpaceReconciler(
 	log logr.Logger,
 	packageRegistrySecretName string,
 	rootNamespace string,
+	enforcePodSecurityStandards bool,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace] {
 	spaceReconciler := CFSpaceReconciler{
-		client:                    client,
-		scheme:                    scheme,
-		log:                       log,
-		packageRegistrySecretName: packageRegistrySecretName,
-		rootNamespace:             rootNamespace,
+		client:                      client,
+		scheme:                      scheme,
+		log:                         log,
+		packageRegistrySecretName:   packageRegistrySecretName,
+		rootNamespace:               rootNamespace,
+		enforcePodSecurityStandards: enforcePodSecurityStandards,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](log, client, &spaceReconciler)
 }
@@ -98,6 +102,11 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 	}
 
 	labels := map[string]string{korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName}
+	if r.enforcePodSecurityStandards {
+		labels[api.EnforceLevelLabel] = string(api.LevelRestricted)
+		labels[api.AuditLevelLabel] = string(api.LevelRestricted)
+	}
+
 	err := createOrPatchNamespace(ctx, r.client, r.log, cfSpace, labels)
 	if err != nil {
 		r.log.Error(err, fmt.Sprintf("Error creating namespace for CFSpace %s/%s", cfSpace.Namespace, cfSpace.Name))
