@@ -5,7 +5,7 @@ metadata:
   name: cf-default-buildpacks
 spec:
   sources:
-  - image: gcr.io/paketo-buildpacks/java:7.5.0
+  - image: gcr.io/paketo-buildpacks/java
   - image: gcr.io/paketo-buildpacks/nodejs
   - image: gcr.io/paketo-buildpacks/ruby
   - image: gcr.io/paketo-buildpacks/procfile
