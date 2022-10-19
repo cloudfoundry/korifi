@@ -75,8 +75,24 @@ echo "********************"
 echo " Installing Istio"
 echo "********************"
 
-"$VENDOR_DIR/istio/bin/istioctl" install --set profile=demo -y
-kubectl patch service istio-ingressgateway -n istio-system --patch-file "$VENDOR_DIR/istio/patch-ingressgateway-nodeport.yaml"
+istioctl install --set profile=demo -y
+kubectl patch service istio-ingressgateway -n istio-system --patch-file <(
+  cat <<EOF
+spec:
+  type: NodePort
+  ports:
+  - name: http2
+    nodePort: 32000
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    nodePort: 32001
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+EOF
+)
 
 echo "************************************"
 echo " Installing Service Binding Runtime"
