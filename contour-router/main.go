@@ -34,7 +34,7 @@ import (
 	"code.cloudfoundry.org/korifi/contour-router/config"
 	"code.cloudfoundry.org/korifi/contour-router/controllers"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
+	istiov1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -45,9 +45,8 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(contourv1.AddToScheme(scheme))
+	utilruntime.Must(istiov1alpha3.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

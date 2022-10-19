@@ -101,7 +101,10 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		return finalize(ctx, r.client, r.log, cfSpace, spaceFinalizerName)
 	}
 
-	labels := map[string]string{korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName}
+	labels := map[string]string{
+		korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName,
+		"istio-injection":             "enabled",
+	}
 	if r.enforcePodSecurityStandards {
 		labels[api.EnforceLevelLabel] = string(api.LevelRestricted)
 		labels[api.AuditLevelLabel] = string(api.LevelRestricted)
