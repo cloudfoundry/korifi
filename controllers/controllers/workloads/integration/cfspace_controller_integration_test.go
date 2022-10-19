@@ -161,8 +161,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 							"Name": Equal(serviceAccount.Name),
 						}),
-						"ImagePullSecrets": ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)})),
-						"Secrets":          ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)})),
+						"Secrets": ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)})),
 					}),
 				))
 			}).Should(Succeed())
@@ -297,18 +296,18 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}).Should(Succeed())
 
 			// Simulate k8s adding a token secret to the propagated service account AND the propagated service account having a stale image registry credential secret
-			origPropagatedServiceAccount := propagatedServiceAccount.DeepCopy()
-			tokenSecretName = rootServiceAccount.Name + "-token-XYZABC"
-			propagatedServiceAccount.Secrets = []corev1.ObjectReference{{Name: tokenSecretName}, {Name: "out-of-date-registry-credentials"}}
-			Expect(k8sClient.Patch(ctx, &propagatedServiceAccount, client.MergeFrom(origPropagatedServiceAccount))).To(Succeed())
+			Expect(k8s.PatchResource(ctx, k8sClient, &propagatedServiceAccount, func() {
+				tokenSecretName = rootServiceAccount.Name + "-token-XYZABC"
+				propagatedServiceAccount.Secrets = []corev1.ObjectReference{{Name: tokenSecretName}, {Name: "out-of-date-registry-credentials"}}
+			})).To(Succeed())
 
 			// Modify the root service account to trigger reconciliation
-			origRootServiceAccount := rootServiceAccount.DeepCopy()
-			rootServiceAccount.Labels = map[string]string{"new-label": "dummy-value"}
-			Expect(k8sClient.Patch(ctx, rootServiceAccount, client.MergeFrom(origRootServiceAccount))).To(Succeed())
+			Expect(k8s.PatchResource(ctx, k8sClient, rootServiceAccount, func() {
+				rootServiceAccount.Labels = map[string]string{"new-label": "dummy-value"}
+			})).To(Succeed())
 		})
 
-		It("doesn't modify the secrets on the propagated service account", func() {
+		It("updates the secrets on the propagated service account", func() {
 			Eventually(func(g Gomega) {
 				var updatedPropagatedServiceAccount corev1.ServiceAccount
 				g.Expect(
@@ -352,15 +351,15 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}).Should(Succeed())
 
 			// Simulate k8s adding a token secret to the propagated service account
-			origPropagatedServiceAccount := propagatedServiceAccount.DeepCopy()
-			tokenSecretName = rootServiceAccount.Name + "-token-XYZABC"
-			propagatedServiceAccount.Secrets = []corev1.ObjectReference{{Name: tokenSecretName}}
-			Expect(k8sClient.Patch(ctx, &propagatedServiceAccount, client.MergeFrom(origPropagatedServiceAccount))).To(Succeed())
+			Expect(k8s.PatchResource(ctx, k8sClient, &propagatedServiceAccount, func() {
+				tokenSecretName = rootServiceAccount.Name + "-token-XYZABC"
+				propagatedServiceAccount.Secrets = []corev1.ObjectReference{{Name: tokenSecretName}}
+			})).To(Succeed())
 
 			// Add the package registry secret to the root service account
-			origRootServiceAccount := rootServiceAccount.DeepCopy()
-			rootServiceAccount.Secrets = []corev1.ObjectReference{{Name: packageRegistrySecretName}}
-			Expect(k8sClient.Patch(ctx, rootServiceAccount, client.MergeFrom(origRootServiceAccount))).To(Succeed())
+			Expect(k8s.PatchResource(ctx, k8sClient, rootServiceAccount, func() {
+				rootServiceAccount.Secrets = []corev1.ObjectReference{{Name: packageRegistrySecretName}}
+			})).To(Succeed())
 		})
 
 		It("is also added to the space's copy of the service account", func() {
@@ -405,9 +404,9 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}).Should(Succeed())
 
 			// Add image pull secrets to the root service account
-			origRootServiceAccount := rootServiceAccount.DeepCopy()
-			rootServiceAccount.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "this-could-be-anything"}, {Name: "another-name-here"}}
-			Expect(k8sClient.Patch(ctx, rootServiceAccount, client.MergeFrom(origRootServiceAccount))).To(Succeed())
+			Expect(k8s.PatchResource(ctx, k8sClient, rootServiceAccount, func() {
+				rootServiceAccount.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "this-could-be-anything"}, {Name: "another-name-here"}}
+			})).To(Succeed())
 		})
 
 		It("updates the image pull secrets on the space's copy of the service account", func() {
