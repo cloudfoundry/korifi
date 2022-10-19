@@ -72,6 +72,21 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
+	PatchAppStub        func(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
+	patchAppMutex       sync.RWMutex
+	patchAppArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchAppMessage
+	}
+	patchAppReturns struct {
+		result1 repositories.AppRecord
+		result2 error
+	}
+	patchAppReturnsOnCall map[int]struct {
+		result1 repositories.AppRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -341,6 +356,72 @@ func (fake *CFAppRepository) GetAppByNameAndSpaceReturnsOnCall(i int, result1 re
 	}{result1, result2}
 }
 
+func (fake *CFAppRepository) PatchApp(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchAppMessage) (repositories.AppRecord, error) {
+	fake.patchAppMutex.Lock()
+	ret, specificReturn := fake.patchAppReturnsOnCall[len(fake.patchAppArgsForCall)]
+	fake.patchAppArgsForCall = append(fake.patchAppArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchAppMessage
+	}{arg1, arg2, arg3})
+	stub := fake.PatchAppStub
+	fakeReturns := fake.patchAppReturns
+	fake.recordInvocation("PatchApp", []interface{}{arg1, arg2, arg3})
+	fake.patchAppMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) PatchAppCallCount() int {
+	fake.patchAppMutex.RLock()
+	defer fake.patchAppMutex.RUnlock()
+	return len(fake.patchAppArgsForCall)
+}
+
+func (fake *CFAppRepository) PatchAppCalls(stub func(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)) {
+	fake.patchAppMutex.Lock()
+	defer fake.patchAppMutex.Unlock()
+	fake.PatchAppStub = stub
+}
+
+func (fake *CFAppRepository) PatchAppArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchAppMessage) {
+	fake.patchAppMutex.RLock()
+	defer fake.patchAppMutex.RUnlock()
+	argsForCall := fake.patchAppArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) PatchAppReturns(result1 repositories.AppRecord, result2 error) {
+	fake.patchAppMutex.Lock()
+	defer fake.patchAppMutex.Unlock()
+	fake.PatchAppStub = nil
+	fake.patchAppReturns = struct {
+		result1 repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) PatchAppReturnsOnCall(i int, result1 repositories.AppRecord, result2 error) {
+	fake.patchAppMutex.Lock()
+	defer fake.patchAppMutex.Unlock()
+	fake.PatchAppStub = nil
+	if fake.patchAppReturnsOnCall == nil {
+		fake.patchAppReturnsOnCall = make(map[int]struct {
+			result1 repositories.AppRecord
+			result2 error
+		})
+	}
+	fake.patchAppReturnsOnCall[i] = struct {
+		result1 repositories.AppRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -352,6 +433,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.getAppMutex.RUnlock()
 	fake.getAppByNameAndSpaceMutex.RLock()
 	defer fake.getAppByNameAndSpaceMutex.RUnlock()
+	fake.patchAppMutex.RLock()
+	defer fake.patchAppMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

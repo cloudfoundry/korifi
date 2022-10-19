@@ -407,101 +407,219 @@ var _ = Describe("AppRepository", func() {
 		var (
 			appCreateMessage CreateAppMessage
 			createdAppRecord AppRecord
+			createErr        error
 		)
 
 		BeforeEach(func() {
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
-
 			appCreateMessage = initializeAppCreateMessage(testAppName, cfSpace.Name)
 		})
 
 		JustBeforeEach(func() {
-			var err error
-			createdAppRecord, err = appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
-			Expect(err).NotTo(HaveOccurred())
+			createdAppRecord, createErr = appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
 		})
 
-		It("creates a new app CR", func() {
-			cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
-			createdCFApp := new(korifiv1alpha1.CFApp)
-			Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
-		})
-
-		It("returns an AppRecord with correct fields", func() {
-			Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"))
-			Expect(createdAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
-			Expect(createdAppRecord.Name).To(Equal(testAppName))
-			Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
-
-			recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-
-			recordUpdatedTime, err := time.Parse(TimestampFormat, createdAppRecord.UpdatedAt)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-		})
-
-		When("no environment variables are given", func() {
+		When("authorized in the space", func() {
 			BeforeEach(func() {
-				appCreateMessage.EnvironmentVariables = nil
+				createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
-			It("creates an empty secret and sets the environment variable secret ref on the App", func() {
+			It("creates a new app CR", func() {
+				Expect(createErr).NotTo(HaveOccurred())
 				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
 				createdCFApp := new(korifiv1alpha1.CFApp)
 				Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+			})
 
-				Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+			It("returns an AppRecord with correct fields", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+				Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"))
+				Expect(createdAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
+				Expect(createdAppRecord.Name).To(Equal(testAppName))
+				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
 
-				secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
-				createdSecret := new(corev1.Secret)
-				Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
-				Expect(createdSecret.Data).To(BeEmpty())
+				recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+
+				recordUpdatedTime, err := time.Parse(TimestampFormat, createdAppRecord.UpdatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+			})
+
+			When("no environment variables are given", func() {
+				BeforeEach(func() {
+					appCreateMessage.EnvironmentVariables = nil
+				})
+
+				It("creates an empty secret and sets the environment variable secret ref on the App", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
+					createdCFApp := new(korifiv1alpha1.CFApp)
+					Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+					Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+
+					secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
+					createdSecret := new(corev1.Secret)
+					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
+					Expect(createdSecret.Data).To(BeEmpty())
+				})
+			})
+
+			When("environment variables are given", func() {
+				BeforeEach(func() {
+					appCreateMessage.EnvironmentVariables = map[string]string{
+						"FOO": "foo",
+						"BAR": "bar",
+					}
+				})
+
+				It("creates an secret for the environment variables and sets the ref on the App", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
+					createdCFApp := new(korifiv1alpha1.CFApp)
+					Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+					Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+
+					secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
+					createdSecret := new(corev1.Secret)
+					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
+					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
+						"FOO": BeEquivalentTo("foo"),
+						"BAR": BeEquivalentTo("bar"),
+					}))
+				})
+			})
+
+			When("buildpacks are given", func() {
+				var buildpacks []string
+
+				BeforeEach(func() {
+					buildpacks = []string{"buildpack-1", "buildpack-2"}
+					appCreateMessage.Lifecycle.Data.Buildpacks = buildpacks
+				})
+
+				It("creates a CFApp with the buildpacks set", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
+					createdCFApp := new(korifiv1alpha1.CFApp)
+					Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+					Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
+				})
+
+				It("returns an AppRecord with the buildpacks set", func() {
+					Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
+				})
 			})
 		})
 
-		When("environment variables are given", func() {
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("PatchApp", func() {
+		var (
+			patchedAppRecord AppRecord
+			patchErr         error
+
+			appPatchMessage PatchAppMessage
+		)
+
+		BeforeEach(func() {
+			appPatchMessage = initializeAppPatchMessage(cfApp.Spec.DisplayName, cfApp.Name, cfSpace.Name)
+		})
+
+		JustBeforeEach(func() {
+			patchedAppRecord, patchErr = appRepo.PatchApp(testCtx, authInfo, appPatchMessage)
+		})
+
+		When("authorized in the space", func() {
 			BeforeEach(func() {
-				appCreateMessage.EnvironmentVariables = map[string]string{
-					"FOO": "foo",
-					"BAR": "bar",
-				}
+				createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
-			It("creates an secret for the environment variables and sets the ref on the App", func() {
-				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
-				createdCFApp := new(korifiv1alpha1.CFApp)
-				Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
-				Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+			It("can patch the AppRecord CR we're looking for", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
 
-				secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
-				createdSecret := new(corev1.Secret)
-				Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
-				Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-					"FOO": BeEquivalentTo("foo"),
-					"BAR": BeEquivalentTo("bar"),
+				Expect(patchedAppRecord.GUID).To(Equal(cfApp.Name))
+				Expect(patchedAppRecord.Name).To(Equal(cfApp.Spec.DisplayName))
+				Expect(patchedAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
+				Expect(patchedAppRecord.State).To(Equal(DesiredState("STOPPED")))
+				Expect(patchedAppRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
+				Expect(patchedAppRecord.Lifecycle).To(Equal(Lifecycle{
+					Type: string(cfApp.Spec.Lifecycle.Type),
+					Data: LifecycleData{
+						Buildpacks: []string{"some-buildpack"},
+						Stack:      "cflinuxfs3",
+					},
 				}))
+				Expect(patchedAppRecord.IsStaged).To(BeFalse())
+			})
+
+			When("no environment variables are given", func() {
+				BeforeEach(func() {
+					appPatchMessage.EnvironmentVariables = nil
+				})
+
+				It("creates an empty secret and sets the environment variable secret ref on the App", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+
+					cfAppLookupKey := types.NamespacedName{Name: patchedAppRecord.GUID, Namespace: cfSpace.Name}
+					patchedCFApp := new(korifiv1alpha1.CFApp)
+					Expect(k8sClient.Get(testCtx, cfAppLookupKey, patchedCFApp)).To(Succeed())
+					Expect(patchedCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+
+					secretLookupKey := types.NamespacedName{Name: patchedCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
+					createdSecret := new(corev1.Secret)
+					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
+					Expect(createdSecret.Data).To(BeEmpty())
+				})
+			})
+
+			When("environment variables are given", func() {
+				BeforeEach(func() {
+					appPatchMessage.EnvironmentVariables = map[string]string{
+						"FOO": "foo",
+						"BAR": "bar",
+					}
+				})
+
+				It("creates an secret for the environment variables and sets the ref on the App", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					cfAppLookupKey := types.NamespacedName{Name: patchedAppRecord.GUID, Namespace: cfSpace.Name}
+					patchedCFApp := new(korifiv1alpha1.CFApp)
+					Expect(k8sClient.Get(testCtx, cfAppLookupKey, patchedCFApp)).To(Succeed())
+					Expect(patchedCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+
+					secretLookupKey := types.NamespacedName{Name: patchedCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
+					createdSecret := new(corev1.Secret)
+					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
+					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
+						"FOO": BeEquivalentTo("foo"),
+						"BAR": BeEquivalentTo("bar"),
+					}))
+				})
 			})
 		})
 
-		When("buildpacks are given", func() {
-			var buildpacks []string
+		When("the user is not authorized in the space", func() {
+			It("returns a forbidden error", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
 
+		When("the user is a Space Manager (i.e. can view apps but not modify them)", func() {
 			BeforeEach(func() {
-				buildpacks = []string{"buildpack-1", "buildpack-2"}
-				appCreateMessage.Lifecycle.Data.Buildpacks = buildpacks
+				createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
+				createRoleBinding(testCtx, userName, spaceManagerRole.Name, cfSpace.Name)
 			})
 
-			It("creates a CFApp with the buildpacks set", func() {
-				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
-				createdCFApp := new(korifiv1alpha1.CFApp)
-				Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
-				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
-			})
-
-			It("returns an AppRecord with the buildpacks set", func() {
-				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
+			It("returns a forbidden error", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -1408,6 +1526,7 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 			CurrentDropletRef: corev1.LocalObjectReference{
 				Name: generateGUID(),
 			},
+			EnvSecretName: GenerateEnvSecretName(guid),
 		},
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())

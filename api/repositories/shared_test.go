@@ -222,6 +222,23 @@ func initializeAppCreateMessage(appName string, spaceGUID string) CreateAppMessa
 	}
 }
 
+func initializeAppPatchMessage(appName, appGUID, spaceGUID string) PatchAppMessage {
+	return PatchAppMessage{
+		Name:      appName,
+		AppGUID:   appGUID,
+		SpaceGUID: spaceGUID,
+		Lifecycle: Lifecycle{
+			Type: "buildpack",
+			Data: LifecycleData{
+				Buildpacks: []string{
+					"some-buildpack",
+				},
+				Stack: "cflinuxfs3",
+			},
+		},
+	}
+}
+
 func generateAppEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }

@@ -73,6 +73,21 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 	}
 }
 
+func (a ManifestApplication) ToAppPatchMessage(appGUID, spaceGUID string) repositories.PatchAppMessage {
+	return repositories.PatchAppMessage{
+		Name:      a.Name,
+		AppGUID:   appGUID,
+		SpaceGUID: spaceGUID,
+		Lifecycle: repositories.Lifecycle{
+			Type: string(korifiv1alpha1.BuildpackLifecycle),
+			Data: repositories.LifecycleData{
+				Buildpacks: a.Buildpacks,
+			},
+		},
+		EnvironmentVariables: a.Env,
+	}
+}
+
 func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID string) repositories.CreateProcessMessage {
 	msg := repositories.CreateProcessMessage{
 		AppGUID:   appGUID,

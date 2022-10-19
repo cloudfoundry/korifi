@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("Applier", func() {
@@ -95,20 +94,17 @@ var _ = Describe("Applier", func() {
 				}
 			})
 
-			It("updates its env", func() {
+			It("updates the app buildpacks", func() {
 				Expect(applierErr).NotTo(HaveOccurred())
-				Expect(appRepo.CreateOrPatchAppEnvVarsCallCount()).To(Equal(1))
-				_, _, envVarMsg := appRepo.CreateOrPatchAppEnvVarsArgsForCall(0)
-				Expect(envVarMsg.AppEtcdUID).To(Equal(types.UID("etcd-uid")))
-				Expect(envVarMsg.AppGUID).To(Equal("my-guid"))
-				Expect(envVarMsg.SpaceGUID).To(Equal("space-guid"))
-				Expect(envVarMsg.EnvironmentVariables).To(HaveKeyWithValue("FOO", "bar"))
-				Expect(envVarMsg.EnvironmentVariables).To(HaveKeyWithValue("BOB", "bob"))
+				Expect(appRepo.PatchAppCallCount()).To(Equal(1))
+				_, _, patchAppMsg := appRepo.PatchAppArgsForCall(0)
+				Expect(patchAppMsg.AppGUID).To(Equal("my-guid"))
+				Expect(patchAppMsg.Lifecycle.Data.Buildpacks).To(Equal([]string{"buildpack-a"}))
 			})
 
 			When("patching the app fails", func() {
 				BeforeEach(func() {
-					appRepo.CreateOrPatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{}, errors.New("patch-app-failed"))
+					appRepo.PatchAppReturns(repositories.AppRecord{}, errors.New("patch-app-failed"))
 				})
 
 				It("returns the error", func() {

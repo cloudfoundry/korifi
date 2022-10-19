@@ -118,6 +118,17 @@ type CreateAppMessage struct {
 	EnvironmentVariables map[string]string
 }
 
+type PatchAppMessage struct {
+	Name                 string
+	AppGUID              string
+	SpaceGUID            string
+	Labels               map[string]string
+	Annotations          map[string]string
+	State                DesiredState
+	Lifecycle            Lifecycle
+	EnvironmentVariables map[string]string
+}
+
 type DeleteAppMessage struct {
 	AppGUID   string
 	SpaceGUID string
@@ -241,18 +252,50 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
-	envVarsMessage := CreateOrPatchAppEnvVarsMessage{
+	_, err = f.CreateOrPatchAppEnvVars(ctx, authInfo, CreateOrPatchAppEnvVarsMessage{
 		AppGUID:              cfApp.Name,
 		AppEtcdUID:           cfApp.UID,
 		SpaceGUID:            cfApp.Namespace,
 		EnvironmentVariables: appCreateMessage.EnvironmentVariables,
-	}
-	_, err = f.CreateOrPatchAppEnvVars(ctx, authInfo, envVarsMessage)
+	})
 	if err != nil {
 		return AppRecord{}, err
 	}
 
 	return cfAppToAppRecord(cfApp), nil
+}
+
+func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, appPatchMessage PatchAppMessage) (AppRecord, error) {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	app := korifiv1alpha1.CFApp{}
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: appPatchMessage.SpaceGUID, Name: appPatchMessage.AppGUID}, &app)
+	if err != nil {
+		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
+	}
+
+	cfApp := appPatchMessage.toCFApp()
+	err = k8s.PatchResource(ctx, userClient, &app, func() {
+		app.Spec.Lifecycle = cfApp.Spec.Lifecycle
+	})
+	if err != nil {
+		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
+	}
+
+	_, err = f.CreateOrPatchAppEnvVars(ctx, authInfo, CreateOrPatchAppEnvVarsMessage{
+		AppGUID:              app.Name,
+		AppEtcdUID:           app.UID,
+		SpaceGUID:            app.Namespace,
+		EnvironmentVariables: appPatchMessage.EnvironmentVariables,
+	})
+	if err != nil {
+		return AppRecord{}, err
+	}
+
+	return cfAppToAppRecord(app), nil
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
@@ -581,6 +624,28 @@ func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
 			DisplayName:   m.Name,
 			DesiredState:  korifiv1alpha1.DesiredState(m.State),
 			EnvSecretName: GenerateEnvSecretName(guid),
+			Lifecycle: korifiv1alpha1.Lifecycle{
+				Type: korifiv1alpha1.LifecycleType(m.Lifecycle.Type),
+				Data: korifiv1alpha1.LifecycleData{
+					Buildpacks: m.Lifecycle.Data.Buildpacks,
+					Stack:      m.Lifecycle.Data.Stack,
+				},
+			},
+		},
+	}
+}
+
+func (m *PatchAppMessage) toCFApp() korifiv1alpha1.CFApp {
+	return korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        m.AppGUID,
+			Namespace:   m.SpaceGUID,
+			Labels:      m.Labels,
+			Annotations: m.Annotations,
+		},
+		Spec: korifiv1alpha1.CFAppSpec{
+			DisplayName:  m.Name,
+			DesiredState: korifiv1alpha1.DesiredState(m.State),
 			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: korifiv1alpha1.LifecycleType(m.Lifecycle.Type),
 				Data: korifiv1alpha1.LifecycleData{
