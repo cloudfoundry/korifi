@@ -31,25 +31,15 @@ Export the following environment variables:
 
 ```sh
 export ROOT_NAMESPACE="cf"
-export ADMIN_USERNAME="cf-admin"
+export ADMIN_USERNAME="kubernetes-admin"
 export BASE_DOMAIN="vcap.me"
 ```
 
-You will need to create the `cf-admin` user: check [`scripts/create-new-user.sh`](./scripts/create-new-user.sh) for an example of how we do this in our development environments.
-
 `vcap.me` will conveniently [resolve to `127.0.0.1`](https://www.nslookup.io/domains/vcap.me/dns-records), which is exactly what we need.
 
-## Registries
+## Container registry
 
-We recommend you use [DockerHub](https://hub.docker.com/) as your image registry.
-
-When using `helm install`, you should set the following helm values:
-
-```
-  --set=api.packageRegistry=index.docker.io/<username> \
-  --set=kpack-image-builder.builderRepository=index.docker.io/<username>/kpack-builder \
-  --set=kpack-image-builder.packageRegistry=index.docker.io/<username>
-```
+We recommend you use [DockerHub](https://hub.docker.com/) as your container registry.
 
 ## Dependencies
 
@@ -61,7 +51,11 @@ You can skip this section.
 
 ## Deploy Korifi
 
-No changes here, follow the instructions using the registry values from above.
+No changes here. If using DockerHub as recommended above, set the following values:
+
+* `api.packageRegistry`: `index.docker.io/<username>`
+* `kpack-image-builder.builderRepository`: `index.docker.io/<username>/kpack-builder`
+* `kpack-image-builder.packageRegistry`: `index.docker.io/<username>`
 
 ## Post-install Configuration
 
@@ -69,4 +63,4 @@ For the container registry credentials `Secret`, we recommend you [create an acc
 
 ## Test Korifi
 
-No changes here, follow the instructions.
+No changes here, follow the instructions. When running `cf login`, make sure you select the entry associated to your kind cluster (`kind-kind` by default).
