@@ -26,7 +26,11 @@ var _ = Describe("WhoAmI", func() {
 	BeforeEach(func() {
 		requestPath = whoAmIBase
 		identityProvider = new(fake.IdentityProvider)
-		identityProvider.GetIdentityReturns(authorization.Identity{Name: "the-user", Kind: rbacv1.UserKind}, nil)
+		identityProvider.GetIdentityReturns(authorization.Identity{
+			Name:   "the-user",
+			Groups: []string{"foo", "bar"},
+			Kind:   rbacv1.UserKind,
+		}, nil)
 		ctx = authorization.NewContext(ctx, &authorization.Info{Token: "the-token"})
 		whoAmIHandler = apis.NewWhoAmI(identityProvider, *serverURL)
 		whoAmIHandler.RegisterRoutes(router)
@@ -46,6 +50,7 @@ var _ = Describe("WhoAmI", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                 "name": "the-user",
+                "groups": ["foo", "bar"],
                 "kind": "User"
             }`)))
 		})
