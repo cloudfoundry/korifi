@@ -53,6 +53,14 @@ func fixDeprecatedFields(appInfo *payloads.ManifestApplication) {
 			appInfo.Processes[i].DiskQuota = appInfo.Processes[i].AltDiskQuota
 		}
 	}
+
+	if hasBuildpackSet(appInfo.Buildpack) { // nolint: staticcheck
+		appInfo.Buildpacks = append(appInfo.Buildpacks, appInfo.Buildpack) // nolint: staticcheck
+	}
+}
+
+func hasBuildpackSet(buildpack string) bool {
+	return buildpack != "" && buildpack != "default" && buildpack != "null"
 }
 
 func (n Normalizer) normalizeProcesses(appInfo payloads.ManifestApplication, appState AppState) []payloads.ManifestApplicationProcess {
