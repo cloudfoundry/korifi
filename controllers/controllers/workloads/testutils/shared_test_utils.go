@@ -220,7 +220,7 @@ func BuildCFProcessCRObject(cfProcessGUID string, namespace string, cfAppGUID st
 					TimeoutSeconds:           0,
 				},
 			},
-			DesiredInstances: tools.PtrTo(0),
+			DesiredInstances: tools.PtrTo(1),
 			MemoryMB:         1024,
 			DiskQuotaMB:      100,
 			Ports:            []int32{8080},

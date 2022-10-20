@@ -8,6 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -194,6 +195,46 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					})
 					return appWorkloads.Items, err
 				}).Should(BeEmpty(), "Timed out waiting for deletion of AppWorkload/%s in namespace %s to cause NotFound error", testProcessGUID, testNamespace)
+			})
+		})
+
+		When("the app process instances are scaled down to 0", func() {
+			JustBeforeEach(func() {
+				eventuallyCreatedAppWorkloadShould(testProcessGUID, testNamespace, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
+				Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
+					cfProcess.Spec.DesiredInstances = tools.PtrTo(0)
+				})).To(Succeed())
+			})
+
+			It("deletes the app workload", func() {
+				Eventually(func(g Gomega) {
+					var appWorkloads korifiv1alpha1.AppWorkloadList
+					err := k8sClient.List(context.Background(), &appWorkloads, client.InNamespace(cfProcess.Namespace), client.MatchingLabels{
+						korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
+					})
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(appWorkloads.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+		})
+
+		When("the app process instances are unset", func() {
+			JustBeforeEach(func() {
+				eventuallyCreatedAppWorkloadShould(testProcessGUID, testNamespace, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
+				Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
+					cfProcess.Spec.DesiredInstances = nil
+				})).To(Succeed())
+			})
+
+			It("does not delete the app workload", func() {
+				Consistently(func(g Gomega) {
+					var appWorkloads korifiv1alpha1.AppWorkloadList
+					err := k8sClient.List(context.Background(), &appWorkloads, client.InNamespace(cfProcess.Namespace), client.MatchingLabels{
+						korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
+					})
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(appWorkloads.Items).NotTo(BeEmpty())
+				}).Should(Succeed())
 			})
 		})
 	})
