@@ -1,14 +1,14 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 	"time"
-
-	"go.uber.org/zap/zapcore"
 
 	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/actions/manifest"
@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -32,6 +33,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -320,7 +322,28 @@ func main() {
 
 	if tlsFound {
 		ctrl.Log.Info("Listening with TLS on " + portString)
-		err := srv.ListenAndServeTLS(path.Join(tlsPath, "tls.crt"), path.Join(tlsPath, "tls.key"))
+		certPath := filepath.Join(tlsPath, "tls.crt")
+		keyPath := filepath.Join(tlsPath, "tls.key")
+
+		var certWatcher *certwatcher.CertWatcher
+		certWatcher, err = certwatcher.New(certPath, keyPath)
+		if err != nil {
+			ctrl.Log.Error(err, "error creating TLS watcher")
+			os.Exit(1)
+		}
+
+		go func() {
+			if err2 := certWatcher.Start(context.Background()); err2 != nil {
+				ctrl.Log.Error(err, "error watching TLS")
+				os.Exit(1)
+			}
+		}()
+
+		srv.TLSConfig = &tls.Config{
+			NextProtos:     []string{"h2"},
+			GetCertificate: certWatcher.GetCertificate,
+		}
+		err = srv.ListenAndServeTLS("", "")
 		if err != nil {
 			ctrl.Log.Error(err, "error serving TLS")
 			os.Exit(1)
