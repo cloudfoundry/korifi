@@ -72,6 +72,42 @@ var _ = Describe("Normalizer", func() {
 				Expect(normalizedAppInfo.NoRoute).To(BeTrue())
 			})
 		})
+
+		When("deprecated 'buildpack' is specified", func() {
+			BeforeEach(func() {
+				appInfo.Buildpack = "deprecated-buildpack" // nolint: staticcheck
+			})
+
+			It("adds it to the buildpacks list", func() {
+				Expect(normalizedAppInfo.Buildpacks).To(
+					ConsistOf("deprecated-buildpack", "buildpack-one", "buildpack-two"),
+				)
+			})
+
+			When("set to 'default'", func() {
+				BeforeEach(func() {
+					appInfo.Buildpack = "default" // nolint: staticcheck
+				})
+
+				It("ignores it", func() {
+					Expect(normalizedAppInfo.Buildpacks).To(
+						ConsistOf("buildpack-one", "buildpack-two"),
+					)
+				})
+			})
+
+			When("set to 'null'", func() {
+				BeforeEach(func() {
+					appInfo.Buildpack = "null" // nolint: staticcheck
+				})
+
+				It("ignores it", func() {
+					Expect(normalizedAppInfo.Buildpacks).To(
+						ConsistOf("buildpack-one", "buildpack-two"),
+					)
+				})
+			})
+		})
 	})
 
 	Describe("process normalization", func() {
