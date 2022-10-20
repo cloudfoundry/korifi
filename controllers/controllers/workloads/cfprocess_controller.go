@@ -94,7 +94,7 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 		cfAppRev = foundValue
 	}
 
-	if cfApp.Spec.DesiredState == korifiv1alpha1.StartedState {
+	if needsAppWorkload(cfApp, cfProcess) {
 		err = r.createOrPatchAppWorkload(ctx, cfApp, cfProcess, cfAppRev)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -107,6 +107,15 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func needsAppWorkload(cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess) bool {
+	if cfApp.Spec.DesiredState != korifiv1alpha1.StartedState {
+		return false
+	}
+
+	// note that the defaulting webhook ensures DesiredInstances is never nil
+	return cfProcess.Spec.DesiredInstances != nil && *cfProcess.Spec.DesiredInstances > 0
 }
 
 func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfAppRev string) error {
@@ -165,7 +174,7 @@ func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess
 	}
 
 	for i, currentAppWorkload := range appWorkloadsForProcess {
-		if desiredState == korifiv1alpha1.StoppedState || currentAppWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] != cfAppRev {
+		if needsToDeleteAppWorkload(desiredState, cfProcess, currentAppWorkload, cfAppRev) {
 			err := r.k8sClient.Delete(ctx, &appWorkloadsForProcess[i])
 			if err != nil {
 				r.log.Info(fmt.Sprintf("Error occurred deleting AppWorkload: %s, %s", currentAppWorkload.Name, err))
@@ -174,6 +183,17 @@ func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess
 		}
 	}
 	return nil
+}
+
+func needsToDeleteAppWorkload(
+	desiredState korifiv1alpha1.DesiredState,
+	cfProcess *korifiv1alpha1.CFProcess,
+	appWorkload korifiv1alpha1.AppWorkload,
+	cfAppRev string,
+) bool {
+	return desiredState == korifiv1alpha1.StoppedState ||
+		(cfProcess.Spec.DesiredInstances != nil && *cfProcess.Spec.DesiredInstances == 0) ||
+		appWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] != cfAppRev
 }
 
 func appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload *korifiv1alpha1.AppWorkload) controllerutil.MutateFn {
