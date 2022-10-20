@@ -33,11 +33,14 @@ spec:
     istio: ingressgateway # use istio default controller
   servers:
   - port:
-      number: 80
-      name: http
-      protocol: HTTP
+      number: 443
+      name: https
+      protocol: HTTPS
     hosts:
     - {{ .Values.apiServer.url }}
+    tls:
+      mode: SIMPLE
+      credentialName: korifi-api-ingress-cert
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -46,7 +49,7 @@ metadata:
   name: korifi-api
 spec:
   hosts:
-  - "*"
+  - {{ .Values.apiServer.url }}
   gateways:
   - korifi-api-gateway
   http:

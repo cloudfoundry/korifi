@@ -3,7 +3,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: korifi-api-ingress-cert
-  namespace: {{ .Values.namespace }}
+  namespace: istio-system
 spec:
   commonName: {{ .Values.apiServer.url }}
   dnsNames:
@@ -12,4 +12,12 @@ spec:
     kind: Issuer
     name: korifi-api-selfsigned-issuer
   secretName: korifi-api-ingress-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: korifi-api-selfsigned-issuer
+  namespace: istio-system
+spec:
+  selfSigned: {}
 {{- end }}
