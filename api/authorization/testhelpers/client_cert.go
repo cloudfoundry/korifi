@@ -5,8 +5,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-func ObtainClientCert(testEnv *envtest.Environment, name string, groups ...string) ([]byte, []byte) {
-	authUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: name, Groups: groups}, testEnv.Config)
+func ObtainClientCert(testEnv *envtest.Environment, name string) ([]byte, []byte) {
+	authUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: name}, testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
 
 	userConfig := authUser.Config()

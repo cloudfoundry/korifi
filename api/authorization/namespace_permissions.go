@@ -17,8 +17,6 @@ import (
 
 //counterfeiter:generate -o fake -fake-name IdentityProvider . IdentityProvider
 
-const systemMastersGroup = "system:masters"
-
 type IdentityProvider interface {
 	GetIdentity(context.Context, Info) (Identity, error)
 }
@@ -43,40 +41,10 @@ func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context,
 	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.SpaceNameLabel, "Space")
 }
 
-func isSystemMaster(identity Identity) bool {
-	for _, g := range identity.Groups {
-		if g == systemMastersGroup {
-			return true
-		}
-	}
-
-	return false
-}
-
-func toMap(namespaces []corev1.Namespace) map[string]bool {
-	nsMap := map[string]bool{}
-
-	for _, ns := range namespaces {
-		nsMap[ns.Name] = true
-	}
-
-	return nsMap
-}
-
 func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLabel, resourceType string) (map[string]bool, error) {
 	identity, err := o.identityProvider.GetIdentity(ctx, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get identity: %w", err)
-	}
-
-	var cfOrgsOrSpaces corev1.NamespaceList
-	if err := o.privilegedClient.List(ctx, &cfOrgsOrSpaces, client.HasLabels([]string{orgSpaceLabel})); err != nil {
-		return nil, fmt.Errorf("failed to list namespaces: %w", apierrors.FromK8sError(err, resourceType))
-	}
-
-	cfNamespaces := toMap(cfOrgsOrSpaces.Items)
-	if isSystemMaster(identity) {
-		return cfNamespaces, nil
 	}
 
 	var rolebindings rbacv1.RoleBindingList
@@ -84,7 +52,18 @@ func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info
 		return nil, fmt.Errorf("failed to list rolebindings: %w", apierrors.FromK8sError(err, resourceType))
 	}
 
+	var cfOrgsOrSpaces corev1.NamespaceList
+	if err := o.privilegedClient.List(ctx, &cfOrgsOrSpaces, client.HasLabels([]string{orgSpaceLabel})); err != nil {
+		return nil, fmt.Errorf("failed to list namespaces: %w", apierrors.FromK8sError(err, resourceType))
+	}
+
+	cfNamespaces := map[string]bool{}
+	for _, ns := range cfOrgsOrSpaces.Items {
+		cfNamespaces[ns.Name] = true
+	}
+
 	authorizedNamespaces := map[string]bool{}
+
 	for _, roleBinding := range rolebindings.Items {
 		for _, subject := range roleBinding.Subjects {
 			if subject.Kind == identity.Kind && subject.Name == identity.Name {
@@ -99,10 +78,6 @@ func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info
 }
 
 func (o *NamespacePermissions) AuthorizedIn(ctx context.Context, identity Identity, namespace string) (bool, error) {
-	if isSystemMaster(identity) {
-		return true, nil
-	}
-
 	var rolebindings rbacv1.RoleBindingList
 	err := o.privilegedClient.List(ctx, &rolebindings, client.InNamespace(namespace))
 	if err != nil {

@@ -141,21 +141,6 @@ var _ = Describe("Namespace Permissions", func() {
 			Expect(namespaces).To(Equal(map[string]bool{org1NS: true}))
 		})
 
-		When("the user has the system:masters group", func() {
-			BeforeEach(func() {
-				identity.Groups = []string{"foo", "system:masters", "bar"}
-				identityProvider.GetIdentityReturns(identity, nil)
-			})
-
-			It("returns all the orgs", func() {
-				Expect(getErr).NotTo(HaveOccurred())
-				Expect(namespaces).To(SatisfyAll(
-					HaveKeyWithValue(org1NS, true),
-					HaveKeyWithValue(org2NS, true),
-				))
-			})
-		})
-
 		When("the id provider fails", func() {
 			BeforeEach(func() {
 				identityProvider.GetIdentityReturns(authorization.Identity{}, errors.New("boom"))
@@ -180,7 +165,7 @@ var _ = Describe("Namespace Permissions", func() {
 			})
 		})
 
-		When("listing the namespaces fails", func() {
+		When("listing the rolebindings fails", func() {
 			var cancelCtx context.CancelFunc
 
 			BeforeEach(func() {
@@ -192,7 +177,7 @@ var _ = Describe("Namespace Permissions", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(getErr).To(MatchError(ContainSubstring("failed to list namespaces")))
+				Expect(getErr).To(MatchError(ContainSubstring("failed to list rolebindings")))
 			})
 		})
 	})
@@ -218,21 +203,6 @@ var _ = Describe("Namespace Permissions", func() {
 		It("lists the namespaces with bindings for current user", func() {
 			Expect(getErr).NotTo(HaveOccurred())
 			Expect(namespaces).To(Equal(map[string]bool{space1NS: true}))
-		})
-
-		When("the user has the system:masters group", func() {
-			BeforeEach(func() {
-				identity.Groups = []string{"foo", "system:masters", "bar"}
-				identityProvider.GetIdentityReturns(identity, nil)
-			})
-
-			It("returns all the spaces", func() {
-				Expect(getErr).NotTo(HaveOccurred())
-				Expect(namespaces).To(SatisfyAll(
-					HaveKeyWithValue(space1NS, true),
-					HaveKeyWithValue(space2NS, true),
-				))
-			})
 		})
 
 		When("the user does not have a rolebinding associated with it", func() {
@@ -273,27 +243,10 @@ var _ = Describe("Namespace Permissions", func() {
 		})
 
 		When("the user does not have a RoleBinding in the namespace", func() {
-			var authorized bool
-
-			JustBeforeEach(func() {
-				var err error
-				authorized, err = nsPerms.AuthorizedIn(ctx, identity, org2NS)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
 			It("returns false", func() {
+				authorized, err := nsPerms.AuthorizedIn(ctx, identity, org2NS)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(authorized).To(BeFalse())
-			})
-
-			When("the user has the system:masters group", func() {
-				BeforeEach(func() {
-					identity.Groups = []string{"foo", "system:masters", "bar"}
-					identityProvider.GetIdentityReturns(identity, nil)
-				})
-
-				It("returns true", func() {
-					Expect(authorized).To(BeTrue())
-				})
 			})
 		})
 	})
