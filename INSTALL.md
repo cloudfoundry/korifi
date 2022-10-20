@@ -3,7 +3,7 @@
 
 # Korifi installation guide
 
-The following lines will guide you through the process of deploying a [released version](https://github.com/cloudfoundry/korifi/releases) of [Korifi](https://github.com/cloudfoundry/korifi). This document is written with the intent to act both as a runbook as well as a starting point in understanding basic concepts of Korifi and its dependencies.
+The following lines will guide you through the process of deploying a [released version](https://github.com/cloudfoundry/korifi/releases) of [Korifi](https://github.com/cloudfoundry/korifi).
 
 ## Prerequisites
 
@@ -43,7 +43,7 @@ See [_Using container registry signed by custom CA_](docs/using-container-regist
 
 ### Free Dockerhub accounts
 
-Dockerhub allows only one private repository per free account. In case the dockerhub account you configure Korifi with has the `private` [default repository privacy](https://hub.docker.com/settings/default-privacy) enabled, then Korifi would only be able to create a single repository and would get `UNAUTHORIZED: authentication required` error when trying to push to a subsequent repository. This could either cause build errors during `cf push`, or the kpack cluster builder may never become ready. Therefore you should either set the default repository privacy to `public`, or upgrade your dockerhub subscription plan. As of today, the `Pro` subscription plan provides unlimited private repositories.
+DockerHub allows only one private repository per free account. In case the DockerHub account you configure Korifi with has the `private` [default repository privacy](https://hub.docker.com/settings/default-privacy) enabled, then Korifi would only be able to create a single repository and would get `UNAUTHORIZED: authentication required` error when trying to push to a subsequent repository. This could either cause build errors during `cf push`, or the Kpack cluster builder may never become ready. Therefore you should either set the default repository privacy to `public`, or upgrade your DockerHub subscription plan. As of today, the `Pro` subscription plan provides unlimited private repositories.
 
 ## Dependencies
 
@@ -54,6 +54,9 @@ Dockerhub allows only one private repository per free account. In case the docke
 ### Kpack
 
 [Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md) to install the latest version.
+
+The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpack-image-builder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
+
 
 ### Contour
 
@@ -70,78 +73,36 @@ We use the [Service Binding Specification for Kubernetes](https://github.com/ser
 
 ## Deploy Korifi
 
-As of v0.4.0 Korifi is distributed as a helm chart. You can set the required configuration inline as below, or use a values file to store the settings.
+Korifi is distributed as a [Helm chart](https://helm.sh). See [_Customizing the Chart Before Installing_](https://helm.sh/docs/intro/using_helm/#customizing-the-chart-before-installing) for details on how to specify values when installing a Helm chart.
 
-```
-helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<version>/korifi-<version>.tgz \
+For example:
+
+```sh
+helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<VERSION>/korifi-<VERSION>.tgz \
     --set=global.generateIngressCertificates=true \
-    --set=global.rootNamespace=$ROOT_NAMESPACE \
-    --set=adminUserName=$ADMIN_USERNAME \
-    --set=api.apiServer.url=api.$BASE_DOMAIN \
-    --set=global.defaultAppDomainName=apps.$BASE_DOMAIN \
-    --set=api.packageRepositoryPrefix=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/source-package \
-    --set=kpack-image-builder.builderRepository=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/kpack-builder \
-    --set=kpack-image-builder.dropletRepositoryPrefix=us-east4-docker.pkg.dev/vigilant-card-347116/korifi/droplet
+    --set=global.rootNamespace="$ROOT_NAMESPACE" \
+    --set=adminUserName="$ADMIN_USERNAME" \
+    --set=api.apiServer.url="api.$BASE_DOMAIN" \
+    --set=global.defaultAppDomainName="apps.$BASE_DOMAIN" \
+    --set=api.packageRepositoryPrefix=europe-west1-docker.pkg.dev/my-project/korifi/packages \
+    --set=kpack-image-builder.builderRepository=europe-west1-docker.pkg.dev/my-project/korifi/kpack-builder \
+    --set=kpack-image-builder.dropletRepositoryPrefix=europe-west1-docker.pkg.dev/my-project/korifi/droplets
 ```
 
-### Description of helm values
-
-- `global.generateIngressCertificates` when set to `true` generates self-signed certificates for the applications and API HTTP endpoint
-- `global.rootNamespace` is the name of the CF root namespace containing base CF resources, like CFOrgs.
-- `adminUserName` is the username that will be bound to the cf admin role.
-- `api.apiServer.url` is the domain name that will be used by the Korifi API, and is usually of the format `api.$BASE_DOMAIN`.
-- `global.defaultAppDomainName` is the default base domain name for the apps deployed by Korifi, and is usually of the format `apps.$BASE_DOMAIN`.
-- `api.packageRepositoryPrefix` specifies the prefix used for the source packages uploaded to Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
-  - If using **DockerHub**, `api.packageRepositoryPrefix` should be `index.docker.io/<username>`.
-  - If using **GCR**, `api.packageRepositoryPrefix` should be `gcr.io/<project-id>/packages`.
-- `kpack-image-builder.builderRepository` is the docker repository URL for the kpack builder image. This is part of the example cluster builder configuration that is created when `kpack-image-builder.clusterBuilderName` is left empty.
-  - If using **DockerHub**, `kpack-image-builder.builderRepository` should be `index.docker.io/<username>/kpack-builder`.
-  - If using **GCR**, `kpack-image-builder.builderRepository` should be `gcr.io/<project-id>/kpack-builder`.
-- `kpack-image-builder.dropletRepositoryPrefix` specifies the prefix used for the droplet images built by Korifi. Its hostname should point to your container registry and its path should be valid for the registry.
-  - If using **DockerHub**, `kpack-image-builder.dropletRepositoryPrefix` should be `index.docker.io/<username>`.
-  - If using **GCR**, `kpack-image-builder.dropletRepositoryPrefix` should be `gcr.io/<project-id>/droplets`.
-
-The chart provides various other values that can be set. See [helm/README.values.md](./helm/README.values.md) for details.
+The chart provides various other values that can be set. See [`README.helm.md`](./README.helm.md) for details.
 
 ### Configure an Authentication Proxy (optional)
 
-If you are using an authentication proxy with your cluster to enable SSO, you must alter the above `helm install` command to set the following values:
+If you are using an authentication proxy with your cluster to enable SSO, you must set the following chart values:
 
-- Set the `api.authProxy.host` helm value to the IP address of your cluster's auth proxy.
-- Set the `api.authProxy.caCert` helm value to the CA certificate of your cluster's auth proxy.
+- `api.authProxy.host`: IP address of your cluster's auth proxy;
+- `api.authProxy.caCert`: CA certificate of your cluster's auth proxy.
 
 ## Post-install Configuration
 
-### Kpack Configuration
-
-The korifi helm chart will create an example kpack configuration (cluster builder, cluster store and cluster stack) if the `kpack-image-builder.clusterBuilderName` helm property is left unset.
-If you want to use your own kpack configuration, supply the name of the cluster builder in that property.
-
-To create your own kpack configuration, you will need a cluster store, a cluster stack and a cluster builder:
-
-#### `ClusterStore`
-
-Follow the [documentation](https://github.com/pivotal/kpack/blob/main/docs/store.md) to create a `ClusterStore` for your cluster.
-
-#### `ClusterStack`:
-
-Follow the [documentation](https://github.com/pivotal/kpack/blob/main/docs/stack.md) to create a `ClusterStack` for your cluster.
-
-#### `ClusterBuilder`
-
-Follow the [documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md#cluster-builders) to create a `ClusterBuilder` for your cluster. Make sure that:
-
-- `metadata.name` matches the `korifi-image-builder.clusterBuilderName` helm value
-- `spec.tag` points to your container registry:
-  - if using **DockerHub**, it should be `index.docker.io/<username>/korifi-cluster-builder`;
-  - if using **GCP**, it should be `gcr.io/<project-id>/korifi-cluster-builder`;
-- `spec.stack` references to the previously created `ClusterStack`;
-- `spec.store` references to the previously created `ClusterStore`;
-- `spec.serviceAccountRef` should be `kpack-service-account`.
-
 ### Container registry credentials `Secret`
 
-Use the following command to create a `Secret` that Korifi and kpack will use to connect to your container registry:
+Use the following command to create a `Secret` that Korifi and Kpack will use to connect to your container registry:
 
 ```sh
 kubectl --namespace "$ROOT_NAMESPACE" create secret docker-registry image-registry-credentials \
@@ -167,17 +128,15 @@ Self-signed TLS certificates are generated automatically by the installation if 
 
 If you want to generate certificates yourself, you should not set the `global.generateIngressCertificates` value, and instead provide your certificates to Korifi by creating two TLS secrets:
 
-1. `korifi-api-ingress-cert` in the `korifi-api-system` namespace, and
-2. `korifi-workloads-ingress-cert` in the `korifi-controllers-system` namespace
-
-with the appropriate values.
+1. `korifi-api-ingress-cert`;
+1. `korifi-workloads-ingress-cert`.
 
 ### DNS
 
-Create DNS entries for the Korifi API and for the apps running on Korifi. They should match the halm values when [deploying korifi](#deploy korifi):
+Create DNS entries for the Korifi API and for the apps running on Korifi. They should match the Helm values used to [deploy Korifi](#deploy-korifi):
 
-- The Korifi API entry should match the `api.apiServer.url` helm value. In our example, that would be `api.korifi.example.org`.
-- The apps entry should be a wildcard matching the `global.defaultAppDomainName` helm value: In our example, `*.apps.korifi.example.org`.
+- The Korifi API entry should match the `api.apiServer.url` value. In our example, that would be `api.korifi.example.org`.
+- The apps entry should be a wildcard matching the `global.defaultAppDomainName` value. In our example, `*.apps.korifi.example.org`.
 
 The DNS entries should point to the load balancer endpoint created by Contour when installed. To discover your endpoint, run:
 
@@ -193,7 +152,7 @@ The type of DNS records to create will differ based on the type of the endpoint:
 
 ```sh
 cf api https://api.$BASE_DOMAIN --skip-ssl-validation
-cf auth $ADMIN_USERNAME
+cf login # choose the entry in the list associated to $ADMIN_USERNAME
 cf create-org org1
 cf create-space -o org1 space1
 cf target -o org1
