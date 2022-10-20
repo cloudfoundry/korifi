@@ -27,7 +27,7 @@ var _ = Describe("CertInspector", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		certInspector = authorization.NewCertInspector(k8sConfig)
-		certData, keyData := testhelpers.ObtainClientCert(testEnv, "alice", "my-group")
+		certData, keyData := testhelpers.ObtainClientCert(testEnv, "alice")
 		certPEM = certData
 		certPEM = append(certPEM, keyData...)
 	})
@@ -40,7 +40,6 @@ var _ = Describe("CertInspector", func() {
 		Expect(inspectorErr).NotTo(HaveOccurred())
 		Expect(id.Kind).To(Equal(rbacv1.UserKind))
 		Expect(id.Name).To(Equal("alice"))
-		Expect(id.Groups).To(ContainElement("my-group"))
 	})
 
 	When("the certificate is not recognized by the cluster", func() {

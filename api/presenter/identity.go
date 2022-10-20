@@ -5,15 +5,13 @@ import (
 )
 
 type IdentityResponse struct {
-	Name   string   `json:"name"`
-	Groups []string `json:"groups"`
-	Kind   string   `json:"kind"`
+	Name string `json:"name"`
+	Kind string `json:"kind"`
 }
 
 func ForWhoAmI(identity authorization.Identity) IdentityResponse {
 	return IdentityResponse{
-		Name:   identity.Name,
-		Groups: identity.Groups,
-		Kind:   identity.Kind,
+		Name: identity.Name,
+		Kind: identity.Kind,
 	}
 }

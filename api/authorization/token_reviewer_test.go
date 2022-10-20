@@ -25,7 +25,7 @@ var _ = Describe("TokenReviewer", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		tokenReviewer = authorization.NewTokenReviewer(k8sClient)
-		token = authProvider.GenerateJWTToken("alice", "my-group")
+		token = authProvider.GenerateJWTToken("alice")
 		passErrConstraints = Succeed()
 	})
 
@@ -38,7 +38,6 @@ var _ = Describe("TokenReviewer", func() {
 	It("extracts identity from a valid token", func() {
 		Expect(id.Kind).To(Equal(rbacv1.UserKind))
 		Expect(id.Name).To(Equal(oidcPrefix + "alice"))
-		Expect(id.Groups).To(ContainElement("my-group"))
 	})
 
 	When("the token is issued for a serviceaccount", func() {
@@ -58,7 +57,6 @@ var _ = Describe("TokenReviewer", func() {
 		It("extracts the identity of the serviceaccount", func() {
 			Expect(id.Kind).To(Equal(rbacv1.ServiceAccountKind))
 			Expect(id.Name).To(Equal("my-serviceaccount"))
-			Expect(id.Groups).To(ContainElement("system:serviceaccounts"))
 		})
 	})
 
