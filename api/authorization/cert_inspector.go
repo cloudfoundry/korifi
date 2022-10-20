@@ -52,7 +52,8 @@ func (c *CertInspector) WhoAmI(ctx context.Context, certPEM []byte) (Identity, e
 	}
 
 	return Identity{
-		Name: cert.Subject.CommonName,
-		Kind: rbacv1.UserKind,
+		Name:   cert.Subject.CommonName,
+		Groups: cert.Subject.Organization,
+		Kind:   rbacv1.UserKind,
 	}, nil
 }

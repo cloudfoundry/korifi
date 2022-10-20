@@ -60,8 +60,9 @@ func (r *TokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 	}
 
 	return Identity{
-		Name: idName,
-		Kind: idKind,
+		Name:   idName,
+		Kind:   idKind,
+		Groups: tokenReview.Status.User.Groups,
 	}, nil
 }
 

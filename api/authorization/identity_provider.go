@@ -15,8 +15,9 @@ const (
 //counterfeiter:generate -o fake -fake-name CertIdentityInspector . CertIdentityInspector
 
 type Identity struct {
-	Name string
-	Kind string
+	Name   string
+	Kind   string
+	Groups []string
 }
 
 type TokenIdentityInspector interface {
