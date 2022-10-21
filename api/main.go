@@ -341,6 +341,7 @@ func main() {
 
 		srv.TLSConfig = &tls.Config{
 			NextProtos:     []string{"h2"},
+			MinVersion:     tls.VersionTLS12,
 			GetCertificate: certWatcher.GetCertificate,
 		}
 		err = srv.ListenAndServeTLS("", "")
