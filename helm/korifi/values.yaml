@@ -5,7 +5,7 @@ global:
   generateIngressCertificates: false
   packageRegistrySecret: image-registry-credentials
 
-adminUserName: cf-admin
+adminUserName:
 
 api:
   image: cloudfoundry/korifi-api:latest

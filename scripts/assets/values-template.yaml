@@ -1,3 +1,5 @@
+adminUserName: cf-admin
+
 global:
   defaultAppDomainName: vcap.me
   generateIngressCertificates: true
