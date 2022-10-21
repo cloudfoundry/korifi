@@ -26,6 +26,7 @@ This document was tested on:
 The following environment variables will be needed throughout this guide:
 
 - `ROOT_NAMESPACE`: the namespace at the root of the Korifi org and space hierarchy. The default value is `cf`.
+- `KORIFI_NAMESPACE`: the namespace in which Korifi will be installed.
 - `ADMIN_USERNAME`: the name of the Kubernetes user who will have CF admin privileges on the Korifi installation. For security reasons, you should choose or create a user that is different from your cluster admin user. To provision new users, follow the user management instructions specific for your cluster's [authentication configuration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) or create a [new (short-lived) client certificate for user authentication](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user).
 - `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
 
@@ -33,6 +34,7 @@ Here are the example values we'll use in this guide:
 
 ```sh
 export ROOT_NAMESPACE="cf"
+export KORIFI_NAMESPACE="korifi-system"
 export ADMIN_USERNAME="cf-admin"
 export BASE_DOMAIN="korifi.example.org"
 ```
@@ -79,6 +81,7 @@ For example:
 
 ```sh
 helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<VERSION>/korifi-<VERSION>.tgz \
+    --namespace="$KORIFI_NAMESPACE" \
     --set=global.generateIngressCertificates=true \
     --set=global.rootNamespace="$ROOT_NAMESPACE" \
     --set=adminUserName="$ADMIN_USERNAME" \
@@ -126,7 +129,7 @@ Make sure the value of `--docker-server` is a valid [URI authority](https://data
 
 Self-signed TLS certificates are generated automatically by the installation if `global.generateIngressCertificates` has been set to `true`.
 
-If you want to generate certificates yourself, you should not set the `global.generateIngressCertificates` value, and instead provide your certificates to Korifi by creating two TLS secrets:
+If you want to generate certificates yourself, you should not set the `global.generateIngressCertificates` value, and instead provide your certificates to Korifi by creating two TLS secrets in `$KORIFI_NAMESPACE`:
 
 1. `korifi-api-ingress-cert`;
 1. `korifi-workloads-ingress-cert`.
