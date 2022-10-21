@@ -39,6 +39,6 @@ builderName: kpack-image-builder
 packageRepositoryPrefix:
 userCertificateExpirationWarningDuration: 168h
 
-# authProxy:
-#   host:
-#   caCert:
+authProxy:
+  host:
+  caCert:
