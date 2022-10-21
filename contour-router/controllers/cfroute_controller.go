@@ -107,10 +107,10 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 		return ctrl.Result{}, err
 	}
 
-	if err := r.createOrPatchGateway(ctx, cfRoute, cfDomain); err != nil {
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error creating/patching gateway", "CreatePatchGateway", err.Error())
-		return ctrl.Result{}, err
-	}
+	// if err := r.createOrPatchGateway(ctx, cfRoute, cfDomain); err != nil {
+	// 	cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error creating/patching gateway", "CreatePatchGateway", err.Error())
+	// 	return ctrl.Result{}, err
+	// }
 
 	// err = r.createOrPatchRouteProxy(ctx, cfRoute)
 	// if err != nil {
@@ -288,7 +288,7 @@ func (r *CFRouteReconciler) createOrPatchVirtualService(ctx context.Context, cfR
 
 	_, err := controllerutil.CreateOrPatch(ctx, r.client, virtualService, func() error {
 		virtualService.Spec.Hosts = []string{fqdn}
-		virtualService.Spec.Gateways = []string{cfRoute.Name}
+		virtualService.Spec.Gateways = []string{"korifi-api-system/korifi-app-gateway"}
 		virtualService.Spec.Http = []*v1alpha3.HTTPRoute{{Route: destinations}}
 
 		return nil

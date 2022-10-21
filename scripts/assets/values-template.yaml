@@ -1,5 +1,5 @@
 global:
-  defaultAppDomainName: vcap.me
+  defaultAppDomainName: apps.vcap.me
   generateIngressCertificates: true
 
 createAdminUser: true

@@ -1,4 +1,3 @@
-{{- if eq .Values.apiServer.protocol "https" }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -27,4 +26,3 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selfSigned: {}
-{{- end }}

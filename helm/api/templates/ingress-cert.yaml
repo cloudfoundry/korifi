@@ -5,9 +5,9 @@ metadata:
   name: korifi-api-ingress-cert
   namespace: istio-system
 spec:
-  commonName: {{ .Values.apiServer.url }}
+  commonName: "*.{{ .Values.global.defaultAppDomainName }}"
   dnsNames:
-  - {{ .Values.apiServer.url }}
+  - "*.{{ .Values.global.defaultAppDomainName }}"
   issuerRef:
     kind: Issuer
     name: korifi-api-selfsigned-issuer

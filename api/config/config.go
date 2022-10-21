@@ -16,9 +16,8 @@ type APIConfig struct {
 	ReadHeaderTimeout int `yaml:"readHeaderTimeout"`
 	WriteTimeout      int `yaml:"writeTimeout"`
 
-	ExternalFQDN            string `yaml:"externalFQDN"`
-	DefaultExternalProtocol string `yaml:"defaultExternalProtocol"`
-	ExternalPort            int    `yaml:"externalPort"`
+	ExternalFQDN string `yaml:"externalFQDN"`
+	ExternalPort int    `yaml:"externalPort"`
 
 	ServerURL string
 
@@ -104,7 +103,7 @@ func (c *APIConfig) GetUserCertificateDuration() time.Duration {
 }
 
 func (c *APIConfig) composeServerURL() (string, error) {
-	toReturn := c.DefaultExternalProtocol + "://" + c.ExternalFQDN
+	toReturn := "https://" + c.ExternalFQDN
 
 	if c.ExternalPort != 0 {
 		toReturn += ":" + fmt.Sprint(c.ExternalPort)
