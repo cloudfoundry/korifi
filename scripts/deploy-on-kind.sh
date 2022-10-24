@@ -138,24 +138,14 @@ function deploy_korifi() {
     helm dependency update helm/korifi
 
     doDebug="false"
-    secLevel="restricted"
     if [[ -n "${debug}" ]]; then
       doDebug="true"
-      secLevel="privileged"
     fi
-
-    cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    pod-security.kubernetes.io/enforce: $secLevel
-  name: korifi
-EOF
 
     if [[ -n "$use_custom_registry" ]]; then
       helm upgrade --install korifi helm/korifi \
         --namespace korifi \
+        --create-namespace \
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
         --set=api.packageRepositoryPrefix="$PACKAGE_REPOSITORY_PREFIX" \
@@ -165,6 +155,7 @@ EOF
     else
       helm upgrade --install korifi helm/korifi \
         --namespace korifi \
+        --create-namespace \
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
         --wait
@@ -173,7 +164,17 @@ EOF
   popd >/dev/null
 }
 
-function create_registry_secret() {
+function create_root_namespace() {
+  cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
+  name: cf
+EOF
+
   if [[ -z "${use_custom_registry}" ]]; then
     DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
     DOCKER_USERNAME="user"
@@ -195,5 +196,5 @@ function create_registry_secret() {
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
+create_root_namespace
 deploy_korifi
-create_registry_secret
