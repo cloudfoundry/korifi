@@ -35,10 +35,7 @@ var (
 	apiServerRoot       string
 	serviceAccountName  string
 	serviceAccountToken string
-	tokenAuthHeader     string
 	certUserName        string
-	certAuthHeader      string
-	adminAuthHeader     string
 	certPEM             string
 	longCertUserName    string
 	longCertPEM         string
@@ -776,9 +773,6 @@ func commonTestSetup() {
 	ensureServerIsUp()
 
 	adminClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	adminAuthHeader = "ClientCert " + obtainAdminUserCert()
-	certAuthHeader = "ClientCert " + certPEM
-	tokenAuthHeader = fmt.Sprintf("Bearer %s", serviceAccountToken)
 	certClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
