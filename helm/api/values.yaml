@@ -1,7 +1,7 @@
 global:
   rootNamespace: cf
   debug: false
-  defaultAppDomainName: apps.my-cf-domain.com
+  defaultAppDomainName:
   generateIngressCertificates: false
   packageRegistrySecret: image-registry-credentials
 
@@ -16,7 +16,7 @@ resources:
     memory: 1Gi
 
 apiServer:
-  url: api.my-cf-domain.com # externalFQDN
+  url:
   # To override default port, set port to a non-zero value
   port: 0
   internalPort: 9000
@@ -36,9 +36,9 @@ lifecycle:
     diskMB: 1024
 
 builderName: kpack-image-builder
-packageRepositoryPrefix: index.docker.io/my-dockerhub-username
+packageRepositoryPrefix:
 userCertificateExpirationWarningDuration: 168h
 
-# authProxy:
-#   host:
-#   caCert:
+authProxy:
+  host:
+  caCert:

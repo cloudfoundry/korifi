@@ -7,7 +7,7 @@ require (
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
 	github.com/Masterminds/semver v1.5.0
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
-	github.com/buildpacks/lifecycle v0.14.2
+	github.com/buildpacks/lifecycle v0.14.3
 	github.com/buildpacks/pack v0.27.0
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
@@ -46,22 +46,22 @@ require (
 require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11 // indirect
 	github.com/Azure/go-autorest/autorest/azure/cli v0.4.6 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.16.14 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.17.5 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.18 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.15 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.15 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.22 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.17.16 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.13.15 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.15 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.21 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.16.17 // indirect
-	github.com/aws/smithy-go v1.13.2 // indirect
-	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220906183739-a13b39e9d86d // indirect
-	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.16.16 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.17.8 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.21 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.24 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.17.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.13.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.19 // indirect
+	github.com/aws/smithy-go v1.13.3 // indirect
+	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20221004211355-a250ad2ca1e3 // indirect
+	github.com/chrismellard/docker-credential-acr-env v0.0.0-20221002210726-e883f69e0206 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220301182634-bfe2ffc6b6bd // indirect
@@ -70,17 +70,17 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.10.0 // indirect
-	github.com/Azure/azure-sdk-for-go v66.0.0+incompatible // indirect
+	github.com/Azure/azure-sdk-for-go v67.0.0+incompatible // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.28 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.21 // indirect
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/BurntSushi/toml v1.1.0 // indirect
+	github.com/BurntSushi/toml v1.2.0 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/buildpacks/imgutil v0.0.0-20220913203928-6accc39f0cf9 // indirect
+	github.com/buildpacks/imgutil v0.0.0-20221021152825-caf937b72cf0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.12.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
