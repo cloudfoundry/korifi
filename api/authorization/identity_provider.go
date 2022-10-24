@@ -2,8 +2,6 @@ package authorization
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 )
 
@@ -19,12 +17,6 @@ const (
 type Identity struct {
 	Name string
 	Kind string
-}
-
-func (i *Identity) Hash() string {
-	key := append([]byte(i.Name), []byte(i.Kind)...)
-	hasher := sha256.New()
-	return hex.EncodeToString(hasher.Sum(key))
 }
 
 type TokenIdentityInspector interface {
