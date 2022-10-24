@@ -59,7 +59,6 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpack-image-builder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
 
-
 ### Contour
 
 [Contour](https://projectcontour.io/) is our [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) controller. Follow the [instructions](https://projectcontour.io/getting-started/#install-contour-and-envoy) from the getting started guide to install the latest version.
@@ -73,7 +72,47 @@ Most Kubernetes distributions will come with `metrics-server` already installed.
 
 We use the [Service Binding Specification for Kubernetes](https://github.com/servicebinding/spec) and its [controller reference implementation](https://github.com/servicebinding/runtime) to implement [Cloud Foundry service bindings](https://docs.cloudfoundry.org/devguide/services/application-binding.html) ([see this issue](https://github.com/cloudfoundry/cf-k8s-controllers/issues/462)). Follow the [instructions](https://github.com/servicebinding/runtime/releases/latest) to install the latest version.
 
-## Deploy Korifi
+## Pre-install configuration
+
+### Root namespace
+
+Create the root namespace:
+
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $ROOT_NAMESPACE
+  labels:
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
+EOF
+```
+
+### Container registry credentials `Secret`
+
+Use the following command to create a `Secret` that Korifi and Kpack will use to connect to your container registry:
+
+```sh
+kubectl --namespace "$ROOT_NAMESPACE" create secret docker-registry image-registry-credentials \
+    --docker-username="<your-container-registry-username>" \
+    --docker-password="<your-container-registry-password>" \
+    --docker-server="<your-container-registry-hostname-and-port>"
+```
+
+Make sure the value of `--docker-server` is a valid [URI authority](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2).
+
+- If using **DockerHub**:
+  - `--docker-server` should be `https://index.docker.io/v1/`;
+  - `--docker-username` should be your DockerHub user;
+  - `--docker-password` can be either your DockerHub password or a [generated personal access token](https://hub.docker.com/settings/security?generateToken=true).
+- If using **GCR**:
+  - `--docker-server` should be `gcr.io`;
+  - `--docker-username` should be `_json_key`;
+  - `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
+
+## Install Korifi
 
 Korifi is distributed as a [Helm chart](https://helm.sh). See [_Customizing the Chart Before Installing_](https://helm.sh/docs/intro/using_helm/#customizing-the-chart-before-installing) for details on how to specify values when installing a Helm chart.
 
@@ -102,28 +141,6 @@ If you are using an authentication proxy with your cluster to enable SSO, you mu
 - `api.authProxy.caCert`: CA certificate of your cluster's auth proxy.
 
 ## Post-install Configuration
-
-### Container registry credentials `Secret`
-
-Use the following command to create a `Secret` that Korifi and Kpack will use to connect to your container registry:
-
-```sh
-kubectl --namespace "$ROOT_NAMESPACE" create secret docker-registry image-registry-credentials \
-    --docker-username="<your-container-registry-username>" \
-    --docker-password="<your-container-registry-password>" \
-    --docker-server="<your-container-registry-hostname-and-port>"
-```
-
-Make sure the value of `--docker-server` is a valid [URI authority](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2).
-
-- If using **DockerHub**:
-  - `--docker-server` should be `https://index.docker.io/v1/`;
-  - `--docker-username` should be your DockerHub user;
-  - `--docker-password` can be either your DockerHub password or a [generated personal access token](https://hub.docker.com/settings/security?generateToken=true).
-- If using **GCR**:
-  - `--docker-server` should be `gcr.io`;
-  - `--docker-username` should be `_json_key`;
-  - `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
 
 ### TLS certificates
 

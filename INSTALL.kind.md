@@ -46,7 +46,11 @@ We recommend you use [DockerHub](https://hub.docker.com/) as your container regi
 
 No changes here, follow the instructions.
 
-## Deploy Korifi
+## Pre-install configuration
+
+No changes here. For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub.
+
+## Install Korifi
 
 No changes here. If using DockerHub as recommended above, set the following values:
 
@@ -58,7 +62,7 @@ If `$KORIFI_NAMESPACE` doesn't exist yet, you can add the `--create-namespace` f
 
 ## Post-install Configuration
 
-For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub, no changes otherwise. No need to worry about TLS certificates or DNS.
+Yon can skip this section.
 
 ## Test Korifi
 
