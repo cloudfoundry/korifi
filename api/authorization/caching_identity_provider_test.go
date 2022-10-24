@@ -20,13 +20,15 @@ var _ = Describe("IdentityProvider", func() {
 		fakeProvider  *fake.IdentityProvider
 		idProvider    *authorization.CachingIdentityProvider
 		aliceId, id   authorization.Identity
+		clock         *testing.FakeClock
 		identityCache *cache.Expiring
 		getErr        error
 	)
 
 	BeforeEach(func() {
 		fakeProvider = new(fake.IdentityProvider)
-		identityCache = cache.NewExpiringWithClock(testing.NewFakeClock(time.Now()))
+		clock = testing.NewFakeClock(time.Now())
+		identityCache = cache.NewExpiringWithClock(clock)
 
 		aliceId = authorization.Identity{Kind: rbacv1.UserKind, Name: "alice"}
 		authInfo = authorization.Info{
