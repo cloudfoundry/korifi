@@ -31,6 +31,7 @@ Export the following environment variables:
 
 ```sh
 export ROOT_NAMESPACE="cf"
+export KORIFI_NAMESPACE="korifi-system"
 export ADMIN_USERNAME="kubernetes-admin"
 export BASE_DOMAIN="vcap.me"
 ```
@@ -45,21 +46,19 @@ We recommend you use [DockerHub](https://hub.docker.com/) as your container regi
 
 No changes here, follow the instructions.
 
-## DNS
-
-You can skip this section.
-
 ## Deploy Korifi
 
 No changes here. If using DockerHub as recommended above, set the following values:
 
-* `api.packageRegistry`: `index.docker.io/<username>`
-* `kpack-image-builder.builderRepository`: `index.docker.io/<username>/kpack-builder`
-* `kpack-image-builder.packageRegistry`: `index.docker.io/<username>`
+* `api.packageRepositoryPrefix`: `index.docker.io/<username>`;
+* `kpack-image-builder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
+* `kpack-image-builder.dropletRepositoryPrefix`: `index.docker.io/<username>`.
+
+If `$KORIFI_NAMESPACE` doesn't exist yet, you can add the `--create-namespace` flag to the `helm` invocation.
 
 ## Post-install Configuration
 
-For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub. No changes otherwise.
+For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub, no changes otherwise. No need to worry about TLS certificates or DNS.
 
 ## Test Korifi
 
