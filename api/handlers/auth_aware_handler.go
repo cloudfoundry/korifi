@@ -19,18 +19,18 @@ import (
 type HandlerResponse struct {
 	httpStatus int
 	body       interface{}
-	headers    map[string]string
+	headers    map[string][]string
 }
 
 func NewHandlerResponse(httpStatus int) *HandlerResponse {
 	return &HandlerResponse{
 		httpStatus: httpStatus,
-		headers:    map[string]string{},
+		headers:    map[string][]string{},
 	}
 }
 
 func (r *HandlerResponse) WithHeader(key, value string) *HandlerResponse {
-	r.headers[key] = value
+	r.headers[key] = append(r.headers[key], value)
 	return r
 }
 
@@ -117,8 +117,10 @@ func presentError(logger logr.Logger, w http.ResponseWriter, err error) {
 }
 
 func (response *HandlerResponse) writeTo(w http.ResponseWriter) error {
-	for k, v := range response.headers {
-		w.Header().Set(k, v)
+	for header, headerValues := range response.headers {
+		for _, value := range headerValues {
+			w.Header().Add(header, value)
+		}
 	}
 
 	if response.body == nil {

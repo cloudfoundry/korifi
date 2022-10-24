@@ -297,6 +297,7 @@ func main() {
 		handler.RegisterRoutes(router)
 	}
 
+	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
 	authInfoParser := authorization.NewInfoParser()
 	router.Use(
 		handlers.NewCorrelationIDMiddleware().Middleware,
@@ -305,6 +306,14 @@ func main() {
 		handlers.NewAuthenticationMiddleware(
 			authInfoParser,
 			cachingIdentityProvider,
+			unauthenticatedEndpoints,
+		).Middleware,
+		handlers.NewCFUserMiddleware(
+			privilegedCRClient,
+			cachingIdentityProvider,
+			config.RootNamespace,
+			cache.NewExpiring(),
+			unauthenticatedEndpoints,
 		).Middleware,
 	)
 
