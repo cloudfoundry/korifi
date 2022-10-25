@@ -23,35 +23,16 @@ metadata:
   name: korifi-api
 spec:
   hosts:
-  - "*.{{ .Values.global.defaultAppDomainName }}"
+  - {{ .Values.apiServer.url }}
   gateways:
   - korifi-api-gateway
   tls:
   - match:
     - port: 443
       sniHosts:
-      - "*.{{ .Values.global.defaultAppDomainName }}"
+      - {{ .Values.apiServer.url }}
     route:
     - destination:
         host: korifi-api-svc
         port:
           number: 443
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  namespace: {{ .Values.namespace }}
-  name: korifi-app-gateway
-spec:
-  selector:
-    istio: ingressgateway # use istio default controller
-  servers:
-  - port:
-      number: 443
-      name: https
-      protocol: HTTPS
-    hosts:
-    - "*.{{ .Values.global.defaultAppDomainName }}"
-    tls:
-      mode: SIMPLE
-      credentialName: korifi-api-ingress-cert

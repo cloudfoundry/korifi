@@ -288,7 +288,7 @@ func (r *CFRouteReconciler) createOrPatchVirtualService(ctx context.Context, cfR
 
 	_, err := controllerutil.CreateOrPatch(ctx, r.client, virtualService, func() error {
 		virtualService.Spec.Hosts = []string{fqdn}
-		virtualService.Spec.Gateways = []string{"korifi-api-system/korifi-app-gateway"}
+		virtualService.Spec.Gateways = []string{"korifi-contour-router-system/korifi-apps-gateway"}
 		virtualService.Spec.Http = []*v1alpha3.HTTPRoute{{Route: destinations}}
 
 		return nil
