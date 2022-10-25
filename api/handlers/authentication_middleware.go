@@ -12,36 +12,40 @@ import (
 	"github.com/go-logr/logr"
 )
 
-type AuthenticationMiddleware struct {
-	logger                   logr.Logger
-	authInfoParser           AuthInfoParser
-	identityProvider         IdentityProvider
-	unauthenticatedEndpoints map[string]interface{}
+//counterfeiter:generate -o fake -fake-name UnauthenticatedEndpointRegistry . UnauthenticatedEndpointRegistry
+//counterfeiter:generate -o fake -fake-name AuthInfoParser . AuthInfoParser
+
+type UnauthenticatedEndpointRegistry interface {
+	IsUnauthenticatedEndpoint(requestPath string) bool
 }
 
-//counterfeiter:generate -o fake -fake-name AuthInfoParser . AuthInfoParser
+type AuthenticationMiddleware struct {
+	logger                          logr.Logger
+	authInfoParser                  AuthInfoParser
+	identityProvider                IdentityProvider
+	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry
+}
 
 type AuthInfoParser interface {
 	Parse(authHeader string) (authorization.Info, error)
 }
 
-func NewAuthenticationMiddleware(authInfoParser AuthInfoParser, identityProvider IdentityProvider) *AuthenticationMiddleware {
+func NewAuthenticationMiddleware(
+	authInfoParser AuthInfoParser,
+	identityProvider IdentityProvider,
+	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry,
+) *AuthenticationMiddleware {
 	return &AuthenticationMiddleware{
-		logger:           ctrl.Log.WithName("AuthenticationMiddleware"),
-		authInfoParser:   authInfoParser,
-		identityProvider: identityProvider,
-		unauthenticatedEndpoints: map[string]interface{}{
-			"/":            struct{}{},
-			"/v3":          struct{}{},
-			"/api/v1/info": struct{}{},
-			"/oauth/token": struct{}{},
-		},
+		logger:                          ctrl.Log.WithName("AuthenticationMiddleware"),
+		authInfoParser:                  authInfoParser,
+		identityProvider:                identityProvider,
+		unauthenticatedEndpointRegistry: unauthenticatedEndpointRegistry,
 	}
 }
 
 func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.isUnauthenticatedEndpoint(r.URL.Path) {
+		if a.unauthenticatedEndpointRegistry.IsUnauthenticatedEndpoint(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -65,10 +69,4 @@ func (a *AuthenticationMiddleware) Middleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (a *AuthenticationMiddleware) isUnauthenticatedEndpoint(p string) bool {
-	_, authNotRequired := a.unauthenticatedEndpoints[p]
-
-	return authNotRequired
 }
