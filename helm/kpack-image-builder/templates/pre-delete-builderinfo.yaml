@@ -38,7 +38,10 @@ spec:
         command:
         - sh
         - -c
-        - "kubectl -n {{ .Values.global.rootNamespace }} delete builderinfo kpack-image-builder --ignore-not-found"
+        - |
+          if kubectl get crd builderinfos.korifi.cloudfoundry.org; then
+            kubectl -n {{ .Values.global.rootNamespace }} delete builderinfo kpack-image-builder --ignore-not-found
+          fi
 
 ---
 apiVersion: v1
