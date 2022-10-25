@@ -18,12 +18,13 @@ const authHeader = "Authorization: something"
 
 var _ = Describe("Authentication Middleware", func() {
 	var (
-		authMiddleware   *apis.AuthenticationMiddleware
-		nextHandler      http.Handler
-		identityProvider *fake.IdentityProvider
-		authInfoParser   *fake.AuthInfoParser
-		requestPath      string
-		actualReq        *http.Request
+		authMiddleware                  *apis.AuthenticationMiddleware
+		nextHandler                     http.Handler
+		identityProvider                *fake.IdentityProvider
+		authInfoParser                  *fake.AuthInfoParser
+		requestPath                     string
+		actualReq                       *http.Request
+		unauthenticatedEndpointRegistry *fake.UnauthenticatedEndpointRegistry
 	)
 
 	BeforeEach(func() {
@@ -32,14 +33,22 @@ var _ = Describe("Authentication Middleware", func() {
 			w.WriteHeader(http.StatusTeapot)
 		})
 
+		requestPath = "/v3/apps"
+
 		authInfoParser = new(fake.AuthInfoParser)
+		authInfoParser.ParseReturns(authorization.Info{Token: "the-token"}, nil)
+
 		identityProvider = new(fake.IdentityProvider)
+		identityProvider.GetIdentityReturns(authorization.Identity{}, nil)
+
+		unauthenticatedEndpointRegistry = new(fake.UnauthenticatedEndpointRegistry)
+		unauthenticatedEndpointRegistry.IsUnauthenticatedEndpointReturns(false)
+
 		authMiddleware = apis.NewAuthenticationMiddleware(
 			authInfoParser,
 			identityProvider,
+			unauthenticatedEndpointRegistry,
 		)
-
-		requestPath = ""
 	})
 
 	JustBeforeEach(func() {
@@ -49,85 +58,42 @@ var _ = Describe("Authentication Middleware", func() {
 		authMiddleware.Middleware(nextHandler).ServeHTTP(rr, request)
 	})
 
-	Describe("endpoints not requiring authentication", func() {
-		Describe("/", func() {
-			BeforeEach(func() {
-				requestPath = "/"
-			})
+	It("verifies authentication and passes through", func() {
+		Expect(authInfoParser.ParseCallCount()).To(Equal(1))
+		Expect(authInfoParser.ParseArgsForCall(0)).To(Equal(authHeader))
 
-			It("passes through", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
-			})
+		Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
+		_, actualAuthInfo := identityProvider.GetIdentityArgsForCall(0)
+		Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
 
-			It("does not inject an authorization.Info in the context", func() {
-				_, ok := authorization.InfoFromContext(actualReq.Context())
-				Expect(ok).To(BeFalse())
-			})
+		Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+	})
+
+	It("parses the Authorization header into an authorization.Info and injects it in the request context", func() {
+		actualAuthInfo, ok := authorization.InfoFromContext(actualReq.Context())
+		Expect(ok).To(BeTrue())
+		Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
+	})
+
+	When("the endpoint does not require authentication", func() {
+		BeforeEach(func() {
+			unauthenticatedEndpointRegistry.IsUnauthenticatedEndpointReturns(true)
 		})
 
-		Describe("/v3", func() {
-			BeforeEach(func() {
-				requestPath = "/v3"
-			})
-
-			It("passes through", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
-			})
-
-			It("does not inject an authorization.Info in the context", func() {
-				_, ok := authorization.InfoFromContext(actualReq.Context())
-				Expect(ok).To(BeFalse())
-			})
-		})
-
-		Describe("/api/v1/info", func() {
-			BeforeEach(func() {
-				requestPath = "/api/v1/info"
-			})
-
-			It("passes through", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
-			})
-
-			It("does not inject an authorization.Info in the context", func() {
-				_, ok := authorization.InfoFromContext(actualReq.Context())
-				Expect(ok).To(BeFalse())
-			})
+		It("does not verify authentication and passes through", func() {
+			Expect(authInfoParser.ParseCallCount()).To(BeZero())
+			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 		})
 	})
 
-	Describe("endpoints requiring authentication", func() {
+	When("parsing the Authorization header fails", func() {
 		BeforeEach(func() {
-			requestPath = "/v3/apps"
-			authInfoParser.ParseReturns(authorization.Info{Token: "the-token"}, nil)
-			identityProvider.GetIdentityReturns(authorization.Identity{}, nil)
+			authInfoParser.ParseReturns(authorization.Info{}, apierrors.NewInvalidAuthError(nil))
 		})
 
-		It("verifies authentication and passes through", func() {
-			Expect(authInfoParser.ParseCallCount()).To(Equal(1))
-			Expect(authInfoParser.ParseArgsForCall(0)).To(Equal(authHeader))
-
-			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
-			_, actualAuthInfo := identityProvider.GetIdentityArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
-
-			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
-		})
-
-		It("parses the Authorization header into an authorization.Info and injects it in the request context", func() {
-			actualAuthInfo, ok := authorization.InfoFromContext(actualReq.Context())
-			Expect(ok).To(BeTrue())
-			Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
-		})
-
-		When("parsing the Authorization header fails", func() {
-			BeforeEach(func() {
-				authInfoParser.ParseReturns(authorization.Info{}, apierrors.NewInvalidAuthError(nil))
-			})
-
-			It("returns a CF-InvalidAuthToken error", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+		It("returns a CF-InvalidAuthToken error", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
+			Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
                     {
                         "detail": "Invalid Auth Token",
@@ -136,17 +102,17 @@ var _ = Describe("Authentication Middleware", func() {
                     }
                     ]
                 }`)))
-			})
+		})
+	})
+
+	When("Authorization header parsing fails for unknown reason", func() {
+		BeforeEach(func() {
+			authInfoParser.ParseReturns(authorization.Info{}, errors.New("what happened?"))
 		})
 
-		When("Authorization header parsing fails for unknown reason", func() {
-			BeforeEach(func() {
-				authInfoParser.ParseReturns(authorization.Info{}, errors.New("what happened?"))
-			})
-
-			It("returns a CF-Unknown error", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusInternalServerError))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+		It("returns a CF-Unknown error", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusInternalServerError))
+			Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
                     {
                         "detail": "An unknown error occurred.",
@@ -155,17 +121,17 @@ var _ = Describe("Authentication Middleware", func() {
                     }
                     ]
                 }`)))
-			})
+		})
+	})
+
+	When("getting the identity fails", func() {
+		BeforeEach(func() {
+			identityProvider.GetIdentityReturns(authorization.Identity{}, apierrors.NewInvalidAuthError(nil))
 		})
 
-		When("getting the identity fails", func() {
-			BeforeEach(func() {
-				identityProvider.GetIdentityReturns(authorization.Identity{}, apierrors.NewInvalidAuthError(nil))
-			})
-
-			It("returns a CF-InvalidAuthToken error", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+		It("returns a CF-InvalidAuthToken error", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
+			Expect(rr).To(HaveHTTPBody(MatchJSON(`{
                     "errors": [
                     {
                         "detail": "Invalid Auth Token",
@@ -174,7 +140,6 @@ var _ = Describe("Authentication Middleware", func() {
                     }
                     ]
                 }`)))
-			})
 		})
 	})
 })
