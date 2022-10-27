@@ -37,8 +37,10 @@ type CFTaskSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Command string                      `json:"command,omitempty"`
-	AppRef  corev1.LocalObjectReference `json:"appRef,omitempty"`
+	// The command used to start the task process
+	Command string `json:"command,omitempty"`
+	// A reference to the CFApp containing the code of script for this CFTask
+	AppRef corev1.LocalObjectReference `json:"appRef,omitempty"`
 	// +optional
 	Canceled bool `json:"canceled"`
 }

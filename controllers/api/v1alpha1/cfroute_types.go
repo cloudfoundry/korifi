@@ -58,7 +58,7 @@ type CFRouteSpec struct {
 	Host string `json:"host,omitempty"`
 	// Path is optional, defaults to empty
 	Path string `json:"path,omitempty"`
-	// Protocol is optional, defaults to http. Dependent on allow-listed protocols on domain
+	// Protocol is optional and defaults to http. Currently only http is supported
 	Protocol Protocol `json:"protocol,omitempty"`
 	// A reference to the CFDomain this CFRoute is assigned to, including name and namespace
 	DomainRef v1.ObjectReference `json:"domainRef"`

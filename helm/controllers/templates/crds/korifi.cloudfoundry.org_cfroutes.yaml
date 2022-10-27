@@ -130,8 +130,8 @@ spec:
                 description: Path is optional, defaults to empty
                 type: string
               protocol:
-                description: Protocol is optional, defaults to http. Dependent on
-                  allow-listed protocols on domain
+                description: Protocol is optional and defaults to http. Currently
+                  only http is supported
                 enum:
                 - http
                 - tcp

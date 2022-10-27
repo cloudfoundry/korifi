@@ -36,8 +36,8 @@ spec:
             description: CFTaskSpec defines the desired state of CFTask
             properties:
               appRef:
-                description: LocalObjectReference contains enough information to let
-                  you locate the referenced object inside the same namespace.
+                description: A reference to the CFApp containing the code of script
+                  for this CFTask
                 properties:
                   name:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -48,6 +48,7 @@ spec:
               canceled:
                 type: boolean
               command:
+                description: The command used to start the task process
                 type: string
             type: object
           status:
