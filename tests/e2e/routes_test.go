@@ -266,6 +266,20 @@ var _ = Describe("Routes", func() {
 					}))
 				})
 			})
+
+			When("the route host is invalid", func() {
+				BeforeEach(func() {
+					host = "?"
+				})
+
+				It("fails with invalid host error", func() {
+					Expect(createErr.Errors).To(HaveLen(1))
+					err := createErr.Errors[0]
+					Expect(err.Detail).To(ContainSubstring("Host \"?\" is not valid"))
+					Expect(err.Title).To(Equal("CF-UnprocessableEntity"))
+					Expect(err.Code).To(Equal(10008))
+				})
+			})
 		})
 	})
 

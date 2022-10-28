@@ -115,10 +115,6 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	err = v.RegisterValidation("routepathstartswithslash", routePathStartsWithSlash)
-	if err != nil {
-		return nil, nil, err
-	}
 	err = v.RegisterValidation("serviceinstancetaglength", serviceInstanceTagLength)
 	if err != nil {
 		return nil, nil, err
@@ -266,18 +262,6 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 }
 
 // Custom field validators
-func routePathStartsWithSlash(fl validator.FieldLevel) bool {
-	if fl.Field().String() == "" {
-		return true
-	}
-
-	if fl.Field().String()[0:1] != "/" {
-		return false
-	}
-
-	return true
-}
-
 func megabyteFormattedString(fl validator.FieldLevel) bool {
 	val, ok := fl.Field().Interface().(string)
 	if !ok {

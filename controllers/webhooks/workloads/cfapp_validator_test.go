@@ -79,10 +79,10 @@ var _ = Describe("CFAppValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "App with the name '" + cfApp.Spec.DisplayName + "' already exists.",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("App with the name '"+cfApp.Spec.DisplayName+"' already exists."),
+				))
 			})
 		})
 
@@ -95,10 +95,10 @@ var _ = Describe("CFAppValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
@@ -147,10 +147,10 @@ var _ = Describe("CFAppValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "App with the name '" + updatedCFApp.Spec.DisplayName + "' already exists.",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("App with the name '"+updatedCFApp.Spec.DisplayName+"' already exists."),
+				))
 			})
 		})
 
@@ -163,10 +163,10 @@ var _ = Describe("CFAppValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
@@ -197,10 +197,10 @@ var _ = Describe("CFAppValidator", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})

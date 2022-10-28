@@ -105,10 +105,10 @@ var _ = Describe("CFDomainValidator", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.DuplicateDomainErrorType,
-					Message: "Overlapping domain exists",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.DuplicateDomainErrorType,
+					Equal("Overlapping domain exists"),
+				))
 			})
 		})
 
@@ -118,10 +118,10 @@ var _ = Describe("CFDomainValidator", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.DuplicateDomainErrorType,
-					Message: "Overlapping domain exists",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.DuplicateDomainErrorType,
+					Equal("Overlapping domain exists"),
+				))
 			})
 		})
 
@@ -131,10 +131,23 @@ var _ = Describe("CFDomainValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
+			})
+		})
+
+		When("the domain name is invalid", func() {
+			BeforeEach(func() {
+				requestDomainCR.Spec.Name = "#my.$domain"
+			})
+
+			It("denies the request", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.InvalidDomainErrorType,
+					ContainSubstring("is not a valid domain"),
+				))
 			})
 		})
 	})
@@ -155,10 +168,10 @@ var _ = Describe("CFDomainValidator", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-				Type:    webhooks.ImmutableFieldErrorType,
-				Message: "'CFDomain.Spec.Name' field is immutable",
-			}))
+			Expect(retErr).To(matchers.BeValidationError(
+				webhooks.ImmutableFieldErrorType,
+				Equal("'CFDomain.Spec.Name' field is immutable"),
+			))
 		})
 
 		When("the domain is being deleted", func() {

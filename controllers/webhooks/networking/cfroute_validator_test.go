@@ -118,35 +118,42 @@ var _ = Describe("CFRouteValidator", func() {
 			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
 		})
 
-		When("the host contains upper-case characters", func() {
+		When("the host is '*'", func() {
 			BeforeEach(func() {
-				cfRoute.Spec.Host = "vAlidnAme"
+				cfRoute.Spec.Host = "*"
 			})
 
 			It("allows the request", func() {
 				Expect(retErr).NotTo(HaveOccurred())
 			})
+		})
 
-			It("invokes the validator with lower-case host correctly", func() {
-				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-				_, _, _, name, _ := duplicateValidator.ValidateCreateArgsForCall(0)
-				Expect(name).To(Equal(strings.ToLower(cfRoute.Spec.Host) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+		When("the host is invalid", func() {
+			BeforeEach(func() {
+				cfRoute.Spec.Host = "inVAlidnAme"
+			})
+
+			It("denies the request", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.RouteHostNameValidationErrorType,
+					ContainSubstring("Host \"inVAlidnAme\" is not valid"),
+				))
 			})
 		})
 
-		When("the app name is a duplicate", func() {
+		When("the route name is a duplicate", func() {
 			BeforeEach(func() {
 				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    networking.DuplicateRouteErrorType,
+					Type:    webhooks.DuplicateNameErrorType,
 					Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
 				})
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.DuplicateRouteErrorType,
-					Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'."),
+				))
 			})
 		})
 
@@ -159,62 +166,26 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
-			})
-		})
-
-		When("host is empty on the route", func() {
-			BeforeEach(func() {
-				cfRoute.Spec.Host = ""
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RouteHostNameValidationErrorType,
-					Message: "host cannot be empty",
-				}))
-			})
-		})
-
-		When("the host contains invalid characters", func() {
-			BeforeEach(func() {
-				cfRoute.Spec.Host = "this-is-inv@lid-host-n@me"
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RouteHostNameValidationErrorType,
-					Message: `host must be either "*" or contain only alphanumeric characters, "_", or "-"`,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 
 		When("the FQDN is too long", func() {
 			BeforeEach(func() {
-				cfDomain.Spec.Name = "a-very-looooooooooooong-invalid-domain-name-that-should-fail-validation"
+				cfRoute.Spec.Host = "a-very-looooooooooooong-invalid-host-name-that-should-fail-validation"
+				for i := 0; i < 5; i++ {
+					cfRoute.Spec.Host = cfRoute.Spec.Host + cfRoute.Spec.Host
+				}
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RouteSubdomainValidationErrorType,
-					Message: "Subdomains must each be at most 63 characters",
-				}))
-			})
-		})
-
-		When("the FQDN does not match the domain regex", func() {
-			BeforeEach(func() {
-				cfDomain.Spec.Name = "foo..bar"
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RouteFQDNValidationErrorType,
-					Message: "FQDN 'my-host.foo..bar' does not comply with RFC 1035 standards",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.RouteSubdomainValidationErrorType,
+					ContainSubstring("subdomain must not exceed 253 characters"),
+				))
 			})
 		})
 
@@ -224,10 +195,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.InvalidURIError,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.RoutePathValidationErrorType,
+					Equal(networking.InvalidURIError),
+				))
 			})
 		})
 
@@ -237,10 +208,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.PathIsSlashError,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.RoutePathValidationErrorType,
+					Equal(networking.PathIsSlashError),
+				))
 			})
 		})
 
@@ -250,10 +221,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.InvalidURIError,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.RoutePathValidationErrorType,
+					Equal(networking.InvalidURIError),
+				))
 			})
 		})
 
@@ -263,10 +234,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.PathHasQuestionMarkError,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.RoutePathValidationErrorType,
+					Equal(networking.PathHasQuestionMarkError),
+				))
 			})
 		})
 
@@ -276,10 +247,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RoutePathValidationErrorType,
-					Message: networking.PathLengthExceededError,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.RoutePathValidationErrorType,
+					Equal(networking.PathLengthExceededError),
+				))
 			})
 		})
 
@@ -304,10 +275,10 @@ var _ = Describe("CFRouteValidator", func() {
 				})
 
 				It("denies the request", func() {
-					Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-						Type:    networking.RouteDestinationNotInSpaceErrorType,
-						Message: networking.RouteDestinationNotInSpaceErrorMessage,
-					}))
+					Expect(retErr).To(matchers.BeValidationError(
+						networking.RouteDestinationNotInSpaceErrorType,
+						Equal(networking.RouteDestinationNotInSpaceErrorMessage),
+					))
 				})
 			})
 
@@ -317,10 +288,10 @@ var _ = Describe("CFRouteValidator", func() {
 				})
 
 				It("denies the request", func() {
-					Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-						Type:    webhooks.UnknownErrorType,
-						Message: webhooks.UnknownErrorMessage,
-					}))
+					Expect(retErr).To(matchers.BeValidationError(
+						webhooks.UnknownErrorType,
+						Equal(webhooks.UnknownErrorMessage),
+					))
 				})
 			})
 		})
@@ -368,30 +339,30 @@ var _ = Describe("CFRouteValidator", func() {
 
 		When("the hostname is updated", func() {
 			BeforeEach(func() {
-				updatedCFRoute.Spec.Host = "vAlidnAme"
+				updatedCFRoute.Spec.Host = "valid-name"
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'CFRoute.Spec.Host' field is immutable",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.ImmutableFieldErrorType,
+					Equal("'CFRoute.Spec.Host' field is immutable"),
+				))
 			})
 		})
 
-		When("the new app name is a duplicate", func() {
+		When("the new route name is a duplicate", func() {
 			BeforeEach(func() {
 				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
-					Type:    networking.DuplicateRouteErrorType,
+					Type:    webhooks.DuplicateNameErrorType,
 					Message: "Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'.",
 				})
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.DuplicateRouteErrorType,
-					Message: "Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'.",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'."),
+				))
 			})
 		})
 
@@ -404,23 +375,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
-			})
-		})
-
-		When("the hostname is cleared", func() {
-			BeforeEach(func() {
-				updatedCFRoute.Spec.Host = ""
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'CFRoute.Spec.Host' field is immutable",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 
@@ -430,10 +388,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'CFRoute.Spec.Path' field is immutable",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.ImmutableFieldErrorType,
+					Equal("'CFRoute.Spec.Path' field is immutable"),
+				))
 			})
 		})
 
@@ -443,10 +401,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'CFRoute.Spec.Protocol' field is immutable",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.ImmutableFieldErrorType,
+					Equal("'CFRoute.Spec.Protocol' field is immutable"),
+				))
 			})
 		})
 
@@ -456,10 +414,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.ImmutableFieldErrorType,
-					Message: "'CFRoute.Spec.DomainRef.Name' field is immutable",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.ImmutableFieldErrorType,
+					Equal("'CFRoute.Spec.DomainRef.Name' field is immutable"),
+				))
 			})
 		})
 
@@ -469,10 +427,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    networking.RouteDestinationNotInSpaceErrorType,
-					Message: networking.RouteDestinationNotInSpaceErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					networking.RouteDestinationNotInSpaceErrorType,
+					Equal(networking.RouteDestinationNotInSpaceErrorMessage),
+				))
 			})
 		})
 
@@ -482,10 +440,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
@@ -507,22 +465,6 @@ var _ = Describe("CFRouteValidator", func() {
 			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
 		})
 
-		When("the host contains upper-case characters", func() {
-			BeforeEach(func() {
-				testRouteHost = "vAlidnAme"
-				cfRoute.Spec.Host = testRouteHost
-			})
-
-			It("allows the request", func() {
-				Expect(retErr).NotTo(HaveOccurred())
-			})
-			It("invokes the validator with lower-case host correctly", func() {
-				Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-				_, _, _, name := duplicateValidator.ValidateDeleteArgsForCall(0)
-				Expect(name).To(Equal(strings.ToLower(testRouteHost) + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
-			})
-		})
-
 		When("delete validation fails", func() {
 			BeforeEach(func() {
 				duplicateValidator.ValidateDeleteReturns(&webhooks.ValidationError{
@@ -532,10 +474,10 @@ var _ = Describe("CFRouteValidator", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})

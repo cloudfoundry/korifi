@@ -5,8 +5,8 @@ import (
 )
 
 type RouteCreate struct {
-	Host          string             `json:"host" validate:"hostname_rfc1123,required"` // TODO: Not required when we support private domains
-	Path          string             `json:"path" validate:"routepathstartswithslash"`
+	Host          string             `json:"host" validate:"required"` // TODO: Not required when we support private domains
+	Path          string             `json:"path"`
 	Relationships RouteRelationships `json:"relationships" validate:"required"`
 	Metadata      Metadata           `json:"metadata"`
 }
