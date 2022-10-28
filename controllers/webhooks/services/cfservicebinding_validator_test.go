@@ -89,10 +89,10 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 			})
 
 			It("prevents the creation of the duplicate service binding", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Service binding already exists: App: " + appGUID + " Service Instance: " + serviceInstanceGUID,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("Service binding already exists: App: "+appGUID+" Service Instance: "+serviceInstanceGUID),
+				))
 			})
 		})
 
@@ -105,10 +105,10 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
@@ -196,10 +196,10 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 			})
 
 			It("prevents the deletion of the service binding", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})

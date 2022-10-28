@@ -72,10 +72,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Space '" + cfSpace.Spec.DisplayName + "' already exists. Name must be unique per organization.",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("Space '"+cfSpace.Spec.DisplayName+"' already exists. Name must be unique per organization."),
+				))
 			})
 		})
 
@@ -89,10 +89,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 
@@ -105,10 +105,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.SpacePlacementErrorType,
-					Message: "some error",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.SpacePlacementErrorType,
+					Equal("some error"),
+				))
 			})
 		})
 	})
@@ -157,10 +157,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Space '" + updatedCFSpace.Spec.DisplayName + "' already exists. Name must be unique per organization.",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("Space '"+updatedCFSpace.Spec.DisplayName+"' already exists. Name must be unique per organization."),
+				))
 			})
 		})
 
@@ -173,10 +173,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
@@ -210,10 +210,10 @@ var _ = Describe("CFSpaceValidation", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})

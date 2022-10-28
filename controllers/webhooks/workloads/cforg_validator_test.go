@@ -81,10 +81,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Organization '" + cfOrg.Spec.DisplayName + "' already exists.",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("Organization '"+cfOrg.Spec.DisplayName+"' already exists."),
+				))
 			})
 		})
 
@@ -97,10 +97,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 
@@ -113,10 +113,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.OrgPlacementErrorType,
-					Message: fmt.Sprintf(webhooks.OrgPlacementErrorMessage, cfOrg.Spec.DisplayName),
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.OrgPlacementErrorType,
+					Equal(fmt.Sprintf(webhooks.OrgPlacementErrorMessage, cfOrg.Spec.DisplayName)),
+				))
 			})
 		})
 	})
@@ -165,10 +165,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Organization '" + updatedCFOrg.Spec.DisplayName + "' already exists.",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("Organization '"+updatedCFOrg.Spec.DisplayName+"' already exists."),
+				))
 			})
 		})
 
@@ -181,10 +181,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
@@ -215,10 +215,10 @@ var _ = Describe("CFOrgValidator", func() {
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})

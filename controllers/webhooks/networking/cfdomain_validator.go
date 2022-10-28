@@ -27,6 +27,8 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,6 +38,7 @@ import (
 const (
 	DomainDecodingErrorType  = "DomainDecodingError"
 	DuplicateDomainErrorType = "DuplicateDomainError"
+	InvalidDomainErrorType   = "InvalidDomainError"
 )
 
 // log is for logging in this package.
@@ -68,6 +71,14 @@ func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Obje
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
 	}
 
+	err := validateDomainName(domain.Spec.Name)
+	if err != nil {
+		return webhooks.ValidationError{
+			Type:    InvalidDomainErrorType,
+			Message: fmt.Sprintf("%q is not a valid domain: %s", domain.Spec.Name, err.Error()),
+		}.ExportJSONError()
+	}
+
 	isOverlapping, err := v.domainIsOverlapping(ctx, domain.Spec.Name)
 	if err != nil {
 		log.Error(err, "Error checking for overlapping domain")
@@ -85,6 +96,10 @@ func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Obje
 	}
 
 	return nil
+}
+
+func validateDomainName(domainName string) error {
+	return validation.IsFullyQualifiedDomainName(field.NewPath("CFDomain", "Spec", "Name"), domainName).ToAggregate()
 }
 
 func (v *CFDomainValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) error {

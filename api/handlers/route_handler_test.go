@@ -713,29 +713,6 @@ var _ = Describe("RouteHandler", func() {
 			})
 		})
 
-		When("the host is missing", func() {
-			BeforeEach(func() {
-				requestBody = `{
-	   					"relationships": {
-	   						"domain": {
-	   							"data": {
-	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-	   							}
-	   						},
-	   						"space": {
-	   							"data": {
-	   								"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
-	   							}
-	   						}
-	   					}
-	   				}`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
-			})
-		})
-
 		When("the host is not a string", func() {
 			BeforeEach(func() {
 				requestBody = `{
@@ -752,79 +729,6 @@ var _ = Describe("RouteHandler", func() {
 
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Host must be a string")
-			})
-		})
-
-		When("the host format is invalid", func() {
-			BeforeEach(func() {
-				requestBody = `{
-	   					"host": "!-invalid-hostname-!",
-	   					"relationships": {
-	   						"domain": {
-	   							"data": {
-	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-	   							}
-	   						},
-	   						"space": {
-	   							"data": {
-	   								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-	   							}
-	   						}
-	   					}
-	   				}`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
-			})
-		})
-
-		When("the host too long", func() {
-			BeforeEach(func() {
-				requestBody = `{
-	   					"host": "a-really-long-hostname-that-is-not-valid-according-to-the-dns-rfc",
-	   					"relationships": {
-	   						"domain": {
-	   							"data": {
-	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-	   							}
-	   						},
-	   						"space": {
-	   							"data": {
-	   								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-	   							}
-	   						}
-	   					}
-	   				}`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Key: 'RouteCreate.Host' Error:Field validation for 'Host' failed on the 'hostname_rfc1123' tag")
-			})
-		})
-
-		When("the path is missing a leading /", func() {
-			BeforeEach(func() {
-				requestBody = `{
-	   					"host": "test-route-host",
-	   					"path": "invalid/path",
-	   					 "relationships": {
-	   						"domain": {
-	   							"data": {
-	   								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-	   							}
-	   						},
-	   						"space": {
-	   							"data": {
-	   								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-	   							}
-	   						}
-	   					}
-	   				}`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Key: 'RouteCreate.Path' Error:Field validation for 'Path' failed on the 'routepathstartswithslash' tag")
 			})
 		})
 

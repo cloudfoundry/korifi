@@ -2,17 +2,19 @@ package networking
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"github.com/hashicorp/go-multierror"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,16 +24,12 @@ import (
 const (
 	RouteEntityType = "route"
 
-	RouteDecodingErrorType                 = "RouteDecodingError"
-	DuplicateRouteErrorType                = "DuplicateRouteError"
 	RouteDestinationNotInSpaceErrorType    = "RouteDestinationNotInSpaceError"
 	RouteDestinationNotInSpaceErrorMessage = "Route destination app not found in space"
 	RouteHostNameValidationErrorType       = "RouteHostNameValidationError"
 	RoutePathValidationErrorType           = "RoutePathValidationError"
 	RouteSubdomainValidationErrorType      = "RouteSubdomainValidationError"
 	RouteSubdomainValidationErrorMessage   = "Subdomains must each be at most 63 characters"
-	RouteFQDNValidationErrorType           = "RouteFQDNValidationError"
-	RouteFQDNValidationErrorMessage        = "FQDN '%s' does not comply with RFC 1035 standards"
 
 	HostEmptyError  = "host cannot be empty"
 	HostLengthError = "host is too long (maximum is 63 characters)"
@@ -55,7 +53,11 @@ type CFRouteValidator struct {
 
 var _ webhook.CustomValidator = &CFRouteValidator{}
 
-func NewCFRouteValidator(nameValidator webhooks.NameValidator, rootNamespace string, client client.Client) *CFRouteValidator {
+func NewCFRouteValidator(
+	nameValidator webhooks.NameValidator,
+	rootNamespace string,
+	client client.Client,
+) *CFRouteValidator {
 	return &CFRouteValidator{
 		duplicateValidator: nameValidator,
 		rootNamespace:      rootNamespace,
@@ -163,11 +165,7 @@ func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alp
 		return domain, err
 	}
 
-	if err = isHost(route.Spec.Host); err != nil {
-		return nil, err
-	}
-
-	if _, err = IsFQDN(route.Spec.Host, domain.Spec.Name); err != nil {
+	if err = validateFQDN(route.Spec.Host, domain.Spec.Name); err != nil {
 		return nil, err
 	}
 
@@ -229,74 +227,43 @@ func uniqueName(route korifiv1alpha1.CFRoute) string {
 	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
 }
 
-func isHost(hostname string) error {
-	const (
-		// HOST_REGEX - Must be either "*" or contain only alphanumeric characters, "_", or "-"
-		HOST_REGEX                  = "^([\\w\\-]+|\\*)?$"
-		MAXIMUM_DOMAIN_LABEL_LENGTH = 63
-	)
-
-	var errStrings []string
-
-	rxHost := regexp.MustCompile(HOST_REGEX)
-
-	if len(hostname) == 0 {
-		errStrings = append(errStrings, HostEmptyError)
+func validateFQDN(host, domain string) error {
+	// we only need to validate that "<host>.<domain>" is not too long and that
+	// <host> is either "*" or a valid dns label. The domain webhook already
+	// guarantees that the domain is well formed
+	if len(host+"."+domain) > validation.DNS1123SubdomainMaxLength {
+		return webhooks.ValidationError{
+			Type:    RouteSubdomainValidationErrorType,
+			Message: fmt.Sprintf("A valid DNS-1123 subdomain must not exceed %d characters.", validation.DNS1123SubdomainMaxLength),
+		}.ExportJSONError()
 	}
 
-	if len(hostname) > MAXIMUM_DOMAIN_LABEL_LENGTH {
-		errStrings = append(errStrings, HostLengthError)
-	}
-
-	if !rxHost.MatchString(hostname) {
-		errStrings = append(errStrings, HostFormatError)
-	}
-
-	if len(errStrings) > 0 {
+	err := validateHost(host)
+	if err != nil {
 		return webhooks.ValidationError{
 			Type:    RouteHostNameValidationErrorType,
-			Message: strings.Join(errStrings, ", "),
+			Message: fmt.Sprintf("Host %q is not valid: %s", host, err.Error()),
 		}.ExportJSONError()
 	}
 
 	return nil
 }
 
-func IsFQDN(host, domain string) (bool, error) {
-	const (
-		// MAXIMUM_FQDN_DOMAIN_LENGTH - The maximum fully-qualified domain length is 255 including separators, but this includes two "invisible"
-		// characters at the beginning and end of the domain, so for string comparisons, the correct length is 253.
-		//
-		// The first character denotes the length of the first label, and the last character denotes the termination
-		// of the domain.
-		MAXIMUM_FQDN_DOMAIN_LENGTH = 253
-		MINIMUM_FQDN_DOMAIN_LENGTH = 3
-		DOMAIN_REGEX               = "^[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$"
-		SUBDOMAIN_REGEX            = "^([^\\.]{0,63}\\.)*[^\\.]{0,63}$"
-	)
-
-	fqdn := host + "." + domain
-
-	rxSubdomain := regexp.MustCompile(SUBDOMAIN_REGEX)
-
-	if !rxSubdomain.MatchString(fqdn) {
-		return false, webhooks.ValidationError{
-			Type:    RouteSubdomainValidationErrorType,
-			Message: RouteSubdomainValidationErrorMessage,
-		}.ExportJSONError()
+func validateHost(host string) error {
+	if host == "*" {
+		return nil
 	}
 
-	rxDomain := regexp.MustCompile(DOMAIN_REGEX)
-	fqdnLength := len(fqdn)
-
-	if fqdnLength < MINIMUM_FQDN_DOMAIN_LENGTH || fqdnLength > MAXIMUM_FQDN_DOMAIN_LENGTH || !rxDomain.MatchString(fqdn) {
-		return false, webhooks.ValidationError{
-			Type:    RouteFQDNValidationErrorType,
-			Message: fmt.Sprintf(RouteFQDNValidationErrorMessage, fqdn),
-		}.ExportJSONError()
+	var multiErr *multierror.Error
+	for _, err := range validation.IsDNS1123Label(host) {
+		multiErr = multierror.Append(multiErr, errors.New(err))
 	}
 
-	return true, nil
+	if multiErr == nil {
+		return nil
+	}
+
+	return multiErr.ErrorOrNil()
 }
 
 func validatePath(path string) error {

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
@@ -69,10 +68,10 @@ var _ = Describe("CFTaskValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    workloads.MissingRequredFieldErrorType,
-					Message: fmt.Sprintf("task %s:%s is missing required field 'Spec.AppRef.Name'", testTaskNamespace, testTaskGUID),
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					workloads.MissingRequredFieldErrorType,
+					Equal(fmt.Sprintf("task %s:%s is missing required field 'Spec.AppRef.Name'", testTaskNamespace, testTaskGUID)),
+				))
 			})
 		})
 
@@ -82,10 +81,10 @@ var _ = Describe("CFTaskValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.RepresentJSONifiedValidationError(webhooks.ValidationError{
-					Type:    workloads.MissingRequredFieldErrorType,
-					Message: "task " + testTaskNamespace + ":" + testTaskGUID + " is missing required field 'Spec.Command'",
-				}))
+				Expect(retErr).To(matchers.BeValidationError(
+					workloads.MissingRequredFieldErrorType,
+					Equal("task "+testTaskNamespace+":"+testTaskGUID+" is missing required field 'Spec.Command'"),
+				))
 			})
 		})
 	})
