@@ -60,12 +60,12 @@ manifests: install-controller-gen
 	rm -f ../helm/controllers/templates/manifests.yaml.bak
 
 generate: install-controller-gen
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./controllers/..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 test: install-ginkgo manifests generate ## Run tests.
 	GINKGO_NODES=$(CONTROLLERS_GINKGO_NODES) ../scripts/run-tests.sh
 
-CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
 
