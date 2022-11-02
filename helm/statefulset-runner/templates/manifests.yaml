@@ -7,25 +7,25 @@ metadata:
   creationTimestamp: null
   name: korifi-statefulset-runner-mutating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: korifi-statefulset-runner-webhook-service
-      namespace: "{{ .Release.Namespace }}"
-      path: /mutate--v1-pod
-  failurePolicy: Fail
-  objectSelector:
-    matchLabels:
-      korifi.cloudfoundry.org/add-stsr-index: "true"
-  name: mstspod.korifi.cloudfoundry.org
-  rules:
-  - apiGroups:
-    - ""
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    resources:
-    - pods
-  sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: korifi-statefulset-runner-webhook-service
+        namespace: "{{ .Release.Namespace }}"
+        path: /mutate--v1-pod
+    failurePolicy: Fail
+    objectSelector:
+      matchLabels:
+        korifi.cloudfoundry.org/add-stsr-index: "true"
+    name: mstspod.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+    sideEffects: None
