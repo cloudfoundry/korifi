@@ -59,7 +59,6 @@ test: lint
 test-e2e: install-ginkgo
 	./scripts/run-tests.sh tests/e2e
 
-
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:
 	go install mvdan.cc/gofumpt@latest
