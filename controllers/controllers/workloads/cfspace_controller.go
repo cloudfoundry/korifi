@@ -164,11 +164,18 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 			}
 
 			var rootPackageRegistrySecret *corev1.ObjectReference
+			var rootPackageRegistryImagePullSecret *corev1.LocalObjectReference
 
-			// some versions of k8s will add their own secret references which will not be available in the new namespace, so we will only reference the package registry secret we explicitly propagate.
+			// some versions of k8s will add their own secret/imagepullsecret references which will not be available in the new namespace, so we will only reference the package registry secret we explicitly propagate.
 			for i := range rootServiceAccount.Secrets {
 				if rootServiceAccount.Secrets[i].Name == r.packageRegistrySecretName {
 					rootPackageRegistrySecret = &rootServiceAccount.Secrets[i]
+					break
+				}
+			}
+			for i := range rootServiceAccount.ImagePullSecrets {
+				if rootServiceAccount.ImagePullSecrets[i].Name == r.packageRegistrySecretName {
+					rootPackageRegistryImagePullSecret = &rootServiceAccount.ImagePullSecrets[i]
 					break
 				}
 			}
@@ -181,12 +188,15 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 				spaceServiceAccount.Labels[korifiv1alpha1.PropagatedFromLabel] = r.rootNamespace
 				spaceServiceAccount.Annotations = rootServiceAccount.Annotations
 
-				spaceServiceAccount.Secrets = keepTokenSecrets(spaceServiceAccount.Name, spaceServiceAccount.Secrets)
+				spaceServiceAccount.Secrets = keepSecrets(spaceServiceAccount.Name, spaceServiceAccount.Secrets)
 				if rootPackageRegistrySecret != nil {
 					spaceServiceAccount.Secrets = append(spaceServiceAccount.Secrets, *rootPackageRegistrySecret)
 				}
 
-				spaceServiceAccount.ImagePullSecrets = rootServiceAccount.ImagePullSecrets
+				spaceServiceAccount.ImagePullSecrets = keepImagePullSecrets(spaceServiceAccount.Name, spaceServiceAccount.ImagePullSecrets)
+				if rootPackageRegistrySecret != nil {
+					spaceServiceAccount.ImagePullSecrets = append(spaceServiceAccount.ImagePullSecrets, *rootPackageRegistryImagePullSecret)
+				}
 
 				return nil
 			})
@@ -227,10 +237,20 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 	return nil
 }
 
-func keepTokenSecrets(serviceAccountName string, secretRefs []corev1.ObjectReference) []corev1.ObjectReference {
+func keepSecrets(serviceAccountName string, secretRefs []corev1.ObjectReference) []corev1.ObjectReference {
 	var results []corev1.ObjectReference
 	for _, secretRef := range secretRefs {
-		if strings.HasPrefix(secretRef.Name, serviceAccountName+"-token-") {
+		if strings.HasPrefix(secretRef.Name, serviceAccountName+"-token-") || strings.HasPrefix(secretRef.Name, serviceAccountName+"-dockercfg-") {
+			results = append(results, secretRef)
+		}
+	}
+	return results
+}
+
+func keepImagePullSecrets(serviceAccountName string, secretRefs []corev1.LocalObjectReference) []corev1.LocalObjectReference {
+	var results []corev1.LocalObjectReference
+	for _, secretRef := range secretRefs {
+		if strings.HasPrefix(secretRef.Name, serviceAccountName+"-token-") || strings.HasPrefix(secretRef.Name, serviceAccountName+"-dockercfg-") {
 			results = append(results, secretRef)
 		}
 	}
