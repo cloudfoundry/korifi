@@ -66,85 +66,14 @@ manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole 
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: fmt
-fmt: install-gofumpt install-shfmt
-	$(GOFUMPT) -w .
-	$(SHFMT) -w -i 2 -ci .
-
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
-
 .PHONY: test
-test: install-ginkgo manifests generate fmt vet ## Run tests.
+test: install-ginkgo manifests generate ## Run tests.
 	../scripts/run-tests.sh
-
-##@ Build
-
-.PHONY: build
-build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
-
-.PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
-	CONTROLLERSCONFIG=$(shell pwd)/kpack-image-builder/config/base/controllersconfig ENABLE_WEBHOOKS=false go run ./kpack-image-builder/main.go
-
-.PHONY: docker-build
-docker-build: ## Build docker image with the manager.
-	docker buildx build --load -f ./Dockerfile -t ${IMG_KIB} ..
-
-.PHONY: docker-build-debug
-docker-build-debug: ## Build docker image with the manager.
-	docker buildx build --load -f ./remote-debug/Dockerfile -t ${IMG_KIB} ..
-
-.PHONY: docker-push
-docker-push: ## Push docker image with the manager.
-	docker push ${IMG_KIB}
-
-##@ Deployment
-
-KIB_VALUES ?= ../helm/kpack-image-builder/values.yaml
-deploy: manifests
-	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
-		--values=$(KIB_VALUES) \
-		--set=image=$(IMG_KIB) \
-		--wait
-
-deploy-kind-local: manifests
-	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
-		--values=$(KIB_VALUES) \
-		--set=image=$(IMG_KIB) \
-		--set=dropletRepositoryPrefix=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images \
-		--wait
-
-deploy-kind-local-debug: manifests
-	helm upgrade --install kpack-image-builder ../helm/kpack-image-builder \
-		--values=$(KIB_VALUES) \
-		--set=image=$(IMG_KIB) \
-		--set=dropletRepositoryPrefix=localregistry-docker-registry.default.svc.cluster.local:30050/korifi-controllers/kpack/images \
-		--set=global.debug=true \
-		--wait
-
-.PHONY: undeploy
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	@if helm status kpack-image-builder 2>/dev/null; then \
-		helm delete kpack-image-builder --wait; \
-	else \
-		echo "kpack-image-builder chart not found - skipping"; \
-	fi
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: install-controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
-
-GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
-install-gofumpt:
-	go install mvdan.cc/gofumpt@latest
-
-SHFMT = $(shell go env GOPATH)/bin/shfmt
-install-shfmt:
-	go install mvdan.cc/sh/v3/cmd/shfmt@latest
 
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo

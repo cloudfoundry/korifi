@@ -68,84 +68,14 @@ manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole 
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: generate-fakes
-generate-fakes:
-	go generate ./...
-
-.PHONY: fmt
-fmt: install-gofumpt install-shfmt
-	$(GOFUMPT) -w .
-	$(SHFMT) -w -i 2 -ci .
-
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
-
 .PHONY: test
-test: install-ginkgo manifests generate fmt vet ## Run tests.
+test: install-ginkgo manifests generate ## Run tests.
 	../scripts/run-tests.sh
-
-##@ Build
-
-.PHONY: build
-build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
-
-.PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
-	ENABLE_WEBHOOKS=false go run ./main.go
-
-.PHONY: docker-build
-docker-build: ## Build docker image with the manager.
-	docker buildx build --load -f ./Dockerfile -t ${IMG_SSR} ..
-
-.PHONY: docker-build-debug
-docker-build-debug: ## Build docker image with the manager.
-	docker buildx build --load -f ./remote-debug/Dockerfile -t ${IMG_SSR} ..
-
-.PHONY: docker-push
-docker-push: ## Push docker image with the manager.
-	docker push ${IMG_SSR}
-
-##@ Deployment
-
-SSR_VALUES ?= ../helm/statefulset-runner/values.yaml
-deploy: manifests
-	helm upgrade --install statefulset-runner ../helm/statefulset-runner \
-		--values=$(SSR_VALUES) \
-		--set=image=$(IMG_SSR) \
-		--wait
-
-deploy-kind-local: deploy
-
-deploy-kind-local-debug: manifests
-	helm upgrade --install statefulset-runner ../helm/statefulset-runner \
-		--values=$(SSR_VALUES) \
-		--set=image=$(IMG_SSR) \
-		--set=global.debug=true \
-		--wait
-
-.PHONY: undeploy
-undeploy:
-	@if helm status statefulset-runner 2>/dev/null; then \
-		helm delete statefulset-runner --wait; \
-	else \
-		echo "statefulset-runner chart not found - skipping"; \
-	fi
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: install-controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
-
-
-GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
-install-gofumpt:
-	go install mvdan.cc/gofumpt@latest
-
-SHFMT = $(shell go env GOPATH)/bin/shfmt
-install-shfmt:
-	go install mvdan.cc/sh/v3/cmd/shfmt@latest
 
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo

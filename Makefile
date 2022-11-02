@@ -1,35 +1,8 @@
-# Image URL to use all building/pushing image targets
-IMG_CONTROLLERS ?= cloudfoundry/korifi-controllers:latest
-IMG_API ?= cloudfoundry/korifi-api:latest
-
-# Run controllers tests with two nodes by default to (potentially) minimise
-# flakes.
-CONTROLLERS_GINKGO_NODES ?= 2
-ifdef GINKGO_NODES
-CONTROLLERS_GINKGO_NODES = $(GINKGO_NODES)
-endif
-
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
-
-# Use gsed on Mac, sed on linux
-ifeq (,$(shell which gsed))
-SED=sed
-else
-SED=gsed
-endif
-
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
-
-all: build
 
 ##@ General
 
@@ -49,54 +22,17 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: manifests-api manifests-controllers manifests-job-task-runner manifests-kpack-image-builder manifests-statefulset-runner
-
-manifests-api: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) \
-		paths=./api/... output:rbac:artifacts:config=helm/api/templates \
-		rbac:roleName=korifi-api-system-role
-
-	$(SED) -i.bak -e 's/ROOT_NAMESPACE/{{ .Values.global.rootNamespace }}/' helm/api/templates/role.yaml
-	rm -f helm/api/templates/role.yaml.bak
-
-manifests-controllers: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) \
-		paths="./controllers/..." \
-		crd \
-		rbac:roleName=korifi-controllers-manager-role \
-		webhook \
-		output:crd:artifacts:config=helm/controllers/templates/crds \
-		output:rbac:artifacts:config=helm/controllers/templates \
-		output:webhook:artifacts:config=helm/controllers/templates
-
-	$(SED) -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/korifi-controllers-serving-cert"' helm/controllers/templates/manifests.yaml
-	$(SED) -i.bak -e 's/name: \(webhook-service\)/name: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
-	$(SED) -i.bak -e 's/namespace: system/namespace: "{{ .Release.Namespace }}"/' helm/controllers/templates/manifests.yaml
-	$(SED) -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-controllers-\1/' helm/controllers/templates/manifests.yaml
-	rm -f helm/controllers/templates/manifests.yaml.bak
-
-
-manifests-job-task-runner:
+manifests:
+	make -C api manifests
+	make -C controllers manifests
 	make -C job-task-runner manifests
-
-manifests-kpack-image-builder:
 	make -C kpack-image-builder manifests
-
-manifests-statefulset-runner:
 	make -C statefulset-runner manifests
 
-generate: generate-controllers generate-job-task-runner generate-kpack-image-builder generate-statefulset-runner
-
-generate-controllers: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="controllers/hack/boilerplate.go.txt" paths="./controllers/..."
-
-generate-job-task-runner:
+generate:
+	make -C controllers generate
 	make -C job-task-runner generate
-
-generate-kpack-image-builder:
 	make -C kpack-image-builder generate
-
-generate-statefulset-runner:
 	make -C statefulset-runner generate
 
 generate-fakes:
@@ -109,227 +45,20 @@ fmt: install-gofumpt install-shfmt
 vet: ## Run go vet against code.
 	go vet ./...
 
-lint:
+lint: fmt vet
 	golangci-lint run -v
 
-test: lint test-controllers-api test-job-task-runner test-kpack-image-builder test-statefulset-runner test-e2e
-
-test-controllers-api: test-api test-controllers
-
-test-api: install-ginkgo fmt vet
-	cd api && ../scripts/run-tests.sh --skip-package=test
-
-test-controllers: install-ginkgo manifests-controllers generate-controllers fmt vet ## Run tests.
-	cd controllers && GINKGO_NODES=$(CONTROLLERS_GINKGO_NODES) ../scripts/run-tests.sh
-
-test-job-task-runner:
+test: lint
+	make -C api test
+	make -C controllers test
 	make -C job-task-runner test
-
-test-kpack-image-builder:
 	make -C kpack-image-builder test
-
-test-statefulset-runner:
 	make -C statefulset-runner test
+	make test-e2e
 
 test-e2e: install-ginkgo
 	./scripts/run-tests.sh tests/e2e
 
-##@ Build
-
-build: generate-controllers fmt vet ## Build manager binary.
-	go build -o controllers/bin/manager controllers/main.go
-
-run-api: fmt vet
-	APICONFIG=$(shell pwd)/api/config/base/apiconfig go run ./api/main.go
-
-run-controllers: manifests-controllers generate-controllers fmt vet ## Run a controller from your host.
-	CONTROLLERSCONFIG=$(shell pwd)/controllers/config/base/controllersconfig ENABLE_WEBHOOKS=false go run ./controllers/main.go
-
-run-job-task-runner:
-	make -C job-task-runner run
-
-run-kpack-image-builder:
-	make -C kpack-image-builder run
-
-run-statefulset-runner:
-	make -C statefulset-runner run
-
-docker-build: docker-build-api docker-build-controllers docker-build-job-task-runner docker-build-kpack-image-builder docker-build-statefulset-runner
-
-docker-build-api:
-	docker buildx build --load -f api/Dockerfile -t ${IMG_API} .
-
-docker-build-api-debug:
-	docker buildx build --load -f api/remote-debug/Dockerfile -t ${IMG_API} .
-
-docker-build-controllers:
-	docker buildx build --load -f controllers/Dockerfile -t ${IMG_CONTROLLERS} .
-
-docker-build-controllers-debug:
-	docker buildx build --load -f controllers/remote-debug/Dockerfile -t ${IMG_CONTROLLERS} .
-
-docker-build-job-task-runner:
-	make -C job-task-runner docker-build
-
-docker-build-job-task-runner-debug:
-	make -C job-task-runner docker-build-debug
-
-docker-build-kpack-image-builder:
-	make -C kpack-image-builder docker-build
-
-docker-build-kpack-image-builder-debug:
-	make -C kpack-image-builder docker-build-debug
-
-docker-build-statefulset-runner:
-	make -C statefulset-runner docker-build
-
-docker-build-statefulset-runner-debug:
-	make -C statefulset-runner docker-build-debug
-
-docker-push: docker-push-api docker-push-controllers docker-push-job-task-runner docker-push-kpack-image-builder docker-push-statefulset-runner
-
-docker-push-api:
-	docker push ${IMG_API}
-
-docker-push-controllers:
-	docker push ${IMG_CONTROLLERS}
-
-docker-push-job-task-runner:
-	make -C job-task-runner docker-push
-
-docker-push-kpack-image-builder:
-	make -C kpack-image-builder docker-push
-
-docker-push-statefulset-runner:
-	make -C statefulset-runner docker-push
-
-##@ Deployment
-
-install-crds: manifests-controllers install-kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/crd | kubectl apply -f -
-
-uninstall-crds: manifests-controllers install-kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build controllers/config/crd | kubectl delete -f -
-
-deploy: deploy-controllers deploy-job-task-runner deploy-kpack-image-builder deploy-statefulset-runner deploy-api
-
-deploy-kind: install-crds deploy-controllers deploy-job-task-runner deploy-kpack-image-builder deploy-statefulset-runner deploy-api-kind
-
-deploy-kind-local: install-crds deploy-controllers-kind-local deploy-job-task-runner-kind-local deploy-kpack-image-builder-kind-local deploy-statefulset-runner deploy-api-kind-local
-
-
-
-API_VALUES ?= helm/api/values.yaml
-deploy-api: manifests-api
-	helm upgrade --install api helm/api \
-		--values=$(API_VALUES) \
-		--set=image=$(IMG_API) \
-		--wait
-
-APP_FQDN ?= vcap.me
-deploy-api-kind: manifests-api
-	helm upgrade --install api helm/api \
-		--values=$(API_VALUES) \
-		--set=apiServer.url=localhost \
-		--set=defaultDomainName=$(APP_FQDN) \
-		--set=packageRepositoryPrefix=gcr.io/cf-relint-greengrass/korifi/kpack/beta \
-		--wait
-
-local-registry = localregistry-docker-registry.default.svc.cluster.local:30050/kpack/packages
-deploy-api-kind-local: manifests-api
-	helm upgrade --install api helm/api \
-		--values=$(API_VALUES) \
-		--set=image=$(IMG_API) \
-		--set=apiServer.url=localhost \
-		--set=defaultDomainName=$(APP_FQDN) \
-		--set=packageRepositoryPrefix=$(local-registry) \
-		--wait
-
-deploy-api-kind-local-debug: manifests-api
-	helm upgrade --install api helm/api \
-		--values=$(API_VALUES) \
-		--set=image=$(IMG_API) \
-		--set=apiServer.url=localhost \
-		--set=defaultDomainName=$(APP_FQDN) \
-		--set=packageRepositoryPrefix=$(local-registry) \
-		--set=global.debug=true \
-		--wait
-
-
-CONTROLLERS_VALUES ?= helm/controllers/values.yaml
-deploy-controllers: manifests-controllers
-	helm upgrade --install controllers helm/controllers \
-		--values=$(CONTROLLERS_VALUES)\
-		--set=image=$(IMG_CONTROLLERS) \
-		--wait
-
-deploy-controllers-kind-local: manifests-controllers
-	helm upgrade --install controllers helm/controllers \
-		--values=$(CONTROLLERS_VALUES)\
-		--set=image=$(IMG_CONTROLLERS) \
-		--set=taskTTL=5s \
-		--wait
-
-deploy-controllers-kind-local-debug: manifests-controllers
-	helm upgrade --install controllers helm/controllers \
-		--values=$(CONTROLLERS_VALUES)\
-		--set=image=$(IMG_CONTROLLERS) \
-		--set=taskTTL=5s \
-		--set=global.debug=true \
-		--wait
-
-deploy-job-task-runner:
-	make -C job-task-runner deploy
-
-deploy-job-task-runner-kind-local:
-	make -C job-task-runner deploy-kind-local
-
-deploy-job-task-runner-kind-local-debug:
-	make -C job-task-runner deploy-kind-local-debug
-
-deploy-kpack-image-builder:
-	make -C kpack-image-builder deploy
-
-deploy-kpack-image-builder-kind-local:
-	make -C kpack-image-builder deploy-kind-local
-
-deploy-kpack-image-builder-kind-local-debug:
-	make -C kpack-image-builder deploy-kind-local-debug
-
-deploy-statefulset-runner:
-	make -C statefulset-runner deploy
-
-deploy-statefulset-runner-kind-local-debug:
-	make -C statefulset-runner deploy-kind-local-debug
-
-undeploy: undeploy-api undeploy-job-task-runner undeploy-kpack-image-builder undeploy-statefulset-runner undeploy-controllers
-
-undeploy-api:
-	@if helm status api 2>/dev/null; then \
-		helm delete api --wait; \
-	else \
-		echo "api chart not found - skipping"; \
-	fi
-
-undeploy-controllers:
-	@if helm status controllers 2>/dev/null; then \
-		helm delete controllers --wait; \
-	else \
-		echo "controllers chart not found - skipping"; \
-	fi
-
-undeploy-job-task-runner:
-	make -C job-task-runner undeploy
-
-undeploy-kpack-image-builder:
-	make -C kpack-image-builder undeploy
-
-undeploy-statefulset-runner:
-	make -C statefulset-runner undeploy
-
-CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
-install-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:
@@ -348,16 +77,3 @@ install-vendir:
 
 vendir-update-dependencies: install-vendir
 	$(VENDIR) sync --chdir tests
-
-# go-install-tool will 'go get' any package $2 and install it to $1.
-define go-install-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$$(dirname $(CONTROLLER_GEN)) go install $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
