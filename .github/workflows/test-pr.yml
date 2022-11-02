@@ -39,7 +39,7 @@ jobs:
         go-version: '^1.18'
 
     - name: Run Controllers tests
-      run: make test-controllers
+      run: make -C controllers test
 
   api-tests:
     runs-on: ubuntu-latest
@@ -60,7 +60,7 @@ jobs:
         go-version: '^1.18'
 
     - name: Run API unit tests
-      run: make test-api
+      run: make -C api test
 
   kpack-image-builder-tests:
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
           go-version: '^1.18'
 
       - name: Run kpack-image-builder tests
-        run: make test-kpack-image-builder
+        run: make -C kpack-image-builder test
 
   statefulset-runner-tests:
     runs-on: ubuntu-latest
@@ -104,7 +104,7 @@ jobs:
           go-version: '^1.18'
 
       - name: Run statefulset-runner tests
-        run: make test-statefulset-runner
+        run: make -C statefulset-runner test
 
   job-task-runner-tests:
     runs-on: ubuntu-latest
@@ -126,4 +126,4 @@ jobs:
           go-version: '^1.18'
 
       - name: Run job-task-runner tests
-        run: make test-job-task-runner
+        run: make -C job-task-runner test
