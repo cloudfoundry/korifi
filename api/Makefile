@@ -36,14 +36,13 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: install-controller-gen
+manifests: install-controller-gen install-yq
 	$(CONTROLLER_GEN) \
 		paths=./... \
 		output:rbac:artifacts:config=../helm/api/templates \
 		rbac:roleName=korifi-api-system-role
 
-	$(SED) -i.bak -e 's/ROOT_NAMESPACE/{{ .Values.global.rootNamespace }}/' ../helm/api/templates/role.yaml
-	rm -f ../helm/api/templates/role.yaml.bak
+	$(YQ) -i 'with(.metadata | select(.namespace == "ROOT_NAMESPACE"); .namespace="{{ .Values.global.rootNamespace }}")' ../helm/api/templates/role.yaml
 
 test: install-ginkgo
 	../scripts/run-tests.sh --skip-package=test
@@ -54,3 +53,7 @@ install-controller-gen:
 
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
+
+YQ = $(shell pwd)/bin/yq
+install-yq:
+	GOBIN=$(shell pwd)/bin go install github.com/mikefarah/yq/v4@latest

@@ -12,13 +12,6 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-# Use gsed on Mac, sed on linux
-ifeq (,$(shell which gsed))
-SED=sed
-else
-SED=gsed
-endif
-
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -43,7 +36,8 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: install-controller-gen
+webhooks-file = ../helm/controllers/templates/manifests.yaml
+manifests: install-controller-gen install-yq
 	$(CONTROLLER_GEN) \
 		paths="./..." \
 		crd \
@@ -53,11 +47,10 @@ manifests: install-controller-gen
 		output:rbac:artifacts:config=../helm/controllers/templates \
 		output:webhook:artifacts:config=../helm/controllers/templates
 
-	$(SED) -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/korifi-controllers-serving-cert"' ../helm/controllers/templates/manifests.yaml
-	$(SED) -i.bak -e 's/name: \(webhook-service\)/name: korifi-controllers-\1/' ../helm/controllers/templates/manifests.yaml
-	$(SED) -i.bak -e 's/namespace: system/namespace: "{{ .Release.Namespace }}"/' ../helm/controllers/templates/manifests.yaml
-	$(SED) -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-controllers-\1/' ../helm/controllers/templates/manifests.yaml
-	rm -f ../helm/controllers/templates/manifests.yaml.bak
+	$(YQ) -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-controllers-serving-cert")' $(webhooks-file)
+	$(YQ) -i 'with(.metadata; .name="korifi-controllers-" + .name)' $(webhooks-file)
+	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
+	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.name="korifi-controllers-" + .clientConfig.service.name)' $(webhooks-file)
 
 generate: install-controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -71,3 +64,7 @@ install-controller-gen:
 
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
+
+YQ = $(shell pwd)/bin/yq
+install-yq:
+	GOBIN=$(shell pwd)/bin go install github.com/mikefarah/yq/v4@latest

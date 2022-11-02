@@ -2,10 +2,10 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  annotations:
-    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/korifi-controllers-serving-cert"
   creationTimestamp: null
   name: korifi-controllers-mutating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-controllers-serving-cert'
 webhooks:
   - admissionReviewVersions:
       - v1
@@ -13,7 +13,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp
     failurePolicy: Fail
     name: mcfapp.korifi.cloudfoundry.org
@@ -34,7 +34,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfbuild
     failurePolicy: Fail
     name: mcfbuild.korifi.cloudfoundry.org
@@ -55,7 +55,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfpackage
     failurePolicy: Fail
     name: mcfpackage.korifi.cloudfoundry.org
@@ -76,7 +76,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess
     failurePolicy: Fail
     name: mcfprocess.korifi.cloudfoundry.org
@@ -97,7 +97,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfroute
     failurePolicy: Fail
     name: mcfroute.korifi.cloudfoundry.org
@@ -116,17 +116,17 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  annotations:
-    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/korifi-controllers-serving-cert"
   creationTimestamp: null
   name: korifi-controllers-validating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-controllers-serving-cert'
 webhooks:
   - admissionReviewVersions:
       - v1
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfdomain
     failurePolicy: Fail
     name: vcfdomain.korifi.cloudfoundry.org
@@ -147,7 +147,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfroute
     failurePolicy: Fail
     name: vcfroute.korifi.cloudfoundry.org
@@ -169,7 +169,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding
     failurePolicy: Fail
     name: vcfservicebinding.korifi.cloudfoundry.org
@@ -191,7 +191,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance
     failurePolicy: Fail
     name: vcfserviceinstance.korifi.cloudfoundry.org
@@ -213,7 +213,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfapp
     failurePolicy: Fail
     name: vcfapp.korifi.cloudfoundry.org
@@ -235,7 +235,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cforg
     failurePolicy: Fail
     name: vcforg.korifi.cloudfoundry.org
@@ -257,7 +257,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfspace
     failurePolicy: Fail
     name: vcfspace.korifi.cloudfoundry.org
@@ -279,7 +279,7 @@ webhooks:
     clientConfig:
       service:
         name: korifi-controllers-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cftask
     failurePolicy: Fail
     name: vcftask.korifi.cloudfoundry.org

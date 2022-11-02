@@ -2,10 +2,10 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  annotations:
-    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/korifi-kpack-build-serving-cert"
   creationTimestamp: null
   name: korifi-kpack-build-mutating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-kpack-build-serving-cert'
 webhooks:
   - admissionReviewVersions:
       - v1
@@ -13,15 +13,9 @@ webhooks:
     clientConfig:
       service:
         name: korifi-kpack-build-webhook-service
-        namespace: "{{ .Release.Namespace }}"
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate--v1-pod
     failurePolicy: Ignore
-    objectSelector:
-      matchExpressions:
-        - key: kpack.io/build
-          operator: Exists
-        - key: korifi.cloudfoundry.org/build-workload-name
-          operator: Exists
     name: mkpackbuildpod.korifi.cloudfoundry.org
     rules:
       - apiGroups:
@@ -33,3 +27,9 @@ webhooks:
         resources:
           - pods
     sideEffects: None
+    objectSelector:
+      matchExpressions:
+        - key: kpack.io/build
+          operator: Exists
+        - key: korifi.cloudfoundry.org/build-workload-name
+          operator: Exists

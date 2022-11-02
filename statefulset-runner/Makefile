@@ -12,13 +12,6 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-# Use gsed on Mac, sed on linux
-ifeq (,$(shell which gsed))
-SED=sed
-else
-SED=gsed
-endif
-
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -47,8 +40,9 @@ help: ## Display this help.
 
 ##@ Development
 
+webhooks-file = ../helm/statefulset-runner/templates/manifests.yaml
 .PHONY: manifests
-manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: install-controller-gen install-yq
 	$(CONTROLLER_GEN) \
 		paths="./..." \
 		rbac:roleName=korifi-statefulset-runner-appworkload-manager-role \
@@ -56,12 +50,11 @@ manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole 
 		output:rbac:artifacts:config=../helm/statefulset-runner/templates \
 		output:webhook:artifacts:config=../helm/statefulset-runner/templates
 
-	$(SED) -i.bak -e '/^metadata:.*/a \ \ annotations:\n    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/korifi-statefulset-runner-serving-cert"' ../helm/statefulset-runner/templates/manifests.yaml
-	$(SED) -i.bak -e 's/name: \(webhook-service\)/name: korifi-statefulset-runner-\1/' ../helm/statefulset-runner/templates/manifests.yaml
-	$(SED) -i.bak -e 's/namespace: system/namespace: "{{ .Release.Namespace }}"/' ../helm/statefulset-runner/templates/manifests.yaml
-	$(SED) -i.bak -e 's/name: \(.*-webhook-configuration\)/name: korifi-statefulset-runner-\1/' ../helm/statefulset-runner/templates/manifests.yaml
-	$(SED) -i.bak -e '/failurePolicy:.*/a\  objectSelector:\n    matchLabels:\n      korifi.cloudfoundry.org/add-stsr-index: "true"' ../helm/statefulset-runner/templates/manifests.yaml
-	rm -f ../helm/statefulset-runner/templates/manifests.yaml.bak
+	$(YQ) -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-statefulset-runner-serving-cert")' $(webhooks-file)
+	$(YQ) -i 'with(.metadata; .name="korifi-statefulset-runner-" + .name)' $(webhooks-file)
+	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
+	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.name="korifi-statefulset-runner-" + .clientConfig.service.name)' $(webhooks-file)
+	$(YQ) -i 'with(.webhooks[]; .objectSelector.matchLabels["korifi.cloudfoundry.org/add-stsr-index"]="true")' $(webhooks-file)
 
 
 .PHONY: generate
@@ -79,3 +72,7 @@ install-controller-gen:
 
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
+
+YQ = $(shell pwd)/bin/yq
+install-yq:
+	GOBIN=$(shell pwd)/bin go install github.com/mikefarah/yq/v4@latest
