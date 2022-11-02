@@ -5,55 +5,55 @@ metadata:
   creationTimestamp: null
   name: korifi-api-system-role
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - list
-- apiGroups:
-  - authentication.k8s.io
-  resources:
-  - tokenreviews
-  verbs:
-  - create
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfapps
-  - cfbuilds
-  - cfpackages
-  - cfprocesses
-  - cfspaces
-  - cftasks
-  verbs:
-  - list
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfdomains
-  - cfroutes
-  verbs:
-  - list
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfservicebindings
-  - cfserviceinstances
-  verbs:
-  - list
-- apiGroups:
-  - metrics.k8s.io
-  resources:
-  - pods
-  verbs:
-  - get
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  verbs:
-  - list
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - list
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - korifi.cloudfoundry.org
+    resources:
+      - cfapps
+      - cfbuilds
+      - cfpackages
+      - cfprocesses
+      - cfspaces
+      - cftasks
+    verbs:
+      - list
+  - apiGroups:
+      - korifi.cloudfoundry.org
+    resources:
+      - cfdomains
+      - cfroutes
+    verbs:
+      - list
+  - apiGroups:
+      - korifi.cloudfoundry.org
+    resources:
+      - cfservicebindings
+      - cfserviceinstances
+    verbs:
+      - list
+  - apiGroups:
+      - metrics.k8s.io
+    resources:
+      - pods
+    verbs:
+      - get
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - rolebindings
+    verbs:
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -62,15 +62,15 @@ metadata:
   name: korifi-api-system-role
   namespace: {{ .Values.global.rootNamespace }}
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - get
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - get
