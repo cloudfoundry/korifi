@@ -60,7 +60,7 @@ kind: Role
 metadata:
   creationTimestamp: null
   name: korifi-api-system-role
-  namespace: {{ .Values.global.rootNamespace }}
+  namespace: '{{ .Values.global.rootNamespace }}'
 rules:
   - apiGroups:
       - ""
