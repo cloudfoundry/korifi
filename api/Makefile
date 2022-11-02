@@ -48,7 +48,7 @@ manifests: install-controller-gen
 test: install-ginkgo
 	../scripts/run-tests.sh --skip-package=test
 
-CONTROLLER_GEN = $(shell pwd)/controllers/bin/controller-gen
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 install-controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2)
 
