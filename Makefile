@@ -22,18 +22,14 @@ help: ## Display this help.
 
 ##@ Development
 
+CONTROLLERS=controllers job-task-runner kpack-image-builder statefulset-runner
+COMPONENTS=api $(CONTROLLERS)
+
 manifests:
-	make -C api manifests
-	make -C controllers manifests
-	make -C job-task-runner manifests
-	make -C kpack-image-builder manifests
-	make -C statefulset-runner manifests
+	@for comp in $(COMPONENTS); do make -C $$comp manifests; done
 
 generate:
-	make -C controllers generate
-	make -C job-task-runner generate
-	make -C kpack-image-builder generate
-	make -C statefulset-runner generate
+	@for comp in $(CONTROLLERS); do make -C $$comp generate; done
 
 generate-fakes:
 	go generate ./...
@@ -49,11 +45,7 @@ lint: fmt vet
 	golangci-lint run -v
 
 test: lint
-	make -C api test
-	make -C controllers test
-	make -C job-task-runner test
-	make -C kpack-image-builder test
-	make -C statefulset-runner test
+	@for comp in $(COMPONENTS); do make -C $$comp test; done
 	make test-e2e
 
 test-e2e: install-ginkgo
