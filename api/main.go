@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,6 +23,7 @@ import (
 	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -32,6 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,6 +52,17 @@ func init() {
 
 type APIHandler interface {
 	RegisterRoutes(router *mux.Router)
+}
+
+// logrWriter implements io.Writer and converts Write calls to logr.Logger.Error() calls
+type logrWriter struct {
+	Logger  logr.Logger
+	Message string
+}
+
+func (w *logrWriter) Write(msg []byte) (int, error) {
+	w.Logger.Error(errors.New(string(msg)), w.Message)
+	return len(msg), nil
 }
 
 func main() {
@@ -69,6 +84,8 @@ func main() {
 		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
+
+	klog.SetLogger(ctrl.Log)
 
 	privilegedCRClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
 	if err != nil {
@@ -327,6 +344,7 @@ func main() {
 		ReadTimeout:       time.Duration(config.ReadTimeout * int(time.Second)),
 		ReadHeaderTimeout: time.Duration(config.ReadHeaderTimeout * int(time.Second)),
 		WriteTimeout:      time.Duration(config.WriteTimeout * int(time.Second)),
+		ErrorLog:          log.New(&logrWriter{Logger: ctrl.Log, Message: "HTTP server error"}, "", 0),
 	}
 
 	if tlsFound {
