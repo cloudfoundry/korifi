@@ -45,6 +45,17 @@ var _ = Describe("ServiceBindingRepo", func() {
 		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
 		serviceInstanceGUID = prefixedGUID("service-instance")
+
+		Expect(k8sClient.Create(testCtx, &korifiv1alpha1.CFServiceInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceInstanceGUID,
+				Namespace: space.Name,
+			},
+			Spec: korifiv1alpha1.CFServiceInstanceSpec{
+				Type: "user-provided",
+			},
+		})).To(Succeed())
+
 		doBindingControllerSimulation = true
 		bindingName = nil
 		controllerCancel = make(chan bool, 1)
@@ -171,6 +182,31 @@ var _ = Describe("ServiceBindingRepo", func() {
 						},
 					},
 				))
+			})
+
+			It("sets the owner reference", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
+				Expect(
+					k8sClient.Get(testCtx, types.NamespacedName{Name: record.GUID, Namespace: space.Name}, serviceBinding),
+				).To(Succeed())
+				Expect(serviceBinding.GetOwnerReferences()).To(ConsistOf(MatchFields(IgnoreExtras,
+					Fields{
+						"Kind": Equal("CFServiceInstance"),
+						"Name": Equal(serviceInstanceGUID),
+					},
+				)))
+			})
+
+			When("the service instance does not exist", func() {
+				BeforeEach(func() {
+					doBindingControllerSimulation = false
+					serviceInstanceGUID = "i-do-n0t-exist"
+				})
+
+				It("returns an error", func() {
+					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+				})
 			})
 
 			When("the service binding doesn't become ready in time", func() {

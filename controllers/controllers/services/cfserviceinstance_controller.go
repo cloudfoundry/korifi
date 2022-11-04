@@ -18,15 +18,12 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -65,12 +62,6 @@ func NewCFServiceInstanceReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
 
 func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
-	r.addFinalizer(ctx, cfServiceInstance)
-
-	if !cfServiceInstance.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceInstance(ctx, cfServiceInstance)
-	}
-
 	secret := new(corev1.Secret)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: cfServiceInstance.Namespace}, secret)
 	if err != nil {
@@ -123,44 +114,4 @@ func bindSecretUnavailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInst
 func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceInstance{})
-}
-
-func (r *CFServiceInstanceReconciler) addFinalizer(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) {
-	if controllerutil.ContainsFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName) {
-		return
-	}
-
-	controllerutil.AddFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName)
-	r.log.Info(fmt.Sprintf("Finalizer added to CFServiceInstance/%s", cfServiceInstance.Name))
-}
-
-func (r *CFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
-	logger := r.log.WithValues("cfServiceInstanceName", cfServiceInstance.Name, "cfServiceInstanceNamespace", cfServiceInstance.Namespace)
-	logger.Info("Reconciling deletion of CFServiceInstance")
-
-	if !controllerutil.ContainsFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName) {
-		return ctrl.Result{}, nil
-	}
-
-	cfServiceBindingList := &korifiv1alpha1.CFServiceBindingList{}
-	err := r.k8sClient.List(ctx, cfServiceBindingList,
-		client.InNamespace(cfServiceInstance.Namespace),
-		client.MatchingFields{shared.IndexServiceBindingServiceInstanceGUID: cfServiceInstance.Name},
-	)
-	if err != nil {
-		logger.Error(err, "Error listing service bindings")
-		return ctrl.Result{}, err
-	}
-
-	for i, cfServiceBinding := range cfServiceBindingList.Items {
-		err = r.k8sClient.Delete(ctx, &cfServiceBindingList.Items[i])
-		if err != nil {
-			logger.Error(err, fmt.Sprintf("Error deleting %s", cfServiceBinding.Name))
-			return ctrl.Result{}, err
-		}
-	}
-
-	controllerutil.RemoveFinalizer(cfServiceInstance, CFServiceInstanceFinalizerName)
-
-	return ctrl.Result{}, nil
 }

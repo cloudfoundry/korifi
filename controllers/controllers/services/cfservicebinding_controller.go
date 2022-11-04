@@ -95,26 +95,35 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 
 	err = controllerutil.SetOwnerReference(cfApp, cfServiceBinding, r.scheme)
 	if err != nil {
-		r.log.Error(err, "Unable to set owner reference on CfServiceBinding")
+		r.log.Error(err, "Unable to set owner reference on CFServiceBinding to CFApp %s/%s", cfApp.Namespace, cfApp.Name)
 		return ctrl.Result{}, err
 	}
 
-	instance := new(korifiv1alpha1.CFServiceInstance)
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, instance)
+	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
 	if err != nil {
-		// Unlike with CFApp cascading delete, CFServiceInstance delete cleans up CFServiceBindings itself as part of finalizing,
-		// so we do not check for deletion timestamp before returning here.
-		return r.handleGetError(ctx, err, cfServiceBinding, BindingSecretAvailableCondition, "ServiceInstanceNotFound", "Service instance")
+		if apierrors.IsNotFound(err) {
+			r.finalizeCFServiceBinding(ctx, cfServiceBinding)
+			return ctrl.Result{}, nil
+		}
+		r.log.Error(err, "Error when fetching CFServiceInstance")
+		return ctrl.Result{}, err
+	}
+
+	err = controllerutil.SetOwnerReference(cfServiceInstance, cfServiceBinding, r.scheme)
+	if err != nil {
+		r.log.Error(err, "Unable to set owner reference on CFServiceBinding to CFServiceInstance %s/%s", cfServiceInstance.Namespace, cfServiceInstance.Name)
+		return ctrl.Result{}, err
 	}
 
 	secret := new(corev1.Secret)
 	// Note: is there a reason to fetch the secret name from the service instance spec?
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: instance.Spec.SecretName, Namespace: cfServiceBinding.Namespace}, secret)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: cfServiceBinding.Namespace}, secret)
 	if err != nil {
 		return r.handleGetError(ctx, err, cfServiceBinding, BindingSecretAvailableCondition, "SecretNotFound", "Binding secret")
 	}
 
-	cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
+	cfServiceBinding.Status.Binding.Name = cfServiceInstance.Spec.SecretName
 	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 		Type:    BindingSecretAvailableCondition,
 		Status:  metav1.ConditionTrue,
@@ -198,9 +207,9 @@ func (r *CFServiceBindingReconciler) addFinalizer(ctx context.Context, cfService
 func (r *CFServiceBindingReconciler) finalizeCFServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) {
 	r.log.Info(fmt.Sprintf("Reconciling deletion of CFServiceBinding/%s", cfServiceBinding.Name))
 
-	if controllerutil.ContainsFinalizer(cfServiceBinding, CFServiceBindingFinalizerName) {
-		controllerutil.RemoveFinalizer(cfServiceBinding, CFServiceBindingFinalizerName)
-	}
+	// if controllerutil.ContainsFinalizer(cfServiceBinding, CFServiceBindingFinalizerName) {
+	// 	controllerutil.RemoveFinalizer(cfServiceBinding, CFServiceBindingFinalizerName)
+	// }
 }
 
 func (r *CFServiceBindingReconciler) handleGetError(ctx context.Context, err error, cfServiceBinding *korifiv1alpha1.CFServiceBinding, conditionType, notFoundReason, objectType string) (ctrl.Result, error) {

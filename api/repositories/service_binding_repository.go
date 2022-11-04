@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -18,6 +19,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -109,7 +111,25 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		return ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{}
+	err = userClient.Get(ctx, client.ObjectKey{
+		Namespace: message.SpaceGUID,
+		Name:      message.ServiceInstanceGUID,
+	}, cfServiceInstance)
+	if err != nil {
+		fmt.Printf("err = %+v\n", err)
+		return ServiceBindingRecord{}, apierrors.AsUnprocessableEntity(apierrors.FromK8sError(err, ServiceBindingResourceType),
+			fmt.Sprintf("service instance %s/%s not found", message.SpaceGUID, message.ServiceInstanceGUID),
+			apierrors.NotFoundError{})
+	}
+
 	cfServiceBinding := message.toCFServiceBinding()
+
+	err = controllerutil.SetOwnerReference(cfServiceInstance, &cfServiceBinding, scheme.Scheme)
+	if err != nil {
+		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
+	}
+
 	err = userClient.Create(ctx, &cfServiceBinding)
 	if err != nil {
 		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {

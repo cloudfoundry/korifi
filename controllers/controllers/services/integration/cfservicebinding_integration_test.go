@@ -238,32 +238,36 @@ var _ = Describe("CFServiceBinding", func() {
 			}))
 		})
 
-		It("eventually reconciles to set the owner reference on the CFServiceBinding", func() {
-			Eventually(func() []metav1.OwnerReference {
+		It("eventually sets owner references to the respective CFApp and CFServiceInstance", func() {
+			Eventually(func(g Gomega) {
 				var createdCFServiceBinding korifiv1alpha1.CFServiceBinding
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfServiceBindingGUID, Namespace: namespace.Name}, &createdCFServiceBinding)
-				if err != nil {
-					return nil
-				}
-				return createdCFServiceBinding.GetOwnerReferences()
-			}).Should(ConsistOf(metav1.OwnerReference{
-				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				Kind:       "CFApp",
-				Name:       desiredCFApp.Name,
-				UID:        desiredCFApp.UID,
-			}))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(createdCFServiceBinding.GetOwnerReferences()).To(ConsistOf(
+					metav1.OwnerReference{
+						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						Kind:       "CFApp",
+						Name:       desiredCFApp.Name,
+						UID:        desiredCFApp.UID,
+					},
+					metav1.OwnerReference{
+						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						Kind:       "CFServiceInstance",
+						Name:       cfServiceInstance.Name,
+						UID:        cfServiceInstance.UID,
+					},
+				))
+			}).Should(Succeed())
 		})
 
-		It("sets the `cfServiceBinding.korifi.cloudfoundry.org` finalizer", func() {
-			Eventually(func(g Gomega) []string {
+		It("sets the finalizer", func() {
+			Eventually(func(g Gomega) {
 				updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
-				g.Expect(
-					k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding),
-				).To(Succeed())
-				return updatedCFServiceBinding.ObjectMeta.Finalizers
-			}).Should(ConsistOf([]string{
-				"cfServiceBinding.korifi.cloudfoundry.org",
-			}))
+				err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(updatedCFServiceBinding.ObjectMeta.Finalizers).To(ConsistOf("cfServiceBinding.korifi.cloudfoundry.org"))
+			}).Should(Succeed())
 		})
 
 		When("multiple CFServiceBindings exist for the same CFApp", func() {
@@ -324,6 +328,22 @@ var _ = Describe("CFServiceBinding", func() {
 						),
 					}),
 				))
+			})
+		})
+
+		When("the corresponding cf app does not exist", func() {
+			BeforeEach(func() {
+				cfServiceBinding.Spec.AppRef.Name = "non-existent"
+			})
+
+			It("removes the finzlizer", func() {
+				Eventually(func(g Gomega) {
+					updatedCFServiceBinding := new(korifiv1alpha1.CFServiceBinding)
+					err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), updatedCFServiceBinding)
+					g.Expect(err).NotTo(HaveOccurred())
+
+					g.Expect(updatedCFServiceBinding.ObjectMeta.Finalizers).To(BeEmpty())
+				}).Should(Succeed())
 			})
 		})
 
