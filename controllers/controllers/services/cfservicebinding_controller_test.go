@@ -14,7 +14,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
-	servicesfake "code.cloudfoundry.org/korifi/controllers/controllers/services/fake"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,8 +29,6 @@ import (
 
 var _ = Describe("CFServiceBinding.Reconcile", func() {
 	var (
-		fakeBuilder *servicesfake.VCAPServicesSecretBuilder
-
 		cfServiceBinding        *korifiv1alpha1.CFServiceBinding
 		cfServiceInstance       *korifiv1alpha1.CFServiceInstance
 		cfServiceInstanceSecret *corev1.Secret
@@ -48,7 +45,6 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 		getSBServiceBindingError   error
 		patchSBServiceBindingError error
-		patchSecretError           error
 
 		cfServiceBindingReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBinding, *korifiv1alpha1.CFServiceBinding]
 		ctx                        context.Context
@@ -73,14 +69,11 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 		getSBServiceBindingError = nil
 		patchSBServiceBindingError = nil
-		patchSecretError = nil
 
 		cfAppName = "cfAppName"
 		cfServiceInstanceName = "cfServiceInstanceName"
 		secretType = "secretType"
 		secretProvider = "secretProvider"
-
-		fakeBuilder = new(servicesfake.VCAPServicesSecretBuilder)
 
 		cfServiceBinding = new(korifiv1alpha1.CFServiceBinding)
 		cfServiceInstance = new(korifiv1alpha1.CFServiceInstance)
@@ -133,8 +126,6 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 			case *servicebindingv1beta1.ServiceBinding:
 				sbServiceBinding.DeepCopyInto(obj)
 				return patchSBServiceBindingError
-			case *corev1.Secret:
-				return patchSecretError
 			default:
 				panic("TestClient Patch provided an unexpected object type")
 			}
@@ -147,7 +138,6 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 			fakeClient,
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-			fakeBuilder,
 		)
 		ctx = context.Background()
 		req = ctrl.Request{
@@ -196,7 +186,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 					})
 					It("it creates a servicebinding.io ServiceBinding with the type/provider filled in", func() {
 						Expect(fakeClient.CreateCallCount()).To(Equal(1), "Client.Create call count mismatch")
-						Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Patch call count mismatch")
+						Expect(fakeClient.PatchCallCount()).To(Equal(1), "Client.Patch call count mismatch")
 						_, returnedObj, _ := fakeClient.CreateArgsForCall(0)
 						serviceBinding := returnedObj.(*servicebindingv1beta1.ServiceBinding)
 						Expect(serviceBinding.Spec.Name).To(Equal(cfServiceInstanceSecret.Name))
@@ -207,7 +197,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				When("the secret does not have a provider and type", func() {
 					It("it creates a servicebinding.io ServiceBinding with a default type and no provider", func() {
 						Expect(fakeClient.CreateCallCount()).To(Equal(1), "Client.Create call count mismatch")
-						Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Patch call count mismatch")
+						Expect(fakeClient.PatchCallCount()).To(Equal(1), "Client.Patch call count mismatch")
 						_, returnedObj, _ := fakeClient.CreateArgsForCall(0)
 						serviceBinding := returnedObj.(*servicebindingv1beta1.ServiceBinding)
 						Expect(serviceBinding.Spec.Name).To(Equal(cfServiceInstanceSecret.Name))
@@ -243,22 +233,17 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				})
 				It("patches the existing servicebinding.io ServiceBinding", func() {
 					Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
-					Expect(fakeClient.PatchCallCount()).To(Equal(3), "Client.Patch call count mismatch")
-				})
-				It("patches the existing VCAP Services Secret", func() {
-					Expect(fakeBuilder.BuildVCAPServicesEnvValueCallCount()).To(Equal(1))
-					_, appArg := fakeBuilder.BuildVCAPServicesEnvValueArgsForCall(0)
-					Expect(appArg.Name).To(Equal(cfAppName))
+					Expect(fakeClient.PatchCallCount()).To(Equal(2), "Client.Patch call count mismatch")
 				})
 			})
 		})
-		When("the app isn't found", func() {
+		When("the getting the app fails", func() {
 			BeforeEach(func() {
-				getCFAppError = apierrors.NewNotFound(schema.GroupResource{}, cfApp.Name)
+				getCFAppError = errors.New("get-app-err")
 			})
-			It("does not return an error", func() {
-				Expect(reconcileResult).To(Equal(ctrl.Result{}))
-				Expect(reconcileErr).NotTo(HaveOccurred())
+
+			It("returns the error", func() {
+				Expect(reconcileErr).To(MatchError(ContainSubstring("get-app-err")))
 			})
 		})
 		When("the API errors setting the ownerReference", func() {
@@ -333,48 +318,7 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 				})))
 			})
 		})
-		When("the cfapp vcap services secret status is not set", func() {
-			BeforeEach(func() {
-				cfAppStatus = korifiv1alpha1.CFAppStatus{}
-			})
-			It("requeues the request", func() {
-				Expect(reconcileResult).To(Equal(ctrl.Result{RequeueAfter: 2 * time.Second}))
-				Expect(reconcileErr).NotTo(HaveOccurred())
 
-				Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
-				_, serviceBindingObj, _, _ := fakeStatusWriter.PatchArgsForCall(0)
-				updatedCFServiceBinding, ok := serviceBindingObj.(*korifiv1alpha1.CFServiceBinding)
-				Expect(ok).To(BeTrue())
-				Expect(updatedCFServiceBinding.Status.Binding.Name).To(BeEmpty())
-				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal("VCAPServicesSecretAvailable"),
-					"Status": Equal(metav1.ConditionFalse),
-				})))
-			})
-		})
-		When("the vcap services secret isn't found", func() {
-			BeforeEach(func() {
-				cfAppStatus = korifiv1alpha1.CFAppStatus{
-					VCAPServicesSecretName: "unfindable",
-				}
-			})
-
-			It("requeues the request", func() {
-				Expect(reconcileResult).To(Equal(ctrl.Result{RequeueAfter: 2 * time.Second}))
-				Expect(reconcileErr).NotTo(HaveOccurred())
-			})
-			It("sets the VCAPServicesSecretAvailable condition to false", func() {
-				Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
-				_, serviceBindingObj, _, _ := fakeStatusWriter.PatchArgsForCall(0)
-				updatedCFServiceBinding, ok := serviceBindingObj.(*korifiv1alpha1.CFServiceBinding)
-				Expect(ok).To(BeTrue())
-				Expect(updatedCFServiceBinding.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal("VCAPServicesSecretAvailable"),
-					"Status": Equal(metav1.ConditionFalse),
-					"Reason": Equal("SecretNotFound"),
-				})))
-			})
-		})
 		When("The API errors setting status on the CFServiceBinding", func() {
 			BeforeEach(func() {
 				updateCFServiceBindingStatusError = errors.New("another random error")
@@ -382,24 +326,6 @@ var _ = Describe("CFServiceBinding.Reconcile", func() {
 
 			It("errors", func() {
 				Expect(reconcileErr).To(HaveOccurred())
-			})
-		})
-		When("building the vcap services env var value fails", func() {
-			BeforeEach(func() {
-				fakeBuilder.BuildVCAPServicesEnvValueReturns("", errors.New("build-env-vars-error"))
-			})
-
-			It("returns the error", func() {
-				Expect(reconcileErr).To(MatchError("build-env-vars-error"))
-			})
-		})
-		When("patching the vcap services secret fails", func() {
-			BeforeEach(func() {
-				patchSecretError = errors.New("secret-patch-error")
-			})
-
-			It("returns the error", func() {
-				Expect(reconcileErr).To(MatchError("secret-patch-error"))
 			})
 		})
 	})

@@ -37,9 +37,10 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 	When("a new CFApp resource is created", func() {
 		var (
-			ctx       context.Context
-			cfAppGUID string
-			cfApp     *korifiv1alpha1.CFApp
+			ctx            context.Context
+			cfAppGUID      string
+			cfApp          *korifiv1alpha1.CFApp
+			serviceBinding *korifiv1alpha1.CFServiceBinding
 		)
 
 		BeforeEach(func() {
@@ -66,29 +67,84 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			Expect(
 				k8sClient.Create(ctx, cfApp),
 			).To(Succeed())
+
+			serviceInstanceSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      PrefixedGUID("service-instance-secret"),
+					Namespace: cfApp.Namespace,
+				},
+				StringData: map[string]string{
+					"foo": "bar",
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), serviceInstanceSecret)).To(Succeed())
+
+			serviceInstance := &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      PrefixedGUID("app-service-instance"),
+					Namespace: cfApp.Namespace,
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					Type:       "user-provided",
+					SecretName: serviceInstanceSecret.Name,
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
+
+			serviceBinding = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      PrefixedGUID("app-service-binding"),
+					Namespace: cfApp.Namespace,
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp.Name,
+					},
+					Service: corev1.ObjectReference{
+						Namespace: namespaceGUID,
+						Name:      serviceInstance.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceBinding)).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, serviceBinding, func() {
+				serviceBinding.Status.Conditions = []metav1.Condition{}
+				serviceBinding.Status.Binding = corev1.LocalObjectReference{
+					Name: serviceInstanceSecret.Name,
+				}
+			})).To(Succeed())
 		})
 
-		It("eventually sets status.vcapServicesSecretName and creates the corresponding secret", func() {
-			Eventually(func() string {
-				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
-				if err != nil {
-					return ""
-				}
-				return string(createdCFApp.Status.VCAPServicesSecretName)
-			}).Should(Not(BeEmpty()))
+		waitForNonEmptyVcapServices := func(g Gomega) *corev1.Secret {
+			createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+			g.Expect(err).NotTo(HaveOccurred())
 
-			vcapServicesSecretLookupKey := types.NamespacedName{Name: cfAppGUID + "-vcap-services", Namespace: namespaceGUID}
+			vcapServicesSecretName := createdCFApp.Status.VCAPServicesSecretName
+			g.Expect(vcapServicesSecretName).NotTo(BeEmpty())
+
+			vcapServicesSecretLookupKey := types.NamespacedName{Name: vcapServicesSecretName, Namespace: namespaceGUID}
 			createdSecret := new(corev1.Secret)
-			Expect(k8sClient.Get(ctx, vcapServicesSecretLookupKey, createdSecret)).To(Succeed())
-			Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", []byte("{}")))
-			Expect(createdSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
-				{
-					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-					Kind:       "CFApp",
-					Name:       cfApp.Name,
-					UID:        cfApp.GetUID(),
-				},
-			}))
+			g.Expect(k8sClient.Get(ctx, vcapServicesSecretLookupKey, createdSecret)).To(Succeed())
+			g.Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", ContainSubstring("user-provided")))
+
+			return createdSecret
+		}
+
+		It("eventually sets status.vcapServicesSecretName and creates the corresponding secret", func() {
+			Eventually(func(g Gomega) {
+				createdSecret := waitForNonEmptyVcapServices(g)
+
+				g.Expect(createdSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+					{
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+						Kind:       "CFApp",
+						Name:       cfApp.Name,
+						UID:        cfApp.GetUID(),
+					},
+				}))
+				g.Expect(createdSecret.OwnerReferences).To(HaveLen(1))
+				g.Expect(createdSecret.OwnerReferences[0].Name).To(Equal(cfApp.Name))
+			}).Should(Succeed())
 		})
 
 		It("sets its status.conditions", func() {
@@ -100,6 +156,25 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
 				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionRunning)).To(BeFalse())
 			}).Should(Succeed())
+		})
+
+		When("the service binding is deleted", func() {
+			var vcapServicesSecret *corev1.Secret
+
+			BeforeEach(func() {
+				Eventually(func(g Gomega) {
+					vcapServicesSecret = waitForNonEmptyVcapServices(g)
+				}).Should(Succeed())
+
+				Expect(k8sClient.Delete(ctx, serviceBinding)).To(Succeed())
+			})
+
+			It("updates the VCAP_SERVICES secret", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(vcapServicesSecret), vcapServicesSecret)).To(Succeed())
+					g.Expect(vcapServicesSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", Equal([]byte("{}"))))
+				}).Should(Succeed())
+			})
 		})
 	})
 

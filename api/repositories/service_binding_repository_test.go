@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 
@@ -39,7 +40,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms, time.Second)
+		bindingConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](time.Second)
+		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms, bindingConditionAwaiter)
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
@@ -49,6 +51,27 @@ var _ = Describe("ServiceBindingRepo", func() {
 		bindingName = nil
 		controllerCancel = make(chan bool, 1)
 		controllerDone = &sync.WaitGroup{}
+
+		app := &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      appGUID,
+				Namespace: space.Name,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName:  "some-app",
+				DesiredState: korifiv1alpha1.DesiredState(repositories.StoppedState),
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+					Data: korifiv1alpha1.LifecycleData{
+						Buildpacks: []string{},
+						Stack:      "",
+					},
+				},
+			},
+		}
+		Expect(
+			k8sClient.Create(testCtx, app),
+		).To(Succeed())
 	})
 
 	waitForServiceBinding := func(anchorNamespace string, done chan bool) (*korifiv1alpha1.CFServiceBinding, error) {
@@ -134,6 +157,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 			})
+
 			It("creates a new CFServiceBinding resource and returns a record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
@@ -171,6 +195,21 @@ var _ = Describe("ServiceBindingRepo", func() {
 						},
 					},
 				))
+				Expect(serviceBinding.GetOwnerReferences()).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"Kind": Equal("CFApp"),
+					"Name": Equal(appGUID),
+				})))
+			})
+
+			When("the app does not exist", func() {
+				BeforeEach(func() {
+					doBindingControllerSimulation = false
+					appGUID = "i-do-not-exits"
+				})
+
+				It("reuturns an UnprocessableEntity error", func() {
+					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+				})
 			})
 
 			When("the service binding doesn't become ready in time", func() {
@@ -179,7 +218,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("service binding did not get Condition `VCAPServicesSecretAvailable`: 'True'")))
+					Expect(createErr).To(MatchError(ContainSubstring("did not get the VCAPServicesSecretAvailable condition")))
 				})
 			})
 
@@ -204,27 +243,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		BeforeEach(func() {
 			serviceBindingGUID = prefixedGUID("binding")
-			app := &korifiv1alpha1.CFApp{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      appGUID,
-					Namespace: space.Name,
-				},
-				Spec: korifiv1alpha1.CFAppSpec{
-					DisplayName:  "some-app",
-					DesiredState: korifiv1alpha1.DesiredState(repositories.StoppedState),
-					Lifecycle: korifiv1alpha1.Lifecycle{
-						Type: "buildpack",
-						Data: korifiv1alpha1.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				},
-			}
-			Expect(
-				k8sClient.Create(testCtx, app),
-			).To(Succeed())
-
 			serviceInstance := &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      appGUID,

@@ -134,7 +134,8 @@ func main() {
 	buildRepo := repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
 	packageRepo := repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
-	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions, createTimeout)
+	bindingConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](createTimeout)
+	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions, bindingConditionAwaiter)
 	buildpackRepo := repositories.NewBuildpackRepository(config.BuilderName, userClientFactory, config.RootNamespace)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,

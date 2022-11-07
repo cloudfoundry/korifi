@@ -3,9 +3,9 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -18,6 +18,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -27,23 +28,23 @@ const (
 )
 
 type ServiceBindingRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
-	namespacePermissions *authorization.NamespacePermissions
-	namespaceRetriever   NamespaceRetriever
-	timeout              time.Duration
+	userClientFactory       authorization.UserK8sClientFactory
+	namespacePermissions    *authorization.NamespacePermissions
+	namespaceRetriever      NamespaceRetriever
+	bindingConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFServiceBinding]
 }
 
 func NewServiceBindingRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
-	timeout time.Duration,
+	bindingConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFServiceBinding],
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
-		userClientFactory:    userClientFactory,
-		namespacePermissions: namespacePermissions,
-		namespaceRetriever:   namespaceRetriever,
-		timeout:              timeout,
+		userClientFactory:       userClientFactory,
+		namespacePermissions:    namespacePermissions,
+		namespaceRetriever:      namespaceRetriever,
+		bindingConditionAwaiter: bindingConditionAwaiter,
 	}
 }
 
@@ -83,9 +84,9 @@ type ListServiceBindingsMessage struct {
 	ServiceInstanceGUIDs []string
 }
 
-func (m CreateServiceBindingMessage) toCFServiceBinding() korifiv1alpha1.CFServiceBinding {
+func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
 	guid := uuid.NewString()
-	return korifiv1alpha1.CFServiceBinding{
+	return &korifiv1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: m.SpaceGUID,
@@ -110,7 +111,25 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	}
 
 	cfServiceBinding := message.toCFServiceBinding()
-	err = userClient.Create(ctx, &cfServiceBinding)
+
+	cfApp := new(korifiv1alpha1.CFApp)
+	err = userClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+	if err != nil {
+		return ServiceBindingRecord{},
+			apierrors.AsUnprocessableEntity(
+				apierrors.FromK8sError(err, ServiceBindingResourceType),
+				"Unable to use app. Ensure that the app exists and you have access to it.",
+				apierrors.ForbiddenError{},
+				apierrors.NotFoundError{},
+			)
+	}
+
+	err = controllerutil.SetOwnerReference(cfApp, cfServiceBinding, scheme.Scheme)
+	if err != nil {
+		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
+	}
+
+	err = userClient.Create(ctx, cfServiceBinding)
 	if err != nil {
 		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
 			if validationError.Type == services.ServiceBindingErrorType {
@@ -121,34 +140,9 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
-	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
-	defer cancelFn()
-	watch, err := userClient.Watch(timeoutCtx, &korifiv1alpha1.CFServiceBindingList{},
-		client.InNamespace(cfServiceBinding.Namespace),
-		client.MatchingFields{"metadata.name": cfServiceBinding.Name},
-	)
+	cfServiceBinding, err = r.bindingConditionAwaiter.AwaitCondition(ctx, userClient, cfServiceBinding, VCAPServicesSecretAvailableCondition)
 	if err != nil {
-		return ServiceBindingRecord{}, fmt.Errorf("failed to set up watch on service binding: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
-	}
-
-	conditionReady := false
-	var createdServiceBinding *korifiv1alpha1.CFServiceBinding
-	for res := range watch.ResultChan() {
-		var ok bool
-		createdServiceBinding, ok = res.Object.(*korifiv1alpha1.CFServiceBinding)
-		if !ok {
-			// should never happen, but avoids panic above
-			continue
-		}
-		if meta.IsStatusConditionTrue(createdServiceBinding.Status.Conditions, VCAPServicesSecretAvailableCondition) {
-			watch.Stop()
-			conditionReady = true
-			break
-		}
-	}
-
-	if !conditionReady {
-		return ServiceBindingRecord{}, fmt.Errorf("service binding did not get Condition `VCAPServicesSecretAvailable`: 'True' within timeout period %d ms", r.timeout.Milliseconds())
+		return ServiceBindingRecord{}, err
 	}
 
 	return cfServiceBindingToRecord(cfServiceBinding), err
@@ -179,7 +173,7 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 	return nil
 }
 
-func cfServiceBindingToRecord(binding korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {
+func cfServiceBindingToRecord(binding *korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {
 	createdAt := binding.CreationTimestamp.UTC().Format(TimestampFormat)
 	updatedAt, _ := getTimeLastUpdatedTimestamp(&binding.ObjectMeta)
 	return ServiceBindingRecord{
@@ -243,11 +237,11 @@ func applyServiceBindingListFilter(serviceBindingList []korifiv1alpha1.CFService
 	return filtered
 }
 
-func toServiceBindingRecords(serviceInstanceList []korifiv1alpha1.CFServiceBinding) []ServiceBindingRecord {
-	serviceInstanceRecords := make([]ServiceBindingRecord, 0, len(serviceInstanceList))
+func toServiceBindingRecords(serviceBindings []korifiv1alpha1.CFServiceBinding) []ServiceBindingRecord {
+	serviceInstanceRecords := make([]ServiceBindingRecord, 0, len(serviceBindings))
 
-	for _, serviceInstance := range serviceInstanceList {
-		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceBindingToRecord(serviceInstance))
+	for _, sb := range serviceBindings {
+		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceBindingToRecord(&sb))
 	}
 	return serviceInstanceRecords
 }

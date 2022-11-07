@@ -546,43 +546,47 @@ var _ = Describe("Apps", func() {
 		})
 
 		It("returns the app environment", func() {
-			Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
-			Expect(result).To(
-				HaveKeyWithValue("system_env_json",
-					HaveKeyWithValue("VCAP_SERVICES",
-						HaveKeyWithValue("user-provided", ConsistOf(
-							map[string]interface{}{
-								"syslog_drain_url": nil,
-								"tags":             []interface{}{},
-								"instance_name":    instanceName,
-								"binding_guid":     bindingGUID,
-								"credentials": map[string]interface{}{
-									"type": "user-provided",
+			Eventually(func(g Gomega) {
+				_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
+				g.Expect(result).To(
+					HaveKeyWithValue("system_env_json",
+						HaveKeyWithValue("VCAP_SERVICES",
+							HaveKeyWithValue("user-provided", ConsistOf(
+								map[string]interface{}{
+									"syslog_drain_url": nil,
+									"tags":             []interface{}{},
+									"instance_name":    instanceName,
+									"binding_guid":     bindingGUID,
+									"credentials": map[string]interface{}{
+										"type": "user-provided",
+									},
+									"volume_mounts": []interface{}{},
+									"label":         "user-provided",
+									"name":          instanceName,
+									"instance_guid": instanceGUID,
+									"binding_name":  nil,
 								},
-								"volume_mounts": []interface{}{},
-								"label":         "user-provided",
-								"name":          instanceName,
-								"instance_guid": instanceGUID,
-								"binding_name":  nil,
-							},
-							map[string]interface{}{
-								"syslog_drain_url": nil,
-								"tags":             []interface{}{},
-								"instance_name":    instanceName2,
-								"binding_guid":     bindingGUID2,
-								"credentials": map[string]interface{}{
-									"type": "user-provided",
-								},
-								"volume_mounts": []interface{}{},
-								"label":         "user-provided",
-								"name":          instanceName2,
-								"instance_guid": instanceGUID2,
-								"binding_name":  nil,
-							}),
+								map[string]interface{}{
+									"syslog_drain_url": nil,
+									"tags":             []interface{}{},
+									"instance_name":    instanceName2,
+									"binding_guid":     bindingGUID2,
+									"credentials": map[string]interface{}{
+										"type": "user-provided",
+									},
+									"volume_mounts": []interface{}{},
+									"label":         "user-provided",
+									"name":          instanceName2,
+									"instance_guid": instanceGUID2,
+									"binding_name":  nil,
+								}),
+							),
 						),
 					),
-				),
-			)
+				)
+			}).Should(Succeed())
 		})
 
 		When("a deleted service binding changes the app env", func() {
@@ -594,7 +598,7 @@ var _ = Describe("Apps", func() {
 			It("returns the updated app environment", func() {
 				Eventually(func(g Gomega) {
 					_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
-					Expect(err).To(Succeed())
+					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
 					g.Expect(result).To(HaveKeyWithValue("system_env_json", HaveKeyWithValue("VCAP_SERVICES", map[string]interface{}{
 						"user-provided": []interface{}{

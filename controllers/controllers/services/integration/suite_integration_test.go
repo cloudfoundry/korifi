@@ -25,7 +25,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -98,7 +97,6 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
-		env.NewBuilder(k8sManager.GetClient()),
 	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
