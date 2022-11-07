@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 )
 
 type VCAPServicesSecretBuilder struct {
@@ -117,4 +117,4 @@ func (fake *VCAPServicesSecretBuilder) recordInvocation(key string, args []inter
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ services.VCAPServicesSecretBuilder = new(VCAPServicesSecretBuilder)
+var _ workloads.VCAPServicesSecretBuilder = new(VCAPServicesSecretBuilder)

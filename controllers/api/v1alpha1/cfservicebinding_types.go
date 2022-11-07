@@ -71,6 +71,10 @@ type CFServiceBindingList struct {
 	Items           []CFServiceBinding `json:"items"`
 }
 
+func (b CFServiceBinding) StatusConditions() []metav1.Condition {
+	return b.Status.Conditions
+}
+
 func init() {
 	SchemeBuilder.Register(&CFServiceBinding{}, &CFServiceBindingList{})
 }

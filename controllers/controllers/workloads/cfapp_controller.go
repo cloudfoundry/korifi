@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -32,18 +31,26 @@ const (
 	finalizerName             = "cfApp.korifi.cloudfoundry.org"
 )
 
-// CFAppReconciler reconciles a CFApp object
-type CFAppReconciler struct {
-	log       logr.Logger
-	k8sClient client.Client
-	scheme    *runtime.Scheme
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+//counterfeiter:generate -o fake -fake-name VCAPServicesSecretBuilder . VCAPServicesSecretBuilder
+type VCAPServicesSecretBuilder interface {
+	BuildVCAPServicesEnvValue(context.Context, *korifiv1alpha1.CFApp) (string, error)
 }
 
-func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger) *k8s.PatchingReconciler[korifiv1alpha1.CFApp, *korifiv1alpha1.CFApp] {
+// CFAppReconciler reconciles a CFApp object
+type CFAppReconciler struct {
+	log                 logr.Logger
+	k8sClient           client.Client
+	scheme              *runtime.Scheme
+	vcapServicesBuilder VCAPServicesSecretBuilder
+}
+
+func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, vcapServicesBuilder VCAPServicesSecretBuilder) *k8s.PatchingReconciler[korifiv1alpha1.CFApp, *korifiv1alpha1.CFApp] {
 	appReconciler := CFAppReconciler{
-		log:       log,
-		k8sClient: k8sClient,
-		scheme:    scheme,
+		log:                 log,
+		k8sClient:           k8sClient,
+		scheme:              scheme,
+		vcapServicesBuilder: vcapServicesBuilder,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFApp, *korifiv1alpha1.CFApp](log, k8sClient, &appReconciler)
 }
@@ -61,7 +68,7 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 		return ctrl.Result{}, err
 	}
 
-	err := r.createVCAPServicesSecretForApp(ctx, cfApp)
+	err := r.reconcileVCAPServicesSecret(ctx, cfApp)
 	if err != nil {
 		r.log.Error(err, "unable to create CFApp VCAP Services secret")
 		return ctrl.Result{}, err
@@ -326,7 +333,8 @@ func (r *CFAppReconciler) getCFRoutes(ctx context.Context, cfAppGUID string, cfA
 func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFApp{}).
-		Watches(&source.Kind{Type: &korifiv1alpha1.CFBuild{}}, handler.EnqueueRequestsFromMapFunc(buildToApp))
+		Watches(&source.Kind{Type: &korifiv1alpha1.CFBuild{}}, handler.EnqueueRequestsFromMapFunc(buildToApp)).
+		Watches(&source.Kind{Type: &korifiv1alpha1.CFServiceBinding{}}, handler.EnqueueRequestsFromMapFunc(serviceBindingToApp))
 }
 
 func buildToApp(o client.Object) []reconcile.Request {
@@ -345,45 +353,49 @@ func buildToApp(o client.Object) []reconcile.Request {
 	}
 }
 
-func (r *CFAppReconciler) createVCAPServicesSecretForApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
-	if cfApp.Status.VCAPServicesSecretName != "" {
+func serviceBindingToApp(o client.Object) []reconcile.Request {
+	serviceBinding, ok := o.(*korifiv1alpha1.CFServiceBinding)
+	if !ok {
 		return nil
 	}
 
+	result := []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      serviceBinding.Spec.AppRef.Name,
+				Namespace: o.GetNamespace(),
+			},
+		},
+	}
+
+	return result
+}
+
+func (r *CFAppReconciler) reconcileVCAPServicesSecret(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
 	vcapServicesSecretName := cfApp.Name + "-vcap-services"
-	vcapServicesSecretLookupKey := types.NamespacedName{Name: vcapServicesSecretName, Namespace: cfApp.Namespace}
-	vcapServicesSecret := new(corev1.Secret)
-	err := r.k8sClient.Get(ctx, vcapServicesSecretLookupKey, vcapServicesSecret)
+	vcapServicesSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vcapServicesSecretName,
+			Namespace: cfApp.Namespace,
+		},
+	}
+
+	vcapServicesValue, err := r.vcapServicesBuilder.BuildVCAPServicesEnvValue(ctx, cfApp)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			r.log.Error(err, "unable to fetch 'VCAP_SERVICES' Secret")
-			return err
+		r.log.Error(err, "failed to build 'VCAP_SERVICES' value")
+		return err
+	}
+
+	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, vcapServicesSecret, func() error {
+		vcapServicesSecret.StringData = map[string]string{
+			"VCAP_SERVICES": vcapServicesValue,
 		}
 
-		vcapServicesSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vcapServicesSecretName,
-				Namespace: cfApp.Namespace,
-			},
-			Immutable: nil,
-			Data:      nil,
-			StringData: map[string]string{
-				"VCAP_SERVICES": "{}",
-			},
-			Type: "",
-		}
-
-		err = controllerutil.SetOwnerReference(cfApp, vcapServicesSecret, r.scheme)
-		if err != nil {
-			r.log.Error(err, "failed to set OwnerRef on 'VCAP_SERVICES' Secret")
-			return err
-		}
-
-		err = r.k8sClient.Create(ctx, vcapServicesSecret)
-		if err != nil {
-			r.log.Error(err, "unable to create 'VCAP_SERVICES' Secret")
-			return err
-		}
+		return controllerutil.SetOwnerReference(cfApp, vcapServicesSecret, r.scheme)
+	})
+	if err != nil {
+		r.log.Error(err, "unable to create or patch 'VCAP_SERVICES' Secret")
+		return err
 	}
 
 	cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName

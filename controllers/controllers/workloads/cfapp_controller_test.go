@@ -7,12 +7,13 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,12 +50,15 @@ var _ = Describe("CFAppReconciler", func() {
 		cfTaskListErr    error
 		cfTaskDeleteErr  error
 
-		secret    *v1.Secret
-		secretErr error
+		secret         *corev1.Secret
+		secretErr      error
+		secretPatchErr error
 
 		cfAppReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFApp, *korifiv1alpha1.CFApp]
 		ctx             context.Context
 		req             ctrl.Request
+
+		fakeBuilder *fake.VCAPServicesSecretBuilder
 
 		reconcileResult ctrl.Result
 		reconcileErr    error
@@ -75,8 +79,13 @@ var _ = Describe("CFAppReconciler", func() {
 		cfRoutePatchErr = nil
 		cfRouteListErr = nil
 
-		secret = &v1.Secret{}
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfApp.Namespace,
+			},
+		}
 		secretErr = nil
+		secretPatchErr = nil
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			// cast obj to find its kind
@@ -87,8 +96,10 @@ var _ = Describe("CFAppReconciler", func() {
 			case *korifiv1alpha1.CFApp:
 				cfApp.DeepCopyInto(obj)
 				return cfAppError
-			case *v1.Secret:
+			case *corev1.Secret:
+				originalName := obj.GetName()
 				secret.DeepCopyInto(obj)
+				obj.Name = originalName
 				return secretErr
 			default:
 				panic("TestClient Get provided a weird obj")
@@ -108,7 +119,7 @@ var _ = Describe("CFAppReconciler", func() {
 						Host:     "testRouteHost",
 						Path:     "",
 						Protocol: "http",
-						DomainRef: v1.ObjectReference{
+						DomainRef: corev1.ObjectReference{
 							Name:      "testDomainGUID",
 							Namespace: defaultNamespace,
 						},
@@ -116,7 +127,7 @@ var _ = Describe("CFAppReconciler", func() {
 							{
 								GUID: "destination-1-guid",
 								Port: 0,
-								AppRef: v1.LocalObjectReference{
+								AppRef: corev1.LocalObjectReference{
 									Name: cfAppGUID,
 								},
 								ProcessType: "web",
@@ -125,7 +136,7 @@ var _ = Describe("CFAppReconciler", func() {
 							{
 								GUID: "destination-2-guid",
 								Port: 0,
-								AppRef: v1.LocalObjectReference{
+								AppRef: corev1.LocalObjectReference{
 									Name: "some-other-app-guid",
 								},
 								ProcessType: "worked",
@@ -168,6 +179,8 @@ var _ = Describe("CFAppReconciler", func() {
 				return cfRoutePatchErr
 			case *korifiv1alpha1.CFApp:
 				return cfAppPatchErr
+			case *corev1.Secret:
+				return secretPatchErr
 			default:
 				panic("TestClient Patch provided an unexpected object type")
 			}
@@ -183,12 +196,15 @@ var _ = Describe("CFAppReconciler", func() {
 			}
 		}
 
+		fakeBuilder = new(fake.VCAPServicesSecretBuilder)
+
 		// configure a CFAppReconciler with the client
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		cfAppReconciler = NewCFAppReconciler(
 			fakeClient,
 			scheme.Scheme,
 			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
+			fakeBuilder,
 		)
 		ctx = context.Background()
 		req = ctrl.Request{
@@ -276,12 +292,22 @@ var _ = Describe("CFAppReconciler", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
+
+			When("building the VCAP_SERVICES value fails", func() {
+				BeforeEach(func() {
+					fakeBuilder.BuildVCAPServicesEnvValueReturns("", errors.New("vcap-services-build-err"))
+				})
+
+				It("should return an error", func() {
+					Expect(reconcileErr).To(MatchError(ContainSubstring("vcap-services-build-err")))
+				})
+			})
 		})
 	})
 
 	When("a CFApp is updated to set currentDropletRef which has a web process and Reconcile function is called", func() {
 		BeforeEach(func() {
-			cfApp.Spec.CurrentDropletRef = v1.LocalObjectReference{Name: cfBuildGUID}
+			cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: cfBuildGUID}
 		})
 
 		When("on the happy path", func() {

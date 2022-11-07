@@ -38,31 +38,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	CFServiceBindingFinalizerName = "cfServiceBinding.korifi.cloudfoundry.org"
-)
-
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-//counterfeiter:generate -o fake -fake-name VCAPServicesSecretBuilder . VCAPServicesSecretBuilder
-type VCAPServicesSecretBuilder interface {
-	BuildVCAPServicesEnvValue(context.Context, *korifiv1alpha1.CFApp) (string, error)
-}
-
 // CFServiceBindingReconciler reconciles a CFServiceBinding object
 type CFServiceBindingReconciler struct {
 	k8sClient client.Client
 	scheme    *runtime.Scheme
 	log       logr.Logger
-	builder   VCAPServicesSecretBuilder
 }
 
 func NewCFServiceBindingReconciler(
 	k8sClient client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	builder VCAPServicesSecretBuilder,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBinding, *korifiv1alpha1.CFServiceBinding] {
-	cfBindingReconciler := &CFServiceBindingReconciler{k8sClient: k8sClient, scheme: scheme, log: log, builder: builder}
+	cfBindingReconciler := &CFServiceBindingReconciler{k8sClient: k8sClient, scheme: scheme, log: log}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFServiceBinding, *korifiv1alpha1.CFServiceBinding](log, k8sClient, cfBindingReconciler)
 }
 
@@ -79,28 +67,8 @@ const (
 //+kubebuilder:rbac:groups=servicebinding.io,resources=servicebindings,verbs=get;list;create;update;patch;watch
 
 func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
-	r.addFinalizer(ctx, cfServiceBinding)
-
-	cfApp := new(korifiv1alpha1.CFApp)
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			r.finalizeCFServiceBinding(ctx, cfServiceBinding)
-			return ctrl.Result{}, nil
-		}
-
-		r.log.Error(err, "Error when fetching CFApp")
-		return ctrl.Result{}, err
-	}
-
-	err = controllerutil.SetOwnerReference(cfApp, cfServiceBinding, r.scheme)
-	if err != nil {
-		r.log.Error(err, "Unable to set owner reference on CfServiceBinding")
-		return ctrl.Result{}, err
-	}
-
 	instance := new(korifiv1alpha1.CFServiceInstance)
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, instance)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, instance)
 	if err != nil {
 		// Unlike with CFApp cascading delete, CFServiceInstance delete cleans up CFServiceBindings itself as part of finalizing,
 		// so we do not check for deletion timestamp before returning here.
@@ -122,6 +90,13 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		Message: "",
 	})
 
+	cfApp := new(korifiv1alpha1.CFApp)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+	if err != nil {
+		r.log.Error(err, "Error when fetching CFApp")
+		return ctrl.Result{}, err
+	}
+
 	if cfApp.Status.VCAPServicesSecretName == "" {
 		r.log.Info("Did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
 		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
@@ -132,33 +107,6 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		})
 
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-
-	vcapServicesData, err := r.builder.BuildVCAPServicesEnvValue(ctx, cfApp)
-	if err != nil {
-		r.log.Error(err, "failed to build vcap services secret", "CFServiceBinding", cfServiceBinding)
-		return ctrl.Result{}, err
-	}
-
-	vcapServicesSecret := new(corev1.Secret)
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Status.VCAPServicesSecretName, Namespace: cfServiceBinding.Namespace}, vcapServicesSecret)
-	if err != nil {
-		return r.handleGetError(ctx, err, cfServiceBinding, VCAPServicesSecretAvailableCondition, "SecretNotFound", "Secret")
-	}
-
-	err = k8s.Patch(ctx, r.k8sClient, vcapServicesSecret, func() {
-		secretData := map[string][]byte{}
-		secretData["VCAP_SERVICES"] = []byte(vcapServicesData)
-		vcapServicesSecret.Data = secretData
-	})
-	if err != nil {
-		r.log.Error(err, "failed to patch vcap services secret", "CFServiceBinding", cfServiceBinding, "secretName", vcapServicesSecret.Name)
-		return ctrl.Result{}, err
-	}
-
-	if !cfServiceBinding.DeletionTimestamp.IsZero() {
-		r.finalizeCFServiceBinding(ctx, cfServiceBinding)
-		return ctrl.Result{}, nil
 	}
 
 	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
@@ -184,23 +132,6 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *CFServiceBindingReconciler) addFinalizer(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) {
-	if controllerutil.ContainsFinalizer(cfServiceBinding, CFServiceBindingFinalizerName) {
-		return
-	}
-
-	controllerutil.AddFinalizer(cfServiceBinding, CFServiceBindingFinalizerName)
-	r.log.Info(fmt.Sprintf("Finalizer added to CFServiceBinding/%s", cfServiceBinding.Name))
-}
-
-func (r *CFServiceBindingReconciler) finalizeCFServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) {
-	r.log.Info(fmt.Sprintf("Reconciling deletion of CFServiceBinding/%s", cfServiceBinding.Name))
-
-	if controllerutil.ContainsFinalizer(cfServiceBinding, CFServiceBindingFinalizerName) {
-		controllerutil.RemoveFinalizer(cfServiceBinding, CFServiceBindingFinalizerName)
-	}
 }
 
 func (r *CFServiceBindingReconciler) handleGetError(ctx context.Context, err error, cfServiceBinding *korifiv1alpha1.CFServiceBinding, conditionType, notFoundReason, objectType string) (ctrl.Result, error) {
