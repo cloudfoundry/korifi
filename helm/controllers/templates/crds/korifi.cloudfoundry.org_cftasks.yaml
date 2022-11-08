@@ -36,7 +36,7 @@ spec:
             description: CFTaskSpec defines the desired state of CFTask
             properties:
               appRef:
-                description: A reference to the CFApp containing the code of script
+                description: A reference to the CFApp containing the code or script
                   for this CFTask
                 properties:
                   name:
@@ -46,6 +46,7 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               canceled:
+                description: A boolean describing whether the CFTask has been canceled
                 type: boolean
               command:
                 description: The command used to start the task process

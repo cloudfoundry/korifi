@@ -39,8 +39,9 @@ type CFTaskSpec struct {
 
 	// The command used to start the task process
 	Command string `json:"command,omitempty"`
-	// A reference to the CFApp containing the code of script for this CFTask
+	// A reference to the CFApp containing the code or script for this CFTask
 	AppRef corev1.LocalObjectReference `json:"appRef,omitempty"`
+	// A boolean describing whether the CFTask has been canceled
 	// +optional
 	Canceled bool `json:"canceled"`
 }
