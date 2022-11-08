@@ -46,7 +46,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
-		serviceInstanceGUID = prefixedGUID("service-instance")
 		doBindingControllerSimulation = true
 		bindingName = nil
 		controllerCancel = make(chan bool, 1)
@@ -69,9 +68,19 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			},
 		}
-		Expect(
-			k8sClient.Create(testCtx, app),
-		).To(Succeed())
+		Expect(k8sClient.Create(testCtx, app)).To(Succeed())
+
+		serviceInstanceGUID = prefixedGUID("service-instance")
+		serviceInstance := &korifiv1alpha1.CFServiceInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceInstanceGUID,
+				Namespace: space.Name,
+			},
+			Spec: korifiv1alpha1.CFServiceInstanceSpec{
+				Type: "user-provided",
+			},
+		}
+		Expect(k8sClient.Create(testCtx, serviceInstance)).To(Succeed())
 	})
 
 	waitForServiceBinding := func(anchorNamespace string, done chan bool) (*korifiv1alpha1.CFServiceBinding, error) {
@@ -195,16 +204,33 @@ var _ = Describe("ServiceBindingRepo", func() {
 						},
 					},
 				))
-				Expect(serviceBinding.GetOwnerReferences()).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Kind": Equal("CFApp"),
-					"Name": Equal(appGUID),
-				})))
+				Expect(serviceBinding.GetOwnerReferences()).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Kind": Equal("CFApp"),
+						"Name": Equal(appGUID),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Kind": Equal("CFServiceInstance"),
+						"Name": Equal(serviceInstanceGUID),
+					}),
+				))
 			})
 
 			When("the app does not exist", func() {
 				BeforeEach(func() {
 					doBindingControllerSimulation = false
 					appGUID = "i-do-not-exits"
+				})
+
+				It("reuturns an UnprocessableEntity error", func() {
+					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+				})
+			})
+
+			When("the service instance does not exist", func() {
+				BeforeEach(func() {
+					doBindingControllerSimulation = false
+					serviceInstanceGUID = "i-do-not-exits"
 				})
 
 				It("reuturns an UnprocessableEntity error", func() {

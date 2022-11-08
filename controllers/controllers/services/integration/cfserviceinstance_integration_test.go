@@ -55,42 +55,29 @@ var _ = Describe("CFServiceInstance", func() {
 	})
 
 	Describe("Create", func() {
+		BeforeEach(func() {
+			cfServiceInstance.Spec.SecretName = secret.Name
+		})
+
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(context.Background(), cfServiceInstance)).To(Succeed())
 		})
 
-		It("adds a finalizer", func() {
+		It("sets the BindingSecretAvailable condition to true in the CFServiceInstance status", func() {
 			Eventually(func(g Gomega) {
 				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 				serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
 				err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
 				g.Expect(err).NotTo(HaveOccurred())
 
-				g.Expect(updatedCFServiceInstance.ObjectMeta.Finalizers).To(ConsistOf("cfServiceInstance.korifi.cloudfoundry.org"))
+				g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("secret-name"))
+				g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Type":    Equal("BindingSecretAvailable"),
+					"Status":  Equal(metav1.ConditionTrue),
+					"Reason":  Equal("SecretFound"),
+					"Message": Equal(""),
+				})))
 			}).Should(Succeed())
-		})
-
-		When("the secret exists", func() {
-			BeforeEach(func() {
-				cfServiceInstance.Spec.SecretName = secret.Name
-			})
-
-			It("sets the BindingSecretAvailable condition to true in the CFServiceInstance status", func() {
-				Eventually(func(g Gomega) {
-					updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-					serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-					err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
-					g.Expect(err).NotTo(HaveOccurred())
-
-					g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("secret-name"))
-					g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-						"Type":    Equal("BindingSecretAvailable"),
-						"Status":  Equal(metav1.ConditionTrue),
-						"Reason":  Equal("SecretFound"),
-						"Message": Equal(""),
-					})))
-				}).Should(Succeed())
-			})
 		})
 
 		When("the referenced secret does not exist", func() {
@@ -142,53 +129,6 @@ var _ = Describe("CFServiceInstance", func() {
 					}).Should(Succeed())
 				})
 			})
-		})
-	})
-
-	Describe("Delete", func() {
-		BeforeEach(func() {
-			cfServiceInstance.Spec.SecretName = secret.Name
-			Expect(k8sClient.Create(context.Background(), cfServiceInstance)).To(Succeed())
-
-			Eventually(func(g Gomega) {
-				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-				serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-				err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
-				g.Expect(err).NotTo(HaveOccurred())
-
-				g.Expect(updatedCFServiceInstance.ObjectMeta.Finalizers).To(ConsistOf("cfServiceInstance.korifi.cloudfoundry.org"))
-			}).Should(Succeed())
-
-			cfServiceBinding := &korifiv1alpha1.CFServiceBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      GenerateGUID(),
-					Namespace: namespace.Name,
-				},
-				Spec: korifiv1alpha1.CFServiceBindingSpec{
-					Service: corev1.ObjectReference{
-						Kind:       "ServiceInstance",
-						Name:       cfServiceInstance.Name,
-						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-					},
-					AppRef: corev1.LocalObjectReference{
-						Name: "",
-					},
-				},
-			}
-			Expect(k8sClient.Create(context.Background(), cfServiceBinding)).To(Succeed())
-		})
-
-		JustBeforeEach(func() {
-			Expect(k8sClient.Delete(context.Background(), cfServiceInstance)).To(Succeed())
-		})
-
-		It("deletes associated ServiceBindings", func() {
-			Eventually(func(g Gomega) {
-				cfServiceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-				g.Expect(k8sClient.List(context.Background(), cfServiceBindingList, client.InNamespace(namespace.Name))).To(Succeed())
-
-				g.Expect(cfServiceBindingList.Items).To(BeEmpty())
-			}).Should(Succeed())
 		})
 	})
 })

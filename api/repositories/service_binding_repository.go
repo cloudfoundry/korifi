@@ -4,21 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -112,8 +109,13 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 
 	cfServiceBinding := message.toCFServiceBinding()
 
-	cfApp := new(korifiv1alpha1.CFApp)
-	err = userClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfServiceBinding.Spec.AppRef.Name,
+			Namespace: cfServiceBinding.Namespace,
+		},
+	}
+	err = k8s.SetOwner(ctx, userClient, cfApp, cfServiceBinding)
 	if err != nil {
 		return ServiceBindingRecord{},
 			apierrors.AsUnprocessableEntity(
@@ -124,9 +126,21 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 			)
 	}
 
-	err = controllerutil.SetOwnerReference(cfApp, cfServiceBinding, scheme.Scheme)
+	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceBinding.Namespace,
+			Name:      cfServiceBinding.Spec.Service.Name,
+		},
+	}
+	err = k8s.SetOwner(ctx, userClient, cfServiceInstance, cfServiceBinding)
 	if err != nil {
-		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
+		return ServiceBindingRecord{},
+			apierrors.AsUnprocessableEntity(
+				apierrors.FromK8sError(err, ServiceBindingResourceType),
+				"Unable to use service. Ensure that the service exists and you have access to it.",
+				apierrors.ForbiddenError{},
+				apierrors.NotFoundError{},
+			)
 	}
 
 	err = userClient.Create(ctx, cfServiceBinding)
