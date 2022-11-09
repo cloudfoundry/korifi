@@ -1,8 +1,6 @@
 package payloads
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -14,7 +12,7 @@ type BuildCreate struct {
 	Metadata        Metadata          `json:"metadata"`
 }
 
-func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord, packageRecord repositories.PackageRecord) repositories.CreateBuildMessage {
+func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord) repositories.CreateBuildMessage {
 	toReturn := repositories.CreateBuildMessage{
 		AppGUID:         appRecord.GUID,
 		PackageGUID:     c.Package.GUID,
@@ -24,12 +22,6 @@ func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord, packageRecord 
 		Lifecycle:       appRecord.Lifecycle,
 		Labels:          c.Metadata.Labels,
 		Annotations:     c.Metadata.Annotations,
-		OwnerRef: metav1.OwnerReference{
-			APIVersion: repositories.APIVersion,
-			Kind:       "CFPackage",
-			Name:       packageRecord.GUID,
-			UID:        packageRecord.UID,
-		},
 	}
 
 	return toReturn

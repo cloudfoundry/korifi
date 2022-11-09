@@ -361,7 +361,6 @@ var _ = Describe("BuildRepository", func() {
 	Describe("CreateBuild", func() {
 		const (
 			appGUID     = "the-app-guid"
-			packageUID  = "the-package-uid"
 			packageGUID = "the-package-guid"
 
 			buildStagingState = "STAGING"
@@ -403,12 +402,6 @@ var _ = Describe("BuildRepository", func() {
 				},
 				Labels:      buildCreateLabels,
 				Annotations: buildCreateAnnotations,
-				OwnerRef: metav1.OwnerReference{
-					APIVersion: repositories.APIVersion,
-					Kind:       "CFPackage",
-					Name:       packageGUID,
-					UID:        packageUID,
-				},
 			}
 		})
 
@@ -483,18 +476,7 @@ var _ = Describe("BuildRepository", func() {
 
 			It("should eventually create a new Build CR", func() {
 				cfBuildLookupKey := types.NamespacedName{Name: buildCreateRecord.GUID, Namespace: spaceGUID}
-				createdCFBuild := new(korifiv1alpha1.CFBuild)
-				err := k8sClient.Get(ctx, cfBuildLookupKey, createdCFBuild)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(createdCFBuild.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
-					{
-						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-						Kind:       "CFPackage",
-						Name:       packageGUID,
-						UID:        packageUID,
-					},
-				}))
+				Expect(k8sClient.Get(ctx, cfBuildLookupKey, &korifiv1alpha1.CFBuild{})).To(Succeed())
 			})
 		})
 
