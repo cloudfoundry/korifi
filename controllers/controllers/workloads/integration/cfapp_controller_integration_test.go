@@ -601,12 +601,10 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		})
 
 		When("the app is referenced by tasks", func() {
-			var taskGUID string
 			BeforeEach(func() {
-				taskGUID = PrefixedGUID("task")
 				cfTask := korifiv1alpha1.CFTask{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      taskGUID,
+						Name:      PrefixedGUID("task"),
 						Namespace: namespaceGUID,
 					},
 					Spec: korifiv1alpha1.CFTaskSpec{
@@ -624,6 +622,31 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					tasksList := korifiv1alpha1.CFTaskList{}
 					g.Expect(k8sClient.List(context.Background(), &tasksList, client.InNamespace(namespaceGUID))).To(Succeed())
 					g.Expect(tasksList.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+		})
+
+		When("the app is referenced by service bindings", func() {
+			BeforeEach(func() {
+				cfServiceBinding := korifiv1alpha1.CFServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      PrefixedGUID("service-binding"),
+						Namespace: namespaceGUID,
+					},
+					Spec: korifiv1alpha1.CFServiceBindingSpec{
+						AppRef: corev1.LocalObjectReference{
+							Name: cfAppGUID,
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), &cfServiceBinding)).To(Succeed())
+			})
+
+			It("deletes the referencing service bindings", func() {
+				Eventually(func(g Gomega) {
+					sbList := korifiv1alpha1.CFServiceBindingList{}
+					g.Expect(k8sClient.List(context.Background(), &sbList, client.InNamespace(namespaceGUID))).To(Succeed())
+					g.Expect(sbList.Items).To(BeEmpty())
 				}).Should(Succeed())
 			})
 		})

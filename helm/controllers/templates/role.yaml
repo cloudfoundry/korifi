@@ -341,12 +341,6 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - cfservicebindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - cfservicebindings/status
   verbs:
   - get
@@ -364,12 +358,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceinstances/finalizers
-  verbs:
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:

@@ -38,17 +38,18 @@ var _ = Describe("CFAppReconciler", func() {
 		cfBuildGUID   string
 		cfPackageGUID string
 
-		cfBuild       *korifiv1alpha1.CFBuild
-		cfBuildErr    error
-		cfApp         *korifiv1alpha1.CFApp
-		cfAppError    error
-		cfAppPatchErr error
+		cfBuild    *korifiv1alpha1.CFBuild
+		cfBuildErr error
+		cfApp      *korifiv1alpha1.CFApp
+		cfAppError error
 
-		cfRoutePatchErr  error
-		cfRouteListErr   error
-		cfProcessListErr error
-		cfTaskListErr    error
-		cfTaskDeleteErr  error
+		cfRoutePatchErr           error
+		cfRouteListErr            error
+		cfProcessListErr          error
+		cfTaskListErr             error
+		cfTaskDeleteErr           error
+		cfServiceBindingListErr   error
+		cfServiceBindingDeleteErr error
 
 		secret         *corev1.Secret
 		secretErr      error
@@ -71,7 +72,6 @@ var _ = Describe("CFAppReconciler", func() {
 
 		cfApp = BuildCFAppCRObject(cfAppGUID, defaultNamespace)
 		cfAppError = nil
-		cfAppPatchErr = nil
 		cfBuild = BuildCFBuildObject(cfBuildGUID, defaultNamespace, cfPackageGUID, cfAppGUID)
 		UpdateCFBuildWithDropletStatus(cfBuild)
 		cfBuildErr = nil
@@ -157,6 +157,15 @@ var _ = Describe("CFAppReconciler", func() {
 				},
 			}},
 		}
+		cfServiceBindingListErr = nil
+		cfServiceBindingList := korifiv1alpha1.CFServiceBindingList{
+			Items: []korifiv1alpha1.CFServiceBinding{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cfServiceBindingGUID",
+					Namespace: defaultNamespace,
+				},
+			}},
+		}
 		fakeClient.ListStub = func(ctx context.Context, list client.ObjectList, option ...client.ListOption) error {
 			switch list := list.(type) {
 			case *korifiv1alpha1.CFProcessList:
@@ -168,6 +177,9 @@ var _ = Describe("CFAppReconciler", func() {
 			case *korifiv1alpha1.CFTaskList:
 				cfTaskList.DeepCopyInto(list)
 				return cfTaskListErr
+			case *korifiv1alpha1.CFServiceBindingList:
+				cfServiceBindingList.DeepCopyInto(list)
+				return cfServiceBindingListErr
 			default:
 				panic("TestClient List provided a weird obj")
 			}
@@ -175,10 +187,10 @@ var _ = Describe("CFAppReconciler", func() {
 
 		fakeClient.PatchStub = func(ctx context.Context, object client.Object, patch client.Patch, option ...client.PatchOption) error {
 			switch object.(type) {
+			case *korifiv1alpha1.CFApp:
+				return nil
 			case *korifiv1alpha1.CFRoute:
 				return cfRoutePatchErr
-			case *korifiv1alpha1.CFApp:
-				return cfAppPatchErr
 			case *corev1.Secret:
 				return secretPatchErr
 			default:
@@ -187,10 +199,13 @@ var _ = Describe("CFAppReconciler", func() {
 		}
 
 		cfTaskDeleteErr = nil
+		cfServiceBindingDeleteErr = nil
 		fakeClient.DeleteStub = func(ctx context.Context, object client.Object, option ...client.DeleteOption) error {
 			switch object.(type) {
 			case *korifiv1alpha1.CFTask:
 				return cfTaskDeleteErr
+			case *korifiv1alpha1.CFServiceBinding:
+				return cfServiceBindingDeleteErr
 			default:
 				panic("TestClient Delete provided an unexpected object type")
 			}
@@ -467,17 +482,6 @@ var _ = Describe("CFAppReconciler", func() {
 					Expect(reconcileErr).To(MatchError(failsOnPurposeErrorMessage))
 				})
 			})
-
-			When("adding the finalizer to the CFApp returns an error", func() {
-				BeforeEach(func() {
-					cfApp.Finalizers = []string{}
-					cfAppPatchErr = errors.New("failed to patch CFApp")
-				})
-
-				It("return the error", func() {
-					Expect(reconcileErr).To(MatchError("failed to patch CFApp"))
-				})
-			})
 		})
 	})
 
@@ -547,13 +551,23 @@ var _ = Describe("CFAppReconciler", func() {
 				})
 			})
 
-			When("patching cfApp returns an error", func() {
+			When("listing the app service bindings fails", func() {
 				BeforeEach(func() {
-					cfAppPatchErr = errors.New("failed to patch CFApp")
+					cfServiceBindingListErr = errors.New("failed to list CFServiceBindings")
 				})
 
 				It("return the error", func() {
-					Expect(reconcileErr).To(MatchError("failed to patch CFApp"))
+					Expect(reconcileErr).To(MatchError("failed to list CFServiceBindings"))
+				})
+			})
+
+			When("deleting an app service binding fails", func() {
+				BeforeEach(func() {
+					cfServiceBindingDeleteErr = errors.New("failed to delete CFServiceBinding")
+				})
+
+				It("return the error", func() {
+					Expect(reconcileErr).To(MatchError("failed to delete CFServiceBinding"))
 				})
 			})
 		})

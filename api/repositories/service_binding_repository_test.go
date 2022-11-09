@@ -195,10 +195,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 						},
 					},
 				))
-				Expect(serviceBinding.GetOwnerReferences()).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Kind": Equal("CFApp"),
-					"Name": Equal(appGUID),
-				})))
 			})
 
 			When("the app does not exist", func() {
