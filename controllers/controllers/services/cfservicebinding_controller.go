@@ -63,7 +63,6 @@ const (
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings/finalizers,verbs=update
 //+kubebuilder:rbac:groups=servicebinding.io,resources=servicebindings,verbs=get;list;create;update;patch;watch
 
 func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
@@ -73,6 +72,12 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		// Unlike with CFApp cascading delete, CFServiceInstance delete cleans up CFServiceBindings itself as part of finalizing,
 		// so we do not check for deletion timestamp before returning here.
 		return r.handleGetError(ctx, err, cfServiceBinding, BindingSecretAvailableCondition, "ServiceInstanceNotFound", "Service instance")
+	}
+
+	err = controllerutil.SetOwnerReference(instance, cfServiceBinding, r.scheme)
+	if err != nil {
+		r.log.Error(err, "Error when making the service instance owner of the service binding")
+		return ctrl.Result{}, err
 	}
 
 	secret := new(corev1.Secret)
