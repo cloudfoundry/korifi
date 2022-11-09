@@ -3,8 +3,6 @@ package payloads
 import (
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -22,12 +20,6 @@ func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.Cre
 		Type:      m.Type,
 		AppGUID:   record.GUID,
 		SpaceGUID: record.SpaceGUID,
-		OwnerRef: metav1.OwnerReference{
-			APIVersion: repositories.APIVersion,
-			Kind:       "CFApp",
-			Name:       record.GUID,
-			UID:        record.EtcdUID,
-		},
 	}
 }
 

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -522,12 +521,6 @@ var _ = Describe("PackageHandler", func() {
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
-				OwnerRef: metav1.OwnerReference{
-					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-					Kind:       "CFApp",
-					Name:       appGUID,
-					UID:        appUID,
-				},
 			}))
 		})
 
