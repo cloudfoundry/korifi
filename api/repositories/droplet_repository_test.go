@@ -108,11 +108,6 @@ var _ = Describe("DropletRepository", func() {
 						Stack: dropletStack,
 						Registry: korifiv1alpha1.Registry{
 							Image: registryImage,
-							ImagePullSecrets: []corev1.LocalObjectReference{
-								{
-									Name: registryImageSecret,
-								},
-							},
 						},
 						ProcessTypes: []korifiv1alpha1.ProcessType{
 							{
@@ -316,11 +311,6 @@ var _ = Describe("DropletRepository", func() {
 				Stack: dropletStack,
 				Registry: korifiv1alpha1.Registry{
 					Image: registryImage,
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{
-							Name: registryImageSecret,
-						},
-					},
 				},
 				ProcessTypes: []korifiv1alpha1.ProcessType{
 					{

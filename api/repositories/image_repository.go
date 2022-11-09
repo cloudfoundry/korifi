@@ -38,11 +38,11 @@ type ImagePusher interface {
 }
 
 type ImageRepository struct {
-	privilegedK8sClient k8sclient.Interface
-	userClientFactory   authorization.UserK8sClientFactory
-	rootNamespace       string
-	registrySecretName  string
-	registryCAPath      string
+	privilegedK8sClient    k8sclient.Interface
+	userClientFactory      authorization.UserK8sClientFactory
+	rootNamespace          string
+	registryServiceAccount string
+	registryCAPath         string
 
 	builder ImageBuilder
 	pusher  ImagePusher
@@ -51,20 +51,20 @@ type ImageRepository struct {
 func NewImageRepository(
 	privilegedK8sClient k8sclient.Interface,
 	userClientFactory authorization.UserK8sClientFactory,
-	rootNamespace,
-	registrySecretName string,
+	rootNamespace string,
+	registryServiceAccount string,
 	registryCAPath string,
 	builder ImageBuilder,
 	pusher ImagePusher,
 ) *ImageRepository {
 	return &ImageRepository{
-		privilegedK8sClient: privilegedK8sClient,
-		userClientFactory:   userClientFactory,
-		rootNamespace:       rootNamespace,
-		registrySecretName:  registrySecretName,
-		registryCAPath:      registryCAPath,
-		builder:             builder,
-		pusher:              pusher,
+		privilegedK8sClient:    privilegedK8sClient,
+		userClientFactory:      userClientFactory,
+		rootNamespace:          rootNamespace,
+		registryServiceAccount: registryServiceAccount,
+		registryCAPath:         registryCAPath,
+		builder:                builder,
+		pusher:                 pusher,
 	}
 }
 
@@ -126,8 +126,8 @@ func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo autho
 
 func (r *ImageRepository) getCredentials(ctx context.Context) (remote.Option, error) {
 	keychain, err := k8schain.New(ctx, r.privilegedK8sClient, k8schain.Options{
-		Namespace:        r.rootNamespace,
-		ImagePullSecrets: []string{r.registrySecretName},
+		Namespace:          r.rootNamespace,
+		ServiceAccountName: r.registryServiceAccount,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", apierrors.FromK8sError(err, SourceImageResourceType))

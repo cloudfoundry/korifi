@@ -451,10 +451,9 @@ var _ = Describe("PackageRepository", func() {
 
 		JustBeforeEach(func() {
 			updateMessage := repositories.UpdatePackageSourceMessage{
-				GUID:               packageGUID,
-				SpaceGUID:          space.Name,
-				ImageRef:           packageSourceImageRef,
-				RegistrySecretName: packageRegistrySecretName,
+				GUID:      packageGUID,
+				SpaceGUID: space.Name,
+				ImageRef:  packageSourceImageRef,
 			}
 			returnedPackageRecord, updateErr = packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
 		})
@@ -492,8 +491,7 @@ var _ = Describe("PackageRepository", func() {
 				Expect(updatedCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
 				Expect(updatedCFPackage.Spec.AppRef).To(Equal(existingCFPackage.Spec.AppRef))
 				Expect(updatedCFPackage.Spec.Source.Registry).To(Equal(korifiv1alpha1.Registry{
-					Image:            packageSourceImageRef,
-					ImagePullSecrets: []corev1.LocalObjectReference{{Name: packageRegistrySecretName}},
+					Image: packageSourceImageRef,
 				}))
 			})
 		})

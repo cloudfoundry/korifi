@@ -24,12 +24,11 @@ import (
 
 var _ = Describe("PackageHandler", func() {
 	var (
-		packageRepo                *fake.CFPackageRepository
-		appRepo                    *fake.CFAppRepository
-		dropletRepo                *fake.CFDropletRepository
-		imageRepo                  *fake.ImageRepository
-		packageRegistryBase        string
-		packageImagePullSecretName string
+		packageRepo         *fake.CFPackageRepository
+		appRepo             *fake.CFAppRepository
+		dropletRepo         *fake.CFDropletRepository
+		imageRepo           *fake.ImageRepository
+		packageRegistryBase string
 
 		packageGUID string
 		appGUID     string
@@ -44,7 +43,6 @@ var _ = Describe("PackageHandler", func() {
 		dropletRepo = new(fake.CFDropletRepository)
 		imageRepo = new(fake.ImageRepository)
 		packageRegistryBase = "some-org"
-		packageImagePullSecretName = "package-image-pull-secret"
 
 		packageGUID = generateGUID("package")
 		appGUID = generateGUID("app")
@@ -63,7 +61,6 @@ var _ = Describe("PackageHandler", func() {
 			imageRepo,
 			decoderValidator,
 			packageRegistryBase,
-			packageImagePullSecretName,
 		)
 
 		apiHandler.RegisterRoutes(router)
@@ -782,7 +779,6 @@ var _ = Describe("PackageHandler", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(message.GUID).To(Equal(packageGUID))
 			Expect(message.ImageRef).To(Equal(imageRefWithDigest))
-			Expect(message.RegistrySecretName).To(Equal(packageImagePullSecretName))
 		})
 
 		It("returns a JSON body", func() {

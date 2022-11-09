@@ -20,7 +20,7 @@ data:
       stagingMemoryMB: {{ .Values.lifecycle.stagingRequirements.memoryMB }}
       stagingDiskMB: {{ .Values.lifecycle.stagingRequirements.diskMB }}
     packageRegistryBase: {{ .Values.packageRepositoryPrefix }}
-    packageRegistrySecretName: {{ .Values.global.packageRegistrySecret }}
+    packageRegistryServiceAccount: {{ .Values.packageRegistryServiceAccount | default "korifi-package-registry-pusher" }}
     defaultDomainName: {{ .Values.global.defaultAppDomainName }}
     userCertificateExpirationWarningDuration: {{ .Values.userCertificateExpirationWarningDuration }}
     {{- if .Values.authProxy }}

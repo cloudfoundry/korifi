@@ -92,10 +92,9 @@ func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
 }
 
 type UpdatePackageSourceMessage struct {
-	GUID               string
-	SpaceGUID          string
-	ImageRef           string
-	RegistrySecretName string
+	GUID      string
+	SpaceGUID string
+	ImageRef  string
 }
 
 func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message CreatePackageMessage) (PackageRecord, error) {
@@ -223,7 +222,6 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 	}
 	err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
 		cfPackage.Spec.Source.Registry.Image = message.ImageRef
-		cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
 	})
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))

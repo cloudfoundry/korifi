@@ -40,15 +40,14 @@ type ImageRepository interface {
 }
 
 type PackageHandler struct {
-	handlerWrapper     *AuthAwareHandlerFuncWrapper
-	serverURL          url.URL
-	packageRepo        CFPackageRepository
-	appRepo            CFAppRepository
-	dropletRepo        CFDropletRepository
-	imageRepo          ImageRepository
-	decoderValidator   *DecoderValidator
-	registryBase       string
-	registrySecretName string
+	handlerWrapper   *AuthAwareHandlerFuncWrapper
+	serverURL        url.URL
+	packageRepo      CFPackageRepository
+	appRepo          CFAppRepository
+	dropletRepo      CFDropletRepository
+	imageRepo        ImageRepository
+	decoderValidator *DecoderValidator
+	registryBase     string
 }
 
 func NewPackageHandler(
@@ -59,18 +58,16 @@ func NewPackageHandler(
 	imageRepo ImageRepository,
 	decoderValidator *DecoderValidator,
 	registryBase string,
-	registrySecretName string,
 ) *PackageHandler {
 	return &PackageHandler{
-		handlerWrapper:     NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("PackageHandler")),
-		serverURL:          serverURL,
-		packageRepo:        packageRepo,
-		appRepo:            appRepo,
-		dropletRepo:        dropletRepo,
-		imageRepo:          imageRepo,
-		registryBase:       registryBase,
-		registrySecretName: registrySecretName,
-		decoderValidator:   decoderValidator,
+		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("PackageHandler")),
+		serverURL:        serverURL,
+		packageRepo:      packageRepo,
+		appRepo:          appRepo,
+		dropletRepo:      dropletRepo,
+		imageRepo:        imageRepo,
+		registryBase:     registryBase,
+		decoderValidator: decoderValidator,
 	}
 }
 
@@ -161,10 +158,9 @@ func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Lo
 	}
 
 	record, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.UpdatePackageSourceMessage{
-		GUID:               packageGUID,
-		SpaceGUID:          record.SpaceGUID,
-		ImageRef:           uploadedImageRef,
-		RegistrySecretName: h.registrySecretName,
+		GUID:      packageGUID,
+		SpaceGUID: record.SpaceGUID,
+		ImageRef:  uploadedImageRef,
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling UpdatePackageSource")

@@ -19,17 +19,9 @@
         "generateIngressCertificates": {
           "description": "create self-signed certificates for ingress using cert-manager",
           "type": "boolean"
-        },
-        "packageRegistrySecret": {
-          "description": "name of the secret containing credentials to access the package registry",
-          "type": "string"
         }
       },
-      "required": [
-        "rootNamespace",
-        "defaultAppDomainName",
-        "packageRegistrySecret"
-      ],
+      "required": ["rootNamespace", "defaultAppDomainName"],
       "type": "object"
     },
     "include": {
@@ -153,6 +145,14 @@
     },
     "packageRepositoryPrefix": {
       "description": "prefix of full path to docker image used to store package",
+      "type": "string"
+    },
+    "packageRegistryServiceAccount": {
+      "description": "name of the service account having permission to push to package images. Leave blank to let helm create the account using `packageRegistrySecret` for imagePullSecrets. You will generally need to set this if creating the service account externally to associate with an IAM role with push permissions.",
+      "type": "string"
+    },
+    "packageRegistrySecret": {
+      "description": "name of secret (that will be provided outside of helm) with push permissions to the package repository. This is used only when helm creates the package registry service account above",
       "type": "string"
     },
     "userCertificateExpirationWarningDuration": {

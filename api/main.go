@@ -153,7 +153,7 @@ func main() {
 		privilegedK8sClient,
 		userClientFactory,
 		config.RootNamespace,
-		config.PackageRegistrySecretName,
+		config.PackageRegistryServiceAccount,
 		registryCAPath,
 		reporegistry.NewImageBuilder(),
 		reporegistry.NewImagePusher(remote.Write),
@@ -217,7 +217,6 @@ func main() {
 			imageRepo,
 			decoderValidator,
 			config.PackageRegistryBase,
-			config.PackageRegistrySecretName,
 		),
 		handlers.NewBuildHandler(
 			*serverURL,
