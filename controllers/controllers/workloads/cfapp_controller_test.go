@@ -46,8 +46,6 @@ var _ = Describe("CFAppReconciler", func() {
 		cfRoutePatchErr           error
 		cfRouteListErr            error
 		cfProcessListErr          error
-		cfTaskListErr             error
-		cfTaskDeleteErr           error
 		cfServiceBindingListErr   error
 		cfServiceBindingDeleteErr error
 
@@ -148,15 +146,6 @@ var _ = Describe("CFAppReconciler", func() {
 			},
 		}
 
-		cfTaskListErr = nil
-		cfTaskList := korifiv1alpha1.CFTaskList{
-			Items: []korifiv1alpha1.CFTask{{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cfTaskGUID",
-					Namespace: defaultNamespace,
-				},
-			}},
-		}
 		cfServiceBindingListErr = nil
 		cfServiceBindingList := korifiv1alpha1.CFServiceBindingList{
 			Items: []korifiv1alpha1.CFServiceBinding{{
@@ -174,9 +163,6 @@ var _ = Describe("CFAppReconciler", func() {
 			case *korifiv1alpha1.CFRouteList:
 				cfRouteList.DeepCopyInto(list)
 				return cfRouteListErr
-			case *korifiv1alpha1.CFTaskList:
-				cfTaskList.DeepCopyInto(list)
-				return cfTaskListErr
 			case *korifiv1alpha1.CFServiceBindingList:
 				cfServiceBindingList.DeepCopyInto(list)
 				return cfServiceBindingListErr
@@ -198,12 +184,9 @@ var _ = Describe("CFAppReconciler", func() {
 			}
 		}
 
-		cfTaskDeleteErr = nil
 		cfServiceBindingDeleteErr = nil
 		fakeClient.DeleteStub = func(ctx context.Context, object client.Object, option ...client.DeleteOption) error {
 			switch object.(type) {
-			case *korifiv1alpha1.CFTask:
-				return cfTaskDeleteErr
 			case *korifiv1alpha1.CFServiceBinding:
 				return cfServiceBindingDeleteErr
 			default:
@@ -528,26 +511,6 @@ var _ = Describe("CFAppReconciler", func() {
 
 				It("return the error", func() {
 					Expect(reconcileErr).To(MatchError("failed to patch CFRoute"))
-				})
-			})
-
-			When("listing the app tasks fails", func() {
-				BeforeEach(func() {
-					cfTaskListErr = errors.New("failed to list CFTask")
-				})
-
-				It("return the error", func() {
-					Expect(reconcileErr).To(MatchError("failed to list CFTask"))
-				})
-			})
-
-			When("deleting an app task fails", func() {
-				BeforeEach(func() {
-					cfTaskDeleteErr = errors.New("failed to delete CFTask")
-				})
-
-				It("return the error", func() {
-					Expect(reconcileErr).To(MatchError("failed to delete CFTask"))
 				})
 			})
 

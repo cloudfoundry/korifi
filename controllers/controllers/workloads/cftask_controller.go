@@ -111,6 +111,11 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 		return ctrl.Result{}, err
 	}
 
+	err = controllerutil.SetOwnerReference(cfApp, cfTask, r.scheme)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	cfDroplet, err := r.getDroplet(ctx, cfTask, cfApp)
 	if err != nil {
 		return ctrl.Result{}, err
