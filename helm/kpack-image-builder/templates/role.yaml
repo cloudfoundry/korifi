@@ -36,12 +36,6 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - builderinfos/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - builderinfos/status
   verbs:
   - get
@@ -57,12 +51,6 @@ rules:
   - list
   - patch
   - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - buildworkloads/finalizers
-  verbs:
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
@@ -95,12 +83,6 @@ rules:
   - list
   - patch
   - watch
-- apiGroups:
-  - kpack.io
-  resources:
-  - images/finalizers
-  verbs:
-  - update
 - apiGroups:
   - kpack.io
   resources:

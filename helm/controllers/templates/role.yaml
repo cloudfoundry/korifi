@@ -200,12 +200,6 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - cfbuilds/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - cfbuilds/status
   verbs:
   - get
@@ -263,12 +257,6 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - cfpackages/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - cfpackages/status
   verbs:
   - get
@@ -286,12 +274,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfprocesses/finalizers
-  verbs:
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
@@ -404,12 +386,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cftasks/finalizers
-  verbs:
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:

@@ -29,12 +29,6 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - appworkloads/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - appworkloads/status
   verbs:
   - get
