@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
@@ -439,12 +437,6 @@ var _ = Describe("BuildHandler", func() {
 				Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
 				Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal(expectedLifecycleBuildpacks))
 				Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
-				Expect(actualCreate.OwnerRef).To(Equal(metav1.OwnerReference{
-					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-					Kind:       "CFPackage",
-					Name:       packageGUID,
-					UID:        packageUID,
-				}))
 			})
 
 			It("returns the Build in the response", func() {

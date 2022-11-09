@@ -19,7 +19,6 @@ import (
 
 var _ = Describe("PackageRepository", func() {
 	const appGUID = "the-app-guid"
-	const appUID = "the-app-uid"
 
 	var (
 		packageRepo *repositories.PackageRepo

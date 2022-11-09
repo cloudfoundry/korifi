@@ -98,7 +98,7 @@ func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logge
 		)
 	}
 
-	buildCreateMessage := payload.ToMessage(appRecord, packageRecord)
+	buildCreateMessage := payload.ToMessage(appRecord)
 
 	record, err := h.buildRepo.CreateBuild(r.Context(), authInfo, buildCreateMessage)
 	if err != nil {

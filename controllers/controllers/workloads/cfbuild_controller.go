@@ -83,6 +83,12 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		return ctrl.Result{}, err
 	}
 
+	err = controllerutil.SetOwnerReference(cfPackage, cfBuild, r.scheme)
+	if err != nil {
+		r.log.Error(err, "unable to set owner reference on CFBuild")
+		return ctrl.Result{}, err
+	}
+
 	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)
 	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 

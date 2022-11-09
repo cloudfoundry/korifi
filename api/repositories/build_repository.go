@@ -213,7 +213,6 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 
 type CreateBuildMessage struct {
 	AppGUID         string
-	OwnerRef        metav1.OwnerReference
 	PackageGUID     string
 	SpaceGUID       string
 	StagingMemoryMB int
@@ -231,9 +230,6 @@ func (m CreateBuildMessage) toCFBuild() korifiv1alpha1.CFBuild {
 			Namespace:   m.SpaceGUID,
 			Labels:      m.Labels,
 			Annotations: m.Annotations,
-			OwnerReferences: []metav1.OwnerReference{
-				m.OwnerRef,
-			},
 		},
 		Spec: korifiv1alpha1.CFBuildSpec{
 			PackageRef: corev1.LocalObjectReference{
