@@ -67,7 +67,6 @@ type CreatePackageMessage struct {
 	Type      string
 	AppGUID   string
 	SpaceGUID string
-	OwnerRef  metav1.OwnerReference
 }
 
 func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
@@ -78,9 +77,8 @@ func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
 			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            guid,
-			Namespace:       message.SpaceGUID,
-			OwnerReferences: []metav1.OwnerReference{message.OwnerRef},
+			Name:      guid,
+			Namespace: message.SpaceGUID,
 		},
 		Spec: korifiv1alpha1.CFPackageSpec{
 			Type: korifiv1alpha1.PackageType(message.Type),

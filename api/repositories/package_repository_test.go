@@ -45,12 +45,6 @@ var _ = Describe("PackageRepository", func() {
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: space.Name,
-				OwnerRef: metav1.OwnerReference{
-					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-					Kind:       "CFApp",
-					Name:       appGUID,
-					UID:        appUID,
-				},
 			}
 		})
 
@@ -92,15 +86,6 @@ var _ = Describe("PackageRepository", func() {
 				Expect(createdCFPackage.Namespace).To(Equal(space.Name))
 				Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("bits")))
 				Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(appGUID))
-				Expect(createdCFPackage.ObjectMeta.OwnerReferences).To(Equal(
-					[]metav1.OwnerReference{
-						{
-							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-							Kind:       "CFApp",
-							Name:       appGUID,
-							UID:        appUID,
-						},
-					}))
 			})
 		})
 	})
