@@ -255,11 +255,6 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, cfApp *korifiv1alph
 		return err
 	}
 
-	err = r.finalizeCFAppTasks(ctx, cfApp)
-	if err != nil {
-		return err
-	}
-
 	err = r.finalizeCFServiceBindings(ctx, cfApp)
 	if err != nil {
 		return err
@@ -278,23 +273,6 @@ func (r *CFAppReconciler) finalizeCFAppRoutes(ctx context.Context, cfApp *korifi
 	err = r.updateRouteDestinations(ctx, cfApp.Name, cfRoutes)
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (r *CFAppReconciler) finalizeCFAppTasks(ctx context.Context, cfApp *korifiv1alpha1.CFApp) error {
-	tasksList := korifiv1alpha1.CFTaskList{}
-	err := r.k8sClient.List(ctx, &tasksList, client.InNamespace(cfApp.Namespace), client.MatchingFields{shared.IndexAppTasks: cfApp.Name})
-	if err != nil {
-		return err
-	}
-
-	for i := range tasksList.Items {
-		err = r.k8sClient.Delete(ctx, &tasksList.Items[i])
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

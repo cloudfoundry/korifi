@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -185,32 +186,44 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
+		It("sets the app to be the task owner", func() {
+			Eventually(func(g Gomega) {
+				task := &korifiv1alpha1.CFTask{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, task)).To(Succeed())
+				g.Expect(task.GetOwnerReferences()).To(ConsistOf(HaveField("Name", cfApp.Name)))
+			}).Should(Succeed())
+		})
+
 		It("creates an TaskWorkload", func() {
-			var taskWorkloads korifiv1alpha1.TaskWorkloadList
-			Eventually(func() ([]korifiv1alpha1.TaskWorkload, error) {
-				err := k8sClient.List(
-					ctx,
-					&taskWorkloads,
+			var taskWorkload korifiv1alpha1.TaskWorkload
+			Eventually(func(g Gomega) {
+				var taskWorkloads korifiv1alpha1.TaskWorkloadList
+				g.Expect(k8sClient.List(ctx, &taskWorkloads,
 					client.InNamespace(ns),
 					client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
-				)
-				return taskWorkloads.Items, err
-			}).Should(HaveLen(1))
+				)).To(Succeed())
+				g.Expect(taskWorkloads.Items).To(HaveLen(1))
 
-			Expect(taskWorkloads.Items[0].Name).To(Equal(cfTask.Name))
-			Expect(taskWorkloads.Items[0].Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
-			Expect(taskWorkloads.Items[0].Spec.Image).To(Equal("registry.io/my/image"))
-			Expect(taskWorkloads.Items[0].Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
-			Expect(taskWorkloads.Items[0].Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
-			Expect(taskWorkloads.Items[0].Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
-			Expect(taskWorkloads.Items[0].Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))
-			Expect(taskWorkloads.Items[0].Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))
-			Expect(taskWorkloads.Items[0].Spec.Resources.Requests.Cpu().String()).To(Equal("75m"))
+				taskWorkload = taskWorkloads.Items[0]
+				g.Expect(taskWorkload.Name).To(Equal(cfTask.Name))
+				g.Expect(taskWorkload.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
+				g.Expect(taskWorkload.Spec.Image).To(Equal("registry.io/my/image"))
+				g.Expect(taskWorkload.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
+				g.Expect(taskWorkload.Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
+				g.Expect(taskWorkload.Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
+				g.Expect(taskWorkload.Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))
+				g.Expect(taskWorkload.Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))
+				g.Expect(taskWorkload.Spec.Resources.Requests.Cpu().String()).To(Equal("75m"))
+				g.Expect(taskWorkload.GetOwnerReferences()).To(ConsistOf(SatisfyAll(
+					HaveField("Name", cfTask.Name),
+					HaveField("Controller", PointTo(BeTrue())),
+				)))
+			}).Should(Succeed())
 
 			// refresh the VCAPServicesSecretName
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 
-			Expect(taskWorkloads.Items[0].Spec.Env).To(ConsistOf(
+			Expect(taskWorkload.Spec.Env).To(ConsistOf(
 				corev1.EnvVar{
 					Name: "BOB",
 					ValueFrom: &corev1.EnvVarSource{
@@ -249,26 +262,24 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		When("the task workload status condition changes", func() {
 			JustBeforeEach(func() {
-				var taskWorkloads korifiv1alpha1.TaskWorkloadList
-				Eventually(func() ([]korifiv1alpha1.TaskWorkload, error) {
-					err := k8sClient.List(
-						ctx,
-						&taskWorkloads,
+				Eventually(func(g Gomega) {
+					var taskWorkloads korifiv1alpha1.TaskWorkloadList
+					g.Expect(k8sClient.List(ctx, &taskWorkloads,
 						client.InNamespace(ns),
 						client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
-					)
-					return taskWorkloads.Items, err
-				}).Should(HaveLen(1))
+					)).To(Succeed())
+					g.Expect(taskWorkloads.Items).To(HaveLen(1))
 
-				modifiedTaskWorkload := taskWorkloads.Items[0].DeepCopy()
-				meta.SetStatusCondition(&modifiedTaskWorkload.Status.Conditions, metav1.Condition{
-					Type:    korifiv1alpha1.TaskStartedConditionType,
-					Status:  metav1.ConditionTrue,
-					Reason:  "task_started",
-					Message: "task started",
-				})
-
-				Expect(k8sClient.Status().Patch(ctx, modifiedTaskWorkload, client.MergeFrom(&taskWorkloads.Items[0]))).To(Succeed())
+					modifiedTaskWorkload := taskWorkloads.Items[0].DeepCopy()
+					g.Expect(k8s.Patch(ctx, k8sClient, modifiedTaskWorkload, func() {
+						meta.SetStatusCondition(&modifiedTaskWorkload.Status.Conditions, metav1.Condition{
+							Type:    korifiv1alpha1.TaskStartedConditionType,
+							Status:  metav1.ConditionTrue,
+							Reason:  "task_started",
+							Message: "task started",
+						})
+					})).To(Succeed())
+				}).Should(Succeed())
 			})
 
 			It("reflects the status in the korifi task", func() {

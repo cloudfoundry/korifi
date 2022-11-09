@@ -600,32 +600,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			}))
 		})
 
-		When("the app is referenced by tasks", func() {
-			BeforeEach(func() {
-				cfTask := korifiv1alpha1.CFTask{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      PrefixedGUID("task"),
-						Namespace: namespaceGUID,
-					},
-					Spec: korifiv1alpha1.CFTaskSpec{
-						Command: "sleep 1000",
-						AppRef: corev1.LocalObjectReference{
-							Name: cfAppGUID,
-						},
-					},
-				}
-				Expect(k8sClient.Create(context.Background(), &cfTask)).To(Succeed())
-			})
-
-			It("deletes the referencing tasks", func() {
-				Eventually(func(g Gomega) {
-					tasksList := korifiv1alpha1.CFTaskList{}
-					g.Expect(k8sClient.List(context.Background(), &tasksList, client.InNamespace(namespaceGUID))).To(Succeed())
-					g.Expect(tasksList.Items).To(BeEmpty())
-				}).Should(Succeed())
-			})
-		})
-
 		When("the app is referenced by service bindings", func() {
 			BeforeEach(func() {
 				cfServiceBinding := korifiv1alpha1.CFServiceBinding{
