@@ -72,7 +72,6 @@ type BuilderInfoReconciler struct {
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/status,verbs=get;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get

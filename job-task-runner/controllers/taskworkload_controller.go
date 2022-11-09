@@ -60,7 +60,6 @@ type TaskWorkloadReconciler struct {
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/status,verbs=get;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;get;list;watch
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 

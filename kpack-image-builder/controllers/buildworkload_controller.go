@@ -117,11 +117,9 @@ type BuildWorkloadReconciler struct {
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/status,verbs=get;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups=kpack.io,resources=images,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;patch
-//+kubebuilder:rbac:groups=kpack.io,resources=images/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
