@@ -146,12 +146,6 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	}
 
 	if succeededStatus == nil {
-		err := r.ensureKpackImageRequirements(ctx, buildWorkload)
-		if err != nil {
-			r.log.Info("Kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
-			return ctrl.Result{}, err
-		}
-
 		return ctrl.Result{}, r.createKpackImageAndUpdateStatus(ctx, buildWorkload)
 	}
 
@@ -179,16 +173,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 			Message: "Image built successfully",
 		})
 
-		serviceAccountName := kpackServiceAccount
-		serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: buildWorkload.Namespace}
-		foundServiceAccount := corev1.ServiceAccount{}
-		err = r.k8sClient.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
-		if err != nil {
-			r.log.Error(err, "Error when fetching kpack ServiceAccount")
-			return ctrl.Result{}, err
-		}
-
-		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
+		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackImage)
 		if err != nil {
 			r.log.Error(err, "Error when compiling the DropletStatus")
 			return ctrl.Result{}, err
@@ -196,17 +181,6 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
-	for _, secret := range buildWorkload.Spec.Source.Registry.ImagePullSecrets {
-		err := r.k8sClient.Get(ctx, types.NamespacedName{Namespace: buildWorkload.Namespace, Name: secret.Name}, &corev1.Secret{})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
@@ -232,8 +206,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 			ServiceAccountName: serviceAccountName,
 			Source: corev1alpha1.SourceConfig{
 				Registry: &corev1alpha1.Registry{
-					Image:            buildWorkload.Spec.Source.Registry.Image,
-					ImagePullSecrets: buildWorkload.Spec.Source.Registry.ImagePullSecrets,
+					Image: buildWorkload.Spec.Source.Registry.Image,
 				},
 			},
 			Build: &buildv1alpha2.ImageBuild{
@@ -282,7 +255,7 @@ func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Contex
 	return nil
 }
 
-func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*korifiv1alpha1.BuildDropletStatus, error) {
+func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image) (*korifiv1alpha1.BuildDropletStatus, error) {
 	imageRef := kpackImage.Status.LatestImage
 
 	credentials, err := r.registryAuthFetcher(ctx, kpackImage.Namespace)
@@ -306,8 +279,7 @@ func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpa
 
 	return &korifiv1alpha1.BuildDropletStatus{
 		Registry: korifiv1alpha1.Registry{
-			Image:            imageRef,
-			ImagePullSecrets: imagePullSecrets,
+			Image: imageRef,
 		},
 
 		Stack: kpackImage.Status.LatestStack,

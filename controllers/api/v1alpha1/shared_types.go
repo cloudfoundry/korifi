@@ -1,9 +1,5 @@
 package v1alpha1
 
-import (
-	corev1 "k8s.io/api/core/v1"
-)
-
 const (
 	CFAppGUIDLabelKey       = "korifi.cloudfoundry.org/app-guid"
 	CFAppRevisionKey        = "korifi.cloudfoundry.org/app-rev"
@@ -52,8 +48,6 @@ type LifecycleData struct {
 type Registry struct {
 	// The location of the source image
 	Image string `json:"image"`
-	// A list of secrets required to pull the image from its repository
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 // RequiredLocalObjectReference is a reference to an object in the same namespace.

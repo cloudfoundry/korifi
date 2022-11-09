@@ -53,9 +53,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		cfDropletCopy.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 			Registry: korifiv1alpha1.Registry{
 				Image: "registry.io/my/image",
-				ImagePullSecrets: []corev1.LocalObjectReference{{
-					Name: "registry-secret",
-				}},
 			},
 			ProcessTypes: []korifiv1alpha1.ProcessType{{
 				Type:    "web",
@@ -200,7 +197,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(taskWorkloads.Items[0].Name).To(Equal(cfTask.Name))
 			Expect(taskWorkloads.Items[0].Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 			Expect(taskWorkloads.Items[0].Spec.Image).To(Equal("registry.io/my/image"))
-			Expect(taskWorkloads.Items[0].Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
 			Expect(taskWorkloads.Items[0].Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
 			Expect(taskWorkloads.Items[0].Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
 			Expect(taskWorkloads.Items[0].Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))

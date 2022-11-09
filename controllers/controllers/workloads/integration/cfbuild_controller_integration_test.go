@@ -398,8 +398,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					Spec: korifiv1alpha1.BuildWorkloadSpec{
 						Source: korifiv1alpha1.PackageSource{
 							Registry: korifiv1alpha1.Registry{
-								Image:            "not-an-image",
-								ImagePullSecrets: nil,
+								Image: "not-an-image",
 							},
 						},
 					},
@@ -431,7 +430,6 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 	When("CFBuild status conditions Staging=True and others are unknown", func() {
 		BeforeEach(func() {
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
-			desiredCFPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: wellFormedRegistryCredentialsSecret}}
 			Expect(k8sClient.Create(context.Background(), desiredCFPackage)).To(Succeed())
 
 			cfBuildGUID = PrefixedGUID("cf-build")
@@ -493,8 +491,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				setBuildWorkloadStatus(workload, succeededConditionType, "True")
 				workload.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 					Registry: korifiv1alpha1.Registry{
-						Image:            buildImageRef,
-						ImagePullSecrets: []corev1.LocalObjectReference{{Name: imagePullSecretName}},
+						Image: buildImageRef,
 					},
 					Stack:        buildStack,
 					Ports:        returnedPorts,
@@ -524,7 +521,6 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				}).ShouldNot(BeNil())
 
 				Expect(createdCFBuild.Status.Droplet.Registry.Image).To(Equal(buildImageRef))
-				Expect(createdCFBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imagePullSecretName}))
 				Expect(createdCFBuild.Status.Droplet.Stack).To(Equal(buildStack))
 				Expect(createdCFBuild.Status.Droplet.ProcessTypes).To(Equal(returnedProcessTypes))
 				Expect(createdCFBuild.Status.Droplet.Ports).To(Equal(returnedPorts))

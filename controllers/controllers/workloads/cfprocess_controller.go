@@ -237,7 +237,6 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	desiredAppWorkload.Spec.Command = commandForProcess(cfProcess, cfApp)
 	desiredAppWorkload.Spec.AppGUID = cfApp.Name
 	desiredAppWorkload.Spec.Image = cfBuild.Status.Droplet.Registry.Image
-	desiredAppWorkload.Spec.ImagePullSecrets = cfBuild.Status.Droplet.Registry.ImagePullSecrets
 	desiredAppWorkload.Spec.Ports = cfProcess.Spec.Ports
 	if cfProcess.Spec.DesiredInstances != nil {
 		desiredAppWorkload.Spec.Instances = int32(*cfProcess.Spec.DesiredInstances)

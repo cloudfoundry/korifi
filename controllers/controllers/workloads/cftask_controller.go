@@ -248,7 +248,6 @@ func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask
 
 		taskWorkload.Spec.Command = []string{LifecycleLauncherPath, cfTask.Spec.Command}
 		taskWorkload.Spec.Image = cfDroplet.Status.Droplet.Registry.Image
-		taskWorkload.Spec.ImagePullSecrets = cfDroplet.Status.Droplet.Registry.ImagePullSecrets
 
 		if taskWorkload.Spec.Resources.Requests == nil {
 			taskWorkload.Spec.Resources.Requests = corev1.ResourceList{}

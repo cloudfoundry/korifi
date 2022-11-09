@@ -136,7 +136,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.Spec.GUID).To(Equal(cfProcess.Name))
 				g.Expect(appWorkload.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]))
 				g.Expect(appWorkload.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image))
-				g.Expect(appWorkload.Spec.ImagePullSecrets).To(Equal(cfBuild.Status.Droplet.Registry.ImagePullSecrets))
 				g.Expect(appWorkload.Spec.ProcessType).To(Equal(processTypeWeb))
 				g.Expect(appWorkload.Spec.AppGUID).To(Equal(cfApp.Name))
 				g.Expect(appWorkload.Spec.Ports).To(Equal(cfProcess.Spec.Ports))
@@ -347,7 +346,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					},
 				},
 				Spec: korifiv1alpha1.AppWorkloadSpec{
-					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "some-image-pull-secret"}},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceMemory:           resource.MustParse("1Mi"),

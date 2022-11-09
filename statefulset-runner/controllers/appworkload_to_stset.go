@@ -124,8 +124,7 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 			Replicas:            &appWorkload.Spec.Instances,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					Containers:       containers,
-					ImagePullSecrets: appWorkload.Spec.ImagePullSecrets,
+					Containers: containers,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: tools.PtrTo(true),
 					},

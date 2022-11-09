@@ -43,9 +43,6 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(512, resource.Mega),
 					},
 				},
-				ImagePullSecrets: []corev1.LocalObjectReference{{
-					Name: "my-image-secret",
-				}},
 			},
 		}
 	})

@@ -86,8 +86,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		source = korifiv1alpha1.PackageSource{
 			Registry: korifiv1alpha1.Registry{
-				Image:            "PACKAGE_IMAGE",
-				ImagePullSecrets: []corev1.LocalObjectReference{{Name: wellFormedRegistryCredentialsSecret}},
+				Image: "PACKAGE_IMAGE",
 			},
 		}
 
@@ -108,7 +107,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		It("creates a kpack image with the source, env and services set", func() {
 			eventuallyKpackImageShould(func(kpackImage *buildv1alpha2.Image, g Gomega) {
 				g.Expect(kpackImage.Spec.Source.Registry.Image).To(BeEquivalentTo(source.Registry.Image))
-				g.Expect(kpackImage.Spec.Source.Registry.ImagePullSecrets).To(BeEquivalentTo(source.Registry.ImagePullSecrets))
 				g.Expect(kpackImage.Spec.Build.Env).To(Equal(env))
 				g.Expect(kpackImage.Spec.Build.Services).To(BeEquivalentTo(services))
 			})
@@ -144,8 +142,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						ServiceAccountName: "my-service-account",
 						Source: corev1alpha1.SourceConfig{
 							Registry: &corev1alpha1.Registry{
-								Image:            "not-an-image",
-								ImagePullSecrets: nil,
+								Image: "not-an-image",
 							},
 						},
 					},
@@ -161,24 +158,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
 				}).Should(Succeed())
-			})
-		})
-
-		When("the source image pull secret doesn't exist", func() {
-			var nonExistentSecret string
-
-			BeforeEach(func() {
-				nonExistentSecret = PrefixedGUID("no-such-secret")
-				source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{
-					{Name: nonExistentSecret},
-				}
-			})
-
-			It("doesn't create the kpack Image as long as the secret is missing", func() {
-				Consistently(func(g Gomega) bool {
-					lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-					return errors.IsNotFound(k8sClient.Get(context.Background(), lookupKey, new(buildv1alpha2.Image)))
-				}).Should(BeTrue())
 			})
 		})
 
@@ -350,7 +329,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Expect(fakeImageProcessFetcher.CallCount()).To(BeNumerically(">=", 1))
 				Expect(updatedBuildWorkload.Status.Droplet.Registry.Image).To(Equal(kpackBuildImageRef), "droplet registry image does not match kpack image latestImage")
 				Expect(updatedBuildWorkload.Status.Droplet.Stack).To(Equal(kpackImageLatestStack), "droplet stack does not match kpack image latestStack")
-				Expect(updatedBuildWorkload.Status.Droplet.Registry.ImagePullSecrets).To(Equal(source.Registry.ImagePullSecrets))
 				Expect(updatedBuildWorkload.Status.Droplet.ProcessTypes).To(Equal(returnedProcessTypes))
 				Expect(updatedBuildWorkload.Status.Droplet.Ports).To(Equal(returnedPorts))
 			})
@@ -451,8 +429,7 @@ func buildKpackImageObject(name string, namespace string, source korifiv1alpha1.
 			ServiceAccountName: "kpack-service-account",
 			Source: corev1alpha1.SourceConfig{
 				Registry: &corev1alpha1.Registry{
-					Image:            source.Registry.Image,
-					ImagePullSecrets: source.Registry.ImagePullSecrets,
+					Image: source.Registry.Image,
 				},
 			},
 			Build: &buildv1alpha2.ImageBuild{

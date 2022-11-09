@@ -99,10 +99,6 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Spec.Template.Spec.Containers[0].Image).To(Equal(appWorkload.Spec.Image))
 	})
 
-	It("should copy the image pull secrets", func() {
-		Expect(statefulSet.Spec.Template.Spec.ImagePullSecrets).To(ContainElements(appWorkload.Spec.ImagePullSecrets))
-	})
-
 	It("should set the command", func() {
 		Expect(statefulSet.Spec.Template.Spec.Containers[0].Command).To(ContainElements(appWorkload.Spec.Command))
 	})

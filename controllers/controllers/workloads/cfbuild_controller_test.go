@@ -386,8 +386,7 @@ func mockBuildWorkloadResource(guid string, namespace string) *korifiv1alpha1.Bu
 		Spec: korifiv1alpha1.BuildWorkloadSpec{
 			Source: korifiv1alpha1.PackageSource{
 				Registry: korifiv1alpha1.Registry{
-					Image:            "image-path",
-					ImagePullSecrets: nil,
+					Image: "image-path",
 				},
 			},
 		},

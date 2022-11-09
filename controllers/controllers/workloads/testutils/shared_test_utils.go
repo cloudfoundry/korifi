@@ -111,8 +111,7 @@ func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *korifiv
 			},
 			Source: korifiv1alpha1.PackageSource{
 				Registry: korifiv1alpha1.Registry{
-					Image:            "PACKAGE_IMAGE",
-					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-registry-image-pull-secret"}},
+					Image: "PACKAGE_IMAGE",
 				},
 			},
 		},
@@ -159,8 +158,7 @@ func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dr
 	}
 	return &korifiv1alpha1.BuildDropletStatus{
 		Registry: korifiv1alpha1.Registry{
-			Image:            "image/registry/url",
-			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "some-image-pull-secret"}},
+			Image: "image/registry/url",
 		},
 		Stack:        "cflinuxfs3",
 		ProcessTypes: dropletProcessTypes,
@@ -240,8 +238,7 @@ func SetStatusCondition(conditions *[]metav1.Condition, conditionType string, st
 func UpdateCFBuildWithDropletStatus(cfbuild *korifiv1alpha1.CFBuild) {
 	cfbuild.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 		Registry: korifiv1alpha1.Registry{
-			Image:            "my-image",
-			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "some-image-pull-secret"}},
+			Image: "my-image",
 		},
 		Stack: "cflinuxfs3",
 		ProcessTypes: []korifiv1alpha1.ProcessType{

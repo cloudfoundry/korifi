@@ -239,21 +239,6 @@ spec:
                       image:
                         description: The location of the source image
                         type: string
-                      imagePullSecrets:
-                        description: A list of secrets required to pull the image
-                          from its repository
-                        items:
-                          description: LocalObjectReference contains enough information
-                            to let you locate the referenced object inside the same
-                            namespace.
-                          properties:
-                            name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Add other useful fields. apiVersion, kind, uid?'
-                              type: string
-                          type: object
-                          x-kubernetes-map-type: atomic
-                        type: array
                     required:
                     - image
                     type: object
@@ -369,21 +354,6 @@ spec:
                       image:
                         description: The location of the source image
                         type: string
-                      imagePullSecrets:
-                        description: A list of secrets required to pull the image
-                          from its repository
-                        items:
-                          description: LocalObjectReference contains enough information
-                            to let you locate the referenced object inside the same
-                            namespace.
-                          properties:
-                            name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Add other useful fields. apiVersion, kind, uid?'
-                              type: string
-                          type: object
-                          x-kubernetes-map-type: atomic
-                        type: array
                     required:
                     - image
                     type: object

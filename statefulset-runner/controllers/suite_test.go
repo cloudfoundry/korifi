@@ -38,11 +38,10 @@ func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 			Namespace: namespace,
 		},
 		Spec: korifiv1alpha1.AppWorkloadSpec{
-			AppGUID:          "premium_app_guid_1234",
-			GUID:             "guid_1234",
-			Version:          "version_1234",
-			Image:            "gcr.io/foo/bar",
-			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "some-secret-name"}},
+			AppGUID: "premium_app_guid_1234",
+			GUID:    "guid_1234",
+			Version: "version_1234",
+			Image:   "gcr.io/foo/bar",
 			Command: []string{
 				"/bin/sh",
 				"-c",

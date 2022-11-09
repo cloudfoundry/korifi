@@ -39,9 +39,6 @@ type TaskWorkloadSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets"`
-
-	// +kubebuilder:validation:Optional
 	Env []corev1.EnvVar `json:"env"`
 }
 

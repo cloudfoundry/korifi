@@ -80,8 +80,7 @@ var _ = Describe("CFTask Controller", func() {
 		dropletRef = "the-droplet-guid"
 		droplet = &korifiv1alpha1.BuildDropletStatus{
 			Registry: korifiv1alpha1.Registry{
-				Image:            "the-image",
-				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "registry-secret"}},
+				Image: "the-image",
 			},
 		}
 		cfTask = korifiv1alpha1.CFTask{
@@ -206,7 +205,6 @@ var _ = Describe("CFTask Controller", func() {
 			Expect(taskWorkload.Namespace).To(Equal("the-task-namespace"))
 			Expect(taskWorkload.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFTaskGUIDLabelKey, "the-task-guid"))
 			Expect(taskWorkload.Spec.Image).To(Equal("the-image"))
-			Expect(taskWorkload.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
 			Expect(taskWorkload.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 			Expect(taskWorkload.Spec.Resources.Requests.Memory()).To(Equal(resource.NewScaledQuantity(256, resource.Mega)))
 			Expect(taskWorkload.Spec.Resources.Limits.Memory()).To(Equal(resource.NewScaledQuantity(256, resource.Mega)))

@@ -164,8 +164,7 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 			},
 			Source: korifiv1alpha1.PackageSource{
 				Registry: korifiv1alpha1.Registry{
-					Image:            cfPackage.Spec.Source.Registry.Image,
-					ImagePullSecrets: cfPackage.Spec.Source.Registry.ImagePullSecrets,
+					Image: cfPackage.Spec.Source.Registry.Image,
 				},
 			},
 			BuilderName: r.controllerConfig.BuilderName,

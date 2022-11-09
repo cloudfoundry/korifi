@@ -158,7 +158,6 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 						RunAsNonRoot: tools.PtrTo(true),
 					},
 					AutomountServiceAccountToken: tools.PtrTo(false),
-					ImagePullSecrets:             taskWorkload.Spec.ImagePullSecrets,
 					Containers: []corev1.Container{{
 						Name:      workloadContainerName,
 						Image:     taskWorkload.Spec.Image,
