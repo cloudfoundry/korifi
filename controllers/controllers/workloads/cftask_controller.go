@@ -46,7 +46,6 @@ const (
 	LifecycleLauncherPath = "/cnb/lifecycle/launcher"
 )
 
-//counterfeiter:generate -o fake -fake-name SeqIdGenerator . SeqIdGenerator
 type SeqIdGenerator interface {
 	Generate() (int64, error)
 }
