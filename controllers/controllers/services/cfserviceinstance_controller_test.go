@@ -2,97 +2,128 @@ package services_test
 
 import (
 	"context"
-	"errors"
 
-	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	. "github.com/onsi/gomega/gstruct"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
-	"code.cloudfoundry.org/korifi/tools/k8s"
-
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("CFServiceInstance.Reconcile", func() {
+var _ = Describe("CFServiceInstance", func() {
 	var (
-		cfServiceInstance               *korifiv1alpha1.CFServiceInstance
-		cfServiceInstanceSecret         *corev1.Secret
-		getCFServiceInstanceSecretError error
-
-		cfServiceInstanceReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance]
-		ctx                         context.Context
-		req                         ctrl.Request
-
-		reconcileErr error
+		namespace         *corev1.Namespace
+		secret            *corev1.Secret
+		cfServiceInstance *korifiv1alpha1.CFServiceInstance
 	)
 
 	BeforeEach(func() {
-		getCFServiceInstanceSecretError = nil
+		namespace = BuildNamespaceObject(GenerateGUID())
+		Expect(
+			k8sClient.Create(context.Background(), namespace),
+		).To(Succeed())
 
-		cfServiceInstance = new(korifiv1alpha1.CFServiceInstance)
-		cfServiceInstanceSecret = new(corev1.Secret)
-
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
-			switch obj := obj.(type) {
-			case *korifiv1alpha1.CFServiceInstance:
-				cfServiceInstance.DeepCopyInto(obj)
-				return nil
-			case *corev1.Secret:
-				cfServiceInstanceSecret.DeepCopyInto(obj)
-				return getCFServiceInstanceSecretError
-			default:
-				panic("TestClient Get provided an unexpected object type")
-			}
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret-name",
+				Namespace: namespace.Name,
+			},
+			StringData: map[string]string{"foo": "bar"},
 		}
 
-		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+		Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
-		cfServiceInstanceReconciler = NewCFServiceInstanceReconciler(
-			fakeClient,
-			scheme.Scheme,
-			zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)),
-		)
-		ctx = context.Background()
-		req = ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "make-this-a-guid",
-				Namespace: "make-this-a-guid-too",
+		cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "service-instance-guid",
+				Namespace: namespace.Name,
+			},
+			Spec: korifiv1alpha1.CFServiceInstanceSpec{
+				DisplayName: "service-instance-name",
+				Type:        "user-provided",
+				Tags:        []string{},
+				SecretName:  secret.Name,
 			},
 		}
 	})
 
-	JustBeforeEach(func() {
-		_, reconcileErr = cfServiceInstanceReconciler.Reconcile(ctx, req)
+	AfterEach(func() {
+		Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 	})
 
-	When("the API errors fetching the secret", func() {
+	JustBeforeEach(func() {
+		Expect(k8sClient.Create(context.Background(), cfServiceInstance)).To(Succeed())
+	})
+
+	It("sets the BindingSecretAvailable condition to true in the CFServiceInstance status", func() {
+		Eventually(func(g Gomega) {
+			updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+			serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
+			err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("secret-name"))
+			g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Type":    Equal("BindingSecretAvailable"),
+				"Status":  Equal(metav1.ConditionTrue),
+				"Reason":  Equal("SecretFound"),
+				"Message": Equal(""),
+			})))
+		}).Should(Succeed())
+	})
+
+	When("the referenced secret does not exist", func() {
 		BeforeEach(func() {
-			getCFServiceInstanceSecretError = errors.New("some random error")
+			cfServiceInstance.Spec.SecretName = "other-secret-name"
 		})
 
-		It("errors, and updates status", func() {
-			Expect(reconcileErr).To(HaveOccurred())
+		It("sets the BindingSecretAvailable condition to false in the CFServiceInstance status", func() {
+			Eventually(func(g Gomega) {
+				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+				serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
+				err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
+				g.Expect(err).NotTo(HaveOccurred())
 
-			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
-			_, serviceInstanceObj, _, _ := fakeStatusWriter.PatchArgsForCall(0)
-			updatedCFServiceInstance, ok := serviceInstanceObj.(*korifiv1alpha1.CFServiceInstance)
-			Expect(ok).To(BeTrue())
+				g.Expect(updatedCFServiceInstance.Status.Binding).To(BeZero())
+				g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Type":    Equal("BindingSecretAvailable"),
+					"Status":  Equal(metav1.ConditionFalse),
+					"Reason":  Equal("SecretNotFound"),
+					"Message": Equal("Binding secret does not exist"),
+				})))
+			}).Should(Succeed())
+		})
 
-			Expect(updatedCFServiceInstance.Status.Binding).To(BeZero())
-			Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-				"Type":    Equal("BindingSecretAvailable"),
-				"Status":  Equal(metav1.ConditionFalse),
-				"Reason":  Equal("UnknownError"),
-				"Message": Equal("Error occurred while fetching secret: " + getCFServiceInstanceSecretError.Error()),
-			})))
+		When("the referenced secret is created afterwards", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Create(context.Background(), &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "other-secret-name",
+						Namespace: namespace.Name,
+					},
+				})).To(Succeed())
+			})
+
+			It("sets the BindingSecretAvailable condition to true in the CFServiceInstance status", func() {
+				Eventually(func(g Gomega) {
+					updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+					serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
+					err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
+					g.Expect(err).NotTo(HaveOccurred())
+
+					g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("other-secret-name"))
+					g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+						"Type":    Equal("BindingSecretAvailable"),
+						"Status":  Equal(metav1.ConditionTrue),
+						"Reason":  Equal("SecretFound"),
+						"Message": Equal(""),
+					})))
+				}).Should(Succeed())
+			})
 		})
 	})
 })

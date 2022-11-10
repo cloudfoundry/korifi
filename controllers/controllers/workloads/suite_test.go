@@ -1,4 +1,4 @@
-package integration_test
+package workloads_test
 
 import (
 	"context"
@@ -60,7 +60,7 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "helm", "controllers", "templates", "crds"),
+			filepath.Join("..", "..", "..", "helm", "controllers", "templates", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
