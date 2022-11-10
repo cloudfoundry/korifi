@@ -31,8 +31,6 @@ const (
 	finalizerName             = "cfApp.korifi.cloudfoundry.org"
 )
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-//counterfeiter:generate -o fake -fake-name VCAPServicesSecretBuilder . VCAPServicesSecretBuilder
 type VCAPServicesSecretBuilder interface {
 	BuildVCAPServicesEnvValue(context.Context, *korifiv1alpha1.CFApp) (string, error)
 }
