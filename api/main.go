@@ -5,6 +5,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/blendle/zapdriver"
+	"github.com/fsnotify/fsnotify"
+	"github.com/go-logr/zapr"
+	"go.uber.org/zap"
 	"log"
 	"net/http"
 	"net/url"
@@ -40,7 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var createTimeout = time.Second * 120
@@ -65,6 +68,88 @@ func (w *logrWriter) Write(msg []byte) (int, error) {
 	return len(msg), nil
 }
 
+func newZapLogger(config *config.APIConfig) (logr.Logger, zap.AtomicLevel) {
+	cfg := zapdriver.NewProductionConfig()
+	cfg.EncoderConfig.EncodeDuration = zapcore.StringDurationEncoder // we don't know why this is needed
+	cfg.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	cfg.Level.SetLevel(config.LogLevel)
+	logger, err := cfg.Build()
+	if err != nil {
+		panic(err)
+	}
+	return zapr.NewLogger(logger), cfg.Level
+}
+
+func watchLoggingConfigOrDie(ctx context.Context, watcher *fsnotify.Watcher, configFilepath string, logger logr.Logger, atomicLevel zap.AtomicLevel) error {
+	err := watcher.Add(configFilepath)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				// Channel is closed.
+				if !ok {
+					return
+				}
+
+				logger.V(1).Info("logger level config event", "event", event)
+
+				// Only care about events which may modify the contents of the file.
+				if !(isWrite(event) || isRemove(event) || isCreate(event)) {
+					continue
+				}
+
+				// If the file was removed, re-add the watch.
+				if isRemove(event) {
+					if err := watcher.Add(event.Name); err != nil {
+						logger.Error(err, "error re-watching file")
+					}
+				}
+
+				config, err := config.LoadFromPath(configFilepath)
+				if err != nil {
+					logger.Error(err, "error reading config")
+					continue
+				}
+				if atomicLevel.Level() != config.LogLevel {
+					logger.Info("Updating logging level", "originalLevel", atomicLevel.Level(), "newLevel", config.LogLevel)
+					atomicLevel.SetLevel(config.LogLevel)
+				}
+			case err, ok := <-watcher.Errors:
+				// Channel is closed.
+				if !ok {
+					return
+				}
+
+				logger.Error(err, "logger level watch error")
+			}
+		}
+	}()
+
+	logger.Info("Starting to watch config file at "+configFilepath+" for logger level changes", "currentLevel", atomicLevel.Level())
+
+	<-ctx.Done()
+
+	logger.Info("Stopping log level config watcher")
+
+	return watcher.Close()
+}
+
+func isWrite(event fsnotify.Event) bool {
+	return event.Op&fsnotify.Write == fsnotify.Write
+}
+
+func isCreate(event fsnotify.Event) bool {
+	return event.Op&fsnotify.Create == fsnotify.Create
+}
+
+func isRemove(event fsnotify.Event) bool {
+	return event.Op&fsnotify.Remove == fsnotify.Remove
+}
+
 func main() {
 	configPath, found := os.LookupEnv("APICONFIG")
 	if !found {
@@ -78,14 +163,21 @@ func main() {
 	payloads.DefaultLifecycleConfig = config.DefaultLifecycleConfig
 	k8sClientConfig := config.GenerateK8sClientConfig(ctrl.GetConfigOrDie())
 
-	zapOpts := zap.Options{
-		// TODO: this needs to be configurable
-		Development: false,
-		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
-	}
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
-
+	logger, atomicLevel := newZapLogger(config)
+	ctrl.SetLogger(logger)
 	klog.SetLogger(ctrl.Log)
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		panic(fmt.Sprintf("error creating file watcher: %v", err))
+	}
+
+	go func() {
+		if err2 := watchLoggingConfigOrDie(context.Background(), watcher, configPath, ctrl.Log, atomicLevel); err2 != nil {
+			ctrl.Log.Error(err, "error watching TLS")
+			os.Exit(1)
+		}
+	}()
 
 	privilegedCRClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
 	if err != nil {

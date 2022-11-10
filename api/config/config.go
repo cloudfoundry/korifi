@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
@@ -35,8 +36,9 @@ type APIConfig struct {
 
 	RoleMappings map[string]Role `yaml:"roleMappings"`
 
-	AuthProxyHost   string `yaml:"authProxyHost"`
-	AuthProxyCACert string `yaml:"authProxyCACert"`
+	AuthProxyHost   string        `yaml:"authProxyHost"`
+	AuthProxyCACert string        `yaml:"authProxyCACert"`
+	LogLevel        zapcore.Level `yaml:"logLevel"`
 }
 
 type Role struct {

@@ -7,6 +7,7 @@ require (
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
 	github.com/Masterminds/semver v1.5.0
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
+	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.27.0
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
@@ -93,8 +94,8 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
-	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/go-logr/zapr v1.2.3 // indirect
+	github.com/fsnotify/fsnotify v1.5.4
+	github.com/go-logr/zapr v1.2.3
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.20.0 // indirect
 	github.com/go-openapi/swag v0.21.1 // indirect
