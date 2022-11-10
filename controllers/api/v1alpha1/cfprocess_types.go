@@ -39,6 +39,9 @@ type CFProcessSpec struct {
 	// Command string used to run this process on the app image. This is analogous to command in k8s and ENTRYPOINT in Docker
 	Command string `json:"command,omitempty"`
 
+	// The default command for this process as defined by the build. This field is ignored when the Command field is set
+	DropletCommand string `json:"dropletCommand,omitempty"`
+
 	// Used to build the Liveness and Readiness Probes for the process' AppWorkload.
 	HealthCheck HealthCheck `json:"healthCheck"`
 
