@@ -70,12 +70,6 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		return ctrl.Result{}, err
 	}
 
-	err = controllerutil.SetOwnerReference(cfApp, cfBuild, r.scheme)
-	if err != nil {
-		r.log.Error(err, "unable to set owner reference on CFBuild")
-		return ctrl.Result{}, err
-	}
-
 	cfPackage := new(korifiv1alpha1.CFPackage)
 	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
 	if err != nil {
