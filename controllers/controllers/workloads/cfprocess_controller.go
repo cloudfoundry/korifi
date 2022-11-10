@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-//counterfeiter:generate -o fake -fake-name EnvBuilder . EnvBuilder
 type EnvBuilder interface {
 	BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error)
 }
