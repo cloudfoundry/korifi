@@ -233,8 +233,8 @@ func applyServiceBindingListFilter(serviceBindingList []korifiv1alpha1.CFService
 func toServiceBindingRecords(serviceBindings []korifiv1alpha1.CFServiceBinding) []ServiceBindingRecord {
 	serviceInstanceRecords := make([]ServiceBindingRecord, 0, len(serviceBindings))
 
-	for _, sb := range serviceBindings {
-		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceBindingToRecord(&sb))
+	for i := range serviceBindings {
+		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceBindingToRecord(&serviceBindings[i]))
 	}
 	return serviceInstanceRecords
 }
