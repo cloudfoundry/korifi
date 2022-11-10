@@ -69,7 +69,7 @@ var _ = Describe("CFProcessReconciler Unit Tests", func() {
 		cfBuild = BuildCFBuildObject(testBuildGUID, testNamespace, testPackageGUID, testAppGUID)
 		UpdateCFBuildWithDropletStatus(cfBuild)
 		cfBuildError = nil
-		cfProcess = BuildCFProcessCRObject(testProcessGUID, testNamespace, testAppGUID, testProcessType, testProcessCommand)
+		cfProcess = BuildCFProcessCRObject(testProcessGUID, testNamespace, testAppGUID, testProcessType, testProcessCommand, "")
 		cfProcessError = nil
 
 		appWorkload = nil

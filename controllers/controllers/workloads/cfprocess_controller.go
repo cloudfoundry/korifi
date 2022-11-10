@@ -330,13 +330,17 @@ func generateEnvVars(port int, commonEnv []corev1.EnvVar) []corev1.EnvVar {
 }
 
 func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CFApp) []string {
-	if process.Spec.Command == "" {
-		return []string{}
-	} else if app.Spec.Lifecycle.Type == korifiv1alpha1.BuildpackLifecycle {
-		return []string{"/cnb/lifecycle/launcher", process.Spec.Command}
-	} else {
-		return []string{"/bin/sh", "-c", process.Spec.Command}
+	cmd := process.Spec.Command
+	if cmd == "" {
+		cmd = process.Spec.DropletCommand
 	}
+	if cmd == "" {
+		return []string{}
+	}
+	if app.Spec.Lifecycle.Type == korifiv1alpha1.BuildpackLifecycle {
+		return []string{"/cnb/lifecycle/launcher", cmd}
+	}
+	return []string{"/bin/sh", "-c", cmd}
 }
 
 func makeProbeHandler(cfProcess *korifiv1alpha1.CFProcess, port int) corev1.ProbeHandler {

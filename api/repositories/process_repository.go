@@ -324,12 +324,17 @@ func returnProcesses(processes []korifiv1alpha1.CFProcess) ([]ProcessRecord, err
 func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfProcess.ObjectMeta)
 
+	cmd := cfProcess.Spec.Command
+	if cmd == "" {
+		cmd = cfProcess.Spec.DropletCommand
+	}
+
 	return ProcessRecord{
 		GUID:             cfProcess.Name,
 		SpaceGUID:        cfProcess.Namespace,
 		AppGUID:          cfProcess.Spec.AppRef.Name,
 		Type:             cfProcess.Spec.ProcessType,
-		Command:          cfProcess.Spec.Command,
+		Command:          cmd,
 		DesiredInstances: *cfProcess.Spec.DesiredInstances,
 		MemoryMB:         cfProcess.Spec.MemoryMB,
 		DiskQuotaMB:      cfProcess.Spec.DiskQuotaMB,

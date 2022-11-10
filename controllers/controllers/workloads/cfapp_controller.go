@@ -174,12 +174,8 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 }
 
 func (r *CFAppReconciler) updateCFProcessCommand(ctx context.Context, process *korifiv1alpha1.CFProcess, command string) error {
-	if process.Spec.Command != "" {
-		return nil
-	}
-
 	return k8s.Patch(ctx, r.k8sClient, process, func() {
-		process.Spec.Command = command
+		process.Spec.DropletCommand = command
 	})
 }
 
@@ -193,10 +189,10 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 			},
 		},
 		Spec: korifiv1alpha1.CFProcessSpec{
-			AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
-			ProcessType: process.Type,
-			Command:     process.Command,
-			Ports:       ports,
+			AppRef:         corev1.LocalObjectReference{Name: cfApp.Name},
+			ProcessType:    process.Type,
+			DropletCommand: process.Command,
+			Ports:          ports,
 		},
 	}
 	desiredCFProcess.SetStableName(cfApp.Name)
