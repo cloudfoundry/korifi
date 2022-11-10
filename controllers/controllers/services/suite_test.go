@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package integration_test
+package services_test
 
 import (
 	"context"
@@ -63,8 +63,8 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "helm", "controllers", "templates", "crds"),
-			filepath.Join("..", "..", "..", "..", "tests", "vendor", "service-binding"),
+			filepath.Join("..", "..", "..", "helm", "controllers", "templates", "crds"),
+			filepath.Join("..", "..", "..", "tests", "vendor", "service-binding"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}

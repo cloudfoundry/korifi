@@ -1,4 +1,4 @@
-package integration_test
+package networking_test
 
 import (
 	"context"
