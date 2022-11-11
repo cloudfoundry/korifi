@@ -112,12 +112,6 @@ var _ = Describe("AppWorkload Reconcile", func() {
 			Expect(reconcileErr).NotTo(HaveOccurred())
 		})
 
-		It("converts the app workload to a statefulset", func() {
-			Expect(fakeWorkloadToStSet.ConvertCallCount()).To(Equal(1))
-			actualWorkload := fakeWorkloadToStSet.ConvertArgsForCall(0)
-			Expect(actualWorkload).To(Equal(appWorkload))
-		})
-
 		When("coverting the app workload to statefulset fails", func() {
 			BeforeEach(func() {
 				fakeWorkloadToStSet.ConvertReturns(nil, errors.New("convert-error"))

@@ -39,24 +39,27 @@ func NewBuilder(k8sClient client.Client) *Builder {
 }
 
 func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error) {
-	var appEnvSecret, vcapServicesSecret corev1.Secret
-
+	secrets := []corev1.Secret{}
 	if cfApp.Spec.EnvSecretName != "" {
+		appEnvSecret := corev1.Secret{}
 		err := b.k8sClient.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Spec.EnvSecretName}, &appEnvSecret)
 		if err != nil {
 			return nil, fmt.Errorf("error when trying to fetch app env Secret %s/%s: %w", cfApp.Namespace, cfApp.Spec.EnvSecretName, err)
 		}
+		secrets = append(secrets, appEnvSecret)
 	}
 
 	if cfApp.Status.VCAPServicesSecretName != "" {
+		vcapServicesSecret := corev1.Secret{}
 		err := b.k8sClient.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Status.VCAPServicesSecretName}, &vcapServicesSecret)
 		if err != nil {
 			return nil, fmt.Errorf("error when trying to fetch app env Secret %s/%s: %w", cfApp.Namespace, cfApp.Status.VCAPServicesSecretName, err)
 		}
+		secrets = append(secrets, vcapServicesSecret)
 	}
 
 	// We explicitly order the vcapServicesSecret last so that its "VCAP_SERVICES" contents win
-	return envVarsFromSecrets(appEnvSecret, vcapServicesSecret), nil
+	return envVarsFromSecrets(secrets...), nil
 }
 
 func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (string, error) {
