@@ -62,6 +62,11 @@ var _ = Describe("Kubernetes Patch", func() {
 				Expect(patchedPod.Spec.Containers[0].Image).To(Equal("alpine"))
 			})
 
+			It("patches the original object", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Image).To(Equal("alpine"))
+			})
+
 			When("patching the object fails", func() {
 				var cancel context.CancelFunc
 
@@ -81,6 +86,11 @@ var _ = Describe("Kubernetes Patch", func() {
 			It("patches the object status via the k8s client", func() {
 				Expect(patchErr).NotTo(HaveOccurred())
 				Expect(patchedPod.Status.Message).To(Equal("hello"))
+			})
+
+			It("modifies the status of the original object", func() {
+				Expect(patchErr).NotTo(HaveOccurred())
+				Expect(pod.Status.Message).To(Equal("hello"))
 			})
 		})
 

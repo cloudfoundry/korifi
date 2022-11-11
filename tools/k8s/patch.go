@@ -35,7 +35,7 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 	obj PT,
 	modify func(),
 ) error {
-	originalObj := PT(obj.DeepCopy())
+	objCopy := PT(obj.DeepCopy())
 
 	modify()
 
@@ -50,13 +50,20 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 		return err
 	}
 
-	err = k8sClient.Patch(ctx, obj, client.MergeFrom(originalObj))
+	err = k8sClient.Patch(ctx, obj, client.MergeFrom(objCopy))
 	if err != nil {
 		return err
 	}
 
 	if objHasStatus {
-		return k8sClient.Status().Patch(ctx, modifiedObj, client.MergeFrom(originalObj))
+		err = k8sClient.Status().Patch(ctx, modifiedObj, client.MergeFrom(objCopy))
+		if err != nil {
+			return err
+		}
+
+		// Now that we have patched the status using the intermediate object
+		// copy, we need to set it onto the original
+		return copyInto(modifiedObj, obj)
 	}
 
 	return nil
@@ -98,4 +105,13 @@ func hasStatus(obj runtime.Object) (bool, error) {
 
 	_, hasStatusField := unstructuredObj["status"]
 	return hasStatusField, nil
+}
+
+func copyInto(sourceObj, targetObj runtime.Object) error {
+	unstructuredSource, err := runtime.DefaultUnstructuredConverter.ToUnstructured(sourceObj)
+	if err != nil {
+		return err
+	}
+
+	return runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredSource, targetObj)
 }
