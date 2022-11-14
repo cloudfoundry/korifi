@@ -2,6 +2,8 @@ package k8s
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +31,7 @@ type ObjectWithDeepCopy[T any] interface {
 //
 // Note that this function should be used when current user has permissions to
 // patch both object's spec and status, e.g. in controllers context
-func Patch[T any, PT ObjectWithDeepCopy[T]](
+func PatchWithGenerics[T any, PT ObjectWithDeepCopy[T]](
 	ctx context.Context,
 	k8sClient client.Client,
 	obj PT,
@@ -67,6 +69,62 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 	}
 
 	return nil
+}
+
+func Patch(
+	ctx context.Context,
+	k8sClient client.Client,
+	obj client.Object,
+	modify func(),
+) error {
+	objCopy, err := deepCopyWithReflection(obj)
+	if err != nil {
+		return err
+	}
+
+	modify()
+
+	// Deep copy the original object after the modification is performed so
+	// that we capture status modifications We need to do that because the
+	// object patch below modifies the obj parameter to reflect the state in
+	// etcd, i.e. clears all modifications on the status
+	modifiedObj, err := deepCopyWithReflection(obj)
+	if err != nil {
+		return err
+	}
+
+	objHasStatus, err := hasStatus(obj)
+	if err != nil {
+		return err
+	}
+
+	err = k8sClient.Patch(ctx, obj, client.MergeFrom(objCopy))
+	if err != nil {
+		return err
+	}
+
+	if objHasStatus {
+		err = k8sClient.Status().Patch(ctx, modifiedObj, client.MergeFrom(objCopy))
+		if err != nil {
+			return err
+		}
+
+		// Now that we have patched the status using the intermediate object
+		// copy, we need to set it onto the original
+		return copyInto(modifiedObj, obj)
+	}
+
+	return nil
+}
+
+func deepCopyWithReflection(obj client.Object) (client.Object, error) {
+	result := reflect.ValueOf(obj).MethodByName("DeepCopy").Call([]reflect.Value{})
+	resultObject, ok := result[0].Interface().(client.Object)
+	if !ok {
+		return nil, fmt.Errorf("result %v is not a client.Object", result)
+	}
+
+	return resultObject, nil
 }
 
 // PatchResource updates k8s objects by calling k8s client `Patch`. It does not

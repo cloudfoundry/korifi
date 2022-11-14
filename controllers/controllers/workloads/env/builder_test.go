@@ -8,7 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,7 +39,7 @@ var _ = Describe("Builder", func() {
 	BeforeEach(func() {
 		builder = env.NewBuilder(k8sClient)
 
-		appEnvSecret = &corev1.Secret{
+		appEnvSecret = helpers.RegisterObject(fixture, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      "app-env-secret",
@@ -47,10 +47,17 @@ var _ = Describe("Builder", func() {
 			Data: map[string][]byte{
 				"app-secret": []byte("top-secret"),
 			},
-		}
-		Expect(k8sClient.Create(ctx, appEnvSecret)).To(Succeed())
+		})
 
-		cfApp = &korifiv1alpha1.CFApp{
+		vcapServicesSecret = helpers.RegisterObject(fixture, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "app-guid-vcap-services",
+			},
+			Data: map[string][]byte{"VCAP_SERVICES": []byte("{}")},
+		})
+
+		cfApp = helpers.RegisterObject(fixture, &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      "app-guid",
@@ -63,10 +70,18 @@ var _ = Describe("Builder", func() {
 					Type: "buildpack",
 				},
 			},
-		}
-		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+			Status: korifiv1alpha1.CFAppStatus{
+				ObservedDesiredState:   korifiv1alpha1.StoppedState,
+				VCAPServicesSecretName: vcapServicesSecret.Name,
+			},
+		})
+		meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+			Type:   "Ready",
+			Status: metav1.ConditionTrue,
+			Reason: "testing",
+		})
 
-		serviceInstance = &korifiv1alpha1.CFServiceInstance{
+		serviceInstance = helpers.RegisterObject(fixture, &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      "my-service-instance-guid",
@@ -76,10 +91,19 @@ var _ = Describe("Builder", func() {
 				Tags:        []string{"t1", "t2"},
 				Type:        "user-provided",
 			},
-		}
-		Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
+		})
 
-		serviceBinding = &korifiv1alpha1.CFServiceBinding{
+		serviceBindingSecret = helpers.RegisterObject(fixture, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "service-binding-secret",
+			},
+			Data: map[string][]byte{
+				"foo": []byte("bar"),
+			},
+		})
+
+		serviceBinding = helpers.RegisterObject(fixture, &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      "my-service-binding-guid",
@@ -93,30 +117,15 @@ var _ = Describe("Builder", func() {
 					Name: cfApp.Name,
 				},
 			},
-		}
-		Expect(k8sClient.Create(ctx, serviceBinding)).To(Succeed())
-
-		serviceBindingSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "service-binding-secret",
-			},
-			Data: map[string][]byte{
-				"foo": []byte("bar"),
-			},
-		}
-		Expect(k8sClient.Create(ctx, serviceBindingSecret)).To(Succeed())
-
-		Expect(k8s.Patch(ctx, k8sClient, serviceBinding, func() {
-			serviceBinding.Status = korifiv1alpha1.CFServiceBindingStatus{
+			Status: korifiv1alpha1.CFServiceBindingStatus{
 				Conditions: []metav1.Condition{},
 				Binding: corev1.LocalObjectReference{
 					Name: serviceBindingSecret.Name,
 				},
-			}
-		})).To(Succeed())
+			},
+		})
 
-		serviceInstance2 = &korifiv1alpha1.CFServiceInstance{
+		serviceInstance2 = helpers.RegisterObject(fixture, &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      "my-service-instance-guid-2",
@@ -126,10 +135,19 @@ var _ = Describe("Builder", func() {
 				Tags:        []string{"t1", "t2"},
 				Type:        "user-provided",
 			},
-		}
-		Expect(k8sClient.Create(ctx, serviceInstance2)).To(Succeed())
+		})
 
-		serviceBinding2 = &korifiv1alpha1.CFServiceBinding{
+		serviceBindingSecret2 = helpers.RegisterObject(fixture, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "service-binding-secret-2",
+			},
+			Data: map[string][]byte{
+				"bar": []byte("foo"),
+			},
+		})
+
+		serviceBinding2 = helpers.RegisterObject(fixture, &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      "my-service-binding-guid-2",
@@ -143,46 +161,17 @@ var _ = Describe("Builder", func() {
 					Name: cfApp.Name,
 				},
 			},
-		}
-		Expect(k8sClient.Create(ctx, serviceBinding2)).To(Succeed())
-
-		serviceBindingSecret2 = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "service-binding-secret-2",
-			},
-			Data: map[string][]byte{
-				"bar": []byte("foo"),
-			},
-		}
-		Expect(k8sClient.Create(ctx, serviceBindingSecret2)).To(Succeed())
-		Expect(k8s.Patch(ctx, k8sClient, serviceBinding2, func() {
-			serviceBinding2.Status = korifiv1alpha1.CFServiceBindingStatus{
+			Status: korifiv1alpha1.CFServiceBindingStatus{
 				Conditions: []metav1.Condition{},
 				Binding: corev1.LocalObjectReference{
 					Name: serviceBindingSecret2.Name,
 				},
-			}
-		})).To(Succeed())
-
-		vcapServicesSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "app-guid-vcap-services",
 			},
-			Data: map[string][]byte{"VCAP_SERVICES": []byte("{}")},
-		}
-		Expect(k8sClient.Create(ctx, vcapServicesSecret)).To(Succeed())
+		})
+	})
 
-		Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-			meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-				Type:   "Ready",
-				Status: metav1.ConditionTrue,
-				Reason: "testing",
-			})
-			cfApp.Status.ObservedDesiredState = korifiv1alpha1.StoppedState
-			cfApp.Status.VCAPServicesSecretName = vcapServicesSecret.Name
-		})).To(Succeed())
+	JustBeforeEach(func() {
+		fixture.CreateAllRegisteredObjects()
 	})
 
 	Describe("BuildEnv", func() {
@@ -223,7 +212,7 @@ var _ = Describe("Builder", func() {
 
 		When("the app env secret does not exist", func() {
 			BeforeEach(func() {
-				helpers.SyncDelete(k8sClient, appEnvSecret)
+				fixture.DeregisterObject(appEnvSecret)
 			})
 
 			It("errors", func() {
@@ -233,12 +222,13 @@ var _ = Describe("Builder", func() {
 
 		When("the app env secret is empty", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, k8sClient, appEnvSecret, func() {
-					appEnvSecret.Data = map[string][]byte{}
-				})).To(Succeed())
+				appEnvSecret.Data = map[string][]byte{}
 			})
 
 			It("returns only vcap services env var", func() {
+				actualSecret := &corev1.Secret{}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(vcapServicesSecret), actualSecret)).To(Succeed())
+
 				Expect(buildEnvErr).NotTo(HaveOccurred())
 				Expect(envVars).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
 					"Name": Equal("VCAP_SERVICES"),
@@ -256,9 +246,7 @@ var _ = Describe("Builder", func() {
 
 		When("the app env secret has no data", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, k8sClient, appEnvSecret, func() {
-					appEnvSecret.Data = nil
-				})).To(Succeed())
+				appEnvSecret.Data = nil
 			})
 
 			It("returns only the vcap services env var", func() {
@@ -278,9 +266,7 @@ var _ = Describe("Builder", func() {
 
 		When("the app does not have an associated app env secret", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-					cfApp.Spec.EnvSecretName = ""
-				})).To(Succeed())
+				cfApp.Spec.EnvSecretName = ""
 			})
 
 			It("succeeds", func() {
@@ -288,6 +274,7 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("returns only app vcap services env var", func() {
+				Expect(buildEnvErr).NotTo(HaveOccurred())
 				Expect(envVars).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
 					"Name": Equal("VCAP_SERVICES"),
 					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
@@ -304,7 +291,7 @@ var _ = Describe("Builder", func() {
 
 		When("the app vcap services secret does not exist", func() {
 			BeforeEach(func() {
-				helpers.SyncDelete(k8sClient, vcapServicesSecret)
+				fixture.DeregisterObject(vcapServicesSecret)
 			})
 
 			It("errors", func() {
@@ -316,9 +303,7 @@ var _ = Describe("Builder", func() {
 		When("the app vcap services secret data is malformed", func() {
 			When("the app vcap services secret is empty", func() {
 				BeforeEach(func() {
-					Expect(k8s.PatchResource(ctx, k8sClient, vcapServicesSecret, func() {
-						vcapServicesSecret.Data = map[string][]byte{}
-					})).To(Succeed())
+					vcapServicesSecret.Data = map[string][]byte{}
 				})
 
 				It("returns only app env vars", func() {
@@ -338,9 +323,7 @@ var _ = Describe("Builder", func() {
 
 			When("the app vcap services secret has no data", func() {
 				BeforeEach(func() {
-					Expect(k8s.PatchResource(ctx, k8sClient, vcapServicesSecret, func() {
-						vcapServicesSecret.Data = nil
-					})).To(Succeed())
+					vcapServicesSecret.Data = nil
 				})
 
 				It("returns only the app env var", func() {
@@ -358,11 +341,9 @@ var _ = Describe("Builder", func() {
 				})
 			})
 
-			When("the app does not have an associated app vcap services secret", func() {
+			When("the app does not have an associated app vcap services secret yet", func() {
 				BeforeEach(func() {
-					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-						cfApp.Status.VCAPServicesSecretName = ""
-					})).To(Succeed())
+					cfApp.Status = korifiv1alpha1.CFAppStatus{}
 				})
 
 				It("succeeds", func() {
@@ -429,9 +410,7 @@ var _ = Describe("Builder", func() {
 
 		When("the service binding has no name", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding, func() {
-					serviceBinding.Spec.DisplayName = nil
-				})).To(Succeed())
+				serviceBinding.Spec.DisplayName = nil
 			})
 
 			It("uses the service instance name as name", func() {
@@ -445,9 +424,7 @@ var _ = Describe("Builder", func() {
 
 		When("service instance tags are nil", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, k8sClient, serviceInstance, func() {
-					serviceInstance.Spec.Tags = nil
-				})).To(Succeed())
+				serviceInstance.Spec.Tags = nil
 			})
 
 			It("sets an empty array to tags", func() {
@@ -457,7 +434,7 @@ var _ = Describe("Builder", func() {
 
 		When("there are no service bindings for the app", func() {
 			BeforeEach(func() {
-				helpers.SyncDelete(k8sClient, serviceBinding, serviceBinding2)
+				fixture.DeregisterObject(serviceBinding, serviceBinding2)
 			})
 
 			It("returns an empty JSON string", func() {
@@ -467,7 +444,7 @@ var _ = Describe("Builder", func() {
 
 		When("the service referenced by the binding cannot be looked up", func() {
 			BeforeEach(func() {
-				helpers.SyncDelete(k8sClient, serviceInstance)
+				fixture.DeregisterObject(serviceInstance)
 			})
 
 			It("returns an error", func() {
@@ -477,7 +454,7 @@ var _ = Describe("Builder", func() {
 
 		When("the service binding secret cannot be looked up", func() {
 			BeforeEach(func() {
-				helpers.SyncDelete(k8sClient, serviceBindingSecret)
+				fixture.DeregisterObject(serviceBindingSecret)
 			})
 
 			It("returns an error", func() {

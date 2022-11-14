@@ -8,12 +8,12 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,6 +33,7 @@ var (
 	testEnv          *envtest.Environment
 	k8sClient        client.Client
 	namespace        string
+	fixture          *helpers.TestFixture
 )
 
 var _ = BeforeSuite(func() {
@@ -79,12 +80,10 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = BeforeEach(func() {
+	fixture = helpers.NewTestFixture(k8sClient)
+
 	namespace = testutils.PrefixedGUID("test-namespace")
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	})).To(Succeed())
+	fixture.CreateNamespace(namespace)
 })
 
 var _ = AfterSuite(func() {
