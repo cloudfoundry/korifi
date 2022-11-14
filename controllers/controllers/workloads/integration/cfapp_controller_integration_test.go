@@ -269,7 +269,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 						return cfProcessList.Items
 					}).Should(HaveLen(1), "expected CFProcess to eventually be created")
 					createdCFProcess := cfProcessList.Items[0]
-					Expect(createdCFProcess.Spec.DropletCommand).To(Equal(process.Command), "cfprocess command does not match with droplet command")
+					Expect(createdCFProcess.Spec.DetectedCommand).To(Equal(process.Command), "cfprocess command does not match with droplet command")
 					Expect(createdCFProcess.Spec.AppRef.Name).To(Equal(cfAppGUID), "cfprocess app ref does not match app-guid")
 					Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
 
@@ -370,10 +370,10 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				})
 			})
 
-			It("sets the dropletCommand on the web process to the droplet value for the web process if empty", func() {
+			It("sets the detectedCommand on the web process to the droplet value for the web process if empty", func() {
 				Eventually(func(g Gomega) {
 					proc := findProcessWithType(cfApp, processTypeWeb)
-					g.Expect(proc.Spec.DropletCommand).To(Equal(processTypeWebCommand))
+					g.Expect(proc.Spec.DetectedCommand).To(Equal(processTypeWebCommand))
 				}).Should(Succeed())
 			})
 
@@ -384,10 +384,10 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					})).To(Succeed())
 				})
 
-				It("should save the dropletCommand but not change the command", func() {
+				It("should save the detectedCommand but not change the command", func() {
 					Eventually(func(g Gomega) {
 						proc := findProcessWithType(cfApp, processTypeWeb)
-						g.Expect(proc.Spec.DropletCommand).To(Equal(processTypeWebCommand))
+						g.Expect(proc.Spec.DetectedCommand).To(Equal(processTypeWebCommand))
 					}).Should(Succeed())
 					Consistently(func(g Gomega) {
 						proc := findProcessWithType(cfApp, processTypeWeb)
@@ -420,7 +420,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					webProcess := webProcessesList.Items[0]
 					Expect(webProcess.Spec.AppRef.Name).To(Equal(cfAppGUID))
 					Expect(webProcess.Spec.Command).To(Equal(""))
-					Expect(webProcess.Spec.DropletCommand).To(Equal(""))
+					Expect(webProcess.Spec.DetectedCommand).To(Equal(""))
 				})
 			})
 

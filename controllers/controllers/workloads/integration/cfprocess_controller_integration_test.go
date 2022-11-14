@@ -46,8 +46,8 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		processTypeWeb           = "web"
 		processTypeWebCommand    = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-		oldDropletCommand        = "old-droplet-command"
-		newDropletCommand        = "new-droplet-command"
+		oldDetectedCommand       = "old-detected-command"
+		newDetectedCommand       = "new-detected-command"
 		processTypeWorker        = "worker"
 		processTypeWorkerCommand = "bundle exec rackup config.ru"
 		port8080                 = 8080
@@ -68,7 +68,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		// Technically the app controller should be creating this process based on CFApp and CFBuild, but we
 		// want to drive testing with a specific CFProcess instead of cascading (non-object-ref) state through
 		// other resources.
-		cfProcess = BuildCFProcessCRObject(testProcessGUID, testNamespace, testAppGUID, processTypeWeb, processTypeWebCommand, oldDropletCommand)
+		cfProcess = BuildCFProcessCRObject(testProcessGUID, testNamespace, testAppGUID, processTypeWeb, processTypeWebCommand, oldDetectedCommand)
 		cfApp = BuildCFAppCRObject(testAppGUID, testNamespace)
 		cfPackage = BuildCFPackageCRObject(testPackageGUID, testNamespace, testAppGUID)
 		cfBuild = BuildCFBuildObject(testBuildGUID, testNamespace, testPackageGUID, testAppGUID)
@@ -84,7 +84,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
 		dropletProcessTypeMap := map[string]string{
-			processTypeWeb:    newDropletCommand,
+			processTypeWeb:    newDetectedCommand,
 			processTypeWorker: processTypeWorkerCommand,
 		}
 		dropletPorts := []int32{port8080, port9000}
@@ -188,24 +188,12 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				cfProcess.Spec.Command = ""
 			})
 
-			It("eventually creates an app workload using the newDropletCommand from the build", func() {
+			It("eventually creates an app workload using the newDetectedCommand from the build", func() {
 				eventuallyCreatedAppWorkloadShould(testProcessGUID, testNamespace, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					var updatedCFApp korifiv1alpha1.CFApp
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &updatedCFApp)).To(Succeed())
 
-					g.Expect(appWorkload.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
-					g.Expect(appWorkload.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
-
-					g.Expect(appWorkload.Spec.GUID).To(Equal(cfProcess.Name))
-					g.Expect(appWorkload.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]))
-					g.Expect(appWorkload.Spec.Image).To(Equal(cfBuild.Status.Droplet.Registry.Image))
-					g.Expect(appWorkload.Spec.ImagePullSecrets).To(Equal(cfBuild.Status.Droplet.Registry.ImagePullSecrets))
-					g.Expect(appWorkload.Spec.ProcessType).To(Equal(processTypeWeb))
-					g.Expect(appWorkload.Spec.AppGUID).To(Equal(cfApp.Name))
-					g.Expect(appWorkload.Spec.Ports).To(Equal(cfProcess.Spec.Ports))
-					g.Expect(appWorkload.Spec.Instances).To(Equal(int32(*cfProcess.Spec.DesiredInstances)))
-
-					g.Expect(appWorkload.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", newDropletCommand))
+					g.Expect(appWorkload.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", newDetectedCommand))
 				})
 			})
 		})

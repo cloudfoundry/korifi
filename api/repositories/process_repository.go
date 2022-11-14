@@ -326,7 +326,7 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 
 	cmd := cfProcess.Spec.Command
 	if cmd == "" {
-		cmd = cfProcess.Spec.DropletCommand
+		cmd = cfProcess.Spec.DetectedCommand
 	}
 
 	return ProcessRecord{
