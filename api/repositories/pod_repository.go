@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -397,6 +398,9 @@ func lineToAppLogRecord(line []byte) LogRecord {
 	logLine := string(line)
 	var logTime int64
 	logLine, logTime, _ = parseRFC3339NanoTime(logLine)
+
+	// trim trailing newlines so that the CLI doesn't render extra log lines for them
+	logLine = strings.TrimRight(logLine, "\r\n")
 
 	logRecord := LogRecord{
 		Message:   logLine,
