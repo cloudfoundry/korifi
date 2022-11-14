@@ -198,7 +198,7 @@ func BuildServiceAccount(name, namespace, imagePullSecretName string) *corev1.Se
 	}
 }
 
-func BuildCFProcessCRObject(cfProcessGUID, namespace, cfAppGUID, processType, processCommand, processDropletCommand string) *korifiv1alpha1.CFProcess {
+func BuildCFProcessCRObject(cfProcessGUID, namespace, cfAppGUID, processType, processCommand, processDetectedCommand string) *korifiv1alpha1.CFProcess {
 	return &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfProcessGUID,
@@ -210,10 +210,10 @@ func BuildCFProcessCRObject(cfProcessGUID, namespace, cfAppGUID, processType, pr
 			},
 		},
 		Spec: korifiv1alpha1.CFProcessSpec{
-			AppRef:         corev1.LocalObjectReference{Name: cfAppGUID},
-			ProcessType:    processType,
-			Command:        processCommand,
-			DropletCommand: processDropletCommand,
+			AppRef:          corev1.LocalObjectReference{Name: cfAppGUID},
+			ProcessType:     processType,
+			Command:         processCommand,
+			DetectedCommand: processDetectedCommand,
 			HealthCheck: korifiv1alpha1.HealthCheck{
 				Type: "process",
 				Data: korifiv1alpha1.HealthCheckData{

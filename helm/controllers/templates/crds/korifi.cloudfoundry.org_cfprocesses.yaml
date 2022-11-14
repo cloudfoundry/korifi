@@ -52,14 +52,14 @@ spec:
               desiredInstances:
                 description: The desired number of replicas to deploy
                 type: integer
+              detectedCommand:
+                description: The default command for this process as defined by the
+                  build. This field is ignored when the Command field is set
+                type: string
               diskQuotaMB:
                 description: The disk limit in MiB
                 format: int64
                 type: integer
-              dropletCommand:
-                description: The default command for this process as defined by the
-                  build. This field is ignored when the Command field is set
-                type: string
               healthCheck:
                 description: Used to build the Liveness and Readiness Probes for the
                   process' AppWorkload.

@@ -332,7 +332,7 @@ func generateEnvVars(port int, commonEnv []corev1.EnvVar) []corev1.EnvVar {
 func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CFApp) []string {
 	cmd := process.Spec.Command
 	if cmd == "" {
-		cmd = process.Spec.DropletCommand
+		cmd = process.Spec.DetectedCommand
 	}
 	if cmd == "" {
 		return []string{}

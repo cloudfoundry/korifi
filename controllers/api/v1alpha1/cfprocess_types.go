@@ -40,7 +40,7 @@ type CFProcessSpec struct {
 	Command string `json:"command,omitempty"`
 
 	// The default command for this process as defined by the build. This field is ignored when the Command field is set
-	DropletCommand string `json:"dropletCommand,omitempty"`
+	DetectedCommand string `json:"detectedCommand,omitempty"`
 
 	// Used to build the Liveness and Readiness Probes for the process' AppWorkload.
 	HealthCheck HealthCheck `json:"healthCheck"`
