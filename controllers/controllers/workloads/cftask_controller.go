@@ -300,25 +300,55 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 }
 
 func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
-	if cfTask.Status.SequenceID == 0 {
-		var err error
-		cfTask.Status.SequenceID, err = r.seqIdGenerator.Generate()
-		if err != nil {
-			r.logger.Info("error-generating-sequence-id", "error", err)
-			return err
-		}
-
-		cfTask.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
-		cfTask.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
-		cfTask.Status.DropletRef.Name = cfDroplet.Name
-		meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.TaskInitializedConditionType,
-			Status:  metav1.ConditionTrue,
-			Reason:  "taskInitialized",
-			Message: "taskInitialized",
-		})
+	err := r.setSequenceIdOnce(ctx, cfTask)
+	if err != nil {
+		return err
 	}
 
+	cfTask.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
+	cfTask.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
+	cfTask.Status.DropletRef.Name = cfDroplet.Name
+	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+		Type:    korifiv1alpha1.TaskInitializedConditionType,
+		Status:  metav1.ConditionTrue,
+		Reason:  "taskInitialized",
+		Message: "taskInitialized",
+	})
+
+	return nil
+}
+
+func (r *CFTaskReconciler) setSequenceIdOnce(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
+	if cfTask.Status.SequenceID != 0 {
+		return nil
+	}
+
+	sequenceId, err := r.seqIdGenerator.Generate()
+	if err != nil {
+		r.logger.Info("error-generating-sequence-id", "error", err)
+		return err
+	}
+
+	// The patch below implements the 'compare and swap' technique by testing
+	// that the status is not initialized value before patching the sequenceId.
+	// This way we will get an error if the cache is stale and will avoid
+	// accidentally reinitializing the status, particularly the unique
+	// sequenceId
+	jsonPatch := fmt.Sprintf(`[
+	{"op":"test", "path":"/status", "value": null},
+	{"op":"replace", "path":"/status", "value": {"sequenceId":%d}}
+	]`, sequenceId)
+
+	// Do not modify the original cfTask, otherwise the patching reconciler
+	// will apply the changes.
+	if err := r.k8sClient.Status().Patch(ctx, cfTask.DeepCopy(), client.RawPatch(types.JSONPatchType, []byte(jsonPatch))); err != nil {
+		r.logger.Info("error-patching-sequence-id", "error", err)
+		return err
+	}
+
+	// Now that we managed to set the seq id, modify the original cfTask,
+	// otherwise the patching reconciler will revert it back to the old value.
+	cfTask.Status.SequenceID = sequenceId
 	return nil
 }
 
