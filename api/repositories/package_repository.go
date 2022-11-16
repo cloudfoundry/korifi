@@ -46,14 +46,16 @@ func NewPackageRepo(
 }
 
 type PackageRecord struct {
-	GUID      string
-	UID       types.UID
-	Type      string
-	AppGUID   string
-	SpaceGUID string
-	State     string
-	CreatedAt string // Can we also just use date objects directly here?
-	UpdatedAt string
+	GUID        string
+	UID         types.UID
+	Type        string
+	AppGUID     string
+	SpaceGUID   string
+	State       string
+	CreatedAt   string // Can we also just use date objects directly here?
+	UpdatedAt   string
+	Labels      map[string]string
+	Annotations map[string]string
 }
 
 type ListPackagesMessage struct {
@@ -67,18 +69,21 @@ type CreatePackageMessage struct {
 	Type      string
 	AppGUID   string
 	SpaceGUID string
+	Metadata  MetadataPatch
 }
 
 func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
 	guid := uuid.NewString()
-	return korifiv1alpha1.CFPackage{
+	pkg := korifiv1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       kind,
 			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
-			Namespace: message.SpaceGUID,
+			Name:        guid,
+			Namespace:   message.SpaceGUID,
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
 		},
 		Spec: korifiv1alpha1.CFPackageSpec{
 			Type: korifiv1alpha1.PackageType(message.Type),
@@ -87,6 +92,10 @@ func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
 			},
 		},
 	}
+	patchMap(pkg.Labels, message.Metadata.Labels)
+	patchMap(pkg.Annotations, message.Metadata.Annotations)
+
+	return pkg
 }
 
 type UpdatePackageSourceMessage struct {
@@ -238,14 +247,16 @@ func cfPackageToPackageRecord(cfPackage korifiv1alpha1.CFPackage) PackageRecord 
 		state = PackageStateReady
 	}
 	return PackageRecord{
-		GUID:      cfPackage.Name,
-		UID:       cfPackage.UID,
-		SpaceGUID: cfPackage.Namespace,
-		Type:      string(cfPackage.Spec.Type),
-		AppGUID:   cfPackage.Spec.AppRef.Name,
-		State:     state,
-		CreatedAt: formatTimestamp(cfPackage.CreationTimestamp),
-		UpdatedAt: updatedAtTime,
+		GUID:        cfPackage.Name,
+		UID:         cfPackage.UID,
+		SpaceGUID:   cfPackage.Namespace,
+		Type:        string(cfPackage.Spec.Type),
+		AppGUID:     cfPackage.Spec.AppRef.Name,
+		State:       state,
+		CreatedAt:   formatTimestamp(cfPackage.CreationTimestamp),
+		UpdatedAt:   updatedAtTime,
+		Labels:      cfPackage.Labels,
+		Annotations: cfPackage.Annotations,
 	}
 }
 

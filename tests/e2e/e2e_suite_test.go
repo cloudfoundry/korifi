@@ -112,7 +112,13 @@ type taskResource struct {
 
 type typedResource struct {
 	resource `json:",inline"`
-	Type     string `json:"type,omitempty"`
+	Type     string    `json:"type,omitempty"`
+	Metadata *metadata `json:"metadata,omitempty"`
+}
+
+type metadata struct {
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 type mapRouteResource struct {
