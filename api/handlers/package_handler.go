@@ -27,6 +27,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
 //counterfeiter:generate -o fake -fake-name ImageRepository . ImageRepository
+//counterfeiter:generate -o fake -fake-name RequestJSONValidator . RequestJSONValidator
 
 type CFPackageRepository interface {
 	GetPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
@@ -39,6 +40,10 @@ type ImageRepository interface {
 	UploadSourceImage(ctx context.Context, authInfo authorization.Info, imageRef string, srcReader io.Reader, spaceGUID string) (imageRefWithDigest string, err error)
 }
 
+type RequestJSONValidator interface {
+	DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error
+}
+
 type PackageHandler struct {
 	handlerWrapper     *AuthAwareHandlerFuncWrapper
 	serverURL          url.URL
@@ -46,7 +51,7 @@ type PackageHandler struct {
 	appRepo            CFAppRepository
 	dropletRepo        CFDropletRepository
 	imageRepo          ImageRepository
-	decoderValidator   *DecoderValidator
+	requestValidator   RequestJSONValidator
 	registryBase       string
 	registrySecretName string
 }
@@ -57,7 +62,7 @@ func NewPackageHandler(
 	appRepo CFAppRepository,
 	dropletRepo CFDropletRepository,
 	imageRepo ImageRepository,
-	decoderValidator *DecoderValidator,
+	requestValidator RequestJSONValidator,
 	registryBase string,
 	registrySecretName string,
 ) *PackageHandler {
@@ -70,7 +75,7 @@ func NewPackageHandler(
 		imageRepo:          imageRepo,
 		registryBase:       registryBase,
 		registrySecretName: registrySecretName,
-		decoderValidator:   decoderValidator,
+		requestValidator:   requestValidator,
 	}
 }
 
@@ -105,7 +110,7 @@ func (h PackageHandler) packageListHandler(ctx context.Context, logger logr.Logg
 
 func (h PackageHandler) packageCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.PackageCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
