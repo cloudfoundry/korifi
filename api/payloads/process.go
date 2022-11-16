@@ -11,8 +11,9 @@ type ProcessScale struct {
 }
 
 type ProcessPatch struct {
-	Command     *string      `json:"command"`
-	HealthCheck *HealthCheck `json:"health_check"`
+	Metadata    *MetadataPatch `json:"metadata"`
+	Command     *string        `json:"command"`
+	HealthCheck *HealthCheck   `json:"health_check"`
 }
 
 type HealthCheck struct {
@@ -62,6 +63,13 @@ func (p ProcessPatch) ToProcessPatchMessage(processGUID, spaceGUID string) repos
 			message.HealthCheckHTTPEndpoint = p.HealthCheck.Data.Endpoint
 			message.HealthCheckTimeoutSeconds = p.HealthCheck.Data.Timeout
 			message.HealthCheckInvocationTimeoutSeconds = p.HealthCheck.Data.InvocationTimeout
+		}
+	}
+
+	if p.Metadata != nil {
+		message.MetadataPatch = &repositories.MetadataPatch{
+			Annotations: p.Metadata.Annotations,
+			Labels:      p.Metadata.Labels,
 		}
 	}
 
