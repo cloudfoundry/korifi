@@ -17,6 +17,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -475,6 +476,14 @@ var _ = Describe("PackageHandler", func() {
 						},
 					},
 				},
+				Metadata: payloads.MetadataPatch{
+					Labels: map[string]*string{
+						"bob": tools.PtrTo("foo"),
+					},
+					Annotations: map[string]*string{
+						"jim": tools.PtrTo("foo"),
+					},
+				},
 			}
 			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(r *http.Request, i interface{}) error {
 				b, ok := i.(*payloads.PackageCreate)
@@ -484,13 +493,15 @@ var _ = Describe("PackageHandler", func() {
 			}
 
 			packageRepo.CreatePackageReturns(repositories.PackageRecord{
-				Type:      "bits",
-				AppGUID:   appGUID,
-				SpaceGUID: spaceGUID,
-				GUID:      packageGUID,
-				State:     "AWAITING_UPLOAD",
-				CreatedAt: createdAt,
-				UpdatedAt: updatedAt,
+				Type:        "bits",
+				AppGUID:     appGUID,
+				SpaceGUID:   spaceGUID,
+				GUID:        packageGUID,
+				State:       "AWAITING_UPLOAD",
+				CreatedAt:   createdAt,
+				UpdatedAt:   updatedAt,
+				Labels:      map[string]string{"bob": "foo"},
+				Annotations: map[string]string{"jim": "foo"},
 			}, nil)
 
 			appRepo.GetAppReturns(repositories.AppRecord{
@@ -524,6 +535,14 @@ var _ = Describe("PackageHandler", func() {
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
+				Metadata: repositories.MetadataPatch{
+					Labels: map[string]*string{
+						"bob": tools.PtrTo("foo"),
+					},
+					Annotations: map[string]*string{
+						"jim": tools.PtrTo("foo"),
+					},
+				},
 			}))
 		})
 
@@ -560,8 +579,8 @@ var _ = Describe("PackageHandler", func() {
 					}
 				  },
 				  "metadata": {
-					"labels": { },
-					"annotations": { }
+				    "labels": {"bob": "foo"},
+				    "annotations": {"jim": "foo"}
 				  }
 				}
             `))

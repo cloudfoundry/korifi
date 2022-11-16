@@ -42,6 +42,14 @@ var _ = Describe("Package", func() {
 							"app": relationship{Data: resource{GUID: appGUID}},
 						},
 					},
+					Metadata: &metadata{
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+						Annotations: map[string]string{
+							"foo.bar.com/baz": "18",
+						},
+					},
 				}).
 				SetError(&resultErr).
 				SetResult(&result).

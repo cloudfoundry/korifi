@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,6 +45,14 @@ var _ = Describe("PackageRepository", func() {
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: space.Name,
+				Metadata: repositories.MetadataPatch{
+					Labels: map[string]*string{
+						"bob": tools.PtrTo("foo"),
+					},
+					Annotations: map[string]*string{
+						"jim": tools.PtrTo("bar"),
+					},
+				},
 			}
 		})
 
@@ -68,6 +77,8 @@ var _ = Describe("PackageRepository", func() {
 				Expect(createdPackage.Type).To(Equal("bits"))
 				Expect(createdPackage.AppGUID).To(Equal(appGUID))
 				Expect(createdPackage.State).To(Equal("AWAITING_UPLOAD"))
+				Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+				Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
 
 				createdAt, err := time.Parse(time.RFC3339, createdPackage.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
@@ -85,6 +96,25 @@ var _ = Describe("PackageRepository", func() {
 				Expect(createdCFPackage.Namespace).To(Equal(space.Name))
 				Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("bits")))
 				Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(appGUID))
+
+				Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+				Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+			})
+
+			When("a nil value is set in metadata", func() {
+				BeforeEach(func() {
+					packageCreate.Metadata.Labels["roy"] = nil
+				})
+
+				It("isn't set", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+
+					packageNSName := types.NamespacedName{Name: createdPackage.GUID, Namespace: space.Name}
+					createdCFPackage := new(korifiv1alpha1.CFPackage)
+					Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
+
+					Expect(createdCFPackage.Labels).NotTo(HaveKey("roy"))
+				})
 			})
 		})
 	})

@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -34,6 +35,14 @@ var _ = Describe("PackageCreate", func() {
 					Data: &payloads.RelationshipData{
 						GUID: "some-guid",
 					},
+				},
+			},
+			Metadata: payloads.MetadataPatch{
+				Labels: map[string]*string{
+					"foo": tools.PtrTo("bar"),
+				},
+				Annotations: map[string]*string{
+					"example.org/jim": tools.PtrTo("hello"),
 				},
 			},
 		}
@@ -111,6 +120,34 @@ var _ = Describe("PackageCreate", func() {
 
 		It("returns an appropriate error", func() {
 			expectUnprocessableEntityError(validatorErr, "GUID is a required field")
+		})
+	})
+
+	When("metadata.labels contains an invalid key", func() {
+		BeforeEach(func() {
+			createPayload.Metadata = payloads.MetadataPatch{
+				Labels: map[string]*string{
+					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+				},
+			}
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+		})
+	})
+
+	When("metadata.annotations contains an invalid key", func() {
+		BeforeEach(func() {
+			createPayload.Metadata = payloads.MetadataPatch{
+				Annotations: map[string]*string{
+					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+				},
+			}
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
 		})
 	})
 })
