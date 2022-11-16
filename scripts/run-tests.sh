@@ -35,7 +35,7 @@ if ! grep -q e2e <(echo "$@"); then
     source <(setup-envtest use -p env --bin-dir "${ENVTEST_ASSETS_DIR}")
   fi
 
-  extra_args+=("--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
+  extra_args+=("--poll-progress-after=60s" "--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
 else
   export ROOT_NAMESPACE="${ROOT_NAMESPACE:-cf}"
   export APP_FQDN="${APP_FQDN:-vcap.me}"
@@ -49,7 +49,7 @@ else
   # creates user keys/certs and service accounts and exports vars for them
   source "$SCRIPT_DIR/account-creation.sh" "${SCRIPT_DIR}"
 
-  extra_args+=("--slow-spec-threshold=30s")
+  extra_args+=("--poll-progress-after=3m30s")
 
   echo "waiting for ClusterBuilder to be ready..."
   kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
