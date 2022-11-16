@@ -2,70 +2,47 @@ package v1alpha1_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CFPackageMutatingWebhook Unit Tests", func() {
-	const (
-		cfAppGUID         = "test-app-guid"
-		cfAppGUIDLabelKey = "korifi.cloudfoundry.org/app-guid"
-		cfPackageGUID     = "test-package-guid"
-		cfPackageType     = "bits"
-		namespace         = "default"
+var _ = Describe("CFPackageMutatingWebhook", func() {
+	var (
+		cfAppGUID string
+		cfPackage *korifiv1alpha1.CFPackage
 	)
 
-	When("there are no existing labels on the CFPackage record", func() {
-		It("should add a new label matching spec.AppRef.name", func() {
-			cfPackage := &korifiv1alpha1.CFPackage{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFPackage",
-					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfPackageGUID,
-					Namespace: namespace,
-				},
-				Spec: korifiv1alpha1.CFPackageSpec{
-					Type: cfPackageType,
-					AppRef: v1.LocalObjectReference{
-						Name: cfAppGUID,
-					},
-				},
-			}
+	BeforeEach(func() {
+		cfAppGUID = GenerateGUID()
 
-			cfPackage.Default()
-			Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
-		})
+		cfPackage = &korifiv1alpha1.CFPackage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GenerateGUID(),
+				Namespace: namespace,
+				Labels:    map[string]string{"foo": "bar"},
+			},
+			Spec: korifiv1alpha1.CFPackageSpec{
+				Type: "bits",
+				AppRef: v1.LocalObjectReference{
+					Name: cfAppGUID,
+				},
+			},
+		}
 	})
 
-	When("there are other existing labels on the CFPackage record", func() {
-		It("should add a new label matching spec.AppRef.name and preserve the other labels", func() {
-			cfPackage := &korifiv1alpha1.CFPackage{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFPackage",
-					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfPackageGUID,
-					Namespace: namespace,
-					Labels: map[string]string{
-						"anotherLabel": "app-label",
-					},
-				},
-				Spec: korifiv1alpha1.CFPackageSpec{
-					Type: cfPackageType,
-					AppRef: v1.LocalObjectReference{
-						Name: cfAppGUID,
-					},
-				},
-			}
+	BeforeEach(func() {
+		Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+	})
 
-			cfPackage.Default()
-			Expect(cfPackage.ObjectMeta.Labels).To(HaveLen(2))
-			Expect(cfPackage.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
-		})
+	It("sets a label with the app guid", func() {
+		Expect(cfPackage.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
+	})
+
+	It("preserves other labels", func() {
+		Expect(cfPackage.Labels).To(HaveKeyWithValue("foo", "bar"))
 	})
 })

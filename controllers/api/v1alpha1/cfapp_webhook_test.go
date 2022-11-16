@@ -1,187 +1,75 @@
 package v1alpha1_test
 
 import (
-	"strconv"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CFAppMutatingWebhook Unit Tests", func() {
-	const (
-		cfAppGUID        = "test-app-guid"
-		cfAppLabelKey    = "korifi.cloudfoundry.org/app-guid"
-		cfAppRevisionKey = "korifi.cloudfoundry.org/app-rev"
-		namespace        = "default"
-	)
+const (
+	cfAppLabelKey    = "korifi.cloudfoundry.org/app-guid"
+	cfAppRevisionKey = "korifi.cloudfoundry.org/app-rev"
+)
 
-	When("there are no existing labels on the CFAPP record", func() {
-		It("should add a new label matching metadata.name", func() {
-			cfApp := &korifiv1alpha1.CFApp{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFApp",
-					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfAppGUID,
-					Namespace: namespace,
-				},
-				Spec: korifiv1alpha1.CFAppSpec{
-					DisplayName:  "test-app",
-					DesiredState: "STOPPED",
-					Lifecycle: korifiv1alpha1.Lifecycle{
-						Type: "buildpack",
-					},
-				},
-			}
+var _ = Describe("CFAppMutatingWebhook", func() {
+	var cfApp *korifiv1alpha1.CFApp
 
-			cfApp.Default()
-			Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfAppGUID))
-			Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
-		})
+	BeforeEach(func() {
+		cfApp = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      GenerateGUID(),
+				Namespace: namespace,
+				Labels: map[string]string{
+					"anotherLabel": "app-label",
+				},
+				Annotations: map[string]string{
+					"someAnnotation": "blah",
+				},
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName:  GenerateGUID(),
+				DesiredState: "STARTED",
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+				},
+			},
+		}
 	})
 
-	When("there are other existing labels on the CFAPP record", func() {
-		It("should add a new label matching metadata.name and preserve the other labels", func() {
-			cfApp := &korifiv1alpha1.CFApp{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFApp",
-					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfAppGUID,
-					Namespace: namespace,
-					Labels: map[string]string{
-						"anotherLabel": "app-label",
-					},
-					Annotations: map[string]string{
-						"someAnnotation": "blah",
-					},
-				},
-				Spec: korifiv1alpha1.CFAppSpec{
-					DisplayName:  "test-app",
-					DesiredState: "STOPPED",
-					Lifecycle: korifiv1alpha1.Lifecycle{
-						Type: "buildpack",
-					},
-				},
-			}
-
-			cfApp.Default()
-			Expect(cfApp.ObjectMeta.Labels).To(HaveLen(2))
-			Expect(cfApp.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
-			Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
-		})
+	JustBeforeEach(func() {
+		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 	})
 
-	When("the app desiredState STARTED->STOPPED and status.observedDesiredState is STARTED and", func() {
-		When("rev is set to an integer value", func() {
-			const (
-				revisionValue = 7
-			)
-			var cfApp *korifiv1alpha1.CFApp
-			BeforeEach(func() {
-				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
-				cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = strconv.Itoa(revisionValue)
-				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StartedState
-			})
-
-			It("should increment the rev", func() {
-				cfApp.Default()
-				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, strconv.Itoa(revisionValue+1)))
-			})
-		})
-
-		When("rev is set to some non-integer value", func() {
-			var cfApp *korifiv1alpha1.CFApp
-			BeforeEach(func() {
-				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
-				cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = "some-weird-value"
-				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StartedState
-			})
-
-			It("should set the rev to be the default value", func() {
-				cfApp.Default()
-				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, korifiv1alpha1.CFAppRevisionKeyDefault))
-			})
-		})
+	It("adds a label matching metadata.name", func() {
+		Expect(cfApp.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfApp.Name))
 	})
 
-	When("the app desiredState STOPPED->STARTED and status.observedDesiredState is STOPPED and", func() {
-		When("rev is set to an integer value", func() {
-			const (
-				revisionValue = 7
-			)
-			var cfApp *korifiv1alpha1.CFApp
-			BeforeEach(func() {
-				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-				cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = strconv.Itoa(revisionValue)
-				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StoppedState
-			})
+	It("adds an app revision annotation", func() {
+		Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
+	})
 
-			It("should leave the rev alone", func() {
-				cfApp.Default()
-				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, strconv.Itoa(revisionValue)))
-			})
+	It("preserves all other app labels and annotations", func() {
+		Expect(cfApp.Labels).To(HaveKeyWithValue("anotherLabel", "app-label"))
+		Expect(cfApp.Annotations).To(HaveKeyWithValue("someAnnotation", "blah"))
+	})
+
+	When("the app is being stopped", func() {
+		JustBeforeEach(func() {
+			Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+				cfApp.Spec.DesiredState = "STOPPED"
+				cfApp.Status.ObservedDesiredState = "STARTED"
+				// the values below are required
+				cfApp.Status.Conditions = []metav1.Condition{}
+				cfApp.Status.VCAPServicesSecretName = "foo"
+			})).To(Succeed())
 		})
 
-		When("rev is set to some non-integer value", func() {
-			const (
-				weirdRevValue = "some-weird-value"
-			)
-			var cfApp *korifiv1alpha1.CFApp
-			BeforeEach(func() {
-				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-				cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = weirdRevValue
-				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StoppedState
-			})
-
-			It("should leave the rev alone", func() {
-				cfApp.Default()
-				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, weirdRevValue))
-			})
-		})
-
-		When("rev is not set", func() {
-			var cfApp *korifiv1alpha1.CFApp
-			BeforeEach(func() {
-				cfApp = initializeCFAppCR(cfAppGUID, namespace)
-				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-				cfApp.Status.ObservedDesiredState = korifiv1alpha1.StoppedState
-			})
-
-			It("should set it to the default value", func() {
-				cfApp.Default()
-				Expect(cfApp.ObjectMeta.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, korifiv1alpha1.CFAppRevisionKeyDefault))
-			})
+		It("increments the app revision annotation", func() {
+			Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "1"))
 		})
 	})
 })
-
-func initializeCFAppCR(appGUID, namespace string) *korifiv1alpha1.CFApp {
-	return &korifiv1alpha1.CFApp{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "CFApp",
-			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        appGUID,
-			Namespace:   namespace,
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
-		},
-		Spec: korifiv1alpha1.CFAppSpec{
-			DisplayName:  "test-app",
-			DesiredState: "STOPPED",
-			Lifecycle: korifiv1alpha1.Lifecycle{
-				Type: "buildpack",
-			},
-		},
-	}
-}
