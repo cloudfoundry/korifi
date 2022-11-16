@@ -96,6 +96,7 @@ type PatchProcessMessage struct {
 	HealthCheckType                     *string
 	DesiredInstances                    *int
 	MemoryMB                            *int64
+	MetadataPatch                       *MetadataPatch
 }
 
 type ListProcessesMessage struct {
@@ -275,6 +276,18 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 		if message.HealthCheckTimeoutSeconds != nil {
 			updatedProcess.Spec.HealthCheck.Data.TimeoutSeconds = *message.HealthCheckTimeoutSeconds
 		}
+		if message.MetadataPatch != nil {
+			if updatedProcess.GetAnnotations() == nil {
+				updatedProcess.SetAnnotations(map[string]string{})
+			}
+
+			if updatedProcess.GetLabels() == nil {
+				updatedProcess.SetLabels(map[string]string{})
+			}
+
+			patchMap(updatedProcess.GetAnnotations(), message.MetadataPatch.Annotations)
+			patchMap(updatedProcess.GetLabels(), message.MetadataPatch.Labels)
+		}
 	})
 	if err != nil {
 		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
@@ -347,8 +360,8 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 				TimeoutSeconds:           cfProcess.Spec.HealthCheck.Data.TimeoutSeconds,
 			},
 		},
-		Labels:      map[string]string{},
-		Annotations: map[string]string{},
+		Labels:      cfProcess.Labels,
+		Annotations: cfProcess.Annotations,
 		CreatedAt:   cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt:   updatedAtTime,
 	}

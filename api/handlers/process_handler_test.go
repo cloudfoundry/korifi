@@ -908,25 +908,27 @@ var _ = Describe("ProcessHandler", func() {
 					Labels:      labels,
 					Annotations: annotations,
 				}, nil)
-
-				makePatchRequest(processGUID, validBody)
 			})
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+			When("the request patches health check", func() {
+				BeforeEach(func() {
+					makePatchRequest(processGUID, validBody)
+				})
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
 
-			It("passes the authorization.Info to the process repository", func() {
-				Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := processRepo.PatchProcessArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
+				It("passes the authorization.Info to the process repository", func() {
+					Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
+					_, actualAuthInfo, _ := processRepo.PatchProcessArgsForCall(0)
+					Expect(actualAuthInfo).To(Equal(authInfo))
+				})
 
-			It("returns a process", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				It("returns a process", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(`{
+					Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "` + processGUID + `",
 					"created_at": "` + createdAt + `",
 					"updated_at": "` + updatedAt + `",
@@ -973,6 +975,22 @@ var _ = Describe("ProcessHandler", func() {
 					   }
 					}
 				 }`))
+				})
+			})
+			When("the request patches metadata", func() {
+				BeforeEach(func() {
+					makePatchRequest(processGUID, `{"metadata":{"labels":{"foo":"value1"}}}`)
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("passes the metadata to the patch method on the repository", func() {
+					Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
+					_, _, msg := processRepo.PatchProcessArgsForCall(0)
+					Expect(msg.MetadataPatch.Labels).To(HaveKey("foo"))
+				})
 			})
 		})
 

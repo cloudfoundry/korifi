@@ -230,6 +230,15 @@ type processResource struct {
 	Instances int    `json:"instances"`
 }
 
+type metadataPatch struct {
+	Annotations *map[string]string `json:"annotations,omitempty"`
+	Labels      *map[string]string `json:"labels,omitempty"`
+}
+
+type metadataResource struct {
+	Metadata *metadataPatch `json:"metadata,omitempty"`
+}
+
 type cfErr struct {
 	Detail string `json:"detail"`
 	Title  string `json:"title"`

@@ -435,7 +435,7 @@ var _ = Describe("ProcessRepo", func() {
 							TimeoutSeconds:           0,
 						},
 					}),
-					"Labels":      BeEmpty(),
+					"Labels":      HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", app1GUID),
 					"Annotations": BeEmpty(),
 					"CreatedAt":   Not(BeEmpty()),
 					"UpdatedAt":   Not(BeEmpty()),
@@ -522,6 +522,7 @@ var _ = Describe("ProcessRepo", func() {
 
 				When("all fields are set", func() {
 					BeforeEach(func() {
+						barValue := "bar"
 						message = repositories.PatchProcessMessage{
 							ProcessGUID:                         process1GUID,
 							SpaceGUID:                           space.Name,
@@ -533,6 +534,10 @@ var _ = Describe("ProcessRepo", func() {
 							DesiredInstances:                    tools.PtrTo(42),
 							MemoryMB:                            tools.PtrTo(int64(456)),
 							DiskQuotaMB:                         tools.PtrTo(int64(123)),
+							MetadataPatch: &repositories.MetadataPatch{
+								Labels:      map[string]*string{"foo": &barValue},
+								Annotations: map[string]*string{"foo": &barValue},
+							},
 						}
 					})
 
@@ -549,6 +554,8 @@ var _ = Describe("ProcessRepo", func() {
 						Expect(updatedProcessRecord.DesiredInstances).To(Equal(*message.DesiredInstances))
 						Expect(updatedProcessRecord.MemoryMB).To(Equal(*message.MemoryMB))
 						Expect(updatedProcessRecord.DiskQuotaMB).To(Equal(*message.DiskQuotaMB))
+						Expect(updatedProcessRecord.Labels).To(HaveKey("foo"))
+						Expect(updatedProcessRecord.Annotations).To(HaveKey("foo"))
 
 						var process korifiv1alpha1.CFProcess
 						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: process1GUID, Namespace: space.Name}, &process)).To(Succeed())
@@ -569,6 +576,8 @@ var _ = Describe("ProcessRepo", func() {
 							DiskQuotaMB:      123,
 							Ports:            []int32{8080},
 						}))
+						Expect(process.Labels).To(HaveKey("foo"))
+						Expect(process.Annotations).To(HaveKey("foo"))
 					})
 				})
 

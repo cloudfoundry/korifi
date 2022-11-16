@@ -274,4 +274,48 @@ var _ = Describe("Processes", func() {
 			})
 		})
 	})
+
+	Describe("Patch process metadata", func() {
+		var result responseResource
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetBody(metadataResource{Metadata: &metadataPatch{
+					Annotations: &map[string]string{"foo": "bar"},
+				}}).
+				SetError(&errResp).
+				SetResult(&result).
+				Patch("/v3/processes/" + processGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", certUserName, spaceGUID)
+			})
+
+			It("successfully patches the annotations", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(string(resp.Body())).To(ContainSubstring(`"foo":"bar"`))
+				Expect(result.GUID).To(Equal(processGUID))
+			})
+		})
+
+		When("the user is a space manager", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", certUserName, spaceGUID)
+			})
+
+			It("returns forbidden", func() {
+				expectForbiddenError(resp, errResp)
+			})
+		})
+
+		When("the user has no role", func() {
+			It("returns not found", func() {
+				expectNotFoundError(resp, errResp, "Process")
+			})
+		})
+	})
 })
