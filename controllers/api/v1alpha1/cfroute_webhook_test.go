@@ -2,71 +2,70 @@ package v1alpha1_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CFRouteMutatingWebhook Unit Tests", func() {
-	const (
-		cfDomainGUID     = "test-domain-guid"
-		cfRouteGUID      = "test-route-guid"
-		cfDomainLabelKey = "korifi.cloudfoundry.org/domain-guid"
-		cfRouteLabelKey  = "korifi.cloudfoundry.org/route-guid"
-		namespace        = "default"
-	)
+const (
+	cfDomainLabelKey = "korifi.cloudfoundry.org/domain-guid"
+	cfRouteLabelKey  = "korifi.cloudfoundry.org/route-guid"
+)
 
-	When("there are no existing labels on the CFRoute record", func() {
-		It("should add new domain-guid and route-guid labels", func() {
-			cfRoute := &korifiv1alpha1.CFRoute{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFRoute",
-					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				},
+var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
+	When("a CFRoute record is created", func() {
+		var (
+			cfDomain *korifiv1alpha1.CFDomain
+			cfRoute  *korifiv1alpha1.CFRoute
+		)
+
+		BeforeEach(func() {
+			cfDomain = &korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfRouteGUID,
+					Name:      GenerateGUID(),
 					Namespace: namespace,
 				},
+				Spec: korifiv1alpha1.CFDomainSpec{
+					Name: "example.com",
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
+
+			cfRoute = &korifiv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      GenerateGUID(),
+					Namespace: namespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
 				Spec: korifiv1alpha1.CFRouteSpec{
+					Host: "my-host",
 					DomainRef: v1.ObjectReference{
-						Name:      cfDomainGUID,
+						Name:      cfDomain.Name,
 						Namespace: namespace,
 					},
 				},
 			}
-
-			cfRoute.Default()
-			Expect(cfRoute.ObjectMeta.Labels).To(HaveKeyWithValue(cfRouteLabelKey, cfRouteGUID))
-			Expect(cfRoute.ObjectMeta.Labels).To(HaveKeyWithValue(cfDomainLabelKey, cfDomainGUID))
 		})
-	})
 
-	When("there are other existing labels on the CFRoute record", func() {
-		It("should preserve the other labels", func() {
-			cfRoute := &korifiv1alpha1.CFRoute{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFRoute",
-					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfRouteGUID,
-					Namespace: namespace,
-					Labels: map[string]string{
-						"anotherLabel": "route-label",
-					},
-				},
-				Spec: korifiv1alpha1.CFRouteSpec{
-					DomainRef: v1.ObjectReference{
-						Name:      cfDomainGUID,
-						Namespace: namespace,
-					},
-				},
-			}
+		JustBeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
+		})
 
-			cfRoute.Default()
-			Expect(cfRoute.ObjectMeta.Labels).To(HaveLen(3), "Unexpected number of labels")
-			Expect(cfRoute.ObjectMeta.Labels).To(HaveKeyWithValue("anotherLabel", "route-label"))
+		AfterEach(func() {
+			Expect(k8sClient.Delete(ctx, cfRoute)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
+		})
+
+		It("adds labels with guids of the domain and route", func() {
+			Expect(cfRoute.Labels).To(HaveKeyWithValue(cfDomainLabelKey, cfDomain.Name))
+			Expect(cfRoute.Labels).To(HaveKeyWithValue(cfRouteLabelKey, cfRoute.Name))
+		})
+
+		It("preserves the other labels", func() {
+			Expect(cfRoute.Labels).To(HaveKeyWithValue("foo", "bar"))
 		})
 	})
 })
