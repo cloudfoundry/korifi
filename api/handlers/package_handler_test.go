@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +28,7 @@ var _ = Describe("PackageHandler", func() {
 		appRepo                    *fake.CFAppRepository
 		dropletRepo                *fake.CFDropletRepository
 		imageRepo                  *fake.ImageRepository
+		requestJSONValidator       *fake.RequestJSONValidator
 		packageRegistryBase        string
 		packageImagePullSecretName string
 
@@ -42,6 +44,7 @@ var _ = Describe("PackageHandler", func() {
 		appRepo = new(fake.CFAppRepository)
 		dropletRepo = new(fake.CFDropletRepository)
 		imageRepo = new(fake.ImageRepository)
+		requestJSONValidator = new(fake.RequestJSONValidator)
 		packageRegistryBase = "some-org"
 		packageImagePullSecretName = "package-image-pull-secret"
 
@@ -51,16 +54,13 @@ var _ = Describe("PackageHandler", func() {
 		createdAt = time.Now().Format(time.RFC3339)
 		updatedAt = time.Now().Format(time.RFC3339)
 
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
-
 		apiHandler := NewPackageHandler(
 			*serverURL,
 			packageRepo,
 			appRepo,
 			dropletRepo,
 			imageRepo,
-			decoderValidator,
+			requestJSONValidator,
 			packageRegistryBase,
 			packageImagePullSecretName,
 		)
@@ -462,23 +462,26 @@ var _ = Describe("PackageHandler", func() {
 	})
 
 	Describe("the POST /v3/packages endpoint", func() {
-		var (
-			appUID types.UID
-			body   string
-		)
+		var appUID types.UID
 
 		BeforeEach(func() {
 			appUID = "appUID"
-			body = `{
-				"type": "bits",
-				"relationships": {
-					"app": {
-						"data": {
-							"guid": "` + appGUID + `"
-						}
-					}
-				}
-			}`
+			body := &payloads.PackageCreate{
+				Type: "bits",
+				Relationships: &payloads.PackageRelationships{
+					App: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: appGUID,
+						},
+					},
+				},
+			}
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(r *http.Request, i interface{}) error {
+				b, ok := i.(*payloads.PackageCreate)
+				Expect(ok).To(BeTrue())
+				*b = *body
+				return nil
+			}
 
 			packageRepo.CreatePackageReturns(repositories.PackageRecord{
 				Type:      "bits",
@@ -498,7 +501,7 @@ var _ = Describe("PackageHandler", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(body))
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(""))
 			Expect(err).NotTo(HaveOccurred())
 
 			router.ServeHTTP(rr, req)
@@ -606,76 +609,13 @@ var _ = Describe("PackageHandler", func() {
 			itDoesntCreateAPackage()
 		})
 
-		When("the type is invalid", func() {
+		When("the request JSON is invalid", func() {
 			BeforeEach(func() {
-				body = `{
-					"type": "docker",
-					"relationships": {
-						"app": {
-							"data": {
-								"guid": "` + appGUID + `"
-							}
-						}
-					}
-				}`
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "test-error"))
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError("Type must be one of ['bits']")
-			})
-		})
-
-		When("the relationship field is completely omitted", func() {
-			BeforeEach(func() {
-				body = `{ "type": "bits" }`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Relationships is a required field")
-			})
-		})
-
-		When("an invalid relationship is given", func() {
-			BeforeEach(func() {
-				body = `{
-                    "type": "bits",
-                    "relationships": {
-                        "build": {
-                            "data": {}
-                        }
-                    }
-                }`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(`invalid request body: json: unknown field "build"`)
-			})
-		})
-
-		When("the JSON body is invalid", func() {
-			BeforeEach(func() {
-				body = "{"
-			})
-
-			It("returns a status 400 Bad Request ", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"errors": [
-						{
-							"title": "CF-MessageParseError",
-							"detail": "Request invalid due to parse error: invalid request body",
-							"code": 1001
-						}
-					]
-				}`), "Response body matches response:")
+				expectUnprocessableEntityError("test-error")
 			})
 		})
 
