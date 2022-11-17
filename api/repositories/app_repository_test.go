@@ -1065,8 +1065,8 @@ var _ = Describe("AppRepository", func() {
 
 			currentDropletRecord CurrentDropletRecord
 			setDropletErr        error
-			dummyAppController   func()
-			dummyControllerSync  sync.WaitGroup
+			simAppController     func()
+			simControllerSync    sync.WaitGroup
 		)
 
 		BeforeEach(func() {
@@ -1074,10 +1074,10 @@ var _ = Describe("AppRepository", func() {
 			appGUID = cfApp.Name
 			createDropletCR(testCtx, k8sClient, dropletGUID, cfApp.Name, cfSpace.Name)
 
-			dummyControllerSync.Add(1)
-			dummyAppController = func() {
+			simControllerSync.Add(1)
+			simAppController = func() {
 				defer GinkgoRecover()
-				defer dummyControllerSync.Done()
+				defer simControllerSync.Done()
 
 				Eventually(func(g Gomega) {
 					theApp := &korifiv1alpha1.CFApp{}
@@ -1101,11 +1101,11 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		AfterEach(func() {
-			dummyControllerSync.Wait()
+			simControllerSync.Wait()
 		})
 
 		JustBeforeEach(func() {
-			go dummyAppController()
+			go simAppController()
 
 			currentDropletRecord, setDropletErr = appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
 				AppGUID:     appGUID,
@@ -1146,9 +1146,9 @@ var _ = Describe("AppRepository", func() {
 
 			When("the app does not get the staged condition", func() {
 				BeforeEach(func() {
-					dummyAppController = func() {
+					simAppController = func() {
 						defer GinkgoRecover()
-						defer dummyControllerSync.Done()
+						defer simControllerSync.Done()
 					}
 				})
 

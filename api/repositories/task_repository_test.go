@@ -21,12 +21,12 @@ import (
 
 var _ = Describe("TaskRepository", func() {
 	var (
-		taskRepo            *repositories.TaskRepo
-		org                 *korifiv1alpha1.CFOrg
-		space               *korifiv1alpha1.CFSpace
-		cfApp               *korifiv1alpha1.CFApp
-		dummyTaskController func(*korifiv1alpha1.CFTask)
-		controllerSync      *sync.WaitGroup
+		taskRepo          *repositories.TaskRepo
+		org               *korifiv1alpha1.CFOrg
+		space             *korifiv1alpha1.CFSpace
+		cfApp             *korifiv1alpha1.CFApp
+		simTaskController func(*korifiv1alpha1.CFTask)
+		controllerSync    *sync.WaitGroup
 	)
 
 	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
@@ -63,7 +63,7 @@ var _ = Describe("TaskRepository", func() {
 
 		cfApp = createApp(space.Name)
 
-		dummyTaskController = func(cft *korifiv1alpha1.CFTask) {}
+		simTaskController = func(cft *korifiv1alpha1.CFTask) {}
 	})
 
 	JustBeforeEach(func() {
@@ -95,7 +95,7 @@ var _ = Describe("TaskRepository", func() {
 					continue
 				}
 
-				dummyTaskController(cft)
+				simTaskController(cft)
 			}
 		}()
 	})
@@ -112,7 +112,7 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			dummyTaskController = func(cft *korifiv1alpha1.CFTask) {
+			simTaskController = func(cft *korifiv1alpha1.CFTask) {
 				setStatusAndUpdate(
 					defaultStatusValues(cft, 6, cfApp.Spec.CurrentDropletRef.Name),
 					korifiv1alpha1.TaskInitializedConditionType,
@@ -154,7 +154,7 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the task never becomes initialized", func() {
 				BeforeEach(func() {
-					dummyTaskController = func(cft *korifiv1alpha1.CFTask) {}
+					simTaskController = func(cft *korifiv1alpha1.CFTask) {}
 				})
 
 				It("returns an error", func() {
@@ -482,7 +482,7 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			dummyTaskController = func(cft *korifiv1alpha1.CFTask) {
+			simTaskController = func(cft *korifiv1alpha1.CFTask) {
 				if cft.Spec.Canceled {
 					setStatusAndUpdate(cft, korifiv1alpha1.TaskCanceledConditionType)
 				}
@@ -539,7 +539,7 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the status is not updated within the timeout", func() {
 				BeforeEach(func() {
-					dummyTaskController = func(*korifiv1alpha1.CFTask) {}
+					simTaskController = func(*korifiv1alpha1.CFTask) {}
 				})
 
 				It("returns a timeout error", func() {
