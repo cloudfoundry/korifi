@@ -98,6 +98,11 @@ func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
 	return pkg
 }
 
+type UpdatePackageMessage struct {
+	GUID     string
+	Metadata MetadataPatch
+}
+
 type UpdatePackageSourceMessage struct {
 	GUID               string
 	SpaceGUID          string
@@ -120,6 +125,32 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 	return cfPackageToPackageRecord(cfPackage), nil
 }
 
+func (r *PackageRepo) UpdatePackage(ctx context.Context, authInfo authorization.Info, updateMessage UpdatePackageMessage) (PackageRecord, error) {
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, updateMessage.GUID, PackageResourceType)
+	if err != nil {
+		return PackageRecord{}, err
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfPackage := &korifiv1alpha1.CFPackage{}
+
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: updateMessage.GUID}, cfPackage)
+	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to get package: %w", apierrors.ForbiddenAsNotFound(apierrors.FromK8sError(err, PackageResourceType)))
+	}
+
+	err = patchMetadata(ctx, userClient, cfPackage, updateMessage.Metadata, PackageResourceType)
+	if err != nil {
+		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
+	}
+
+	return cfPackageToPackageRecord(*cfPackage), nil
+}
+
 func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
 	ns, err := r.namespaceRetriever.NamespaceFor(ctx, guid, PackageResourceType)
 	if err != nil {
@@ -131,12 +162,12 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
 	}
 
-	cfpackage := korifiv1alpha1.CFPackage{}
-	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, &cfpackage); err != nil {
+	cfPackage := korifiv1alpha1.CFPackage{}
+	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, &cfPackage); err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to get package %q: %w", guid, apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	return cfPackageToPackageRecord(cfpackage), nil
+	return cfPackageToPackageRecord(cfPackage), nil
 }
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {

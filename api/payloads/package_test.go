@@ -152,6 +152,87 @@ var _ = Describe("PackageCreate", func() {
 	})
 })
 
+var _ = Describe("PackageUpdate", func() {
+	var (
+		updatePayload payloads.PackageUpdate
+		packageUpdate *payloads.PackageUpdate
+		validator     *handlers.DecoderValidator
+		validatorErr  error
+	)
+
+	BeforeEach(func() {
+		var err error
+		validator, err = handlers.NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
+
+		packageUpdate = new(payloads.PackageUpdate)
+		updatePayload = payloads.PackageUpdate{
+			Metadata: payloads.MetadataPatch{
+				Labels: map[string]*string{
+					"foo": tools.PtrTo("bar"),
+					"bar": nil,
+				},
+				Annotations: map[string]*string{
+					"example.org/jim": tools.PtrTo("hello"),
+				},
+			},
+		}
+	})
+
+	JustBeforeEach(func() {
+		body, err := json.Marshal(updatePayload)
+		Expect(err).NotTo(HaveOccurred())
+
+		req, err := http.NewRequest("", "", bytes.NewReader(body))
+		Expect(err).NotTo(HaveOccurred())
+
+		validatorErr = validator.DecodeAndValidateJSONPayload(req, packageUpdate)
+	})
+
+	It("succeeds", func() {
+		Expect(validatorErr).NotTo(HaveOccurred())
+		Expect(packageUpdate).To(gstruct.PointTo(Equal(updatePayload)))
+	})
+
+	When("metadata.labels contains an invalid key", func() {
+		BeforeEach(func() {
+			updatePayload.Metadata = payloads.MetadataPatch{
+				Labels: map[string]*string{
+					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+				},
+			}
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+		})
+	})
+
+	When("metadata.annotations contains an invalid key", func() {
+		BeforeEach(func() {
+			updatePayload.Metadata = payloads.MetadataPatch{
+				Annotations: map[string]*string{
+					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+				},
+			}
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+		})
+	})
+
+	Context("toMessage", func() {
+		It("converts to repo message correctly", func() {
+			msg := packageUpdate.ToMessage("foo")
+			Expect(msg.Metadata.Labels).To(Equal(map[string]*string{
+				"foo": tools.PtrTo("bar"),
+				"bar": nil,
+			}))
+		})
+	})
+})
+
 func expectUnprocessableEntityError(err error, detail string) {
 	Expect(err).To(HaveOccurred())
 	Expect(err).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))

@@ -94,6 +94,67 @@ var _ = Describe("Package", func() {
 		})
 	})
 
+	Describe("Update", func() {
+		BeforeEach(func() {
+			packageGUID = createPackage(appGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetBody(typedResource{
+					Metadata: &metadata{
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+						Annotations: map[string]string{
+							"foo.bar.com/baz": "18",
+						},
+					},
+				}).
+				SetError(&resultErr).
+				SetResult(&result).
+				Patch("/v3/packages/" + packageGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("fails with a resource not found error", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+			Expect(resultErr.Errors).To(ConsistOf(cfErr{
+				Detail: "Package not found. Ensure it exists and you have access to it.",
+				Title:  "CF-ResourceNotFound",
+				Code:   10010,
+			}))
+		})
+
+		When("the user is a SpaceDeveloper", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", certUserName, spaceGUID)
+			})
+
+			It("succeeds", func() {
+				Expect(resultErr.Errors).To(HaveLen(0))
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(packageGUID))
+			})
+		})
+
+		When("the user is a SpaceManager (i.e. can get the package but cannot update it)", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", certUserName, spaceGUID)
+			})
+
+			It("fails with a forbidden error", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+				Expect(resultErr.Errors).To(ConsistOf(cfErr{
+					Detail: "You are not authorized to perform the requested action",
+					Title:  "CF-NotAuthorized",
+					Code:   10003,
+				}))
+			})
+		})
+	})
+
 	Describe("Upload", func() {
 		BeforeEach(func() {
 			packageGUID = createPackage(appGUID)

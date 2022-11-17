@@ -28,6 +28,20 @@ func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.Cre
 	}
 }
 
+type PackageUpdate struct {
+	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackageMessage {
+	return repositories.UpdatePackageMessage{
+		GUID: packageGUID,
+		Metadata: repositories.MetadataPatch{
+			Annotations: u.Metadata.Annotations,
+			Labels:      u.Metadata.Labels,
+		},
+	}
+}
+
 type PackageListQueryParameters struct {
 	AppGUIDs *string `schema:"app_guids"`
 	States   *string `schema:"states"`
