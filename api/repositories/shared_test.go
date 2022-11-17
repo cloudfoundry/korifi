@@ -55,6 +55,12 @@ func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
 			Namespace: spaceGUID,
+			Labels: map[string]string{
+				"foo": "the-original-value",
+			},
+			Annotations: map[string]string{
+				"bar": "the-original-value",
+			},
 		},
 		Spec: korifiv1alpha1.CFPackageSpec{
 			Type: "bits",

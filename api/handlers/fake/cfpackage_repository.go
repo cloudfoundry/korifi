@@ -56,6 +56,21 @@ type CFPackageRepository struct {
 		result1 []repositories.PackageRecord
 		result2 error
 	}
+	UpdatePackageStub        func(context.Context, authorization.Info, repositories.UpdatePackageMessage) (repositories.PackageRecord, error)
+	updatePackageMutex       sync.RWMutex
+	updatePackageArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.UpdatePackageMessage
+	}
+	updatePackageReturns struct {
+		result1 repositories.PackageRecord
+		result2 error
+	}
+	updatePackageReturnsOnCall map[int]struct {
+		result1 repositories.PackageRecord
+		result2 error
+	}
 	UpdatePackageSourceStub        func(context.Context, authorization.Info, repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error)
 	updatePackageSourceMutex       sync.RWMutex
 	updatePackageSourceArgsForCall []struct {
@@ -273,6 +288,72 @@ func (fake *CFPackageRepository) ListPackagesReturnsOnCall(i int, result1 []repo
 	}{result1, result2}
 }
 
+func (fake *CFPackageRepository) UpdatePackage(arg1 context.Context, arg2 authorization.Info, arg3 repositories.UpdatePackageMessage) (repositories.PackageRecord, error) {
+	fake.updatePackageMutex.Lock()
+	ret, specificReturn := fake.updatePackageReturnsOnCall[len(fake.updatePackageArgsForCall)]
+	fake.updatePackageArgsForCall = append(fake.updatePackageArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.UpdatePackageMessage
+	}{arg1, arg2, arg3})
+	stub := fake.UpdatePackageStub
+	fakeReturns := fake.updatePackageReturns
+	fake.recordInvocation("UpdatePackage", []interface{}{arg1, arg2, arg3})
+	fake.updatePackageMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFPackageRepository) UpdatePackageCallCount() int {
+	fake.updatePackageMutex.RLock()
+	defer fake.updatePackageMutex.RUnlock()
+	return len(fake.updatePackageArgsForCall)
+}
+
+func (fake *CFPackageRepository) UpdatePackageCalls(stub func(context.Context, authorization.Info, repositories.UpdatePackageMessage) (repositories.PackageRecord, error)) {
+	fake.updatePackageMutex.Lock()
+	defer fake.updatePackageMutex.Unlock()
+	fake.UpdatePackageStub = stub
+}
+
+func (fake *CFPackageRepository) UpdatePackageArgsForCall(i int) (context.Context, authorization.Info, repositories.UpdatePackageMessage) {
+	fake.updatePackageMutex.RLock()
+	defer fake.updatePackageMutex.RUnlock()
+	argsForCall := fake.updatePackageArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFPackageRepository) UpdatePackageReturns(result1 repositories.PackageRecord, result2 error) {
+	fake.updatePackageMutex.Lock()
+	defer fake.updatePackageMutex.Unlock()
+	fake.UpdatePackageStub = nil
+	fake.updatePackageReturns = struct {
+		result1 repositories.PackageRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFPackageRepository) UpdatePackageReturnsOnCall(i int, result1 repositories.PackageRecord, result2 error) {
+	fake.updatePackageMutex.Lock()
+	defer fake.updatePackageMutex.Unlock()
+	fake.UpdatePackageStub = nil
+	if fake.updatePackageReturnsOnCall == nil {
+		fake.updatePackageReturnsOnCall = make(map[int]struct {
+			result1 repositories.PackageRecord
+			result2 error
+		})
+	}
+	fake.updatePackageReturnsOnCall[i] = struct {
+		result1 repositories.PackageRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFPackageRepository) UpdatePackageSource(arg1 context.Context, arg2 authorization.Info, arg3 repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error) {
 	fake.updatePackageSourceMutex.Lock()
 	ret, specificReturn := fake.updatePackageSourceReturnsOnCall[len(fake.updatePackageSourceArgsForCall)]
@@ -348,6 +429,8 @@ func (fake *CFPackageRepository) Invocations() map[string][][]interface{} {
 	defer fake.getPackageMutex.RUnlock()
 	fake.listPackagesMutex.RLock()
 	defer fake.listPackagesMutex.RUnlock()
+	fake.updatePackageMutex.RLock()
+	defer fake.updatePackageMutex.RUnlock()
 	fake.updatePackageSourceMutex.RLock()
 	defer fake.updatePackageSourceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

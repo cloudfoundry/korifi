@@ -9,6 +9,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -515,6 +516,93 @@ var _ = Describe("PackageRepository", func() {
 		When("user is not authorized to update a package", func() {
 			It("returns a forbidden error", func() {
 				Expect(updateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("UpdatePackage", func() {
+		var (
+			packageGUID   string
+			cfPackage     *korifiv1alpha1.CFPackage
+			updateErr     error
+			packageRecord repositories.PackageRecord
+			updateMessage repositories.UpdatePackageMessage
+		)
+
+		BeforeEach(func() {
+			packageGUID = generateGUID()
+			updateMessage = repositories.UpdatePackageMessage{
+				GUID: packageGUID,
+				Metadata: repositories.MetadataPatch{
+					Labels: map[string]*string{
+						"foo": tools.PtrTo("bar"),
+					},
+					Annotations: map[string]*string{
+						"bar": tools.PtrTo("baz"),
+					},
+				},
+			}
+			cfPackage = createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "")
+		})
+
+		JustBeforeEach(func() {
+			packageRecord, updateErr = packageRepo.UpdatePackage(ctx, authInfo, updateMessage)
+		})
+
+		It("fails when the user is not auth'ed", func() {
+			Expect(updateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+		})
+
+		When("the user is authorized read-only in the namespace", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceManagerRole.Name, space.Name)
+			})
+
+			It("fails with a forbidden error", func() {
+				Expect(updateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+
+		When("the user is authorized in the namespace", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("succeeds", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+				Expect(packageRecord.GUID).To(Equal(packageGUID))
+				Expect(packageRecord.Labels).To(Equal(map[string]string{"foo": "bar"}))
+				Expect(packageRecord.Annotations).To(Equal(map[string]string{"bar": "baz"}))
+
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
+					g.Expect(cfPackage.Labels).To(Equal(map[string]string{"foo": "bar"}))
+					g.Expect(cfPackage.Annotations).To(Equal(map[string]string{"bar": "baz"}))
+				}).Should(Succeed())
+			})
+
+			When("patch fails", func() {
+				BeforeEach(func() {
+					updateMessage.GUID = "doesn-t-exist"
+				})
+
+				It("returns an error", func() {
+					Expect(updateErr).To(MatchError(ContainSubstring("doesn-t-exist")))
+				})
+			})
+
+			When("unsetting a label", func() {
+				BeforeEach(func() {
+					updateMessage.Metadata.Labels["foo"] = nil
+				})
+
+				It("removes the label", func() {
+					Expect(packageRecord.Labels).ToNot(HaveKey("foo"))
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
+						g.Expect(cfPackage.Labels).To(BeEmpty())
+					}).Should(Succeed())
+				})
 			})
 		})
 	})

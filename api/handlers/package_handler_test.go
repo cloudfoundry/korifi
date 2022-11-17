@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 
+	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -646,6 +647,140 @@ var _ = Describe("PackageHandler", func() {
 			It("returns an error", func() {
 				expectUnknownError()
 			})
+		})
+	})
+
+	Describe("the PATCH /v3/packages/:guid endpoint", func() {
+		var packageGUID string
+
+		BeforeEach(func() {
+			packageGUID = generateGUID("package")
+
+			body := &payloads.PackageUpdate{
+				Metadata: payloads.MetadataPatch{
+					Labels: map[string]*string{
+						"bob": tools.PtrTo("foo"),
+					},
+					Annotations: map[string]*string{
+						"jim": tools.PtrTo("foo"),
+					},
+				},
+			}
+
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(r *http.Request, i interface{}) error {
+				b, ok := i.(*payloads.PackageUpdate)
+				Expect(ok).To(BeTrue())
+				*b = *body
+				return nil
+			}
+
+			packageRepo.UpdatePackageReturns(repositories.PackageRecord{
+				Type:        "bits",
+				AppGUID:     appGUID,
+				SpaceGUID:   spaceGUID,
+				GUID:        packageGUID,
+				State:       "AWAITING_UPLOAD",
+				CreatedAt:   createdAt,
+				UpdatedAt:   updatedAt,
+				Labels:      map[string]string{"bob": "foo"},
+				Annotations: map[string]string{"jim": "foo"},
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "PATCH", "/v3/packages/"+packageGUID, strings.NewReader(""))
+			Expect(err).NotTo(HaveOccurred())
+
+			router.ServeHTTP(rr, req)
+		})
+
+		It("returns status 200", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+		})
+
+		It("validates the request payload", func() {
+			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+		})
+
+		When("the request payload validation fails", func() {
+			BeforeEach(func() {
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(errors.New("req-invalid"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		It("returns Content-Type as JSON in header", func() {
+			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+		})
+
+		It("Updates a CFPackage", func() {
+			Expect(packageRepo.UpdatePackageCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualUpdate := packageRepo.UpdatePackageArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualUpdate).To(Equal(repositories.UpdatePackageMessage{
+				GUID: packageGUID,
+				Metadata: repositories.MetadataPatch{
+					Labels: map[string]*string{
+						"bob": tools.PtrTo("foo"),
+					},
+					Annotations: map[string]*string{
+						"jim": tools.PtrTo("foo"),
+					},
+				},
+			}))
+		})
+
+		When("updating the package fails", func() {
+			BeforeEach(func() {
+				packageRepo.UpdatePackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		It("returns a JSON body", func() {
+			Expect(rr.Body.String()).To(MatchJSON(`
+				{
+				  "guid": "` + packageGUID + `",
+				  "type": "bits",
+				  "data": {},
+				  "state": "AWAITING_UPLOAD",
+				  "created_at": "` + createdAt + `",
+				  "updated_at": "` + updatedAt + `",
+				  "relationships": {
+					"app": {
+					  "data": {
+						"guid": "` + appGUID + `"
+					  }
+					}
+				  },
+				  "links": {
+					"self": {
+					  "href": "` + defaultServerURI("/v3/packages/", packageGUID) + `"
+					},
+					"upload": {
+					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/upload") + `",
+					  "method": "POST"
+					},
+					"download": {
+					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/download") + `",
+					  "method": "GET"
+					},
+					"app": {
+					  "href": "` + defaultServerURI("/v3/apps/", appGUID) + `"
+					}
+				  },
+				  "metadata": {
+				    "labels": {"bob": "foo"},
+				    "annotations": {"jim": "foo"}
+				  }
+				}
+            `))
 		})
 	})
 

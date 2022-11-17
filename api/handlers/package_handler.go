@@ -34,6 +34,7 @@ type CFPackageRepository interface {
 	ListPackages(context.Context, authorization.Info, repositories.ListPackagesMessage) ([]repositories.PackageRecord, error)
 	CreatePackage(context.Context, authorization.Info, repositories.CreatePackageMessage) (repositories.PackageRecord, error)
 	UpdatePackageSource(context.Context, authorization.Info, repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error)
+	UpdatePackage(context.Context, authorization.Info, repositories.UpdatePackageMessage) (repositories.PackageRecord, error)
 }
 
 type ImageRepository interface {
@@ -137,6 +138,21 @@ func (h PackageHandler) packageCreateHandler(ctx context.Context, logger logr.Lo
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForPackage(record, h.serverURL)), nil
 }
 
+func (h PackageHandler) packageUpdateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	var payload payloads.PackageUpdate
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	packageGUID := mux.Vars(r)["guid"]
+	packageRecord, err := h.packageRepo.UpdatePackage(ctx, authInfo, payload.ToMessage(packageGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Error updating package")
+	}
+
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(packageRecord, h.serverURL)), nil
+}
+
 func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	packageGUID := mux.Vars(r)["guid"]
 	err := r.ParseForm()
@@ -207,6 +223,7 @@ func (h PackageHandler) packageListDropletsHandler(ctx context.Context, logger l
 
 func (h *PackageHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(PackagePath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.packageGetHandler))
+	router.Path(PackagePath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.packageUpdateHandler))
 	router.Path(PackagesPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.packageListHandler))
 	router.Path(PackagesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.packageCreateHandler))
 	router.Path(PackageUploadPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.packageUploadHandler))
