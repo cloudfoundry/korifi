@@ -306,7 +306,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 			// Modify the root service account to trigger reconciliation
 			Expect(k8s.PatchResource(ctx, k8sClient, rootServiceAccount, func() {
-				rootServiceAccount.Labels = map[string]string{"new-label": "dummy-value"}
+				rootServiceAccount.Labels = map[string]string{"new-label": "sample-value"}
 			})).To(Succeed())
 		})
 
