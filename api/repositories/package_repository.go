@@ -145,7 +145,7 @@ func (r *PackageRepo) UpdatePackage(ctx context.Context, authInfo authorization.
 
 	err = patchMetadata(ctx, userClient, cfPackage, updateMessage.Metadata, PackageResourceType)
 	if err != nil {
-		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
+		return PackageRecord{}, fmt.Errorf("failed to patch package metadata: %w", err)
 	}
 
 	return cfPackageToPackageRecord(*cfPackage), nil

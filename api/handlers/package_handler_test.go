@@ -80,6 +80,12 @@ var _ = Describe("PackageHandler", func() {
 				State:     "AWAITING_UPLOAD",
 				CreatedAt: createdAt,
 				UpdatedAt: updatedAt,
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"baz": "fof",
+				},
 			}, nil)
 		})
 
@@ -138,8 +144,12 @@ var _ = Describe("PackageHandler", func() {
 					}
 				  },
 				  "metadata": {
-					"labels": { },
-					"annotations": { }
+					"labels": {
+					  "foo": "bar"
+					},
+					"annotations": {
+					  "baz": "fof"
+					}
 				  }
 				}
             `))
@@ -651,8 +661,6 @@ var _ = Describe("PackageHandler", func() {
 	})
 
 	Describe("the PATCH /v3/packages/:guid endpoint", func() {
-		var packageGUID string
-
 		BeforeEach(func() {
 			packageGUID = generateGUID("package")
 
