@@ -147,12 +147,14 @@ var _ = Describe("PackageRepository", func() {
 				Expect(packageRecord.Type).To(Equal("bits"))
 				Expect(packageRecord.AppGUID).To(Equal(appGUID))
 				Expect(packageRecord.State).To(Equal("AWAITING_UPLOAD"))
+				Expect(packageRecord.Labels).To(HaveKeyWithValue("foo", "the-original-value"))
+				Expect(packageRecord.Annotations).To(HaveKeyWithValue("bar", "the-original-value"))
 
 				createdAt, err := time.Parse(time.RFC3339, packageRecord.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 
-				updatedAt, err := time.Parse(time.RFC3339, packageRecord.CreatedAt)
+				updatedAt, err := time.Parse(time.RFC3339, packageRecord.UpdatedAt)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 			})
