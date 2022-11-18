@@ -138,14 +138,14 @@ var _ = Describe("RoleRepository", func() {
 					})
 				})
 
-				When("the org role has propagation disabled", func() {
+				When("the org role has propagation deactivated", func() {
 					BeforeEach(func() {
 						roleCreateMessage.Type = "organization_user"
 						// Sha256 sum of "organization_user::myuser@example.com"
 						expectedName = "cf-2a6f4cbdd1777d57b5b7b2ee835785dafa68c147719c10948397cfc2ea7246a3"
 					})
 
-					It("disables the role binding propagation", func() {
+					It("deactivates the role binding propagation", func() {
 						Expect(createErr).NotTo(HaveOccurred())
 						Expect(getTheRoleBinding(expectedName, cfOrg.Name).Annotations).To(HaveKeyWithValue(korifiv1alpha1.PropagateRoleBindingAnnotation, "false"))
 						Expect(getTheRoleBinding(cfUserExpectedName, rootNamespace).Annotations).To(HaveKeyWithValue(korifiv1alpha1.PropagateRoleBindingAnnotation, "false"))
