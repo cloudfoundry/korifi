@@ -1,4 +1,4 @@
-package integration_test
+package workloads_test
 
 import (
 	"context"

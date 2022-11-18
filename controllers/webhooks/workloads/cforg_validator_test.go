@@ -1,12 +1,13 @@
-package integration_test
+package workloads_test
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,7 +38,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		var createErr error
 
 		BeforeEach(func() {
-			org1 = MakeCFOrg(org1Guid, rootNamespace, org1Name)
+			org1 = makeCFOrg(org1Guid, rootNamespace, org1Name)
 		})
 
 		JustBeforeEach(func() {
@@ -60,7 +61,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 		When("another CFOrg exists with a different name in the same namespace", func() {
 			BeforeEach(func() {
-				org2 := MakeCFOrg(org2Guid, rootNamespace, org2Name)
+				org2 := makeCFOrg(org2Guid, rootNamespace, org2Name)
 				Expect(k8sClient.Create(ctx, org2)).To(Succeed())
 			})
 
@@ -71,7 +72,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 		When("another CFOrg exists with the same name in the same namespace", func() {
 			BeforeEach(func() {
-				org2 := MakeCFOrg(org2Guid, rootNamespace, org1Name)
+				org2 := makeCFOrg(org2Guid, rootNamespace, org1Name)
 				Expect(k8sClient.Create(ctx, org2)).To(Succeed())
 			})
 
@@ -82,7 +83,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 		When("another CFOrg exists with the same name(case insensitive) in the same namespace", func() {
 			BeforeEach(func() {
-				org2 := MakeCFOrg(org2Guid, rootNamespace, strings.ToUpper(org1Name))
+				org2 := makeCFOrg(org2Guid, rootNamespace, strings.ToUpper(org1Name))
 				Expect(
 					k8sClient.Create(ctx, org2),
 				).To(Succeed())
@@ -101,7 +102,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		)
 
 		BeforeEach(func() {
-			org1 = MakeCFOrg(org1Guid, rootNamespace, org1Name)
+			org1 = makeCFOrg(org1Guid, rootNamespace, org1Name)
 			Expect(k8sClient.Create(ctx, org1)).To(Succeed())
 			originalOrg1 = org1.DeepCopy()
 		})
@@ -129,7 +130,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 				It("allows creating another org with the old name", func() {
 					Expect(updateErr).NotTo(HaveOccurred())
 
-					reuseOldNameOrg := MakeCFOrg(uuid.NewString(), rootNamespace, org1Name)
+					reuseOldNameOrg := makeCFOrg(uuid.NewString(), rootNamespace, org1Name)
 					Expect(k8sClient.Create(ctx, reuseOldNameOrg)).To(Succeed())
 				})
 			})
@@ -145,7 +146,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 		When("modifying spec.DisplayName to match another CFOrg spec.DisplayName", func() {
 			BeforeEach(func() {
-				org2 := MakeCFOrg(org2Guid, rootNamespace, org2Name)
+				org2 := makeCFOrg(org2Guid, rootNamespace, org2Name)
 				org1.Spec.DisplayName = org2Name
 				Expect(k8sClient.Create(ctx, org2)).To(Succeed())
 			})
@@ -160,7 +161,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		var deleteErr error
 
 		BeforeEach(func() {
-			org1 = MakeCFOrg(org1Guid, rootNamespace, org1Name)
+			org1 = makeCFOrg(org1Guid, rootNamespace, org1Name)
 			Expect(k8sClient.Create(ctx, org1)).To(Succeed())
 		})
 
@@ -173,3 +174,19 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		})
 	})
 })
+
+func makeCFOrg(cfOrgGUID string, namespace string, name string) *korifiv1alpha1.CFOrg {
+	return &korifiv1alpha1.CFOrg{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "CFOrg",
+			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfOrgGUID,
+			Namespace: namespace,
+		},
+		Spec: korifiv1alpha1.CFOrgSpec{
+			DisplayName: name,
+		},
+	}
+}

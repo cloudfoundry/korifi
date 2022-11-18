@@ -1,4 +1,4 @@
-package integration_test
+package workloads_test
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/integration/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
@@ -59,7 +58,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		var err error
 
 		BeforeEach(func() {
-			cfSpace = MakeCFSpace(orgNamespace, "my-space")
+			cfSpace = makeCFSpace(orgNamespace, "my-space")
 		})
 
 		JustBeforeEach(func() {
@@ -72,7 +71,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 
 		When("a corresponding CFOrg does not exist", func() {
 			BeforeEach(func() {
-				cfSpace.ObjectMeta.Namespace = "not-an-org"
+				cfSpace.Namespace = "not-an-org"
 				Expect(k8sClient.Create(ctx, &v1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "not-an-org",
@@ -87,7 +86,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 
 		When("the name already exists in the org namespace", func() {
 			BeforeEach(func() {
-				cfSpace2 = MakeCFSpace(orgNamespace, "my-space")
+				cfSpace2 = makeCFSpace(orgNamespace, "my-space")
 				Expect(k8sClient.Create(ctx, cfSpace2)).To(Succeed())
 			})
 
@@ -98,7 +97,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 
 		When("another CFSpace exists with the same name(case insensitive) in the same namespace", func() {
 			BeforeEach(func() {
-				cfSpace2 = MakeCFSpace(orgNamespace, "My-Space")
+				cfSpace2 = makeCFSpace(orgNamespace, "My-Space")
 				Expect(k8sClient.Create(ctx, cfSpace2)).To(Succeed())
 			})
 
@@ -110,7 +109,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 
 	Describe("updating a space", func() {
 		BeforeEach(func() {
-			cfSpace = MakeCFSpace(orgNamespace, "my-space")
+			cfSpace = makeCFSpace(orgNamespace, "my-space")
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 		})
 
@@ -124,7 +123,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 
 		When("the new space name already exists in the org namespace", func() {
 			BeforeEach(func() {
-				cfSpace2 = MakeCFSpace(orgNamespace, "another-space")
+				cfSpace2 = makeCFSpace(orgNamespace, "another-space")
 				Expect(k8sClient.Create(ctx, cfSpace2)).To(Succeed())
 			})
 
@@ -139,7 +138,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 	Describe("deleting a space", func() {
 		var err error
 		BeforeEach(func() {
-			cfSpace = MakeCFSpace(orgNamespace, "my-space")
+			cfSpace = makeCFSpace(orgNamespace, "my-space")
 			err = k8sClient.Create(ctx, cfSpace)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -149,3 +148,16 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		})
 	})
 })
+
+func makeCFSpace(namespace string, displayName string) *korifiv1alpha1.CFSpace {
+	return &korifiv1alpha1.CFSpace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      uuid.NewString(),
+			Namespace: namespace,
+			Labels:    map[string]string{korifiv1alpha1.SpaceNameLabel: displayName},
+		},
+		Spec: korifiv1alpha1.CFSpaceSpec{
+			DisplayName: displayName,
+		},
+	}
+}
