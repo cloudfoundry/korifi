@@ -35,7 +35,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
-	"github.com/jonboulle/clockwork"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	"go.uber.org/zap/zapcore"
@@ -224,7 +223,6 @@ func main() {
 			mgr.GetScheme(),
 			mgr.GetEventRecorderFor("cftask-controller"),
 			ctrl.Log.WithName("controllers").WithName("CFTask"),
-			workloadscontrollers.NewSequenceId(clockwork.NewRealClock()),
 			env.NewBuilder(mgr.GetClient()),
 			controllerConfig.CFProcessDefaults,
 			taskTTL,
@@ -323,6 +321,11 @@ func main() {
 
 		if err = (&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
+			os.Exit(1)
+		}
+
+		if err = workloads.NewCFTaskDefaulter().SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
 			os.Exit(1)
 		}
 

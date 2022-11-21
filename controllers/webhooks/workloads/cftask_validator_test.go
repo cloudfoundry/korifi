@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +18,7 @@ import (
 
 var _ = Describe("CFTask Creation", func() {
 	var (
-		cftask      korifiv1alpha1.CFTask
+		cfTask      *korifiv1alpha1.CFTask
 		creationErr error
 	)
 
@@ -25,7 +26,7 @@ var _ = Describe("CFTask Creation", func() {
 		cfApp := makeCFApp(testutils.PrefixedGUID("cfapp"), rootNamespace, testutils.PrefixedGUID("appName"))
 		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-		cftask = korifiv1alpha1.CFTask{
+		cfTask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testutils.GenerateGUID(),
 				Namespace: rootNamespace,
@@ -40,7 +41,7 @@ var _ = Describe("CFTask Creation", func() {
 	})
 
 	JustBeforeEach(func() {
-		creationErr = k8sClient.Create(context.Background(), &cftask)
+		creationErr = k8sClient.Create(context.Background(), cfTask)
 	})
 
 	It("suceeds", func() {
@@ -49,7 +50,7 @@ var _ = Describe("CFTask Creation", func() {
 
 	When("command is missing", func() {
 		BeforeEach(func() {
-			cftask.Spec.Command = ""
+			cfTask.Spec.Command = ""
 		})
 
 		It("returns a validation error", func() {
@@ -63,7 +64,7 @@ var _ = Describe("CFTask Creation", func() {
 
 	When("the app reference is not set", func() {
 		BeforeEach(func() {
-			cftask.Spec.AppRef = corev1.LocalObjectReference{}
+			cfTask.Spec.AppRef = corev1.LocalObjectReference{}
 		})
 
 		It("returns a validation error", func() {
@@ -74,20 +75,59 @@ var _ = Describe("CFTask Creation", func() {
 			Expect(validationErr.Message).To(ContainSubstring("missing required field 'Spec.AppRef.Name'"))
 		})
 	})
+
+	When("the task status is created", func() {
+		var seqId int64
+
+		BeforeEach(func() {
+			seqId = 0
+		})
+
+		JustBeforeEach(func() {
+			Expect(creationErr).NotTo(HaveOccurred())
+
+			originalCfTask := cfTask.DeepCopy()
+			cfTask.Status = korifiv1alpha1.CFTaskStatus{
+				Conditions: []metav1.Condition{},
+				SequenceID: seqId,
+			}
+
+			creationErr = k8sClient.Status().Patch(context.Background(), cfTask, client.MergeFrom(originalCfTask))
+		})
+
+		It("suceeds", func() {
+			Expect(creationErr).NotTo(HaveOccurred())
+		})
+
+		When("the sequenceID is set to a negative value", func() {
+			BeforeEach(func() {
+				seqId = -1
+			})
+
+			It("returns a validation error", func() {
+				validationErr, ok := webhooks.WebhookErrorToValidationError(creationErr)
+				Expect(ok).To(BeTrue())
+
+				Expect(validationErr.Type).To(Equal(workloads.InvalidFieldValueErrorType))
+				Expect(validationErr.Message).To(ContainSubstring("SequenceID cannot be negative"))
+			})
+		})
+	})
 })
 
 var _ = Describe("CFTask Update", func() {
 	var (
-		cftask         *korifiv1alpha1.CFTask
-		originalCFTask *korifiv1alpha1.CFTask
-		updateErr      error
+		cfTask     *korifiv1alpha1.CFTask
+		updateErr  error
+		updateFunc func()
 	)
 
 	BeforeEach(func() {
 		cfApp := makeCFApp(testutils.PrefixedGUID("cfapp"), rootNamespace, testutils.PrefixedGUID("appName"))
 		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+		updateFunc = func() {}
 
-		cftask = &korifiv1alpha1.CFTask{
+		cfTask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testutils.GenerateGUID(),
 				Namespace: rootNamespace,
@@ -99,17 +139,23 @@ var _ = Describe("CFTask Update", func() {
 				},
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), cftask)).To(Succeed())
-		originalCFTask = cftask.DeepCopy()
+		Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
+		Expect(k8s.Patch(context.Background(), k8sClient, cfTask, func() {
+			cfTask.Status = korifiv1alpha1.CFTaskStatus{
+				Conditions: []metav1.Condition{},
+			}
+		})).To(Succeed())
 	})
 
 	JustBeforeEach(func() {
-		updateErr = k8sClient.Patch(context.Background(), cftask, client.MergeFrom(originalCFTask))
+		updateErr = k8s.Patch(context.Background(), k8sClient, cfTask, updateFunc)
 	})
 
 	When("canceled is not changed", func() {
 		BeforeEach(func() {
-			cftask.Spec.Command = "echo ok"
+			updateFunc = func() {
+				cfTask.Spec.Command = "echo ok"
+			}
 		})
 
 		It("succeeds", func() {
@@ -119,7 +165,9 @@ var _ = Describe("CFTask Update", func() {
 
 	When("the task gets canceled", func() {
 		BeforeEach(func() {
-			cftask.Spec.Canceled = true
+			updateFunc = func() {
+				cfTask.Spec.Canceled = true
+			}
 		})
 
 		It("succeeds", func() {
@@ -128,7 +176,7 @@ var _ = Describe("CFTask Update", func() {
 
 		When("the cftask has a succeeded contdition", func() {
 			BeforeEach(func() {
-				setStatusCondition(cftask, korifiv1alpha1.TaskSucceededConditionType)
+				setStatusCondition(cfTask, korifiv1alpha1.TaskSucceededConditionType)
 			})
 
 			It("fails", func() {
@@ -143,7 +191,7 @@ var _ = Describe("CFTask Update", func() {
 
 		When("the cftask has a failed contdition", func() {
 			BeforeEach(func() {
-				setStatusCondition(cftask, korifiv1alpha1.TaskFailedConditionType)
+				setStatusCondition(cfTask, korifiv1alpha1.TaskFailedConditionType)
 			})
 
 			It("fails", func() {
@@ -158,15 +206,35 @@ var _ = Describe("CFTask Update", func() {
 
 		When("the task is already canceled before an update", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Patch(context.Background(), cftask, client.MergeFrom(originalCFTask))).To(Succeed())
-				originalCFTask = cftask.DeepCopy()
-				setStatusCondition(cftask, korifiv1alpha1.TaskSucceededConditionType)
-				cftask.Spec.Command = "echo foo"
+				Expect(k8s.Patch(context.Background(), k8sClient, cfTask, func() {
+					cfTask.Spec.Canceled = true
+				})).To(Succeed())
+
+				updateFunc = func() {
+					cfTask.Spec.Command = "echo foo"
+				}
 			})
 
 			It("succeeds", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 			})
+		})
+	})
+
+	When("the task Status.SequenceID is updated", func() {
+		BeforeEach(func() {
+			updateFunc = func() {
+				cfTask.Status.SequenceID = 1
+			}
+		})
+
+		It("denies the request", func() {
+			Expect(updateErr).To(HaveOccurred())
+			validationErr, ok := webhooks.WebhookErrorToValidationError(updateErr)
+			Expect(ok).To(BeTrue())
+
+			Expect(validationErr.Type).To(Equal(workloads.ImmutableFieldModificationErrorType))
+			Expect(validationErr.Message).To(ContainSubstring("SequenceID is immutable"))
 		})
 	})
 })

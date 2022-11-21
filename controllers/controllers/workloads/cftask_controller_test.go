@@ -159,31 +159,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			})
 
 			It("populates the Status of the CFTask", func() {
-				Expect(task.Status.SequenceID).NotTo(BeZero())
 				Expect(task.Status.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
 				Expect(task.Status.DiskQuotaMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
 				Expect(task.Status.DropletRef.Name).To(Equal(cfDroplet.Name))
 			})
-		})
-
-		It("SequenceID does not change on task update", func() {
-			task := &korifiv1alpha1.CFTask{}
-
-			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, task)).To(Succeed())
-				g.Expect(task.Status.SequenceID).NotTo(BeZero())
-			}).Should(Succeed())
-
-			seqId := task.Status.SequenceID
-
-			Expect(k8s.Patch(ctx, k8sClient, task, func() {
-				task.Spec.Command = "foo bar"
-			})).To(Succeed())
-
-			Consistently(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, task)).To(Succeed())
-				g.Expect(task.Status.SequenceID).To(Equal(seqId))
-			}).Should(Succeed())
 		})
 
 		It("sets the app to be the task owner", func() {

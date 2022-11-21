@@ -12,8 +12,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -112,6 +112,7 @@ var _ = BeforeSuite(func() {
 	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
 	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
 
+	Expect(workloads.NewCFTaskDefaulter().SetupWebhookWithManager(mgr)).To(Succeed())
 	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
