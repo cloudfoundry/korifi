@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
-	"github.com/jonboulle/clockwork"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
@@ -159,7 +158,6 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		k8sManager.GetEventRecorderFor("cftask-controller"),
 		ctrl.Log.WithName("controllers").WithName("CFTask"),
-		NewSequenceId(clockwork.NewRealClock()),
 		env.NewBuilder(k8sManager.GetClient()),
 		cfProcessDefaults,
 		2*time.Second,

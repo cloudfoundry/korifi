@@ -46,17 +46,12 @@ const (
 	LifecycleLauncherPath = "/cnb/lifecycle/launcher"
 )
 
-type SeqIdGenerator interface {
-	Generate() (int64, error)
-}
-
 // CFTaskReconciler reconciles a CFTask object
 type CFTaskReconciler struct {
 	k8sClient         client.Client
 	scheme            *runtime.Scheme
 	recorder          record.EventRecorder
 	logger            logr.Logger
-	seqIdGenerator    SeqIdGenerator
 	envBuilder        EnvBuilder
 	cfProcessDefaults config.CFProcessDefaults
 	taskTTLDuration   time.Duration
@@ -67,7 +62,6 @@ func NewCFTaskReconciler(
 	scheme *runtime.Scheme,
 	recorder record.EventRecorder,
 	logger logr.Logger,
-	seqIdGenerator SeqIdGenerator,
 	envBuilder EnvBuilder,
 	cfProcessDefaults config.CFProcessDefaults,
 	taskTTLDuration time.Duration,
@@ -77,7 +71,6 @@ func NewCFTaskReconciler(
 		scheme:            scheme,
 		recorder:          recorder,
 		logger:            logger,
-		seqIdGenerator:    seqIdGenerator,
 		envBuilder:        envBuilder,
 		cfProcessDefaults: cfProcessDefaults,
 		taskTTLDuration:   taskTTLDuration,
@@ -120,10 +113,7 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 		return ctrl.Result{}, err
 	}
 
-	err = r.ensureInitialized(ctx, cfTask, cfDroplet)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	r.initializeStatus(ctx, cfTask, cfDroplet)
 
 	webProcess, err := r.getWebProcess(ctx, cfApp)
 	if err != nil {
@@ -298,27 +288,16 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 	return cpuMillicores
 }
 
-func (r *CFTaskReconciler) ensureInitialized(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) error {
-	if cfTask.Status.SequenceID == 0 {
-		var err error
-		cfTask.Status.SequenceID, err = r.seqIdGenerator.Generate()
-		if err != nil {
-			r.logger.Info("error-generating-sequence-id", "error", err)
-			return err
-		}
-
-		cfTask.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
-		cfTask.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
-		cfTask.Status.DropletRef.Name = cfDroplet.Name
-		meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.TaskInitializedConditionType,
-			Status:  metav1.ConditionTrue,
-			Reason:  "taskInitialized",
-			Message: "taskInitialized",
-		})
-	}
-
-	return nil
+func (r *CFTaskReconciler) initializeStatus(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) {
+	cfTask.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
+	cfTask.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
+	cfTask.Status.DropletRef.Name = cfDroplet.Name
+	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+		Type:    korifiv1alpha1.TaskInitializedConditionType,
+		Status:  metav1.ConditionTrue,
+		Reason:  "taskInitialized",
+		Message: "taskInitialized",
+	})
 }
 
 func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {

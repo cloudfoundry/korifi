@@ -31,14 +31,16 @@ import (
 )
 
 const (
-	MissingRequredFieldErrorType    = "MissingRequiredFieldError"
-	CancelationNotPossibleErrorType = "CancelationNotPossibleError"
+	MissingRequredFieldErrorType        = "MissingRequiredFieldError"
+	InvalidFieldValueErrorType          = "InvalidFieldValueError"
+	ImmutableFieldModificationErrorType = "ImmutableFieldModificationError"
+	CancelationNotPossibleErrorType     = "CancelationNotPossibleError"
 )
 
 // log is for logging in this package.
 var cftasklog = logf.Log.WithName("cftask-resource")
 
-//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cftask,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cftasks,verbs=create;update,versions=v1alpha1,name=vcftask.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cftask,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cftasks;cftasks/status,verbs=create;update,versions=v1alpha1,name=vcftask.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFTaskValidator struct{}
 
@@ -97,6 +99,20 @@ func (v *CFTaskValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Obj
 	oldTask, ok := oldObj.(*v1alpha1.CFTask)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", oldObj))
+	}
+
+	if newTask.Status.SequenceID < 0 {
+		return webhooks.ValidationError{
+			Type:    InvalidFieldValueErrorType,
+			Message: fmt.Sprintf("task %s:%s Status.SequenceID cannot be negative", newTask.Namespace, newTask.Name),
+		}.ExportJSONError()
+	}
+
+	if oldTask.Status.SequenceID != 0 && newTask.Status.SequenceID != oldTask.Status.SequenceID {
+		return webhooks.ValidationError{
+			Type:    ImmutableFieldModificationErrorType,
+			Message: fmt.Sprintf("task %s:%s Status.SequenceID is immutable", newTask.Namespace, newTask.Name),
+		}.ExportJSONError()
 	}
 
 	if oldTask.Spec.Canceled || !newTask.Spec.Canceled {
