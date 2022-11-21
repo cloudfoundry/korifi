@@ -80,6 +80,12 @@ type DestinationMessage struct {
 	// Weight intentionally omitted as experimental features
 }
 
+type PatchRouteMetadataMessage struct {
+	MetadataPatch
+	RouteGUID string
+	SpaceGUID string
+}
+
 func (m DestinationMessage) toCFDestination() korifiv1alpha1.Destination {
 	return korifiv1alpha1.Destination{
 		GUID: uuid.NewString(),
@@ -293,6 +299,8 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 		Destinations: destinations,
 		CreatedAt:    cfRoute.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt:    updatedAtTime,
+		Labels:       cfRoute.Labels,
+		Annotations:  cfRoute.Annotations,
 	}
 }
 
@@ -460,4 +468,24 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 	}
 
 	return destinations
+}
+
+func (f *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorization.Info, message PatchRouteMetadataMessage) (RouteRecord, error) {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	route := new(korifiv1alpha1.CFRoute)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: message.SpaceGUID, Name: message.RouteGUID}, route)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to get route: %w", apierrors.FromK8sError(err, RouteResourceType))
+	}
+
+	err = patchMetadata(ctx, userClient, route, message.MetadataPatch, RouteResourceType)
+	if err != nil {
+		return RouteRecord{}, err
+	}
+
+	return cfRouteToRouteRecord(*route), nil
 }

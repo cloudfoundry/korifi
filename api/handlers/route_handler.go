@@ -33,6 +33,7 @@ type CFRouteRepository interface {
 	DeleteRoute(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 	RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error)
+	PatchRouteMetadata(context.Context, authorization.Info, repositories.PatchRouteMetadataMessage) (repositories.RouteRecord, error)
 }
 
 type RouteHandler struct {
@@ -231,6 +232,7 @@ func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(RoutePath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.routeDeleteHandler))
 	router.Path(RouteDestinationsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.routeAddDestinationsHandler))
 	router.Path(RouteDestinationPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.routeDeleteDestinationHandler))
+	router.Path(RoutePath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.routePatchHandler))
 }
 
 // Fetch Route and compose related Domain information within
@@ -272,4 +274,26 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo au
 	}
 
 	return routeRecords, nil
+}
+
+//nolint:dupl
+func (h *RouteHandler) routePatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	vars := mux.Vars(r)
+	routeGUID := vars["guid"]
+
+	route, err := h.routeRepo.GetRoute(ctx, authInfo, routeGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
+	}
+
+	var payload payloads.RoutePatch
+	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	route, err = h.routeRepo.PatchRouteMetadata(ctx, authInfo, payload.ToMessage(routeGUID, route.SpaceGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch route metadata", "RouteGUID", routeGUID)
+	}
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRoute(route, h.serverURL)), nil
 }

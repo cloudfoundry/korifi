@@ -100,6 +100,21 @@ type CFRouteRepository struct {
 		result1 []repositories.RouteRecord
 		result2 error
 	}
+	PatchRouteMetadataStub        func(context.Context, authorization.Info, repositories.PatchRouteMetadataMessage) (repositories.RouteRecord, error)
+	patchRouteMetadataMutex       sync.RWMutex
+	patchRouteMetadataArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchRouteMetadataMessage
+	}
+	patchRouteMetadataReturns struct {
+		result1 repositories.RouteRecord
+		result2 error
+	}
+	patchRouteMetadataReturnsOnCall map[int]struct {
+		result1 repositories.RouteRecord
+		result2 error
+	}
 	RemoveDestinationFromRouteStub        func(context.Context, authorization.Info, repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error)
 	removeDestinationFromRouteMutex       sync.RWMutex
 	removeDestinationFromRouteArgsForCall []struct {
@@ -513,6 +528,72 @@ func (fake *CFRouteRepository) ListRoutesForAppReturnsOnCall(i int, result1 []re
 	}{result1, result2}
 }
 
+func (fake *CFRouteRepository) PatchRouteMetadata(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchRouteMetadataMessage) (repositories.RouteRecord, error) {
+	fake.patchRouteMetadataMutex.Lock()
+	ret, specificReturn := fake.patchRouteMetadataReturnsOnCall[len(fake.patchRouteMetadataArgsForCall)]
+	fake.patchRouteMetadataArgsForCall = append(fake.patchRouteMetadataArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchRouteMetadataMessage
+	}{arg1, arg2, arg3})
+	stub := fake.PatchRouteMetadataStub
+	fakeReturns := fake.patchRouteMetadataReturns
+	fake.recordInvocation("PatchRouteMetadata", []interface{}{arg1, arg2, arg3})
+	fake.patchRouteMetadataMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFRouteRepository) PatchRouteMetadataCallCount() int {
+	fake.patchRouteMetadataMutex.RLock()
+	defer fake.patchRouteMetadataMutex.RUnlock()
+	return len(fake.patchRouteMetadataArgsForCall)
+}
+
+func (fake *CFRouteRepository) PatchRouteMetadataCalls(stub func(context.Context, authorization.Info, repositories.PatchRouteMetadataMessage) (repositories.RouteRecord, error)) {
+	fake.patchRouteMetadataMutex.Lock()
+	defer fake.patchRouteMetadataMutex.Unlock()
+	fake.PatchRouteMetadataStub = stub
+}
+
+func (fake *CFRouteRepository) PatchRouteMetadataArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchRouteMetadataMessage) {
+	fake.patchRouteMetadataMutex.RLock()
+	defer fake.patchRouteMetadataMutex.RUnlock()
+	argsForCall := fake.patchRouteMetadataArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFRouteRepository) PatchRouteMetadataReturns(result1 repositories.RouteRecord, result2 error) {
+	fake.patchRouteMetadataMutex.Lock()
+	defer fake.patchRouteMetadataMutex.Unlock()
+	fake.PatchRouteMetadataStub = nil
+	fake.patchRouteMetadataReturns = struct {
+		result1 repositories.RouteRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFRouteRepository) PatchRouteMetadataReturnsOnCall(i int, result1 repositories.RouteRecord, result2 error) {
+	fake.patchRouteMetadataMutex.Lock()
+	defer fake.patchRouteMetadataMutex.Unlock()
+	fake.PatchRouteMetadataStub = nil
+	if fake.patchRouteMetadataReturnsOnCall == nil {
+		fake.patchRouteMetadataReturnsOnCall = make(map[int]struct {
+			result1 repositories.RouteRecord
+			result2 error
+		})
+	}
+	fake.patchRouteMetadataReturnsOnCall[i] = struct {
+		result1 repositories.RouteRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFRouteRepository) RemoveDestinationFromRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error) {
 	fake.removeDestinationFromRouteMutex.Lock()
 	ret, specificReturn := fake.removeDestinationFromRouteReturnsOnCall[len(fake.removeDestinationFromRouteArgsForCall)]
@@ -594,6 +675,8 @@ func (fake *CFRouteRepository) Invocations() map[string][][]interface{} {
 	defer fake.listRoutesMutex.RUnlock()
 	fake.listRoutesForAppMutex.RLock()
 	defer fake.listRoutesForAppMutex.RUnlock()
+	fake.patchRouteMetadataMutex.RLock()
+	defer fake.patchRouteMetadataMutex.RUnlock()
 	fake.removeDestinationFromRouteMutex.RLock()
 	defer fake.removeDestinationFromRouteMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

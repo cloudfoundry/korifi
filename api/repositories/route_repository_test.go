@@ -2,7 +2,10 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
@@ -1304,6 +1307,214 @@ var _ = Describe("RouteRepository", func() {
 				It("returns an unprocessable entity error", func() {
 					Expect(removeDestinationErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 				})
+			})
+		})
+	})
+
+	Describe("PatchRouteMetadata", func() {
+		var (
+			cfRoute                       *korifiv1alpha1.CFRoute
+			labelsPatch, annotationsPatch map[string]*string
+			patchErr                      error
+			routeRecord                   RouteRecord
+		)
+
+		BeforeEach(func() {
+			cfRoute = createRoute(route1GUID, space.Name, "my-subdomain-1-a", "", domainGUID, prefixedGUID("RoutePatchMetadata"))
+			labelsPatch = nil
+			annotationsPatch = nil
+		})
+
+		JustBeforeEach(func() {
+			patchMsg := PatchRouteMetadataMessage{
+				RouteGUID: route1GUID,
+				SpaceGUID: space.Name,
+				MetadataPatch: MetadataPatch{
+					Annotations: annotationsPatch,
+					Labels:      labelsPatch,
+				},
+			}
+
+			routeRecord, patchErr = routeRepo.PatchRouteMetadata(ctx, authInfo, patchMsg)
+		})
+
+		When("the user is authorized and the route exists", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			When("the route doesn't have any labels or annotations", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"key-one": pointerTo("value-one"),
+						"key-two": pointerTo("value-two"),
+					}
+					annotationsPatch = map[string]*string{
+						"key-one": pointerTo("value-one"),
+						"key-two": pointerTo("value-two"),
+					}
+					Expect(k8s.PatchResource(ctx, k8sClient, cfRoute, func() {
+						cfRoute.Labels = nil
+						cfRoute.Annotations = nil
+					})).To(Succeed())
+				})
+
+				It("returns the updated route record", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(routeRecord.GUID).To(Equal(route1GUID))
+					Expect(routeRecord.SpaceGUID).To(Equal(space.Name))
+					Expect(routeRecord.Labels).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+					Expect(routeRecord.Annotations).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+				})
+
+				It("sets the k8s CFRoute resource", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					updatedCFRoute := new(korifiv1alpha1.CFRoute)
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), updatedCFRoute)).To(Succeed())
+					Expect(updatedCFRoute.Labels).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+					Expect(updatedCFRoute.Annotations).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+				})
+			})
+
+			When("the route already has labels and annotations", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfRoute, func() {
+						cfRoute.Labels = map[string]string{
+							"before-key-one": "value-one",
+							"before-key-two": "value-two",
+							"key-one":        "value-one",
+						}
+						cfRoute.Annotations = map[string]string{
+							"before-key-one": "value-one",
+							"before-key-two": "value-two",
+							"key-one":        "value-one",
+						}
+					})).To(Succeed())
+
+					labelsPatch = map[string]*string{
+						"key-one":        pointerTo("value-one-updated"),
+						"key-two":        pointerTo("value-two"),
+						"before-key-two": nil,
+					}
+					annotationsPatch = map[string]*string{
+						"key-one":        pointerTo("value-one-updated"),
+						"key-two":        pointerTo("value-two"),
+						"before-key-two": nil,
+					}
+				})
+
+				It("returns the updated route record", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(routeRecord.GUID).To(Equal(route1GUID))
+					Expect(routeRecord.SpaceGUID).To(Equal(space.Name))
+					Expect(routeRecord.Labels).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+					Expect(routeRecord.Annotations).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+				})
+
+				It("sets the k8s CFRoute resource", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					updatedCFRoute := new(korifiv1alpha1.CFRoute)
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), updatedCFRoute)).To(Succeed())
+					Expect(updatedCFRoute.Labels).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+					Expect(updatedCFRoute.Annotations).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+				})
+			})
+
+			When("an annotation is invalid", func() {
+				BeforeEach(func() {
+					annotationsPatch = map[string]*string{
+						"-bad-annotation": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.annotations is invalid"),
+						ContainSubstring(`"-bad-annotation"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"-bad-label": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.labels is invalid"),
+						ContainSubstring(`"-bad-label"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+		})
+
+		When("the user is authorized but the Route does not exist", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				route1GUID = "invalidRouteGUID"
+			})
+
+			It("fails to get the Route", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("the user is not authorized", func() {
+			It("return a forbidden error", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
