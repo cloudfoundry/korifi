@@ -88,8 +88,8 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 		},
 		Destinations: destinations,
 		Metadata: Metadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
+			Labels:      emptyMapIfNil(route.Labels),
+			Annotations: emptyMapIfNil(route.Annotations),
 		},
 		Links: routeLinks{
 			Self: Link{

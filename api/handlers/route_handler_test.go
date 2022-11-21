@@ -845,6 +845,214 @@ var _ = Describe("RouteHandler", func() {
 		})
 	})
 
+	Describe("the PATCH /v3/routes/:guid endpoint", func() {
+		BeforeEach(func() {
+			requestMethod = "PATCH"
+			requestPath = "/v3/routes/" + testRouteGUID
+		})
+
+		When("the route exists and is accessible and we patch the annotations and labels", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{
+					GUID:      testRouteGUID,
+					SpaceGUID: spaceGUID,
+				}, nil)
+				routeRepo.PatchRouteMetadataReturns(repositories.RouteRecord{
+					GUID: testRouteGUID,
+					Labels: map[string]string{
+						"env":                           "production",
+						"foo.example.com/my-identifier": "aruba",
+					},
+					Annotations: map[string]string{
+						"hello":                       "there",
+						"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+					},
+					SpaceGUID: spaceGUID,
+				}, nil)
+				requestBody = `{
+				  "metadata": {
+					"labels": {
+					  "env": "production",
+					  "foo.example.com/my-identifier": "aruba"
+					},
+					"annotations": {
+					  "hello": "there",
+					  "foo.example.com/lorem-ipsum": "Lorem ipsum."
+					}
+				  }
+				}`
+			})
+
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			It("patches the route with the new labels and annotations", func() {
+				Expect(routeRepo.PatchRouteMetadataCallCount()).To(Equal(1))
+				_, _, msg := routeRepo.PatchRouteMetadataArgsForCall(0)
+				Expect(msg.RouteGUID).To(Equal(testRouteGUID))
+				Expect(msg.SpaceGUID).To(Equal(spaceGUID))
+				Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
+				Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
+				Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
+				Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+			})
+
+			It("includes the labels and annotations in the response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				var jsonBody struct {
+					Metadata struct {
+						Annotations map[string]string `json:"annotations"`
+						Labels      map[string]string `json:"labels"`
+					} `json:"metadata"`
+				}
+				Expect(json.NewDecoder(rr.Body).Decode(&jsonBody)).To(Succeed())
+				Expect(jsonBody.Metadata.Annotations).To(Equal(map[string]string{
+					"hello":                       "there",
+					"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+				}))
+				Expect(jsonBody.Metadata.Labels).To(Equal(map[string]string{
+					"env":                           "production",
+					"foo.example.com/my-identifier": "aruba",
+				}))
+			})
+		})
+
+		When("the user doesn't have permission to get the Route", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, apierrors.NewForbiddenError(nil, repositories.RouteResourceType))
+				requestBody = `{
+					  "metadata": {
+						"labels": {
+						  "env": "production"
+						}
+					  }
+					}`
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError("Route not found")
+			})
+
+			It("does not call patch", func() {
+				Expect(routeRepo.PatchRouteMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("fetching the Route errors", func() {
+			BeforeEach(func() {
+				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("boom"))
+				requestBody = `{
+					  "metadata": {
+						"labels": {
+						  "env": "production",
+						}
+					  }
+					}`
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+
+			It("does not call patch", func() {
+				Expect(routeRepo.PatchRouteMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("patching the Route errors", func() {
+			BeforeEach(func() {
+				routeRecord := repositories.RouteRecord{
+					GUID:      testRouteGUID,
+					SpaceGUID: spaceGUID,
+				}
+				routeRepo.GetRouteReturns(routeRecord, nil)
+				routeRepo.PatchRouteMetadataReturns(repositories.RouteRecord{}, errors.New("boom"))
+				requestBody = `{
+					  "metadata": {
+						"labels": {
+						  "env": "production"
+						}
+					  }
+					}`
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("a label is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+						  "metadata": {
+							"labels": {
+							  "cloudfoundry.org/test": "production"
+						    }
+		   		     }
+						}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+
+			When("the prefix is a subdomain of cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+						  "metadata": {
+							"labels": {
+							  "korifi.cloudfoundry.org/test": "production"
+						    }
+				         }
+						}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+		})
+
+		When("an annotation is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					requestBody = `{
+						  "metadata": {
+							"annotations": {
+							  "cloudfoundry.org/test": "there"
+							}
+						  }
+						}`
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+
+				When("the prefix is a subdomain of cloudfoundry.org", func() {
+					BeforeEach(func() {
+						requestBody = `{
+						  "metadata": {
+							"annotations": {
+							  "korifi.cloudfoundry.org/test": "there"
+							}
+						  }
+						}`
+					})
+
+					It("returns an unprocessable entity error", func() {
+						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					})
+				})
+			})
+		})
+	})
+
 	Describe("the GET /v3/routes/:guid/destinations endpoint", func() {
 		var routeRecord repositories.RouteRecord
 

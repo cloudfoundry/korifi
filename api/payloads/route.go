@@ -50,3 +50,18 @@ func (p *RouteList) ToMessage() repositories.ListRoutesMessage {
 func (p *RouteList) SupportedKeys() []string {
 	return []string{"app_guids", "space_guids", "domain_guids", "hosts", "paths"}
 }
+
+type RoutePatch struct {
+	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (a *RoutePatch) ToMessage(routeGUID, spaceGUID string) repositories.PatchRouteMetadataMessage {
+	return repositories.PatchRouteMetadataMessage{
+		RouteGUID: routeGUID,
+		SpaceGUID: spaceGUID,
+		MetadataPatch: repositories.MetadataPatch{
+			Annotations: a.Metadata.Annotations,
+			Labels:      a.Metadata.Labels,
+		},
+	}
+}
