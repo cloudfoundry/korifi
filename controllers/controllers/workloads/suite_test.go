@@ -32,11 +32,10 @@ import (
 )
 
 var (
-	cancel            context.CancelFunc
-	testEnv           *envtest.Environment
-	k8sClient         client.Client
-	cfProcessDefaults config.CFProcessDefaults
-	cfRootNamespace   string
+	cancel          context.CancelFunc
+	testEnv         *envtest.Environment
+	k8sClient       client.Client
+	cfRootNamespace string
 )
 
 const (
@@ -149,17 +148,12 @@ var _ = BeforeSuite(func() {
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	cfProcessDefaults = config.CFProcessDefaults{
-		MemoryMB:    256,
-		DiskQuotaMB: 128,
-	}
 	err = NewCFTaskReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		k8sManager.GetEventRecorderFor("cftask-controller"),
 		ctrl.Log.WithName("controllers").WithName("CFTask"),
 		env.NewBuilder(k8sManager.GetClient()),
-		cfProcessDefaults,
 		2*time.Second,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

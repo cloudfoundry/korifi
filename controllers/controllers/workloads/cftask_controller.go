@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
@@ -48,13 +47,12 @@ const (
 
 // CFTaskReconciler reconciles a CFTask object
 type CFTaskReconciler struct {
-	k8sClient         client.Client
-	scheme            *runtime.Scheme
-	recorder          record.EventRecorder
-	logger            logr.Logger
-	envBuilder        EnvBuilder
-	cfProcessDefaults config.CFProcessDefaults
-	taskTTLDuration   time.Duration
+	k8sClient       client.Client
+	scheme          *runtime.Scheme
+	recorder        record.EventRecorder
+	logger          logr.Logger
+	envBuilder      EnvBuilder
+	taskTTLDuration time.Duration
 }
 
 func NewCFTaskReconciler(
@@ -63,17 +61,15 @@ func NewCFTaskReconciler(
 	recorder record.EventRecorder,
 	logger logr.Logger,
 	envBuilder EnvBuilder,
-	cfProcessDefaults config.CFProcessDefaults,
 	taskTTLDuration time.Duration,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask] {
 	taskReconciler := CFTaskReconciler{
-		k8sClient:         client,
-		scheme:            scheme,
-		recorder:          recorder,
-		logger:            logger,
-		envBuilder:        envBuilder,
-		cfProcessDefaults: cfProcessDefaults,
-		taskTTLDuration:   taskTTLDuration,
+		k8sClient:       client,
+		scheme:          scheme,
+		recorder:        recorder,
+		logger:          logger,
+		envBuilder:      envBuilder,
+		taskTTLDuration: taskTTLDuration,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask](logger, client, &taskReconciler)
 }
@@ -250,10 +246,10 @@ func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask
 			taskWorkload.Spec.Resources.Limits = corev1.ResourceList{}
 		}
 
-		taskWorkload.Spec.Resources.Requests[corev1.ResourceMemory] = *resource.NewScaledQuantity(r.cfProcessDefaults.MemoryMB, resource.Mega)
-		taskWorkload.Spec.Resources.Limits[corev1.ResourceMemory] = *resource.NewScaledQuantity(r.cfProcessDefaults.MemoryMB, resource.Mega)
-		taskWorkload.Spec.Resources.Requests[corev1.ResourceEphemeralStorage] = *resource.NewScaledQuantity(r.cfProcessDefaults.DiskQuotaMB, resource.Mega)
-		taskWorkload.Spec.Resources.Limits[corev1.ResourceEphemeralStorage] = *resource.NewScaledQuantity(r.cfProcessDefaults.DiskQuotaMB, resource.Mega)
+		taskWorkload.Spec.Resources.Requests[corev1.ResourceMemory] = *resource.NewScaledQuantity(cfTask.Status.MemoryMB, resource.Mega)
+		taskWorkload.Spec.Resources.Limits[corev1.ResourceMemory] = *resource.NewScaledQuantity(cfTask.Status.MemoryMB, resource.Mega)
+		taskWorkload.Spec.Resources.Requests[corev1.ResourceEphemeralStorage] = *resource.NewScaledQuantity(cfTask.Status.DiskQuotaMB, resource.Mega)
+		taskWorkload.Spec.Resources.Limits[corev1.ResourceEphemeralStorage] = *resource.NewScaledQuantity(cfTask.Status.DiskQuotaMB, resource.Mega)
 		taskWorkload.Spec.Resources.Requests[corev1.ResourceCPU] = *resource.NewScaledQuantity(calculateDefaultCPURequestMillicores(webProcess.Spec.MemoryMB), resource.Milli)
 		taskWorkload.Spec.Env = env
 
@@ -289,8 +285,6 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 }
 
 func (r *CFTaskReconciler) initializeStatus(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) {
-	cfTask.Status.MemoryMB = r.cfProcessDefaults.MemoryMB
-	cfTask.Status.DiskQuotaMB = r.cfProcessDefaults.DiskQuotaMB
 	cfTask.Status.DropletRef.Name = cfDroplet.Name
 	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
 		Type:    korifiv1alpha1.TaskInitializedConditionType,
