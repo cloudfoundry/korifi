@@ -38,7 +38,7 @@ if ! grep -q e2e <(echo "$@"); then
   extra_args+=("--poll-progress-after=60s" "--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
 else
   export ROOT_NAMESPACE="${ROOT_NAMESPACE:-cf}"
-  export APP_FQDN="${APP_FQDN:-vcap.me}"
+  export APP_FQDN="${APP_FQDN:-apps-127-0-0-1.nip.io}"
   export KUBECONFIG="${KUBECONFIG:-${HOME}/kube/e2e.yml}"
   export API_SERVER_ROOT="${API_SERVER_ROOT:-https://localhost}"
 
