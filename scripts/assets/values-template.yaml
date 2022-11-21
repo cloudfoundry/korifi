@@ -1,7 +1,7 @@
 adminUserName: cf-admin
 
 global:
-  defaultAppDomainName: vcap.me
+  defaultAppDomainName: apps-127-0-0-1.nip.io
   generateIngressCertificates: true
 
 api:
