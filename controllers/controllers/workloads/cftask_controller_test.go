@@ -142,6 +142,9 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	Describe("CFTask creation", func() {
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+			cfTask.Status.MemoryMB = 123
+			cfTask.Status.DiskQuotaMB = 432
+			Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
 		})
 
 		When("the task gets initialized", func() {
@@ -158,9 +161,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				}).Should(Succeed())
 			})
 
-			It("populates the Status of the CFTask", func() {
-				Expect(task.Status.MemoryMB).To(Equal(cfProcessDefaults.MemoryMB))
-				Expect(task.Status.DiskQuotaMB).To(Equal(cfProcessDefaults.DiskQuotaMB))
+			It("populates the droplet name in the status", func() {
 				Expect(task.Status.DropletRef.Name).To(Equal(cfDroplet.Name))
 			})
 		})
@@ -188,10 +189,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				g.Expect(taskWorkload.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 				g.Expect(taskWorkload.Spec.Image).To(Equal("registry.io/my/image"))
 				g.Expect(taskWorkload.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
-				g.Expect(taskWorkload.Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
-				g.Expect(taskWorkload.Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.MemoryMB)))
-				g.Expect(taskWorkload.Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))
-				g.Expect(taskWorkload.Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", cfProcessDefaults.DiskQuotaMB)))
+				g.Expect(taskWorkload.Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", 123)))
+				g.Expect(taskWorkload.Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", 123)))
+				g.Expect(taskWorkload.Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 432)))
+				g.Expect(taskWorkload.Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 432)))
 				g.Expect(taskWorkload.Spec.Resources.Requests.Cpu().String()).To(Equal("75m"))
 				g.Expect(taskWorkload.GetOwnerReferences()).To(ConsistOf(SatisfyAll(
 					HaveField("Name", cfTask.Name),

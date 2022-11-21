@@ -10,6 +10,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
@@ -112,7 +113,11 @@ var _ = BeforeSuite(func() {
 	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
 	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	Expect(workloads.NewCFTaskDefaulter().SetupWebhookWithManager(mgr)).To(Succeed())
+	cfProcessDefaults := config.CFProcessDefaults{
+		MemoryMB:    500,
+		DiskQuotaMB: 512,
+	}
+	Expect(workloads.NewCFTaskDefaulter(cfProcessDefaults).SetupWebhookWithManager(mgr)).To(Succeed())
 	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook

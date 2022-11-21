@@ -224,7 +224,6 @@ func main() {
 			mgr.GetEventRecorderFor("cftask-controller"),
 			ctrl.Log.WithName("controllers").WithName("CFTask"),
 			env.NewBuilder(mgr.GetClient()),
-			controllerConfig.CFProcessDefaults,
 			taskTTL,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFTask")
@@ -324,7 +323,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = workloads.NewCFTaskDefaulter().SetupWebhookWithManager(mgr); err != nil {
+		if err = workloads.NewCFTaskDefaulter(controllerConfig.CFProcessDefaults).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
 			os.Exit(1)
 		}

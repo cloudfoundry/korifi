@@ -50,6 +50,14 @@ var _ = Describe("CFTaskMutatingWebhook", func() {
 		Expect(strconv.FormatInt(seqId, 10)).To(HavePrefix(yearMonthDay))
 	})
 
+	It("defaults Status.MemoryMB", func() {
+		Expect(cfTask.Status.MemoryMB).To(BeNumerically("==", 500))
+	})
+
+	It("defaults Status.DiskQuotaMB", func() {
+		Expect(cfTask.Status.DiskQuotaMB).To(BeNumerically("==", 512))
+	})
+
 	Describe("subsequent updates", func() {
 		var (
 			updateTaskFunc func()

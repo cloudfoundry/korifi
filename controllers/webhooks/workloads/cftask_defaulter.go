@@ -24,6 +24,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -33,10 +34,14 @@ import (
 
 var cfTaskLog = logf.Log.WithName("cftask-resource")
 
-type CFTaskDefaulter struct{}
+type CFTaskDefaulter struct {
+	cfProcessDefaults config.CFProcessDefaults
+}
 
-func NewCFTaskDefaulter() *CFTaskDefaulter {
-	return &CFTaskDefaulter{}
+func NewCFTaskDefaulter(cfProcessDefaults config.CFProcessDefaults) *CFTaskDefaulter {
+	return &CFTaskDefaulter{
+		cfProcessDefaults: cfProcessDefaults,
+	}
 }
 
 func (d *CFTaskDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -64,6 +69,10 @@ func (d *CFTaskDefaulter) Default(ctx context.Context, obj runtime.Object) error
 	}
 
 	cfTask.Status.SequenceID = seqId
+
+	cfTask.Status.MemoryMB = d.cfProcessDefaults.MemoryMB
+	cfTask.Status.DiskQuotaMB = d.cfProcessDefaults.DiskQuotaMB
+
 	return nil
 }
 
