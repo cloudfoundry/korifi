@@ -74,6 +74,14 @@
       "description": "If blank, let korifi create a default cluster builder. If not blank, this is the name of the cluster builder that has been created outside of korifi",
       "type": "string"
     },
+    "clusterStackBuildImage": {
+      "description": "build image",
+      "type": "string"
+    },
+    "clusterStackRunImage": {
+      "description": "run image",
+      "type": "string"
+    },
     "builderRepository": {
       "description": "The name to use for the cluster builder docker image path when korifi is creating the cluster builder",
       "type": "string"

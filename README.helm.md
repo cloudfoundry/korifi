@@ -68,6 +68,8 @@ Here are all the values that can be set for the chart:
   - `image` (_String_): Reference to the `kpack-image-builder` container image.
   - `dropletRepositoryPrefix` (_String_): Prefix of the container image repository where droplets will be stored. For DockerHub, this should be `index.docker.io/<username>`.
   - `clusterBuilderName` (_String_): The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.
+  - `clusterStackBuildImage` (_String_): The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.
+  - `clusterStackRunImage` (_String_): The image to use for running defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.
   - `builderRepository` (_String_): Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.
 * `statefulset-runner`:
   - `include` (_Boolean_): Deploy the `statefulset-runner` component.

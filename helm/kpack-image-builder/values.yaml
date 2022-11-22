@@ -17,4 +17,6 @@ image: cloudfoundry/korifi-kpack-image-builder:latest
 
 dropletRepositoryPrefix:
 clusterBuilderName:
+clusterStackBuildImage: paketobuildpacks/build:full-cnb
+clusterStackRunImage: paketobuildpacks/run:full-cnb
 builderRepository:
