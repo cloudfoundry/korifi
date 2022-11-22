@@ -18,7 +18,6 @@ package workloads
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -30,7 +29,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -100,35 +98,40 @@ const (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
-	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
+	log := r.log.WithValues("namespace", cfOrg.Namespace, "name", cfOrg.Name)
 
-	r.addFinalizer(ctx, cfOrg)
-
-	if !cfOrg.GetDeletionTimestamp().IsZero() {
-		return finalize(ctx, r.client, r.log, cfOrg, orgFinalizerName)
-	}
-
-	labels := map[string]string{korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName}
-	err := createOrPatchNamespace(ctx, r.client, r.log, cfOrg, labels)
-	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error creating namespace for CFOrg %s/%s", cfOrg.Namespace, cfOrg.Name))
+	if err := k8s.AddFinalizer(ctx, log, r.client, cfOrg, orgFinalizerName); err != nil {
+		log.Error(err, "Error adding finalizer")
 		return ctrl.Result{}, err
 	}
 
-	namespace, ok := getNamespace(ctx, r.client, cfOrg.Name)
+	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
+
+	if !cfOrg.GetDeletionTimestamp().IsZero() {
+		return finalize(ctx, r.client, log, cfOrg, orgFinalizerName)
+	}
+
+	labels := map[string]string{korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName}
+	err := createOrPatchNamespace(ctx, r.client, log, cfOrg, labels)
+	if err != nil {
+		log.Error(err, "Error creating namespace")
+		return ctrl.Result{}, err
+	}
+
+	namespace, ok := getNamespace(ctx, log, r.client, cfOrg.Name)
 	if !ok {
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = propagateSecrets(ctx, r.client, r.log, cfOrg, r.packageRegistrySecretName)
+	err = propagateSecret(ctx, r.client, log, cfOrg, r.packageRegistrySecretName)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error propagating secrets into CFOrg %s/%s", cfOrg.Namespace, cfOrg.Name))
+		log.Error(err, "Error propagating secrets")
 		return ctrl.Result{}, err
 	}
 
-	err = reconcileRoleBindings(ctx, r.client, r.log, cfOrg)
+	err = reconcileRoleBindings(ctx, r.client, log, cfOrg)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error propagating role-bindings into CFOrg %s/%s", cfOrg.Namespace, cfOrg.Name))
+		log.Error(err, "Error propagating role-bindings")
 		return ctrl.Result{}, err
 	}
 
@@ -140,15 +143,6 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 	})
 
 	return ctrl.Result{}, nil
-}
-
-func (r *CFOrgReconciler) addFinalizer(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) {
-	if controllerutil.ContainsFinalizer(cfOrg, orgFinalizerName) {
-		return
-	}
-
-	controllerutil.AddFinalizer(cfOrg, orgFinalizerName)
-	r.log.Info(fmt.Sprintf("Finalizer added to CFOrg/%s", cfOrg.Name))
 }
 
 func (r *CFOrgReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

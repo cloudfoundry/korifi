@@ -2,7 +2,6 @@ package workloads
 
 import (
 	"context"
-	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
@@ -21,6 +20,8 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string) error {
+	log = log.WithName("createOrPatchNamespace")
+
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: orgOrSpace.GetName(),
@@ -44,15 +45,18 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 		return err
 	}
 
-	log.Info(fmt.Sprintf("Namespace/%s %s", orgOrSpace.GetName(), result))
+	log.Info("Namespace reconciled", "operation", result)
 	return nil
 }
 
-func propagateSecrets(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, secretName string) error {
+func propagateSecret(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, secretName string) error {
+	log = log.WithName("propagateSecret").
+		WithValues("secretName", secretName, "parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
+
 	secret := new(corev1.Secret)
 	err := client.Get(ctx, types.NamespacedName{Namespace: orgOrSpace.GetNamespace(), Name: secretName}, secret)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error fetching secret  %s/%s", orgOrSpace.GetNamespace(), secretName))
+		log.Error(err, "Error fetching secret from parent namespace")
 		return err
 	}
 
@@ -73,11 +77,12 @@ func propagateSecrets(ctx context.Context, client client.Client, log logr.Logger
 		return nil
 	})
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error creating/patching secret %s/%s", newSecret.Namespace, newSecret.Name))
+		log.Error(err, "Error creating/patching secret")
 		return err
 	}
 
-	log.Info(fmt.Sprintf("Secret %s/%s %s", newSecret.Namespace, newSecret.Name, result))
+	log.Info("Secret propagated", "operation", result)
+
 	return nil
 }
 
@@ -87,16 +92,20 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		err    error
 	)
 
+	log = log.WithName("propagateRolebindings").
+		WithValues("parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
+
 	roleBindings := new(rbacv1.RoleBindingList)
 	err = kClient.List(ctx, roleBindings, client.InNamespace(orgOrSpace.GetNamespace()))
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", orgOrSpace.GetNamespace()))
+		log.Error(err, "Error listing role-bindings from the parent namespace")
 		return err
 	}
 
 	parentRoleBindingMap := make(map[string]struct{})
 	for _, binding := range roleBindings.Items {
 		if binding.Annotations[korifiv1alpha1.PropagateRoleBindingAnnotation] == "true" {
+			loopLog := log.WithValues("roleBindingName", binding.Name)
 
 			parentRoleBindingMap[binding.Name] = struct{}{}
 
@@ -119,12 +128,11 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 				return nil
 			})
 			if err != nil {
-				log.Error(err, fmt.Sprintf("Error creating/patching role-bindings %s/%s", newRoleBinding.Namespace, newRoleBinding.Name))
+				loopLog.Error(err, "Error propagting role-binding")
 				return err
 			}
 
-			log.Info(fmt.Sprintf("Role Binding %s/%s %s", newRoleBinding.Namespace, newRoleBinding.Name, result))
-
+			loopLog.Info("Role Binding propagated", "operation", result)
 		}
 	}
 
@@ -138,7 +146,7 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 
 	err = kClient.List(ctx, propagatedRoleBindings, &client.ListOptions{Namespace: orgOrSpace.GetName(), LabelSelector: labelSelector})
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error listing role-bindings from namespace %s", orgOrSpace.GetName()))
+		log.Error(err, "Error listing role-bindings from parent namespace")
 		return err
 	}
 
@@ -147,6 +155,7 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		if _, found := parentRoleBindingMap[propagatedRoleBinding.Name]; !found {
 			err = kClient.Delete(ctx, &propagatedRoleBinding)
 			if err != nil {
+				log.Error(err, "deleting role binding from target namespace failed", "roleBindingName", propagatedRoleBinding.Name)
 				return err
 			}
 		}
@@ -155,7 +164,7 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 }
 
 func finalize(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object, finalizerName string) (ctrl.Result, error) {
-	log.Info(fmt.Sprintf("Reconciling deletion of %s", orgOrSpace.GetName()))
+	log = log.WithName("finalize")
 
 	if !controllerutil.ContainsFinalizer(orgOrSpace, finalizerName) {
 		return ctrl.Result{}, nil
@@ -163,18 +172,24 @@ func finalize(ctx context.Context, kClient client.Client, log logr.Logger, orgOr
 
 	err := kClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: orgOrSpace.GetName()}})
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Failed to delete namespace %s/%s", orgOrSpace.GetNamespace(), orgOrSpace.GetName()))
+		log.Error(err, "Failed to delete namespace")
 		return ctrl.Result{}, err
 	}
 
-	controllerutil.RemoveFinalizer(orgOrSpace, finalizerName)
+	if controllerutil.RemoveFinalizer(orgOrSpace, finalizerName) {
+		log.Info("finalizer removed")
+	}
+
 	return ctrl.Result{}, nil
 }
 
-func getNamespace(ctx context.Context, client client.Client, namespaceName string) (*corev1.Namespace, bool) {
+func getNamespace(ctx context.Context, log logr.Logger, client client.Client, namespaceName string) (*corev1.Namespace, bool) {
+	log = log.WithValues("namespace", namespaceName)
+
 	namespace := new(corev1.Namespace)
 	err := client.Get(ctx, types.NamespacedName{Name: namespaceName}, namespace)
 	if err != nil {
+		log.Error(err, "failed to get namespace")
 		return nil, false
 	}
 	return namespace, true
