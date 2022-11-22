@@ -19,9 +19,9 @@ metadata:
 spec:
   id: "io.buildpacks.stacks.bionic"
   buildImage:
-    image: "paketobuildpacks/build:full-cnb"
+    image: {{ .Values.clusterStackBuildImage | quote }}
   runImage:
-    image: "paketobuildpacks/run:full-cnb"
+    image: {{ .Values.clusterStackRunImage | quote }}
 
 ---
 apiVersion: kpack.io/v1alpha2
