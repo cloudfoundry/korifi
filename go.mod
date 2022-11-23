@@ -27,7 +27,7 @@ require (
 	github.com/mileusna/useragent v1.2.1
 	github.com/onsi/ginkgo/v2 v2.5.1
 	github.com/onsi/gomega v1.24.1
-	github.com/pivotal/kpack v0.8.0
+	github.com/pivotal/kpack v0.8.1
 	github.com/projectcontour/contour v1.23.0
 	golang.org/x/text v0.4.0
 	gopkg.in/square/go-jose.v2 v2.6.0
