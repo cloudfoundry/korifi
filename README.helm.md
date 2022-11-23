@@ -66,7 +66,7 @@ Here are all the values that can be set for the chart:
   - `replicas` (_Integer_): Number of replicas.
   - `resources` (_Object_): The [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the `kpack-image-builder`.
   - `image` (_String_): Reference to the `kpack-image-builder` container image.
-  - `dropletRepositoryPrefix` (_String_): Prefix of the container image repository where droplets will be stored. For DockerHub, this should be `index.docker.io/<username>`.
+  - `dropletRepository` (_String_): The container image repository where droplets will be stored. For DockerHub, this might be `index.docker.io/<username>/droplets`.
   - `clusterBuilderName` (_String_): The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.
   - `clusterStackBuildImage` (_String_): The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.
   - `clusterStackRunImage` (_String_): The image to use for running defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.

@@ -128,7 +128,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=global.defaultAppDomainName="apps.$BASE_DOMAIN" \
     --set=api.packageRepository=europe-west1-docker.pkg.dev/my-project/korifi/packages \
     --set=kpack-image-builder.builderRepository=europe-west1-docker.pkg.dev/my-project/korifi/kpack-builder \
-    --set=kpack-image-builder.dropletRepositoryPrefix=europe-west1-docker.pkg.dev/my-project/korifi/droplets
+    --set=kpack-image-builder.dropletRepository=europe-west1-docker.pkg.dev/my-project/korifi/droplets
 ```
 
 The chart provides various other values that can be set. See [`README.helm.md`](./README.helm.md) for details.

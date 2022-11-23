@@ -20,7 +20,7 @@ job-task-runner:
 
 kpack-image-builder:
   image: cloudfoundry/korifi-kpack-image-builder:latest
-  dropletRepositoryPrefix: localregistry-docker-registry.default.svc.cluster.local:30050/droplets
+  dropletRepository: localregistry-docker-registry.default.svc.cluster.local:30050/droplets
   builderRepository: localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder
   clusterStackBuildImage: paketobuildpacks/build:base-cnb
   clusterStackRunImage: paketobuildpacks/run:base-cnb
