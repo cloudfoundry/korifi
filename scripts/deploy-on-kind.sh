@@ -18,7 +18,7 @@ flags:
       - DOCKER_USERNAME
       - DOCKER_PASSWORD
       - PACKAGE_REPOSITORY
-      - DROPLET_REPOSITORY_PREFIX
+      - DROPLET_REPOSITORY
       - KPACK_BUILDER_REPOSITORY
 
   -v, --verbose
@@ -47,7 +47,7 @@ while [[ $# -gt 0 ]]; do
     -r | --use-custom-registry)
       use_custom_registry="true"
       # blow up if required vars not set
-      echo "$DOCKER_SERVER $DOCKER_USERNAME $DOCKER_PASSWORD $PACKAGE_REPOSITORY $DROPLET_REPOSITORY_PREFIX $KPACK_BUILDER_REPOSITORY" >/dev/null
+      echo "$DOCKER_SERVER $DOCKER_USERNAME $DOCKER_PASSWORD $PACKAGE_REPOSITORY $DROPLET_REPOSITORY $KPACK_BUILDER_REPOSITORY" >/dev/null
       shift
       ;;
     -D | --debug)
@@ -149,7 +149,7 @@ function deploy_korifi() {
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
         --set=api.packageRepository="$PACKAGE_REPOSITORY" \
-        --set=kpack-image-builder.dropletRepositoryPrefix="$DROPLET_REPOSITORY_PREFIX" \
+        --set=kpack-image-builder.dropletRepository="$DROPLET_REPOSITORY" \
         --set=kpack-image-builder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
         --wait
     else

@@ -7,4 +7,4 @@ data:
   kpack_build_controllers_config.yaml: |
     cfRootNamespace: {{ .Values.global.rootNamespace }}
     clusterBuilderName: {{ default "cf-kpack-cluster-builder" .Values.clusterBuilderName }}
-    kpackImageTag: {{ .Values.dropletRepositoryPrefix }}
+    dropletRepository: {{ .Values.dropletRepository }}

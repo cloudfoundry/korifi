@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
@@ -209,7 +208,6 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
 	serviceAccountName := kpackServiceAccount
-	kpackImageTag := path.Join(r.controllerConfig.KpackImageTag, buildWorkload.Name)
 	kpackImageName := buildWorkload.Name
 	kpackImageNamespace := buildWorkload.Namespace
 	desiredKpackImage := buildv1alpha2.Image{
@@ -221,7 +219,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 			},
 		},
 		Spec: buildv1alpha2.ImageSpec{
-			Tag: kpackImageTag,
+			Tag: r.controllerConfig.DropletRepository,
 			Builder: corev1.ObjectReference{
 				Kind:       clusterBuilderKind,
 				Name:       r.controllerConfig.ClusterBuilderName,

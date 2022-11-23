@@ -113,7 +113,7 @@ var _ = BeforeSuite(func() {
 	controllerConfig := &config.ControllerConfig{
 		CFRootNamespace:    PrefixedGUID("cf"),
 		ClusterBuilderName: "cf-kpack-builder",
-		KpackImageTag:      "image/registry/tag",
+		DropletRepository:  "image/registry/tag",
 	}
 
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)

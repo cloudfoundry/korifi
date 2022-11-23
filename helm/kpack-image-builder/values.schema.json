@@ -66,8 +66,8 @@
       "description": "docker image",
       "type": "string"
     },
-    "dropletRepositoryPrefix": {
-      "description": "prefix to the docker path used to store droplet images",
+    "dropletRepository": {
+      "description": "container repository used to store droplet images",
       "type": "string"
     },
     "clusterBuilderName": {
@@ -87,7 +87,7 @@
       "type": "string"
     }
   },
-  "required": ["global", "include", "image", "dropletRepositoryPrefix"],
+  "required": ["global", "include", "image", "dropletRepository"],
   "title": "Values",
   "type": "object"
 }
