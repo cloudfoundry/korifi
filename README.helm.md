@@ -15,7 +15,7 @@ Here are all the values that can be set for the chart:
   - `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).
   - `defaultAppDomainName` (_String_): Base domain name for application URLs.
   - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
-  - `packageRegistrySecret` (_String_): Name of the `Secret` to use when pushing source and droplet images to the container registry.
+  - `containerRegistrySecret` (_String_): Name of the `Secret` to use when pushing or pulling from package, droplet and kpack-build repositories
 * `api`:
   - `include` (_Boolean_): Deploy the API component.
   - `replicas` (_Integer_): Number of replicas.

@@ -3,7 +3,7 @@ global:
   debug: false
   defaultAppDomainName: apps.my-cf-domain.com
   generateIngressCertificates: false
-  packageRegistrySecret: image-registry-credentials
+  containerRegistrySecret: image-registry-credentials
 
 include: true
 replicas: 1
