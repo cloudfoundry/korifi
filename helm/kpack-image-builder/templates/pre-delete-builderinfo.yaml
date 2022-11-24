@@ -65,6 +65,12 @@ metadata:
     helm.sh/hook-weight: "-10"
 rules:
 - apiGroups:
+  - "apiextensions.k8s.io"
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+- apiGroups:
   - "korifi.cloudfoundry.org"
   resources:
   - builderinfos
