@@ -54,7 +54,7 @@ No changes here. For the container registry credentials `Secret`, we recommend y
 
 No changes here. If using DockerHub as recommended above, set the following values:
 
--   `api.packageRepositoryPrefix`: `index.docker.io/<username>`;
+-   `api.packageRepository`: `index.docker.io/<username>/packages`;
 -   `kpack-image-builder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
 -   `kpack-image-builder.dropletRepositoryPrefix`: `index.docker.io/<username>`.
 

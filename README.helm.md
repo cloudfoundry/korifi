@@ -37,7 +37,7 @@ Here are all the values that can be set for the chart:
       - `memoryMB` (_Integer_)
       - `diskMB` (_Integer_)
   - `builderName` (_String_): ID of the builder used to build apps. Defaults to `kpack-image-builder`.
-  - `packageRepositoryPrefix` (_String_): Prefix of the container image repository where app source packages will be stored. For DockerHub, this should be `index.docker.io/<username>`.
+  - `packageRepository` (_String_): The container image repository where app source packages will be stored. For DockerHub, this might be `index.docker.io/<username>/packages`.
   - `userCertificateExpirationWarningDuration` (_String_): Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
   - `authProxy`: Needed if using a cluster authentication proxy, e.g. [Pinniped](https://pinniped.dev/).
     - `host` (_String_): Must be a host string, a host:port pair, or a URL to the base of the apiserver.

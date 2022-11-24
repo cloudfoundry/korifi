@@ -216,7 +216,7 @@ func main() {
 			dropletRepo,
 			imageRepo,
 			decoderValidator,
-			config.PackageRegistryBase,
+			config.PackageRepository,
 			config.PackageRegistrySecretName,
 		),
 		handlers.NewBuildHandler(

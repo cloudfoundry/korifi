@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -53,7 +52,7 @@ type PackageHandler struct {
 	dropletRepo        CFDropletRepository
 	imageRepo          ImageRepository
 	requestValidator   RequestJSONValidator
-	registryBase       string
+	packageRepository  string
 	registrySecretName string
 }
 
@@ -64,7 +63,7 @@ func NewPackageHandler(
 	dropletRepo CFDropletRepository,
 	imageRepo ImageRepository,
 	requestValidator RequestJSONValidator,
-	registryBase string,
+	packageRepository string,
 	registrySecretName string,
 ) *PackageHandler {
 	return &PackageHandler{
@@ -74,7 +73,7 @@ func NewPackageHandler(
 		appRepo:            appRepo,
 		dropletRepo:        dropletRepo,
 		imageRepo:          imageRepo,
-		registryBase:       registryBase,
+		packageRepository:  packageRepository,
 		registrySecretName: registrySecretName,
 		requestValidator:   requestValidator,
 	}
@@ -175,8 +174,7 @@ func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Lo
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewPackageBitsAlreadyUploadedError(err), "Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
 	}
 
-	imageRef := path.Join(h.registryBase, packageGUID)
-	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, imageRef, bitsFile, record.SpaceGUID)
+	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, h.packageRepository, bitsFile, record.SpaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling uploadSourceImage")
 	}

@@ -8,7 +8,7 @@ api:
   apiServer:
     url: localhost
   image: cloudfoundry/korifi-api:latest
-  packageRepositoryPrefix: localregistry-docker-registry.default.svc.cluster.local:30050/sources
+  packageRepository: localregistry-docker-registry.default.svc.cluster.local:30050/packages
 
 controllers:
   taskTTL: 5s
