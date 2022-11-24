@@ -165,6 +165,7 @@ type applicationResource struct {
 	NoRoute      bool                                 `yaml:"no-route"`
 	Processes    []manifestApplicationProcessResource `yaml:"processes"`
 	Routes       []manifestRouteResource              `yaml:"routes"`
+	Memory       string                               `yaml:"memory,omitempty"`
 }
 
 type manifestApplicationProcessResource struct {
@@ -651,8 +652,35 @@ func uploadTestApp(pkgGUID, appBitsFile string) {
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
+func getAppGUIDFromName(appName string) string {
+	var appGUID string
+	Eventually(func(g Gomega) {
+		var result resourceList
+		resp, err := adminClient.R().SetResult(&result).Get("/v3/apps?names=" + appName)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+		g.Expect(result.Resources).To(HaveLen(1))
+		appGUID = result.Resources[0].GUID
+	}).Should(Succeed())
+
+	return appGUID
+}
+
+func createAppViaManifest(spaceGUID, appName string) string {
+	manifest := manifestResource{
+		Version: 1,
+		Applications: []applicationResource{{
+			Name:   appName,
+			Memory: "128MB",
+		}},
+	}
+	applySpaceManifest(manifest, spaceGUID)
+
+	return getAppGUIDFromName(appName)
+}
+
 func pushTestApp(spaceGUID, appBitsFile string) string {
-	appGUID := createApp(spaceGUID, generateGUID("app"))
+	appGUID := createAppViaManifest(spaceGUID, generateGUID("app"))
 	pkgGUID := createPackage(appGUID)
 	uploadTestApp(pkgGUID, appBitsFile)
 	buildGUID := createBuild(pkgGUID)
