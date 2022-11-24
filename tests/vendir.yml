@@ -6,7 +6,9 @@ directories:
   - path: kpack
     githubRelease:
       slug: pivotal/kpack
-      latest: true
+      tagSelection:
+        semver:
+          constraints: "!0.8.1"
       disableAutoChecksumValidation: true
   - path: service-binding
     githubRelease:
