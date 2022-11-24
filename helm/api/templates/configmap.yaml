@@ -20,7 +20,7 @@ data:
       stagingMemoryMB: {{ .Values.lifecycle.stagingRequirements.memoryMB }}
       stagingDiskMB: {{ .Values.lifecycle.stagingRequirements.diskMB }}
     packageRegistryBase: {{ .Values.packageRepositoryPrefix }}
-    packageRegistrySecretName: {{ .Values.global.packageRegistrySecret }}
+    packageRegistrySecretName: {{ .Values.global.containerRegistrySecret }}
     defaultDomainName: {{ .Values.global.defaultAppDomainName }}
     userCertificateExpirationWarningDuration: {{ .Values.userCertificateExpirationWarningDuration }}
     {{- if .Values.authProxy }}
