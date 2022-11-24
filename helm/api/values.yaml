@@ -36,7 +36,7 @@ lifecycle:
     diskMB: 1024
 
 builderName: kpack-image-builder
-packageRepositoryPrefix:
+packageRepository:
 userCertificateExpirationWarningDuration: 168h
 
 authProxy:

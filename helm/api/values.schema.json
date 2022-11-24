@@ -151,8 +151,8 @@
       "description": "name of the component to use for building droplets",
       "type": "string"
     },
-    "packageRepositoryPrefix": {
-      "description": "prefix of full path to docker image used to store package",
+    "packageRepository": {
+      "description": "Repository path in container registry used to store source package images",
       "type": "string"
     },
     "userCertificateExpirationWarningDuration": {
@@ -180,7 +180,7 @@
     "image",
     "lifecycle",
     "builderName",
-    "packageRepositoryPrefix",
+    "packageRepository",
     "userCertificateExpirationWarningDuration"
   ],
   "title": "Values",
