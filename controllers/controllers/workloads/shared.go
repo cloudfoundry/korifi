@@ -50,6 +50,12 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 }
 
 func propagateSecret(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, secretName string) error {
+	if secretName == "" {
+		// we are operating in service account role association mode for registry permissions.
+		// only tested implicity in EKS e2es
+		return nil
+	}
+
 	log = log.WithName("propagateSecret").
 		WithValues("secretName", secretName, "parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
 

@@ -57,7 +57,6 @@ const (
 	kpackReadyConditionType  = "Ready"
 	clusterBuilderKind       = "ClusterBuilder"
 	clusterBuilderAPIVersion = "kpack.io/v1alpha2"
-	kpackServiceAccount      = "kpack-service-account"
 	BuildWorkloadLabelKey    = "korifi.cloudfoundry.org/build-workload-name"
 	kpackReconcilerName      = "kpack-image-builder"
 )
@@ -65,11 +64,11 @@ const (
 //counterfeiter:generate -o fake -fake-name RegistryAuthFetcher . RegistryAuthFetcher
 type RegistryAuthFetcher func(ctx context.Context, namespace string) (remote.Option, error)
 
-func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface) RegistryAuthFetcher {
+func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface, serviceAccount string) RegistryAuthFetcher {
 	return func(ctx context.Context, namespace string) (remote.Option, error) {
 		keychain, err := k8schain.New(ctx, privilegedK8sClient, k8schain.Options{
 			Namespace:          namespace,
-			ServiceAccountName: kpackServiceAccount,
+			ServiceAccountName: serviceAccount,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
@@ -176,10 +175,11 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 			Message: "Image built successfully",
 		})
 
-		serviceAccountName := kpackServiceAccount
-		serviceAccountLookupKey := types.NamespacedName{Name: serviceAccountName, Namespace: buildWorkload.Namespace}
 		foundServiceAccount := corev1.ServiceAccount{}
-		err = r.k8sClient.Get(ctx, serviceAccountLookupKey, &foundServiceAccount)
+		err = r.k8sClient.Get(ctx, types.NamespacedName{
+			Namespace: buildWorkload.Namespace,
+			Name:      r.controllerConfig.BuilderServiceAccount,
+		}, &foundServiceAccount)
 		if err != nil {
 			r.log.Error(err, "Error when fetching kpack ServiceAccount")
 			return ctrl.Result{}, err
@@ -207,7 +207,6 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 }
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
-	serviceAccountName := kpackServiceAccount
 	kpackImageName := buildWorkload.Name
 	kpackImageNamespace := buildWorkload.Namespace
 	desiredKpackImage := buildv1alpha2.Image{
@@ -225,7 +224,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 				Name:       r.controllerConfig.ClusterBuilderName,
 				APIVersion: clusterBuilderAPIVersion,
 			},
-			ServiceAccountName: serviceAccountName,
+			ServiceAccountName: r.controllerConfig.BuilderServiceAccount,
 			Source: corev1alpha1.SourceConfig{
 				Registry: &corev1alpha1.Registry{
 					Image:            buildWorkload.Spec.Source.Registry.Image,

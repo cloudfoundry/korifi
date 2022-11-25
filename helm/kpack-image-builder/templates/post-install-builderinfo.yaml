@@ -23,7 +23,7 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name | quote }}
         helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     spec:
-      serviceAccountName: korifi-kpack-build-controller-manager
+      serviceAccountName: {{ .Values.global.containerRegistryServiceAccount | default "korifi-kpack-build-controller-manager" }}
       restartPolicy: Never
       containers:
       - name: post-install-create-builderinfo

@@ -164,5 +164,24 @@ var _ = Describe("ImageRepository", func() {
 				Expect(uploadErr).To(MatchError(ContainSubstring("getting push credentials")))
 			})
 		})
+
+		When("there is no registry secret", func() {
+			BeforeEach(func() {
+				imageRepo = repositories.NewImageRepository(
+					privilegedK8sClient,
+					userClientFactory,
+					rootNamespace,
+					"",
+					registryCAPath,
+					imageBuilder,
+					imagePusher,
+				)
+			})
+
+			It("succeeds", func() {
+				Expect(uploadErr).NotTo(HaveOccurred())
+				Expect(imageRef).To(Equal("my-pushed-image"))
+			})
+		})
 	})
 })

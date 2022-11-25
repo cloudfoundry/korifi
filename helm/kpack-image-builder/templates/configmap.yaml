@@ -8,3 +8,4 @@ data:
     cfRootNamespace: {{ .Values.global.rootNamespace }}
     clusterBuilderName: {{ default "cf-kpack-cluster-builder" .Values.clusterBuilderName }}
     dropletRepository: {{ .Values.dropletRepository }}
+    builderServiceAccount: {{ .Values.global.containerRegistryServiceAccount | default "kpack-image-builder" }}

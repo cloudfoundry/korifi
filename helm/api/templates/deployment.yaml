@@ -49,7 +49,7 @@ spec:
         - mountPath: /etc/korifi-tls-config
           name: korifi-tls-config
           readOnly: true
-      serviceAccountName: korifi-api-system-serviceaccount
+      serviceAccountName: {{ .Values.global.containerRegistryServiceAccount | default "korifi-api-system-serviceaccount" }}
       volumes:
       - configMap:
           name: korifi-api-config

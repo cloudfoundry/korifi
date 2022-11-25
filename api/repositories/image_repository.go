@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	registryv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -125,12 +126,19 @@ func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo autho
 }
 
 func (r *ImageRepository) getCredentials(ctx context.Context) (remote.Option, error) {
-	keychain, err := k8schain.New(ctx, r.privilegedK8sClient, k8schain.Options{
-		Namespace:        r.rootNamespace,
-		ImagePullSecrets: []string{r.registrySecretName},
-	})
+	var keychain authn.Keychain
+	var err error
+
+	if r.registrySecretName == "" {
+		keychain, err = k8schain.NewNoClient(ctx)
+	} else {
+		keychain, err = k8schain.New(ctx, r.privilegedK8sClient, k8schain.Options{
+			Namespace:        r.rootNamespace,
+			ImagePullSecrets: []string{r.registrySecretName},
+		})
+	}
 	if err != nil {
-		return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", apierrors.FromK8sError(err, SourceImageResourceType))
+		return nil, fmt.Errorf("failed creating registry keychain: %w", apierrors.FromK8sError(err, SourceImageResourceType))
 	}
 
 	return remote.WithAuthFromKeychain(keychain), nil

@@ -46,26 +46,26 @@ const (
 
 // CFSpaceReconciler reconciles a CFSpace object
 type CFSpaceReconciler struct {
-	client                    client.Client
-	scheme                    *runtime.Scheme
-	log                       logr.Logger
-	packageRegistrySecretName string
-	rootNamespace             string
+	client                      client.Client
+	scheme                      *runtime.Scheme
+	log                         logr.Logger
+	containerRegistrySecretName string
+	rootNamespace               string
 }
 
 func NewCFSpaceReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	packageRegistrySecretName string,
+	containerRegistrySecretName string,
 	rootNamespace string,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace] {
 	spaceReconciler := CFSpaceReconciler{
-		client:                    client,
-		scheme:                    scheme,
-		log:                       log,
-		packageRegistrySecretName: packageRegistrySecretName,
-		rootNamespace:             rootNamespace,
+		client:                      client,
+		scheme:                      scheme,
+		log:                         log,
+		containerRegistrySecretName: containerRegistrySecretName,
+		rootNamespace:               rootNamespace,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](log, client, &spaceReconciler)
 }
@@ -114,7 +114,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = propagateSecret(ctx, r.client, log, cfSpace, r.packageRegistrySecretName)
+	err = propagateSecret(ctx, r.client, log, cfSpace, r.containerRegistrySecretName)
 	if err != nil {
 		log.Error(err, "Error propagating secrets")
 		return ctrl.Result{}, err
@@ -176,13 +176,13 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 
 			// some versions of k8s will add their own secret/imagepullsecret references which will not be available in the new namespace, so we will only reference the package registry secret we explicitly propagate.
 			for i := range rootServiceAccount.Secrets {
-				if rootServiceAccount.Secrets[i].Name == r.packageRegistrySecretName {
+				if rootServiceAccount.Secrets[i].Name == r.containerRegistrySecretName {
 					rootPackageRegistrySecret = &rootServiceAccount.Secrets[i]
 					break
 				}
 			}
 			for i := range rootServiceAccount.ImagePullSecrets {
-				if rootServiceAccount.ImagePullSecrets[i].Name == r.packageRegistrySecretName {
+				if rootServiceAccount.ImagePullSecrets[i].Name == r.containerRegistrySecretName {
 					rootPackageRegistryImagePullSecret = &rootServiceAccount.ImagePullSecrets[i]
 					break
 				}

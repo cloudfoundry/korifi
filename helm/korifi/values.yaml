@@ -3,7 +3,8 @@ global:
   debug: false
   defaultAppDomainName: apps.my-cf-domain.com
   generateIngressCertificates: false
-  containerRegistrySecret: image-registry-credentials
+  # containerRegistrySecret: image-registry-credentials
+  # containerRegistryServiceAccount:
 
 adminUserName:
 

@@ -194,7 +194,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFOrg"),
-			controllerConfig.PackageRegistrySecretName,
+			controllerConfig.ContainerRegistrySecretName,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFOrg")
 			os.Exit(1)
@@ -204,7 +204,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
-			controllerConfig.PackageRegistrySecretName,
+			controllerConfig.ContainerRegistrySecretName,
 			controllerConfig.CFRootNamespace,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
