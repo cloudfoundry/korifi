@@ -277,16 +277,7 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 			updatedProcess.Spec.HealthCheck.Data.TimeoutSeconds = *message.HealthCheckTimeoutSeconds
 		}
 		if message.MetadataPatch != nil {
-			if updatedProcess.GetAnnotations() == nil {
-				updatedProcess.SetAnnotations(map[string]string{})
-			}
-
-			if updatedProcess.GetLabels() == nil {
-				updatedProcess.SetLabels(map[string]string{})
-			}
-
-			patchMap(updatedProcess.GetAnnotations(), message.MetadataPatch.Annotations)
-			patchMap(updatedProcess.GetLabels(), message.MetadataPatch.Labels)
+			message.MetadataPatch.Apply(updatedProcess)
 		}
 	})
 	if err != nil {

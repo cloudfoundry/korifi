@@ -211,6 +211,7 @@ rules:
   - cfdomains
   verbs:
   - create
+  - delete
   - get
   - list
   - patch

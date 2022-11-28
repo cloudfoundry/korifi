@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -274,9 +275,11 @@ func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorizati
 		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
 	}
 
-	err = patchMetadata(ctx, userClient, cfSpace, message.MetadataPatch, SpaceResourceType)
+	err = k8s.PatchResource(ctx, userClient, cfSpace, func() {
+		message.Apply(cfSpace)
+	})
 	if err != nil {
-		return SpaceRecord{}, err
+		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
 	return cfSpaceToSpaceRecord(*cfSpace), nil

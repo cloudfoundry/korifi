@@ -13,6 +13,7 @@ const (
 	RouteDeleteOperation        = "route.delete"
 	SpaceApplyManifestOperation = "space.apply_manifest"
 	SpaceDeleteOperation        = "space.delete"
+	DomainDeleteOperation       = "domain.delete"
 )
 
 type JobResponse struct {

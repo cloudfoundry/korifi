@@ -20,16 +20,6 @@ type RelationshipData struct {
 	GUID string `json:"guid" validate:"required"`
 }
 
-type Metadata struct {
-	Labels      map[string]string `json:"labels"`
-	Annotations map[string]string `json:"annotations"`
-}
-
-type MetadataPatch struct {
-	Labels      map[string]*string `json:"labels" validate:"metadatavalidator"`
-	Annotations map[string]*string `json:"annotations" validate:"metadatavalidator"`
-}
-
 func ParseArrayParam(arrayParam *string) []string {
 	if arrayParam == nil {
 		return []string{}
@@ -41,4 +31,14 @@ func ParseArrayParam(arrayParam *string) []string {
 	}
 
 	return elements
+}
+
+type Metadata struct {
+	Annotations map[string]string `json:"annotations" validate:"metadatavalidator"`
+	Labels      map[string]string `json:"labels" validate:"metadatavalidator"`
+}
+
+type MetadataPatch struct {
+	Annotations map[string]*string `json:"annotations" validate:"metadatavalidator"`
+	Labels      map[string]*string `json:"labels" validate:"metadatavalidator"`
 }

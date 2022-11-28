@@ -11,6 +11,34 @@ import (
 )
 
 type CFDomainRepository struct {
+	CreateDomainStub        func(context.Context, authorization.Info, repositories.CreateDomainMessage) (repositories.DomainRecord, error)
+	createDomainMutex       sync.RWMutex
+	createDomainArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.CreateDomainMessage
+	}
+	createDomainReturns struct {
+		result1 repositories.DomainRecord
+		result2 error
+	}
+	createDomainReturnsOnCall map[int]struct {
+		result1 repositories.DomainRecord
+		result2 error
+	}
+	DeleteDomainStub        func(context.Context, authorization.Info, string) error
+	deleteDomainMutex       sync.RWMutex
+	deleteDomainArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	deleteDomainReturns struct {
+		result1 error
+	}
+	deleteDomainReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetDomainStub        func(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
 	getDomainMutex       sync.RWMutex
 	getDomainArgsForCall []struct {
@@ -41,8 +69,152 @@ type CFDomainRepository struct {
 		result1 []repositories.DomainRecord
 		result2 error
 	}
+	UpdateDomainStub        func(context.Context, authorization.Info, repositories.UpdateDomainMessage) (repositories.DomainRecord, error)
+	updateDomainMutex       sync.RWMutex
+	updateDomainArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.UpdateDomainMessage
+	}
+	updateDomainReturns struct {
+		result1 repositories.DomainRecord
+		result2 error
+	}
+	updateDomainReturnsOnCall map[int]struct {
+		result1 repositories.DomainRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CFDomainRepository) CreateDomain(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateDomainMessage) (repositories.DomainRecord, error) {
+	fake.createDomainMutex.Lock()
+	ret, specificReturn := fake.createDomainReturnsOnCall[len(fake.createDomainArgsForCall)]
+	fake.createDomainArgsForCall = append(fake.createDomainArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.CreateDomainMessage
+	}{arg1, arg2, arg3})
+	stub := fake.CreateDomainStub
+	fakeReturns := fake.createDomainReturns
+	fake.recordInvocation("CreateDomain", []interface{}{arg1, arg2, arg3})
+	fake.createDomainMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFDomainRepository) CreateDomainCallCount() int {
+	fake.createDomainMutex.RLock()
+	defer fake.createDomainMutex.RUnlock()
+	return len(fake.createDomainArgsForCall)
+}
+
+func (fake *CFDomainRepository) CreateDomainCalls(stub func(context.Context, authorization.Info, repositories.CreateDomainMessage) (repositories.DomainRecord, error)) {
+	fake.createDomainMutex.Lock()
+	defer fake.createDomainMutex.Unlock()
+	fake.CreateDomainStub = stub
+}
+
+func (fake *CFDomainRepository) CreateDomainArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateDomainMessage) {
+	fake.createDomainMutex.RLock()
+	defer fake.createDomainMutex.RUnlock()
+	argsForCall := fake.createDomainArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFDomainRepository) CreateDomainReturns(result1 repositories.DomainRecord, result2 error) {
+	fake.createDomainMutex.Lock()
+	defer fake.createDomainMutex.Unlock()
+	fake.CreateDomainStub = nil
+	fake.createDomainReturns = struct {
+		result1 repositories.DomainRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFDomainRepository) CreateDomainReturnsOnCall(i int, result1 repositories.DomainRecord, result2 error) {
+	fake.createDomainMutex.Lock()
+	defer fake.createDomainMutex.Unlock()
+	fake.CreateDomainStub = nil
+	if fake.createDomainReturnsOnCall == nil {
+		fake.createDomainReturnsOnCall = make(map[int]struct {
+			result1 repositories.DomainRecord
+			result2 error
+		})
+	}
+	fake.createDomainReturnsOnCall[i] = struct {
+		result1 repositories.DomainRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFDomainRepository) DeleteDomain(arg1 context.Context, arg2 authorization.Info, arg3 string) error {
+	fake.deleteDomainMutex.Lock()
+	ret, specificReturn := fake.deleteDomainReturnsOnCall[len(fake.deleteDomainArgsForCall)]
+	fake.deleteDomainArgsForCall = append(fake.deleteDomainArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteDomainStub
+	fakeReturns := fake.deleteDomainReturns
+	fake.recordInvocation("DeleteDomain", []interface{}{arg1, arg2, arg3})
+	fake.deleteDomainMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFDomainRepository) DeleteDomainCallCount() int {
+	fake.deleteDomainMutex.RLock()
+	defer fake.deleteDomainMutex.RUnlock()
+	return len(fake.deleteDomainArgsForCall)
+}
+
+func (fake *CFDomainRepository) DeleteDomainCalls(stub func(context.Context, authorization.Info, string) error) {
+	fake.deleteDomainMutex.Lock()
+	defer fake.deleteDomainMutex.Unlock()
+	fake.DeleteDomainStub = stub
+}
+
+func (fake *CFDomainRepository) DeleteDomainArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.deleteDomainMutex.RLock()
+	defer fake.deleteDomainMutex.RUnlock()
+	argsForCall := fake.deleteDomainArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFDomainRepository) DeleteDomainReturns(result1 error) {
+	fake.deleteDomainMutex.Lock()
+	defer fake.deleteDomainMutex.Unlock()
+	fake.DeleteDomainStub = nil
+	fake.deleteDomainReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFDomainRepository) DeleteDomainReturnsOnCall(i int, result1 error) {
+	fake.deleteDomainMutex.Lock()
+	defer fake.deleteDomainMutex.Unlock()
+	fake.DeleteDomainStub = nil
+	if fake.deleteDomainReturnsOnCall == nil {
+		fake.deleteDomainReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteDomainReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *CFDomainRepository) GetDomain(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.DomainRecord, error) {
@@ -177,13 +349,85 @@ func (fake *CFDomainRepository) ListDomainsReturnsOnCall(i int, result1 []reposi
 	}{result1, result2}
 }
 
+func (fake *CFDomainRepository) UpdateDomain(arg1 context.Context, arg2 authorization.Info, arg3 repositories.UpdateDomainMessage) (repositories.DomainRecord, error) {
+	fake.updateDomainMutex.Lock()
+	ret, specificReturn := fake.updateDomainReturnsOnCall[len(fake.updateDomainArgsForCall)]
+	fake.updateDomainArgsForCall = append(fake.updateDomainArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.UpdateDomainMessage
+	}{arg1, arg2, arg3})
+	stub := fake.UpdateDomainStub
+	fakeReturns := fake.updateDomainReturns
+	fake.recordInvocation("UpdateDomain", []interface{}{arg1, arg2, arg3})
+	fake.updateDomainMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFDomainRepository) UpdateDomainCallCount() int {
+	fake.updateDomainMutex.RLock()
+	defer fake.updateDomainMutex.RUnlock()
+	return len(fake.updateDomainArgsForCall)
+}
+
+func (fake *CFDomainRepository) UpdateDomainCalls(stub func(context.Context, authorization.Info, repositories.UpdateDomainMessage) (repositories.DomainRecord, error)) {
+	fake.updateDomainMutex.Lock()
+	defer fake.updateDomainMutex.Unlock()
+	fake.UpdateDomainStub = stub
+}
+
+func (fake *CFDomainRepository) UpdateDomainArgsForCall(i int) (context.Context, authorization.Info, repositories.UpdateDomainMessage) {
+	fake.updateDomainMutex.RLock()
+	defer fake.updateDomainMutex.RUnlock()
+	argsForCall := fake.updateDomainArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFDomainRepository) UpdateDomainReturns(result1 repositories.DomainRecord, result2 error) {
+	fake.updateDomainMutex.Lock()
+	defer fake.updateDomainMutex.Unlock()
+	fake.UpdateDomainStub = nil
+	fake.updateDomainReturns = struct {
+		result1 repositories.DomainRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFDomainRepository) UpdateDomainReturnsOnCall(i int, result1 repositories.DomainRecord, result2 error) {
+	fake.updateDomainMutex.Lock()
+	defer fake.updateDomainMutex.Unlock()
+	fake.UpdateDomainStub = nil
+	if fake.updateDomainReturnsOnCall == nil {
+		fake.updateDomainReturnsOnCall = make(map[int]struct {
+			result1 repositories.DomainRecord
+			result2 error
+		})
+	}
+	fake.updateDomainReturnsOnCall[i] = struct {
+		result1 repositories.DomainRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFDomainRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.createDomainMutex.RLock()
+	defer fake.createDomainMutex.RUnlock()
+	fake.deleteDomainMutex.RLock()
+	defer fake.deleteDomainMutex.RUnlock()
 	fake.getDomainMutex.RLock()
 	defer fake.getDomainMutex.RUnlock()
 	fake.listDomainsMutex.RLock()
 	defer fake.listDomainsMutex.RUnlock()
+	fake.updateDomainMutex.RLock()
+	defer fake.updateDomainMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

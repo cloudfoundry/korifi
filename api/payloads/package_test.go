@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
@@ -37,12 +36,12 @@ var _ = Describe("PackageCreate", func() {
 					},
 				},
 			},
-			Metadata: payloads.MetadataPatch{
-				Labels: map[string]*string{
-					"foo": tools.PtrTo("bar"),
+			Metadata: payloads.Metadata{
+				Labels: map[string]string{
+					"foo": "bar",
 				},
-				Annotations: map[string]*string{
-					"example.org/jim": tools.PtrTo("hello"),
+				Annotations: map[string]string{
+					"example.org/jim": "hello",
 				},
 			},
 		}
@@ -125,9 +124,9 @@ var _ = Describe("PackageCreate", func() {
 
 	When("metadata.labels contains an invalid key", func() {
 		BeforeEach(func() {
-			createPayload.Metadata = payloads.MetadataPatch{
-				Labels: map[string]*string{
-					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+			createPayload.Metadata = payloads.Metadata{
+				Labels: map[string]string{
+					"foo.cloudfoundry.org/bar": "jim",
 				},
 			}
 		})
@@ -139,9 +138,9 @@ var _ = Describe("PackageCreate", func() {
 
 	When("metadata.annotations contains an invalid key", func() {
 		BeforeEach(func() {
-			createPayload.Metadata = payloads.MetadataPatch{
-				Annotations: map[string]*string{
-					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+			createPayload.Metadata = payloads.Metadata{
+				Annotations: map[string]string{
+					"foo.cloudfoundry.org/bar": "jim",
 				},
 			}
 		})
@@ -225,16 +224,10 @@ var _ = Describe("PackageUpdate", func() {
 	Context("toMessage", func() {
 		It("converts to repo message correctly", func() {
 			msg := packageUpdate.ToMessage("foo")
-			Expect(msg.Metadata.Labels).To(Equal(map[string]*string{
+			Expect(msg.MetadataPatch.Labels).To(Equal(map[string]*string{
 				"foo": tools.PtrTo("bar"),
 				"bar": nil,
 			}))
 		})
 	})
 })
-
-func expectUnprocessableEntityError(err error, detail string) {
-	Expect(err).To(HaveOccurred())
-	Expect(err).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-	Expect(err.(apierrors.UnprocessableEntityError).Detail()).To(ContainSubstring(detail))
-}

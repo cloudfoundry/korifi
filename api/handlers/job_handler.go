@@ -17,12 +17,13 @@ import (
 )
 
 const (
-	JobPath           = "/v3/jobs/{guid}"
-	syncSpacePrefix   = "space.apply_manifest"
-	appDeletePrefix   = "app.delete"
-	orgDeletePrefix   = "org.delete"
-	routeDeletePrefix = "route.delete"
-	spaceDeletePrefix = "space.delete"
+	JobPath            = "/v3/jobs/{guid}"
+	syncSpacePrefix    = "space.apply_manifest"
+	appDeletePrefix    = "app.delete"
+	orgDeletePrefix    = "org.delete"
+	routeDeletePrefix  = "route.delete"
+	spaceDeletePrefix  = "space.delete"
+	domainDeletePrefix = "domain.delete"
 )
 
 const JobResourceType = "Job"
@@ -58,7 +59,7 @@ func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, auth
 	switch jobType {
 	case syncSpacePrefix:
 		jobResponse = presenter.ForManifestApplyJob(jobGUID, resourceGUID, h.serverURL)
-	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix:
+	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix, domainDeletePrefix:
 		jobResponse = presenter.ForDeleteJob(jobGUID, jobType, h.serverURL)
 	default:
 		return nil, apierrors.LogAndReturn(

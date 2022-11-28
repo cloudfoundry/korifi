@@ -165,6 +165,30 @@ var _ = Describe("JobHandler", func() {
 					}`, defaultServerURL, jobGUID)))
 				})
 			})
+
+			When("the existing job operation is domain.delete", func() {
+				BeforeEach(func() {
+					resourceGUID = "cf-domain-" + uuid.NewString()
+					jobGUID = "domain.delete~" + resourceGUID
+				})
+
+				It("returns the job", func() {
+					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
+						"created_at": "",
+						"errors": null,
+						"guid": "%[2]s",
+						"links": {
+							"self": {
+								"href": "%[1]s/v3/jobs/%[2]s"
+							}
+						},
+						"operation": "domain.delete",
+						"state": "COMPLETE",
+						"updated_at": "",
+						"warnings": null
+					}`, defaultServerURL, jobGUID)))
+				})
+			})
 		})
 
 		Describe("job guid validation", func() {

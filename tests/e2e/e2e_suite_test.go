@@ -71,10 +71,11 @@ type resourceList struct {
 }
 
 type responseResource struct {
-	Name      string `json:"name,omitempty"`
-	GUID      string `json:"guid,omitempty"`
-	CreatedAt string `json:"created_at,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	Name      string    `json:"name,omitempty"`
+	GUID      string    `json:"guid,omitempty"`
+	CreatedAt string    `json:"created_at,omitempty"`
+	UpdatedAt string    `json:"updated_at,omitempty"`
+	Metadata  *metadata `json:"metadata,omitempty"`
 }
 
 type responseResourceList struct {
@@ -175,6 +176,11 @@ type manifestApplicationProcessResource struct {
 
 type manifestRouteResource struct {
 	Route *string `yaml:"route"`
+}
+
+type domainResource struct {
+	resource `json:",inline"`
+	Internal bool `json:"internal"`
 }
 
 type routeResource struct {

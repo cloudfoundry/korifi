@@ -46,12 +46,12 @@ var _ = Describe("PackageRepository", func() {
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: space.Name,
-				Metadata: repositories.MetadataPatch{
-					Labels: map[string]*string{
-						"bob": tools.PtrTo("foo"),
+				Metadata: repositories.Metadata{
+					Labels: map[string]string{
+						"bob": "foo",
 					},
-					Annotations: map[string]*string{
-						"jim": tools.PtrTo("bar"),
+					Annotations: map[string]string{
+						"jim": "bar",
 					},
 				},
 			}
@@ -100,22 +100,6 @@ var _ = Describe("PackageRepository", func() {
 
 				Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
 				Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
-			})
-
-			When("a nil value is set in metadata", func() {
-				BeforeEach(func() {
-					packageCreate.Metadata.Labels["roy"] = nil
-				})
-
-				It("isn't set", func() {
-					Expect(createErr).NotTo(HaveOccurred())
-
-					packageNSName := types.NamespacedName{Name: createdPackage.GUID, Namespace: space.Name}
-					createdCFPackage := new(korifiv1alpha1.CFPackage)
-					Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
-
-					Expect(createdCFPackage.Labels).NotTo(HaveKey("roy"))
-				})
 			})
 		})
 	})
@@ -535,7 +519,7 @@ var _ = Describe("PackageRepository", func() {
 			packageGUID = generateGUID()
 			updateMessage = repositories.UpdatePackageMessage{
 				GUID: packageGUID,
-				Metadata: repositories.MetadataPatch{
+				MetadataPatch: repositories.MetadataPatch{
 					Labels: map[string]*string{
 						"foo": tools.PtrTo("bar"),
 					},
@@ -595,7 +579,7 @@ var _ = Describe("PackageRepository", func() {
 
 			When("unsetting a label", func() {
 				BeforeEach(func() {
-					updateMessage.Metadata.Labels["foo"] = nil
+					updateMessage.MetadataPatch.Labels["foo"] = nil
 				})
 
 				It("removes the label", func() {

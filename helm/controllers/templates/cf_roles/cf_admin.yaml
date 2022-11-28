@@ -118,8 +118,11 @@ rules:
   resources:
   - cfdomains
   verbs:
+  - create
   - get
   - list
+  - patch
+  - delete
 
 - apiGroups:
   - korifi.cloudfoundry.org
