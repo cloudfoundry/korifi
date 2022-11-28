@@ -470,9 +470,11 @@ func (f *AppRepo) PatchAppMetadata(ctx context.Context, authInfo authorization.I
 		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	err = patchMetadata(ctx, userClient, app, message.MetadataPatch, AppResourceType)
+	err = k8s.PatchResource(ctx, userClient, app, func() {
+		message.Apply(app)
+	})
 	if err != nil {
-		return AppRecord{}, err
+		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
 	return cfAppToAppRecord(*app), nil

@@ -9,7 +9,7 @@ import (
 type PackageCreate struct {
 	Type          string                `json:"type" validate:"required,oneof='bits'"`
 	Relationships *PackageRelationships `json:"relationships" validate:"required"`
-	Metadata      MetadataPatch         `json:"metadata"`
+	Metadata      Metadata              `json:"metadata"`
 }
 
 type PackageRelationships struct {
@@ -21,7 +21,7 @@ func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.Cre
 		Type:      m.Type,
 		AppGUID:   record.GUID,
 		SpaceGUID: record.SpaceGUID,
-		Metadata: repositories.MetadataPatch{
+		Metadata: repositories.Metadata{
 			Annotations: m.Metadata.Annotations,
 			Labels:      m.Metadata.Labels,
 		},
@@ -35,7 +35,7 @@ type PackageUpdate struct {
 func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackageMessage {
 	return repositories.UpdatePackageMessage{
 		GUID: packageGUID,
-		Metadata: repositories.MetadataPatch{
+		MetadataPatch: repositories.MetadataPatch{
 			Annotations: u.Metadata.Annotations,
 			Labels:      u.Metadata.Labels,
 		},

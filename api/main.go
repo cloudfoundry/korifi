@@ -239,6 +239,7 @@ func main() {
 		),
 		handlers.NewDomainHandler(
 			*serverURL,
+			decoderValidator,
 			domainRepo,
 		),
 		handlers.NewJobHandler(

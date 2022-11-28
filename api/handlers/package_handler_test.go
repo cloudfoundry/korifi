@@ -487,16 +487,16 @@ var _ = Describe("PackageHandler", func() {
 						},
 					},
 				},
-				Metadata: payloads.MetadataPatch{
-					Labels: map[string]*string{
-						"bob": tools.PtrTo("foo"),
+				Metadata: payloads.Metadata{
+					Labels: map[string]string{
+						"bob": "foo",
 					},
-					Annotations: map[string]*string{
-						"jim": tools.PtrTo("foo"),
+					Annotations: map[string]string{
+						"jim": "foo",
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(r *http.Request, i interface{}) error {
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
 				b, ok := i.(*payloads.PackageCreate)
 				Expect(ok).To(BeTrue())
 				*b = *body
@@ -546,12 +546,12 @@ var _ = Describe("PackageHandler", func() {
 				Type:      "bits",
 				AppGUID:   appGUID,
 				SpaceGUID: spaceGUID,
-				Metadata: repositories.MetadataPatch{
-					Labels: map[string]*string{
-						"bob": tools.PtrTo("foo"),
+				Metadata: repositories.Metadata{
+					Labels: map[string]string{
+						"bob": "foo",
 					},
-					Annotations: map[string]*string{
-						"jim": tools.PtrTo("foo"),
+					Annotations: map[string]string{
+						"jim": "foo",
 					},
 				},
 			}))
@@ -675,7 +675,7 @@ var _ = Describe("PackageHandler", func() {
 				},
 			}
 
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(r *http.Request, i interface{}) error {
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
 				b, ok := i.(*payloads.PackageUpdate)
 				Expect(ok).To(BeTrue())
 				*b = *body
@@ -730,7 +730,7 @@ var _ = Describe("PackageHandler", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualUpdate).To(Equal(repositories.UpdatePackageMessage{
 				GUID: packageGUID,
-				Metadata: repositories.MetadataPatch{
+				MetadataPatch: repositories.MetadataPatch{
 					Labels: map[string]*string{
 						"bob": tools.PtrTo("foo"),
 					},

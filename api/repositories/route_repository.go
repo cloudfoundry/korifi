@@ -482,9 +482,11 @@ func (f *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorizati
 		return RouteRecord{}, fmt.Errorf("failed to get route: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	err = patchMetadata(ctx, userClient, route, message.MetadataPatch, RouteResourceType)
+	err = k8s.PatchResource(ctx, userClient, route, func() {
+		message.Apply(route)
+	})
 	if err != nil {
-		return RouteRecord{}, err
+		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 
 	return cfRouteToRouteRecord(*route), nil

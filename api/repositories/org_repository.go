@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -224,9 +225,11 @@ func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.I
 		return OrgRecord{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgResourceType))
 	}
 
-	err = patchMetadata(ctx, userClient, cfOrg, message.MetadataPatch, OrgResourceType)
+	err = k8s.PatchResource(ctx, userClient, cfOrg, func() {
+		message.Apply(cfOrg)
+	})
 	if err != nil {
-		return OrgRecord{}, err
+		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
 	return cfOrgToOrgRecord(*cfOrg), nil

@@ -8,8 +8,11 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
+	"github.com/google/uuid"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -45,6 +48,16 @@ type DomainRecord struct {
 	UpdatedAt   string
 }
 
+type CreateDomainMessage struct {
+	Name     string
+	Metadata Metadata
+}
+
+type UpdateDomainMessage struct {
+	GUID          string
+	MetadataPatch MetadataPatch
+}
+
 type ListDomainsMessage struct {
 	Names []string
 }
@@ -64,6 +77,60 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: domainGUID}, domain)
 	if err != nil {
 		return DomainRecord{}, apierrors.NewForbiddenError(err, DomainResourceType)
+	}
+
+	return cfDomainToDomainRecord(domain), nil
+}
+
+func (r *DomainRepo) CreateDomain(ctx context.Context, authInfo authorization.Info, message CreateDomainMessage) (DomainRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return DomainRecord{}, fmt.Errorf("create-domain failed to create user client: %w", err)
+	}
+
+	cfDomain := &korifiv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        uuid.NewString(),
+			Namespace:   r.rootNamespace,
+			Labels:      message.Metadata.Labels,
+			Annotations: message.Metadata.Annotations,
+		},
+		Spec: korifiv1alpha1.CFDomainSpec{
+			Name: message.Name,
+		},
+	}
+
+	err = userClient.Create(ctx, cfDomain)
+	if err != nil {
+		return DomainRecord{}, fmt.Errorf("create-domain failed: %w", apierrors.FromK8sError(err, DomainResourceType))
+	}
+
+	return cfDomainToDomainRecord(cfDomain), nil
+}
+
+func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.Info, message UpdateDomainMessage) (DomainRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return DomainRecord{}, fmt.Errorf("create-domain failed to create user client: %w", err)
+	}
+
+	domain := &korifiv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.GUID,
+			Namespace: r.rootNamespace,
+		},
+	}
+
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(domain), domain)
+	if err != nil {
+		return DomainRecord{}, fmt.Errorf("update-domain failed: %w", apierrors.FromK8sError(err, DomainResourceType))
+	}
+
+	err = k8s.PatchResource(ctx, userClient, domain, func() {
+		message.MetadataPatch.Apply(domain)
+	})
+	if err != nil {
+		return DomainRecord{}, fmt.Errorf("failed to patch domain metadata: %w", apierrors.FromK8sError(err, DomainResourceType))
 	}
 
 	return cfDomainToDomainRecord(domain), nil
@@ -105,6 +172,27 @@ func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization
 	return domainRecords[0], nil
 }
 
+func (r *DomainRepo) DeleteDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("delete-domain failed to create user client: %w", err)
+	}
+
+	cfDomain := &korifiv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      domainGUID,
+		},
+	}
+
+	err = userClient.Delete(ctx, cfDomain)
+	if err != nil {
+		return apierrors.FromK8sError(err, DomainResourceType)
+	}
+
+	return nil
+}
+
 func applyDomainListFilterAndOrder(domainList []korifiv1alpha1.CFDomain, message ListDomainsMessage) []korifiv1alpha1.CFDomain {
 	var filtered []korifiv1alpha1.CFDomain
 	if len(message.Names) > 0 {
@@ -140,10 +228,12 @@ func returnDomainList(domainList []korifiv1alpha1.CFDomain) []DomainRecord {
 func cfDomainToDomainRecord(cfDomain *korifiv1alpha1.CFDomain) DomainRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfDomain.ObjectMeta)
 	return DomainRecord{
-		Name:      cfDomain.Spec.Name,
-		GUID:      cfDomain.Name,
-		Namespace: cfDomain.Namespace,
-		CreatedAt: cfDomain.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		Name:        cfDomain.Spec.Name,
+		GUID:        cfDomain.Name,
+		Namespace:   cfDomain.Namespace,
+		CreatedAt:   cfDomain.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:   updatedAtTime,
+		Labels:      cfDomain.Labels,
+		Annotations: cfDomain.Annotations,
 	}
 }

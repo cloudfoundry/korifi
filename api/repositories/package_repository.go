@@ -69,7 +69,7 @@ type CreatePackageMessage struct {
 	Type      string
 	AppGUID   string
 	SpaceGUID string
-	Metadata  MetadataPatch
+	Metadata  Metadata
 }
 
 func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
@@ -82,8 +82,8 @@ func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,
 			Namespace:   message.SpaceGUID,
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
+			Labels:      message.Metadata.Labels,
+			Annotations: message.Metadata.Annotations,
 		},
 		Spec: korifiv1alpha1.CFPackageSpec{
 			Type: korifiv1alpha1.PackageType(message.Type),
@@ -92,15 +92,13 @@ func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
 			},
 		},
 	}
-	patchMap(pkg.Labels, message.Metadata.Labels)
-	patchMap(pkg.Annotations, message.Metadata.Annotations)
 
 	return pkg
 }
 
 type UpdatePackageMessage struct {
-	GUID     string
-	Metadata MetadataPatch
+	GUID          string
+	MetadataPatch MetadataPatch
 }
 
 type UpdatePackageSourceMessage struct {
@@ -143,9 +141,11 @@ func (r *PackageRepo) UpdatePackage(ctx context.Context, authInfo authorization.
 		return PackageRecord{}, fmt.Errorf("failed to get package: %w", apierrors.ForbiddenAsNotFound(apierrors.FromK8sError(err, PackageResourceType)))
 	}
 
-	err = patchMetadata(ctx, userClient, cfPackage, updateMessage.Metadata, PackageResourceType)
+	err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
+		updateMessage.MetadataPatch.Apply(cfPackage)
+	})
 	if err != nil {
-		return PackageRecord{}, fmt.Errorf("failed to patch package metadata: %w", err)
+		return PackageRecord{}, fmt.Errorf("failed to patch package metadata: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
 	return cfPackageToPackageRecord(*cfPackage), nil

@@ -17,6 +17,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	en_translations "github.com/go-playground/validator/v10/translations/en"
+	"golang.org/x/exp/maps"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
@@ -295,13 +296,22 @@ func serviceInstanceTagLength(fl validator.FieldLevel) bool {
 }
 
 func metadataValidator(fl validator.FieldLevel) bool {
-	metadata, ok := fl.Field().Interface().(map[string]*string)
-	if !ok {
-		return true // the value is optional, and is set to nil
+	metadata, isMeta := fl.Field().Interface().(map[string]string)
+	if isMeta {
+		return validateMetadataKeys(maps.Keys(metadata))
 	}
 
-	for k := range metadata {
-		u, err := url.ParseRequestURI("https://" + k) // without the scheme, the hostname will be parsed as a path
+	metadataPatch, isMetaPatch := fl.Field().Interface().(map[string]*string)
+	if isMetaPatch {
+		return validateMetadataKeys(maps.Keys(metadataPatch))
+	}
+
+	return true
+}
+
+func validateMetadataKeys(metaKeys []string) bool {
+	for _, key := range metaKeys {
+		u, err := url.ParseRequestURI("https://" + key) // without the scheme, the hostname will be parsed as a path
 		if err != nil {
 			continue
 		}

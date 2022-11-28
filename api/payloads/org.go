@@ -1,6 +1,8 @@
 package payloads
 
-import "code.cloudfoundry.org/korifi/api/repositories"
+import (
+	"code.cloudfoundry.org/korifi/api/repositories"
+)
 
 type OrgCreate struct {
 	Name      string   `json:"name" validate:"required"`

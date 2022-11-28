@@ -292,21 +292,15 @@ func FromK8sError(err error, resourceType string) error {
 		return NewNotFoundError(err, resourceType)
 	case k8serrors.IsForbidden(err):
 		return NewForbiddenError(err, resourceType)
+	case k8serrors.IsInvalid(err):
+		cause, ok := k8serrors.StatusCause(err, metav1.CauseTypeFieldValueInvalid)
+		if ok {
+			return NewUnprocessableEntityError(err, fmt.Sprintf("%s is invalid: %s", cause.Field, cause.Message))
+		}
+		return NewUnprocessableEntityError(err, resourceType)
 	default:
 		return err
 	}
-}
-
-func FromK8sErrorWithInvalidAsUnprocessableEntity(err error, resourceType string) error {
-	err2 := FromK8sError(err, resourceType)
-
-	if k8serrors.IsInvalid(err2) {
-		cause, ok := k8serrors.StatusCause(err2, metav1.CauseTypeFieldValueInvalid)
-		if ok {
-			return NewUnprocessableEntityError(err2, fmt.Sprintf("%s is invalid: %s", cause.Field, cause.Message))
-		}
-	}
-	return err2
 }
 
 func AsUnprocessableEntity(err error, detail string, errTypes ...ApiError) error {
