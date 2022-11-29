@@ -23,6 +23,7 @@ spec:
     spec:
       serviceAccountName: delete-builderinfo-service-account
       restartPolicy: Never
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
       containers:
       - name: pre-delete-builderinfo
         image: "alpine/k8s:1.25.2"

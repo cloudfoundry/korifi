@@ -67,6 +67,7 @@ spec:
         - mountPath: /etc/korifi-job-task-runner-config
           name: korifi-job-task-runner-config
           readOnly: true
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-job-task-runner-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

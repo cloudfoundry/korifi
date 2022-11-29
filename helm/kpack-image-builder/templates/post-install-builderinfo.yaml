@@ -25,6 +25,7 @@ spec:
     spec:
       serviceAccountName: {{ .Values.global.containerRegistryServiceAccount | default "korifi-kpack-build-controller-manager" }}
       restartPolicy: Never
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
       containers:
       - name: post-install-create-builderinfo
         image: "alpine/k8s:1.25.2"
