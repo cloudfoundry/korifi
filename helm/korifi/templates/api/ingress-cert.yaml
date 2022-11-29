@@ -5,9 +5,9 @@ metadata:
   name: korifi-api-ingress-cert
   namespace: {{ .Release.Namespace }}
 spec:
-  commonName: {{ .Values.apiServer.url }}
+  commonName: {{ .Values.api.apiServer.url }}
   dnsNames:
-  - {{ .Values.apiServer.url }}
+  - {{ .Values.api.apiServer.url }}
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer

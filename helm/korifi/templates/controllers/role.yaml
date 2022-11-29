@@ -33,6 +33,7 @@ rules:
   - get
   - list
   - patch
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -51,6 +52,23 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets/status
+  - serviceaccounts/status
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
@@ -80,7 +98,10 @@ rules:
   - statefulsets
   verbs:
   - create
+  - get
+  - list
   - patch
+  - watch
 - apiGroups:
   - batch
   resources:
@@ -89,6 +110,9 @@ rules:
   - create
   - delete
   - deletecollection
+  - get
+  - list
+  - watch
 - apiGroups:
   - coordination.k8s.io
   resources:
@@ -114,6 +138,7 @@ rules:
   resources:
   - appworkloads/status
   verbs:
+  - get
   - patch
 - apiGroups:
   - korifi.cloudfoundry.org
@@ -159,6 +184,7 @@ rules:
   - buildworkloads/status
   verbs:
   - get
+  - patch
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
@@ -407,6 +433,13 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - taskworkloads/status
+  verbs:
+  - get
+  - patch
+- apiGroups:
   - kpack.io
   resources:
   - clusterbuilders
@@ -420,6 +453,24 @@ rules:
   - clusterbuilders/status
   verbs:
   - get
+- apiGroups:
+  - kpack.io
+  resources:
+  - images
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - images/status
+  verbs:
+  - get
+  - patch
 - apiGroups:
   - metrics.k8s.io
   resources:
@@ -435,6 +486,7 @@ rules:
   verbs:
   - create
   - deletecollection
+  - patch
 - apiGroups:
   - policy
   resources:

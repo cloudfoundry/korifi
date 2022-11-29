@@ -11,5 +11,5 @@ spec:
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
-  secretName: {{ .Values.workloadsTLSSecret }}
+  secretName: {{ .Values.controllers.workloadsTLSSecret }}
 {{- end}}

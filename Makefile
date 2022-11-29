@@ -22,14 +22,13 @@ help: ## Display this help.
 
 ##@ Development
 
-CONTROLLERS=controllers job-task-runner kpack-image-builder statefulset-runner
-COMPONENTS=api $(CONTROLLERS)
+COMPONENTS=api controllers
 
 manifests:
 	@for comp in $(COMPONENTS); do make -C $$comp manifests; done
 
 generate:
-	@for comp in $(CONTROLLERS); do make -C $$comp generate; done
+	make -C controllers generate
 
 generate-fakes:
 	go generate ./...

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: korifi-controllers-config
+  namespace: {{ .Release.Namespace }}
+data:
+  korifi_controllers_config.yaml: |-
+    builderName: {{ .Values.controllers.reconcilers.build }}
+    runnerName: {{ .Values.controllers.reconcilers.app }}
+    cfProcessDefaults:
+      memoryMB: {{ .Values.controllers.processDefaults.memoryMB }}
+      diskQuotaMB: {{ .Values.controllers.processDefaults.diskQuotaMB }}
+    cfRootNamespace: {{ .Values.global.rootNamespace }}
+    packageRegistrySecretName: {{ .Values.global.containerRegistrySecret }}
+    taskTTL: {{ .Values.controllers.taskTTL }}
+    workloads_tls_secret_name: {{ .Values.controllers.workloadsTLSSecret }}
+    workloads_tls_secret_namespace: {{ .Release.Namespace }}
+  job_task_runner_config.yaml: |
+    jobTTL: {{ .Values.jobTaskRunner.jobTTL }}
+  kpack_build_controllers_config.yaml: |
+    cfRootNamespace: {{ .Values.global.rootNamespace }}
+    clusterBuilderName: {{ default "cf-kpack-cluster-builder" .Values.kpackImageBuilder.clusterBuilderName }}
+    dropletRepository: {{ .Values.kpackImageBuilder.dropletRepository }}

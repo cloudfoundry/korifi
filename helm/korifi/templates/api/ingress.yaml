@@ -18,6 +18,6 @@ spec:
     timeoutPolicy:
       response: 5m
   virtualhost:
-    fqdn: {{ .Values.apiServer.url }}
+    fqdn: {{ .Values.api.apiServer.url }}
     tls:
       secretName: korifi-api-ingress-cert

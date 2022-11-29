@@ -14,6 +14,17 @@ COPY controllers/controllers controllers/controllers
 COPY controllers/coordination controllers/coordination
 COPY controllers/main.go controllers/main.go
 COPY controllers/webhooks controllers/webhooks
+COPY statefulset-runner/api/ statefulset-runner/api
+COPY statefulset-runner/controllers/ statefulset-runner/controllers
+COPY statefulset-runner/main.go statefulset-runner/main.go
+COPY kpack-image-builder/api/ kpack-image-builder/api
+COPY kpack-image-builder/config/config.go kpack-image-builder/config/config.go
+COPY kpack-image-builder/controllers/ kpack-image-builder/controllers
+COPY kpack-image-builder/main.go kpack-image-builder/main.go
+COPY job-task-runner/api job-task-runner/api
+COPY job-task-runner/config/config.go job-task-runner/config/config.go
+COPY job-task-runner/controllers job-task-runner/controllers
+COPY job-task-runner/main.go job-task-runner/main.go
 COPY tools tools
 
 RUN --mount=type=cache,target=/root/.cache/go-build \

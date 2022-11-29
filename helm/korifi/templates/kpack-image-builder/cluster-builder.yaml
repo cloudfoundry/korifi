@@ -1,4 +1,4 @@
-{{- if not .Values.clusterBuilderName }}
+{{- if not .Values.kpackImageBuilder.clusterBuilderName }}
 apiVersion: kpack.io/v1alpha2
 kind: ClusterStore
 metadata:
@@ -19,9 +19,9 @@ metadata:
 spec:
   id: "io.buildpacks.stacks.bionic"
   buildImage:
-    image: {{ .Values.clusterStackBuildImage | quote }}
+    image: {{ .Values.kpackImageBuilder.clusterStackBuildImage | quote }}
   runImage:
-    image: {{ .Values.clusterStackRunImage | quote }}
+    image: {{ .Values.kpackImageBuilder.clusterStackRunImage | quote }}
 
 ---
 apiVersion: kpack.io/v1alpha2
@@ -32,7 +32,7 @@ spec:
   serviceAccountRef:
     name: kpack-service-account
     namespace: {{ .Values.global.rootNamespace }}
-  tag: {{ required "builderRepository is required when clusterBuilderName is unset" .Values.builderRepository }}
+  tag: {{ required "builderRepository is required when clusterBuilderName is unset" .Values.kpackImageBuilder.builderRepository }}
   stack:
     name: cf-default-stack
     kind: ClusterStack

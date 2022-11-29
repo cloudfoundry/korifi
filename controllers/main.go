@@ -34,6 +34,15 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	jobtaskrunnerconfig "code.cloudfoundry.org/korifi/job-task-runner/config"
+	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/api/v1alpha1"
+	kpackimgbuilderconfig "code.cloudfoundry.org/korifi/kpack-image-builder/config"
+	kpackimgbuildercontrollers "code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/imageprocessfetcher"
+	v1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
+	stsetrunnercontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	k8sclient "k8s.io/client-go/kubernetes"
 
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
@@ -230,6 +239,106 @@ func main() {
 			os.Exit(1)
 		}
 		//+kubebuilder:scaffold:builder
+
+		// statefulset-runner
+		stsetRunnerLogger := ctrl.Log.WithName("controllers").WithName("AppWorkloadReconciler")
+		if err = stsetrunnercontrollers.NewAppWorkloadReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			stsetrunnercontrollers.NewAppWorkloadToStatefulsetConverter(stsetRunnerLogger, mgr.GetScheme()),
+			stsetrunnercontrollers.NewPDBUpdater(mgr.GetClient()),
+			stsetRunnerLogger,
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
+			os.Exit(1)
+		}
+		if err = v1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
+			os.Exit(1)
+		}
+		// statefulset-runner
+
+		// kpack-image-builder
+
+		var kpackImageBuilderConfig *kpackimgbuilderconfig.ControllerConfig
+		kpackImageBuilderConfig, err = kpackimgbuilderconfig.LoadFromPath(configPath)
+		if err != nil {
+			errorMessage := fmt.Sprintf("Config could not be read: %v", err)
+			panic(errorMessage)
+		}
+
+		cfBuildImageProcessFetcher := &imageprocessfetcher.ImageProcessFetcher{
+			Log: ctrl.Log.WithName("controllers").WithName("CFBuildImageProcessFetcher"),
+		}
+
+		registryCAPath, found := os.LookupEnv("REGISTRY_CA_FILE")
+		if !found {
+			registryCAPath = ""
+		}
+		k8sClientConfig := ctrl.GetConfigOrDie()
+		var k8sClient *k8sclient.Clientset
+		k8sClient, err = k8sclient.NewForConfig(k8sClientConfig)
+		if err != nil {
+			panic(fmt.Sprintf("could not create k8s client: %v", err))
+		}
+
+		if err = kpackimgbuildercontrollers.NewBuildWorkloadReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
+			kpackImageBuilderConfig,
+			kpackimgbuildercontrollers.NewRegistryAuthFetcher(k8sClient),
+			registryCAPath,
+			cfBuildImageProcessFetcher.Fetch,
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")
+			os.Exit(1)
+		}
+
+		if err = kpackimgbuildercontrollers.NewBuilderInfoReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("BuilderInfoReconciler"),
+			kpackImageBuilderConfig.ClusterBuilderName,
+			kpackImageBuilderConfig.CFRootNamespace,
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "BuilderInfo")
+			os.Exit(1)
+		}
+
+		if err = v1alpha1.NewPodSecurityAdder().SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
+			os.Exit(1)
+		}
+		// kpack-image-builder
+
+		// job-task-runner
+
+		var jobTaskRunnerConfig *jobtaskrunnerconfig.JobTaskRunnerConfig
+		jobTaskRunnerConfig, err = jobtaskrunnerconfig.LoadFromPath(configPath)
+		if err != nil {
+			panic(err)
+		}
+		var jobTTL time.Duration
+		jobTTL, err = jobTaskRunnerConfig.ParseJobTTL()
+		if err != nil {
+			panic(err)
+		}
+
+		jobTaskRunnerLogger := ctrl.Log.WithName("job-task-runner").WithName("TaskWorkload")
+
+		taskWorkloadReconciler := jobtaskrunnercontrollers.NewTaskWorkloadReconciler(
+			jobTaskRunnerLogger,
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			jobtaskrunnercontrollers.NewStatusGetter(jobTaskRunnerLogger, mgr.GetClient()),
+			jobTTL,
+		)
+		if err = taskWorkloadReconciler.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")
+			os.Exit(1)
+		}
+		// job-task-runner
 
 		// Setup Index with Manager
 		err = shared.SetupIndexWithManager(mgr)

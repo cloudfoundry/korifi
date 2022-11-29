@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: korifi-statefulset-runner
-  name: korifi-statefulset-runner-controller-manager
+    app: korifi-controllers
+  name: korifi-controllers-controller-manager
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: {{ .Values.replicas | default 1}}
+  replicas: {{ .Values.controllers.replicas | default 1}}
   selector:
     matchLabels:
-      app: korifi-statefulset-runner
+      app: korifi-controllers
   template:
     metadata:
       annotations:
@@ -17,11 +17,16 @@ spec:
         prometheus.io/path: /metrics
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
+        checksum/config: {{ include (print $.Template.BasePath "/controllers/configmap.yaml") . | sha256sum }}
       labels:
-        app: korifi-statefulset-runner
+        app: korifi-controllers
     spec:
       containers:
       - name: manager
+        env:
+        - name: CONTROLLERSCONFIG
+          value: /etc/korifi-controllers-config
+        image: {{ .Values.controllers.image }}
 {{- if .Values.global.debug }}
         command:
         - "/dlv"
@@ -34,13 +39,13 @@ spec:
         - "--continue"
         - "--accept-multiclient"
         - "--"
+        - "--health-probe-bind-address=:8081"
         - "--leader-elect"
 {{- else }}
         args:
+        - --health-probe-bind-address=:8081
         - --leader-elect
 {{- end }}
-        image: {{ .Values.image }}
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /healthz
@@ -66,10 +71,16 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-      serviceAccountName: korifi-statefulset-runner-controller-manager
+        - mountPath: /etc/korifi-controllers-config
+          name: korifi-controllers-config
+          readOnly: true
+      serviceAccountName: korifi-controllers-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: statefulset-runner-webhook-server-cert
+          secretName: controllers-webhook-server-cert
+      - configMap:
+          name: korifi-controllers-config
+        name: korifi-controllers-config

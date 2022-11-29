@@ -135,7 +135,6 @@ function deploy_korifi() {
     fi
 
     echo "Deploying korifi..."
-    helm dependency update helm/korifi
 
     doDebug="false"
     if [[ -n "${debug}" ]]; then

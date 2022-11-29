@@ -6,7 +6,7 @@ metadata:
   name: korifi-api-deployment
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: {{ .Values.replicas | default 1}}
+  replicas: {{ .Values.api.replicas | default 1}}
   selector:
     matchLabels:
       app: korifi-api
@@ -15,7 +15,7 @@ spec:
       labels:
         app: korifi-api
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/api/configmap.yaml") . | sha256sum }}
     spec:
       containers:
       - env:
@@ -23,7 +23,7 @@ spec:
           value: /etc/korifi-api-config
         - name: TLSCONFIG
           value: /etc/korifi-tls-config
-        image: {{ .Values.image }}
+        image: {{ .Values.api.image }}
 {{- if .Values.global.debug }}
         command:
         - "/dlv"
@@ -38,7 +38,7 @@ spec:
 {{- end }}
         name: korifi-api
         ports:
-        - containerPort: {{ .Values.apiServer.internalPort }}
+        - containerPort: {{ .Values.api.apiServer.internalPort }}
           name: web
         {{- include "korifi.resources" . | indent 8 }}
         {{- include "korifi.securityContext" . | indent 8 }}

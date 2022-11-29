@@ -5,19 +5,77 @@ global:
   generateIngressCertificates: false
   containerRegistrySecret: image-registry-credentials
 
-adminUserName:
-
 api:
+  include: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  apiServer:
+    url:
+    # To override default port, set port to a non-zero value
+    port: 0
+    internalPort: 9000
+    timeouts:
+      read: 900
+      write: 900
+      idle: 900
+      readHeader: 10
+
   image: cloudfoundry/korifi-api:latest
 
+  lifecycle:
+    type: buildpack
+    stack: cflinuxfs3
+    stagingRequirements:
+      memoryMB: 1024
+      diskMB: 1024
+
+  builderName: kpack-image-builder
+  packageRepository:
+  userCertificateExpirationWarningDuration: 168h
+
+  authProxy:
+    host:
+    caCert:
+
 controllers:
+  include: true
+  replicas: 1
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+
   image: cloudfoundry/korifi-controllers:latest
+  reconcilers:
+    build: kpack-image-builder
+    app: statefulset-runner
+  processDefaults:
+    memoryMB: 1024
+    diskQuotaMB: 1024
+  taskTTL: 30d
+  workloadsTLSSecret: korifi-workloads-ingress-cert
 
-kpack-image-builder:
-  image: cloudfoundry/korifi-kpack-image-builder:latest
+statefulsetRunner:
+  include: true
 
-statefulset-runner:
-  image: cloudfoundry/korifi-statefulset-runner:latest
+jobTaskRunner:
+  include: true
+  jobTTL: 24h
 
-job-task-runner:
-  image: cloudfoundry/korifi-job-task-runner:latest
+kpackImageBuilder:
+  include: true
+  dropletRepository:
+  clusterBuilderName:
+  clusterStackBuildImage: paketobuildpacks/build:full-cnb
+  clusterStackRunImage: paketobuildpacks/run:full-cnb
+  builderRepository:
