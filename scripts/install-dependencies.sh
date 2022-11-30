@@ -40,7 +40,9 @@ echo "**************************"
 echo " Creating 'cf-admin' user"
 echo "**************************"
 
-"$SCRIPT_DIR/create-new-user.sh" cf-admin
+if [[ "${CLUSTER_TYPE:-}" != "EKS" ]]; then
+  "$SCRIPT_DIR/create-new-user.sh" cf-admin
+fi
 
 echo "*************************"
 echo " Installing Cert Manager"
