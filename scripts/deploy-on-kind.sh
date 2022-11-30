@@ -117,7 +117,7 @@ function deploy_korifi() {
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       echo "Building korifi values file..."
 
-      make generate manifests
+      # make generate manifests
 
       kbld_file="scripts/assets/korifi-kbld.yml"
       if [[ -n "$debug" ]]; then

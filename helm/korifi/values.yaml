@@ -5,6 +5,8 @@ global:
   generateIngressCertificates: false
   containerRegistrySecret: image-registry-credentials
 
+adminUserName:
+
 api:
   include: true
   replicas: 1
