@@ -390,6 +390,12 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cftasks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - cftasks/status
   verbs:
   - get
