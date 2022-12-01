@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -174,7 +175,8 @@ func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Lo
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewPackageBitsAlreadyUploadedError(err), "Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
 	}
 
-	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, h.packageRepository, bitsFile, record.SpaceGUID)
+	imageRef := fmt.Sprintf("%s/%s-packages", h.packageRepository, record.AppGUID)
+	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, imageRef, bitsFile, record.SpaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling uploadSourceImage")
 	}

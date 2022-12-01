@@ -10,10 +10,10 @@ import (
 )
 
 type ControllerConfig struct {
-	CFRootNamespace       string `yaml:"cfRootNamespace"`
-	DropletRepository     string `yaml:"dropletRepository"`
-	ClusterBuilderName    string `yaml:"clusterBuilderName"`
-	BuilderServiceAccount string `yaml:"builderServiceAccount"`
+	CFRootNamespace         string `yaml:"cfRootNamespace"`
+	DropletRepositoryPrefix string `yaml:"dropletRepository"`
+	ClusterBuilderName      string `yaml:"clusterBuilderName"`
+	BuilderServiceAccount   string `yaml:"builderServiceAccount"`
 }
 
 func LoadFromPath(path string) (*ControllerConfig, error) {

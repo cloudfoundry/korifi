@@ -218,7 +218,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 			},
 		},
 		Spec: buildv1alpha2.ImageSpec{
-			Tag: r.controllerConfig.DropletRepository,
+			Tag: fmt.Sprintf("%s/%s-droplets", r.controllerConfig.DropletRepositoryPrefix, buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]),
 			Builder: corev1.ObjectReference{
 				Kind:       clusterBuilderKind,
 				Name:       r.controllerConfig.ClusterBuilderName,

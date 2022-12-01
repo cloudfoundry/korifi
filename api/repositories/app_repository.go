@@ -38,11 +38,17 @@ const (
 	AppEnvResourceType string = "App Env"
 )
 
+type RepoManager interface {
+	Create(ctx context.Context, name string) error
+	Delete(ctx context.Context, name string) error
+}
+
 type AppRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 	appConditionAwaiter  ConditionAwaiter[*korifiv1alpha1.CFApp]
+	repoManager          RepoManager
 }
 
 func NewAppRepo(
@@ -50,12 +56,14 @@ func NewAppRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	authPerms *authorization.NamespacePermissions,
 	appConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFApp],
+	repoManager RepoManager,
 ) *AppRepo {
 	return &AppRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
 		appConditionAwaiter:  appConditionAwaiter,
+		repoManager:          repoManager,
 	}
 }
 
@@ -258,6 +266,16 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 		SpaceGUID:            cfApp.Namespace,
 		EnvironmentVariables: appCreateMessage.EnvironmentVariables,
 	})
+	if err != nil {
+		return AppRecord{}, err
+	}
+
+	err = f.repoManager.Create(ctx, fmt.Sprintf("%s-droplets", cfApp.Name))
+	if err != nil {
+		return AppRecord{}, err
+	}
+
+	err = f.repoManager.Create(ctx, fmt.Sprintf("%s-packages", cfApp.Name))
 	if err != nil {
 		return AppRecord{}, err
 	}
@@ -544,6 +562,16 @@ func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, me
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = f.repoManager.Delete(ctx, fmt.Sprintf("007801690126.dkr.ecr.eu-west-1.amazonaws.com/%s-droplets", cfApp.Name))
+	if err != nil {
+		return err
+	}
+
+	err = f.repoManager.Delete(ctx, fmt.Sprintf("007801690126.dkr.ecr.eu-west-1.amazonaws.com/%s-packages", cfApp.Name))
+	if err != nil {
+		return err
 	}
 
 	return apierrors.FromK8sError(userClient.Delete(ctx, cfApp), AppResourceType)

@@ -111,10 +111,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	controllerConfig := &config.ControllerConfig{
-		CFRootNamespace:       PrefixedGUID("cf"),
-		ClusterBuilderName:    "cf-kpack-builder",
-		DropletRepository:     "image/registry/tag",
-		BuilderServiceAccount: "builder-service-account",
+		CFRootNamespace:         PrefixedGUID("cf"),
+		ClusterBuilderName:      "cf-kpack-builder",
+		DropletRepositoryPrefix: "image/registry/tag",
+		BuilderServiceAccount:   "builder-service-account",
 	}
 
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)

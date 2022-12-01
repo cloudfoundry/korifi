@@ -23,6 +23,8 @@ import (
 	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
@@ -127,7 +129,15 @@ func main() {
 	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
 	cfAppConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](createTimeout)
-	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions, cfAppConditionAwaiter)
+
+	awsConfig, err := awsconfig.LoadDefaultConfig(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	repoManager := &repositories.RepoMgr{
+		Client: ecr.NewFromConfig(awsConfig),
+	}
+	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions, cfAppConditionAwaiter, repoManager)
 	dropletRepo := repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPermissions)
 	routeRepo := repositories.NewRouteRepo(namespaceRetriever, userClientFactory, nsPermissions)
 	domainRepo := repositories.NewDomainRepo(userClientFactory, namespaceRetriever, config.RootNamespace)
