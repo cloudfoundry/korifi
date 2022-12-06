@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/pod-security-admission/api"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -161,26 +160,6 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		}
 	}
 	return nil
-}
-
-func finalize(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object, finalizerName string) (ctrl.Result, error) {
-	log = log.WithName("finalize")
-
-	if !controllerutil.ContainsFinalizer(orgOrSpace, finalizerName) {
-		return ctrl.Result{}, nil
-	}
-
-	err := kClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: orgOrSpace.GetName()}})
-	if err != nil {
-		log.Error(err, "Failed to delete namespace")
-		return ctrl.Result{}, err
-	}
-
-	if controllerutil.RemoveFinalizer(orgOrSpace, finalizerName) {
-		log.Info("finalizer removed")
-	}
-
-	return ctrl.Result{}, nil
 }
 
 func getNamespace(ctx context.Context, log logr.Logger, client client.Client, namespaceName string) (*corev1.Namespace, bool) {

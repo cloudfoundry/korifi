@@ -99,7 +99,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 	getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
 	if !cfSpace.GetDeletionTimestamp().IsZero() {
-		return finalize(ctx, r.client, log, cfSpace, spaceFinalizerName)
+		return r.finalize(ctx, log, cfSpace)
 	}
 
 	labels := map[string]string{korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName}
@@ -315,4 +315,75 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequestsForServiceAccount(object clien
 		}
 	}
 	return requests
+}
+
+func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space client.Object) (ctrl.Result, error) {
+	log = log.WithName("finalize")
+
+	if !controllerutil.ContainsFinalizer(space, spaceFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	err := r.finalizeCFApp(ctx, log, space.GetName())
+	if err != nil {
+		log.Error(err, "failed to finalize CFApps while deleting CFSpace")
+	}
+
+	err = r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space.GetName()}})
+	if err != nil {
+		log.Error(err, "Failed to delete namespace")
+		return ctrl.Result{}, err
+	}
+
+	if controllerutil.RemoveFinalizer(space, spaceFinalizerName) {
+		log.Info("finalizer removed")
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *CFSpaceReconciler) finalizeCFApp(ctx context.Context, log logr.Logger, namespace string) error {
+	appList := korifiv1alpha1.CFAppList{}
+	err := r.client.List(ctx, &appList, client.InNamespace(namespace))
+	if err != nil {
+		log.Error(err, "failed to list CFApps while finalizing CFSpace")
+		return err
+	}
+
+	for i := range appList.Items {
+		err = r.client.Delete(ctx, &appList.Items[i])
+		if err != nil {
+			log.Error(err, "failed to delete cfApp", "AppName", appList.Items[i].Name)
+			return err
+		}
+	}
+
+	waitForCFAppDeletion := func(ctx context.Context, log logr.Logger, namespace string, done chan bool) {
+		for {
+			select {
+			case <-time.After(10 * time.Second):
+				log.Info("timeout waiting for CFApps to be deleted")
+				return
+			default:
+			}
+
+			var cfAppList korifiv1alpha1.CFAppList
+			err = r.client.List(ctx, &cfAppList, client.InNamespace(namespace))
+			if err != nil {
+				log.Error(err, "failed to list CFApps while watching CFSpace")
+				return
+			}
+
+			if len(cfAppList.Items) == 0 {
+				return
+			}
+
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+
+	done := make(chan bool, 1)
+	go waitForCFAppDeletion(ctx, log, namespace, done)
+
+	return nil
 }

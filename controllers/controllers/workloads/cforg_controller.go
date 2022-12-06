@@ -29,6 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -108,7 +109,7 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
 	if !cfOrg.GetDeletionTimestamp().IsZero() {
-		return finalize(ctx, r.client, log, cfOrg, orgFinalizerName)
+		return r.finalize(ctx, log, cfOrg)
 	}
 
 	labels := map[string]string{korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName}
@@ -171,4 +172,24 @@ func (r *CFOrgReconciler) enqueueCFOrgRequests(object client.Object) []reconcile
 	}
 
 	return requests
+}
+
+func (r *CFOrgReconciler) finalize(ctx context.Context, log logr.Logger, org client.Object) (ctrl.Result, error) {
+	log = log.WithName("finalize")
+
+	if !controllerutil.ContainsFinalizer(org, orgFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.GetName()}})
+	if err != nil {
+		log.Error(err, "Failed to delete namespace")
+		return ctrl.Result{}, err
+	}
+
+	if controllerutil.RemoveFinalizer(org, orgFinalizerName) {
+		log.Info("finalizer removed")
+	}
+
+	return ctrl.Result{}, nil
 }
