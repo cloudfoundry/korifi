@@ -20,12 +20,7 @@ package controllers
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"fmt"
-	"net/http"
-	"os"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
@@ -87,7 +82,7 @@ func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface, serviceAcco
 }
 
 //counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
-type ImageProcessFetcher func(imageRef string, credsOption remote.Option, transport remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error)
+type ImageProcessFetcher func(imageRef string, credsOption remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error)
 
 func NewBuildWorkloadReconciler(
 	c client.Client,
@@ -95,7 +90,6 @@ func NewBuildWorkloadReconciler(
 	log logr.Logger,
 	config *config.ControllerConfig,
 	registryAuthFetcher RegistryAuthFetcher,
-	registryCAPath string,
 	imageProcessFetcher ImageProcessFetcher,
 	containerRegistryMeta *registry.ContainerRegistryMeta,
 	imageRepoCreator RepositoryCreator,
@@ -106,7 +100,6 @@ func NewBuildWorkloadReconciler(
 		log:                   log,
 		controllerConfig:      config,
 		registryAuthFetcher:   registryAuthFetcher,
-		registryCAPath:        registryCAPath,
 		imageProcessFetcher:   imageProcessFetcher,
 		containerRegistryMeta: containerRegistryMeta,
 		imageRepoCreator:      imageRepoCreator,
@@ -121,7 +114,6 @@ type BuildWorkloadReconciler struct {
 	log                   logr.Logger
 	controllerConfig      *config.ControllerConfig
 	registryAuthFetcher   RegistryAuthFetcher
-	registryCAPath        string
 	imageProcessFetcher   ImageProcessFetcher
 	containerRegistryMeta *registry.ContainerRegistryMeta
 	imageRepoCreator      RepositoryCreator
@@ -307,14 +299,8 @@ func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpa
 		return nil, err
 	}
 
-	transport, err := configureTransport(r.registryCAPath)
-	if err != nil {
-		r.log.Error(err, "Error when configuring http transport for Droplet image")
-		return nil, err
-	}
-
 	// Use the credentials to get the values of Ports and ProcessTypes
-	dropletProcessTypes, dropletPorts, err := r.imageProcessFetcher(imageRef, credentials, transport)
+	dropletProcessTypes, dropletPorts, err := r.imageProcessFetcher(imageRef, credentials)
 	if err != nil {
 		r.log.Error(err, "Error when compiling droplet image details")
 		return nil, err
@@ -331,30 +317,6 @@ func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpa
 		ProcessTypes: dropletProcessTypes,
 		Ports:        dropletPorts,
 	}, nil
-}
-
-func configureTransport(caCertPath string) (remote.Option, error) {
-	pool, err := x509.SystemCertPool()
-	if err != nil {
-		pool = x509.NewCertPool()
-	}
-
-	if caCertPath != "" {
-		var pemCerts []byte
-		if pemCerts, err = os.ReadFile(caCertPath); err != nil {
-			return nil, err
-		} else if ok := pool.AppendCertsFromPEM(pemCerts); !ok {
-			return nil, errors.New("failed to append k8s cert bundle to cert pool")
-		}
-	}
-
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		RootCAs:    pool,
-	}
-
-	return remote.WithTransport(transport), nil
 }
 
 func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

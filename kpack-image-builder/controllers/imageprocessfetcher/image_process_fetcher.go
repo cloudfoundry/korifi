@@ -31,14 +31,14 @@ type process struct {
 	Args    []string `json:"args"`
 }
 
-func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option, transport remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error) {
+func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error) {
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		f.Log.Info(fmt.Sprintf("Error fetching image config: %s\n", err))
 		return nil, nil, err
 	}
 
-	img, err := remote.Image(ref, credsOption, transport)
+	img, err := remote.Image(ref, credsOption)
 	if err != nil {
 		f.Log.Info(fmt.Sprintf("Error fetching image config: %s\n", err))
 		return nil, nil, err

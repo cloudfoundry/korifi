@@ -49,6 +49,12 @@ spec:
         - mountPath: /etc/korifi-tls-config
           name: korifi-tls-config
           readOnly: true
+{{- if .Values.global.containerRegistryCACertSecret }}
+        - mountPath: /etc/ssl/certs/registry-ca.crt
+          name: korifi-registry-ca-cert
+          subPath: ca.crt
+          readOnly: true
+{{- end }}
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-api-system-serviceaccount
       volumes:
@@ -58,3 +64,8 @@ spec:
       - name: korifi-tls-config
         secret:
           secretName: korifi-api-internal-cert
+{{- if .Values.global.containerRegistryCACertSecret }}
+      - name: korifi-registry-ca-cert
+        secret:
+          secretName: {{ .Values.global.containerRegistryCACertSecret }}
+{{- end }}

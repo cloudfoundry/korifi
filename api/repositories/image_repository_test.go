@@ -23,7 +23,6 @@ import (
 var _ = Describe("ImageRepository", func() {
 	var (
 		registrySecretName  string
-		registryCAPath      string
 		imageBuilder        *fake.ImageBuilder
 		imagePusher         *fake.ImagePusher
 		image               v1.Image
@@ -91,14 +90,11 @@ var _ = Describe("ImageRepository", func() {
 			)
 		Expect(err).NotTo(HaveOccurred())
 
-		registryCAPath = ""
-
 		imageRepo = repositories.NewImageRepository(
 			privilegedK8sClient,
 			userClientFactory,
 			rootNamespace,
 			registrySecretName,
-			registryCAPath,
 			imageBuilder,
 			imagePusher,
 		)
@@ -124,7 +120,7 @@ var _ = Describe("ImageRepository", func() {
 
 		It("uploads the image to the registry", func() {
 			Expect(imagePusher.PushCallCount()).To(Equal(1))
-			actualRef, actualImage, credentials, _ := imagePusher.PushArgsForCall(0)
+			actualRef, actualImage, credentials := imagePusher.PushArgsForCall(0)
 			Expect(actualRef).To(Equal("my-image"))
 			Expect(actualImage).To(Equal(image))
 			Expect(credentials).NotTo(BeNil())
@@ -160,7 +156,6 @@ var _ = Describe("ImageRepository", func() {
 					userClientFactory,
 					rootNamespace,
 					"",
-					registryCAPath,
 					imageBuilder,
 					imagePusher,
 				)

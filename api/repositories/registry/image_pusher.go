@@ -24,8 +24,8 @@ func NewImagePusher(imageWriter ImageWriter) *ImagePusher {
 	}
 }
 
-func (r *ImagePusher) Push(repoRef string, image v1.Image, credentials remote.Option, transport remote.Option) (string, error) {
-	ref, err := r.uploadImage(image, repoRef, credentials, transport)
+func (r *ImagePusher) Push(repoRef string, image v1.Image, credentials remote.Option) (string, error) {
+	ref, err := r.uploadImage(image, repoRef, credentials)
 	if err != nil {
 		return "", err
 	}
@@ -33,13 +33,13 @@ func (r *ImagePusher) Push(repoRef string, image v1.Image, credentials remote.Op
 	return buildRefWithDigest(image, ref)
 }
 
-func (r *ImagePusher) uploadImage(image v1.Image, repoRef string, credentials remote.Option, transport remote.Option) (name.Reference, error) {
+func (r *ImagePusher) uploadImage(image v1.Image, repoRef string, credentials remote.Option) (name.Reference, error) {
 	ref, err := name.ParseReference(repoRef)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing repository reference %s: %w", repoRef, err)
 	}
 
-	err = r.imageWriter(ref, image, credentials, transport)
+	err = r.imageWriter(ref, image, credentials)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload image: %w", err)
 	}
