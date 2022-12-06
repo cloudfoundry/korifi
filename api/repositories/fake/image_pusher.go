@@ -10,13 +10,12 @@ import (
 )
 
 type ImagePusher struct {
-	PushStub        func(string, v1.Image, remote.Option, remote.Option) (string, error)
+	PushStub        func(string, v1.Image, remote.Option) (string, error)
 	pushMutex       sync.RWMutex
 	pushArgsForCall []struct {
 		arg1 string
 		arg2 v1.Image
 		arg3 remote.Option
-		arg4 remote.Option
 	}
 	pushReturns struct {
 		result1 string
@@ -30,21 +29,20 @@ type ImagePusher struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ImagePusher) Push(arg1 string, arg2 v1.Image, arg3 remote.Option, arg4 remote.Option) (string, error) {
+func (fake *ImagePusher) Push(arg1 string, arg2 v1.Image, arg3 remote.Option) (string, error) {
 	fake.pushMutex.Lock()
 	ret, specificReturn := fake.pushReturnsOnCall[len(fake.pushArgsForCall)]
 	fake.pushArgsForCall = append(fake.pushArgsForCall, struct {
 		arg1 string
 		arg2 v1.Image
 		arg3 remote.Option
-		arg4 remote.Option
-	}{arg1, arg2, arg3, arg4})
+	}{arg1, arg2, arg3})
 	stub := fake.PushStub
 	fakeReturns := fake.pushReturns
-	fake.recordInvocation("Push", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("Push", []interface{}{arg1, arg2, arg3})
 	fake.pushMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -58,17 +56,17 @@ func (fake *ImagePusher) PushCallCount() int {
 	return len(fake.pushArgsForCall)
 }
 
-func (fake *ImagePusher) PushCalls(stub func(string, v1.Image, remote.Option, remote.Option) (string, error)) {
+func (fake *ImagePusher) PushCalls(stub func(string, v1.Image, remote.Option) (string, error)) {
 	fake.pushMutex.Lock()
 	defer fake.pushMutex.Unlock()
 	fake.PushStub = stub
 }
 
-func (fake *ImagePusher) PushArgsForCall(i int) (string, v1.Image, remote.Option, remote.Option) {
+func (fake *ImagePusher) PushArgsForCall(i int) (string, v1.Image, remote.Option) {
 	fake.pushMutex.RLock()
 	defer fake.pushMutex.RUnlock()
 	argsForCall := fake.pushArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *ImagePusher) PushReturns(result1 string, result2 error) {

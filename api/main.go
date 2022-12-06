@@ -189,17 +189,12 @@ func main() {
 		config.RootNamespace,
 		config.RoleMappings,
 	)
-	registryCAPath, found := os.LookupEnv("REGISTRY_CA_FILE")
-	if !found {
-		registryCAPath = ""
-	}
 
 	imageRepo := repositories.NewImageRepository(
 		privilegedK8sClient,
 		userClientFactory,
 		config.RootNamespace,
 		config.PackageRegistrySecretName,
-		registryCAPath,
 		registry.NewImageBuilder(),
 		registry.NewImagePusher(remote.Write),
 	)

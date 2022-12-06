@@ -5,6 +5,7 @@ global:
   generateIngressCertificates: false
   containerRegistrySecret: image-registry-credentials
   eksContainerRegistryRoleARN: ""
+  containerRegistryCACertSecret:
 
 include: true
 replicas: 1

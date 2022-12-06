@@ -60,7 +60,6 @@ var (
 	fakeImageProcessFetcher *fake.ImageProcessFetcher
 	buildWorkloadReconciler *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload]
 	rootNamespace           *v1.Namespace
-	registryCAPath          string
 	imageRepoCreator        *fake.RepositoryCreator
 )
 
@@ -122,8 +121,6 @@ var _ = BeforeSuite(func() {
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 
-	registryCAPath = ""
-
 	imageRepoCreator = new(fake.RepositoryCreator)
 	buildWorkloadReconciler = controllers.NewBuildWorkloadReconciler(
 		k8sManager.GetClient(),
@@ -131,7 +128,6 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("kpack-image-builder").WithName("BuildWorkload"),
 		controllerConfig,
 		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient, controllerConfig.BuilderServiceAccount),
-		registryCAPath,
 		fakeImageProcessFetcherInfocation,
 		registry.NewContainerRegistryMeta("my.repository/my-prefix/"),
 		imageRepoCreator,
@@ -179,6 +175,6 @@ var _ = BeforeEach(func() {
 	fakeImageProcessFetcher = new(fake.ImageProcessFetcher)
 })
 
-func fakeImageProcessFetcherInfocation(imageRef string, credsOption remote.Option, transport remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error) {
-	return fakeImageProcessFetcher.Spy(imageRef, credsOption, transport)
+func fakeImageProcessFetcherInfocation(imageRef string, credsOption remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error) {
+	return fakeImageProcessFetcher.Spy(imageRef, credsOption)
 }

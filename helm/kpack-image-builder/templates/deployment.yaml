@@ -72,6 +72,12 @@ spec:
         - mountPath: /etc/kpack-build-controllers-config
           name: korifi-kpack-build-config
           readOnly: true
+{{- if .Values.global.containerRegistryCACertSecret }}
+        - mountPath: /etc/ssl/certs/registry-ca.crt
+          name: korifi-registry-ca-cert
+          subPath: ca.crt
+          readOnly: true
+{{- end }}
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-kpack-build-controller-manager
       terminationGracePeriodSeconds: 10
@@ -80,6 +86,11 @@ spec:
         secret:
           defaultMode: 420
           secretName: kpack-image-builder-webhook-server-cert
-      - configMap:
+      - name: korifi-kpack-build-config
+        configMap:
           name: korifi-kpack-build-config
-        name: korifi-kpack-build-config
+{{- if .Values.global.containerRegistryCACertSecret }}
+      - name: korifi-registry-ca-cert
+        secret:
+          secretName: {{ .Values.global.containerRegistryCACertSecret }}
+{{- end }}
