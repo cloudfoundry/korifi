@@ -564,12 +564,12 @@ func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, me
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	err = f.repoManager.Delete(ctx, fmt.Sprintf("007801690126.dkr.ecr.eu-west-1.amazonaws.com/%s-droplets", cfApp.Name))
+	err = f.repoManager.Delete(ctx, fmt.Sprintf("%s-droplets", cfApp.Name))
 	if err != nil {
 		return err
 	}
 
-	err = f.repoManager.Delete(ctx, fmt.Sprintf("007801690126.dkr.ecr.eu-west-1.amazonaws.com/%s-packages", cfApp.Name))
+	err = f.repoManager.Delete(ctx, fmt.Sprintf("%s-packages", cfApp.Name))
 	if err != nil {
 		return err
 	}

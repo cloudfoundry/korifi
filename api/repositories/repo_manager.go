@@ -13,8 +13,7 @@ type RepoMgr struct {
 
 func (m *RepoMgr) Create(ctx context.Context, name string) error {
 	_, err := m.Client.CreateRepository(context.Background(), &ecr.CreateRepositoryInput{
-		RepositoryName:     tools.PtrTo(name),
-		ImageTagMutability: "IMMUTABLE",
+		RepositoryName: tools.PtrTo(name),
 	})
 
 	return err
