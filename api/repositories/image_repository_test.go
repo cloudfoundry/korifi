@@ -152,17 +152,5 @@ var _ = Describe("ImageRepository", func() {
 				Expect(apiError.Detail()).To(Equal("Error uploading source package to the container registry"))
 			})
 		})
-
-		When("getting the registry credentials fails", func() {
-			BeforeEach(func() {
-				Expect(privilegedK8sClient.CoreV1().
-					Secrets(rootNamespace).
-					Delete(context.Background(), registrySecretName, metav1.DeleteOptions{})).To(Succeed())
-			})
-
-			It("errors", func() {
-				Expect(uploadErr).To(MatchError(ContainSubstring("getting push credentials")))
-			})
-		})
 	})
 })
