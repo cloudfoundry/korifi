@@ -41,6 +41,7 @@ import (
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"code.cloudfoundry.org/korifi/tools/registry"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -60,6 +61,7 @@ var (
 	buildWorkloadReconciler *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload]
 	rootNamespace           *v1.Namespace
 	registryCAPath          string
+	imageRepoCreator        *fake.RepositoryCreator
 )
 
 func TestAPIs(t *testing.T) {
@@ -111,10 +113,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	controllerConfig := &config.ControllerConfig{
-		CFRootNamespace:       PrefixedGUID("cf"),
-		ClusterBuilderName:    "cf-kpack-builder",
-		DropletRepository:     "image/registry/tag",
-		BuilderServiceAccount: "builder-service-account",
+		CFRootNamespace:           PrefixedGUID("cf"),
+		ClusterBuilderName:        "cf-kpack-builder",
+		ContainerRepositoryPrefix: "image/registry/tag",
+		BuilderServiceAccount:     "builder-service-account",
 	}
 
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
@@ -122,6 +124,7 @@ var _ = BeforeSuite(func() {
 
 	registryCAPath = ""
 
+	imageRepoCreator = new(fake.RepositoryCreator)
 	buildWorkloadReconciler = controllers.NewBuildWorkloadReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
@@ -130,6 +133,8 @@ var _ = BeforeSuite(func() {
 		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient, controllerConfig.BuilderServiceAccount),
 		registryCAPath,
 		fakeImageProcessFetcherInfocation,
+		registry.NewContainerRegistryMeta("my.repository", "my-prefix/"),
+		imageRepoCreator,
 	)
 	err = (buildWorkloadReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

@@ -20,6 +20,7 @@ import (
 
 	authv1 "k8s.io/api/authorization/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get,namespace=ROOT_NAMESPACE
@@ -35,7 +36,7 @@ type ImageBuilder interface {
 }
 
 type ImagePusher interface {
-	Push(imageRef string, image registryv1.Image, credentials remote.Option, transport remote.Option) (string, error)
+	Push(repoRef string, image registryv1.Image, credentials remote.Option, transport remote.Option) (string, error)
 }
 
 type ImageRepository struct {
@@ -129,9 +130,13 @@ func (r *ImageRepository) getCredentials(ctx context.Context) (remote.Option, er
 	var keychain authn.Keychain
 	var err error
 
+	logger := logf.Log.WithName("FOOLogger")
+
 	if r.registrySecretName == "" {
+		logger.Info("Registry Secret Name is empty")
 		keychain, err = k8schain.NewNoClient(ctx)
 	} else {
+		logger.Info("Registry Secret Name is not empty", "registrySecretName", r.registrySecretName)
 		keychain, err = k8schain.New(ctx, r.privilegedK8sClient, k8schain.Options{
 			Namespace:        r.rootNamespace,
 			ImagePullSecrets: []string{r.registrySecretName},

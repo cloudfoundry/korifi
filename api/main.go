@@ -20,8 +20,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
-	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"
+	"code.cloudfoundry.org/korifi/api/repositories/registry"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -122,21 +123,78 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	orgRepo := repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, userClientFactory, nsPermissions, createTimeout)
-	spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPermissions, createTimeout)
-	processRepo := repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPermissions)
-	podRepo := repositories.NewPodRepo(userClientFactory, metricsFetcherFunction)
-	cfAppConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](createTimeout)
-	appRepo := repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPermissions, cfAppConditionAwaiter)
-	dropletRepo := repositories.NewDropletRepo(userClientFactory, namespaceRetriever, nsPermissions)
-	routeRepo := repositories.NewRouteRepo(namespaceRetriever, userClientFactory, nsPermissions)
-	domainRepo := repositories.NewDomainRepo(userClientFactory, namespaceRetriever, config.RootNamespace)
-	buildRepo := repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
-	packageRepo := repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPermissions)
-	serviceInstanceRepo := repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPermissions)
-	bindingConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](createTimeout)
-	serviceBindingRepo := repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPermissions, bindingConditionAwaiter)
-	buildpackRepo := repositories.NewBuildpackRepository(config.BuilderName, userClientFactory, config.RootNamespace)
+	orgRepo := repositories.NewOrgRepo(
+		config.RootNamespace,
+		privilegedCRClient,
+		userClientFactory,
+		nsPermissions,
+		createTimeout,
+	)
+	spaceRepo := repositories.NewSpaceRepo(
+		namespaceRetriever,
+		orgRepo,
+		userClientFactory,
+		nsPermissions,
+		createTimeout,
+	)
+	processRepo := repositories.NewProcessRepo(
+		namespaceRetriever,
+		userClientFactory,
+		nsPermissions,
+	)
+	podRepo := repositories.NewPodRepo(
+		userClientFactory,
+		metricsFetcherFunction,
+	)
+	cfAppConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp,
+		korifiv1alpha1.CFAppList](createTimeout)
+	appRepo := repositories.NewAppRepo(
+		namespaceRetriever,
+		userClientFactory,
+		nsPermissions,
+		cfAppConditionAwaiter,
+	)
+	dropletRepo := repositories.NewDropletRepo(
+		userClientFactory,
+		namespaceRetriever,
+		nsPermissions,
+	)
+	routeRepo := repositories.NewRouteRepo(
+		namespaceRetriever,
+		userClientFactory,
+		nsPermissions,
+	)
+	domainRepo := repositories.NewDomainRepo(
+		userClientFactory,
+		namespaceRetriever,
+		config.RootNamespace,
+	)
+	buildRepo := repositories.NewBuildRepo(
+		namespaceRetriever,
+		userClientFactory,
+	)
+	packageRepo := repositories.NewPackageRepo(
+		userClientFactory,
+		namespaceRetriever,
+		nsPermissions,
+		toolsregistry.NewRegistryCreator(config.ContainerRegistryType),
+		toolsregistry.NewContainerRegistryMeta(config.ContainerRegistryBase, config.ContainerRepositoryPrefix),
+	)
+	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
+		namespaceRetriever,
+		userClientFactory,
+		nsPermissions,
+	)
+	serviceBindingRepo := repositories.NewServiceBindingRepo(
+		namespaceRetriever,
+		userClientFactory,
+		nsPermissions,
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](createTimeout),
+	)
+	buildpackRepo := repositories.NewBuildpackRepository(config.BuilderName,
+		userClientFactory,
+		config.RootNamespace,
+	)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,
 		spaceRepo,
@@ -155,8 +213,8 @@ func main() {
 		config.RootNamespace,
 		config.PackageRegistrySecretName,
 		registryCAPath,
-		reporegistry.NewImageBuilder(),
-		reporegistry.NewImagePusher(remote.Write),
+		registry.NewImageBuilder(),
+		registry.NewImagePusher(remote.Write),
 	)
 	taskRepo := repositories.NewTaskRepo(
 		userClientFactory,
@@ -216,7 +274,6 @@ func main() {
 			dropletRepo,
 			imageRepo,
 			decoderValidator,
-			config.PackageRepository,
 			config.PackageRegistrySecretName,
 		),
 		handlers.NewBuildHandler(

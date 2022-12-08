@@ -76,6 +76,29 @@ var _ = Describe("Package", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 				Expect(result.GUID).ToNot(BeEmpty())
 			})
+
+			When("a new package is created for the same app", func() {
+				BeforeEach(func() {
+					var err error
+					resp, err = certClient.R().
+						SetBody(typedResource{
+							Type: "bits",
+							resource: resource{
+								Relationships: relationships{
+									"app": relationship{Data: resource{GUID: appGUID}},
+								},
+							},
+						}).
+						SetResult(&result).
+						Post("/v3/packages")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+				})
+
+				It("succeeds", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+				})
+			})
 		})
 
 		When("the user is a SpaceManager (i.e. can get apps but cannot create packages)", func() {

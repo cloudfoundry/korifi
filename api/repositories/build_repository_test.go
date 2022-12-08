@@ -21,7 +21,10 @@ var _ = Describe("BuildRepository", func() {
 	var buildRepo *repositories.BuildRepo
 
 	BeforeEach(func() {
-		buildRepo = repositories.NewBuildRepo(namespaceRetriever, userClientFactory)
+		buildRepo = repositories.NewBuildRepo(
+			namespaceRetriever,
+			userClientFactory,
+		)
 	})
 
 	Describe("GetBuild", func() {
@@ -405,7 +408,7 @@ var _ = Describe("BuildRepository", func() {
 			}
 		})
 
-		When("creating a Build", func() {
+		When("the user is authorized to create a Build", func() {
 			var (
 				buildCreateRecord repositories.BuildRecord
 				buildCreateErr    error
@@ -413,70 +416,58 @@ var _ = Describe("BuildRepository", func() {
 
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, spaceGUID)
+			})
+
+			JustBeforeEach(func() {
 				buildCreateRecord, buildCreateErr = buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
 			})
 
 			AfterEach(func() {
-				Expect(cleanupBuild(ctx, buildCreateRecord.GUID, spaceGUID)).To(Succeed())
+				if buildCreateErr == nil {
+					Expect(cleanupBuild(ctx, buildCreateRecord.GUID, spaceGUID)).To(Succeed())
+				}
 			})
 
-			It("does not return an error", func() {
+			It("returns correct build record", func() {
 				Expect(buildCreateErr).NotTo(HaveOccurred())
+
+				Expect(buildCreateRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
+				Expect(buildCreateRecord.State).To(Equal(buildStagingState))
+				createdAt, err := time.Parse(time.RFC3339, buildCreateRecord.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				updatedAt, err := time.Parse(time.RFC3339, buildCreateRecord.UpdatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(buildCreateRecord.StagingErrorMsg).To(BeEmpty())
+				Expect(buildCreateRecord.StagingMemoryMB).To(Equal(stagingMemory))
+				Expect(buildCreateRecord.StagingDiskMB).To(Equal(stagingDisk))
+				Expect(buildCreateRecord.Lifecycle.Type).To(Equal(buildLifecycleType))
+				Expect(buildCreateRecord.Lifecycle.Data.Stack).To(Equal(buildStack))
+				Expect(buildCreateRecord.PackageGUID).To(Equal(packageGUID))
+				Expect(buildCreateRecord.DropletGUID).To(BeEmpty())
+				Expect(buildCreateRecord.AppGUID).To(Equal(appGUID))
+				Expect(buildCreateRecord.Labels).To(Equal(buildCreateLabels))
+				Expect(buildCreateRecord.Annotations).To(Equal(buildCreateAnnotations))
+				Expect(buildCreateRecord.Annotations).To(Equal(buildCreateAnnotations))
 			})
 
-			When("examining the returned record", func() {
-				It("is not empty", func() {
-					Expect(buildCreateRecord).ToNot(Equal(repositories.CreateBuildMessage{}))
-				})
-				It("contains a GUID", func() {
-					Expect(buildCreateRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
-				})
-				It("has a State of \"STAGING\"", func() {
-					Expect(buildCreateRecord.State).To(Equal(buildStagingState))
-				})
-				It("has a CreatedAt that makes sense", func() {
-					createdAt, err := time.Parse(time.RFC3339, buildCreateRecord.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-				})
-				It("has a UpdatedAt that makes sense", func() {
-					createdAt, err := time.Parse(time.RFC3339, buildCreateRecord.UpdatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-				})
-				It("has an empty StagingErrorMsg", func() {
-					Expect(buildCreateRecord.StagingErrorMsg).To(BeEmpty())
-				})
-				It("has StagingMemoryMB that matches the CreateMessage", func() {
-					Expect(buildCreateRecord.StagingMemoryMB).To(Equal(stagingMemory))
-				})
-				It("has StagingDiskMB that matches the CreateMessage", func() {
-					Expect(buildCreateRecord.StagingDiskMB).To(Equal(stagingDisk))
-				})
-				It("has Lifecycle fields that match the CreateMessage", func() {
-					Expect(buildCreateRecord.Lifecycle.Type).To(Equal(buildLifecycleType))
-					Expect(buildCreateRecord.Lifecycle.Data.Stack).To(Equal(buildStack))
-				})
-				It("has a PackageGUID that matches the CreateMessage", func() {
-					Expect(buildCreateRecord.PackageGUID).To(Equal(packageGUID))
-				})
-				It("has no DropletGUID", func() {
-					Expect(buildCreateRecord.DropletGUID).To(BeEmpty())
-				})
-				It("has an AppGUID that matches the CreateMessage", func() {
-					Expect(buildCreateRecord.AppGUID).To(Equal(appGUID))
-				})
-				It("has Labels that match the CreateMessage", func() {
-					Expect(buildCreateRecord.Labels).To(Equal(buildCreateLabels))
-				})
-				It("has Annotations that match the CreateMessage", func() {
-					Expect(buildCreateRecord.Annotations).To(Equal(buildCreateAnnotations))
-				})
-			})
-
-			It("should eventually create a new Build CR", func() {
+			It("creates a new Build CR", func() {
 				cfBuildLookupKey := types.NamespacedName{Name: buildCreateRecord.GUID, Namespace: spaceGUID}
-				Expect(k8sClient.Get(ctx, cfBuildLookupKey, &korifiv1alpha1.CFBuild{})).To(Succeed())
+
+				cfBuild := korifiv1alpha1.CFBuild{}
+				Expect(k8sClient.Get(ctx, cfBuildLookupKey, &cfBuild)).To(Succeed())
+
+				Expect(cfBuild.Name).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
+				Expect(cfBuild.Labels).To(Equal(buildCreateLabels))
+				Expect(cfBuild.Annotations).To(Equal(buildCreateAnnotations))
+				Expect(cfBuild.Annotations).To(Equal(buildCreateAnnotations))
+				Expect(cfBuild.Spec.PackageRef.Name).To(Equal(packageGUID))
+				Expect(cfBuild.Spec.AppRef.Name).To(Equal(appGUID))
+				Expect(cfBuild.Spec.StagingMemoryMB).To(Equal(stagingMemory))
+				Expect(cfBuild.Spec.StagingDiskMB).To(Equal(stagingDisk))
+				Expect(cfBuild.Spec.Lifecycle.Type).To(Equal(korifiv1alpha1.LifecycleType(buildLifecycleType)))
+				Expect(cfBuild.Spec.Lifecycle.Data.Stack).To(Equal(buildStack))
 			})
 		})
 

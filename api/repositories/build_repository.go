@@ -47,6 +47,7 @@ type BuildRecord struct {
 	AppGUID         string
 	Labels          map[string]string
 	Annotations     map[string]string
+	ImageRef        string
 }
 
 type LogRecord struct {
@@ -61,7 +62,10 @@ type BuildRepo struct {
 	userClientFactory  authorization.UserK8sClientFactory
 }
 
-func NewBuildRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory) *BuildRepo {
+func NewBuildRepo(
+	namespaceRetriever NamespaceRetriever,
+	userClientFactory authorization.UserK8sClientFactory,
+) *BuildRepo {
 	return &BuildRepo{
 		namespaceRetriever: namespaceRetriever,
 		userClientFactory:  userClientFactory,
@@ -84,7 +88,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 		return BuildRecord{}, fmt.Errorf("failed to get build: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
 
-	return cfBuildToBuildRecord(build), nil
+	return b.cfBuildToBuildRecord(build), nil
 }
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
@@ -113,7 +117,7 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 
 	sortedBuilds := orderBuilds(buildList.Items)
 
-	return cfBuildToBuildRecord(sortedBuilds[0]), nil
+	return b.cfBuildToBuildRecord(sortedBuilds[0]), nil
 }
 
 func orderBuilds(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
@@ -151,7 +155,7 @@ func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Inf
 	return toReturn, nil
 }
 
-func cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRecord {
+func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 
 	toReturn := BuildRecord{
@@ -208,7 +212,8 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 	if err := userClient.Create(ctx, &cfBuild); err != nil {
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
-	return cfBuildToBuildRecord(cfBuild), nil
+
+	return b.cfBuildToBuildRecord(cfBuild), nil
 }
 
 type CreateBuildMessage struct {

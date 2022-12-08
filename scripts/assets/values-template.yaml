@@ -3,12 +3,12 @@ adminUserName: cf-admin
 global:
   defaultAppDomainName: apps-127-0-0-1.nip.io
   generateIngressCertificates: true
+  containerRegistryBase: localregistry-docker-registry.default.svc.cluster.local:30050/
 
 api:
   apiServer:
     url: localhost
   image: cloudfoundry/korifi-api:latest
-  packageRepository: localregistry-docker-registry.default.svc.cluster.local:30050/packages
 
 controllers:
   taskTTL: 5s
@@ -20,7 +20,6 @@ job-task-runner:
 
 kpack-image-builder:
   image: cloudfoundry/korifi-kpack-image-builder:latest
-  dropletRepository: localregistry-docker-registry.default.svc.cluster.local:30050/droplets
   builderRepository: localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder
   clusterStackBuildImage: paketobuildpacks/build:base-cnb
   clusterStackRunImage: paketobuildpacks/run:base-cnb

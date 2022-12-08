@@ -17,6 +17,11 @@ const (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
+//counterfeiter:generate -o fake -fake-name RepositoryCreator . RepositoryCreator
+type RepositoryCreator interface {
+	CreateRepository(ctx context.Context, name string) error
+}
+
 type ConditionAwaiter[T runtime.Object] interface {
 	AwaitCondition(ctx context.Context, userClient client.WithWatch, object client.Object, conditionType string) (T, error)
 }

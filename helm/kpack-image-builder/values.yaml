@@ -1,6 +1,8 @@
 global:
   rootNamespace: cf
   debug: false
+  containerRegistryBase: ""
+  containerRepositoryPrefix: ""
   containerRegistrySecret: image-registry-credentials
   eksContainerRegistryRoleARN: ""
 
@@ -16,7 +18,6 @@ resources:
 
 image: cloudfoundry/korifi-kpack-image-builder:latest
 
-dropletRepository:
 clusterBuilderName:
 clusterStackBuildImage: paketobuildpacks/build:full-cnb
 clusterStackRunImage: paketobuildpacks/run:full-cnb

@@ -15,7 +15,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -113,6 +113,14 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 		})
 
+		It("creates the image repository", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(imageRepoCreator.CreateRepositoryCallCount()).ToNot(BeZero())
+				_, repoName := imageRepoCreator.CreateRepositoryArgsForCall(0)
+				g.Expect(repoName).To(Equal("my-prefix/app-guid-droplets"))
+			}).Should(Succeed())
+		})
+
 		It("sets the status condition on BuildWorkload", func() {
 			cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 			updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
@@ -176,7 +184,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			It("doesn't create the kpack Image as long as the secret is missing", func() {
 				Consistently(func(g Gomega) bool {
 					lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-					return errors.IsNotFound(k8sClient.Get(context.Background(), lookupKey, new(buildv1alpha2.Image)))
+					return k8serrors.IsNotFound(k8sClient.Get(context.Background(), lookupKey, new(buildv1alpha2.Image)))
 				}).Should(BeTrue())
 			})
 		})
@@ -202,7 +210,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			It("doesn't create a kpack Image", func() {
 				Consistently(func(g Gomega) bool {
 					lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-					return errors.IsNotFound(k8sClient.Get(context.Background(), lookupKey, new(buildv1alpha2.Image)))
+					return k8serrors.IsNotFound(k8sClient.Get(context.Background(), lookupKey, new(buildv1alpha2.Image)))
 				}).Should(BeTrue())
 			})
 		})
@@ -411,6 +419,9 @@ func buildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1al
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuildGUID,
 			Namespace: namespace,
+			Labels: map[string]string{
+				korifiv1alpha1.CFAppGUIDLabelKey: "app-guid",
+			},
 		},
 		Spec: korifiv1alpha1.BuildWorkloadSpec{
 			BuildRef: korifiv1alpha1.RequiredLocalObjectReference{

@@ -12,6 +12,14 @@
           "description": "run the dlv command and expose debugging ports",
           "type": "boolean"
         },
+        "containerRepositoryPrefix": {
+          "description": "the repository prefix of the registry where droplet images are pushed to",
+          "type": "string"
+        },
+        "containerRegistryBase": {
+          "description": "the part of the container registry image ref identifying the registry.",
+          "type": "string"
+        },
         "containerRegistrySecret": {
           "description": "name of the secret containing credentials to access the container registry. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set",
           "type": "string"
@@ -21,7 +29,7 @@
           "type": "string"
         }
       },
-      "required": ["rootNamespace"],
+      "required": ["rootNamespace", "containerRegistryBase"],
       "type": "object"
     },
     "include": {
@@ -70,10 +78,6 @@
       "description": "docker image",
       "type": "string"
     },
-    "dropletRepository": {
-      "description": "container repository used to store droplet images",
-      "type": "string"
-    },
     "clusterBuilderName": {
       "description": "If blank, let korifi create a default cluster builder. If not blank, this is the name of the cluster builder that has been created outside of korifi",
       "type": "string"
@@ -91,7 +95,7 @@
       "type": "string"
     }
   },
-  "required": ["global", "include", "image", "dropletRepository"],
+  "required": ["global", "include", "image"],
   "title": "Values",
   "type": "object"
 }

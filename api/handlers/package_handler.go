@@ -52,7 +52,6 @@ type PackageHandler struct {
 	dropletRepo        CFDropletRepository
 	imageRepo          ImageRepository
 	requestValidator   RequestJSONValidator
-	packageRepository  string
 	registrySecretName string
 }
 
@@ -63,7 +62,6 @@ func NewPackageHandler(
 	dropletRepo CFDropletRepository,
 	imageRepo ImageRepository,
 	requestValidator RequestJSONValidator,
-	packageRepository string,
 	registrySecretName string,
 ) *PackageHandler {
 	return &PackageHandler{
@@ -73,7 +71,6 @@ func NewPackageHandler(
 		appRepo:            appRepo,
 		dropletRepo:        dropletRepo,
 		imageRepo:          imageRepo,
-		packageRepository:  packageRepository,
 		registrySecretName: registrySecretName,
 		requestValidator:   requestValidator,
 	}
@@ -174,7 +171,7 @@ func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Lo
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewPackageBitsAlreadyUploadedError(err), "Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
 	}
 
-	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, h.packageRepository, bitsFile, record.SpaceGUID)
+	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, record.ImageRef, bitsFile, record.SpaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling uploadSourceImage")
 	}
