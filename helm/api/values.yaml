@@ -3,6 +3,8 @@ global:
   debug: false
   defaultAppDomainName:
   generateIngressCertificates: false
+  containerRegistryBase: ""
+  containerRepositoryPrefix: ""
   containerRegistrySecret: image-registry-credentials
   eksContainerRegistryRoleARN: ""
 
@@ -37,7 +39,6 @@ lifecycle:
     diskMB: 1024
 
 builderName: kpack-image-builder
-packageRepository:
 userCertificateExpirationWarningDuration: 168h
 
 authProxy:

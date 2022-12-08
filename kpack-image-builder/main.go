@@ -26,6 +26,7 @@ import (
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/imageprocessfetcher"
+	"code.cloudfoundry.org/korifi/tools/registry"
 
 	//+kubebuilder:scaffold:imports
 
@@ -126,6 +127,8 @@ func main() {
 		controllers.NewRegistryAuthFetcher(k8sClient, controllerConfig.BuilderServiceAccount),
 		registryCAPath,
 		cfBuildImageProcessFetcher.Fetch,
+		registry.NewContainerRegistryMeta(controllerConfig.ContainerRegistryBase, controllerConfig.ContainerRepositoryPrefix),
+		registry.NewRegistryCreator(controllerConfig.ContainerRegistryType),
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")
 		os.Exit(1)

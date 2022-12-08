@@ -3,6 +3,8 @@ global:
   debug: false
   defaultAppDomainName: apps.my-cf-domain.com
   generateIngressCertificates: false
+  containerRegistryBase: ""
+  containerRepositoryPrefix: ""
   containerRegistrySecret: image-registry-credentials
   eksContainerRegistryRoleARN: ""
 

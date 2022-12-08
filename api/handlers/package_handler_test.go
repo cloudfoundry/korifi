@@ -31,7 +31,6 @@ var _ = Describe("PackageHandler", func() {
 		dropletRepo                *fake.CFDropletRepository
 		imageRepo                  *fake.ImageRepository
 		requestJSONValidator       *fake.RequestJSONValidator
-		packageRepository          string
 		packageImagePullSecretName string
 
 		packageGUID string
@@ -47,7 +46,6 @@ var _ = Describe("PackageHandler", func() {
 		dropletRepo = new(fake.CFDropletRepository)
 		imageRepo = new(fake.ImageRepository)
 		requestJSONValidator = new(fake.RequestJSONValidator)
-		packageRepository = "some-org"
 		packageImagePullSecretName = "package-image-pull-secret"
 
 		packageGUID = generateGUID("package")
@@ -63,7 +61,6 @@ var _ = Describe("PackageHandler", func() {
 			dropletRepo,
 			imageRepo,
 			requestJSONValidator,
-			packageRepository,
 			packageImagePullSecretName,
 		)
 
@@ -808,6 +805,7 @@ var _ = Describe("PackageHandler", func() {
 				State:     "AWAITING_UPLOAD",
 				CreatedAt: createdAt,
 				UpdatedAt: updatedAt,
+				ImageRef:  "registry.repo/foo",
 			}, nil)
 
 			packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{
@@ -862,9 +860,9 @@ var _ = Describe("PackageHandler", func() {
 
 		It("uploads the image source", func() {
 			Expect(imageRepo.UploadSourceImageCallCount()).To(Equal(1))
-			_, actualAuthInfo, imageRef, srcFile, actualSpaceGUID := imageRepo.UploadSourceImageArgsForCall(0)
+			_, actualAuthInfo, repoRef, srcFile, actualSpaceGUID := imageRepo.UploadSourceImageArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(imageRef).To(Equal(packageRepository))
+			Expect(repoRef).To(Equal("registry.repo/foo"))
 			actualSrcContents, err := io.ReadAll(srcFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(actualSrcContents)).To(Equal("the-src-file-contents"))

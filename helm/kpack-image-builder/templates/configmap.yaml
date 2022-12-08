@@ -7,5 +7,9 @@ data:
   kpack_build_controllers_config.yaml: |
     cfRootNamespace: {{ .Values.global.rootNamespace }}
     clusterBuilderName: {{ .Values.clusterBuilderName | default "cf-kpack-cluster-builder" }}
-    dropletRepository: {{ .Values.dropletRepository }}
+    containerRegistryBase: {{ .Values.global.containerRegistryBase | quote }}
+    containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     builderServiceAccount: kpack-service-account
+    {{- if .Values.global.eksContainerRegistryRoleARN }}
+    containerRegistryType: "ECR"
+    {{- end }}

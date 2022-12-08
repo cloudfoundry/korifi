@@ -2,13 +2,17 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/registry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,13 +27,21 @@ var _ = Describe("PackageRepository", func() {
 	const appGUID = "the-app-guid"
 
 	var (
+		repoCreator *fake.RepositoryCreator
 		packageRepo *repositories.PackageRepo
 		org         *korifiv1alpha1.CFOrg
 		space       *korifiv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
-		packageRepo = repositories.NewPackageRepo(userClientFactory, namespaceRetriever, nsPerms)
+		repoCreator = new(fake.RepositoryCreator)
+		packageRepo = repositories.NewPackageRepo(
+			userClientFactory,
+			namespaceRetriever,
+			nsPerms,
+			repoCreator,
+			registry.NewContainerRegistryMeta("container.registry/foo", "my/prefix-"),
+		)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 	})
@@ -80,6 +92,7 @@ var _ = Describe("PackageRepository", func() {
 				Expect(createdPackage.State).To(Equal("AWAITING_UPLOAD"))
 				Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
 				Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+				Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", appGUID)))
 
 				createdAt, err := time.Parse(time.RFC3339, createdPackage.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
@@ -100,6 +113,22 @@ var _ = Describe("PackageRepository", func() {
 
 				Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
 				Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+			})
+
+			It("creates a package repository", func() {
+				Expect(repoCreator.CreateRepositoryCallCount()).To(Equal(1))
+				_, repoName := repoCreator.CreateRepositoryArgsForCall(0)
+				Expect(repoName).To(Equal("my/prefix-" + appGUID + "-packages"))
+			})
+
+			When("repo creation errors", func() {
+				BeforeEach(func() {
+					repoCreator.CreateRepositoryReturns(errors.New("repo create error"))
+				})
+
+				It("returns an error", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("repo create error")))
+				})
 			})
 		})
 	})
@@ -133,6 +162,7 @@ var _ = Describe("PackageRepository", func() {
 				Expect(packageRecord.State).To(Equal("AWAITING_UPLOAD"))
 				Expect(packageRecord.Labels).To(HaveKeyWithValue("foo", "the-original-value"))
 				Expect(packageRecord.Annotations).To(HaveKeyWithValue("bar", "the-original-value"))
+				Expect(packageRecord.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", appGUID)))
 
 				createdAt, err := time.Parse(time.RFC3339, packageRecord.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
