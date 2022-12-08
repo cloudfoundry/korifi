@@ -3,6 +3,8 @@ package workloads_test
 import (
 	"context"
 
+	"code.cloudfoundry.org/korifi/tools"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -53,10 +55,12 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 				}
 				return createdCFPackage.GetOwnerReferences()
 			}).Should(ConsistOf(metav1.OwnerReference{
-				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				Kind:       "CFApp",
-				Name:       cfApp.Name,
-				UID:        cfApp.UID,
+				APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
+				Kind:               "CFApp",
+				Name:               cfApp.Name,
+				UID:                cfApp.UID,
+				Controller:         tools.PtrTo(true),
+				BlockOwnerDeletion: tools.PtrTo(true),
 			}))
 		})
 	})

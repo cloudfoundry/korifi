@@ -63,7 +63,7 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 		return ctrl.Result{}, err
 	}
 
-	err = controllerutil.SetOwnerReference(&cfApp, cfPackage, r.scheme)
+	err = controllerutil.SetControllerReference(&cfApp, cfPackage, r.scheme)
 	if err != nil {
 		r.log.Error(err, "unable to set owner reference on CFPackage")
 		return ctrl.Result{}, err
