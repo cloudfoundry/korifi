@@ -21,15 +21,15 @@
           "type": "boolean"
         },
         "containerRegistrySecret": {
-          "description": "name of the secret containing credentials to access the container registry",
+          "description": "name of the secret containing credentials to access the container registry. Required if containerRegistryServiceAccount not set. Ignored if containerRegistryServiceAccount is set",
+          "type": "string"
+        },
+        "containerRegistryServiceAccount": {
+          "description": "name of the service account which should be used to run pods accessing the container registry. Required if containerRegistrySecret not set",
           "type": "string"
         }
       },
-      "required": [
-        "rootNamespace",
-        "defaultAppDomainName",
-        "containerRegistrySecret"
-      ],
+      "required": ["rootNamespace", "defaultAppDomainName"],
       "type": "object"
     },
     "include": {

@@ -30,7 +30,7 @@ metadata:
   name: cf-kpack-cluster-builder
 spec:
   serviceAccountRef:
-    name: kpack-service-account
+    name: {{ .Values.global.containerRegistryServiceAccount | default "kpack-service-account" }}
     namespace: {{ .Values.global.rootNamespace }}
   tag: {{ required "builderRepository is required when clusterBuilderName is unset" .Values.builderRepository }}
   stack:

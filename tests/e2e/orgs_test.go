@@ -186,6 +186,9 @@ var _ = Describe("Orgs", func() {
 		// that gets called by the CLI on each login.
 		When("The client has a certificate with a long expiry date", func() {
 			BeforeEach(func() {
+				if longCertPEM == "" {
+					Skip("No certificate with a long expiry date provided")
+				}
 				restyClient = longCertClient
 				createOrgRole("organization_manager", longCertUserName, org3GUID)
 			})

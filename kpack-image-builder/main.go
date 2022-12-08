@@ -123,7 +123,7 @@ func main() {
 		mgr.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
 		controllerConfig,
-		controllers.NewRegistryAuthFetcher(k8sClient),
+		controllers.NewRegistryAuthFetcher(k8sClient, controllerConfig.BuilderServiceAccount),
 		registryCAPath,
 		cfBuildImageProcessFetcher.Fetch,
 	).SetupWithManager(mgr); err != nil {

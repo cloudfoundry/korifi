@@ -72,7 +72,8 @@ spec:
         - mountPath: /etc/kpack-build-controllers-config
           name: korifi-kpack-build-config
           readOnly: true
-      serviceAccountName: korifi-kpack-build-controller-manager
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
+      serviceAccountName: {{ .Values.global.containerRegistryServiceAccount | default "korifi-kpack-build-controller-manager" }}
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert

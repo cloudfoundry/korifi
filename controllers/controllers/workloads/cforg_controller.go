@@ -40,18 +40,18 @@ import (
 
 // CFOrgReconciler reconciles a CFOrg object
 type CFOrgReconciler struct {
-	client                    client.Client
-	scheme                    *runtime.Scheme
-	log                       logr.Logger
-	packageRegistrySecretName string
+	client                      client.Client
+	scheme                      *runtime.Scheme
+	log                         logr.Logger
+	containerRegistrySecretName string
 }
 
-func NewCFOrgReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, packageRegistrySecretName string) *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg] {
+func NewCFOrgReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, containerRegistrySecretName string) *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg] {
 	orgReconciler := CFOrgReconciler{
-		client:                    client,
-		scheme:                    scheme,
-		log:                       log,
-		packageRegistrySecretName: packageRegistrySecretName,
+		client:                      client,
+		scheme:                      scheme,
+		log:                         log,
+		containerRegistrySecretName: containerRegistrySecretName,
 	}
 
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](log, client, &orgReconciler)
@@ -124,7 +124,7 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = propagateSecret(ctx, r.client, log, cfOrg, r.packageRegistrySecretName)
+	err = propagateSecret(ctx, r.client, log, cfOrg, r.containerRegistrySecretName)
 	if err != nil {
 		log.Error(err, "Error propagating secrets")
 		return ctrl.Result{}, err

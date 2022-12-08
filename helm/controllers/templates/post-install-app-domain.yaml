@@ -25,6 +25,7 @@ spec:
     spec:
       serviceAccountName: korifi-controllers-controller-manager
       restartPolicy: Never
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
       containers:
       - name: post-install-create-app-domain
         image: "alpine/k8s:1.25.2"

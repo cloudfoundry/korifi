@@ -47,7 +47,9 @@ else
   fi
 
   # creates user keys/certs and service accounts and exports vars for them
-  source "$SCRIPT_DIR/account-creation.sh" "${SCRIPT_DIR}"
+  if [[ "${CLUSTER_TYPE:-}" != "EKS" ]]; then
+    source "$SCRIPT_DIR/account-creation.sh" "${SCRIPT_DIR}"
+  fi
 
   extra_args+=("--poll-progress-after=3m30s")
 

@@ -98,7 +98,7 @@ var _ = BeforeSuite(func() {
 			DiskQuotaMB: 512,
 		},
 		CFRootNamespace:             cfRootNamespace,
-		PackageRegistrySecretName:   packageRegistrySecretName,
+		ContainerRegistrySecretName: packageRegistrySecretName,
 		WorkloadsTLSSecretName:      "korifi-workloads-ingress-cert",
 		WorkloadsTLSSecretNamespace: "korifi-controllers-system",
 	}
@@ -144,7 +144,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFOrg"),
-		controllerConfig.PackageRegistrySecretName,
+		controllerConfig.ContainerRegistrySecretName,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -162,7 +162,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
-		controllerConfig.PackageRegistrySecretName,
+		controllerConfig.ContainerRegistrySecretName,
 		controllerConfig.CFRootNamespace,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

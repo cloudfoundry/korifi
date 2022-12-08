@@ -648,7 +648,6 @@ spec:
             - GUID
             - appGUID
             - image
-            - imagePullSecrets
             - instances
             - processType
             - runnerName

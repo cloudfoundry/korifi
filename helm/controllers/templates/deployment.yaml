@@ -74,6 +74,7 @@ spec:
         - mountPath: /etc/korifi-controllers-config
           name: korifi-controllers-config
           readOnly: true
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-controllers-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

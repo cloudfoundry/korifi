@@ -36,3 +36,10 @@ securityContext:
   seccompProfile:
     type: RuntimeDefault
 {{- end }}
+
+{{- define "korifi.podSecurityContext" }}
+securityContext:
+  runAsNonRoot: {{ not .Values.global.debug }}
+  seccompProfile:
+    type: RuntimeDefault
+{{- end }}

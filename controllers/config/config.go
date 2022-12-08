@@ -10,7 +10,7 @@ import (
 type ControllerConfig struct {
 	CFProcessDefaults           CFProcessDefaults `yaml:"cfProcessDefaults"`
 	CFRootNamespace             string            `yaml:"cfRootNamespace"`
-	PackageRegistrySecretName   string            `yaml:"packageRegistrySecretName"`
+	ContainerRegistrySecretName string            `yaml:"containerRegistrySecretName"`
 	TaskTTL                     string            `yaml:"taskTTL"`
 	WorkloadsTLSSecretName      string            `yaml:"workloads_tls_secret_name"`
 	WorkloadsTLSSecretNamespace string            `yaml:"workloads_tls_secret_namespace"`

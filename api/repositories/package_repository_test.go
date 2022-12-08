@@ -418,19 +418,19 @@ var _ = Describe("PackageRepository", func() {
 
 	Describe("UpdatePackageSource", func() {
 		var (
-			existingCFPackage     korifiv1alpha1.CFPackage
+			existingCFPackage     *korifiv1alpha1.CFPackage
 			returnedPackageRecord repositories.PackageRecord
+			updateMessage         repositories.UpdatePackageSourceMessage
 			updateErr             error
 		)
 
 		const (
-			packageGUID               = "the-package-guid"
-			packageSourceImageRef     = "my-org/" + packageGUID
-			packageRegistrySecretName = "image-pull-secret"
+			packageGUID           = "the-package-guid"
+			packageSourceImageRef = "my-org/" + packageGUID
 		)
 
 		BeforeEach(func() {
-			existingCFPackage = korifiv1alpha1.CFPackage{
+			existingCFPackage = &korifiv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
 					APIVersion: korifiv1alpha1.GroupVersion.String(),
@@ -445,29 +445,35 @@ var _ = Describe("PackageRepository", func() {
 				},
 			}
 
-			Expect(
-				k8sClient.Create(ctx, &existingCFPackage),
-			).To(Succeed())
-		})
-
-		JustBeforeEach(func() {
-			updateMessage := repositories.UpdatePackageSourceMessage{
+			updateMessage = repositories.UpdatePackageSourceMessage{
 				GUID:               packageGUID,
 				SpaceGUID:          space.Name,
 				ImageRef:           packageSourceImageRef,
-				RegistrySecretName: packageRegistrySecretName,
+				RegistrySecretName: "image-pull-secret",
 			}
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sClient.Create(ctx, existingCFPackage)).To(Succeed())
+
 			returnedPackageRecord, updateErr = packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
 		})
 
 		When("the user is authorized", func() {
+			var updatedCFPackage *korifiv1alpha1.CFPackage
+
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			It("returns an updated record", func() {
+			JustBeforeEach(func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 
+				updatedCFPackage = &korifiv1alpha1.CFPackage{}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(existingCFPackage), updatedCFPackage)).To(Succeed())
+			})
+
+			It("returns an updated record", func() {
 				Expect(returnedPackageRecord.GUID).To(Equal(existingCFPackage.Name))
 				Expect(returnedPackageRecord.Type).To(Equal(string(existingCFPackage.Spec.Type)))
 				Expect(returnedPackageRecord.AppGUID).To(Equal(existingCFPackage.Spec.AppRef.Name))
@@ -484,18 +490,36 @@ var _ = Describe("PackageRepository", func() {
 			})
 
 			It("updates only the Registry field of the existing CFPackage", func() {
-				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
-				updatedCFPackage := new(korifiv1alpha1.CFPackage)
-				Expect(k8sClient.Get(ctx, packageNSName, updatedCFPackage)).To(Succeed())
-
 				Expect(updatedCFPackage.Name).To(Equal(existingCFPackage.Name))
 				Expect(updatedCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))
 				Expect(updatedCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
 				Expect(updatedCFPackage.Spec.AppRef).To(Equal(existingCFPackage.Spec.AppRef))
 				Expect(updatedCFPackage.Spec.Source.Registry).To(Equal(korifiv1alpha1.Registry{
 					Image:            packageSourceImageRef,
-					ImagePullSecrets: []corev1.LocalObjectReference{{Name: packageRegistrySecretName}},
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "image-pull-secret"}},
 				}))
+			})
+
+			When("the package registry secret is not specified on the message", func() {
+				BeforeEach(func() {
+					updateMessage.RegistrySecretName = ""
+				})
+
+				It("does not populate package registry secrets", func() {
+					Expect(updatedCFPackage.Spec.Source.Registry.ImagePullSecrets).To(BeEmpty())
+				})
+
+				When("the registry secret on the package has been already set", func() {
+					BeforeEach(func() {
+						existingCFPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{
+							{Name: "existing-secret"},
+						}
+					})
+
+					It("unsets package registry secrets", func() {
+						Expect(updatedCFPackage.Spec.Source.Registry.ImagePullSecrets).To(BeEmpty())
+					})
+				})
 			})
 		})
 
