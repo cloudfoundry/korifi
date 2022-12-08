@@ -60,6 +60,9 @@ var _ = Describe("WhoAmI", func() {
 
 	When("authenticating with a client certificate", func() {
 		BeforeEach(func() {
+			if certPEM == "" {
+				Skip("No certificate provided.")
+			}
 			client = client.SetAuthScheme("ClientCert").SetAuthToken(certPEM)
 		})
 

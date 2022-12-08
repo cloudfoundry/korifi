@@ -61,8 +61,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		dockerRegistrySecret := buildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
 		Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
 
-		registryServiceAccountName := "kpack-service-account" // this name is assumed in the controller code
-		registryServiceAccount := buildServiceAccount(registryServiceAccountName, namespaceGUID, wellFormedRegistryCredentialsSecret)
+		registryServiceAccount := buildServiceAccount("builder-service-account", namespaceGUID, wellFormedRegistryCredentialsSecret)
 		Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
 
 		cfBuildGUID = PrefixedGUID("cf-build")

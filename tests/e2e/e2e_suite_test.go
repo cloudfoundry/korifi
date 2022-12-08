@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -295,6 +294,21 @@ func mustHaveEnv(key string) string {
 	return val
 }
 
+func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
+	cert := os.Getenv(certEnvVar)
+	if cert != "" {
+		return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(cert).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	}
+
+	token := os.Getenv(tokenEnvVar)
+	if token != "" {
+		return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(token).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	}
+
+	Fail(fmt.Sprintf("One of %q or %q should have a value, but they are both empty", certEnvVar, tokenEnvVar))
+	return nil
+}
+
 func ensureServerIsUp() {
 	EventuallyWithOffset(1, func() (int, error) {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -459,15 +473,6 @@ func createOrgRole(roleName, userName, orgGUID string) {
 
 func createSpaceRole(roleName, userName, spaceGUID string) {
 	createRole(roleName, "space", userName, spaceGUID)
-}
-
-func obtainAdminUserCert() string {
-	crtBytes, err := base64.StdEncoding.DecodeString(mustHaveEnv("CF_ADMIN_CERT"))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	keyBytes, err := base64.StdEncoding.DecodeString(mustHaveEnv("CF_ADMIN_KEY"))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	return base64.StdEncoding.EncodeToString(append(crtBytes, keyBytes...))
 }
 
 func createApp(spaceGUID, name string) string {
@@ -810,10 +815,13 @@ func commonTestSetup() {
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
 	serviceAccountName = mustHaveEnv("E2E_SERVICE_ACCOUNT")
 	serviceAccountToken = mustHaveEnv("E2E_SERVICE_ACCOUNT_TOKEN")
+
 	certUserName = mustHaveEnv("E2E_USER_NAME")
-	certPEM = mustHaveEnv("E2E_USER_PEM")
+	certPEM = os.Getenv("E2E_USER_PEM")
+
 	longCertUserName = mustHaveEnv("E2E_LONGCERT_USER_NAME")
-	longCertPEM = mustHaveEnv("E2E_LONGCERT_USER_PEM")
+	longCertPEM = os.Getenv("E2E_LONGCERT_USER_PEM")
+
 	appFQDN = mustHaveEnv("APP_FQDN")
 	appBitsFile = getAppBitsFile()
 	clusterVersionMinor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MINOR"))
@@ -821,8 +829,8 @@ func commonTestSetup() {
 
 	ensureServerIsUp()
 
-	adminClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(obtainAdminUserCert()).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	certClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(certPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	adminClient = makeClient("CF_ADMIN_PEM", "CF_ADMIN_TOKEN")
+	certClient = makeClient("E2E_USER_PEM", "E2E_USER_TOKEN")
 	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }

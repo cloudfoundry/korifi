@@ -11,7 +11,9 @@ data:
       memoryMB: {{ .Values.processDefaults.memoryMB }}
       diskQuotaMB: {{ .Values.processDefaults.diskQuotaMB }}
     cfRootNamespace: {{ .Values.global.rootNamespace }}
-    packageRegistrySecretName: {{ .Values.global.containerRegistrySecret }}
+    {{- if not .Values.global.containerRegistryServiceAccount }}
+    containerRegistrySecretName: {{ .Values.global.containerRegistrySecret | quote }}
+    {{- end }}
     taskTTL: {{ .Values.taskTTL }}
     workloads_tls_secret_name: {{ .Values.workloadsTLSSecret }}
     workloads_tls_secret_namespace: {{ .Release.Namespace }}

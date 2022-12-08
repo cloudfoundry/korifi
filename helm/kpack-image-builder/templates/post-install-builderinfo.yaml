@@ -23,8 +23,9 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name | quote }}
         helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     spec:
-      serviceAccountName: korifi-kpack-build-controller-manager
+      serviceAccountName: {{ .Values.global.containerRegistryServiceAccount | default "korifi-kpack-build-controller-manager" }}
       restartPolicy: Never
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
       containers:
       - name: post-install-create-builderinfo
         image: "alpine/k8s:1.25.2"

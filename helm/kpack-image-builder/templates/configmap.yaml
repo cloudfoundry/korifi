@@ -6,5 +6,6 @@ metadata:
 data:
   kpack_build_controllers_config.yaml: |
     cfRootNamespace: {{ .Values.global.rootNamespace }}
-    clusterBuilderName: {{ default "cf-kpack-cluster-builder" .Values.clusterBuilderName }}
+    clusterBuilderName: {{ .Values.clusterBuilderName | default "cf-kpack-cluster-builder" }}
     dropletRepository: {{ .Values.dropletRepository }}
+    builderServiceAccount: {{ .Values.global.containerRegistryServiceAccount | default "kpack-service-account" }}

@@ -66,6 +66,7 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-statefulset-runner-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

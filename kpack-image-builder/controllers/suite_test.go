@@ -111,9 +111,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	controllerConfig := &config.ControllerConfig{
-		CFRootNamespace:    PrefixedGUID("cf"),
-		ClusterBuilderName: "cf-kpack-builder",
-		DropletRepository:  "image/registry/tag",
+		CFRootNamespace:       PrefixedGUID("cf"),
+		ClusterBuilderName:    "cf-kpack-builder",
+		DropletRepository:     "image/registry/tag",
+		BuilderServiceAccount: "builder-service-account",
 	}
 
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
@@ -126,7 +127,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("kpack-image-builder").WithName("BuildWorkload"),
 		controllerConfig,
-		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient),
+		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient, controllerConfig.BuilderServiceAccount),
 		registryCAPath,
 		fakeImageProcessFetcherInfocation,
 	)

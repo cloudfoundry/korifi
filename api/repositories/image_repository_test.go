@@ -152,5 +152,24 @@ var _ = Describe("ImageRepository", func() {
 				Expect(apiError.Detail()).To(Equal("Error uploading source package to the container registry"))
 			})
 		})
+
+		When("there is no registry secret", func() {
+			BeforeEach(func() {
+				imageRepo = repositories.NewImageRepository(
+					privilegedK8sClient,
+					userClientFactory,
+					rootNamespace,
+					"",
+					registryCAPath,
+					imageBuilder,
+					imagePusher,
+				)
+			})
+
+			It("succeeds", func() {
+				Expect(uploadErr).NotTo(HaveOccurred())
+				Expect(imageRef).To(Equal("my-pushed-image"))
+			})
+		})
 	})
 })

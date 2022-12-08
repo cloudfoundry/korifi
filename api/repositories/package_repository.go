@@ -253,22 +253,23 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
 	}
 
-	cfPackage := &korifiv1alpha1.CFPackage{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.GUID,
-			Namespace: message.SpaceGUID,
-		},
+	cfPackage := &korifiv1alpha1.CFPackage{}
+	if err = userClient.Get(ctx, client.ObjectKey{Name: message.GUID, Namespace: message.SpaceGUID}, cfPackage); err != nil {
+		return PackageRecord{}, fmt.Errorf("failed to get cf package: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
-	err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
+
+	if err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
 		cfPackage.Spec.Source.Registry.Image = message.ImageRef
-		cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: message.RegistrySecretName}}
-	})
-	if err != nil {
+		imagePullSecrets := []corev1.LocalObjectReference{}
+		if message.RegistrySecretName != "" {
+			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: message.RegistrySecretName})
+		}
+		cfPackage.Spec.Source.Registry.ImagePullSecrets = imagePullSecrets
+	}); err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	record := cfPackageToPackageRecord(*cfPackage)
-	return record, nil
+	return cfPackageToPackageRecord(*cfPackage), nil
 }
 
 func cfPackageToPackageRecord(cfPackage korifiv1alpha1.CFPackage) PackageRecord {
