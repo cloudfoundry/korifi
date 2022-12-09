@@ -2,6 +2,8 @@ module code.cloudfoundry.org/korifi
 
 go 1.18
 
+replace k8s.io/client-go => k8s.io/client-go v0.25.4
+
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
@@ -29,15 +31,15 @@ require (
 	github.com/onsi/gomega v1.24.1
 	github.com/pivotal/kpack v0.8.2
 	github.com/projectcontour/contour v1.23.1
-	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
+	golang.org/x/exp v0.0.0-20221208152030-732eee02a75a
 	golang.org/x/text v0.5.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.25.4
-	k8s.io/apimachinery v0.25.4
-	k8s.io/client-go v0.25.4
-	k8s.io/metrics v0.25.4
-	k8s.io/pod-security-admission v0.25.4
+	k8s.io/api v0.26.0
+	k8s.io/apimachinery v0.26.0
+	k8s.io/client-go v1.5.2
+	k8s.io/metrics v0.26.0
+	k8s.io/pod-security-admission v0.26.0
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
 	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/controller-tools v0.10.0
@@ -65,7 +67,7 @@ require (
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20221129204813-6a4d6ed5d396 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20221206220611-47f093330862 // indirect
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20221207205823-37bf5df38e6f // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
@@ -79,10 +81,8 @@ require (
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/buildpacks/imgutil v0.0.0-20221109161319-3252b1f13dfa // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.13.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -107,7 +107,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20221206220611-47f093330862
+	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20221207205823-37bf5df38e6f
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20221203041831-ce31453925ec // indirect
 	github.com/heroku/color v0.0.6 // indirect
@@ -131,7 +131,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/prometheus/common v0.37.0 // indirect
+	github.com/prometheus/common v0.38.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/servicebinding/service-binding-controller v0.0.0-20220317163256-444f95cd52ae
 	github.com/sirupsen/logrus v1.9.0 // indirect
@@ -141,7 +141,7 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.24.0
-	golang.org/x/crypto v0.3.0 // indirect
+	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.4.0 // indirect
 	golang.org/x/oauth2 v0.3.0 // indirect
@@ -152,16 +152,16 @@ require (
 	golang.org/x/tools v0.4.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221206210731-b1a01be3a5f6 // indirect
+	google.golang.org/genproto v0.0.0-20221207170731-23e4bf6bdc37 // indirect
 	google.golang.org/grpc v1.51.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apiextensions-apiserver v0.25.4 // indirect
-	k8s.io/component-base v0.25.4 // indirect
+	k8s.io/apiextensions-apiserver v0.26.0 // indirect
+	k8s.io/component-base v0.26.0 // indirect
 	k8s.io/klog/v2 v2.80.2-0.20221028030830-9ae4992afb54
-	k8s.io/kube-openapi v0.0.0-20221205233837-bacb3aba404b // indirect
-	knative.dev/pkg v0.0.0-20221206173513-f4eb77830e7e // indirect
+	k8s.io/kube-openapi v0.0.0-20221207184640-f3cff1453715 // indirect
+	knative.dev/pkg v0.0.0-20221209013515-911b435f02a1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
