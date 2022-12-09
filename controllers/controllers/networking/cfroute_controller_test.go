@@ -477,7 +477,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
-		It("deletes the corresponding sevice", func() {
+		It("deletes the corresponding service", func() {
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, new(corev1.Service))
 				g.Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -487,6 +487,64 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		It("does not delete the FQDN proxy", func() {
 			Consistently(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, new(contourv1.HTTPProxy))).To(Succeed())
+			}).Should(Succeed())
+		})
+	})
+
+	When("deleting a CFRoute that shares the same FQDN HTTPProxy", func() {
+		var (
+			secondRouteGUID      string
+			secondCFRouteForFQDN *korifiv1alpha1.CFRoute
+		)
+
+		JustBeforeEach(func() {
+			secondRouteGUID = GenerateGUID()
+			secondCFRouteForFQDN = &korifiv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secondRouteGUID,
+					Namespace: testNamespace,
+				},
+				Spec: korifiv1alpha1.CFRouteSpec{
+					Host:     testRouteHost,
+					Path:     "/some/other/path",
+					Protocol: "http",
+					DomainRef: corev1.ObjectReference{
+						Name:      testDomainGUID,
+						Namespace: testNamespace,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, secondCFRouteForFQDN)).To(Succeed())
+		})
+
+		It("removes the route from the shared FQDN HTTPProxy", func() {
+			Eventually(func(g Gomega) {
+				var proxy contourv1.HTTPProxy
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)).To(Succeed())
+
+				g.Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN))
+				g.Expect(proxy.Spec.Includes).To(ContainElement(contourv1.Include{
+					Name:      secondRouteGUID,
+					Namespace: testNamespace,
+				}))
+			}).Should(Succeed())
+
+			Expect(k8sClient.Delete(ctx, secondCFRouteForFQDN)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				var proxy contourv1.HTTPProxy
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)).To(Succeed())
+
+				g.Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN))
+				g.Expect(proxy.Spec.Includes).NotTo(ContainElement(contourv1.Include{
+					Name:      secondRouteGUID,
+					Namespace: testNamespace,
+				}))
+
+				g.Expect(proxy.Spec.Includes).To(ConsistOf(contourv1.Include{
+					Name:      testRouteGUID,
+					Namespace: testNamespace,
+				}))
 			}).Should(Succeed())
 		})
 	})
