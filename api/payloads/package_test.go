@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -17,15 +16,10 @@ var _ = Describe("PackageCreate", func() {
 	var (
 		createPayload payloads.PackageCreate
 		packageCreate *payloads.PackageCreate
-		validator     *handlers.DecoderValidator
 		validatorErr  error
 	)
 
 	BeforeEach(func() {
-		var err error
-		validator, err = handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
-
 		packageCreate = new(payloads.PackageCreate)
 		createPayload = payloads.PackageCreate{
 			Type: "bits",
@@ -155,15 +149,10 @@ var _ = Describe("PackageUpdate", func() {
 	var (
 		updatePayload payloads.PackageUpdate
 		packageUpdate *payloads.PackageUpdate
-		validator     *handlers.DecoderValidator
 		validatorErr  error
 	)
 
 	BeforeEach(func() {
-		var err error
-		validator, err = handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
-
 		packageUpdate = new(payloads.PackageUpdate)
 		updatePayload = payloads.PackageUpdate{
 			Metadata: payloads.MetadataPatch{

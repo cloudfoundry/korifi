@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -17,6 +18,12 @@ import (
 )
 
 var _ = Describe("BuildHandler", func() {
+	var req *http.Request
+
+	JustBeforeEach(func() {
+		router.ServeHTTP(rr, req)
+	})
+
 	Describe("the GET /v3/builds/{guid} endpoint", func() {
 		const (
 			appGUID     = "test-app-guid"
@@ -30,10 +37,7 @@ var _ = Describe("BuildHandler", func() {
 			updatedAt = "1906-04-18T13:12:01Z"
 		)
 
-		var (
-			buildRepo *fake.CFBuildRepository
-			req       *http.Request
-		)
+		var buildRepo *fake.CFBuildRepository
 
 		// set up happy path defaults
 		BeforeEach(func() {
@@ -71,10 +75,6 @@ var _ = Describe("BuildHandler", func() {
 				decoderValidator,
 			)
 			buildHandler.RegisterRoutes(router)
-		})
-
-		JustBeforeEach(func() {
-			router.ServeHTTP(rr, req)
 		})
 
 		When("on the happy path", func() {
@@ -318,16 +318,10 @@ var _ = Describe("BuildHandler", func() {
 			packageRepo                 *fake.CFPackageRepository
 			appRepo                     *fake.CFAppRepository
 			buildRepo                   *fake.CFBuildRepository
-			body                        string
+			requestJSONValidator        *fake.RequestJSONValidator
 			expectedLifecycleBuildpacks []string
+			payload                     payloads.BuildCreate
 		)
-
-		makePostRequest := func(body string) {
-			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			router.ServeHTTP(rr, req)
-		}
 
 		const (
 			packageGUID = "the-package-guid"
@@ -340,17 +334,25 @@ var _ = Describe("BuildHandler", func() {
 			expectedLifecycleType  = "buildpack"
 			expectedLifecycleStack = "cflinuxfs3d"
 			spaceGUID              = "the-space-guid"
-			validBody              = `{
-			"package": {
-				"guid": "` + packageGUID + `"
-        	}
-		}`
-			createdAt = "1906-04-18T13:12:00Z"
-			updatedAt = "1906-04-18T13:12:01Z"
+			createdAt              = "1906-04-18T13:12:00Z"
+			updatedAt              = "1906-04-18T13:12:01Z"
 		)
 
 		BeforeEach(func() {
-			body = validBody
+			payload = payloads.BuildCreate{
+				Package: &payloads.RelationshipData{
+					GUID: packageGUID,
+				},
+			}
+
+			requestJSONValidator = new(fake.RequestJSONValidator)
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+				build, ok := i.(*payloads.BuildCreate)
+				Expect(ok).To(BeTrue())
+				*build = payload
+
+				return nil
+			}
 
 			expectedLifecycleBuildpacks = []string{"buildpack-a", "buildpack-b"}
 
@@ -398,21 +400,18 @@ var _ = Describe("BuildHandler", func() {
 				AppGUID:     appGUID,
 			}, nil)
 
-			decoderValidator, err := NewDefaultDecoderValidator()
-			Expect(err).NotTo(HaveOccurred())
-
 			buildHandler := NewBuildHandler(
 				*serverURL,
 				buildRepo,
 				packageRepo,
 				appRepo,
-				decoderValidator,
+				requestJSONValidator,
 			)
 			buildHandler.RegisterRoutes(router)
-		})
 
-		JustBeforeEach(func() {
-			makePostRequest(body)
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(""))
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("on the happy path", func() {
@@ -567,28 +566,11 @@ var _ = Describe("BuildHandler", func() {
 
 		When("the JSON body is invalid", func() {
 			BeforeEach(func() {
-				body = "{"
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
-			It("returns a status 400 Bad Request ", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-						"errors": [
-							{
-								"title": "CF-MessageParseError",
-								"detail": "Request invalid due to parse error: invalid request body",
-								"code": 1001
-							}
-						]
-					}`), "Response body matches response:")
+			It("returns an error", func() {
+				expectUnprocessableEntityError("oops")
 			})
 		})
 	})

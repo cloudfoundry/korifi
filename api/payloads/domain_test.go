@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
@@ -21,15 +20,10 @@ var _ = Describe("DomainCreate", func() {
 		var (
 			createPayload        payloads.DomainCreate
 			decodedDomainPayload *payloads.DomainCreate
-			validator            *handlers.DecoderValidator
 			validatorErr         error
 		)
 
 		BeforeEach(func() {
-			var err error
-			validator, err = handlers.NewDefaultDecoderValidator()
-			Expect(err).NotTo(HaveOccurred())
-
 			decodedDomainPayload = new(payloads.DomainCreate)
 			createPayload = payloads.DomainCreate{
 				Name: "bob.com",
@@ -158,15 +152,10 @@ var _ = Describe("DomainUpdate", func() {
 	var (
 		updatePayload        payloads.DomainUpdate
 		decodedUpdatePayload *payloads.DomainUpdate
-		validator            *handlers.DecoderValidator
 		validatorErr         error
 	)
 
 	BeforeEach(func() {
-		var err error
-		validator, err = handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
-
 		decodedUpdatePayload = new(payloads.DomainUpdate)
 
 		updatePayload = payloads.DomainUpdate{

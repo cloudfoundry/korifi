@@ -29,12 +29,12 @@ type CFBuildRepository interface {
 }
 
 type BuildHandler struct {
-	serverURL        url.URL
-	buildRepo        CFBuildRepository
-	packageRepo      CFPackageRepository
-	appRepo          CFAppRepository
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
-	decoderValidator *DecoderValidator
+	serverURL            url.URL
+	buildRepo            CFBuildRepository
+	packageRepo          CFPackageRepository
+	appRepo              CFAppRepository
+	handlerWrapper       *AuthAwareHandlerFuncWrapper
+	requestJSONValidator RequestJSONValidator
 }
 
 func NewBuildHandler(
@@ -42,15 +42,15 @@ func NewBuildHandler(
 	buildRepo CFBuildRepository,
 	packageRepo CFPackageRepository,
 	appRepo CFAppRepository,
-	decoderValidator *DecoderValidator,
+	requestJSONValidator RequestJSONValidator,
 ) *BuildHandler {
 	return &BuildHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildHandler")),
-		serverURL:        serverURL,
-		buildRepo:        buildRepo,
-		packageRepo:      packageRepo,
-		appRepo:          appRepo,
-		decoderValidator: decoderValidator,
+		handlerWrapper:       NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildHandler")),
+		serverURL:            serverURL,
+		buildRepo:            buildRepo,
+		packageRepo:          packageRepo,
+		appRepo:              appRepo,
+		requestJSONValidator: requestJSONValidator,
 	}
 }
 
@@ -68,7 +68,7 @@ func (h *BuildHandler) buildGetHandler(ctx context.Context, logger logr.Logger, 
 
 func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
 	var payload payloads.BuildCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
