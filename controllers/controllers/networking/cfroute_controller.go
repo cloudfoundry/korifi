@@ -197,7 +197,7 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger
 }
 
 func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, log logr.Logger, cfRouteName string, fqdnProxy *contourv1.HTTPProxy) error {
-	return k8s.Patch(ctx, r.client, fqdnProxy, func() {
+	return k8s.PatchResource(ctx, r.client, fqdnProxy, func() {
 		var retainedIncludes []contourv1.Include
 		for _, include := range fqdnProxy.Spec.Includes {
 			if include.Name != cfRouteName {
