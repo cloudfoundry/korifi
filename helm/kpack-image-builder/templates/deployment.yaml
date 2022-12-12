@@ -73,7 +73,7 @@ spec:
           name: korifi-kpack-build-config
           readOnly: true
       {{- include "korifi.podSecurityContext" . | indent 6 }}
-      serviceAccountName: {{ .Values.global.containerRegistryServiceAccount | default "korifi-kpack-build-controller-manager" }}
+      serviceAccountName: korifi-kpack-build-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert

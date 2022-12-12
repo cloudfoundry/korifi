@@ -4,7 +4,7 @@ global:
   defaultAppDomainName: apps.my-cf-domain.com
   generateIngressCertificates: false
   containerRegistrySecret: image-registry-credentials
-  # containerRegistryServiceAccount:
+  eksContainerRegistryRoleARN: ""
 
 include: true
 replicas: 1

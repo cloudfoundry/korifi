@@ -50,7 +50,7 @@ spec:
           name: korifi-tls-config
           readOnly: true
       {{- include "korifi.podSecurityContext" . | indent 6 }}
-      serviceAccountName: {{ .Values.global.containerRegistryServiceAccount | default "korifi-api-system-serviceaccount" }}
+      serviceAccountName: korifi-api-system-serviceaccount
       volumes:
       - configMap:
           name: korifi-api-config
