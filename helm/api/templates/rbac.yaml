@@ -1,10 +1,12 @@
-{{- if not .Values.global.containerRegistryServiceAccount }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: korifi-api-system-serviceaccount
   namespace: {{ .Release.Namespace }}
-{{- end }}
+  {{- if .Values.global.eksContainerRegistryRoleARN }}
+  annotations:
+    eks.amazonaws.com/role-arn: {{ .Values.global.eksContainerRegistryRoleARN }}
+  {{- end }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -17,7 +19,7 @@ roleRef:
   name: korifi-api-system-role
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.global.containerRegistryServiceAccount | default "korifi-api-system-serviceaccount" }}
+  name: korifi-api-system-serviceaccount
   namespace: {{ .Release.Namespace }}
 
 ---
@@ -32,5 +34,5 @@ roleRef:
   name: korifi-api-system-role
 subjects:
 - kind: ServiceAccount
-  name: {{ .Values.global.containerRegistryServiceAccount | default "korifi-api-system-serviceaccount" }}
+  name: korifi-api-system-serviceaccount
   namespace: {{ .Release.Namespace }}

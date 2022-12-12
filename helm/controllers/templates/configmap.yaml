@@ -11,7 +11,7 @@ data:
       memoryMB: {{ .Values.processDefaults.memoryMB }}
       diskQuotaMB: {{ .Values.processDefaults.diskQuotaMB }}
     cfRootNamespace: {{ .Values.global.rootNamespace }}
-    {{- if not .Values.global.containerRegistryServiceAccount }}
+    {{- if not .Values.global.eksContainerRegistryRoleARN }}
     containerRegistrySecretName: {{ .Values.global.containerRegistrySecret | quote }}
     {{- end }}
     taskTTL: {{ .Values.taskTTL }}

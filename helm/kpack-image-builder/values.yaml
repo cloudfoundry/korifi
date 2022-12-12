@@ -2,7 +2,7 @@ global:
   rootNamespace: cf
   debug: false
   containerRegistrySecret: image-registry-credentials
-  # containerRegistryServiceAccount:
+  eksContainerRegistryRoleARN: ""
 
 include: true
 replicas: 1
