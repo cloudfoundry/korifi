@@ -17,7 +17,7 @@ The following lines will guide you through the process of deploying a [released 
 
 This document was tested on:
 
-- [EKS](https://aws.amazon.com/eks/), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
+- [EKS](https://aws.amazon.com/eks/), using AWS' [Elastic Container Registry (ECR)](https://aws.amazon.com/ecr/) (see [_Install Korifi on EKS_](./INSTALL.EKS.md));
 - [GKE](https://cloud.google.com/kubernetes-engine), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
 - [kind](https://kind.sigs.k8s.io/), using [DockerHub](https://hub.docker.com/) (see [_Install Korifi on kind_](./INSTALL.kind.md)).
 
@@ -34,7 +34,7 @@ Here are the example values we'll use in this guide:
 
 ```sh
 export ROOT_NAMESPACE="cf"
-export KORIFI_NAMESPACE="korifi-system"
+export KORIFI_NAMESPACE="korifi"
 export ADMIN_USERNAME="cf-admin"
 export BASE_DOMAIN="korifi.example.org"
 ```
@@ -74,9 +74,9 @@ We use the [Service Binding Specification for Kubernetes](https://github.com/ser
 
 ## Pre-install configuration
 
-### Root namespace
+### Namespace creation
 
-Create the root namespace:
+Create the root and korifi namespaces:
 
 ```sh
 cat <<EOF | kubectl apply -f -
@@ -84,6 +84,16 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: $ROOT_NAMESPACE
+  labels:
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
+EOF
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $KORIFI_NAMESPACE
   labels:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/enforce: restricted
