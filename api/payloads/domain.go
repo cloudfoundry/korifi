@@ -2,6 +2,7 @@ package payloads
 
 import (
 	"errors"
+	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -46,7 +47,7 @@ func (c *DomainUpdate) ToMessage(domainGUID string) repositories.UpdateDomainMes
 }
 
 type DomainList struct {
-	Names *string `schema:"names"`
+	Names string
 }
 
 func (d *DomainList) ToMessage() repositories.ListDomainsMessage {
@@ -57,4 +58,9 @@ func (d *DomainList) ToMessage() repositories.ListDomainsMessage {
 
 func (d *DomainList) SupportedKeys() []string {
 	return []string{"names"}
+}
+
+func (d *DomainList) DecodeFromURLValues(values url.Values) error {
+	d.Names = values.Get("names")
+	return nil
 }

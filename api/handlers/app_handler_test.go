@@ -565,18 +565,6 @@ var _ = Describe("AppHandler", func() {
 				})
 			})
 
-			When("Query Parameters are provided", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps?order_by=name", nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-			})
-
 			It("invokes the repository with the provided auth info", func() {
 				Expect(appRepo.ListAppsCallCount()).To(Equal(1))
 				_, actualAuthInfo, _ := appRepo.ListAppsArgsForCall(0)
@@ -588,6 +576,10 @@ var _ = Describe("AppHandler", func() {
 					var err error
 					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps?names=app1,app2&space_guids=space1,space2", nil)
 					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
 
 				It("passes them to the repository", func() {

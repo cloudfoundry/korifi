@@ -52,8 +52,8 @@ func (a *AppLogs) Read(ctx context.Context, logger logr.Logger, authInfo authori
 	}
 
 	logLimit := int64(defaultLogLimit)
-	if read.Limit != nil {
-		logLimit = *read.Limit
+	if read.Limit != 0 {
+		logLimit = read.Limit
 	}
 
 	runtimeLogs, err := a.podRepo.GetRuntimeLogsForApp(ctx, logger, authInfo, repositories.RuntimeLogsMessage{
@@ -73,18 +73,18 @@ func (a *AppLogs) Read(ctx context.Context, logger logr.Logger, authInfo authori
 	})
 
 	// ensure that we didn't exceed the log limit
-	if read.Limit != nil && int64(len(logs)) > *read.Limit {
-		first := int64(len(logs)) - *read.Limit
+	if read.Limit != 0 && int64(len(logs)) > read.Limit {
+		first := int64(len(logs)) - read.Limit
 		logs = logs[first:]
 	}
 
 	// filter any entries from before the start time
-	if read.StartTime != nil {
-		first := sort.Search(len(logs), func(i int) bool { return *read.StartTime <= logs[i].Timestamp })
+	if read.StartTime != 0 {
+		first := sort.Search(len(logs), func(i int) bool { return read.StartTime <= logs[i].Timestamp })
 		logs = logs[first:]
 	}
 
-	if read.Descending != nil && *read.Descending {
+	if read.Descending {
 		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
 			logs[i], logs[j] = logs[j], logs[i]
 		}

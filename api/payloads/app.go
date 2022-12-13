@@ -2,6 +2,7 @@ package payloads
 
 import (
 	"fmt"
+	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -55,10 +56,9 @@ type AppSetCurrentDroplet struct {
 }
 
 type AppList struct {
-	Names      *string `schema:"names"`
-	GUIDs      *string `schema:"guids"`
-	SpaceGuids *string `schema:"space_guids"`
-	OrderBy    string  `schema:"order_by"`
+	Names      string
+	GUIDs      string
+	SpaceGuids string
 }
 
 func (a *AppList) ToMessage() repositories.ListAppsMessage {
@@ -71,6 +71,13 @@ func (a *AppList) ToMessage() repositories.ListAppsMessage {
 
 func (a *AppList) SupportedKeys() []string {
 	return []string{"names", "guids", "space_guids", "order_by"}
+}
+
+func (a *AppList) DecodeFromURLValues(values url.Values) error {
+	a.Names = values.Get("names")
+	a.GUIDs = values.Get("guids")
+	a.SpaceGuids = values.Get("space_guids")
+	return nil
 }
 
 type AppPatchEnvVars struct {

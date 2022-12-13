@@ -85,13 +85,7 @@ var _ = Describe("ReadAppLogs", func() {
 		}
 		podRepo.GetRuntimeLogsForAppReturns(logs, nil)
 
-		requestPayload = payloads.LogRead{
-			StartTime:     nil,
-			EndTime:       nil,
-			EnvelopeTypes: nil,
-			Limit:         nil,
-			Descending:    nil,
-		}
+		requestPayload = payloads.LogRead{}
 		authInfo = authorization.Info{Token: "a-token"}
 	})
 
@@ -112,8 +106,7 @@ var _ = Describe("ReadAppLogs", func() {
 
 	When("the limit is lower than the total number of logs available", func() {
 		BeforeEach(func() {
-			limit := int64(2)
-			requestPayload.Limit = &limit
+			requestPayload.Limit = 2
 		})
 
 		It("gives us the most recent logs up to the limit", func() {
@@ -125,8 +118,8 @@ var _ = Describe("ReadAppLogs", func() {
 
 		When("the start time is set to the beginning of unix time according to the CF CLI", func() {
 			BeforeEach(func() {
-				theBigBang := int64(-6795364578871345152) // this is some date in 1754, which is what the CLI defaults to
-				requestPayload.StartTime = &theBigBang
+				// this is some date in 1754, which is what the CLI defaults to
+				requestPayload.StartTime = int64(-6795364578871345152)
 			})
 			It("gives us the latest logs up to the log limit", func() {
 				Expect(returnedErr).NotTo(HaveOccurred())
@@ -151,8 +144,7 @@ var _ = Describe("ReadAppLogs", func() {
 
 	When("the descending flag in the request is set to true", func() {
 		BeforeEach(func() {
-			descending := true
-			requestPayload.Descending = &descending
+			requestPayload.Descending = true
 		})
 
 		It("returns the logs in the reverse order", func() {
@@ -165,8 +157,7 @@ var _ = Describe("ReadAppLogs", func() {
 
 	When("the start time is newer than any of the log entries", func() {
 		BeforeEach(func() {
-			startTime := time.Now().Add(time.Minute).UnixNano()
-			requestPayload.StartTime = &startTime
+			requestPayload.StartTime = time.Now().Add(time.Minute).UnixNano()
 		})
 
 		It("returns an empty list", func() {
@@ -177,8 +168,7 @@ var _ = Describe("ReadAppLogs", func() {
 
 	When("the start time is the same as the latest log entry", func() {
 		BeforeEach(func() {
-			startTime := logs[1].Timestamp
-			requestPayload.StartTime = &startTime
+			requestPayload.StartTime = logs[1].Timestamp
 		})
 
 		It("returns only the latest entry", func() {

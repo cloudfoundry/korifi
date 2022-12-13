@@ -111,7 +111,7 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 	}
 
 	var appRecords []repositories.AppRecord
-	if listFilter.Include != nil && len(serviceBindingList) > 0 {
+	if listFilter.Include != "" && len(serviceBindingList) > 0 {
 		listAppsMessage := repositories.ListAppsMessage{}
 
 		for _, serviceBinding := range serviceBindingList {

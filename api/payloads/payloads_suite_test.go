@@ -27,9 +27,3 @@ func expectUnprocessableEntityError(err error, detail string) {
 	Expect(err).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 	Expect(err.(apierrors.UnprocessableEntityError).Detail()).To(ContainSubstring(detail))
 }
-
-func expectUnknownKeyError(err error, detail string) {
-	Expect(err).To(HaveOccurred())
-	Expect(err).To(BeAssignableToTypeOf(apierrors.UnknownKeyError{}))
-	Expect(err.(apierrors.UnknownKeyError).Detail()).To(ContainSubstring(detail))
-}

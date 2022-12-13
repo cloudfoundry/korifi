@@ -1,9 +1,13 @@
 package payloads
 
-type BuildpackList struct {
-	OrderBy string `schema:"order_by"`
-}
+import "net/url"
+
+type BuildpackList struct{}
 
 func (d *BuildpackList) SupportedKeys() []string {
 	return []string{"order_by"}
+}
+
+func (d *BuildpackList) DecodeFromURLValues(values url.Values) error {
+	return nil
 }

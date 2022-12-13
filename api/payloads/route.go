@@ -1,6 +1,8 @@
 package payloads
 
 import (
+	"net/url"
+
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -30,11 +32,11 @@ func (p RouteCreate) ToMessage(domainNamespace, domainName string) repositories.
 }
 
 type RouteList struct {
-	AppGUIDs    *string `schema:"app_guids"`
-	SpaceGUIDs  *string `schema:"space_guids"`
-	DomainGUIDs *string `schema:"domain_guids"`
-	Hosts       *string `schema:"hosts"`
-	Paths       *string `schema:"paths"`
+	AppGUIDs    string
+	SpaceGUIDs  string
+	DomainGUIDs string
+	Hosts       string
+	Paths       string
 }
 
 func (p *RouteList) ToMessage() repositories.ListRoutesMessage {
@@ -49,6 +51,15 @@ func (p *RouteList) ToMessage() repositories.ListRoutesMessage {
 
 func (p *RouteList) SupportedKeys() []string {
 	return []string{"app_guids", "space_guids", "domain_guids", "hosts", "paths"}
+}
+
+func (p *RouteList) DecodeFromURLValues(values url.Values) error {
+	p.AppGUIDs = values.Get("app_guids")
+	p.SpaceGUIDs = values.Get("space_guids")
+	p.DomainGUIDs = values.Get("domain_guids")
+	p.Hosts = values.Get("hosts")
+	p.Paths = values.Get("paths")
+	return nil
 }
 
 type RoutePatch struct {

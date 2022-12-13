@@ -9,28 +9,19 @@ import (
 var _ = Describe("ParseArrayParam", func() {
 	When("a nil value is specified", func() {
 		It("returns an empty array", func() {
-			Expect(ParseArrayParam(nil)).To(Equal([]string{}))
-		})
-	})
-
-	When("an empty value is specified", func() {
-		It("returns an array with a single empty string", func() {
-			value := ""
-			Expect(ParseArrayParam(&value)).To(Equal([]string{""}))
+			Expect(ParseArrayParam("")).To(Equal([]string{}))
 		})
 	})
 
 	When("an single value is specified", func() {
 		It("returns an array with the value specified", func() {
-			value := "foo"
-			Expect(ParseArrayParam(&value)).To(Equal([]string{"foo"}))
+			Expect(ParseArrayParam("foo")).To(Equal([]string{"foo"}))
 		})
 	})
 
 	When("multiple values are specified in a CSV", func() {
 		It("returns an array with the value split on commas and all white-space removed from each value", func() {
-			value := " foo,   bar    ,   baz"
-			Expect(ParseArrayParam(&value)).To(Equal([]string{"foo", "bar", "baz"}))
+			Expect(ParseArrayParam(" foo,   bar    ,   baz")).To(Equal([]string{"foo", "bar", "baz"}))
 		})
 	})
 })

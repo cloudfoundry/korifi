@@ -1,6 +1,8 @@
 package payloads
 
 import (
+	"net/url"
+
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -36,7 +38,7 @@ func (p ProcessScale) ToRecord() repositories.ProcessScaleValues {
 }
 
 type ProcessList struct {
-	AppGUIDs *string `schema:"app_guids"`
+	AppGUIDs string
 }
 
 func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
@@ -47,6 +49,11 @@ func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
 
 func (p *ProcessList) SupportedKeys() []string {
 	return []string{"app_guids"}
+}
+
+func (p *ProcessList) DecodeFromURLValues(values url.Values) error {
+	p.AppGUIDs = values.Get("app_guids")
+	return nil
 }
 
 func (p ProcessPatch) ToProcessPatchMessage(processGUID, spaceGUID string) repositories.PatchProcessMessage {
