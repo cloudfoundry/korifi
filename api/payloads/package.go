@@ -1,6 +1,7 @@
 package payloads
 
 import (
+	"net/url"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -43,26 +44,17 @@ func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackage
 }
 
 type PackageListQueryParameters struct {
-	AppGUIDs *string `schema:"app_guids"`
-	States   *string `schema:"states"`
-	OrderBy  string  `schema:"order_by"`
-
-	// Below parameters are ignored, but must be included to ignore as query parameters
-	PerPage string `schema:"per_page"`
+	AppGUIDs string
+	States   string
+	OrderBy  string
 }
 
 func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessage {
-	var descendingOrder bool
-
-	if strings.HasPrefix(p.OrderBy, "-") {
-		descendingOrder = true
-	}
-
 	return repositories.ListPackagesMessage{
 		AppGUIDs:        ParseArrayParam(p.AppGUIDs),
 		States:          ParseArrayParam(p.States),
 		SortBy:          strings.TrimPrefix(p.OrderBy, "-"),
-		DescendingOrder: descendingOrder,
+		DescendingOrder: strings.HasPrefix(p.OrderBy, "-"),
 	}
 }
 
@@ -70,11 +62,14 @@ func (p *PackageListQueryParameters) SupportedKeys() []string {
 	return []string{"app_guids", "order_by", "per_page", "states"}
 }
 
-type PackageListDropletsQueryParameters struct {
-	// Below parameters are ignored, but must be included to ignore as query parameters
-	States  string `schema:"states"`
-	PerPage string `schema:"per_page"`
+func (p *PackageListQueryParameters) DecodeFromURLValues(values url.Values) error {
+	p.AppGUIDs = values.Get("app_guids")
+	p.OrderBy = values.Get("order_by")
+	p.States = values.Get("states")
+	return nil
 }
+
+type PackageListDropletsQueryParameters struct{}
 
 func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) repositories.ListDropletsMessage {
 	return repositories.ListDropletsMessage{
@@ -84,4 +79,8 @@ func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) re
 
 func (p *PackageListDropletsQueryParameters) SupportedKeys() []string {
 	return []string{"states", "per_page"}
+}
+
+func (p *PackageListDropletsQueryParameters) DecodeFromURLValues(values url.Values) error {
+	return nil
 }

@@ -440,9 +440,8 @@ var _ = Describe("RouteHandler", func() {
 				It("calls route with expected parameters", func() {
 					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 					_, _, message := routeRepo.ListRoutesArgsForCall(0)
-					Expect(message.AppGUIDs).To(HaveLen(0))
-					Expect(message.Hosts).To(HaveLen(1))
-					Expect(message.Hosts[0]).To(Equal(""))
+					Expect(message.AppGUIDs).To(BeEmpty())
+					Expect(message.Hosts).To(BeEmpty())
 				})
 			})
 

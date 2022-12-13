@@ -2,42 +2,36 @@ package payloads
 
 import (
 	"fmt"
+	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
-	"github.com/gorilla/schema"
 )
 
 type keyedPayload interface {
 	SupportedKeys() []string
+	DecodeFromURLValues(url.Values) error
 }
 
-func Decode(payloadObject keyedPayload, src map[string][]string) error {
-	err := schema.NewDecoder().Decode(payloadObject, src)
-	if err == nil {
-		return nil
-	}
-
-	switch typedErr := err.(type) {
-	case schema.MultiError:
-		for _, v := range typedErr {
-			if handledErr := handleSingleError(v, payloadObject); handledErr != nil {
-				return handledErr
-			}
-		}
-
-		return fmt.Errorf("unable to decode request query parameters: %w", err)
-	default:
-		return fmt.Errorf("unable to decode request query parameters: %w", err)
-	}
-}
-
-func handleSingleError(err error, payloadObject keyedPayload) error {
-	switch err.(type) {
-	case schema.UnknownKeyError:
+func Decode(payloadObject keyedPayload, values url.Values) error {
+	if err := checkKeysAreSupported(payloadObject, values); err != nil {
 		return apierrors.NewUnknownKeyError(err, payloadObject.SupportedKeys())
-	case schema.ConversionError:
-		return apierrors.NewMessageParseError(err)
-	default:
-		return nil
 	}
+	if err := payloadObject.DecodeFromURLValues(values); err != nil {
+		return apierrors.NewMessageParseError(err)
+	}
+	return nil
+}
+
+func checkKeysAreSupported(payloadObject keyedPayload, values url.Values) error {
+	supportedKeys := map[string]bool{}
+	for _, key := range payloadObject.SupportedKeys() {
+		supportedKeys[key] = true
+	}
+	for key := range values {
+		if !supportedKeys[key] {
+			return fmt.Errorf("unsupported query parameter: %s", key)
+		}
+	}
+
+	return nil
 }

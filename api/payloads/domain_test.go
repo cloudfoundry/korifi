@@ -215,69 +215,24 @@ var _ = Describe("DomainUpdate", func() {
 })
 
 var _ = Describe("DomainList", func() {
-	var payload payloads.DomainList
-
-	Describe("Decode", func() {
-		var (
-			form      url.Values
-			decodeErr error
-		)
-
-		BeforeEach(func() {
-			payload = payloads.DomainList{}
-			form = url.Values{}
-		})
-
-		JustBeforeEach(func() {
-			decodeErr = payloads.Decode(&payload, form)
-		})
-
+	Describe("DecodeFromURLValues", func() {
 		It("succeeds", func() {
-			Expect(decodeErr).NotTo(HaveOccurred())
-			Expect(payload.Names).To(BeNil())
-		})
-
-		When("the form has valid keys", func() {
-			BeforeEach(func() {
-				form = url.Values{
-					"names": []string{"foo,bar"},
-				}
+			domainList := payloads.DomainList{}
+			err := domainList.DecodeFromURLValues(url.Values{
+				"names": []string{"foo,bar"},
 			})
 
-			It("succeeds", func() {
-				Expect(decodeErr).NotTo(HaveOccurred())
-				Expect(payload.Names).To(gstruct.PointTo(Equal("foo,bar")))
-			})
-		})
-
-		When("the form is invalid", func() {
-			BeforeEach(func() {
-				form = url.Values{
-					"bananas": []string{"foo", "bar"},
-				}
-			})
-
-			It("errors", func() {
-				expectUnknownKeyError(decodeErr, "The query parameter is invalid")
-			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(domainList.Names).To(Equal("foo,bar"))
 		})
 	})
 
 	Describe("ToMessage", func() {
-		var listDomainsMessage repositories.ListDomainsMessage
-
-		BeforeEach(func() {
-			payload = payloads.DomainList{
-				Names: tools.PtrTo("foo,bar"),
-			}
-		})
-
-		JustBeforeEach(func() {
-			listDomainsMessage = payload.ToMessage()
-		})
-
 		It("splits names to strings", func() {
-			Expect(listDomainsMessage.Names).To(ConsistOf("foo", "bar"))
+			domainList := payloads.DomainList{
+				Names: "foo,bar",
+			}
+			Expect(domainList.ToMessage().Names).To(ConsistOf("foo", "bar"))
 		})
 	})
 })

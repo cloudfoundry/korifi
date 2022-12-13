@@ -2,6 +2,8 @@ package payloads_test
 
 import (
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -58,7 +60,9 @@ var _ = Describe("Decode", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(decodeErr).To(MatchError(ContainSubstring("unable to decode request query parameters")))
+			Expect(decodeErr).To(HaveOccurred())
+			_, ok := decodeErr.(apierrors.MessageParseError)
+			Expect(ok).To(BeTrue())
 		})
 	})
 
@@ -82,9 +86,15 @@ var _ = Describe("Decode", func() {
 })
 
 type DecodeTestPayload struct {
-	Key int `schema:"key,required"`
+	Key int
 }
 
 func (p *DecodeTestPayload) SupportedKeys() []string {
 	return []string{"key"}
+}
+
+func (p *DecodeTestPayload) DecodeFromURLValues(values url.Values) error {
+	var err error
+	p.Key, err = strconv.Atoi(values.Get("key"))
+	return err
 }

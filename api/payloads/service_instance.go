@@ -1,6 +1,7 @@
 package payloads
 
 import (
+	"net/url"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -32,9 +33,9 @@ func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.Cre
 }
 
 type ServiceInstanceList struct {
-	Names      *string `schema:"names"`
-	SpaceGuids *string `schema:"space_guids"`
-	OrderBy    string  `schema:"order_by"`
+	Names      string
+	SpaceGuids string
+	OrderBy    string
 }
 
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
@@ -48,4 +49,11 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
 	return []string{"names", "space_guids", "fields", "order_by", "per_page"}
+}
+
+func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
+	l.Names = values.Get("names")
+	l.SpaceGuids = values.Get("space_guids")
+	l.OrderBy = values.Get("order_by")
+	return nil
 }

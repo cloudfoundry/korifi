@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
@@ -218,5 +219,23 @@ var _ = Describe("PackageUpdate", func() {
 				"bar": nil,
 			}))
 		})
+	})
+})
+
+var _ = Describe("PackageListQueryParameters", func() {
+	Describe("DecodeFromURLValues", func() {
+		packageList := payloads.PackageListQueryParameters{}
+		err := packageList.DecodeFromURLValues(url.Values{
+			"app_guids": []string{"app_guid"},
+			"states":    []string{"state"},
+			"order_by":  []string{"order"},
+		})
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(packageList).To(Equal(payloads.PackageListQueryParameters{
+			AppGUIDs: "app_guid",
+			States:   "state",
+			OrderBy:  "order",
+		}))
 	})
 })

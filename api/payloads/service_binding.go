@@ -1,6 +1,8 @@
 package payloads
 
 import (
+	"net/url"
+
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -25,10 +27,9 @@ func (p ServiceBindingCreate) ToMessage(spaceGUID string) repositories.CreateSer
 }
 
 type ServiceBindingList struct {
-	AppGUIDs             *string `schema:"app_guids"`
-	ServiceInstanceGUIDs *string `schema:"service_instance_guids"`
-	Include              *string `schema:"include" validate:"oneof=app"`
-	Type                 *string `schema:"type" validate:"oneof=app"`
+	AppGUIDs             string
+	ServiceInstanceGUIDs string
+	Include              string
 }
 
 func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage {
@@ -39,5 +40,12 @@ func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage
 }
 
 func (l *ServiceBindingList) SupportedKeys() []string {
-	return []string{"app_guids, service_instance_guids, include, type"}
+	return []string{"app_guids", "service_instance_guids", "include", "type"}
+}
+
+func (l *ServiceBindingList) DecodeFromURLValues(values url.Values) error {
+	l.AppGUIDs = values.Get("app_guids")
+	l.ServiceInstanceGUIDs = values.Get("service_instance_guids")
+	l.Include = values.Get("include")
+	return nil
 }
