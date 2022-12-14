@@ -58,6 +58,9 @@ func NewCFBuildReconciler(k8sClient client.Client, scheme *runtime.Scheme, log l
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfbuilds,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfbuilds/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfbuilds/finalizers,verbs=update
+
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/status,verbs=get
@@ -77,7 +80,7 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		return ctrl.Result{}, err
 	}
 
-	err = controllerutil.SetOwnerReference(cfPackage, cfBuild, r.scheme)
+	err = controllerutil.SetControllerReference(cfPackage, cfBuild, r.scheme)
 	if err != nil {
 		r.log.Error(err, "unable to set owner reference on CFBuild")
 		return ctrl.Result{}, err
@@ -185,7 +188,7 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 	}
 	desiredWorkload.Spec.Env = imageEnvironment
 
-	err = controllerutil.SetOwnerReference(cfBuild, &desiredWorkload, r.scheme)
+	err = controllerutil.SetControllerReference(cfBuild, &desiredWorkload, r.scheme)
 	if err != nil {
 		r.log.Error(err, "failed to set OwnerRef on BuildWorkload")
 		return fmt.Errorf("failed to set OwnerRef on BuildWorkload: %w", err)
