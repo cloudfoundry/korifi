@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/korifi/tools"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -275,10 +277,12 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 					Expect(createdCFProcess.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 						{
-							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-							Kind:       "CFApp",
-							Name:       cfApp.Name,
-							UID:        cfApp.GetUID(),
+							APIVersion:         "korifi.cloudfoundry.org/v1alpha1",
+							Kind:               "CFApp",
+							Name:               cfApp.Name,
+							UID:                cfApp.GetUID(),
+							Controller:         tools.PtrTo(true),
+							BlockOwnerDeletion: tools.PtrTo(true),
 						},
 					}))
 				}

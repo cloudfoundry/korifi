@@ -290,6 +290,12 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cfprocesses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - cfprocesses/status
   verbs:
   - get

@@ -110,10 +110,12 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}
 				return createdCFProcess.GetOwnerReferences()
 			}).Should(ConsistOf(metav1.OwnerReference{
-				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				Kind:       "CFApp",
-				Name:       cfApp.Name,
-				UID:        cfApp.UID,
+				APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
+				Kind:               "CFApp",
+				Name:               cfApp.Name,
+				UID:                cfApp.UID,
+				Controller:         tools.PtrTo(true),
+				BlockOwnerDeletion: tools.PtrTo(true),
 			}))
 		})
 	})
@@ -129,9 +131,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				var updatedCFApp korifiv1alpha1.CFApp
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &updatedCFApp)).To(Succeed())
 
-				g.Expect(appWorkload.OwnerReferences).To(HaveLen(1), "expected length of ownerReferences to be 1")
-				g.Expect(appWorkload.OwnerReferences[0].Name).To(Equal(cfProcess.Name))
-
+				g.Expect(appWorkload.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
+					APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
+					Kind:               "CFProcess",
+					Name:               cfProcess.Name,
+					UID:                cfProcess.UID,
+					Controller:         tools.PtrTo(true),
+					BlockOwnerDeletion: tools.PtrTo(true),
+				}))
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppRevisionKey, cfApp.Annotations[cfAppRevisionKey]))
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessGUIDLabelKey, testProcessGUID))
