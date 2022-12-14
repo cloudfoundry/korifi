@@ -205,7 +205,7 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, log logr.Logger, 
 	}
 	desiredCFProcess.SetStableName(cfApp.Name)
 
-	if err := controllerutil.SetOwnerReference(cfApp, desiredCFProcess, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cfApp, desiredCFProcess, r.scheme); err != nil {
 		log.Error(err, "failed to set OwnerRef on CFProcess")
 		return err
 	}

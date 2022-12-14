@@ -71,6 +71,7 @@ func NewCFProcessReconciler(
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses/finalizers,verbs=update
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
@@ -82,7 +83,7 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 		return ctrl.Result{}, err
 	}
 
-	err = controllerutil.SetOwnerReference(cfApp, cfProcess, r.scheme)
+	err = controllerutil.SetControllerReference(cfApp, cfProcess, r.scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -246,7 +247,7 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPort)
 	desiredAppWorkload.Spec.RunnerName = r.controllerConfig.RunnerName
 
-	err := controllerutil.SetOwnerReference(cfProcess, &desiredAppWorkload, r.scheme)
+	err := controllerutil.SetControllerReference(cfProcess, &desiredAppWorkload, r.scheme)
 	if err != nil {
 		return nil, err
 	}
