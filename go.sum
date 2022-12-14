@@ -446,8 +446,8 @@ github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3I
 github.com/opencontainers/image-spec v1.1.0-rc2 h1:2zx/Stx4Wc5pIPDvIxHXvXtQFW/7XWJGmnM7r3wg034=
 github.com/opencontainers/image-spec v1.1.0-rc2/go.mod h1:3OVijpioIKYWTqjiG0zfF6wvoJ4fAXGbjdZuI2NgsRQ=
 github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
-github.com/pivotal/kpack v0.8.2 h1:BRsrRDXUE6Z+3778kP6nXV25ZNUsVZ/eFce0DyZLeao=
-github.com/pivotal/kpack v0.8.2/go.mod h1:56yBeMr/lHtIDTfbBuMWQc32B1AVBbD3f5VcpwkZNSA=
+github.com/pivotal/kpack v0.9.1 h1:zvTLlgu+vlUNnmxD77Dg6uk+h3KZd1gUWTsMz8y91p8=
+github.com/pivotal/kpack v0.9.1/go.mod h1:7zVl7/w/4W6dAZ5kid26XgERmzoLqKQDb58lXcu50/g=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
