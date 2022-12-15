@@ -19,8 +19,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/go-chi/chi"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
@@ -54,7 +54,7 @@ var (
 	port                  int
 	rr                    *httptest.ResponseRecorder
 	req                   *http.Request
-	router                *mux.Router
+	router                *chi.Mux
 	serverURL             *url.URL
 	userName              string
 	ctx                   context.Context
@@ -136,7 +136,7 @@ var _ = BeforeEach(func() {
 	createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, rootNamespace)
 
 	rr = httptest.NewRecorder()
-	router = mux.NewRouter()
+	router = chi.NewRouter()
 	router.Use(handlers.NewCorrelationIDMiddleware().Middleware)
 
 	port = 1024 + rand.Intn(8975)

@@ -28,9 +28,10 @@ var _ = Describe("ServiceInstanceHandler", func() {
 	)
 
 	var (
-		req                 *http.Request
-		serviceInstanceRepo *fake.CFServiceInstanceRepository
-		spaceRepo           *fake.SpaceRepository
+		req                    *http.Request
+		serviceInstanceRepo    *fake.CFServiceInstanceRepository
+		spaceRepo              *fake.SpaceRepository
+		serviceInstanceHandler http.Handler
 	)
 
 	BeforeEach(func() {
@@ -39,17 +40,16 @@ var _ = Describe("ServiceInstanceHandler", func() {
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		serviceInstanceHandler := NewServiceInstanceHandler(
+		serviceInstanceHandler = NewServiceInstanceHandler(
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
 			decoderValidator,
 		)
-		serviceInstanceHandler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		serviceInstanceHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("the POST /v3/service_instances endpoint", func() {

@@ -18,9 +18,7 @@ var _ = Describe("ServiceRouteBinding", func() {
 			apiHandler := apis.NewServiceRouteBindingHandler(
 				*serverURL)
 
-			apiHandler.RegisterRoutes(router)
-
-			router.ServeHTTP(rr, req)
+			apiHandler.ServeHTTP(rr, req)
 		})
 
 		It("returns status 200 OK", func() {

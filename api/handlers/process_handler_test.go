@@ -26,6 +26,7 @@ var _ = Describe("ProcessHandler", func() {
 		processStatsFetcher *fake.ProcessStatsFetcher
 		processScaler       *fake.ProcessScaler
 		req                 *http.Request
+		apiHandler          http.Handler
 	)
 
 	BeforeEach(func() {
@@ -35,18 +36,17 @@ var _ = Describe("ProcessHandler", func() {
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		apiHandler := NewProcessHandler(
+		apiHandler = NewProcessHandler(
 			*serverURL,
 			processRepo,
 			processStatsFetcher,
 			processScaler,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		apiHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/processes/:guid endpoint", func() {
@@ -481,7 +481,7 @@ var _ = Describe("ProcessHandler", func() {
 				func(requestBody string, status int) {
 					tableTestRecorder := httptest.NewRecorder()
 					queuePostRequest(requestBody)
-					router.ServeHTTP(tableTestRecorder, req)
+					apiHandler.ServeHTTP(tableTestRecorder, req)
 					Expect(tableTestRecorder.Code).To(Equal(status))
 				},
 				Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),

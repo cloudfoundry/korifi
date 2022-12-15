@@ -36,7 +36,6 @@ var _ = Describe("RoleHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		roleHandler = apis.NewRoleHandler(*serverURL, roleRepo, decoderValidator)
-		roleHandler.RegisterRoutes(router)
 	})
 
 	DescribeTable("Role org / space combination validation",
@@ -60,7 +59,7 @@ var _ = Describe("RoleHandler", func() {
 			req, err := http.NewRequestWithContext(ctx, "POST", rolesBase, strings.NewReader(createRoleRequestBody))
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			roleHandler.ServeHTTP(rr, req)
 
 			if succeeds {
 				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
@@ -130,7 +129,7 @@ var _ = Describe("RoleHandler", func() {
 			req, err := http.NewRequestWithContext(ctx, "POST", rolesBase, strings.NewReader(createRoleRequestBody))
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			roleHandler.ServeHTTP(rr, req)
 		}
 
 		JustBeforeEach(func() {

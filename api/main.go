@@ -23,9 +23,9 @@ import (
 	reporegistry "code.cloudfoundry.org/korifi/api/repositories/registry"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/gorilla/mux"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -48,10 +48,6 @@ var createTimeout = time.Second * 120
 func init() {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
-}
-
-type APIHandler interface {
-	RegisterRoutes(router *mux.Router)
 }
 
 // logrWriter implements io.Writer and converts Write calls to logr.Logger.Error() calls
@@ -181,140 +177,126 @@ func main() {
 		panic(fmt.Sprintf("could not wire validator: %v", err))
 	}
 
-	apiHandlers := []APIHandler{
-		handlers.NewRootV3Handler(config.ServerURL),
-		handlers.NewRootHandler(
-			config.ServerURL,
-		),
-		handlers.NewResourceMatchesHandler(),
-		handlers.NewAppHandler(
-			*serverURL,
-			appRepo,
-			dropletRepo,
-			processRepo,
-			routeRepo,
-			domainRepo,
-			spaceRepo,
-			processScaler,
-			decoderValidator,
-		),
-		handlers.NewRouteHandler(
-			*serverURL,
-			routeRepo,
-			domainRepo,
-			appRepo,
-			spaceRepo,
-			decoderValidator,
-		),
-		handlers.NewServiceRouteBindingHandler(
-			*serverURL,
-		),
-		handlers.NewPackageHandler(
-			*serverURL,
-			packageRepo,
-			appRepo,
-			dropletRepo,
-			imageRepo,
-			decoderValidator,
-			config.PackageRepository,
-			config.PackageRegistrySecretName,
-		),
-		handlers.NewBuildHandler(
-			*serverURL,
-			buildRepo,
-			packageRepo,
-			appRepo,
-			decoderValidator,
-		),
-		handlers.NewDropletHandler(
-			*serverURL,
-			dropletRepo,
-		),
-		handlers.NewProcessHandler(
-			*serverURL,
-			processRepo,
-			processStats,
-			processScaler,
-			decoderValidator,
-		),
-		handlers.NewDomainHandler(
-			*serverURL,
-			decoderValidator,
-			domainRepo,
-		),
-		handlers.NewJobHandler(
-			*serverURL,
-		),
-		handlers.NewLogCacheHandler(
-			appRepo,
-			buildRepo,
-			appLogs,
-		),
-		handlers.NewOrgHandler(
-			*serverURL,
-			orgRepo,
-			domainRepo,
-			decoderValidator,
-			config.GetUserCertificateDuration(),
-		),
+	router := chi.NewRouter()
 
-		handlers.NewSpaceHandler(
-			*serverURL,
-			spaceRepo,
-			decoderValidator,
-		),
-
-		handlers.NewSpaceManifestHandler(
-			*serverURL,
-			manifest,
-			spaceRepo,
-			decoderValidator,
-		),
-
-		handlers.NewRoleHandler(
-			*serverURL,
-			roleRepo,
-			decoderValidator,
-		),
-
-		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
-
-		handlers.NewBuildpackHandler(
-			*serverURL,
-			buildpackRepo,
-		),
-
-		handlers.NewServiceInstanceHandler(
-			*serverURL,
-			serviceInstanceRepo,
-			spaceRepo,
-			decoderValidator,
-		),
-
-		handlers.NewServiceBindingHandler(
-			*serverURL,
-			serviceBindingRepo,
-			appRepo,
-			serviceInstanceRepo,
-			decoderValidator,
-		),
-
-		handlers.NewTaskHandler(
-			*serverURL,
-			appRepo,
-			taskRepo,
-			decoderValidator,
-		),
-
-		handlers.NewOAuthToken(
-			*serverURL,
-		),
-	}
-
-	router := mux.NewRouter()
-	for _, handler := range apiHandlers {
-		handler.RegisterRoutes(router)
-	}
+	router.Mount("/", handlers.NewRootHandler(
+		config.ServerURL,
+	))
+	router.Mount("/v3", handlers.NewRootV3Handler(
+		config.ServerURL,
+	))
+	router.Mount("/v3/resource_matches", handlers.NewResourceMatchesHandler())
+	router.Mount("/v3/apps", handlers.NewAppHandler(
+		*serverURL,
+		appRepo,
+		dropletRepo,
+		processRepo,
+		routeRepo,
+		domainRepo,
+		spaceRepo,
+		taskRepo,
+		processScaler,
+		decoderValidator,
+	))
+	router.Mount("/v3/routes", handlers.NewRouteHandler(
+		*serverURL,
+		routeRepo,
+		domainRepo,
+		appRepo,
+		spaceRepo,
+		decoderValidator,
+	))
+	router.Mount("/v3/service_route_bindings", handlers.NewServiceRouteBindingHandler(
+		*serverURL,
+	))
+	router.Mount("/v3/packages", handlers.NewPackageHandler(
+		*serverURL,
+		packageRepo,
+		appRepo,
+		dropletRepo,
+		imageRepo,
+		decoderValidator,
+		config.PackageRepository,
+		config.PackageRegistrySecretName,
+	))
+	router.Mount("/v3/builds", handlers.NewBuildHandler(
+		*serverURL,
+		buildRepo,
+		packageRepo,
+		appRepo,
+		decoderValidator,
+	))
+	router.Mount("/v3/droplets", handlers.NewDropletHandler(
+		*serverURL,
+		dropletRepo,
+	))
+	router.Mount("/v3/processes", handlers.NewProcessHandler(
+		*serverURL,
+		processRepo,
+		processStats,
+		processScaler,
+		decoderValidator,
+	))
+	router.Mount("/v3/domains", handlers.NewDomainHandler(
+		*serverURL,
+		decoderValidator,
+		domainRepo,
+	))
+	router.Mount("/v3/jobs", handlers.NewJobHandler(
+		*serverURL,
+	))
+	router.Mount("/api/v1", handlers.NewLogCacheHandler(
+		appRepo,
+		buildRepo,
+		appLogs,
+	))
+	router.Mount("/v3/organizations", handlers.NewOrgHandler(
+		*serverURL,
+		orgRepo,
+		domainRepo,
+		decoderValidator,
+		config.GetUserCertificateDuration(),
+	))
+	router.Mount("/v3/spaces", handlers.NewSpaceHandler(
+		*serverURL,
+		spaceRepo,
+		manifest,
+		decoderValidator,
+	))
+	router.Mount("/v3/roles", handlers.NewRoleHandler(
+		*serverURL,
+		roleRepo,
+		decoderValidator,
+	))
+	router.Mount("/whoami", handlers.NewWhoAmI(
+		cachingIdentityProvider,
+		*serverURL,
+	))
+	router.Mount("/v3/buildpacks", handlers.NewBuildpackHandler(
+		*serverURL,
+		buildpackRepo,
+	))
+	router.Mount("/v3/service_instances", handlers.NewServiceInstanceHandler(
+		*serverURL,
+		serviceInstanceRepo,
+		spaceRepo,
+		decoderValidator,
+	))
+	router.Mount("/v3/service_credential_bindings", handlers.NewServiceBindingHandler(
+		*serverURL,
+		serviceBindingRepo,
+		appRepo,
+		serviceInstanceRepo,
+		decoderValidator,
+	))
+	router.Mount("/v3/tasks", handlers.NewTaskHandler(
+		*serverURL,
+		taskRepo,
+		decoderValidator,
+	))
+	router.Mount("/oauth/token", handlers.NewOAuthToken(
+		*serverURL,
+	))
 
 	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
 	authInfoParser := authorization.NewInfoParser()

@@ -22,35 +22,39 @@ var _ = Describe("Spaces", func() {
 	const spacesBase = "/v3/spaces"
 
 	var (
-		now           time.Time
-		spaceHandler  *apis.SpaceHandler
-		spaceRepo     *fake.SpaceRepository
-		requestMethod string
-		requestBody   string
-		requestPath   string
+		now                time.Time
+		spaceHandler       *apis.SpaceHandler
+		spaceRepo          *fake.SpaceRepository
+		manifestApplier    *fake.ManifestApplier
+		requestMethod      string
+		requestBody        string
+		requestPath        string
+		requestContentType string
 	)
 
 	BeforeEach(func() {
 		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 		requestBody = ""
+		requestContentType = ""
 		requestPath = spacesBase
 		spaceRepo = new(fake.SpaceRepository)
+		manifestApplier = new(fake.ManifestApplier)
 		decoderValidator, err := apis.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		spaceHandler = apis.NewSpaceHandler(
 			*serverURL,
 			spaceRepo,
+			manifestApplier,
 			decoderValidator,
 		)
-		spaceHandler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
 		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(requestBody))
 		Expect(err).NotTo(HaveOccurred())
-
-		router.ServeHTTP(rr, req)
+		req.Header.Add("Content-type", requestContentType)
+		spaceHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("Create Space", func() {
@@ -595,6 +599,452 @@ var _ = Describe("Spaces", func() {
 						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
 					})
 				})
+			})
+		})
+	})
+
+	Describe("POST /v3/spaces/{spaceGUID}/actions/apply_manifest", func() {
+		BeforeEach(func() {
+			requestMethod = "POST"
+			requestPath = "/v3/spaces/" + spaceGUID + "/actions/apply_manifest"
+			requestContentType = "application/x-yaml"
+		})
+
+		When("the manifest is valid", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: app1
+                  default-route: true
+                  memory: 128M
+                  disk_quota: 256M
+                  processes:
+                  - type: web
+                    command: start-web.sh
+                    disk_quota: 512M
+                    health-check-http-endpoint: /healthcheck
+                    health-check-invocation-timeout: 5
+                    health-check-type: http
+                    instances: 1
+                    memory: 256M
+                    timeout: 10
+                `
+			})
+
+			It("returns 202 with a Location header", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location", ContainSubstring("space.apply_manifest~"+spaceGUID)))
+			})
+
+			It("calls applyManifestAction and passes it the authInfo from the context", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _ := manifestApplier.ApplyArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+
+			It("passes the parsed manifest to the action", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
+				_, _, _, payload := manifestApplier.ApplyArgsForCall(0)
+
+				Expect(payload.Applications).To(HaveLen(1))
+				Expect(payload.Applications[0].Name).To(Equal("app1"))
+				Expect(payload.Applications[0].DefaultRoute).To(BeTrue())
+				Expect(payload.Applications[0].Memory).To(PointTo(Equal("128M")))
+				Expect(payload.Applications[0].DiskQuota).To(PointTo(Equal("256M")))
+
+				Expect(payload.Applications[0].Processes).To(HaveLen(1))
+				Expect(payload.Applications[0].Processes[0].Type).To(Equal("web"))
+				Expect(payload.Applications[0].Processes[0].Command).NotTo(BeNil())
+				Expect(payload.Applications[0].Processes[0].Command).To(PointTo(Equal("start-web.sh")))
+				Expect(payload.Applications[0].Processes[0].DiskQuota).To(PointTo(Equal("512M")))
+				Expect(payload.Applications[0].Processes[0].HealthCheckHTTPEndpoint).To(PointTo(Equal("/healthcheck")))
+				Expect(payload.Applications[0].Processes[0].HealthCheckInvocationTimeout).To(PointTo(Equal(int64(5))))
+				Expect(payload.Applications[0].Processes[0].HealthCheckType).To(PointTo(Equal("http")))
+				Expect(payload.Applications[0].Processes[0].Instances).To(PointTo(Equal(1)))
+				Expect(payload.Applications[0].Processes[0].Memory).To(PointTo(Equal("256M")))
+				Expect(payload.Applications[0].Processes[0].Timeout).To(PointTo(Equal(int64(10))))
+			})
+		})
+
+		When("the manifest contains unsupported fields", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: app1
+                  metadata:
+                    annotations:
+                      contact: "bob@example.com jane@example.com"
+                    labels:
+                      sensitive: true
+                `
+			})
+
+			It("calls applyManifestAction and passes it the authInfo from the context", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
+				_, actualAuthInfo, _, _ := manifestApplier.ApplyArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+			})
+		})
+
+		When("the manifest contains multiple apps", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: app1
+                - name: app2
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Applications must contain at maximum 1 item")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the application name is missing", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - {}
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Name is a required field")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the application memory is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: test-app
+                  memory: 0
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Memory' Error:Field validation for 'Memory' failed on the 'megabytestring' tag")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the application route is invalid", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: my-app
+                  routes:
+                  - route: not-a-uri?
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError(`"not-a-uri?" is not a valid route URI`)
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the application process instance count is negative", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    instances: -1
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Instances must be 0 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the application process disk is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    disk_quota: 0
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Processes[0].DiskQuota' Error:Field validation for 'DiskQuota' failed on the 'megabytestring' tag")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("the application process memory is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    memory: 0
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Processes[0].Memory' Error:Field validation for 'Memory' failed on the 'megabytestring' tag")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("a process's health-check-type is invalid", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    health-check-type: bogus-type
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("HealthCheckType must be one of [none process port http]")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("a process's healthcheck timeout is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    timeout: 0
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Timeout must be 1 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("a process's healthcheck invocation timeout is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    health-check-invocation-timeout: 0
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("HealthCheckInvocationTimeout must be 1 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("app healthcheck timeout is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                applications:
+                - name: test-app
+                  timeout: 0
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Timeout must be 1 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("app healthcheck invocation timeout is not a positive integer", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                applications:
+                - name: test-app
+                  health-check-invocation-timeout: 0
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("HealthCheckInvocationTimeout must be 1 or greater")
+			})
+
+			It("doesn't call applyManifestAction", func() {
+				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			})
+		})
+
+		When("applying the manifest errors", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: app1
+                `
+				manifestApplier.ApplyReturns(errors.New("boom"))
+			})
+
+			It("respond with Unknown Error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("applying the manifest errors with NotFoundErr", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: app1
+                `
+				manifestApplier.ApplyReturns(apierrors.NewNotFoundError(errors.New("can't find"), repositories.DomainResourceType))
+			})
+
+			It("respond with NotFoundErr", func() {
+				expectNotFoundError("Domain")
+			})
+		})
+
+		When("The random-route and default-route flags are both set", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: app1
+                  default-route: true
+                  random-route: true
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].defaultRoute' Error:Field validation for 'defaultRoute' failed on the 'Random-route and Default-route may not be used together' tag")
+			})
+		})
+
+		When("app disk-quota and app disk_quota are both set", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: app1
+                  disk-quota: 128M
+                  disk_quota: 128M
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Cannot set both 'disk-quota' and 'disk_quota' in manifest")
+			})
+		})
+
+		When("process disk-quota and process disk_quota are both set", func() {
+			BeforeEach(func() {
+				requestBody = `---
+                version: 1
+                applications:
+                - name: app1
+                  processes:
+                  - type: foo
+                    disk-quota: 128M
+                    disk_quota: 128M
+                `
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Cannot set both 'disk-quota' and 'disk_quota' in manifest")
+			})
+		})
+	})
+
+	Describe("POST /v3/spaces/{spaceGUID}/manifest_diff", func() {
+		BeforeEach(func() {
+			requestMethod = "POST"
+			requestPath = "/v3/spaces/" + spaceGUID + "/manifest_diff"
+			requestContentType = "application/x-yaml"
+			requestBody = `---
+					version: 1
+					applications:
+					  - name: app1
+				`
+		})
+
+		When("the space exists", func() {
+			It("returns 202 with an empty diff", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+                	"diff": []
+            	}`)))
+			})
+		})
+
+		When("getting the space errors", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("foo"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("getting the space is forbidden", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(errors.New("foo"), repositories.SpaceResourceType))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Space")
 			})
 		})
 	})

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -36,6 +36,8 @@ func (h *RootV3Handler) rootV3GetHandler(ctx context.Context, logger logr.Logger
 	}), nil
 }
 
-func (h *RootV3Handler) RegisterRoutes(router *mux.Router) {
-	router.Path(RootV3Path).Methods("GET").HandlerFunc(h.unauthenticatedHandlerWrapper.Wrap(h.rootV3GetHandler))
+func (h *RootV3Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(RootV3Path, h.unauthenticatedHandlerWrapper.Wrap(h.rootV3GetHandler))
+	router.ServeHTTP(w, r)
 }

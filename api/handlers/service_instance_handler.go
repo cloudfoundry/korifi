@@ -17,7 +17,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 
 	"github.com/go-logr/logr"
 )
@@ -110,8 +110,7 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(ctx context.Context,
 }
 
 func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	serviceInstanceGUID := vars["guid"]
+	serviceInstanceGUID := chi.URLParam(r, "guid")
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, serviceInstanceGUID)
 	if err != nil {
@@ -129,8 +128,10 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(ctx context.Contex
 	return NewHandlerResponse(http.StatusNoContent), nil
 }
 
-func (h *ServiceInstanceHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(ServiceInstancesPath).Methods(http.MethodPost).HandlerFunc(h.handlerWrapper.Wrap(h.serviceInstanceCreateHandler))
-	router.Path(ServiceInstancesPath).Methods(http.MethodGet).HandlerFunc(h.handlerWrapper.Wrap(h.serviceInstanceListHandler))
-	router.Path(ServiceInstancePath).Methods(http.MethodDelete).HandlerFunc(h.handlerWrapper.Wrap(h.serviceInstanceDeleteHandler))
+func (h *ServiceInstanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Post(ServiceInstancesPath, h.handlerWrapper.Wrap(h.serviceInstanceCreateHandler))
+	router.Get(ServiceInstancesPath, h.handlerWrapper.Wrap(h.serviceInstanceListHandler))
+	router.Delete(ServiceInstancePath, h.handlerWrapper.Wrap(h.serviceInstanceDeleteHandler))
+	router.ServeHTTP(w, r)
 }

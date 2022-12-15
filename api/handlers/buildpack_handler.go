@@ -11,8 +11,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -61,6 +61,8 @@ func (h *BuildpackHandler) buildpackListHandler(ctx context.Context, logger logr
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil
 }
 
-func (h *BuildpackHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(BuildpacksPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.buildpackListHandler))
+func (h *BuildpackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(BuildpacksPath, h.handlerWrapper.Wrap(h.buildpackListHandler))
+	router.ServeHTTP(w, r)
 }

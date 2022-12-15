@@ -18,10 +18,13 @@ import (
 )
 
 var _ = Describe("BuildHandler", func() {
-	var req *http.Request
+	var (
+		req          *http.Request
+		buildHandler http.Handler
+	)
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		buildHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/builds/{guid} endpoint", func() {
@@ -67,14 +70,13 @@ var _ = Describe("BuildHandler", func() {
 			decoderValidator, err := NewDefaultDecoderValidator()
 			Expect(err).NotTo(HaveOccurred())
 
-			buildHandler := NewBuildHandler(
+			buildHandler = NewBuildHandler(
 				*serverURL,
 				buildRepo,
 				new(fake.CFPackageRepository),
 				new(fake.CFAppRepository),
 				decoderValidator,
 			)
-			buildHandler.RegisterRoutes(router)
 		})
 
 		When("on the happy path", func() {
@@ -400,14 +402,13 @@ var _ = Describe("BuildHandler", func() {
 				AppGUID:     appGUID,
 			}, nil)
 
-			buildHandler := NewBuildHandler(
+			buildHandler = NewBuildHandler(
 				*serverURL,
 				buildRepo,
 				packageRepo,
 				appRepo,
 				requestJSONValidator,
 			)
-			buildHandler.RegisterRoutes(router)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(""))

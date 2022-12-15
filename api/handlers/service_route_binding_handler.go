@@ -9,8 +9,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -35,6 +35,8 @@ func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(ctx context
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceRouteBindingHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(ServiceRouteBindingsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.serviceRouteBindingsListHandler))
+func (h *ServiceRouteBindingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(ServiceRouteBindingsPath, h.handlerWrapper.Wrap(h.serviceRouteBindingsListHandler))
+	router.ServeHTTP(w, r)
 }

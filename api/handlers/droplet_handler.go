@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -44,8 +44,7 @@ func NewDropletHandler(
 }
 
 func (h *DropletHandler) dropletGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	dropletGUID := vars["guid"]
+	dropletGUID := chi.URLParam(r, "guid")
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
@@ -60,6 +59,8 @@ func (h *DropletHandler) dropletGetHandler(ctx context.Context, logger logr.Logg
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil
 }
 
-func (h *DropletHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(DropletPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.dropletGetHandler))
+func (h *DropletHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(DropletPath, h.handlerWrapper.Wrap(h.dropletGetHandler))
+	router.ServeHTTP(w, r)
 }

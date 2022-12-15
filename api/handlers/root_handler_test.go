@@ -12,17 +12,19 @@ import (
 )
 
 var _ = Describe("RootHandler", func() {
-	var req *http.Request
+	var (
+		req        *http.Request
+		apiHandler http.Handler
+	)
 
 	BeforeEach(func() {
-		apiHandler := apis.NewRootHandler(
+		apiHandler = apis.NewRootHandler(
 			defaultServerURL,
 		)
-		apiHandler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		apiHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("GET / endpoint", func() {

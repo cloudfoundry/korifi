@@ -20,7 +20,10 @@ import (
 )
 
 var _ = Describe("GET /v3/apps/:guid/env", func() {
-	var namespace *corev1.Namespace
+	var (
+		namespace  *corev1.Namespace
+		apiHandler http.Handler
+	)
 
 	BeforeEach(func() {
 		appRepo := repositories.NewAppRepo(namespaceRetriever, clientFactory, nsPermissions, conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](2*time.Second))
@@ -30,11 +33,12 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 		dropletRepo := repositories.NewDropletRepo(clientFactory, namespaceRetriever, nsPermissions)
 		orgRepo := repositories.NewOrgRepo("root-ns", k8sClient, clientFactory, nsPermissions, time.Minute)
 		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, clientFactory, nsPermissions, time.Minute)
+		taskRepo := repositories.NewTaskRepo(clientFactory, namespaceRetriever, nsPermissions, conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](2*time.Second))
 		processScaler := actions.NewProcessScaler(appRepo, processRepo)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		apiHandler := NewAppHandler(
+		apiHandler = NewAppHandler(
 			*serverURL,
 			appRepo,
 			dropletRepo,
@@ -42,10 +46,10 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
+			taskRepo,
 			processScaler,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
 
 		namespaceGUID := generateGUID()
 		namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
@@ -96,7 +100,7 @@ var _ = Describe("GET /v3/apps/:guid/env", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			req.Header.Add("Content-type", "application/json")
-			router.ServeHTTP(rr, req)
+			apiHandler.ServeHTTP(rr, req)
 			Expect(rr.Code).To(Equal(200))
 			Expect(rr.Header().Get("Content-Type")).To(Equal("application/json"))
 

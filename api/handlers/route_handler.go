@@ -12,8 +12,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -66,8 +66,7 @@ func NewRouteHandler(
 }
 
 func (h *RouteHandler) routeGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	routeGUID := vars["guid"]
+	routeGUID := chi.URLParam(r, "guid")
 
 	route, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -97,8 +96,7 @@ func (h *RouteHandler) routeGetListHandler(ctx context.Context, logger logr.Logg
 }
 
 func (h *RouteHandler) routeGetDestinationsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	routeGUID := vars["guid"]
+	routeGUID := chi.URLParam(r, "guid")
 
 	route, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -161,8 +159,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(ctx context.Context, logger l
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	vars := mux.Vars(r)
-	routeGUID := vars["guid"]
+	routeGUID := chi.URLParam(r, "guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -180,9 +177,8 @@ func (h *RouteHandler) routeAddDestinationsHandler(ctx context.Context, logger l
 }
 
 func (h *RouteHandler) routeDeleteDestinationHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	routeGUID := vars["guid"]
-	destinationGUID := vars["destination_guid"]
+	routeGUID := chi.URLParam(r, "guid")
+	destinationGUID := chi.URLParam(r, "destination_guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -205,8 +201,7 @@ func (h *RouteHandler) routeDeleteDestinationHandler(ctx context.Context, logger
 }
 
 func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	routeGUID := vars["guid"]
+	routeGUID := chi.URLParam(r, "guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -224,15 +219,17 @@ func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logge
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
 }
 
-func (h *RouteHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(RoutePath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.routeGetHandler))
-	router.Path(RoutesPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.routeGetListHandler))
-	router.Path(RouteDestinationsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.routeGetDestinationsHandler))
-	router.Path(RoutesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.routeCreateHandler))
-	router.Path(RoutePath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.routeDeleteHandler))
-	router.Path(RouteDestinationsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.routeAddDestinationsHandler))
-	router.Path(RouteDestinationPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.routeDeleteDestinationHandler))
-	router.Path(RoutePath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.routePatchHandler))
+func (h *RouteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(RoutePath, h.handlerWrapper.Wrap(h.routeGetHandler))
+	router.Get(RoutesPath, h.handlerWrapper.Wrap(h.routeGetListHandler))
+	router.Get(RouteDestinationsPath, h.handlerWrapper.Wrap(h.routeGetDestinationsHandler))
+	router.Post(RoutesPath, h.handlerWrapper.Wrap(h.routeCreateHandler))
+	router.Delete(RoutePath, h.handlerWrapper.Wrap(h.routeDeleteHandler))
+	router.Post(RouteDestinationsPath, h.handlerWrapper.Wrap(h.routeAddDestinationsHandler))
+	router.Delete(RouteDestinationPath, h.handlerWrapper.Wrap(h.routeDeleteDestinationHandler))
+	router.Patch(RoutePath, h.handlerWrapper.Wrap(h.routePatchHandler))
+	router.ServeHTTP(w, r)
 }
 
 // Fetch Route and compose related Domain information within
@@ -278,8 +275,7 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo au
 
 //nolint:dupl
 func (h *RouteHandler) routePatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	routeGUID := vars["guid"]
+	routeGUID := chi.URLParam(r, "guid")
 
 	route, err := h.routeRepo.GetRoute(ctx, authInfo, routeGUID)
 	if err != nil {

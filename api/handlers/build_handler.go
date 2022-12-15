@@ -12,8 +12,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -55,8 +55,7 @@ func NewBuildHandler(
 }
 
 func (h *BuildHandler) buildGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	buildGUID := vars["guid"]
+	buildGUID := chi.URLParam(r, "guid")
 
 	build, err := h.buildRepo.GetBuild(ctx, authInfo, buildGUID)
 	if err != nil {
@@ -108,7 +107,9 @@ func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logge
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForBuild(record, h.serverURL)), nil
 }
 
-func (h *BuildHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(BuildPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.buildGetHandler))
-	router.Path(BuildsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.buildCreateHandler))
+func (h *BuildHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(BuildPath, h.handlerWrapper.Wrap(h.buildGetHandler))
+	router.Post(BuildsPath, h.handlerWrapper.Wrap(h.buildCreateHandler))
+	router.ServeHTTP(w, r)
 }

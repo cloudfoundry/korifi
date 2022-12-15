@@ -25,8 +25,9 @@ var _ = Describe("DropletHandler", func() {
 			updatedAt = "1906-04-18T13:12:01Z"
 		)
 		var (
-			dropletRepo *fake.CFDropletRepository
-			req         *http.Request
+			dropletRepo    *fake.CFDropletRepository
+			req            *http.Request
+			dropletHandler http.Handler
 		)
 
 		BeforeEach(func() {
@@ -35,11 +36,10 @@ var _ = Describe("DropletHandler", func() {
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/droplets/"+dropletGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			dropletHandler := NewDropletHandler(
+			dropletHandler = NewDropletHandler(
 				*serverURL,
 				dropletRepo,
 			)
-			dropletHandler.RegisterRoutes(router)
 		})
 
 		When("build staging is successful", func() {
@@ -64,7 +64,7 @@ var _ = Describe("DropletHandler", func() {
 					AppGUID:     appGUID,
 					PackageGUID: packageGUID,
 				}, nil)
-				router.ServeHTTP(rr, req)
+				dropletHandler.ServeHTTP(rr, req)
 			})
 
 			It("returns status 200 OK", func() {
@@ -140,7 +140,7 @@ var _ = Describe("DropletHandler", func() {
 		When("access to the droplet is forbidden", func() {
 			BeforeEach(func() {
 				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewForbiddenError(nil, repositories.DropletResourceType))
-				router.ServeHTTP(rr, req)
+				dropletHandler.ServeHTTP(rr, req)
 			})
 
 			It("returns a Not Found error", func() {
@@ -152,7 +152,7 @@ var _ = Describe("DropletHandler", func() {
 			BeforeEach(func() {
 				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("unknown!"))
 
-				router.ServeHTTP(rr, req)
+				dropletHandler.ServeHTTP(rr, req)
 			})
 
 			It("returns an error", func() {

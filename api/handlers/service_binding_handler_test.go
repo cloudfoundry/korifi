@@ -31,6 +31,7 @@ var _ = Describe("ServiceBindingHandler", func() {
 		serviceBindingRepo  *fake.CFServiceBindingRepository
 		appRepo             *fake.CFAppRepository
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
+		handler             http.Handler
 	)
 
 	BeforeEach(func() {
@@ -40,18 +41,17 @@ var _ = Describe("ServiceBindingHandler", func() {
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		handler := NewServiceBindingHandler(
+		handler = NewServiceBindingHandler(
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,
 			serviceInstanceRepo,
 			decoderValidator,
 		)
-		handler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		handler.ServeHTTP(rr, req)
 	})
 
 	Describe("the POST /v3/service_credential_bindings endpoint", func() {

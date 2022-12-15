@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -71,8 +71,7 @@ func (h *OrgHandler) orgCreateHandler(ctx context.Context, logger logr.Logger, a
 }
 
 func (h *OrgHandler) orgPatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	orgGUID := vars["guid"]
+	orgGUID := chi.URLParam(r, "guid")
 
 	_, err := h.orgRepo.GetOrg(ctx, authInfo, orgGUID)
 	if err != nil {
@@ -93,8 +92,7 @@ func (h *OrgHandler) orgPatchHandler(ctx context.Context, logger logr.Logger, au
 }
 
 func (h *OrgHandler) orgDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	orgGUID := vars["guid"]
+	orgGUID := chi.URLParam(r, "guid")
 
 	deleteOrgMessage := repositories.DeleteOrgMessage{
 		GUID: orgGUID,
@@ -126,8 +124,7 @@ func (h *OrgHandler) orgListHandler(ctx context.Context, logger logr.Logger, aut
 }
 
 func (h *OrgHandler) orgListDomainHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	orgGUID := vars["guid"]
+	orgGUID := chi.URLParam(r, "guid")
 
 	if _, err := h.orgRepo.GetOrg(ctx, authInfo, orgGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
@@ -151,12 +148,14 @@ func (h *OrgHandler) orgListDomainHandler(ctx context.Context, logger logr.Logge
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.apiBaseURL, *r.URL)), nil
 }
 
-func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(OrgsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.orgListHandler))
-	router.Path(OrgsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.orgCreateHandler))
-	router.Path(OrgPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.orgDeleteHandler))
-	router.Path(OrgPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.orgPatchHandler))
-	router.Path(OrgDomainsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.orgListDomainHandler))
+func (h *OrgHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(OrgsPath, h.handlerWrapper.Wrap(h.orgListHandler))
+	router.Post(OrgsPath, h.handlerWrapper.Wrap(h.orgCreateHandler))
+	router.Delete(OrgPath, h.handlerWrapper.Wrap(h.orgDeleteHandler))
+	router.Patch(OrgPath, h.handlerWrapper.Wrap(h.orgPatchHandler))
+	router.Get(OrgDomainsPath, h.handlerWrapper.Wrap(h.orgListDomainHandler))
+	router.ServeHTTP(w, r)
 }
 
 func decodePEMNotAfter(certPEM []byte) (time.Time, bool) {

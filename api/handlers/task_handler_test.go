@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -19,188 +18,24 @@ import (
 
 var _ = Describe("TaskHandler", func() {
 	var (
-		req      *http.Request
-		appRepo  *fake.CFAppRepository
-		taskRepo *fake.CFTaskRepository
+		req         *http.Request
+		taskRepo    *fake.CFTaskRepository
+		taskHandler http.Handler
 	)
 
 	BeforeEach(func() {
-		appRepo = new(fake.CFAppRepository)
 		taskRepo = new(fake.CFTaskRepository)
 		decoderValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		appRepo.GetAppReturns(repositories.AppRecord{
-			GUID:      "the-app-guid",
-			SpaceGUID: "the-space-guid",
-			IsStaged:  true,
-		}, nil)
-
-		taskHandler := handlers.NewTaskHandler(*serverURL, appRepo, taskRepo, decoderValidator)
-		taskHandler.RegisterRoutes(router)
+		taskHandler = handlers.NewTaskHandler(*serverURL, taskRepo, decoderValidator)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
-	})
-
-	Describe("POST /v3/apps/:app-guid/tasks", func() {
-		BeforeEach(func() {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/the-app-guid/tasks", strings.NewReader(`{"command": "echo hello"}`))
-			Expect(err).NotTo(HaveOccurred())
-
-			taskRepo.CreateTaskReturns(repositories.TaskRecord{
-				Name:              "the-task-name",
-				GUID:              "the-task-guid",
-				Command:           "echo hello",
-				AppGUID:           "the-app-guid",
-				DropletGUID:       "the-droplet-guid",
-				SequenceID:        123456,
-				CreationTimestamp: time.Date(2022, 6, 14, 13, 22, 34, 0, time.UTC),
-				MemoryMB:          256,
-				DiskMB:            128,
-				State:             "task-created",
-			}, nil)
-		})
-
-		It("returns a 201 Created response", func() {
-			Expect(rr.Code).To(Equal(http.StatusCreated))
-		})
-
-		It("creates a task", func() {
-			Expect(taskRepo.CreateTaskCallCount()).To(Equal(1))
-
-			_, actualAuthInfo, createTaskMessage := taskRepo.CreateTaskArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(createTaskMessage.Command).To(Equal("echo hello"))
-			Expect(createTaskMessage.AppGUID).To(Equal("the-app-guid"))
-			Expect(createTaskMessage.SpaceGUID).To(Equal("the-space-guid"))
-		})
-
-		It("returns the created task", func() {
-			Expect(rr.Body).To(MatchJSON(`{
-              "name": "the-task-name",
-              "guid": "the-task-guid",
-              "command": "echo hello",
-              "sequence_id": 123456,
-              "created_at": "2022-06-14T13:22:34Z",
-              "updated_at": "2022-06-14T13:22:34Z",
-              "memory_in_mb": 256,
-              "disk_in_mb": 128,
-              "droplet_guid": "the-droplet-guid",
-              "state": "task-created",
-              "relationships": {
-                "app": {
-                  "data": {
-                    "guid": "the-app-guid"
-                  }
-                }
-              },
-              "result": {
-                "failure_reason": null
-              },
-              "links": {
-                "self": {
-                  "href": "https://api.example.org/v3/tasks/the-task-guid"
-                },
-                "app": {
-                  "href": "https://api.example.org/v3/apps/the-app-guid"
-                },
-                "droplet": {
-                  "href": "https://api.example.org/v3/droplets/the-droplet-guid"
-                },
-                "cancel": {
-                  "href": "https://api.example.org/v3/tasks/the-task-guid/actions/cancel",
-                  "method": "POST"
-                }
-              }
-            }`))
-		})
-
-		When("the task has no command", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/the-app-guid/tasks", strings.NewReader(`{}`))
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an unprocessable entity error", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
-			})
-		})
-
-		When("the app does not exist", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
-			})
-
-			It("returns a Not Found Error", func() {
-				expectNotFoundError("App not found")
-			})
-		})
-
-		When("the user cannot see the app", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
-			})
-
-			It("returns a Not Found error", func() {
-				expectNotFoundError("App not found")
-			})
-		})
-
-		When("getting the app fails", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
-			})
-
-			It("returns an Internal Server Error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("the app is not staged", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{
-					GUID:      "the-app-guid",
-					SpaceGUID: "the-space-guid",
-					IsStaged:  false,
-				}, nil)
-			})
-
-			It("returns an Unprocessable Entity error", func() {
-				expectUnprocessableEntityError("Task must have a droplet. Assign current droplet to app.")
-			})
-		})
-
-		When("the user cannot create tasks", func() {
-			BeforeEach(func() {
-				taskRepo.CreateTaskReturns(repositories.TaskRecord{}, apierrors.NewForbiddenError(nil, repositories.TaskResourceType))
-			})
-
-			It("returns a Forbidden error", func() {
-				expectNotAuthorizedError()
-			})
-		})
-
-		When("creating the task fails", func() {
-			BeforeEach(func() {
-				taskRepo.CreateTaskReturns(repositories.TaskRecord{}, errors.New("boom"))
-			})
-
-			It("returns an internal server error", func() {
-				expectUnknownError()
-			})
-		})
+		taskHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("GET /v3/tasks", func() {
-		var (
-			expectedBody string
-			reqPath      string
-		)
-
 		BeforeEach(func() {
 			taskRepo.ListTasksReturns([]repositories.TaskRecord{
 				{
@@ -225,10 +60,15 @@ var _ = Describe("TaskHandler", func() {
 					AppGUID:           "app2",
 				},
 			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/tasks", nil)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		JustBeforeEach(func() {
-			expectedBody = fmt.Sprintf(`
+		It("returns the tasks", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`
                 {
                   "pagination": {
                     "total_results": 2,
@@ -317,134 +157,22 @@ var _ = Describe("TaskHandler", func() {
                     }
                   ]
                 }
-            `, defaultServerURL, reqPath)
+				`, defaultServerURL, "/v3/tasks")))
 		})
 
-		Describe("GET /v3/tasks", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/tasks", nil)
-				Expect(err).NotTo(HaveOccurred())
-				reqPath = "/v3/tasks"
-			})
-
-			It("returns the tasks", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
-				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
-			})
-
-			It("provides an empty list task message to the repository", func() {
-				Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
-				_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
-				Expect(listMsg).To(Equal(repositories.ListTaskMessage{}))
-			})
-
-			When("listing tasks fails", func() {
-				BeforeEach(func() {
-					taskRepo.ListTasksReturns(nil, errors.New("list-err"))
-				})
-
-				It("returns an Internal Server Error", func() {
-					expectUnknownError()
-				})
-			})
+		It("provides an empty list task message to the repository", func() {
+			Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
+			_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
+			Expect(listMsg).To(Equal(repositories.ListTaskMessage{}))
 		})
 
-		Describe("GET /v3/apps/{app-guid}/tasks", func() {
+		When("listing tasks fails", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/the-app-guid/tasks", nil)
-				Expect(err).NotTo(HaveOccurred())
-				reqPath = "/v3/apps/the-app-guid/tasks"
+				taskRepo.ListTasksReturns(nil, errors.New("list-err"))
 			})
 
-			It("returns the tasks", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
-				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
-			})
-
-			It("provides a list task message with the app guid to the repository", func() {
-				Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
-				_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
-				Expect(listMsg.AppGUIDs).To(ConsistOf("the-app-guid"))
-			})
-
-			When("the app does not exist", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
-				})
-
-				It("returns a Not Found Error", func() {
-					expectNotFoundError("App not found")
-				})
-			})
-
-			When("the user cannot see the app", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
-				})
-
-				It("returns a Not Found error", func() {
-					expectNotFoundError("App not found")
-				})
-			})
-
-			When("getting the app fails", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
-				})
-
-				It("returns an Internal Server Error", func() {
-					expectUnknownError()
-				})
-			})
-
-			When("filtering tasks by sequence ID", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/the-app-guid/tasks?sequence_ids=1,2", nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("provides a list task message with the sequence ids to the repository", func() {
-					Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
-					_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
-					Expect(listMsg.SequenceIDs).To(ConsistOf(int64(1), int64(2)))
-				})
-
-				When("the sequence_ids parameter cannot be parsed to ints", func() {
-					BeforeEach(func() {
-						var err error
-						req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/the-app-guid/tasks?sequence_ids=asdf", nil)
-						Expect(err).NotTo(HaveOccurred())
-					})
-
-					It("returns a bad request error", func() {
-						expectBadRequestError()
-					})
-				})
-			})
-
-			When("the query string contains unsupported keys", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/the-app-guid/tasks?whatever=1", nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'sequence_ids'")
-				})
-			})
-
-			When("listing tasks fails", func() {
-				BeforeEach(func() {
-					taskRepo.ListTasksReturns(nil, errors.New("list-err"))
-				})
-
-				It("returns an Internal Server Error", func() {
-					expectUnknownError()
-				})
+			It("returns an Internal Server Error", func() {
+				expectUnknownError()
 			})
 		})
 	})

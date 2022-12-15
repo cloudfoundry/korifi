@@ -36,6 +36,7 @@ var _ = Describe("RouteHandler", func() {
 		requestMethod string
 		requestPath   string
 		requestBody   string
+		routeHandler  http.Handler
 	)
 
 	BeforeEach(func() {
@@ -46,7 +47,7 @@ var _ = Describe("RouteHandler", func() {
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		routeHandler := NewRouteHandler(
+		routeHandler = NewRouteHandler(
 			*serverURL,
 			routeRepo,
 			domainRepo,
@@ -54,14 +55,13 @@ var _ = Describe("RouteHandler", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		routeHandler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
 		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(requestBody))
 		Expect(err).NotTo(HaveOccurred())
 
-		router.ServeHTTP(rr, req)
+		routeHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/routes/:guid endpoint", func() {

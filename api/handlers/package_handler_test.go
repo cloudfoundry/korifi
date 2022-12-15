@@ -33,6 +33,7 @@ var _ = Describe("PackageHandler", func() {
 		requestJSONValidator       *fake.RequestJSONValidator
 		packageRepository          string
 		packageImagePullSecretName string
+		apiHandler                 http.Handler
 
 		packageGUID string
 		appGUID     string
@@ -56,7 +57,7 @@ var _ = Describe("PackageHandler", func() {
 		createdAt = time.Now().Format(time.RFC3339)
 		updatedAt = time.Now().Format(time.RFC3339)
 
-		apiHandler := NewPackageHandler(
+		apiHandler = NewPackageHandler(
 			*serverURL,
 			packageRepo,
 			appRepo,
@@ -66,8 +67,6 @@ var _ = Describe("PackageHandler", func() {
 			packageRepository,
 			packageImagePullSecretName,
 		)
-
-		apiHandler.RegisterRoutes(router)
 	})
 
 	Describe("the GET /v3/packages/:guid endpoint", func() {
@@ -93,7 +92,7 @@ var _ = Describe("PackageHandler", func() {
 			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+packageGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			apiHandler.ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {
@@ -216,7 +215,7 @@ var _ = Describe("PackageHandler", func() {
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages"+queryParamString, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			apiHandler.ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {
@@ -526,7 +525,7 @@ var _ = Describe("PackageHandler", func() {
 			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(""))
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			apiHandler.ServeHTTP(rr, req)
 		})
 
 		It("returns status 201", func() {
@@ -699,7 +698,7 @@ var _ = Describe("PackageHandler", func() {
 			req, err := http.NewRequestWithContext(ctx, "PATCH", "/v3/packages/"+packageGUID, strings.NewReader(""))
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			apiHandler.ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {
@@ -840,7 +839,7 @@ var _ = Describe("PackageHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Add("Content-Type", formDataHeader)
 
-			router.ServeHTTP(rr, req)
+			apiHandler.ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {
@@ -1085,7 +1084,7 @@ var _ = Describe("PackageHandler", func() {
 		JustBeforeEach(func() {
 			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+packageGUID+"/droplets"+queryString, nil)
 			Expect(err).NotTo(HaveOccurred())
-			router.ServeHTTP(rr, req)
+			apiHandler.ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {

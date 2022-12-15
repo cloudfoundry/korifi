@@ -11,15 +11,17 @@ import (
 )
 
 var _ = Describe("ResourceMatchesHandler", func() {
-	var req *http.Request
+	var (
+		req     *http.Request
+		handler http.Handler
+	)
 
 	BeforeEach(func() {
-		handler := NewResourceMatchesHandler()
-		handler.RegisterRoutes(router)
+		handler = NewResourceMatchesHandler()
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		handler.ServeHTTP(rr, req)
 	})
 
 	Describe("Get Resource Match Endpoint", func() {

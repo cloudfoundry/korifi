@@ -18,14 +18,14 @@ var _ = Describe("JobHandler", func() {
 			resourceGUID string
 			jobGUID      string
 			req          *http.Request
+			jobsHandler  http.Handler
 		)
 
 		BeforeEach(func() {
 			resourceGUID = uuid.NewString()
-			jobsHandler := apis.NewJobHandler(
+			jobsHandler = apis.NewJobHandler(
 				*serverURL,
 			)
-			jobsHandler.RegisterRoutes(router)
 		})
 
 		JustBeforeEach(func() {
@@ -33,7 +33,7 @@ var _ = Describe("JobHandler", func() {
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			jobsHandler.ServeHTTP(rr, req)
 		})
 
 		When("getting an existing job", func() {

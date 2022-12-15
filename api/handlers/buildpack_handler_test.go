@@ -15,18 +15,18 @@ import (
 var _ = Describe("BuildpackHandler", func() {
 	var (
 		buildpackRepo *fake.BuildpackRepository
+		apiHandler    http.Handler
 		req           *http.Request
 	)
 
 	BeforeEach(func() {
 		buildpackRepo = new(fake.BuildpackRepository)
 
-		apiHandler := NewBuildpackHandler(*serverURL, buildpackRepo)
-		apiHandler.RegisterRoutes(router)
+		apiHandler = NewBuildpackHandler(*serverURL, buildpackRepo)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		apiHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/buildpacks endpoint", func() {

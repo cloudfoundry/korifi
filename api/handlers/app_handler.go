@@ -12,8 +12,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -31,6 +31,7 @@ const (
 	AppRestartPath                    = "/v3/apps/{guid}/actions/restart"
 	AppEnvVarsPath                    = "/v3/apps/{guid}/environment_variables"
 	AppEnvPath                        = "/v3/apps/{guid}/env"
+	AppTasksPath                      = "/v3/apps/{appGUID}/tasks"
 	invalidDropletMsg                 = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
@@ -64,6 +65,7 @@ type AppHandler struct {
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
 	spaceRepo        SpaceRepository
+	taskRepo         CFTaskRepository
 	appProcessScaler AppProcessScaler
 	decoderValidator *DecoderValidator
 }
@@ -76,6 +78,7 @@ func NewAppHandler(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	spaceRepo SpaceRepository,
+	taskRepo CFTaskRepository,
 	appProcessScaler AppProcessScaler,
 	decoderValidator *DecoderValidator,
 ) *AppHandler {
@@ -89,13 +92,13 @@ func NewAppHandler(
 		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
 		spaceRepo:        spaceRepo,
+		taskRepo:         taskRepo,
 		appProcessScaler: appProcessScaler,
 	}
 }
 
 func (h *AppHandler) appGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -150,8 +153,7 @@ func (h *AppHandler) appListHandler(ctx context.Context, logger logr.Logger, aut
 }
 
 func (h *AppHandler) appSetCurrentDropletHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	var payload payloads.AppSetCurrentDroplet
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -194,8 +196,7 @@ func (h *AppHandler) appSetCurrentDropletHandler(ctx context.Context, logger log
 }
 
 func (h *AppHandler) appGetCurrentDropletHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -220,8 +221,7 @@ func (h *AppHandler) appGetCurrentDropletHandler(ctx context.Context, logger log
 }
 
 func (h *AppHandler) appStartHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -244,8 +244,7 @@ func (h *AppHandler) appStartHandler(ctx context.Context, logger logr.Logger, au
 }
 
 func (h *AppHandler) appStopHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -265,8 +264,7 @@ func (h *AppHandler) appStopHandler(ctx context.Context, logger logr.Logger, aut
 }
 
 func (h *AppHandler) getProcessesForAppHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -287,8 +285,7 @@ func (h *AppHandler) getProcessesForAppHandler(ctx context.Context, logger logr.
 }
 
 func (h *AppHandler) getRoutesForAppHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -304,9 +301,8 @@ func (h *AppHandler) getRoutesForAppHandler(ctx context.Context, logger logr.Log
 }
 
 func (h *AppHandler) appScaleProcessHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
-	processType := vars["processType"]
+	appGUID := chi.URLParam(r, "guid")
+	processType := chi.URLParam(r, "processType")
 
 	var payload payloads.ProcessScale
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -322,8 +318,7 @@ func (h *AppHandler) appScaleProcessHandler(ctx context.Context, logger logr.Log
 }
 
 func (h *AppHandler) appRestartHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -363,8 +358,7 @@ func (h *AppHandler) appRestartHandler(ctx context.Context, logger logr.Logger, 
 }
 
 func (h *AppHandler) appDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -412,8 +406,7 @@ func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, aut
 }
 
 func (h *AppHandler) appPatchEnvVarsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	var payload payloads.AppPatchEnvVars
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -434,8 +427,7 @@ func (h *AppHandler) appPatchEnvVarsHandler(ctx context.Context, logger logr.Log
 }
 
 func (h *AppHandler) appGetEnvHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	appEnvRecord, err := h.appRepo.GetAppEnv(ctx, authInfo, appGUID)
 	if err != nil {
@@ -446,9 +438,8 @@ func (h *AppHandler) appGetEnvHandler(ctx context.Context, logger logr.Logger, a
 }
 
 func (h *AppHandler) getProcessByTypeForAppHander(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
-	processType := vars["type"]
+	appGUID := chi.URLParam(r, "guid")
+	processType := chi.URLParam(r, "type")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -465,8 +456,7 @@ func (h *AppHandler) getProcessByTypeForAppHander(ctx context.Context, logger lo
 
 //nolint:dupl
 func (h *AppHandler) appPatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
 	if err != nil {
@@ -485,21 +475,84 @@ func (h *AppHandler) appPatchHandler(ctx context.Context, logger logr.Logger, au
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }
 
-func (h *AppHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(AppPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appGetHandler))
-	router.Path(AppsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appListHandler))
-	router.Path(AppsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.appCreateHandler))
-	router.Path(AppCurrentDropletRelationshipPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.appSetCurrentDropletHandler))
-	router.Path(AppCurrentDropletPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appGetCurrentDropletHandler))
-	router.Path(AppStartPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.appStartHandler))
-	router.Path(AppStopPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.appStopHandler))
-	router.Path(AppRestartPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.appRestartHandler))
-	router.Path(AppProcessScalePath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.appScaleProcessHandler))
-	router.Path(AppProcessesPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.getProcessesForAppHandler))
-	router.Path(AppProcessByTypePath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.getProcessByTypeForAppHander))
-	router.Path(AppRoutesPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.getRoutesForAppHandler))
-	router.Path(AppPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.appDeleteHandler))
-	router.Path(AppEnvVarsPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.appPatchEnvVarsHandler))
-	router.Path(AppEnvPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.appGetEnvHandler))
-	router.Path(AppPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.appPatchHandler))
+func (h *AppHandler) taskCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	appGUID := chi.URLParam(r, "appGUID")
+
+	var payload payloads.TaskCreate
+	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	appRecord, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding app", "appGUID", appGUID)
+	}
+
+	if !appRecord.IsStaged {
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(nil, "Task must have a droplet. Assign current droplet to app."),
+			"app is not staged", "App GUID", appGUID,
+		)
+	}
+
+	taskRecord, err := h.taskRepo.CreateTask(ctx, authInfo, payload.ToMessage(appRecord))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to create task")
+	}
+
+	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
+}
+
+func (h *AppHandler) taskListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	appGUID := chi.URLParam(r, "appGUID")
+
+	if err := r.ParseForm(); err != nil {
+		logger.Error(err, "Unable to parse request query parameters")
+		return nil, err
+	}
+
+	_, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding app", "appGUID", appGUID)
+	}
+
+	taskListFilter := new(payloads.TaskList)
+	err = payloads.Decode(taskListFilter, r.Form)
+	if err != nil {
+		logger.Error(err, "Unable to decode request query parameters")
+		return nil, err
+	}
+
+	taskListMessage := taskListFilter.ToMessage()
+	taskListMessage.AppGUIDs = []string{appGUID}
+	tasks, err := h.taskRepo.ListTasks(ctx, authInfo, taskListMessage)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
+	}
+
+	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
+}
+
+func (h *AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(AppPath, h.handlerWrapper.Wrap(h.appGetHandler))
+	router.Get(AppsPath, h.handlerWrapper.Wrap(h.appListHandler))
+	router.Post(AppsPath, h.handlerWrapper.Wrap(h.appCreateHandler))
+	router.Patch(AppCurrentDropletRelationshipPath, h.handlerWrapper.Wrap(h.appSetCurrentDropletHandler))
+	router.Get(AppCurrentDropletPath, h.handlerWrapper.Wrap(h.appGetCurrentDropletHandler))
+	router.Post(AppStartPath, h.handlerWrapper.Wrap(h.appStartHandler))
+	router.Post(AppStopPath, h.handlerWrapper.Wrap(h.appStopHandler))
+	router.Post(AppRestartPath, h.handlerWrapper.Wrap(h.appRestartHandler))
+	router.Post(AppProcessScalePath, h.handlerWrapper.Wrap(h.appScaleProcessHandler))
+	router.Get(AppProcessesPath, h.handlerWrapper.Wrap(h.getProcessesForAppHandler))
+	router.Get(AppProcessByTypePath, h.handlerWrapper.Wrap(h.getProcessByTypeForAppHander))
+	router.Get(AppRoutesPath, h.handlerWrapper.Wrap(h.getRoutesForAppHandler))
+	router.Delete(AppPath, h.handlerWrapper.Wrap(h.appDeleteHandler))
+	router.Patch(AppEnvVarsPath, h.handlerWrapper.Wrap(h.appPatchEnvVarsHandler))
+	router.Get(AppEnvPath, h.handlerWrapper.Wrap(h.appGetEnvHandler))
+	router.Post(AppTasksPath, h.handlerWrapper.Wrap(h.taskCreateHandler))
+	router.Get(AppTasksPath, h.handlerWrapper.Wrap(h.taskListHandler))
+	router.Patch(AppPath, h.handlerWrapper.Wrap(h.appPatchHandler))
+	router.ServeHTTP(w, r)
 }

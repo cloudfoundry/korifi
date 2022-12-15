@@ -29,7 +29,6 @@ var _ = Describe("WhoAmI", func() {
 		identityProvider.GetIdentityReturns(authorization.Identity{Name: "the-user", Kind: rbacv1.UserKind}, nil)
 		ctx = authorization.NewContext(ctx, &authorization.Info{Token: "the-token"})
 		whoAmIHandler = apis.NewWhoAmI(identityProvider, *serverURL)
-		whoAmIHandler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
@@ -37,7 +36,7 @@ var _ = Describe("WhoAmI", func() {
 		req.Header.Add(headers.Authorization, authHeader)
 		Expect(err).NotTo(HaveOccurred())
 
-		router.ServeHTTP(rr, req)
+		whoAmIHandler.ServeHTTP(rr, req)
 	})
 
 	Describe("Who Am I", func() {

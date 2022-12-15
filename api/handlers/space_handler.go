@@ -6,8 +6,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-chi/chi"
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -18,8 +19,10 @@ import (
 )
 
 const (
-	SpacesPath = "/v3/spaces"
-	SpacePath  = "/v3/spaces/{guid}"
+	SpacesPath             = "/v3/spaces"
+	SpacePath              = "/v3/spaces/{guid}"
+	SpaceManifestApplyPath = "/v3/spaces/{spaceGUID}/actions/apply_manifest"
+	SpaceManifestDiffPath  = "/v3/spaces/{spaceGUID}/manifest_diff"
 )
 
 //counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
@@ -32,18 +35,26 @@ type SpaceRepository interface {
 	PatchSpaceMetadata(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name ManifestApplier . ManifestApplier
+
+type ManifestApplier interface {
+	Apply(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error
+}
+
 type SpaceHandler struct {
 	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	spaceRepo        SpaceRepository
+	manifestApplier  ManifestApplier
 	apiBaseURL       url.URL
 	decoderValidator *DecoderValidator
 }
 
-func NewSpaceHandler(apiBaseURL url.URL, spaceRepo SpaceRepository, decoderValidator *DecoderValidator) *SpaceHandler {
+func NewSpaceHandler(apiBaseURL url.URL, spaceRepo SpaceRepository, manifestApplier ManifestApplier, decoderValidator *DecoderValidator) *SpaceHandler {
 	return &SpaceHandler{
 		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("SpaceHandler")),
 		apiBaseURL:       apiBaseURL,
 		spaceRepo:        spaceRepo,
+		manifestApplier:  manifestApplier,
 		decoderValidator: decoderValidator,
 	}
 }
@@ -86,8 +97,7 @@ func (h *SpaceHandler) spaceListHandler(ctx context.Context, logger logr.Logger,
 
 //nolint:dupl
 func (h *SpaceHandler) spacePatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	spaceGUID := vars["guid"]
+	spaceGUID := chi.URLParam(r, "guid")
 
 	space, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
@@ -108,8 +118,7 @@ func (h *SpaceHandler) spacePatchHandler(ctx context.Context, logger logr.Logger
 }
 
 func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	spaceGUID := vars["guid"]
+	spaceGUID := chi.URLParam(r, "guid")
 
 	spaceRecord, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
@@ -128,11 +137,40 @@ func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logge
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteOperation, h.apiBaseURL)), nil
 }
 
-func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(SpacesPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.spaceListHandler))
-	router.Path(SpacesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.spaceCreateHandler))
-	router.Path(SpacePath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.spacePatchHandler))
-	router.Path(SpacePath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.spaceDeleteHandler))
+func (h *SpaceHandler) applyManifestHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	spaceGUID := chi.URLParam(r, "spaceGUID")
+	var manifest payloads.Manifest
+	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.manifestApplier.Apply(ctx, authInfo, spaceGUID, manifest); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Error applying manifest")
+	}
+
+	return NewHandlerResponse(http.StatusAccepted).
+		WithHeader(headers.Location, presenter.JobURLForRedirects(spaceGUID, presenter.SpaceApplyManifestOperation, h.apiBaseURL)), nil
+}
+
+func (h *SpaceHandler) diffManifestHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+	spaceGUID := chi.URLParam(r, "spaceGUID")
+
+	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get space", "guid", spaceGUID)
+	}
+
+	return NewHandlerResponse(http.StatusAccepted).WithBody(map[string]interface{}{"diff": []string{}}), nil
+}
+
+func (h *SpaceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(SpacesPath, h.handlerWrapper.Wrap(h.spaceListHandler))
+	router.Post(SpacesPath, h.handlerWrapper.Wrap(h.spaceCreateHandler))
+	router.Patch(SpacePath, h.handlerWrapper.Wrap(h.spacePatchHandler))
+	router.Delete(SpacePath, h.handlerWrapper.Wrap(h.spaceDeleteHandler))
+	router.Post(SpaceManifestApplyPath, h.handlerWrapper.Wrap(h.applyManifestHandler))
+	router.Post(SpaceManifestDiffPath, h.handlerWrapper.Wrap(h.diffManifestHandler))
+	router.ServeHTTP(w, r)
 }
 
 func parseCommaSeparatedList(list string) []string {

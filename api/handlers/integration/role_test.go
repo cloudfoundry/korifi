@@ -37,7 +37,6 @@ var _ = Describe("Role", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = handlers.NewRoleHandler(*serverURL, roleRepo, decoderValidator)
-		apiHandler.RegisterRoutes(router)
 
 		org = createOrgWithCleanup(ctx, generateGUID())
 		space = createSpaceWithCleanup(ctx, org.Name, "spacename-"+generateGUID())
@@ -74,7 +73,7 @@ var _ = Describe("Role", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			createRoleReq.Header.Add("Content-type", "application/json")
-			router.ServeHTTP(respRecorder, createRoleReq)
+			apiHandler.ServeHTTP(respRecorder, createRoleReq)
 		}
 
 		JustBeforeEach(func() {

@@ -10,15 +10,17 @@ import (
 )
 
 var _ = Describe("RootV3Handler", func() {
-	var req *http.Request
+	var (
+		req     *http.Request
+		handler http.Handler
+	)
 
 	BeforeEach(func() {
-		handler := apis.NewRootV3Handler(defaultServerURL)
-		handler.RegisterRoutes(router)
+		handler = apis.NewRootV3Handler(defaultServerURL)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		handler.ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3 endpoint", func() {

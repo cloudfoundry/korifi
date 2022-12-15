@@ -12,8 +12,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -41,8 +41,7 @@ func NewJobHandler(serverURL url.URL) *JobHandler {
 }
 
 func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	jobGUID := vars["guid"]
+	jobGUID := chi.URLParam(r, "guid")
 
 	jobType, resourceGUID, match := parseJobGUID(jobGUID)
 
@@ -72,8 +71,10 @@ func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, auth
 	return NewHandlerResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
-func (h *JobHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(JobPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.jobGetHandler))
+func (h *JobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.Get(JobPath, h.handlerWrapper.Wrap(h.jobGetHandler))
+	router.ServeHTTP(w, r)
 }
 
 func parseJobGUID(jobGUID string) (string, string, bool) {

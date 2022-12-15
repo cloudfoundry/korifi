@@ -22,22 +22,22 @@ var _ = Describe("LogCacheHandler", func() {
 		buildRepo     *fake.CFBuildRepository
 		appLogsReader *fake.AppLogsReader
 		req           *http.Request
+		handler       http.Handler
 	)
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
 		buildRepo = new(fake.CFBuildRepository)
 		appLogsReader = new(fake.AppLogsReader)
-		handler := NewLogCacheHandler(
+		handler = NewLogCacheHandler(
 			appRepo,
 			buildRepo,
 			appLogsReader,
 		)
-		handler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		handler.ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /api/v1/info endpoint", func() {
