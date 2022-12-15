@@ -365,7 +365,7 @@ func main() {
 	router.Use(
 		handlers.NewCorrelationIDMiddleware().Middleware,
 		handlers.NewCFCliVersionMiddleware().Middleware,
-		handlers.NewHTTPLogging().Middleware,
+		handlers.NewHTTPLogging(ctrl.Log.WithName("http-logger")).Middleware,
 		handlers.NewAuthenticationMiddleware(
 			authInfoParser,
 			cachingIdentityProvider,
