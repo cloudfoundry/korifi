@@ -2,11 +2,13 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"os"
 
 	"code.cloudfoundry.org/korifi/tools"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -54,6 +56,13 @@ func (c ECRRegistryCreator) CreateRepository(ctx context.Context, name string) e
 	_, err := c.ecrClient.CreateRepository(ctx, &ecr.CreateRepositoryInput{
 		RepositoryName: tools.PtrTo(name),
 	})
+	if err != nil {
+		var alreadyExists *types.RepositoryAlreadyExistsException
+		if errors.As(err, &alreadyExists) {
+			return nil
+		}
+	}
+
 	return err
 }
 
