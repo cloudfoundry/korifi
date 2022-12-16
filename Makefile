@@ -30,6 +30,7 @@ manifests:
 
 generate:
 	@for comp in $(CONTROLLERS); do make -C $$comp generate; done
+	go run ./scripts/helmdoc/main.go > README.helm.md
 
 generate-fakes:
 	go generate ./...
