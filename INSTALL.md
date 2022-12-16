@@ -148,13 +148,13 @@ The values depend on the target container registry.
 The app GUID and image type (packages or droplets) are appended to form the image ref.
 For example:
 
-| Registry  | containerRegistryBase                      | containerRepositoryPrefix | Resultant Image Ref                                                          | Notes                                                                                                    |
-| --------- | ------------------------------------------ | ------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| ACR       | <projectID>.azurecr.io                     | foo/bar/korifi-           | <projectID>.azurecr.io/foo/bar/korifi-<appGUID>-packages                     | Repositories are created dynamically during push by ACR                                                  |
-| DockerHub | index.docker.io/<dockerOrganisation>       | [empty]                   | index.docker.io/<dockerOrganisation>/<appGUID>-packages                      | Docker does not support nested repositories                                                              |
-| ECR       | <projectID>.dkr.ecr.<region>.amazonaws.com | foo/bar/korifi-           | <projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-<appGUID>-packages | Korifi will create the repository before pushing, as dynamic repository creation is not posssible on ECR |
-| GAR       | <region>-docker.pkg.dev/<projectID>        | foo/bar/korifi-           | <region>-docker.pkg.dev/<projectID>/foo/bar/korifi-<appGUID>-packages        | The `foo` repository must already exist in GAR                                                           |
-| GCR       | gcr.io/<projectID>                         | foo/bar/korifi-           | gcr.io/<projectID>/foo/bar/korifi-<appGUID>-packages                         | Repositories are created dynamically during push by GCR                                                  |
+| Registry  | containerRegistryBase                        | containerRepositoryPrefix | Resultant Image Ref                                                             | Notes                                                                                                    |
+| --------- | -------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| ACR       | \<projectID>.azurecr.io                      | foo/bar/korifi-           | \<projectID>.azurecr.io/foo/bar/korifi-\<appGUID>-packages                      | Repositories are created dynamically during push by ACR                                                  |
+| DockerHub | index.docker.io/\<dockerOrganisation>        | [empty]                   | index.docker.io/\<dockerOrganisation>/\<appGUID>-packages                       | Docker does not support nested repositories                                                              |
+| ECR       | \<projectID>.dkr.ecr.\<region>.amazonaws.com | foo/bar/korifi-           | \<projectID>.dkr.ecr.\<region>.amazonaws.com/foo/bar/korifi-\<appGUID>-packages | Korifi will create the repository before pushing, as dynamic repository creation is not posssible on ECR |
+| GAR       | \<region>-docker.pkg.dev/\<projectID>        | foo/bar/korifi-           | \<region>-docker.pkg.dev/\<projectID>/foo/bar/korifi-\<appGUID>-packages        | The `foo` repository must already exist in GAR                                                           |
+| GCR       | gcr.io/\<projectID>                          | foo/bar/korifi-           | gcr.io/\<projectID>/foo/bar/korifi-\<appGUID>-packages                          | Repositories are created dynamically during push by GCR                                                  |
 
 The chart provides various other values that can be set. See [`README.helm.md`](./README.helm.md) for details.
 
