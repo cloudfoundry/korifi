@@ -19,7 +19,7 @@ resources:
     memory: 1Gi
 
 apiServer:
-  url:
+  url: ""
   # To override default port, set port to a non-zero value
   port: 0
   internalPort: 9000
@@ -42,5 +42,5 @@ builderName: kpack-image-builder
 userCertificateExpirationWarningDuration: 168h
 
 authProxy:
-  host:
-  caCert:
+  host: ""
+  caCert: ""

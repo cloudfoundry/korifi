@@ -18,7 +18,7 @@ resources:
 
 image: cloudfoundry/korifi-kpack-image-builder:latest
 
-clusterBuilderName:
+clusterBuilderName: ""
 clusterStackBuildImage: paketobuildpacks/build:full-cnb
 clusterStackRunImage: paketobuildpacks/run:full-cnb
-builderRepository:
+builderRepository: ""
