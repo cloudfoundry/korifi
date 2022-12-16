@@ -1,73 +1,42 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "properties": {
-    "global": {
-      "description": "global values that are shared between korifi and all subcharts",
-      "properties": {
-        "rootNamespace": {
-          "description": "name of the root namespace",
-          "type": "string"
-        },
-        "debug": {
-          "description": "run the dlv command and expose debugging ports",
-          "type": "boolean"
-        },
-        "defaultAppDomainName": {
-          "description": "default domain name suffix for apps",
-          "type": "string"
-        },
-        "generateIngressCertificates": {
-          "description": "create self-signed certificates for ingress using cert-manager",
-          "type": "boolean"
-        },
-        "containerRegistrySecret": {
-          "description": "name of the secret containing credentials to access the container registry. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set",
-          "type": "string"
-        },
-        "eksContainerRegistryRoleARN": {
-          "description": "amazon resource name (ARN) of the IAM role to use to access the container registry. Required if containerRegistrySecret not set",
-          "type": "string"
-        }
-      },
-      "required": ["rootNamespace", "defaultAppDomainName"],
-      "type": "object"
-    },
     "include": {
-      "description": "determines if this subchart is included in the korifi chart",
+      "description": "Deploy the controllers component.",
       "type": "boolean"
     },
     "replicas": {
-      "description": "number of replicas in the api deployment",
+      "description": "Number of replicas.",
       "type": "integer"
     },
     "resources": {
-      "description": "k8s resources",
+      "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
       "type": "object",
       "properties": {
         "requests": {
-          "description": "resource requests",
+          "description": "Resource requests.",
           "type": "object",
           "properties": {
             "cpu": {
-              "description": "cpu request",
+              "description": "CPU request.",
               "type": "string"
             },
             "memory": {
-              "description": "memory request",
+              "description": "Memory request.",
               "type": "string"
             }
           }
         },
         "limits": {
-          "description": "resource limits",
+          "description": "Resource limits.",
           "type": "object",
           "properties": {
             "cpu": {
-              "description": "cpu limit",
+              "description": "CPU limit.",
               "type": "string"
             },
             "memory": {
-              "description": "memory limit",
+              "description": "Memory limit.",
               "type": "string"
             }
           }
@@ -75,18 +44,18 @@
       }
     },
     "image": {
-      "description": "docker image for controllers server",
+      "description": "Reference to the controllers container image.",
       "type": "string"
     },
     "reconcilers": {
       "type": "object",
       "properties": {
         "build": {
-          "description": "name of the build controller",
+          "description": "ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.",
           "type": "string"
         },
         "app": {
-          "description": "name of the app runner controller",
+          "description": "ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.",
           "type": "string"
         }
       },
@@ -96,27 +65,26 @@
       "type": "object",
       "properties": {
         "memoryMB": {
-          "description": "default memory for apps",
+          "description": "Default memory limit for the `web` process.",
           "type": "integer"
         },
         "diskQuotaMB": {
-          "description": "default disk quota for apps",
+          "description": "Default disk quota for the `web` process.",
           "type": "integer"
         }
       },
       "required": ["memoryMB", "diskQuotaMB"]
     },
     "taskTTL": {
-      "description": "period after which to delete a completed task",
+      "description": "How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.",
       "type": "string"
     },
     "workloadsTLSSecret": {
-      "description": "name of secret containing TLS certs / key for serving app routes",
+      "description": "TLS secret used when setting up an app routes.",
       "type": "string"
     }
   },
   "required": [
-    "global",
     "include",
     "image",
     "reconcilers",

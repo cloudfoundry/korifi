@@ -1,12 +1,55 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "properties": {
+    "global": {
+      "description": "Global values that are shared between Korifi and its subcharts.",
+      "properties": {
+        "rootNamespace": {
+          "description": "Root of the Cloud Foundry namespace hierarchy.",
+          "type": "string"
+        },
+        "debug": {
+          "description": "Enables remote debugging with [Delve](https://github.com/go-delve/delve).",
+          "type": "boolean"
+        },
+        "defaultAppDomainName": {
+          "description": "Base domain name for application URLs.",
+          "type": "string"
+        },
+        "generateIngressCertificates": {
+          "description": "Use `cert-manager` to generate self-signed certificates for the API and app endpoints.",
+          "type": "boolean"
+        },
+        "containerRegistryBase": {
+          "description": "The part of the container registry image reference identifying the registry used for package and droplet images.",
+          "type": "string"
+        },
+        "containerRepositoryPrefix": {
+          "description": "The repository prefix of the image repository where package and droplet images are pushed to. This is added to the containerRegistryBase, and is suffixed with appGUID and `-packages` or `-droplets`.",
+          "type": "string"
+        },
+        "containerRegistrySecret": {
+          "description": "Name of the `Secret` to use when pushing or pulling from package, droplet and kpack-build repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.",
+          "type": "string"
+        },
+        "eksContainerRegistryRoleARN": {
+          "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rootNamespace",
+        "containerRegistryBase",
+        "defaultAppDomainName"
+      ],
+      "type": "object"
+    },
     "adminUserName": {
-      "description": "name of CF admin user",
+      "description": "Name of the admin user that will be bound to the Cloud Foundry Admin role.",
       "type": "string"
     }
   },
-  "required": ["adminUserName"],
+  "required": ["global", "adminUserName"],
   "title": "Values",
   "type": "object"
 }

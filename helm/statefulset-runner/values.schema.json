@@ -1,57 +1,42 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "properties": {
-    "global": {
-      "description": "global values that are shared between korifi and all subcharts",
-      "properties": {
-        "rootNamespace": {
-          "description": "name of the root namespace",
-          "type": "string"
-        },
-        "debug": {
-          "description": "run the dlv command and expose debugging ports",
-          "type": "boolean"
-        }
-      },
-      "required": ["rootNamespace"],
-      "type": "object"
-    },
     "include": {
-      "description": "determines if this subchart is included in the korifi chart",
+      "description": "Deploy the `statefulset-runner` component.",
       "type": "boolean"
     },
     "replicas": {
-      "description": "number of replicas in the deployment",
+      "description": "Number of replicas.",
       "type": "integer"
     },
     "resources": {
-      "description": "k8s resources",
+      "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
       "type": "object",
       "properties": {
         "requests": {
-          "description": "resource requests",
+          "description": "Resource requests.",
           "type": "object",
           "properties": {
             "cpu": {
-              "description": "cpu request",
+              "description": "CPU request.",
               "type": "string"
             },
             "memory": {
-              "description": "memory request",
+              "description": "Memory request.",
               "type": "string"
             }
           }
         },
         "limits": {
-          "description": "resource limits",
+          "description": "Resource limits.",
           "type": "object",
           "properties": {
             "cpu": {
-              "description": "cpu limit",
+              "description": "CPU limit.",
               "type": "string"
             },
             "memory": {
-              "description": "memory limit",
+              "description": "Memory limit.",
               "type": "string"
             }
           }
@@ -59,11 +44,11 @@
       }
     },
     "image": {
-      "description": "docker image",
+      "description": "Reference to the `statefulset-runner` container image.",
       "type": "string"
     }
   },
-  "required": ["global", "include", "image"],
+  "required": ["include", "image"],
   "title": "Values",
   "type": "object"
 }

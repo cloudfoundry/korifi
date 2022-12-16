@@ -1,73 +1,42 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "properties": {
-    "global": {
-      "description": "global values that are shared between korifi and all subcharts",
-      "properties": {
-        "rootNamespace": {
-          "description": "name of the root namespace",
-          "type": "string"
-        },
-        "debug": {
-          "description": "run the dlv command and expose debugging ports",
-          "type": "boolean"
-        },
-        "containerRepositoryPrefix": {
-          "description": "the repository prefix of the registry where droplet images are pushed to",
-          "type": "string"
-        },
-        "containerRegistryBase": {
-          "description": "the part of the container registry image ref identifying the registry.",
-          "type": "string"
-        },
-        "containerRegistrySecret": {
-          "description": "name of the secret containing credentials to access the container registry. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set",
-          "type": "string"
-        },
-        "eksContainerRegistryRoleARN": {
-          "description": "amazon resource name (ARN) of the IAM role to use to access the container registry. Required if containerRegistrySecret not set",
-          "type": "string"
-        }
-      },
-      "required": ["rootNamespace", "containerRegistryBase"],
-      "type": "object"
-    },
     "include": {
-      "description": "determines if this subchart is included in the korifi chart",
+      "description": "Deploy the `kpack-image-builder` component.",
       "type": "boolean"
     },
     "replicas": {
-      "description": "number of replicas in the deployment",
+      "description": "Number of replicas.",
       "type": "integer"
     },
     "resources": {
-      "description": "k8s resources",
+      "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
       "type": "object",
       "properties": {
         "requests": {
-          "description": "resource requests",
+          "description": "Resource requests.",
           "type": "object",
           "properties": {
             "cpu": {
-              "description": "cpu request",
+              "description": "CPU request.",
               "type": "string"
             },
             "memory": {
-              "description": "memory request",
+              "description": "Memory request.",
               "type": "string"
             }
           }
         },
         "limits": {
-          "description": "resource limits",
+          "description": "Resource limits.",
           "type": "object",
           "properties": {
             "cpu": {
-              "description": "cpu limit",
+              "description": "CPU limit.",
               "type": "string"
             },
             "memory": {
-              "description": "memory limit",
+              "description": "Memory limit.",
               "type": "string"
             }
           }
@@ -75,27 +44,27 @@
       }
     },
     "image": {
-      "description": "docker image",
+      "description": "Reference to the `kpack-image-builder` container image.",
       "type": "string"
     },
     "clusterBuilderName": {
-      "description": "If blank, let korifi create a default cluster builder. If not blank, this is the name of the cluster builder that has been created outside of korifi",
+      "description": "The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.",
       "type": "string"
     },
     "clusterStackBuildImage": {
-      "description": "build image",
+      "description": "The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.",
       "type": "string"
     },
     "clusterStackRunImage": {
-      "description": "run image",
+      "description": "The image to use for running defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.",
       "type": "string"
     },
     "builderRepository": {
-      "description": "The name to use for the cluster builder docker image path when korifi is creating the cluster builder",
+      "description": "Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.",
       "type": "string"
     }
   },
-  "required": ["global", "include", "image"],
+  "required": ["include", "image"],
   "title": "Values",
   "type": "object"
 }
