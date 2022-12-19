@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,9 +21,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/repositories/registry"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/gorilla/mux"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -55,17 +54,6 @@ type APIHandler interface {
 	RegisterRoutes(router *mux.Router)
 }
 
-// logrWriter implements io.Writer and converts Write calls to logr.Logger.Error() calls
-type logrWriter struct {
-	Logger  logr.Logger
-	Message string
-}
-
-func (w *logrWriter) Write(msg []byte) (int, error) {
-	w.Logger.Error(errors.New(string(msg)), w.Message)
-	return len(msg), nil
-}
-
 func main() {
 	configPath, found := os.LookupEnv("APICONFIG")
 	if !found {
@@ -85,7 +73,6 @@ func main() {
 		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
-
 	klog.SetLogger(ctrl.Log)
 
 	privilegedCRClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
@@ -403,7 +390,7 @@ func main() {
 		ReadTimeout:       time.Duration(config.ReadTimeout * int(time.Second)),
 		ReadHeaderTimeout: time.Duration(config.ReadHeaderTimeout * int(time.Second)),
 		WriteTimeout:      time.Duration(config.WriteTimeout * int(time.Second)),
-		ErrorLog:          log.New(&logrWriter{Logger: ctrl.Log, Message: "HTTP server error"}, "", 0),
+		ErrorLog:          log.New(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"}, "", 0),
 	}
 
 	if tlsFound {
