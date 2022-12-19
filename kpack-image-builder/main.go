@@ -17,8 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"code.cloudfoundry.org/korifi/tools"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -79,6 +81,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	klog.SetLogger(ctrl.Log)
+	log.SetOutput(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"})
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
