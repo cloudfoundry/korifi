@@ -21,7 +21,7 @@ data:
       stagingDiskMB: {{ .Values.lifecycle.stagingRequirements.diskMB }}
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     {{- if not .Values.global.eksContainerRegistryRoleARN }}
-    packageRegistrySecretName: {{ required "packageRegistrySecretName is required when global.eksContainerRegistryRoleARN is not set" .Values.global.containerRegistrySecret }}
+    packageRegistrySecretName: {{ required "global.containerRegistrySecret is required when global.eksContainerRegistryRoleARN is not set" .Values.global.containerRegistrySecret }}
     {{- end }}
     defaultDomainName: {{ .Values.global.defaultAppDomainName }}
     userCertificateExpirationWarningDuration: {{ .Values.userCertificateExpirationWarningDuration }}
