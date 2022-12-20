@@ -1,14 +1,19 @@
+> **Warning**
+> Make sure you are using the correct version of these instructions by using the link in the release notes for the version you're trying to install. If you're not sure, check our [latest release](https://github.com/cloudfoundry/korifi/releases/latest).
+
 # Installing Korifi on a New Amazon EKS Cluster
 
 This document integrates our [install instructions](./INSTALL.md) with specific tips to install Korifi on [Amazon EKS](https://aws.amazon.com/eks/) using [ECR](https://aws.amazon.com/ecr/).
 
 ## Prerequisites
 
-* Tools:
+On top of the [common prerequisites](./INSTALL.md#prerequisites), you will need:
   * [`aws`](https://docs.aws.amazon.com/cli)
   * [`eksctl`](https://github.com/weaveworks/eksctl)
 
 ## Initial setup
+
+Make sure you have followed the [common initial setup](./INSTALL.md#initial-setup) first.
 
 The following environment variables will be needed throughout this guide:
 
@@ -225,7 +230,8 @@ The droplets and package repositories will be created on demand by Korifi, on a 
 
 ## Dependencies
 
-Follow the main instructions.
+Follow the [common instructions](./INSTALL.md#dependencies).
+
 After installing the [Kpack dependency](INSTALL.md#kpack), run the following commands to associate the controller service account with the ECR access role:
 
 ```sh
@@ -237,7 +243,7 @@ kubectl -n kpack rollout restart deployment kpack-controller
 
 ### Namespace creation
 
-No changes here, follow the instructions.
+No changes here, follow the [common instructions](./INSTALL.md#namespace-creation).
 
 ### Container registry credentials `Secret`
 
@@ -245,7 +251,7 @@ Skip this section.
 
 ## Install Korifi
 
-Use the following helm command to install Korifi:
+Use the following Helm command to install Korifi:
 
 ```sh
 helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<VERSION>/korifi-<VERSION>.tgz \
@@ -260,3 +266,29 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
   --set=global.eksContainerRegistryRoleARN="${ECR_ROLE_ARN}" \
   --set=kpack-image-builder.builderRepository="${KPACK_BUILDER_REPO}"
 ```
+
+## Test Korifi
+
+First, let's create a CLI profile for your Korifi admin user:
+
+```sh
+aws configure --profile "${CLUSTER_NAME}-cf-admin"
+```
+
+At the prompts, specify the Access Key ID and Secreat Access Key:
+
+```
+AWS Access Key ID [None]: (use $USER_ACCESS_KEY_ID)
+AWS Secret Access Key [None]: (use $USER_SECRET_ACCESS_KEY)
+Default region name [None]: (use $AWS_REGION)
+Default output format [None]: <enter>
+```
+
+Now, we'll need to make sure `kubectl` and `cf` use this newly created profile:
+
+```
+export AWS_PROFILE="${CLUSTER_NAME}-cf-admin"
+```
+
+You can now follow the [common instructions](./INSTALL.md#test-korifi).
+When running `cf login`, make sure you select the entry associated with your EKS cluster.

@@ -5,7 +5,20 @@
 
 This document integrates our [install instructions](./INSTALL.md) with specific tips to install Korifi locally using [kind](https://kind.sigs.k8s.io/).
 
-## Cluster creation
+## Initial setup
+
+Export the following environment variables:
+
+```sh
+ROOT_NAMESPACE="cf"
+KORIFI_NAMESPACE="korifi-system"
+ADMIN_USERNAME="kubernetes-admin"
+BASE_DOMAIN="apps-127-0-0-1.nip.io"
+```
+
+`apps-127-0-0-1.nip.io` will conveniently resolve to `127.0.0.1` using [nip.io](https://nip.io/), which is exactly what we need.
+
+### Cluster creation
 
 In order to access the Korifi API, we'll need to [expose the cluster ingress locally](https://kind.sigs.k8s.io/docs/user/ingress/). To do it, create your kind cluster using a command like this:
 
@@ -25,34 +38,23 @@ nodes:
 EOF
 ```
 
-## Initial setup
-
-Export the following environment variables:
-
-```sh
-export ROOT_NAMESPACE="cf"
-export KORIFI_NAMESPACE="korifi-system"
-export ADMIN_USERNAME="kubernetes-admin"
-export BASE_DOMAIN="apps-127-0-0-1.nip.io"
-```
-
-`apps-127-0-0-1.nip.io` will conveniently resolve to `127.0.0.1` using [nip.io](https://nip.io/), which is exactly what we need.
-
-## Container registry
+### Container registry
 
 We recommend you use [DockerHub](https://hub.docker.com/) as your container registry.
 
 ## Dependencies
 
-No changes here, follow the instructions.
+No changes here, follow the [common instructions](./INSTALL.md#dependencies).
 
 ## Pre-install configuration
 
-No changes here. For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub.
+No changes here, follow the [common instructions](./INSTALL.md#pre-install-configuration).
+For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub.
 
 ## Install Korifi
 
-No changes here. If using DockerHub as recommended above, set the following values:
+No changes here, follow the [common instructions](./INSTALL.md#install-korifi).
+If using DockerHub as recommended above, set the following values:
 
 -   `api.packageRepository`: `index.docker.io/<username>/packages`;
 -   `kpack-image-builder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
@@ -66,4 +68,5 @@ Yon can skip this section.
 
 ## Test Korifi
 
-No changes here, follow the instructions. When running `cf login`, make sure you select the entry associated to your kind cluster (`kind-kind` by default).
+No changes here, follow the [common instructions](./INSTALL.md#test-korifi).
+When running `cf login`, make sure you select the entry associated to your kind cluster (`kind-kind` by default).
