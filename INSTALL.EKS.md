@@ -1,5 +1,7 @@
 # Installing Korifi on a New Amazon EKS Cluster
 
+This document integrates our [install instructions](./INSTALL.md) with specific tips to install Korifi on [Amazon EKS](https://aws.amazon.com/eks/) using [ECR](https://aws.amazon.com/ecr/).
+
 ## Prerequisites
 
 * Tools:
@@ -10,21 +12,22 @@
 
 The following environment variables will be needed throughout this guide:
 
-* CLUSTER_NAME: the name of the EKS cluster to create/use
-* AWS_REGION: the desired AWS region
-* ACCOUNT_ID: the 12-digit ID of your AWS account
+* `CLUSTER_NAME`: the name of the EKS cluster to create/use.
+* `AWS_REGION`: the desired AWS region.
+* `ACCOUNT_ID`: the 12-digit ID of your AWS account.
 
 Here are the example values we'll use in this guide:
 
 ```sh
-CLUSTER_NAME=my-cluster
-AWS_REGION=us-west-1
+CLUSTER_NAME="my-cluster"
+AWS_REGION="us-west-1"
 ACCOUNT_ID="$(aws sts get-caller-identity --query "Account" --output text)"
 ```
 
 ### Cluster creation
 
 Create the cluster with OIDC enabled (used for service account / role association and the EBS CSI addon):
+
 ```sh
 eksctl create cluster \
   --name "${CLUSTER_NAME}" \
@@ -39,6 +42,7 @@ Your kubeconfig will be updated to be targetting the new cluster when this comma
 Create the EBS CSI addon to allow PVCs (https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html).
 
 First, set up the service account and role for the addon:
+
 ```sh
 eksctl create iamserviceaccount \
   --name ebs-csi-controller-sa \
@@ -52,6 +56,7 @@ eksctl create iamserviceaccount \
 ```
 
 Next, install the addon:
+
 ```sh
 eksctl create addon \
   --name aws-ebs-csi-driver \
@@ -72,6 +77,7 @@ The [AWS docs](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-se
 have more details about associating IAM roles with Kubernetes service accounts.
 
 First, create the ECR policy:
+
 ```
 cat >ecr-policy.json <<EOF
 {
@@ -103,6 +109,7 @@ rm ecr-policy.json
 ```
 
 Next, define the trust relationships with the service accounts:
+
 ```
 OIDC_PROVIDER="$(aws eks describe-cluster \
   --name "${CLUSTER_NAME}" \
@@ -139,6 +146,7 @@ EOF
 ```
 
 Last, create the role and associate it with the trust-relationships and the ECR access policy:
+
 ```
 aws iam create-role \
   --role-name korifi-ecr-service-account-role \
@@ -153,6 +161,7 @@ aws iam attach-role-policy \
 ```
 
 You will need the role ARN for subsequent steps.
+
 ```
 ECR_ROLE_ARN="$(aws iam get-role \
   --role-name korifi-ecr-service-account-role \
@@ -168,6 +177,7 @@ It is not recommended to use a privileged user, such as the one that created the
 A plain IAM user with no permissions is sufficient.
 
 Create the user and extract the ARN, key and secret:
+
 ```sh
 aws iam create-user \
   --user-name "${CLUSTER_NAME}-cf-admin" \
@@ -186,17 +196,19 @@ USER_SECRET_ACCESS_KEY="$(jq -r .AccessKey.SecretAccessKey creds.json)"
 ```
 
 To identify this user to Kubernetes, modify the kube-system/aws-auth configmap using `eksctl`:
+
 ```
 eksctl create iamidentitymapping \
   --cluster "${CLUSTER_NAME}" \
   --region "${AWS_REGION}" \
   --arn "${USER_ARN}" \
-  --username cf-admin
+  --username "${ADMIN_USERNAME}"
 ```
 
 ### Create a Kpack builder ECR repository
 
 Ensure we have an ECR repository to store the Kpack builder images:
+
 ```
 aws ecr create-repository \
   --region "${AWS_REGION}" \
@@ -211,27 +223,40 @@ KPACK_BUILDER_REPO="$(aws ecr describe-repositories \
 
 The droplets and package repositories will be created on demand by Korifi, on a per-app basis.
 
-## Install Korifi and dependencies
+## Dependencies
 
-Now the system is ready to install Korifi.
-Follow the instructions in the [main installation guide](INSTALL.md), making the following changes:
-* Do _not_ create the [image registry secret](INSTALL.md#container-registry-credentials-secret)
-* After installing the [Kpack dependency](INSTALL.md#kpack), run the following commands to associate the controller service account with the ECR access role:
-  ```sh
-  kubectl -n kpack annotate serviceaccount controller eks.amazonaws.com/role-arn="${ECR_ROLE_ARN}"
-  kubectl -n kpack rollout restart deployment kpack-controller
-  ```
-* Use the following helm command to install Korifi:
-  ```sh
-  helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<VERSION>/korifi-<VERSION>.tgz \
-    --namespace="$KORIFI_NAMESPACE" \
-    --set global.containerRegistrySecret="" \
-    --set global.eksContainerRegistryRoleARN="${ECR_ROLE_ARN}" \
-    --set=global.generateIngressCertificates=true \
-    --set=global.rootNamespace="${ROOT_NAMESPACE}" \
-    --set=adminUserName="${ADMIN_USERNAME}" \
-    --set=api.apiServer.url="api.${BASE_DOMAIN}" \
-    --set=global.defaultAppDomainName="apps.${BASE_DOMAIN}" \
-    --set=global.containerRepositoryPrefix="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${CLUSTER_NAME}/" \
-    --set=kpack-image-builder.builderRepository="${KPACK_BUILDER_REPO}"
-  ```
+Follow the main instructions.
+After installing the [Kpack dependency](INSTALL.md#kpack), run the following commands to associate the controller service account with the ECR access role:
+
+```sh
+kubectl -n kpack annotate serviceaccount controller eks.amazonaws.com/role-arn="${ECR_ROLE_ARN}"
+kubectl -n kpack rollout restart deployment kpack-controller
+```
+
+## Pre-install configuration
+
+### Namespace creation
+
+No changes here, follow the instructions.
+
+### Container registry credentials `Secret`
+
+Skip this section.
+
+## Install Korifi
+
+Use the following helm command to install Korifi:
+
+```sh
+helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<VERSION>/korifi-<VERSION>.tgz \
+  --namespace="$KORIFI_NAMESPACE" \
+  --set=global.generateIngressCertificates=true \
+  --set=global.rootNamespace="${ROOT_NAMESPACE}" \
+  --set=adminUserName="${ADMIN_USERNAME}" \
+  --set=api.apiServer.url="api.${BASE_DOMAIN}" \
+  --set=global.defaultAppDomainName="apps.${BASE_DOMAIN}" \
+  --set=global.containerRepositoryPrefix="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${CLUSTER_NAME}/" \
+  --set=global.containerRegistrySecret="" \
+  --set=global.eksContainerRegistryRoleARN="${ECR_ROLE_ARN}" \
+  --set=kpack-image-builder.builderRepository="${KPACK_BUILDER_REPO}"
+```
