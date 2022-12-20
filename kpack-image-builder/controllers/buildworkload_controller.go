@@ -224,7 +224,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
 	kpackImageName := buildWorkload.Name
 	kpackImageNamespace := buildWorkload.Namespace
-	kpackImageTag := r.containerRegistryMeta.DropletImageRef(appGUID)
+	kpackImageTag := r.containerRegistryMeta.DropletRepoName(appGUID)
 	desiredKpackImage := buildv1alpha2.Image{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kpackImageName,
@@ -280,7 +280,7 @@ func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Contex
 	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(&desiredKpackImage), &foundKpackImage)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if err = r.imageRepoCreator.CreateRepository(ctx, r.containerRegistryMeta.DropletRepoName(appGUID)); err != nil {
+			if err = r.imageRepoCreator.CreateRepository(ctx, r.containerRegistryMeta.DropletRepoPath(appGUID)); err != nil {
 				r.log.Error(err, "failed to create image repository")
 				return err
 			}

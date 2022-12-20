@@ -13,7 +13,6 @@ type ControllerConfig struct {
 	CFRootNamespace           string `yaml:"cfRootNamespace"`
 	ClusterBuilderName        string `yaml:"clusterBuilderName"`
 	BuilderServiceAccount     string `yaml:"builderServiceAccount"`
-	ContainerRegistryBase     string `yaml:"containerRegistryBase"`
 	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType     string `yaml:"containerRegistryType"`
 }

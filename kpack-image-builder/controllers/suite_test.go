@@ -133,7 +133,7 @@ var _ = BeforeSuite(func() {
 		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient, controllerConfig.BuilderServiceAccount),
 		registryCAPath,
 		fakeImageProcessFetcherInfocation,
-		registry.NewContainerRegistryMeta("my.repository", "my-prefix/"),
+		registry.NewContainerRegistryMeta("my.repository/my-prefix/"),
 		imageRepoCreator,
 	)
 	err = (buildWorkloadReconciler).SetupWithManager(k8sManager)

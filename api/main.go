@@ -165,7 +165,7 @@ func main() {
 		namespaceRetriever,
 		nsPermissions,
 		toolsregistry.NewRegistryCreator(config.ContainerRegistryType),
-		toolsregistry.NewContainerRegistryMeta(config.ContainerRegistryBase, config.ContainerRepositoryPrefix),
+		toolsregistry.NewContainerRegistryMeta(config.ContainerRepositoryPrefix),
 	)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
 		namespaceRetriever,
