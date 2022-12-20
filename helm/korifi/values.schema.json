@@ -20,12 +20,8 @@
           "description": "Use `cert-manager` to generate self-signed certificates for the API and app endpoints.",
           "type": "boolean"
         },
-        "containerRegistryBase": {
-          "description": "The part of the container registry image reference identifying the registry used for package and droplet images.",
-          "type": "string"
-        },
         "containerRepositoryPrefix": {
-          "description": "The repository prefix of the image repository where package and droplet images are pushed to. This is added to the containerRegistryBase, and is suffixed with appGUID and `-packages` or `-droplets`.",
+          "description": "The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.",
           "type": "string"
         },
         "containerRegistrySecret": {
@@ -39,7 +35,7 @@
       },
       "required": [
         "rootNamespace",
-        "containerRegistryBase",
+        "containerRepositoryPrefix",
         "defaultAppDomainName"
       ],
       "type": "object"

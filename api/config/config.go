@@ -27,7 +27,6 @@ type APIConfig struct {
 
 	RootNamespace                            string                 `yaml:"rootNamespace"`
 	BuilderName                              string                 `yaml:"builderName"`
-	ContainerRegistryBase                    string                 `yaml:"containerRegistryBase"`
 	ContainerRepositoryPrefix                string                 `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType                    string                 `yaml:"containerRegistryType"`
 	PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`

@@ -40,7 +40,7 @@ var _ = Describe("PackageRepository", func() {
 			namespaceRetriever,
 			nsPerms,
 			repoCreator,
-			registry.NewContainerRegistryMeta("container.registry/foo", "my/prefix-"),
+			registry.NewContainerRegistryMeta("container.registry/foo/my/prefix-"),
 		)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
@@ -118,7 +118,7 @@ var _ = Describe("PackageRepository", func() {
 			It("creates a package repository", func() {
 				Expect(repoCreator.CreateRepositoryCallCount()).To(Equal(1))
 				_, repoName := repoCreator.CreateRepositoryArgsForCall(0)
-				Expect(repoName).To(Equal("my/prefix-" + appGUID + "-packages"))
+				Expect(repoName).To(Equal("foo/my/prefix-" + appGUID + "-packages"))
 			})
 
 			When("repo creation errors", func() {

@@ -232,7 +232,6 @@ Follow the instructions in the [main installation guide](INSTALL.md), making the
     --set=adminUserName="${ADMIN_USERNAME}" \
     --set=api.apiServer.url="api.${BASE_DOMAIN}" \
     --set=global.defaultAppDomainName="apps.${BASE_DOMAIN}" \
-    --set=api.packageRepository="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${CLUSTER_NAME}/packages" \
-    --set=kpack-image-builder.builderRepository="${KPACK_BUILDER_REPO}" \
-    --set=kpack-image-builder.dropletRepository=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${CLUSTER_NAME}/droplets
+    --set=global.containerRepositoryPrefix="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${CLUSTER_NAME}/" \
+    --set=kpack-image-builder.builderRepository="${KPACK_BUILDER_REPO}"
   ```

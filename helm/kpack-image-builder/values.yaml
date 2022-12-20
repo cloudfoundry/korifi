@@ -1,8 +1,6 @@
 global:
   rootNamespace: cf
   debug: false
-  containerRegistryBase: ""
-  containerRepositoryPrefix: ""
   containerRegistrySecret: image-registry-credentials
   eksContainerRegistryRoleARN: ""
 

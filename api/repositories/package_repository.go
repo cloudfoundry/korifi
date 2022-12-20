@@ -128,7 +128,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
 	}
 
-	err = r.repositoryCreator.CreateRepository(ctx, r.containerRegistryMeta.PackageRepoName(message.AppGUID))
+	err = r.repositoryCreator.CreateRepository(ctx, r.containerRegistryMeta.PackageRepoPath(message.AppGUID))
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to create package repository: %w", err)
 	}
@@ -303,7 +303,7 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage korifiv1alpha1.CFPackag
 		UpdatedAt:   updatedAtTime,
 		Labels:      cfPackage.Labels,
 		Annotations: cfPackage.Annotations,
-		ImageRef:    r.containerRegistryMeta.PackageImageRef(cfPackage.Spec.AppRef.Name),
+		ImageRef:    r.containerRegistryMeta.PackageRepoName(cfPackage.Spec.AppRef.Name),
 	}
 }
 

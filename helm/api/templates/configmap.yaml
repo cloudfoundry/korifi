@@ -19,7 +19,6 @@ data:
       stack: {{ .Values.lifecycle.stack }}
       stagingMemoryMB: {{ .Values.lifecycle.stagingRequirements.memoryMB }}
       stagingDiskMB: {{ .Values.lifecycle.stagingRequirements.diskMB }}
-    containerRegistryBase: {{ .Values.global.containerRegistryBase | quote }}
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     {{- if not .Values.global.eksContainerRegistryRoleARN }}
     packageRegistrySecretName: {{ required "packageRegistrySecretName is required when global.eksContainerRegistryRoleARN is not set" .Values.global.containerRegistrySecret }}

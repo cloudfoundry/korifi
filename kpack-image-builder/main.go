@@ -17,11 +17,12 @@ limitations under the License.
 package main
 
 import (
-	"code.cloudfoundry.org/korifi/tools"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+
+	"code.cloudfoundry.org/korifi/tools"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/api/v1alpha1"
@@ -130,7 +131,7 @@ func main() {
 		controllers.NewRegistryAuthFetcher(k8sClient, controllerConfig.BuilderServiceAccount),
 		registryCAPath,
 		cfBuildImageProcessFetcher.Fetch,
-		registry.NewContainerRegistryMeta(controllerConfig.ContainerRegistryBase, controllerConfig.ContainerRepositoryPrefix),
+		registry.NewContainerRegistryMeta(controllerConfig.ContainerRepositoryPrefix),
 		registry.NewRegistryCreator(controllerConfig.ContainerRegistryType),
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")

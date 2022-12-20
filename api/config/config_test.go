@@ -35,8 +35,7 @@ var _ = Describe("Config", func() {
 
 			"rootNamespace":                            "root-ns",
 			"builderName":                              "my-builder",
-			"containerRegistryBase":                    "container.registry",
-			"containerRepositoryPrefix":                "my-prefix",
+			"containerRepositoryPrefix":                "container.registry/my-prefix",
 			"packageRegistrySecretName":                "package-registry-secret",
 			"defaultDomainName":                        "default.domain",
 			"userCertificateExpirationWarningDuration": "10s",
@@ -78,8 +77,7 @@ var _ = Describe("Config", func() {
 		Expect(cfg.ServerURL).To(Equal("https://api.foo"))
 		Expect(cfg.RootNamespace).To(Equal("root-ns"))
 		Expect(cfg.BuilderName).To(Equal("my-builder"))
-		Expect(cfg.ContainerRegistryBase).To(Equal("container.registry"))
-		Expect(cfg.ContainerRepositoryPrefix).To(Equal("my-prefix"))
+		Expect(cfg.ContainerRepositoryPrefix).To(Equal("container.registry/my-prefix"))
 		Expect(cfg.PackageRegistrySecretName).To(Equal("package-registry-secret"))
 		Expect(cfg.DefaultDomainName).To(Equal("default.domain"))
 		Expect(cfg.UserCertificateExpirationWarningDuration).To(Equal("10s"))

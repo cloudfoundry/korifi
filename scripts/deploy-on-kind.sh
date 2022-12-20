@@ -17,7 +17,6 @@ flags:
       - DOCKER_SERVER
       - DOCKER_USERNAME
       - DOCKER_PASSWORD
-      - REGISTRY_BASE
       - REPOSITORY_PREFIX
       - KPACK_BUILDER_REPOSITORY
 
@@ -51,7 +50,7 @@ while [[ $# -gt 0 ]]; do
     -r | --use-custom-registry)
       use_custom_registry="true"
       # blow up if required vars not set
-      echo "$DOCKER_SERVER $DOCKER_USERNAME $DOCKER_PASSWORD $REGISTRY_BASE $REPOSITORY_PREFIX $KPACK_BUILDER_REPOSITORY" >/dev/null
+      echo "$DOCKER_SERVER $DOCKER_USERNAME $DOCKER_PASSWORD $REPOSITORY_PREFIX $KPACK_BUILDER_REPOSITORY" >/dev/null
       shift
       ;;
     -D | --debug)
@@ -161,7 +160,6 @@ function deploy_korifi() {
         --namespace korifi \
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
-        --set=global.containerRegistryBase="$REGISTRY_BASE" \
         --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
         --set=kpack-image-builder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
         --wait
