@@ -33,10 +33,10 @@ The following environment variables will be needed throughout this guide:
 Here are the example values we'll use in this guide:
 
 ```sh
-export ROOT_NAMESPACE="cf"
-export KORIFI_NAMESPACE="korifi"
-export ADMIN_USERNAME="cf-admin"
-export BASE_DOMAIN="korifi.example.org"
+ROOT_NAMESPACE="cf"
+KORIFI_NAMESPACE="korifi"
+ADMIN_USERNAME="cf-admin"
+BASE_DOMAIN="korifi.example.org"
 ```
 
 ### Registries with Custom CA
@@ -55,7 +55,7 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 ### Kpack
 
-[Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md) to install the latest version.
+[Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/releases/latest) to install the latest version.
 
 The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpack-image-builder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
 
@@ -102,7 +102,8 @@ EOF
 
 ### Container registry credentials `Secret`
 
-(Not required when using ECR on an EKS deployment)
+> **Warning**
+> This is not required when using ECR on an EKS deployment.
 
 Use the following command to create a `Secret` that Korifi and Kpack will use to connect to your container registry:
 
