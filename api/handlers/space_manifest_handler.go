@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/go-chi/chi"
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -59,14 +59,13 @@ func NewSpaceManifestHandler(
 	}
 }
 
-func (h *SpaceManifestHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(SpaceManifestApplyPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.applyManifestHandler))
-	router.Path(SpaceManifestDiffPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.diffManifestHandler))
+func (h *SpaceManifestHandler) RegisterRoutes(router *chi.Mux) {
+	router.Post(SpaceManifestApplyPath, h.handlerWrapper.Wrap(h.applyManifestHandler))
+	router.Post(SpaceManifestDiffPath, h.handlerWrapper.Wrap(h.diffManifestHandler))
 }
 
 func (h *SpaceManifestHandler) applyManifestHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	spaceGUID := vars["spaceGUID"]
+	spaceGUID := chi.URLParam(r, "spaceGUID")
 	var manifest payloads.Manifest
 	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
@@ -81,8 +80,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(ctx context.Context, logger 
 }
 
 func (h *SpaceManifestHandler) diffManifestHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	spaceGUID := vars["spaceGUID"]
+	spaceGUID := chi.URLParam(r, "spaceGUID")
 
 	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get space", "guid", spaceGUID)

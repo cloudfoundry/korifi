@@ -14,8 +14,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -71,8 +71,7 @@ func NewProcessHandler(
 }
 
 func (h *ProcessHandler) processGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	processGUID := vars["guid"]
+	processGUID := chi.URLParam(r, "guid")
 
 	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
@@ -83,8 +82,7 @@ func (h *ProcessHandler) processGetHandler(ctx context.Context, logger logr.Logg
 }
 
 func (h *ProcessHandler) processGetSidecarsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	processGUID := vars["guid"]
+	processGUID := chi.URLParam(r, "guid")
 
 	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
@@ -109,8 +107,7 @@ func (h *ProcessHandler) processGetSidecarsHandler(ctx context.Context, logger l
 }
 
 func (h *ProcessHandler) processScaleHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	processGUID := vars["guid"]
+	processGUID := chi.URLParam(r, "guid")
 
 	var payload payloads.ProcessScale
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -126,8 +123,7 @@ func (h *ProcessHandler) processScaleHandler(ctx context.Context, logger logr.Lo
 }
 
 func (h *ProcessHandler) processGetStatsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	processGUID := vars["guid"]
+	processGUID := chi.URLParam(r, "guid")
 
 	records, err := h.processStatsFetcher.FetchStats(ctx, authInfo, processGUID)
 	if err != nil {
@@ -157,8 +153,7 @@ func (h *ProcessHandler) processListHandler(ctx context.Context, logger logr.Log
 }
 
 func (h *ProcessHandler) processPatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	processGUID := vars["guid"]
+	processGUID := chi.URLParam(r, "guid")
 
 	var payload payloads.ProcessPatch
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -178,11 +173,11 @@ func (h *ProcessHandler) processPatchHandler(ctx context.Context, logger logr.Lo
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(updatedProcess, h.serverURL)), nil
 }
 
-func (h *ProcessHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(ProcessPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.processGetHandler))
-	router.Path(ProcessSidecarsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.processGetSidecarsHandler))
-	router.Path(ProcessScalePath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.processScaleHandler))
-	router.Path(ProcessStatsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.processGetStatsHandler))
-	router.Path(ProcessesPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.processListHandler))
-	router.Path(ProcessPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.processPatchHandler))
+func (h *ProcessHandler) RegisterRoutes(router *chi.Mux) {
+	router.Get(ProcessPath, h.handlerWrapper.Wrap(h.processGetHandler))
+	router.Get(ProcessSidecarsPath, h.handlerWrapper.Wrap(h.processGetSidecarsHandler))
+	router.Post(ProcessScalePath, h.handlerWrapper.Wrap(h.processScaleHandler))
+	router.Get(ProcessStatsPath, h.handlerWrapper.Wrap(h.processGetStatsHandler))
+	router.Get(ProcessesPath, h.handlerWrapper.Wrap(h.processListHandler))
+	router.Patch(ProcessPath, h.handlerWrapper.Wrap(h.processPatchHandler))
 }

@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -86,8 +86,7 @@ func (h *SpaceHandler) spaceListHandler(ctx context.Context, logger logr.Logger,
 
 //nolint:dupl
 func (h *SpaceHandler) spacePatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	spaceGUID := vars["guid"]
+	spaceGUID := chi.URLParam(r, "guid")
 
 	space, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
@@ -108,8 +107,7 @@ func (h *SpaceHandler) spacePatchHandler(ctx context.Context, logger logr.Logger
 }
 
 func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	spaceGUID := vars["guid"]
+	spaceGUID := chi.URLParam(r, "guid")
 
 	spaceRecord, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
 	if err != nil {
@@ -128,11 +126,11 @@ func (h *SpaceHandler) spaceDeleteHandler(ctx context.Context, logger logr.Logge
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteOperation, h.apiBaseURL)), nil
 }
 
-func (h *SpaceHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(SpacesPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.spaceListHandler))
-	router.Path(SpacesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.spaceCreateHandler))
-	router.Path(SpacePath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.spacePatchHandler))
-	router.Path(SpacePath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.spaceDeleteHandler))
+func (h *SpaceHandler) RegisterRoutes(router *chi.Mux) {
+	router.Get(SpacesPath, h.handlerWrapper.Wrap(h.spaceListHandler))
+	router.Post(SpacesPath, h.handlerWrapper.Wrap(h.spaceCreateHandler))
+	router.Patch(SpacePath, h.handlerWrapper.Wrap(h.spacePatchHandler))
+	router.Delete(SpacePath, h.handlerWrapper.Wrap(h.spaceDeleteHandler))
 }
 
 func parseCommaSeparatedList(list string) []string {

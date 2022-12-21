@@ -12,9 +12,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/correlation"
+	"github.com/go-chi/chi"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -29,7 +29,7 @@ const (
 
 var (
 	rr            *httptest.ResponseRecorder
-	router        *mux.Router
+	router        *chi.Mux
 	serverURL     *url.URL
 	ctx           context.Context
 	authInfo      authorization.Info
@@ -50,7 +50,7 @@ var _ = BeforeEach(func() {
 	correlationID = generateGUID("corrID")
 	ctx = correlation.ContextWithId(authorization.NewContext(context.Background(), &authInfo), correlationID)
 	rr = httptest.NewRecorder()
-	router = mux.NewRouter()
+	router = chi.NewMux()
 
 	var err error
 	serverURL, err = url.Parse(defaultServerURL)

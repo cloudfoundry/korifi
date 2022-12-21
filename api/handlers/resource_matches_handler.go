@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -30,6 +30,6 @@ func (h *ResourceMatchesHandler) resourceMatchesPostHandler(ctx context.Context,
 	}), nil
 }
 
-func (h *ResourceMatchesHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(ResourceMatchesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.resourceMatchesPostHandler))
+func (h *ResourceMatchesHandler) RegisterRoutes(router *chi.Mux) {
+	router.Post(ResourceMatchesPath, h.handlerWrapper.Wrap(h.resourceMatchesPostHandler))
 }

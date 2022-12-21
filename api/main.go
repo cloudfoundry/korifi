@@ -24,8 +24,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 
+	"github.com/go-chi/chi"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/gorilla/mux"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -51,7 +51,7 @@ func init() {
 }
 
 type APIHandler interface {
-	RegisterRoutes(router *mux.Router)
+	RegisterRoutes(router *chi.Mux)
 }
 
 func main() {
@@ -226,6 +226,28 @@ func main() {
 		panic(fmt.Sprintf("could not wire validator: %v", err))
 	}
 
+	router := chi.NewMux()
+
+	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
+	authInfoParser := authorization.NewInfoParser()
+	router.Use(
+		handlers.NewCorrelationIDMiddleware().Middleware,
+		handlers.NewCFCliVersionMiddleware().Middleware,
+		handlers.NewHTTPLogging(ctrl.Log.WithName("http-logger")).Middleware,
+		handlers.NewAuthenticationMiddleware(
+			authInfoParser,
+			cachingIdentityProvider,
+			unauthenticatedEndpoints,
+		).Middleware,
+		handlers.NewCFUserMiddleware(
+			privilegedCRClient,
+			cachingIdentityProvider,
+			config.RootNamespace,
+			cache.NewExpiring(),
+			unauthenticatedEndpoints,
+		).Middleware,
+	)
+
 	apiHandlers := []APIHandler{
 		handlers.NewRootV3Handler(config.ServerURL),
 		handlers.NewRootHandler(
@@ -301,40 +323,33 @@ func main() {
 			decoderValidator,
 			config.GetUserCertificateDuration(),
 		),
-
 		handlers.NewSpaceHandler(
 			*serverURL,
 			spaceRepo,
 			decoderValidator,
 		),
-
 		handlers.NewSpaceManifestHandler(
 			*serverURL,
 			manifest,
 			spaceRepo,
 			decoderValidator,
 		),
-
 		handlers.NewRoleHandler(
 			*serverURL,
 			roleRepo,
 			decoderValidator,
 		),
-
 		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
-
 		handlers.NewBuildpackHandler(
 			*serverURL,
 			buildpackRepo,
 		),
-
 		handlers.NewServiceInstanceHandler(
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
 			decoderValidator,
 		),
-
 		handlers.NewServiceBindingHandler(
 			*serverURL,
 			serviceBindingRepo,
@@ -342,43 +357,19 @@ func main() {
 			serviceInstanceRepo,
 			decoderValidator,
 		),
-
 		handlers.NewTaskHandler(
 			*serverURL,
 			appRepo,
 			taskRepo,
 			decoderValidator,
 		),
-
 		handlers.NewOAuthToken(
 			*serverURL,
 		),
 	}
-
-	router := mux.NewRouter()
 	for _, handler := range apiHandlers {
 		handler.RegisterRoutes(router)
 	}
-
-	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
-	authInfoParser := authorization.NewInfoParser()
-	router.Use(
-		handlers.NewCorrelationIDMiddleware().Middleware,
-		handlers.NewCFCliVersionMiddleware().Middleware,
-		handlers.NewHTTPLogging(ctrl.Log.WithName("http-logger")).Middleware,
-		handlers.NewAuthenticationMiddleware(
-			authInfoParser,
-			cachingIdentityProvider,
-			unauthenticatedEndpoints,
-		).Middleware,
-		handlers.NewCFUserMiddleware(
-			privilegedCRClient,
-			cachingIdentityProvider,
-			config.RootNamespace,
-			cache.NewExpiring(),
-			unauthenticatedEndpoints,
-		).Middleware,
-	)
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)
 	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")

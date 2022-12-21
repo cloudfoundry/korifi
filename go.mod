@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.17.25
 	github.com/buildpacks/pack v0.28.0
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
+	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
 	github.com/go-logr/logr v1.2.3
 	github.com/go-playground/locales v0.14.0
@@ -21,7 +22,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-containerregistry v0.12.1
 	github.com/google/uuid v1.3.0
-	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/mileusna/useragent v1.2.1
