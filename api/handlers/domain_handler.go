@@ -11,8 +11,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -73,8 +73,7 @@ func (h *DomainHandler) domainCreateHandler(ctx context.Context, logger logr.Log
 }
 
 func (h *DomainHandler) domainGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	domainGUID := vars["guid"]
+	domainGUID := chi.URLParam(r, "guid")
 
 	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
 	if err != nil {
@@ -85,8 +84,7 @@ func (h *DomainHandler) domainGetHandler(ctx context.Context, logger logr.Logger
 }
 
 func (h *DomainHandler) domainUpdateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	domainGUID := vars["guid"]
+	domainGUID := chi.URLParam(r, "guid")
 
 	var payload payloads.DomainUpdate
 	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -126,8 +124,7 @@ func (h *DomainHandler) domainListHandler(ctx context.Context, logger logr.Logge
 }
 
 func (h *DomainHandler) domainDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	domainGUID := vars["guid"]
+	domainGUID := chi.URLParam(r, "guid")
 
 	err := h.domainRepo.DeleteDomain(ctx, authInfo, domainGUID)
 	if err != nil {
@@ -140,10 +137,10 @@ func (h *DomainHandler) domainDeleteHandler(ctx context.Context, logger logr.Log
 	), nil
 }
 
-func (h *DomainHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(DomainsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.domainCreateHandler))
-	router.Path(DomainPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.domainGetHandler))
-	router.Path(DomainPath).Methods("PATCH").HandlerFunc(h.handlerWrapper.Wrap(h.domainUpdateHandler))
-	router.Path(DomainsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.domainListHandler))
-	router.Path(DomainPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.domainDeleteHandler))
+func (h *DomainHandler) RegisterRoutes(router *chi.Mux) {
+	router.Post(DomainsPath, h.handlerWrapper.Wrap(h.domainCreateHandler))
+	router.Get(DomainPath, h.handlerWrapper.Wrap(h.domainGetHandler))
+	router.Patch(DomainPath, h.handlerWrapper.Wrap(h.domainUpdateHandler))
+	router.Get(DomainsPath, h.handlerWrapper.Wrap(h.domainListHandler))
+	router.Delete(DomainPath, h.handlerWrapper.Wrap(h.domainDeleteHandler))
 }

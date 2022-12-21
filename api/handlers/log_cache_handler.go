@@ -11,9 +11,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -78,8 +78,7 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 		)
 	}
 
-	vars := mux.Vars(r)
-	appGUID := vars["guid"]
+	appGUID := chi.URLParam(r, "guid")
 
 	var logs []repositories.LogRecord
 	logs, err = h.appLogsReader.Read(ctx, logger, authInfo, appGUID, *logReadPayload)
@@ -90,7 +89,7 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForLogs(logs)), nil
 }
 
-func (h *LogCacheHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(LogCacheInfoPath).Methods("GET").HandlerFunc(h.unauthenticatedHandlerWrapper.Wrap(h.logCacheInfoHandler))
-	router.Path(LogCacheReadPath).Methods("GET").HandlerFunc(h.authenticatedHandlerWrapper.Wrap(h.logCacheReadHandler))
+func (h *LogCacheHandler) RegisterRoutes(router *chi.Mux) {
+	router.Get(LogCacheInfoPath, h.unauthenticatedHandlerWrapper.Wrap(h.logCacheInfoHandler))
+	router.Get(LogCacheReadPath, h.authenticatedHandlerWrapper.Wrap(h.logCacheReadHandler))
 }

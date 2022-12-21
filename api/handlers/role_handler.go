@@ -10,9 +10,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -75,6 +75,6 @@ func (h *RoleHandler) roleCreateHandler(ctx context.Context, logger logr.Logger,
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateRole(record, h.apiBaseURL)), nil
 }
 
-func (h *RoleHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(RolesPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.roleCreateHandler))
+func (h *RoleHandler) RegisterRoutes(router *chi.Mux) {
+	router.Post(RolesPath, h.handlerWrapper.Wrap(h.roleCreateHandler))
 }

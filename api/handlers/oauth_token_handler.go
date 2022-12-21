@@ -8,9 +8,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/golang-jwt/jwt"
-	"github.com/gorilla/mux"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -48,6 +48,6 @@ func (h *OAuthTokenHandler) oauthTokenHandler(ctx context.Context, logger logr.L
 	}), nil
 }
 
-func (h *OAuthTokenHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(OAuthTokenPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.oauthTokenHandler))
+func (h *OAuthTokenHandler) RegisterRoutes(router *chi.Mux) {
+	router.Post(OAuthTokenPath, h.handlerWrapper.Wrap(h.oauthTokenHandler))
 }

@@ -6,8 +6,8 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -31,6 +31,6 @@ func (h *RootHandler) rootGetHandler(ctx context.Context, logger logr.Logger, _ 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.GetRootResponse(h.serverURL)), nil
 }
 
-func (h *RootHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(RootPath).Methods("GET").HandlerFunc(h.unauthenticatedHandlerWrapper.Wrap(h.rootGetHandler))
+func (h *RootHandler) RegisterRoutes(router *chi.Mux) {
+	router.Get(RootPath, h.unauthenticatedHandlerWrapper.Wrap(h.rootGetHandler))
 }

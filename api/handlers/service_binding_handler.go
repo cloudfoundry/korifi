@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
@@ -83,8 +83,7 @@ func (h *ServiceBindingHandler) createHandler(ctx context.Context, logger logr.L
 }
 
 func (h *ServiceBindingHandler) deleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	vars := mux.Vars(r)
-	serviceBindingGUID := vars["guid"]
+	serviceBindingGUID := chi.URLParam(r, "guid")
 
 	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
 	if err != nil {
@@ -127,8 +126,8 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceBindingHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(ServiceBindingsPath).Methods("POST").HandlerFunc(h.handlerWrapper.Wrap(h.createHandler))
-	router.Path(ServiceBindingsPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.listHandler))
-	router.Path(ServiceBindingPath).Methods("DELETE").HandlerFunc(h.handlerWrapper.Wrap(h.deleteHandler))
+func (h *ServiceBindingHandler) RegisterRoutes(router *chi.Mux) {
+	router.Post(ServiceBindingsPath, h.handlerWrapper.Wrap(h.createHandler))
+	router.Get(ServiceBindingsPath, h.handlerWrapper.Wrap(h.listHandler))
+	router.Delete(ServiceBindingPath, h.handlerWrapper.Wrap(h.deleteHandler))
 }

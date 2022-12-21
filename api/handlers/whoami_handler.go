@@ -8,8 +8,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	"github.com/gorilla/mux"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -46,6 +46,6 @@ func (h *WhoAmIHandler) whoAmIHandler(ctx context.Context, logger logr.Logger, a
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForWhoAmI(identity)), nil
 }
 
-func (h *WhoAmIHandler) RegisterRoutes(router *mux.Router) {
-	router.Path(WhoAmIPath).Methods("GET").HandlerFunc(h.handlerWrapper.Wrap(h.whoAmIHandler))
+func (h *WhoAmIHandler) RegisterRoutes(router *chi.Mux) {
+	router.Get(WhoAmIPath, h.handlerWrapper.Wrap(h.whoAmIHandler))
 }
