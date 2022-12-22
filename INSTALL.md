@@ -7,28 +7,28 @@ The following lines will guide you through the process of deploying a [released 
 
 ## Prerequisites
 
-- Tools:
-  - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl);
-  - [cf](https://docs.cloudfoundry.org/cf-cli/install-go-cli.html) CLI version 8.5 or greater;
-  - [Helm](https://helm.sh/docs/intro/install/).
-- Resources:
-  - Kubernetes cluster of one of the [upstream releases](https://kubernetes.io/releases/);
-  - Container Registry on which you have write permissions.
+-   Tools:
+    -   [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl);
+    -   [cf](https://docs.cloudfoundry.org/cf-cli/install-go-cli.html) CLI version 8.5 or greater;
+    -   [Helm](https://helm.sh/docs/intro/install/).
+-   Resources:
+    -   Kubernetes cluster of one of the [upstream releases](https://kubernetes.io/releases/);
+    -   Container Registry on which you have write permissions.
 
 This document was tested on:
 
-- [EKS](https://aws.amazon.com/eks/), using AWS' [Elastic Container Registry (ECR)](https://aws.amazon.com/ecr/) (see [_Install Korifi on EKS_](./INSTALL.EKS.md));
-- [GKE](https://cloud.google.com/kubernetes-engine), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
-- [kind](https://kind.sigs.k8s.io/), using [DockerHub](https://hub.docker.com/) (see [_Install Korifi on kind_](./INSTALL.kind.md)).
+-   [EKS](https://aws.amazon.com/eks/), using AWS' [Elastic Container Registry (ECR)](https://aws.amazon.com/ecr/) (see [_Install Korifi on EKS_](./INSTALL.EKS.md));
+-   [GKE](https://cloud.google.com/kubernetes-engine), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
+-   [kind](https://kind.sigs.k8s.io/), using [DockerHub](https://hub.docker.com/) (see [_Install Korifi on kind_](./INSTALL.kind.md)).
 
 ## Initial setup
 
 The following environment variables will be needed throughout this guide:
 
-- `ROOT_NAMESPACE`: the namespace at the root of the Korifi org and space hierarchy. The default value is `cf`.
-- `KORIFI_NAMESPACE`: the namespace in which Korifi will be installed.
-- `ADMIN_USERNAME`: the name of the Kubernetes user who will have CF admin privileges on the Korifi installation. For security reasons, you should choose or create a user that is different from your cluster admin user. To provision new users, follow the user management instructions specific for your cluster's [authentication configuration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) or create a [new (short-lived) client certificate for user authentication](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user).
-- `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
+-   `ROOT_NAMESPACE`: the namespace at the root of the Korifi org and space hierarchy. The default value is `cf`.
+-   `KORIFI_NAMESPACE`: the namespace in which Korifi will be installed.
+-   `ADMIN_USERNAME`: the name of the Kubernetes user who will have CF admin privileges on the Korifi installation. For security reasons, you should choose or create a user that is different from your cluster admin user. To provision new users, follow the user management instructions specific for your cluster's [authentication configuration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) or create a [new (short-lived) client certificate for user authentication](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user).
+-   `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
 
 Here are the example values we'll use in this guide:
 
@@ -38,10 +38,6 @@ KORIFI_NAMESPACE="korifi"
 ADMIN_USERNAME="cf-admin"
 BASE_DOMAIN="korifi.example.org"
 ```
-
-### Registries with Custom CA
-
-See [_Using container registry signed by custom CA_](docs/using-container-registry-signed-by-custom-ca.md).
 
 ### Free Dockerhub accounts
 
@@ -116,14 +112,40 @@ kubectl --namespace "$ROOT_NAMESPACE" create secret docker-registry image-regist
 
 Make sure the value of `--docker-server` is a valid [URI authority](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2).
 
-- If using **DockerHub**:
-  - `--docker-server` should be `https://index.docker.io/v1/`;
-  - `--docker-username` should be your DockerHub user;
-  - `--docker-password` can be either your DockerHub password or a [generated personal access token](https://hub.docker.com/settings/security?generateToken=true).
-- If using **GCR**:
-  - `--docker-server` should be `gcr.io`;
-  - `--docker-username` should be `_json_key`;
-  - `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
+-   If using **DockerHub**:
+    -   `--docker-server` should be `https://index.docker.io/v1/`;
+    -   `--docker-username` should be your DockerHub user;
+    -   `--docker-password` can be either your DockerHub password or a [generated personal access token](https://hub.docker.com/settings/security?generateToken=true).
+-   If using **GCR**:
+    -   `--docker-server` should be `gcr.io`;
+    -   `--docker-username` should be `_json_key`;
+    -   `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
+
+### TLS certificates
+
+Self-signed TLS certificates are generated automatically by the installation if `global.generateIngressCertificates` has been set to `true`.
+
+If you want to generate certificates yourself, you should not set the `global.generateIngressCertificates` value, and instead provide your certificates to Korifi by creating two TLS secrets in `$KORIFI_NAMESPACE`:
+
+1. `korifi-api-ingress-cert`;
+1. `korifi-workloads-ingress-cert`.
+
+### Container registry Certificate Authority
+
+Korifi can be configured to use a custom Certificate Authority when contacting the container registry. To do so, first create a `Secret` containing the CA certificate:
+
+```sh
+kubectl --namespace "$KORIFI_NAMESPACE" create secret generic <registry-ca-secret-name> \
+    --from-file=ca.crt=</path/to/ca-certificate>
+```
+
+You can then specify the `<registry-ca-secret-name>` using the `global.containerRegistryCACertSecret`.
+
+> **Warning**
+> Kpack does not support self-signed/internal CA configuration out of the box (see [pivotal/kpack#207](https://github.com/pivotal/kpack/issues/207)).
+> In order to make Kpack trust your CA certificate, you will have to inject it in both the Kpack controller and the Kpack build pods.
+> * The [`kpack-controller` `Deployment`](https://github.com/pivotal/kpack/blob/main/config/controller.yaml) can be modified to mount a `Secret` similar to the one created above: see the [Korifi API `Deployment`](https://github.com/cloudfoundry/korifi/blob/registry-ca/helm/api/templates/deployment.yaml) for an example of how to do this.
+> * For the build pods you can use the [cert-injection-webhook](https://github.com/vmware-tanzu/cert-injection-webhook), configured on the `kpack.io/build` label.
 
 ## Install Korifi
 
@@ -147,13 +169,13 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
 In particular, the app GUID and image type (`packages` or `droplets`) are appended to form the name of the repository.
 For example:
 
-| Registry  | containerRepositoryPrefix                                    | Resultant Image Ref                                                             | Notes                                                                                                    |
-| --------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| ACR       | \<projectID>.azurecr.io/foo/bar/korifi-                      | \<projectID>.azurecr.io/foo/bar/korifi-\<appGUID>-packages                      | Repositories are created dynamically during push by ACR                                                  |
-| DockerHub | index.docker.io/\<dockerOrganisation>/                       | index.docker.io/\<dockerOrganisation>/\<appGUID>-packages                       | Docker does not support nested repositories                                                              |
-| ECR       | \<projectID>.dkr.ecr.\<region>.amazonaws.com/foo/bar/korifi- | \<projectID>.dkr.ecr.\<region>.amazonaws.com/foo/bar/korifi-\<appGUID>-packages | Korifi will create the repository before pushing, as dynamic repository creation is not posssible on ECR |
-| GAR       | \<region>-docker.pkg.dev/\<projectID>/foo/bar/korifi-        | \<region>-docker.pkg.dev/\<projectID>/foo/bar/korifi-\<appGUID>-packages        | The `foo` repository must already exist in GAR                                                           |
-| GCR       | gcr.io/\<projectID>/foo/bar/korifi-                          | gcr.io/\<projectID>/foo/bar/korifi-\<appGUID>-packages                          | Repositories are created dynamically during push by GCR                                                  |
+| Registry  | containerRepositoryPrefix                                    | Resultant Image Ref                                                            | Notes                                                                                                    |
+| --------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| ACR       | `<projectID>.azurecr.io/foo/bar/korifi-`                     | `<projectID>.azurecr.io/foo/bar/korifi-<appGUID>-packages`                     | Repositories are created dynamically during push by ACR                                                  |
+| DockerHub | `index.docker.io/<dockerOrganisation>/`                      | `index.docker.io/<dockerOrganisation>/<appGUID>-packages`                      | Docker does not support nested repositories                                                              |
+| ECR       | `<projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-` | `<projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-<appGUID>-packages` | Korifi will create the repository before pushing, as dynamic repository creation is not posssible on ECR |
+| GAR       | `<region>-docker.pkg.dev/<projectID>/foo/bar/korifi-`        | `<region>-docker.pkg.dev/<projectID>/foo/bar/korifi-<appGUID>-packages`        | The `foo` repository must already exist in GAR                                                           |
+| GCR       | `gcr.io/<projectID>/foo/bar/korifi-`                         | `gcr.io/<projectID>/foo/bar/korifi-<appGUID>-packages`                         | Repositories are created dynamically during push by GCR                                                  |
 
 The chart provides various other values that can be set. See [`README.helm.md`](./README.helm.md) for details.
 
@@ -161,26 +183,17 @@ The chart provides various other values that can be set. See [`README.helm.md`](
 
 If you are using an authentication proxy with your cluster to enable SSO, you must set the following chart values:
 
-- `api.authProxy.host`: IP address of your cluster's auth proxy;
-- `api.authProxy.caCert`: CA certificate of your cluster's auth proxy.
+-   `api.authProxy.host`: IP address of your cluster's auth proxy;
+-   `api.authProxy.caCert`: CA certificate of your cluster's auth proxy.
 
 ## Post-install Configuration
-
-### TLS certificates
-
-Self-signed TLS certificates are generated automatically by the installation if `global.generateIngressCertificates` has been set to `true`.
-
-If you want to generate certificates yourself, you should not set the `global.generateIngressCertificates` value, and instead provide your certificates to Korifi by creating two TLS secrets in `$KORIFI_NAMESPACE`:
-
-1. `korifi-api-ingress-cert`;
-1. `korifi-workloads-ingress-cert`.
 
 ### DNS
 
 Create DNS entries for the Korifi API and for the apps running on Korifi. They should match the Helm values used to [deploy Korifi](#deploy-korifi):
 
-- The Korifi API entry should match the `api.apiServer.url` value. In our example, that would be `api.korifi.example.org`.
-- The apps entry should be a wildcard matching the `global.defaultAppDomainName` value. In our example, `*.apps.korifi.example.org`.
+-   The Korifi API entry should match the `api.apiServer.url` value. In our example, that would be `api.korifi.example.org`.
+-   The apps entry should be a wildcard matching the `global.defaultAppDomainName` value. In our example, `*.apps.korifi.example.org`.
 
 The DNS entries should point to the load balancer endpoint created by Contour when installed. To discover your endpoint, run:
 
