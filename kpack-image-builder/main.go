@@ -125,8 +125,8 @@ func main() {
 		controllerConfig,
 		controllers.NewRegistryAuthFetcher(k8sClient, controllerConfig.BuilderServiceAccount),
 		cfBuildImageProcessFetcher.Fetch,
-		registry.NewContainerRegistryMeta(controllerConfig.ContainerRepositoryPrefix),
-		registry.NewRegistryCreator(controllerConfig.ContainerRegistryType),
+		controllerConfig.ContainerRepositoryPrefix,
+		registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")
 		os.Exit(1)

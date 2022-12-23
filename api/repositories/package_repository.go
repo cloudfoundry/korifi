@@ -9,7 +9,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"code.cloudfoundry.org/korifi/tools/registry"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -29,11 +28,11 @@ const (
 )
 
 type PackageRepo struct {
-	userClientFactory     authorization.UserK8sClientFactory
-	namespaceRetriever    NamespaceRetriever
-	namespacePermissions  *authorization.NamespacePermissions
-	repositoryCreator     RepositoryCreator
-	containerRegistryMeta *registry.ContainerRegistryMeta
+	userClientFactory    authorization.UserK8sClientFactory
+	namespaceRetriever   NamespaceRetriever
+	namespacePermissions *authorization.NamespacePermissions
+	repositoryCreator    RepositoryCreator
+	repositoryPrefix     string
 }
 
 func NewPackageRepo(
@@ -41,14 +40,14 @@ func NewPackageRepo(
 	namespaceRetriever NamespaceRetriever,
 	authPerms *authorization.NamespacePermissions,
 	repositoryCreator RepositoryCreator,
-	containerRegistryMeta *registry.ContainerRegistryMeta,
+	repositoryPrefix string,
 ) *PackageRepo {
 	return &PackageRepo{
-		userClientFactory:     userClientFactory,
-		namespaceRetriever:    namespaceRetriever,
-		namespacePermissions:  authPerms,
-		repositoryCreator:     repositoryCreator,
-		containerRegistryMeta: containerRegistryMeta,
+		userClientFactory:    userClientFactory,
+		namespaceRetriever:   namespaceRetriever,
+		namespacePermissions: authPerms,
+		repositoryCreator:    repositoryCreator,
+		repositoryPrefix:     repositoryPrefix,
 	}
 }
 
@@ -128,7 +127,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
 	}
 
-	err = r.repositoryCreator.CreateRepository(ctx, r.containerRegistryMeta.PackageRepoPath(message.AppGUID))
+	err = r.repositoryCreator.CreateRepository(ctx, r.repositoryRef(message.AppGUID))
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to create package repository: %w", err)
 	}
@@ -303,7 +302,7 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage korifiv1alpha1.CFPackag
 		UpdatedAt:   updatedAtTime,
 		Labels:      cfPackage.Labels,
 		Annotations: cfPackage.Annotations,
-		ImageRef:    r.containerRegistryMeta.PackageRepoName(cfPackage.Spec.AppRef.Name),
+		ImageRef:    r.repositoryRef(cfPackage.Spec.AppRef.Name),
 	}
 }
 
@@ -314,4 +313,8 @@ func (r *PackageRepo) convertToPackageRecords(packages []korifiv1alpha1.CFPackag
 		packageRecords = append(packageRecords, r.cfPackageToPackageRecord(currentPackage))
 	}
 	return packageRecords
+}
+
+func (r *PackageRepo) repositoryRef(appGUID string) string {
+	return r.repositoryPrefix + appGUID + "-packages"
 }

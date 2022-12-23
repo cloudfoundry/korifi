@@ -25,7 +25,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"code.cloudfoundry.org/korifi/tools/registry"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
@@ -91,32 +90,32 @@ func NewBuildWorkloadReconciler(
 	config *config.ControllerConfig,
 	registryAuthFetcher RegistryAuthFetcher,
 	imageProcessFetcher ImageProcessFetcher,
-	containerRegistryMeta *registry.ContainerRegistryMeta,
+	imageRepoPrefix string,
 	imageRepoCreator RepositoryCreator,
 ) *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload] {
 	buildWorkloadReconciler := BuildWorkloadReconciler{
-		k8sClient:             c,
-		scheme:                scheme,
-		log:                   log,
-		controllerConfig:      config,
-		registryAuthFetcher:   registryAuthFetcher,
-		imageProcessFetcher:   imageProcessFetcher,
-		containerRegistryMeta: containerRegistryMeta,
-		imageRepoCreator:      imageRepoCreator,
+		k8sClient:           c,
+		scheme:              scheme,
+		log:                 log,
+		controllerConfig:    config,
+		registryAuthFetcher: registryAuthFetcher,
+		imageProcessFetcher: imageProcessFetcher,
+		imageRepoPrefix:     imageRepoPrefix,
+		imageRepoCreator:    imageRepoCreator,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload](log, c, &buildWorkloadReconciler)
 }
 
 // BuildWorkloadReconciler reconciles a BuildWorkload object
 type BuildWorkloadReconciler struct {
-	k8sClient             client.Client
-	scheme                *runtime.Scheme
-	log                   logr.Logger
-	controllerConfig      *config.ControllerConfig
-	registryAuthFetcher   RegistryAuthFetcher
-	imageProcessFetcher   ImageProcessFetcher
-	containerRegistryMeta *registry.ContainerRegistryMeta
-	imageRepoCreator      RepositoryCreator
+	k8sClient           client.Client
+	scheme              *runtime.Scheme
+	log                 logr.Logger
+	controllerConfig    *config.ControllerConfig
+	registryAuthFetcher RegistryAuthFetcher
+	imageProcessFetcher ImageProcessFetcher
+	imageRepoPrefix     string
+	imageRepoCreator    RepositoryCreator
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;patch;delete
@@ -216,7 +215,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
 	kpackImageName := buildWorkload.Name
 	kpackImageNamespace := buildWorkload.Namespace
-	kpackImageTag := r.containerRegistryMeta.DropletRepoName(appGUID)
+	kpackImageTag := r.repositoryRef(appGUID)
 	desiredKpackImage := buildv1alpha2.Image{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kpackImageName,
@@ -272,7 +271,7 @@ func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Contex
 	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(&desiredKpackImage), &foundKpackImage)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if err = r.imageRepoCreator.CreateRepository(ctx, r.containerRegistryMeta.DropletRepoPath(appGUID)); err != nil {
+			if err = r.imageRepoCreator.CreateRepository(ctx, r.repositoryRef(appGUID)); err != nil {
 				r.log.Error(err, "failed to create image repository")
 				return err
 			}
@@ -335,6 +334,10 @@ func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Bu
 				return requests
 			})).
 		WithEventFilter(predicate.NewPredicateFuncs(filterBuildWorkloads))
+}
+
+func (r *BuildWorkloadReconciler) repositoryRef(appGUID string) string {
+	return r.imageRepoPrefix + appGUID + "-droplets"
 }
 
 func filterBuildWorkloads(object client.Object) bool {

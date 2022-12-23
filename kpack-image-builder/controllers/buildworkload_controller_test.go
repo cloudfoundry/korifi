@@ -117,7 +117,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(imageRepoCreator.CreateRepositoryCallCount()).ToNot(BeZero())
 				_, repoName := imageRepoCreator.CreateRepositoryArgsForCall(0)
-				g.Expect(repoName).To(Equal("my-prefix/app-guid-droplets"))
+				g.Expect(repoName).To(Equal("my.repository/my-prefix/app-guid-droplets"))
 			}).Should(Succeed())
 		})
 
