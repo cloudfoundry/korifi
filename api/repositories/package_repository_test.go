@@ -12,7 +12,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/registry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,7 +39,7 @@ var _ = Describe("PackageRepository", func() {
 			namespaceRetriever,
 			nsPerms,
 			repoCreator,
-			registry.NewContainerRegistryMeta("container.registry/foo/my/prefix-"),
+			"container.registry/foo/my/prefix-",
 		)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
@@ -118,7 +117,7 @@ var _ = Describe("PackageRepository", func() {
 			It("creates a package repository", func() {
 				Expect(repoCreator.CreateRepositoryCallCount()).To(Equal(1))
 				_, repoName := repoCreator.CreateRepositoryArgsForCall(0)
-				Expect(repoName).To(Equal("foo/my/prefix-" + appGUID + "-packages"))
+				Expect(repoName).To(Equal("container.registry/foo/my/prefix-" + appGUID + "-packages"))
 			})
 
 			When("repo creation errors", func() {

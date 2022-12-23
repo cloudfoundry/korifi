@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"code.cloudfoundry.org/korifi/tools"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -34,27 +35,29 @@ func createECRClient() *ecr.Client {
 	return ecr.NewFromConfig(awsConfig)
 }
 
-func NewRegistryCreator(registryType string) RepositoryCreator {
+func NewRepositoryCreator(registryType string) RepositoryCreator {
 	if registryType == ECRContainerRegistryType {
-		return NewECRRegistryCreator(createECRClient())
+		return NewECRRepositoryCreator(createECRClient())
 	}
 
-	return NoopRegistryCreator{}
+	return NoopRepositoryCreator{}
 }
 
-type ECRRegistryCreator struct {
+type ECRRepositoryCreator struct {
 	ecrClient ECRClient
 }
 
-func NewECRRegistryCreator(ecrClient ECRClient) ECRRegistryCreator {
-	return ECRRegistryCreator{
+func NewECRRepositoryCreator(ecrClient ECRClient) ECRRepositoryCreator {
+	return ECRRepositoryCreator{
 		ecrClient: ecrClient,
 	}
 }
 
-func (c ECRRegistryCreator) CreateRepository(ctx context.Context, name string) error {
+func (c ECRRepositoryCreator) CreateRepository(ctx context.Context, ref string) error {
+	_, path, _ := strings.Cut(ref, "/")
+
 	_, err := c.ecrClient.CreateRepository(ctx, &ecr.CreateRepositoryInput{
-		RepositoryName: tools.PtrTo(name),
+		RepositoryName: tools.PtrTo(path),
 	})
 	if err != nil {
 		var alreadyExists *types.RepositoryAlreadyExistsException
@@ -66,8 +69,8 @@ func (c ECRRegistryCreator) CreateRepository(ctx context.Context, name string) e
 	return err
 }
 
-type NoopRegistryCreator struct{}
+type NoopRepositoryCreator struct{}
 
-func (c NoopRegistryCreator) CreateRepository(_ context.Context, _ string) error {
+func (c NoopRepositoryCreator) CreateRepository(_ context.Context, _ string) error {
 	return nil
 }

@@ -28,11 +28,11 @@ var _ = Describe("ECR Repository Creator", func() {
 				RepositoryUri: tools.PtrTo("repo-uri"),
 			},
 		}, nil)
-		creator = registry.NewECRRegistryCreator(ecrClient)
+		creator = registry.NewECRRepositoryCreator(ecrClient)
 	})
 
 	JustBeforeEach(func() {
-		createErr = creator.CreateRepository(context.Background(), "my-repo")
+		createErr = creator.CreateRepository(context.Background(), "my.registry/my-repo")
 	})
 
 	It("succeeds", func() {

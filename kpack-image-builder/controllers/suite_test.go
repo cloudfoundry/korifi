@@ -41,7 +41,6 @@ import (
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"code.cloudfoundry.org/korifi/tools/registry"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -129,7 +128,7 @@ var _ = BeforeSuite(func() {
 		controllerConfig,
 		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient, controllerConfig.BuilderServiceAccount),
 		fakeImageProcessFetcherInfocation,
-		registry.NewContainerRegistryMeta("my.repository/my-prefix/"),
+		"my.repository/my-prefix/",
 		imageRepoCreator,
 	)
 	err = (buildWorkloadReconciler).SetupWithManager(k8sManager)
