@@ -8,14 +8,20 @@ import (
 )
 
 type Handler interface {
-	AuthenticatedRoutes() []Route
+	AuthenticatedRoutes() []AuthRoute
 	UnauthenticatedRoutes() []Route
 }
 
 type Route struct {
 	Method      string
 	Pattern     string
-	HandlerFunc AuthAwareHandlerFunc
+	HandlerFunc HandlerFunc
+}
+
+type AuthRoute struct {
+	Method      string
+	Pattern     string
+	HandlerFunc AuthHandlerFunc
 }
 
 type Router struct {
@@ -24,7 +30,7 @@ type Router struct {
 	authInner chi.Router
 }
 
-func NewRouter(logger logr.Logger) *Router {
+func NewRouterBuilder(logger logr.Logger) *Router {
 	mux := chi.NewMux()
 	return &Router{
 		logger: logger,

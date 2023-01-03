@@ -172,8 +172,8 @@ func (h *ProcessHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *ProcessHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *ProcessHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: ProcessPath, HandlerFunc: h.processGetHandler},
 		{Method: "GET", Pattern: ProcessSidecarsPath, HandlerFunc: h.processGetSidecarsHandler},
 		{Method: "POST", Pattern: ProcessScalePath, HandlerFunc: h.processScaleHandler},

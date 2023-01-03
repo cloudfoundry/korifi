@@ -46,8 +46,8 @@ func (h *WhoAmIHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *WhoAmIHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *WhoAmIHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: WhoAmIPath, HandlerFunc: h.whoAmIHandler},
 	}
 }

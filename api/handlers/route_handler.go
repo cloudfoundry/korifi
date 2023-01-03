@@ -215,8 +215,8 @@ func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logge
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
 }
 
-func (h *RouteHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *RouteHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: RoutePath, HandlerFunc: h.routeGetHandler},
 		{Method: "GET", Pattern: RoutesPath, HandlerFunc: h.routeGetListHandler},
 		{Method: "GET", Pattern: RouteDestinationsPath, HandlerFunc: h.routeGetDestinationsHandler},

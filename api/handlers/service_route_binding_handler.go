@@ -31,8 +31,8 @@ func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(ctx context
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceRouteBindingHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *ServiceRouteBindingHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: ServiceRouteBindingsPath, HandlerFunc: h.serviceRouteBindingsListHandler},
 	}
 }

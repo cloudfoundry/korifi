@@ -24,8 +24,8 @@ func (h *ResourceMatchesHandler) resourceMatchesPostHandler(ctx context.Context,
 	}), nil
 }
 
-func (h *ResourceMatchesHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *ResourceMatchesHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "POST", Pattern: ResourceMatchesPath, HandlerFunc: h.resourceMatchesPostHandler},
 	}
 }

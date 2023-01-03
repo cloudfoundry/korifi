@@ -71,8 +71,8 @@ func (h *JobHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *JobHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *JobHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: JobPath, HandlerFunc: h.jobGetHandler},
 	}
 }

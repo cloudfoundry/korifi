@@ -126,8 +126,8 @@ func (h *ServiceBindingHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *ServiceBindingHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *ServiceBindingHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "POST", Pattern: ServiceBindingsPath, HandlerFunc: h.createHandler},
 		{Method: "GET", Pattern: ServiceBindingsPath, HandlerFunc: h.listHandler},
 		{Method: "DELETE", Pattern: ServiceBindingPath, HandlerFunc: h.deleteHandler},

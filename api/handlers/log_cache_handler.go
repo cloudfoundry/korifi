@@ -45,7 +45,7 @@ func NewLogCacheHandler(
 	}
 }
 
-func (h *LogCacheHandler) logCacheInfoHandler(ctx context.Context, logger logr.Logger, _ authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *LogCacheHandler) logCacheInfoHandler(ctx context.Context, logger logr.Logger, r *http.Request) (*HandlerResponse, error) {
 	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
 		"version":   logCacheVersion,
 		"vm_uptime": "0",
@@ -83,8 +83,8 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForLogs(logs)), nil
 }
 
-func (h *LogCacheHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *LogCacheHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: LogCacheReadPath, HandlerFunc: h.logCacheReadHandler},
 	}
 }

@@ -137,8 +137,8 @@ func (h *DomainHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *DomainHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *DomainHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "POST", Pattern: DomainsPath, HandlerFunc: h.domainCreateHandler},
 		{Method: "GET", Pattern: DomainPath, HandlerFunc: h.domainGetHandler},
 		{Method: "PATCH", Pattern: DomainPath, HandlerFunc: h.domainUpdateHandler},

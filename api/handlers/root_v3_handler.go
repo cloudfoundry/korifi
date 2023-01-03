@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	"github.com/go-logr/logr"
 )
 
@@ -22,7 +21,7 @@ func NewRootV3Handler(serverURL string) *RootV3Handler {
 	}
 }
 
-func (h *RootV3Handler) rootV3GetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RootV3Handler) rootV3GetHandler(ctx context.Context, logger logr.Logger, r *http.Request) (*HandlerResponse, error) {
 	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
 		"links": map[string]interface{}{
 			"self": map[string]interface{}{
@@ -32,8 +31,8 @@ func (h *RootV3Handler) rootV3GetHandler(ctx context.Context, logger logr.Logger
 	}), nil
 }
 
-func (h *RootV3Handler) AuthenticatedRoutes() []Route {
-	return []Route{}
+func (h *RootV3Handler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{}
 }
 
 func (h *RootV3Handler) UnauthenticatedRoutes() []Route {

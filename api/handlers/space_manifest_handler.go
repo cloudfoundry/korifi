@@ -59,8 +59,8 @@ func (h *SpaceManifestHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *SpaceManifestHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *SpaceManifestHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "POST", Pattern: SpaceManifestApplyPath, HandlerFunc: h.applyManifestHandler},
 		{Method: "POST", Pattern: SpaceManifestDiffPath, HandlerFunc: h.diffManifestHandler},
 	}

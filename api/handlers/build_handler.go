@@ -107,8 +107,8 @@ func (h *BuildHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *BuildHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *BuildHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: BuildPath, HandlerFunc: h.buildGetHandler},
 		{Method: "POST", Pattern: BuildsPath, HandlerFunc: h.buildCreateHandler},
 	}

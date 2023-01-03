@@ -75,8 +75,8 @@ func (h *RoleHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *RoleHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *RoleHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "POST", Pattern: RolesPath, HandlerFunc: h.roleCreateHandler},
 	}
 }

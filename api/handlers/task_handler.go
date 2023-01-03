@@ -149,8 +149,8 @@ func (h *TaskHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *TaskHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *TaskHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: TaskPath, HandlerFunc: h.taskGetHandler},
 		{Method: "GET", Pattern: TaskRoot, HandlerFunc: h.taskListHandler},
 		{Method: "POST", Pattern: TasksPath, HandlerFunc: h.taskCreateHandler},

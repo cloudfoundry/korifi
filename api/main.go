@@ -332,7 +332,7 @@ func main() {
 		),
 	}
 
-	router := handlers.NewRouter(ctrl.Log)
+	router := handlers.NewRouterBuilder(ctrl.Log)
 
 	router.UseCommonMiddleware(
 		handlers.NewCorrelationIDMiddleware().Middleware,

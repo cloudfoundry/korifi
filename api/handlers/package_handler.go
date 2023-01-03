@@ -216,8 +216,8 @@ func (h *PackageHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *PackageHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *PackageHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: PackagePath, HandlerFunc: h.packageGetHandler},
 		{Method: "PATCH", Pattern: PackagePath, HandlerFunc: h.packageUpdateHandler},
 		{Method: "GET", Pattern: PackagesPath, HandlerFunc: h.packageListHandler},

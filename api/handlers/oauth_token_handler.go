@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
-
 	"github.com/go-logr/logr"
 	"github.com/golang-jwt/jwt"
 )
@@ -26,7 +24,7 @@ func NewOAuthToken(apiBaseURL url.URL) *OAuthTokenHandler {
 	}
 }
 
-func (h *OAuthTokenHandler) oauthTokenHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *OAuthTokenHandler) oauthTokenHandler(ctx context.Context, logger logr.Logger, r *http.Request) (*HandlerResponse, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})
@@ -49,6 +47,6 @@ func (h *OAuthTokenHandler) UnauthenticatedRoutes() []Route {
 	}
 }
 
-func (h *OAuthTokenHandler) AuthenticatedRoutes() []Route {
-	return []Route{}
+func (h *OAuthTokenHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{}
 }

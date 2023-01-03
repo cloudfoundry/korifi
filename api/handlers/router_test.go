@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 
@@ -16,13 +15,17 @@ import (
 
 type handler struct{}
 
-func handlerFunc(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*handlers.HandlerResponse, error) {
+func handlerFunc(ctx context.Context, logger logr.Logger, r *http.Request) (*handlers.HandlerResponse, error) {
 	return handlers.NewHandlerResponse(http.StatusTeapot), nil
 }
 
-func (h handler) AuthenticatedRoutes() []handlers.Route {
-	return []handlers.Route{
-		{Method: "GET", Pattern: "/authenticated", HandlerFunc: handlerFunc},
+func authHandlerFunc(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*handlers.HandlerResponse, error) {
+	return handlers.NewHandlerResponse(http.StatusTeapot).WithBody(authInfo.Token), nil
+}
+
+func (h handler) AuthenticatedRoutes() []handlers.AuthRoute {
+	return []handlers.AuthRoute{
+		{Method: "GET", Pattern: "/authenticated", HandlerFunc: authHandlerFunc},
 	}
 }
 
@@ -42,8 +45,14 @@ var _ = FDescribe("Router", func() {
 		server *httptest.Server
 	)
 
+	mkReq := func(r *http.Request) *http.Response {
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		return w.Result()
+	}
+
 	BeforeEach(func() {
-		router = handlers.NewRouter(logf.Log.WithName("test"))
+		router = handlers.NewRouterBuilder(logf.Log.WithName("test"))
 	})
 
 	JustBeforeEach(func() {
@@ -60,14 +69,19 @@ var _ = FDescribe("Router", func() {
 		})
 
 		It("wraps the unauthenticated handlers with an unauthenticated wrapper", func() {
-			res, err := http.Get(server.URL + "/unauthenticated")
+			req, err := http.NewRequest(http.MethodGet, server.URL+"/unauthenticated", nil)
 			Expect(err).NotTo(HaveOccurred())
+			res := mkReq(req)
 			Expect(res.StatusCode).To(Equal(http.StatusTeapot))
 		})
 
-		When("using the authentication middleware", func() {
-			It("wraps the unauthenticated handlers with an authenticated wrapper", func() {
-			})
+		It("wraps the authenticated handlers with an authenticated wrapper", func() {
+			ctx := authorization.NewContext(context.Background(), &authorization.Info{Token: "the-token"})
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/authenticated", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			res := mkReq(req)
+			Expect(res.StatusCode).To(Equal(http.StatusTeapot))
 		})
 	})
 

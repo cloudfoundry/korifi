@@ -39,49 +39,44 @@ func (r *HandlerResponse) WithBody(body interface{}) *HandlerResponse {
 	return r
 }
 
-//counterfeiter:generate -o fake -fake-name AuthAwareHandlerFunc . AuthAwareHandlerFunc
+//counterfeiter:generate -o fake -fake-name HandlerFunc . HandlerFunc
+//counterfeiter:generate -o fake -fake-name AuthHandlerFunc . AuthHandlerFunc
 
-type AuthAwareHandlerFunc func(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error)
+type (
+	HandlerFunc     func(ctx context.Context, logger logr.Logger, r *http.Request) (*HandlerResponse, error)
+	AuthHandlerFunc func(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error)
+)
 
-type AuthInfoProvider func(ctx context.Context) (authorization.Info, bool)
-
-type AuthAwareHandlerFuncWrapper struct {
-	logger           logr.Logger
-	authInfoProvider AuthInfoProvider
-	delegate         AuthAwareHandlerFunc
+type HandlerFuncWrapper struct {
+	logger   logr.Logger
+	delegate HandlerFunc
 }
 
-func NewAuthenticatedWrapper(logger logr.Logger, delegate AuthAwareHandlerFunc) *AuthAwareHandlerFuncWrapper {
-	return &AuthAwareHandlerFuncWrapper{
-		logger:           logger,
-		authInfoProvider: authorization.InfoFromContext,
-		delegate:         delegate,
-	}
-}
-
-func NewUnauthenticatedWrapper(logger logr.Logger, delegate AuthAwareHandlerFunc) *AuthAwareHandlerFuncWrapper {
-	return &AuthAwareHandlerFuncWrapper{
-		logger: logger,
-		authInfoProvider: func(ctx context.Context) (authorization.Info, bool) {
-			return authorization.Info{}, true
-		},
+func NewUnauthenticatedWrapper(logger logr.Logger, delegate HandlerFunc) *HandlerFuncWrapper {
+	return &HandlerFuncWrapper{
+		logger:   logger,
 		delegate: delegate,
 	}
 }
 
-func (h *AuthAwareHandlerFuncWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func NewAuthenticatedWrapper(logger logr.Logger, delegate AuthHandlerFunc) *HandlerFuncWrapper {
+	return &HandlerFuncWrapper{
+		logger: logger,
+		delegate: func(ctx context.Context, logger logr.Logger, r *http.Request) (*HandlerResponse, error) {
+			authInfo, ok := authorization.InfoFromContext(r.Context())
+			if !ok {
+				return nil, errors.New("unable to get auth info")
+			}
+			return delegate(ctx, logger, authInfo, r)
+		},
+	}
+}
+
+func (h *HandlerFuncWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	logger := correlation.AddCorrelationIDToLogger(ctx, h.logger)
-	authInfo, ok := h.authInfoProvider(r.Context())
-	logger.Info("context", "context", r.Context())
-	if !ok {
-		logger.Error(nil, "unable to get auth info")
-		presentError(h.logger, w, nil)
-		return
-	}
-
-	handlerResponse, err := h.delegate(ctx, logger, authInfo, r)
+	handlerResponse, err := h.delegate(ctx, logger, r)
 	if err != nil {
 		logger.Info("handler returned error", "error", err)
 		presentError(h.logger, w, err)

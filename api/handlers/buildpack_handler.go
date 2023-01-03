@@ -61,8 +61,8 @@ func (h *BuildpackHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *BuildpackHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *BuildpackHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: BuildpacksPath, HandlerFunc: h.buildpackListHandler},
 	}
 }

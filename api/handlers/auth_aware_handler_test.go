@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -16,22 +17,25 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
+var _ = Describe("HandlerFuncWrapper", func() {
 	var (
-		delegate    *fake.AuthAwareHandlerFunc
+		delegate    *fake.AuthHandlerFunc
 		wrappedFunc http.Handler
 		response    *handlers.HandlerResponse
+		logBuffer   strings.Builder
 	)
 
 	BeforeEach(func() {
+		logBuffer = strings.Builder{}
 		response = handlers.NewHandlerResponse(http.StatusTeapot)
-		delegate = new(fake.AuthAwareHandlerFunc)
+		delegate = new(fake.AuthHandlerFunc)
 		delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*handlers.HandlerResponse, error) {
 			return response, nil
 		}
-		wrappedFunc = handlers.NewAuthenticatedWrapper(logf.Log.WithName("test"), delegate.Spy)
+		wrappedFunc = handlers.NewAuthenticatedWrapper(zap.New(zap.WriteTo(&logBuffer)), delegate.Spy)
 	})
 
 	JustBeforeEach(func() {
@@ -47,24 +51,11 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 		Expect(actualReq.URL.Path).To(Equal("/foo"))
 	})
 
-	Describe("logging the correlationID", func() {
-		var buf *bytes.Buffer
-
-		BeforeEach(func() {
-			buf = new(bytes.Buffer)
-			GinkgoWriter.TeeTo(buf)
-		})
-
-		AfterEach(func() {
-			GinkgoWriter.ClearTeeWriters()
-		})
-
-		It("passes a logger with correlation id set to the delegate", func() {
-			Expect(delegate.CallCount()).To(Equal(1))
-			_, logger, _, _ := delegate.ArgsForCall(0)
-			logger.Info("bar")
-			Expect(buf.String()).To(ContainSubstring(correlationID))
-		})
+	It("passes a logger with correlation id set to the delegate", func() {
+		Expect(delegate.CallCount()).To(Equal(1))
+		_, logger, _, _ := delegate.ArgsForCall(0)
+		logger.Info("bar")
+		Expect(logBuffer.String()).To(ContainSubstring(correlationID))
 	})
 
 	It("returns whatever the delegate returns", func() {

@@ -59,8 +59,8 @@ func (h *DropletHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *DropletHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *DropletHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: DropletPath, HandlerFunc: h.dropletGetHandler},
 	}
 }

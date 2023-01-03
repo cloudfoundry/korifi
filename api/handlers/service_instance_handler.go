@@ -126,8 +126,8 @@ func (h *ServiceInstanceHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *ServiceInstanceHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *ServiceInstanceHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "POST", Pattern: ServiceInstancesPath, HandlerFunc: h.serviceInstanceCreateHandler},
 		{Method: "GET", Pattern: ServiceInstancesPath, HandlerFunc: h.serviceInstanceListHandler},
 		{Method: "DELETE", Pattern: ServiceInstancePath, HandlerFunc: h.serviceInstanceDeleteHandler},

@@ -126,8 +126,8 @@ func (h *SpaceHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *SpaceHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *SpaceHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: SpacesPath, HandlerFunc: h.spaceListHandler},
 		{Method: "POST", Pattern: SpacesPath, HandlerFunc: h.spaceCreateHandler},
 		{Method: "PATCH", Pattern: SpacePath, HandlerFunc: h.spacePatchHandler},

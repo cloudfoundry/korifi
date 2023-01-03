@@ -51,7 +51,7 @@ var _ = BeforeEach(func() {
 	correlationID = generateGUID("corrID")
 	ctx = correlation.ContextWithId(authorization.NewContext(context.Background(), &authInfo), correlationID)
 	rr = httptest.NewRecorder()
-	router = handlers.NewRouter(ctrl.Log)
+	router = handlers.NewRouterBuilder(ctrl.Log)
 
 	var err error
 	serverURL, err = url.Parse(defaultServerURL)

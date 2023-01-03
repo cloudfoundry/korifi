@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"github.com/go-logr/logr"
 )
@@ -23,12 +22,12 @@ func NewRootHandler(serverURL string) *RootHandler {
 	}
 }
 
-func (h *RootHandler) rootGetHandler(ctx context.Context, logger logr.Logger, _ authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RootHandler) rootGetHandler(ctx context.Context, logger logr.Logger, r *http.Request) (*HandlerResponse, error) {
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.GetRootResponse(h.serverURL)), nil
 }
 
-func (h *RootHandler) AuthenticatedRoutes() []Route {
-	return []Route{}
+func (h *RootHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{}
 }
 
 func (h *RootHandler) UnauthenticatedRoutes() []Route {

@@ -148,8 +148,8 @@ func (h *OrgHandler) UnauthenticatedRoutes() []Route {
 	return []Route{}
 }
 
-func (h *OrgHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *OrgHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: OrgsPath, HandlerFunc: h.orgListHandler},
 		{Method: "POST", Pattern: OrgsPath, HandlerFunc: h.orgCreateHandler},
 		{Method: "DELETE", Pattern: OrgPath, HandlerFunc: h.orgDeleteHandler},

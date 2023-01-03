@@ -467,8 +467,8 @@ func (h *AppHandler) appPatchHandler(ctx context.Context, logger logr.Logger, au
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }
 
-func (h *AppHandler) AuthenticatedRoutes() []Route {
-	return []Route{
+func (h *AppHandler) AuthenticatedRoutes() []AuthRoute {
+	return []AuthRoute{
 		{Method: "GET", Pattern: AppPath, HandlerFunc: h.appGetHandler},
 		{Method: "GET", Pattern: AppsPath, HandlerFunc: h.appListHandler},
 		{Method: "POST", Pattern: AppsPath, HandlerFunc: h.appCreateHandler},
