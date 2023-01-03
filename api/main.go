@@ -24,7 +24,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 
-	"github.com/go-chi/chi"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"go.uber.org/zap/zapcore"
@@ -48,10 +47,6 @@ var createTimeout = time.Second * 120
 func init() {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
-}
-
-type APIHandler interface {
-	RegisterRoutes(router *chi.Mux)
 }
 
 func main() {
@@ -221,14 +216,133 @@ func main() {
 		panic(fmt.Sprintf("could not wire validator: %v", err))
 	}
 
-	router := chi.NewMux()
+	apiHandlers := map[string]handlers.Handler{
+		"V3RootHandler":          handlers.NewRootV3Handler(config.ServerURL),
+		"RootHandler":            handlers.NewRootHandler(config.ServerURL),
+		"ResourceMatchesHandler": handlers.NewResourceMatchesHandler(),
+		"AppHandler": handlers.NewAppHandler(
+			*serverURL,
+			appRepo,
+			dropletRepo,
+			processRepo,
+			routeRepo,
+			domainRepo,
+			spaceRepo,
+			processScaler,
+			decoderValidator,
+		),
+		"RouteHandler": handlers.NewRouteHandler(
+			*serverURL,
+			routeRepo,
+			domainRepo,
+			appRepo,
+			spaceRepo,
+			decoderValidator,
+		),
+		"ServiceRouteBindingHandler": handlers.NewServiceRouteBindingHandler(*serverURL),
+		"PackageHandler": handlers.NewPackageHandler(
+			*serverURL,
+			packageRepo,
+			appRepo,
+			dropletRepo,
+			imageRepo,
+			decoderValidator,
+			config.PackageRegistrySecretName,
+		),
+		"BuildHandler": handlers.NewBuildHandler(
+			*serverURL,
+			buildRepo,
+			packageRepo,
+			appRepo,
+			decoderValidator,
+		),
+		"DropletHandler": handlers.NewDropletHandler(
+			*serverURL,
+			dropletRepo,
+		),
+		"ProcessHandler": handlers.NewProcessHandler(
+			*serverURL,
+			processRepo,
+			processStats,
+			processScaler,
+			decoderValidator,
+		),
+		"DomainHandler": handlers.NewDomainHandler(
+			*serverURL,
+			decoderValidator,
+			domainRepo,
+		),
+		"JobHandler": handlers.NewJobHandler(
+			*serverURL,
+		),
+		"LogCacheHandler": handlers.NewLogCacheHandler(
+			appRepo,
+			buildRepo,
+			appLogs,
+		),
+		"OrgHandler": handlers.NewOrgHandler(
+			*serverURL,
+			orgRepo,
+			domainRepo,
+			decoderValidator,
+			config.GetUserCertificateDuration(),
+		),
+		"SpaceHandler": handlers.NewSpaceHandler(
+			*serverURL,
+			spaceRepo,
+			decoderValidator,
+		),
+		"SpaceManifestHandler": handlers.NewSpaceManifestHandler(
+			*serverURL,
+			manifest,
+			spaceRepo,
+			decoderValidator,
+		),
+		"RoleHandler": handlers.NewRoleHandler(
+			*serverURL,
+			roleRepo,
+			decoderValidator,
+		),
+		"WhoAmI": handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
+		"BuildpackHandler": handlers.NewBuildpackHandler(
+			*serverURL,
+			buildpackRepo,
+		),
+		"ServiceInstanceHandler": handlers.NewServiceInstanceHandler(
+			*serverURL,
+			serviceInstanceRepo,
+			spaceRepo,
+			decoderValidator,
+		),
+		"ServiceBindingHandler": handlers.NewServiceBindingHandler(
+			*serverURL,
+			serviceBindingRepo,
+			appRepo,
+			serviceInstanceRepo,
+			decoderValidator,
+		),
+		"TaskHandler": handlers.NewTaskHandler(
+			*serverURL,
+			appRepo,
+			taskRepo,
+			decoderValidator,
+		),
+		"OAuthToken": handlers.NewOAuthToken(
+			*serverURL,
+		),
+	}
 
-	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
-	authInfoParser := authorization.NewInfoParser()
-	router.Use(
+	router := handlers.NewRouter(ctrl.Log)
+
+	router.UseCommonMiddleware(
 		handlers.NewCorrelationIDMiddleware().Middleware,
 		handlers.NewCFCliVersionMiddleware().Middleware,
 		handlers.NewHTTPLogging(ctrl.Log.WithName("http-logger")).Middleware,
+	)
+
+	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
+	authInfoParser := authorization.NewInfoParser()
+	router.UseAuthMiddleware(
 		handlers.NewAuthenticationMiddleware(
 			authInfoParser,
 			cachingIdentityProvider,
@@ -243,127 +357,8 @@ func main() {
 		).Middleware,
 	)
 
-	apiHandlers := []APIHandler{
-		handlers.NewRootV3Handler(config.ServerURL),
-		handlers.NewRootHandler(
-			config.ServerURL,
-		),
-		handlers.NewResourceMatchesHandler(),
-		handlers.NewAppHandler(
-			*serverURL,
-			appRepo,
-			dropletRepo,
-			processRepo,
-			routeRepo,
-			domainRepo,
-			spaceRepo,
-			processScaler,
-			decoderValidator,
-		),
-		handlers.NewRouteHandler(
-			*serverURL,
-			routeRepo,
-			domainRepo,
-			appRepo,
-			spaceRepo,
-			decoderValidator,
-		),
-		handlers.NewServiceRouteBindingHandler(
-			*serverURL,
-		),
-		handlers.NewPackageHandler(
-			*serverURL,
-			packageRepo,
-			appRepo,
-			dropletRepo,
-			imageRepo,
-			decoderValidator,
-			config.PackageRegistrySecretName,
-		),
-		handlers.NewBuildHandler(
-			*serverURL,
-			buildRepo,
-			packageRepo,
-			appRepo,
-			decoderValidator,
-		),
-		handlers.NewDropletHandler(
-			*serverURL,
-			dropletRepo,
-		),
-		handlers.NewProcessHandler(
-			*serverURL,
-			processRepo,
-			processStats,
-			processScaler,
-			decoderValidator,
-		),
-		handlers.NewDomainHandler(
-			*serverURL,
-			decoderValidator,
-			domainRepo,
-		),
-		handlers.NewJobHandler(
-			*serverURL,
-		),
-		handlers.NewLogCacheHandler(
-			appRepo,
-			buildRepo,
-			appLogs,
-		),
-		handlers.NewOrgHandler(
-			*serverURL,
-			orgRepo,
-			domainRepo,
-			decoderValidator,
-			config.GetUserCertificateDuration(),
-		),
-		handlers.NewSpaceHandler(
-			*serverURL,
-			spaceRepo,
-			decoderValidator,
-		),
-		handlers.NewSpaceManifestHandler(
-			*serverURL,
-			manifest,
-			spaceRepo,
-			decoderValidator,
-		),
-		handlers.NewRoleHandler(
-			*serverURL,
-			roleRepo,
-			decoderValidator,
-		),
-		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
-		handlers.NewBuildpackHandler(
-			*serverURL,
-			buildpackRepo,
-		),
-		handlers.NewServiceInstanceHandler(
-			*serverURL,
-			serviceInstanceRepo,
-			spaceRepo,
-			decoderValidator,
-		),
-		handlers.NewServiceBindingHandler(
-			*serverURL,
-			serviceBindingRepo,
-			appRepo,
-			serviceInstanceRepo,
-			decoderValidator,
-		),
-		handlers.NewTaskHandler(
-			*serverURL,
-			appRepo,
-			taskRepo,
-			decoderValidator,
-		),
-		handlers.NewOAuthToken(
-			*serverURL,
-		),
-	}
-	for _, handler := range apiHandlers {
-		handler.RegisterRoutes(router)
+	for name, handler := range apiHandlers {
+		router.RegisterHandler(name, handler)
 	}
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)

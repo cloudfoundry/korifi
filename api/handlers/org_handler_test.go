@@ -44,7 +44,7 @@ var _ = Describe("OrgHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		orgHandler = apis.NewOrgHandler(*serverURL, orgRepo, domainRepo, decoderValidator, time.Hour)
-		orgHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", orgHandler)
 	})
 
 	Describe("Create Org", func() {

@@ -15,7 +15,7 @@ var _ = Describe("ResourceMatchesHandler", func() {
 
 	BeforeEach(func() {
 		handler := NewResourceMatchesHandler()
-		handler.RegisterRoutes(router)
+		router.RegisterHandler("handler", handler)
 	})
 
 	JustBeforeEach(func() {

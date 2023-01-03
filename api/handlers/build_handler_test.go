@@ -74,7 +74,7 @@ var _ = Describe("BuildHandler", func() {
 				new(fake.CFAppRepository),
 				decoderValidator,
 			)
-			buildHandler.RegisterRoutes(router)
+			router.RegisterHandler("handler", buildHandler)
 		})
 
 		When("on the happy path", func() {
@@ -407,7 +407,7 @@ var _ = Describe("BuildHandler", func() {
 				appRepo,
 				requestJSONValidator,
 			)
-			buildHandler.RegisterRoutes(router)
+			router.RegisterHandler("handler", buildHandler)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(""))

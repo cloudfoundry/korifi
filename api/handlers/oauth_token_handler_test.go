@@ -28,7 +28,7 @@ var _ = Describe("OAuthToken", func() {
 		requestMethod = http.MethodPost
 		ctx = authorization.NewContext(ctx, &authorization.Info{Token: "the-token"})
 		OAuthTokenHandler = apis.NewOAuthToken(*serverURL)
-		OAuthTokenHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", OAuthTokenHandler)
 	})
 
 	JustBeforeEach(func() {

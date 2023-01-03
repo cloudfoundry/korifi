@@ -33,7 +33,7 @@ var _ = Describe("DomainHandler", func() {
 			requestJSONValidator,
 			domainRepo,
 		)
-		domainHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", domainHandler)
 	})
 
 	JustBeforeEach(func() {

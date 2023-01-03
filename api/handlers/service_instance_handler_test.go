@@ -45,7 +45,7 @@ var _ = Describe("ServiceInstanceHandler", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		serviceInstanceHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", serviceInstanceHandler)
 	})
 
 	JustBeforeEach(func() {

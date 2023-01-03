@@ -18,7 +18,7 @@ var _ = Describe("RootHandler", func() {
 		apiHandler := apis.NewRootHandler(
 			defaultServerURL,
 		)
-		apiHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", apiHandler)
 	})
 
 	JustBeforeEach(func() {

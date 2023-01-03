@@ -64,7 +64,7 @@ var _ = Describe("PackageHandler", func() {
 			packageImagePullSecretName,
 		)
 
-		apiHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", apiHandler)
 	})
 
 	Describe("the GET /v3/packages/:guid endpoint", func() {

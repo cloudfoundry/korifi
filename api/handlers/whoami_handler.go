@@ -8,9 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -24,14 +22,12 @@ type IdentityProvider interface {
 }
 
 type WhoAmIHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	identityProvider IdentityProvider
 	apiBaseURL       url.URL
 }
 
 func NewWhoAmI(identityProvider IdentityProvider, apiBaseURL url.URL) *WhoAmIHandler {
 	return &WhoAmIHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("WhoAmIHandler")),
 		identityProvider: identityProvider,
 		apiBaseURL:       apiBaseURL,
 	}
@@ -46,6 +42,12 @@ func (h *WhoAmIHandler) whoAmIHandler(ctx context.Context, logger logr.Logger, a
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForWhoAmI(identity)), nil
 }
 
-func (h *WhoAmIHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(WhoAmIPath, h.handlerWrapper.Wrap(h.whoAmIHandler))
+func (h *WhoAmIHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *WhoAmIHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: WhoAmIPath, HandlerFunc: h.whoAmIHandler},
+	}
 }

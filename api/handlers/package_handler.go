@@ -11,9 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -45,7 +43,6 @@ type RequestJSONValidator interface {
 }
 
 type PackageHandler struct {
-	handlerWrapper     *AuthAwareHandlerFuncWrapper
 	serverURL          url.URL
 	packageRepo        CFPackageRepository
 	appRepo            CFAppRepository
@@ -65,7 +62,6 @@ func NewPackageHandler(
 	registrySecretName string,
 ) *PackageHandler {
 	return &PackageHandler{
-		handlerWrapper:     NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("PackageHandler")),
 		serverURL:          serverURL,
 		packageRepo:        packageRepo,
 		appRepo:            appRepo,
@@ -77,7 +73,7 @@ func NewPackageHandler(
 }
 
 func (h PackageHandler) packageGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	packageGUID := chi.URLParam(r, "guid")
+	packageGUID := URLParam(r, "guid")
 	record, err := h.packageRepo.GetPackage(ctx, authInfo, packageGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
@@ -140,7 +136,7 @@ func (h PackageHandler) packageUpdateHandler(ctx context.Context, logger logr.Lo
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	packageGUID := chi.URLParam(r, "guid")
+	packageGUID := URLParam(r, "guid")
 	packageRecord, err := h.packageRepo.UpdatePackage(ctx, authInfo, payload.ToMessage(packageGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error updating package")
@@ -150,7 +146,7 @@ func (h PackageHandler) packageUpdateHandler(ctx context.Context, logger logr.Lo
 }
 
 func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	packageGUID := chi.URLParam(r, "guid")
+	packageGUID := URLParam(r, "guid")
 	err := r.ParseForm()
 	if err != nil { // untested - couldn't find a way to trigger this branch
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewInvalidRequestError(err, "Unable to parse body as multipart form"), "Error parsing multipart form")
@@ -200,7 +196,7 @@ func (h PackageHandler) packageListDropletsHandler(ctx context.Context, logger l
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	packageGUID := chi.URLParam(r, "guid")
+	packageGUID := URLParam(r, "guid")
 	_, err = h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
@@ -216,11 +212,17 @@ func (h PackageHandler) packageListDropletsHandler(ctx context.Context, logger l
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDropletList(dropletList, h.serverURL, *r.URL)), nil
 }
 
-func (h *PackageHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(PackagePath, h.handlerWrapper.Wrap(h.packageGetHandler))
-	router.Patch(PackagePath, h.handlerWrapper.Wrap(h.packageUpdateHandler))
-	router.Get(PackagesPath, h.handlerWrapper.Wrap(h.packageListHandler))
-	router.Post(PackagesPath, h.handlerWrapper.Wrap(h.packageCreateHandler))
-	router.Post(PackageUploadPath, h.handlerWrapper.Wrap(h.packageUploadHandler))
-	router.Get(PackageDropletsPath, h.handlerWrapper.Wrap(h.packageListDropletsHandler))
+func (h *PackageHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *PackageHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: PackagePath, HandlerFunc: h.packageGetHandler},
+		{Method: "PATCH", Pattern: PackagePath, HandlerFunc: h.packageUpdateHandler},
+		{Method: "GET", Pattern: PackagesPath, HandlerFunc: h.packageListHandler},
+		{Method: "POST", Pattern: PackagesPath, HandlerFunc: h.packageCreateHandler},
+		{Method: "POST", Pattern: PackageUploadPath, HandlerFunc: h.packageUploadHandler},
+		{Method: "GET", Pattern: PackageDropletsPath, HandlerFunc: h.packageListDropletsHandler},
+	}
 }

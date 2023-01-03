@@ -6,9 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -27,9 +25,8 @@ type CFDropletRepository interface {
 }
 
 type DropletHandler struct {
-	serverURL      url.URL
-	dropletRepo    CFDropletRepository
-	handlerWrapper *AuthAwareHandlerFuncWrapper
+	serverURL   url.URL
+	dropletRepo CFDropletRepository
 }
 
 func NewDropletHandler(
@@ -37,14 +34,13 @@ func NewDropletHandler(
 	dropletRepo CFDropletRepository,
 ) *DropletHandler {
 	return &DropletHandler{
-		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("DropletHandler")),
-		serverURL:      serverURL,
-		dropletRepo:    dropletRepo,
+		serverURL:   serverURL,
+		dropletRepo: dropletRepo,
 	}
 }
 
 func (h *DropletHandler) dropletGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	dropletGUID := chi.URLParam(r, "guid")
+	dropletGUID := URLParam(r, "guid")
 
 	droplet, err := h.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
@@ -59,6 +55,12 @@ func (h *DropletHandler) dropletGetHandler(ctx context.Context, logger logr.Logg
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil
 }
 
-func (h *DropletHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(DropletPath, h.handlerWrapper.Wrap(h.dropletGetHandler))
+func (h *DropletHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *DropletHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: DropletPath, HandlerFunc: h.dropletGetHandler},
+	}
 }

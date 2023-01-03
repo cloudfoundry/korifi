@@ -5,9 +5,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -15,14 +13,12 @@ const (
 )
 
 type RootV3Handler struct {
-	serverURL                     string
-	unauthenticatedHandlerWrapper *AuthAwareHandlerFuncWrapper
+	serverURL string
 }
 
 func NewRootV3Handler(serverURL string) *RootV3Handler {
 	return &RootV3Handler{
-		serverURL:                     serverURL,
-		unauthenticatedHandlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("RootHandler")),
+		serverURL: serverURL,
 	}
 }
 
@@ -36,6 +32,12 @@ func (h *RootV3Handler) rootV3GetHandler(ctx context.Context, logger logr.Logger
 	}), nil
 }
 
-func (h *RootV3Handler) RegisterRoutes(router *chi.Mux) {
-	router.Get(RootV3Path, h.unauthenticatedHandlerWrapper.Wrap(h.rootV3GetHandler))
+func (h *RootV3Handler) AuthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *RootV3Handler) UnauthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: RootV3Path, HandlerFunc: h.rootV3GetHandler},
+	}
 }

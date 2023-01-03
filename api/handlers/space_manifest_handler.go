@@ -5,10 +5,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-chi/chi"
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -32,7 +30,6 @@ type CFSpaceRepository interface {
 }
 
 type SpaceManifestHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	serverURL        url.URL
 	manifestApplier  ManifestApplier
 	spaceRepo        CFSpaceRepository
@@ -51,7 +48,6 @@ func NewSpaceManifestHandler(
 	decoderValidator *DecoderValidator,
 ) *SpaceManifestHandler {
 	return &SpaceManifestHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("SpaceManifestHandler")),
 		serverURL:        serverURL,
 		manifestApplier:  manifestApplier,
 		spaceRepo:        spaceRepo,
@@ -59,13 +55,19 @@ func NewSpaceManifestHandler(
 	}
 }
 
-func (h *SpaceManifestHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(SpaceManifestApplyPath, h.handlerWrapper.Wrap(h.applyManifestHandler))
-	router.Post(SpaceManifestDiffPath, h.handlerWrapper.Wrap(h.diffManifestHandler))
+func (h *SpaceManifestHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *SpaceManifestHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "POST", Pattern: SpaceManifestApplyPath, HandlerFunc: h.applyManifestHandler},
+		{Method: "POST", Pattern: SpaceManifestDiffPath, HandlerFunc: h.diffManifestHandler},
+	}
 }
 
 func (h *SpaceManifestHandler) applyManifestHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	spaceGUID := chi.URLParam(r, "spaceGUID")
+	spaceGUID := URLParam(r, "spaceGUID")
 	var manifest payloads.Manifest
 	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
@@ -80,7 +82,7 @@ func (h *SpaceManifestHandler) applyManifestHandler(ctx context.Context, logger 
 }
 
 func (h *SpaceManifestHandler) diffManifestHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	spaceGUID := chi.URLParam(r, "spaceGUID")
+	spaceGUID := URLParam(r, "spaceGUID")
 
 	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get space", "guid", spaceGUID)

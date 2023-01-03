@@ -29,7 +29,7 @@ var _ = Describe("WhoAmI", func() {
 		identityProvider.GetIdentityReturns(authorization.Identity{Name: "the-user", Kind: rbacv1.UserKind}, nil)
 		ctx = authorization.NewContext(ctx, &authorization.Info{Token: "the-token"})
 		whoAmIHandler = apis.NewWhoAmI(identityProvider, *serverURL)
-		whoAmIHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", whoAmIHandler)
 	})
 
 	JustBeforeEach(func() {

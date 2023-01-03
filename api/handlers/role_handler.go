@@ -10,10 +10,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -43,7 +41,6 @@ type CFRoleRepository interface {
 }
 
 type RoleHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	apiBaseURL       url.URL
 	roleRepo         CFRoleRepository
 	decoderValidator *DecoderValidator
@@ -51,7 +48,6 @@ type RoleHandler struct {
 
 func NewRoleHandler(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator *DecoderValidator) *RoleHandler {
 	return &RoleHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("RoleHandler")),
 		apiBaseURL:       apiBaseURL,
 		roleRepo:         roleRepo,
 		decoderValidator: decoderValidator,
@@ -75,6 +71,12 @@ func (h *RoleHandler) roleCreateHandler(ctx context.Context, logger logr.Logger,
 	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateRole(record, h.apiBaseURL)), nil
 }
 
-func (h *RoleHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(RolesPath, h.handlerWrapper.Wrap(h.roleCreateHandler))
+func (h *RoleHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *RoleHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "POST", Pattern: RolesPath, HandlerFunc: h.roleCreateHandler},
+	}
 }

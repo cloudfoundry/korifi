@@ -9,9 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator"
 )
@@ -30,11 +28,9 @@ type AppLogsReader interface {
 // LogCacheHandler implements the minimal set of log-cache API endpoints/features necessary
 // to support the "cf push" workfloh.handlerWrapper.
 type LogCacheHandler struct {
-	authenticatedHandlerWrapper   *AuthAwareHandlerFuncWrapper
-	unauthenticatedHandlerWrapper *AuthAwareHandlerFuncWrapper
-	appRepo                       CFAppRepository
-	buildRepo                     CFBuildRepository
-	appLogsReader                 AppLogsReader
+	appRepo       CFAppRepository
+	buildRepo     CFBuildRepository
+	appLogsReader AppLogsReader
 }
 
 func NewLogCacheHandler(
@@ -43,11 +39,9 @@ func NewLogCacheHandler(
 	appLogsReader AppLogsReader,
 ) *LogCacheHandler {
 	return &LogCacheHandler{
-		authenticatedHandlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
-		unauthenticatedHandlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
-		appRepo:                       appRepo,
-		buildRepo:                     buildRepository,
-		appLogsReader:                 appLogsReader,
+		appRepo:       appRepo,
+		buildRepo:     buildRepository,
+		appLogsReader: appLogsReader,
 	}
 }
 
@@ -78,7 +72,7 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 		)
 	}
 
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := URLParam(r, "guid")
 
 	var logs []repositories.LogRecord
 	logs, err = h.appLogsReader.Read(ctx, logger, authInfo, appGUID, *logReadPayload)
@@ -89,7 +83,14 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForLogs(logs)), nil
 }
 
-func (h *LogCacheHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(LogCacheInfoPath, h.unauthenticatedHandlerWrapper.Wrap(h.logCacheInfoHandler))
-	router.Get(LogCacheReadPath, h.authenticatedHandlerWrapper.Wrap(h.logCacheReadHandler))
+func (h *LogCacheHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: LogCacheReadPath, HandlerFunc: h.logCacheReadHandler},
+	}
+}
+
+func (h *LogCacheHandler) UnauthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: LogCacheInfoPath, HandlerFunc: h.logCacheInfoHandler},
+	}
 }

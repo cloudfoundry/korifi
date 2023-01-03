@@ -54,7 +54,7 @@ var _ = Describe("RouteHandler", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		routeHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", routeHandler)
 	})
 
 	JustBeforeEach(func() {

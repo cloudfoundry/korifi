@@ -9,9 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -36,7 +34,6 @@ type CFOrgRepository interface {
 }
 
 type OrgHandler struct {
-	handlerWrapper                           *AuthAwareHandlerFuncWrapper
 	apiBaseURL                               url.URL
 	orgRepo                                  CFOrgRepository
 	domainRepo                               CFDomainRepository
@@ -46,7 +43,6 @@ type OrgHandler struct {
 
 func NewOrgHandler(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator, userCertificateExpirationWarningDuration time.Duration) *OrgHandler {
 	return &OrgHandler{
-		handlerWrapper:                           NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("Org Handler")),
 		apiBaseURL:                               apiBaseURL,
 		orgRepo:                                  orgRepo,
 		domainRepo:                               domainRepo,
@@ -71,7 +67,7 @@ func (h *OrgHandler) orgCreateHandler(ctx context.Context, logger logr.Logger, a
 }
 
 func (h *OrgHandler) orgPatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	orgGUID := chi.URLParam(r, "guid")
+	orgGUID := URLParam(r, "guid")
 
 	_, err := h.orgRepo.GetOrg(ctx, authInfo, orgGUID)
 	if err != nil {
@@ -92,7 +88,7 @@ func (h *OrgHandler) orgPatchHandler(ctx context.Context, logger logr.Logger, au
 }
 
 func (h *OrgHandler) orgDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	orgGUID := chi.URLParam(r, "guid")
+	orgGUID := URLParam(r, "guid")
 
 	deleteOrgMessage := repositories.DeleteOrgMessage{
 		GUID: orgGUID,
@@ -124,7 +120,7 @@ func (h *OrgHandler) orgListHandler(ctx context.Context, logger logr.Logger, aut
 }
 
 func (h *OrgHandler) orgListDomainHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	orgGUID := chi.URLParam(r, "guid")
+	orgGUID := URLParam(r, "guid")
 
 	if _, err := h.orgRepo.GetOrg(ctx, authInfo, orgGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
@@ -148,12 +144,18 @@ func (h *OrgHandler) orgListDomainHandler(ctx context.Context, logger logr.Logge
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.apiBaseURL, *r.URL)), nil
 }
 
-func (h *OrgHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(OrgsPath, h.handlerWrapper.Wrap(h.orgListHandler))
-	router.Post(OrgsPath, h.handlerWrapper.Wrap(h.orgCreateHandler))
-	router.Delete(OrgPath, h.handlerWrapper.Wrap(h.orgDeleteHandler))
-	router.Patch(OrgPath, h.handlerWrapper.Wrap(h.orgPatchHandler))
-	router.Get(OrgDomainsPath, h.handlerWrapper.Wrap(h.orgListDomainHandler))
+func (h *OrgHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *OrgHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: OrgsPath, HandlerFunc: h.orgListHandler},
+		{Method: "POST", Pattern: OrgsPath, HandlerFunc: h.orgCreateHandler},
+		{Method: "DELETE", Pattern: OrgPath, HandlerFunc: h.orgDeleteHandler},
+		{Method: "PATCH", Pattern: OrgPath, HandlerFunc: h.orgPatchHandler},
+		{Method: "GET", Pattern: OrgDomainsPath, HandlerFunc: h.orgListDomainHandler},
+	}
 }
 
 func decodePEMNotAfter(certPEM []byte) (time.Time, bool) {

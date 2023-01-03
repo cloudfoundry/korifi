@@ -22,7 +22,7 @@ var _ = Describe("BuildpackHandler", func() {
 		buildpackRepo = new(fake.BuildpackRepository)
 
 		apiHandler := NewBuildpackHandler(*serverURL, buildpackRepo)
-		apiHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", apiHandler)
 	})
 
 	JustBeforeEach(func() {

@@ -42,7 +42,7 @@ var _ = Describe("ProcessHandler", func() {
 			processScaler,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", apiHandler)
 	})
 
 	JustBeforeEach(func() {

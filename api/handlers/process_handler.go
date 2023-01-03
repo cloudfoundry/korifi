@@ -6,15 +6,12 @@ import (
 	"net/http"
 	"net/url"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -45,7 +42,6 @@ type ProcessStatsFetcher interface {
 }
 
 type ProcessHandler struct {
-	handlerWrapper      *AuthAwareHandlerFuncWrapper
 	serverURL           url.URL
 	processRepo         CFProcessRepository
 	processStatsFetcher ProcessStatsFetcher
@@ -61,7 +57,6 @@ func NewProcessHandler(
 	decoderValidator *DecoderValidator,
 ) *ProcessHandler {
 	return &ProcessHandler{
-		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ProcessHandler")),
 		serverURL:           serverURL,
 		processRepo:         processRepo,
 		processStatsFetcher: processStatsFetcher,
@@ -71,7 +66,7 @@ func NewProcessHandler(
 }
 
 func (h *ProcessHandler) processGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := URLParam(r, "guid")
 
 	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
@@ -82,7 +77,7 @@ func (h *ProcessHandler) processGetHandler(ctx context.Context, logger logr.Logg
 }
 
 func (h *ProcessHandler) processGetSidecarsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := URLParam(r, "guid")
 
 	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
@@ -107,7 +102,7 @@ func (h *ProcessHandler) processGetSidecarsHandler(ctx context.Context, logger l
 }
 
 func (h *ProcessHandler) processScaleHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := URLParam(r, "guid")
 
 	var payload payloads.ProcessScale
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -123,7 +118,7 @@ func (h *ProcessHandler) processScaleHandler(ctx context.Context, logger logr.Lo
 }
 
 func (h *ProcessHandler) processGetStatsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := URLParam(r, "guid")
 
 	records, err := h.processStatsFetcher.FetchStats(ctx, authInfo, processGUID)
 	if err != nil {
@@ -153,7 +148,7 @@ func (h *ProcessHandler) processListHandler(ctx context.Context, logger logr.Log
 }
 
 func (h *ProcessHandler) processPatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := URLParam(r, "guid")
 
 	var payload payloads.ProcessPatch
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -173,11 +168,17 @@ func (h *ProcessHandler) processPatchHandler(ctx context.Context, logger logr.Lo
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(updatedProcess, h.serverURL)), nil
 }
 
-func (h *ProcessHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(ProcessPath, h.handlerWrapper.Wrap(h.processGetHandler))
-	router.Get(ProcessSidecarsPath, h.handlerWrapper.Wrap(h.processGetSidecarsHandler))
-	router.Post(ProcessScalePath, h.handlerWrapper.Wrap(h.processScaleHandler))
-	router.Get(ProcessStatsPath, h.handlerWrapper.Wrap(h.processGetStatsHandler))
-	router.Get(ProcessesPath, h.handlerWrapper.Wrap(h.processListHandler))
-	router.Patch(ProcessPath, h.handlerWrapper.Wrap(h.processPatchHandler))
+func (h *ProcessHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *ProcessHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: ProcessPath, HandlerFunc: h.processGetHandler},
+		{Method: "GET", Pattern: ProcessSidecarsPath, HandlerFunc: h.processGetSidecarsHandler},
+		{Method: "POST", Pattern: ProcessScalePath, HandlerFunc: h.processScaleHandler},
+		{Method: "GET", Pattern: ProcessStatsPath, HandlerFunc: h.processGetStatsHandler},
+		{Method: "GET", Pattern: ProcessesPath, HandlerFunc: h.processListHandler},
+		{Method: "PATCH", Pattern: ProcessPath, HandlerFunc: h.processPatchHandler},
+	}
 }

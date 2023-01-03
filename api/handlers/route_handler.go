@@ -10,9 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -37,7 +35,6 @@ type CFRouteRepository interface {
 }
 
 type RouteHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	serverURL        url.URL
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
@@ -55,7 +52,6 @@ func NewRouteHandler(
 	decoderValidator *DecoderValidator,
 ) *RouteHandler {
 	return &RouteHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("RouteHandler")),
 		serverURL:        serverURL,
 		routeRepo:        routeRepo,
 		domainRepo:       domainRepo,
@@ -66,7 +62,7 @@ func NewRouteHandler(
 }
 
 func (h *RouteHandler) routeGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := URLParam(r, "guid")
 
 	route, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -96,7 +92,7 @@ func (h *RouteHandler) routeGetListHandler(ctx context.Context, logger logr.Logg
 }
 
 func (h *RouteHandler) routeGetDestinationsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := URLParam(r, "guid")
 
 	route, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -159,7 +155,7 @@ func (h *RouteHandler) routeAddDestinationsHandler(ctx context.Context, logger l
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := URLParam(r, "guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -177,8 +173,8 @@ func (h *RouteHandler) routeAddDestinationsHandler(ctx context.Context, logger l
 }
 
 func (h *RouteHandler) routeDeleteDestinationHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	routeGUID := chi.URLParam(r, "guid")
-	destinationGUID := chi.URLParam(r, "destination_guid")
+	routeGUID := URLParam(r, "guid")
+	destinationGUID := URLParam(r, "destination_guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -201,7 +197,7 @@ func (h *RouteHandler) routeDeleteDestinationHandler(ctx context.Context, logger
 }
 
 func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := URLParam(r, "guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
 	if err != nil {
@@ -219,15 +215,21 @@ func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logge
 	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
 }
 
-func (h *RouteHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(RoutePath, h.handlerWrapper.Wrap(h.routeGetHandler))
-	router.Get(RoutesPath, h.handlerWrapper.Wrap(h.routeGetListHandler))
-	router.Get(RouteDestinationsPath, h.handlerWrapper.Wrap(h.routeGetDestinationsHandler))
-	router.Post(RoutesPath, h.handlerWrapper.Wrap(h.routeCreateHandler))
-	router.Delete(RoutePath, h.handlerWrapper.Wrap(h.routeDeleteHandler))
-	router.Post(RouteDestinationsPath, h.handlerWrapper.Wrap(h.routeAddDestinationsHandler))
-	router.Delete(RouteDestinationPath, h.handlerWrapper.Wrap(h.routeDeleteDestinationHandler))
-	router.Patch(RoutePath, h.handlerWrapper.Wrap(h.routePatchHandler))
+func (h *RouteHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: RoutePath, HandlerFunc: h.routeGetHandler},
+		{Method: "GET", Pattern: RoutesPath, HandlerFunc: h.routeGetListHandler},
+		{Method: "GET", Pattern: RouteDestinationsPath, HandlerFunc: h.routeGetDestinationsHandler},
+		{Method: "POST", Pattern: RoutesPath, HandlerFunc: h.routeCreateHandler},
+		{Method: "DELETE", Pattern: RoutePath, HandlerFunc: h.routeDeleteHandler},
+		{Method: "POST", Pattern: RouteDestinationsPath, HandlerFunc: h.routeAddDestinationsHandler},
+		{Method: "DELETE", Pattern: RouteDestinationPath, HandlerFunc: h.routeDeleteDestinationHandler},
+		{Method: "PATCH", Pattern: RoutePath, HandlerFunc: h.routePatchHandler},
+	}
+}
+
+func (h *RouteHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
 }
 
 // Fetch Route and compose related Domain information within
@@ -273,7 +275,7 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo au
 
 //nolint:dupl
 func (h *RouteHandler) routePatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := URLParam(r, "guid")
 
 	route, err := h.routeRepo.GetRoute(ctx, authInfo, routeGUID)
 	if err != nil {

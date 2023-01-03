@@ -48,46 +48,48 @@ type AuthInfoProvider func(ctx context.Context) (authorization.Info, bool)
 type AuthAwareHandlerFuncWrapper struct {
 	logger           logr.Logger
 	authInfoProvider AuthInfoProvider
+	delegate         AuthAwareHandlerFunc
 }
 
-func NewAuthAwareHandlerFuncWrapper(logger logr.Logger) *AuthAwareHandlerFuncWrapper {
+func NewAuthenticatedWrapper(logger logr.Logger, delegate AuthAwareHandlerFunc) *AuthAwareHandlerFuncWrapper {
 	return &AuthAwareHandlerFuncWrapper{
 		logger:           logger,
 		authInfoProvider: authorization.InfoFromContext,
+		delegate:         delegate,
 	}
 }
 
-func NewUnauthenticatedHandlerFuncWrapper(logger logr.Logger) *AuthAwareHandlerFuncWrapper {
+func NewUnauthenticatedWrapper(logger logr.Logger, delegate AuthAwareHandlerFunc) *AuthAwareHandlerFuncWrapper {
 	return &AuthAwareHandlerFuncWrapper{
 		logger: logger,
 		authInfoProvider: func(ctx context.Context) (authorization.Info, bool) {
 			return authorization.Info{}, true
 		},
+		delegate: delegate,
 	}
 }
 
-func (h *AuthAwareHandlerFuncWrapper) Wrap(delegate AuthAwareHandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+func (h *AuthAwareHandlerFuncWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-		logger := correlation.AddCorrelationIDToLogger(ctx, h.logger)
-		authInfo, ok := h.authInfoProvider(r.Context())
-		if !ok {
-			logger.Error(nil, "unable to get auth info")
-			presentError(h.logger, w, nil)
-			return
-		}
+	logger := correlation.AddCorrelationIDToLogger(ctx, h.logger)
+	authInfo, ok := h.authInfoProvider(r.Context())
+	logger.Info("context", "context", r.Context())
+	if !ok {
+		logger.Error(nil, "unable to get auth info")
+		presentError(h.logger, w, nil)
+		return
+	}
 
-		handlerResponse, err := delegate(ctx, logger, authInfo, r)
-		if err != nil {
-			logger.Info("handler returned error", "error", err)
-			presentError(h.logger, w, err)
-			return
-		}
+	handlerResponse, err := h.delegate(ctx, logger, authInfo, r)
+	if err != nil {
+		logger.Info("handler returned error", "error", err)
+		presentError(h.logger, w, err)
+		return
+	}
 
-		if err := handlerResponse.writeTo(w); err != nil {
-			_ = apierrors.LogAndReturn(logger, err, "failed to write result to the HTTP response", "handlerResponse", handlerResponse, "method", r.Method, "URL", r.URL)
-		}
+	if err := handlerResponse.writeTo(w); err != nil {
+		_ = apierrors.LogAndReturn(logger, err, "failed to write result to the HTTP response", "handlerResponse", handlerResponse, "method", r.Method, "URL", r.URL)
 	}
 }
 

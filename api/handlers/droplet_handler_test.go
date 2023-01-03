@@ -39,7 +39,7 @@ var _ = Describe("DropletHandler", func() {
 				*serverURL,
 				dropletRepo,
 			)
-			dropletHandler.RegisterRoutes(router)
+			router.RegisterHandler("handler", dropletHandler)
 		})
 
 		When("build staging is successful", func() {

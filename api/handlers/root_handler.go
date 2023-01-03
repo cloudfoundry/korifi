@@ -6,9 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -16,14 +14,12 @@ const (
 )
 
 type RootHandler struct {
-	serverURL                     string
-	unauthenticatedHandlerWrapper *AuthAwareHandlerFuncWrapper
+	serverURL string
 }
 
 func NewRootHandler(serverURL string) *RootHandler {
 	return &RootHandler{
-		serverURL:                     serverURL,
-		unauthenticatedHandlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("RootHandler")),
+		serverURL: serverURL,
 	}
 }
 
@@ -31,6 +27,12 @@ func (h *RootHandler) rootGetHandler(ctx context.Context, logger logr.Logger, _ 
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.GetRootResponse(h.serverURL)), nil
 }
 
-func (h *RootHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(RootPath, h.unauthenticatedHandlerWrapper.Wrap(h.rootGetHandler))
+func (h *RootHandler) AuthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *RootHandler) UnauthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: RootPath, HandlerFunc: h.rootGetHandler},
+	}
 }

@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"strings"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 
@@ -16,8 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-
-	"github.com/go-chi/chi"
 
 	"github.com/go-logr/logr"
 )
@@ -36,7 +32,6 @@ type CFServiceInstanceRepository interface {
 }
 
 type ServiceInstanceHandler struct {
-	handlerWrapper      *AuthAwareHandlerFuncWrapper
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
 	spaceRepo           SpaceRepository
@@ -50,7 +45,6 @@ func NewServiceInstanceHandler(
 	decoderValidator *DecoderValidator,
 ) *ServiceInstanceHandler {
 	return &ServiceInstanceHandler{
-		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ServiceInstanceHandler")),
 		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
 		spaceRepo:           spaceRepo,
@@ -110,7 +104,7 @@ func (h *ServiceInstanceHandler) serviceInstanceListHandler(ctx context.Context,
 }
 
 func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	serviceInstanceGUID := chi.URLParam(r, "guid")
+	serviceInstanceGUID := URLParam(r, "guid")
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, serviceInstanceGUID)
 	if err != nil {
@@ -128,8 +122,14 @@ func (h *ServiceInstanceHandler) serviceInstanceDeleteHandler(ctx context.Contex
 	return NewHandlerResponse(http.StatusNoContent), nil
 }
 
-func (h *ServiceInstanceHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(ServiceInstancesPath, h.handlerWrapper.Wrap(h.serviceInstanceCreateHandler))
-	router.Get(ServiceInstancesPath, h.handlerWrapper.Wrap(h.serviceInstanceListHandler))
-	router.Delete(ServiceInstancePath, h.handlerWrapper.Wrap(h.serviceInstanceDeleteHandler))
+func (h *ServiceInstanceHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *ServiceInstanceHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "POST", Pattern: ServiceInstancesPath, HandlerFunc: h.serviceInstanceCreateHandler},
+		{Method: "GET", Pattern: ServiceInstancesPath, HandlerFunc: h.serviceInstanceListHandler},
+		{Method: "DELETE", Pattern: ServiceInstancePath, HandlerFunc: h.serviceInstanceDeleteHandler},
+	}
 }

@@ -36,7 +36,7 @@ var _ = Describe("SpaceManifestHandler", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", apiHandler)
 	})
 
 	Describe("POST /v3/spaces/{spaceGUID}/actions/apply_manifest", func() {

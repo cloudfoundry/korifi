@@ -9,9 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -33,7 +31,6 @@ type CFDomainRepository interface {
 }
 
 type DomainHandler struct {
-	handlerWrapper       *AuthAwareHandlerFuncWrapper
 	serverURL            url.URL
 	requestJSONValidator RequestJSONValidator
 	domainRepo           CFDomainRepository
@@ -45,7 +42,6 @@ func NewDomainHandler(
 	domainRepo CFDomainRepository,
 ) *DomainHandler {
 	return &DomainHandler{
-		handlerWrapper:       NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("DomainHandler")),
 		serverURL:            serverURL,
 		requestJSONValidator: requestJSONValidator,
 		domainRepo:           domainRepo,
@@ -73,7 +69,7 @@ func (h *DomainHandler) domainCreateHandler(ctx context.Context, logger logr.Log
 }
 
 func (h *DomainHandler) domainGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	domainGUID := chi.URLParam(r, "guid")
+	domainGUID := URLParam(r, "guid")
 
 	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
 	if err != nil {
@@ -84,7 +80,7 @@ func (h *DomainHandler) domainGetHandler(ctx context.Context, logger logr.Logger
 }
 
 func (h *DomainHandler) domainUpdateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	domainGUID := chi.URLParam(r, "guid")
+	domainGUID := URLParam(r, "guid")
 
 	var payload payloads.DomainUpdate
 	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -124,7 +120,7 @@ func (h *DomainHandler) domainListHandler(ctx context.Context, logger logr.Logge
 }
 
 func (h *DomainHandler) domainDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	domainGUID := chi.URLParam(r, "guid")
+	domainGUID := URLParam(r, "guid")
 
 	err := h.domainRepo.DeleteDomain(ctx, authInfo, domainGUID)
 	if err != nil {
@@ -137,10 +133,16 @@ func (h *DomainHandler) domainDeleteHandler(ctx context.Context, logger logr.Log
 	), nil
 }
 
-func (h *DomainHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(DomainsPath, h.handlerWrapper.Wrap(h.domainCreateHandler))
-	router.Get(DomainPath, h.handlerWrapper.Wrap(h.domainGetHandler))
-	router.Patch(DomainPath, h.handlerWrapper.Wrap(h.domainUpdateHandler))
-	router.Get(DomainsPath, h.handlerWrapper.Wrap(h.domainListHandler))
-	router.Delete(DomainPath, h.handlerWrapper.Wrap(h.domainDeleteHandler))
+func (h *DomainHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *DomainHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "POST", Pattern: DomainsPath, HandlerFunc: h.domainCreateHandler},
+		{Method: "GET", Pattern: DomainPath, HandlerFunc: h.domainGetHandler},
+		{Method: "PATCH", Pattern: DomainPath, HandlerFunc: h.domainUpdateHandler},
+		{Method: "GET", Pattern: DomainsPath, HandlerFunc: h.domainListHandler},
+		{Method: "DELETE", Pattern: DomainPath, HandlerFunc: h.domainDeleteHandler},
+	}
 }

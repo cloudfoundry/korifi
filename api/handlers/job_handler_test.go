@@ -25,7 +25,7 @@ var _ = Describe("JobHandler", func() {
 			jobsHandler := apis.NewJobHandler(
 				*serverURL,
 			)
-			jobsHandler.RegisterRoutes(router)
+			router.RegisterHandler("handler", jobsHandler)
 		})
 
 		JustBeforeEach(func() {

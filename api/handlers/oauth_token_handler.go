@@ -8,11 +8,8 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/golang-jwt/jwt"
-
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -20,14 +17,12 @@ const (
 )
 
 type OAuthTokenHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-	apiBaseURL     url.URL
+	apiBaseURL url.URL
 }
 
 func NewOAuthToken(apiBaseURL url.URL) *OAuthTokenHandler {
 	return &OAuthTokenHandler{
-		handlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("OAuthTokenHandler")),
-		apiBaseURL:     apiBaseURL,
+		apiBaseURL: apiBaseURL,
 	}
 }
 
@@ -48,6 +43,12 @@ func (h *OAuthTokenHandler) oauthTokenHandler(ctx context.Context, logger logr.L
 	}), nil
 }
 
-func (h *OAuthTokenHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(OAuthTokenPath, h.handlerWrapper.Wrap(h.oauthTokenHandler))
+func (h *OAuthTokenHandler) UnauthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "POST", Pattern: OAuthTokenPath, HandlerFunc: h.oauthTokenHandler},
+	}
+}
+
+func (h *OAuthTokenHandler) AuthenticatedRoutes() []Route {
+	return []Route{}
 }

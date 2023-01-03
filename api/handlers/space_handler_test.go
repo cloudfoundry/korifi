@@ -43,7 +43,7 @@ var _ = Describe("Spaces", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		spaceHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", spaceHandler)
 	})
 
 	JustBeforeEach(func() {

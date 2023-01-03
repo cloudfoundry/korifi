@@ -36,7 +36,7 @@ var _ = Describe("RoleHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		roleHandler = apis.NewRoleHandler(*serverURL, roleRepo, decoderValidator)
-		roleHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", roleHandler)
 	})
 
 	DescribeTable("Role org / space combination validation",

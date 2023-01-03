@@ -14,7 +14,7 @@ var _ = Describe("RootV3Handler", func() {
 
 	BeforeEach(func() {
 		handler := apis.NewRootV3Handler(defaultServerURL)
-		handler.RegisterRoutes(router)
+		router.RegisterHandler("handler", handler)
 	})
 
 	JustBeforeEach(func() {

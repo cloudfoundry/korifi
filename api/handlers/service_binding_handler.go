@@ -6,9 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -23,7 +21,6 @@ const (
 )
 
 type ServiceBindingHandler struct {
-	handlerWrapper      *AuthAwareHandlerFuncWrapper
 	appRepo             CFAppRepository
 	serviceBindingRepo  CFServiceBindingRepository
 	serviceInstanceRepo CFServiceInstanceRepository
@@ -40,7 +37,6 @@ type CFServiceBindingRepository interface {
 
 func NewServiceBindingHandler(serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, decoderValidator *DecoderValidator) *ServiceBindingHandler {
 	return &ServiceBindingHandler{
-		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ServiceBindingHandler")),
 		appRepo:             appRepo,
 		serviceInstanceRepo: serviceInstanceRepo,
 		serviceBindingRepo:  serviceBindingRepo,
@@ -83,7 +79,7 @@ func (h *ServiceBindingHandler) createHandler(ctx context.Context, logger logr.L
 }
 
 func (h *ServiceBindingHandler) deleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	serviceBindingGUID := chi.URLParam(r, "guid")
+	serviceBindingGUID := URLParam(r, "guid")
 
 	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
 	if err != nil {
@@ -126,8 +122,14 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceBindingHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(ServiceBindingsPath, h.handlerWrapper.Wrap(h.createHandler))
-	router.Get(ServiceBindingsPath, h.handlerWrapper.Wrap(h.listHandler))
-	router.Delete(ServiceBindingPath, h.handlerWrapper.Wrap(h.deleteHandler))
+func (h *ServiceBindingHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *ServiceBindingHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "POST", Pattern: ServiceBindingsPath, HandlerFunc: h.createHandler},
+		{Method: "GET", Pattern: ServiceBindingsPath, HandlerFunc: h.listHandler},
+		{Method: "DELETE", Pattern: ServiceBindingPath, HandlerFunc: h.deleteHandler},
+	}
 }

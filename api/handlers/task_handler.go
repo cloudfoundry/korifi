@@ -11,9 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -33,7 +31,6 @@ type CFTaskRepository interface {
 }
 
 type TaskHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	serverURL        url.URL
 	appRepo          CFAppRepository
 	taskRepo         CFTaskRepository
@@ -47,7 +44,6 @@ func NewTaskHandler(
 	decoderValidator *DecoderValidator,
 ) *TaskHandler {
 	return &TaskHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("TaskHandler")),
 		serverURL:        serverURL,
 		taskRepo:         taskRepo,
 		appRepo:          appRepo,
@@ -56,7 +52,7 @@ func NewTaskHandler(
 }
 
 func (h *TaskHandler) taskGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	taskGUID := chi.URLParam(r, "taskGUID")
+	taskGUID := URLParam(r, "taskGUID")
 
 	taskRecord, err := h.taskRepo.GetTask(ctx, authInfo, taskGUID)
 	if err != nil {
@@ -76,7 +72,7 @@ func (h *TaskHandler) taskListHandler(ctx context.Context, logger logr.Logger, a
 }
 
 func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	appGUID := chi.URLParam(r, "appGUID")
+	appGUID := URLParam(r, "appGUID")
 
 	var payload payloads.TaskCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -105,7 +101,7 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 }
 
 func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	appGUID := chi.URLParam(r, "appGUID")
+	appGUID := URLParam(r, "appGUID")
 
 	if err := r.ParseForm(); err != nil {
 		logger.Error(err, "Unable to parse request query parameters")
@@ -135,7 +131,7 @@ func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger
 }
 
 func (h *TaskHandler) cancelTaskHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	taskGUID := chi.URLParam(r, "taskGUID")
+	taskGUID := URLParam(r, "taskGUID")
 
 	if _, err := h.taskRepo.GetTask(ctx, authInfo, taskGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding task", "taskGUID", taskGUID)
@@ -149,11 +145,17 @@ func (h *TaskHandler) cancelTaskHandler(ctx context.Context, logger logr.Logger,
 	return NewHandlerResponse(http.StatusAccepted).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
-func (h *TaskHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(TaskPath, h.handlerWrapper.Wrap(h.taskGetHandler))
-	router.Get(TaskRoot, h.handlerWrapper.Wrap(h.taskListHandler))
-	router.Post(TasksPath, h.handlerWrapper.Wrap(h.taskCreateHandler))
-	router.Get(TasksPath, h.handlerWrapper.Wrap(h.appTaskListHandler))
-	router.Post(TaskCancelPath, h.handlerWrapper.Wrap(h.cancelTaskHandler))
-	router.Put(TaskCancelPathDeprecated, h.handlerWrapper.Wrap(h.cancelTaskHandler))
+func (h *TaskHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *TaskHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: TaskPath, HandlerFunc: h.taskGetHandler},
+		{Method: "GET", Pattern: TaskRoot, HandlerFunc: h.taskListHandler},
+		{Method: "POST", Pattern: TasksPath, HandlerFunc: h.taskCreateHandler},
+		{Method: "GET", Pattern: TasksPath, HandlerFunc: h.appTaskListHandler},
+		{Method: "POST", Pattern: TaskCancelPath, HandlerFunc: h.cancelTaskHandler},
+		{Method: "PUT", Pattern: TaskCancelPathDeprecated, HandlerFunc: h.cancelTaskHandler},
+	}
 }

@@ -11,9 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -26,9 +24,8 @@ type BuildpackRepository interface {
 }
 
 type BuildpackHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-	serverURL      url.URL
-	buildpackRepo  BuildpackRepository
+	serverURL     url.URL
+	buildpackRepo BuildpackRepository
 }
 
 func NewBuildpackHandler(
@@ -36,9 +33,8 @@ func NewBuildpackHandler(
 	buildpackRepo BuildpackRepository,
 ) *BuildpackHandler {
 	return &BuildpackHandler{
-		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildpackHandler")),
-		serverURL:      serverURL,
-		buildpackRepo:  buildpackRepo,
+		serverURL:     serverURL,
+		buildpackRepo: buildpackRepo,
 	}
 }
 
@@ -61,6 +57,12 @@ func (h *BuildpackHandler) buildpackListHandler(ctx context.Context, logger logr
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil
 }
 
-func (h *BuildpackHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(BuildpacksPath, h.handlerWrapper.Wrap(h.buildpackListHandler))
+func (h *BuildpackHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
+}
+
+func (h *BuildpackHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: BuildpacksPath, HandlerFunc: h.buildpackListHandler},
+	}
 }

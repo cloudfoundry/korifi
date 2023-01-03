@@ -7,9 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -18,16 +16,14 @@ const (
 )
 
 type ServiceRouteBindingHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-	serverURL      url.URL
+	serverURL url.URL
 }
 
 func NewServiceRouteBindingHandler(
 	serverURL url.URL,
 ) *ServiceRouteBindingHandler {
 	return &ServiceRouteBindingHandler{
-		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ServiceRouteBindingHandler")),
-		serverURL:      serverURL,
+		serverURL: serverURL,
 	}
 }
 
@@ -35,6 +31,12 @@ func (h *ServiceRouteBindingHandler) serviceRouteBindingsListHandler(ctx context
 	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceRouteBindingHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(ServiceRouteBindingsPath, h.handlerWrapper.Wrap(h.serviceRouteBindingsListHandler))
+func (h *ServiceRouteBindingHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "GET", Pattern: ServiceRouteBindingsPath, HandlerFunc: h.serviceRouteBindingsListHandler},
+	}
+}
+
+func (h *ServiceRouteBindingHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
 }

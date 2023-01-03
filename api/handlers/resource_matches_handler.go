@@ -5,23 +5,17 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
 	ResourceMatchesPath = "/v3/resource_matches"
 )
 
-type ResourceMatchesHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-}
+type ResourceMatchesHandler struct{}
 
 func NewResourceMatchesHandler() *ResourceMatchesHandler {
-	return &ResourceMatchesHandler{
-		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ResourceMatchesHandler")),
-	}
+	return &ResourceMatchesHandler{}
 }
 
 func (h *ResourceMatchesHandler) resourceMatchesPostHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
@@ -30,6 +24,12 @@ func (h *ResourceMatchesHandler) resourceMatchesPostHandler(ctx context.Context,
 	}), nil
 }
 
-func (h *ResourceMatchesHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(ResourceMatchesPath, h.handlerWrapper.Wrap(h.resourceMatchesPostHandler))
+func (h *ResourceMatchesHandler) AuthenticatedRoutes() []Route {
+	return []Route{
+		{Method: "POST", Pattern: ResourceMatchesPath, HandlerFunc: h.resourceMatchesPostHandler},
+	}
+}
+
+func (h *ResourceMatchesHandler) UnauthenticatedRoutes() []Route {
+	return []Route{}
 }

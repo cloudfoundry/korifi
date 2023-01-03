@@ -9,7 +9,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apis "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
@@ -21,18 +21,17 @@ import (
 var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 	var (
 		delegate    *fake.AuthAwareHandlerFunc
-		wrappedFunc http.HandlerFunc
-		response    *apis.HandlerResponse
+		wrappedFunc http.Handler
+		response    *handlers.HandlerResponse
 	)
 
 	BeforeEach(func() {
-		response = apis.NewHandlerResponse(http.StatusTeapot)
+		response = handlers.NewHandlerResponse(http.StatusTeapot)
 		delegate = new(fake.AuthAwareHandlerFunc)
-		delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+		delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*handlers.HandlerResponse, error) {
 			return response, nil
 		}
-		wrapper := apis.NewAuthAwareHandlerFuncWrapper(logf.Log.WithName("test"))
-		wrappedFunc = wrapper.Wrap(delegate.Spy)
+		wrappedFunc = handlers.NewAuthenticatedWrapper(logf.Log.WithName("test"), delegate.Spy)
 	})
 
 	JustBeforeEach(func() {
@@ -118,7 +117,7 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 
 	When("the delegate returns an unknown error", func() {
 		BeforeEach(func() {
-			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*handlers.HandlerResponse, error) {
 				return nil, errors.New("delegateErr")
 			}
 		})
@@ -130,7 +129,7 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 
 	When("the delegate returns an unprocessable entity error", func() {
 		BeforeEach(func() {
-			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*handlers.HandlerResponse, error) {
 				return nil, apierrors.NewUnprocessableEntityError(errors.New("foo"), "bar")
 			}
 		})
@@ -142,7 +141,7 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 
 	When("the delegate returns a not authenticated error", func() {
 		BeforeEach(func() {
-			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*handlers.HandlerResponse, error) {
 				return nil, apierrors.NewNotAuthenticatedError(errors.New("foo"))
 			}
 		})
@@ -154,7 +153,7 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 
 	When("the delegate returns an invalid auth error", func() {
 		BeforeEach(func() {
-			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*handlers.HandlerResponse, error) {
 				return nil, apierrors.NewInvalidAuthError(errors.New("foo"))
 			}
 		})
@@ -166,7 +165,7 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 
 	When("the delegate returns a wrapped api error", func() {
 		BeforeEach(func() {
-			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*apis.HandlerResponse, error) {
+			delegate.Stub = func(_ context.Context, _ logr.Logger, _ authorization.Info, _ *http.Request) (*handlers.HandlerResponse, error) {
 				return nil, fmt.Errorf("wrapping %w", apierrors.NewUnprocessableEntityError(errors.New("foo"), "bar"))
 			}
 		})
@@ -179,8 +178,7 @@ var _ = Describe("AuthAwareHandlerFuncWrapper", func() {
 	When("using the unauthenticated wrapper", func() {
 		BeforeEach(func() {
 			ctx = context.Background()
-			wrapper := apis.NewUnauthenticatedHandlerFuncWrapper(logf.Log.WithName("test"))
-			wrappedFunc = wrapper.Wrap(delegate.Spy)
+			wrappedFunc = handlers.NewUnauthenticatedWrapper(logf.Log.WithName("test"), delegate.Spy)
 		})
 
 		It("passes empty auth.Info to the auth aware delegate", func() {

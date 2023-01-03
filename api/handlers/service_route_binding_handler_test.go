@@ -18,7 +18,7 @@ var _ = Describe("ServiceRouteBinding", func() {
 			apiHandler := apis.NewServiceRouteBindingHandler(
 				*serverURL)
 
-			apiHandler.RegisterRoutes(router)
+			router.RegisterHandler("handler", apiHandler)
 
 			router.ServeHTTP(rr, req)
 		})

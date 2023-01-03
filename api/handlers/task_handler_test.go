@@ -37,7 +37,7 @@ var _ = Describe("TaskHandler", func() {
 		}, nil)
 
 		taskHandler := handlers.NewTaskHandler(*serverURL, appRepo, taskRepo, decoderValidator)
-		taskHandler.RegisterRoutes(router)
+		router.RegisterHandler("handler", taskHandler)
 	})
 
 	JustBeforeEach(func() {
