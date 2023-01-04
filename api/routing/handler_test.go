@@ -20,7 +20,7 @@ var _ = Describe("Handler", func() {
 	)
 
 	BeforeEach(func() {
-		response = routing.NewHandlerResponse(http.StatusTeapot)
+		response = routing.NewResponse(http.StatusTeapot)
 		delegate = new(fake.Handler)
 		delegate.Stub = func(*http.Request) (*routing.Response, error) {
 			return response, nil

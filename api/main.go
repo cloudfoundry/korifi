@@ -245,12 +245,12 @@ func main() {
 	)
 
 	apiHandlers := []APIHandler{
-		handlers.NewRootV3Handler(config.ServerURL),
-		handlers.NewRootHandler(
+		handlers.NewRootV3(config.ServerURL),
+		handlers.NewRoot(
 			config.ServerURL,
 		),
-		handlers.NewResourceMatchesHandler(),
-		handlers.NewAppHandler(
+		handlers.NewResourceMatches(),
+		handlers.NewApp(
 			*serverURL,
 			appRepo,
 			dropletRepo,
@@ -261,7 +261,7 @@ func main() {
 			processScaler,
 			decoderValidator,
 		),
-		handlers.NewRouteHandler(
+		handlers.NewRoute(
 			*serverURL,
 			routeRepo,
 			domainRepo,
@@ -269,10 +269,10 @@ func main() {
 			spaceRepo,
 			decoderValidator,
 		),
-		handlers.NewServiceRouteBindingHandler(
+		handlers.NewServiceRouteBinding(
 			*serverURL,
 		),
-		handlers.NewPackageHandler(
+		handlers.NewPackage(
 			*serverURL,
 			packageRepo,
 			appRepo,
@@ -281,85 +281,85 @@ func main() {
 			decoderValidator,
 			config.PackageRegistrySecretName,
 		),
-		handlers.NewBuildHandler(
+		handlers.NewBuild(
 			*serverURL,
 			buildRepo,
 			packageRepo,
 			appRepo,
 			decoderValidator,
 		),
-		handlers.NewDropletHandler(
+		handlers.NewDroplet(
 			*serverURL,
 			dropletRepo,
 		),
-		handlers.NewProcessHandler(
+		handlers.NewProcess(
 			*serverURL,
 			processRepo,
 			processStats,
 			processScaler,
 			decoderValidator,
 		),
-		handlers.NewDomainHandler(
+		handlers.NewDomain(
 			*serverURL,
 			decoderValidator,
 			domainRepo,
 		),
-		handlers.NewJobHandler(
+		handlers.NewJob(
 			*serverURL,
 		),
-		handlers.NewLogCacheHandler(
+		handlers.NewLogCache(
 			appRepo,
 			buildRepo,
 			appLogs,
 		),
-		handlers.NewOrgHandler(
+		handlers.NewOrg(
 			*serverURL,
 			orgRepo,
 			domainRepo,
 			decoderValidator,
 			config.GetUserCertificateDuration(),
 		),
-		handlers.NewSpaceHandler(
+		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
 			decoderValidator,
 		),
-		handlers.NewSpaceManifestHandler(
+		handlers.NewSpaceManifest(
 			*serverURL,
 			manifest,
 			spaceRepo,
 			decoderValidator,
 		),
-		handlers.NewRoleHandler(
+		handlers.NewRole(
 			*serverURL,
 			roleRepo,
 			decoderValidator,
 		),
 		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
-		handlers.NewBuildpackHandler(
+		handlers.NewBuildpack(
 			*serverURL,
 			buildpackRepo,
 		),
-		handlers.NewServiceInstanceHandler(
+		handlers.NewServiceInstance(
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
 			decoderValidator,
 		),
-		handlers.NewServiceBindingHandler(
+		handlers.NewServiceBinding(
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,
 			serviceInstanceRepo,
 			decoderValidator,
 		),
-		handlers.NewTaskHandler(
+		handlers.NewTask(
 			*serverURL,
 			appRepo,
 			taskRepo,
 			decoderValidator,
 		),
-		handlers.NewOAuthToken(
+		handlers.NewOAuth(
 			*serverURL,
 		),
 	}
