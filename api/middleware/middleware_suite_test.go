@@ -8,11 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	defaultServerURL = "https://api.example.org"
-	jsonHeader       = "application/json"
-)
-
 var rr *httptest.ResponseRecorder
 
 func TestApis(t *testing.T) {
