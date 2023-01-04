@@ -19,7 +19,7 @@ type Response struct {
 	headers    map[string][]string
 }
 
-func NewHandlerResponse(httpStatus int) *Response {
+func NewResponse(httpStatus int) *Response {
 	return &Response{
 		httpStatus: httpStatus,
 		headers:    map[string][]string{},
@@ -58,7 +58,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func PresentError(logger logr.Logger, w http.ResponseWriter, err error) {
 	var apiError apierrors.ApiError
 	if errors.As(err, &apiError) {
-		writeErr := NewHandlerResponse(apiError.HttpStatus()).
+		writeErr := NewResponse(apiError.HttpStatus()).
 			WithBody(presenter.ErrorsResponse{
 				Errors: []presenter.PresentedError{
 					{
