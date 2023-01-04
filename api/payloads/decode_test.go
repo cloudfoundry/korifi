@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

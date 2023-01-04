@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-http-utils/headers"

@@ -8,7 +8,7 @@ import (
 
 	k8sclient "k8s.io/client-go/kubernetes"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"

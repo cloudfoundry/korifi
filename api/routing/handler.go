@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
 
 	"github.com/go-http-utils/headers"
