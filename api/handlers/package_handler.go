@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
@@ -45,7 +45,6 @@ type RequestJSONValidator interface {
 }
 
 type PackageHandler struct {
-	handlerWrapper     *AuthAwareHandlerFuncWrapper
 	serverURL          url.URL
 	packageRepo        CFPackageRepository
 	appRepo            CFAppRepository
@@ -65,7 +64,6 @@ func NewPackageHandler(
 	registrySecretName string,
 ) *PackageHandler {
 	return &PackageHandler{
-		handlerWrapper:     NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("PackageHandler")),
 		serverURL:          serverURL,
 		packageRepo:        packageRepo,
 		appRepo:            appRepo,
@@ -76,17 +74,23 @@ func NewPackageHandler(
 	}
 }
 
-func (h PackageHandler) packageGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h PackageHandler) packageGetHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("package-handler.package-get")
+
 	packageGUID := chi.URLParam(r, "guid")
-	record, err := h.packageRepo.GetPackage(ctx, authInfo, packageGUID)
+	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
 }
 
-func (h PackageHandler) packageListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h PackageHandler) packageListHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("package-handler.package-list")
+
 	if err := r.ParseForm(); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
@@ -97,21 +101,24 @@ func (h PackageHandler) packageListHandler(ctx context.Context, logger logr.Logg
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	records, err := h.packageRepo.ListPackages(ctx, authInfo, packageListQueryParameters.ToMessage())
+	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageListQueryParameters.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository", "error")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackageList(records, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackageList(records, h.serverURL, *r.URL)), nil
 }
 
-func (h PackageHandler) packageCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h PackageHandler) packageCreateHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("package-handler.package-create")
+
 	var payload payloads.PackageCreate
 	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	appRecord, err := h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID)
+	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(
 			logger,
@@ -131,25 +138,31 @@ func (h PackageHandler) packageCreateHandler(ctx context.Context, logger logr.Lo
 		return nil, apierrors.LogAndReturn(logger, err, "Error creating package with repository")
 	}
 
-	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForPackage(record, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForPackage(record, h.serverURL)), nil
 }
 
-func (h PackageHandler) packageUpdateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h PackageHandler) packageUpdateHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("package-handler.package-update")
+
 	var payload payloads.PackageUpdate
 	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	packageGUID := chi.URLParam(r, "guid")
-	packageRecord, err := h.packageRepo.UpdatePackage(ctx, authInfo, payload.ToMessage(packageGUID))
+	packageRecord, err := h.packageRepo.UpdatePackage(r.Context(), authInfo, payload.ToMessage(packageGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error updating package")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(packageRecord, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(packageRecord, h.serverURL)), nil
 }
 
-func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h PackageHandler) packageUploadHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("package-handler.package-upload")
+
 	packageGUID := chi.URLParam(r, "guid")
 	err := r.ParseForm()
 	if err != nil { // untested - couldn't find a way to trigger this branch
@@ -186,10 +199,13 @@ func (h PackageHandler) packageUploadHandler(ctx context.Context, logger logr.Lo
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling UpdatePackageSource")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
 }
 
-func (h PackageHandler) packageListDropletsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h PackageHandler) packageListDropletsHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("package-handler.package-list-droplets")
+
 	if err := r.ParseForm(); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
@@ -213,14 +229,14 @@ func (h PackageHandler) packageListDropletsHandler(ctx context.Context, logger l
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching droplet list with repository")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDropletList(dropletList, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDropletList(dropletList, h.serverURL, *r.URL)), nil
 }
 
 func (h *PackageHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(PackagePath, h.handlerWrapper.Wrap(h.packageGetHandler))
-	router.Patch(PackagePath, h.handlerWrapper.Wrap(h.packageUpdateHandler))
-	router.Get(PackagesPath, h.handlerWrapper.Wrap(h.packageListHandler))
-	router.Post(PackagesPath, h.handlerWrapper.Wrap(h.packageCreateHandler))
-	router.Post(PackageUploadPath, h.handlerWrapper.Wrap(h.packageUploadHandler))
-	router.Get(PackageDropletsPath, h.handlerWrapper.Wrap(h.packageListDropletsHandler))
+	router.Method("GET", PackagePath, routing.Handler(h.packageGetHandler))
+	router.Method("PATCH", PackagePath, routing.Handler(h.packageUpdateHandler))
+	router.Method("GET", PackagesPath, routing.Handler(h.packageListHandler))
+	router.Method("POST", PackagesPath, routing.Handler(h.packageCreateHandler))
+	router.Method("POST", PackageUploadPath, routing.Handler(h.packageUploadHandler))
+	router.Method("GET", PackageDropletsPath, routing.Handler(h.packageListDropletsHandler))
 }

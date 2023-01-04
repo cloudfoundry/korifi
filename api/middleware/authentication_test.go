@@ -1,4 +1,4 @@
-package handlers_test
+package middleware_test
 
 import (
 	"errors"
@@ -6,8 +6,8 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apis "code.cloudfoundry.org/korifi/api/handlers"
-	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/middleware"
+	"code.cloudfoundry.org/korifi/api/middleware/fake"
 
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +18,7 @@ const authHeader = "Authorization: something"
 
 var _ = Describe("Authentication Middleware", func() {
 	var (
-		authMiddleware                  *apis.AuthenticationMiddleware
+		authMiddleware                  func(http.Handler) http.Handler
 		nextHandler                     http.Handler
 		identityProvider                *fake.IdentityProvider
 		authInfoParser                  *fake.AuthInfoParser
@@ -44,7 +44,7 @@ var _ = Describe("Authentication Middleware", func() {
 		unauthenticatedEndpointRegistry = new(fake.UnauthenticatedEndpointRegistry)
 		unauthenticatedEndpointRegistry.IsUnauthenticatedEndpointReturns(false)
 
-		authMiddleware = apis.NewAuthenticationMiddleware(
+		authMiddleware = middleware.Authentication(
 			authInfoParser,
 			identityProvider,
 			unauthenticatedEndpointRegistry,
@@ -55,7 +55,7 @@ var _ = Describe("Authentication Middleware", func() {
 		request, err := http.NewRequest(http.MethodGet, "http://localhost"+requestPath, nil)
 		Expect(err).NotTo(HaveOccurred())
 		request.Header.Add(headers.Authorization, authHeader)
-		authMiddleware.Middleware(nextHandler).ServeHTTP(rr, request)
+		authMiddleware(nextHandler).ServeHTTP(rr, request)
 	})
 
 	It("verifies authentication and passes through", func() {

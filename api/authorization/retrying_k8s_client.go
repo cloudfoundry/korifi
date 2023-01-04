@@ -4,13 +4,11 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/correlation"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,14 +23,12 @@ func NewDefaultBackoff() wait.Backoff {
 type AuthRetryingClient struct {
 	client.WithWatch
 	backoff wait.Backoff
-	logger  logr.Logger
 }
 
 func NewAuthRetryingClient(c client.WithWatch, backoff wait.Backoff) client.WithWatch {
 	return AuthRetryingClient{
 		WithWatch: c,
 		backoff:   backoff,
-		logger:    ctrl.Log.WithName("retrying-client"),
 	}
 }
 
@@ -81,7 +77,7 @@ func (a AuthRetryingClient) DeleteAllOf(ctx context.Context, obj client.Object, 
 func (a AuthRetryingClient) retryOnForbidden(ctx context.Context, fn func() error, op string) error {
 	count := 0
 	return retry.OnError(a.backoff, isForbidden, func() error {
-		logger := correlation.AddCorrelationIDToLogger(ctx, a.logger)
+		logger := logr.FromContextOrDiscard(ctx).WithName("retrying-client")
 		err := fn()
 		if err != nil {
 			count++

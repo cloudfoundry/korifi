@@ -8,9 +8,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/routing"
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -24,28 +24,29 @@ type IdentityProvider interface {
 }
 
 type WhoAmIHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	identityProvider IdentityProvider
 	apiBaseURL       url.URL
 }
 
 func NewWhoAmI(identityProvider IdentityProvider, apiBaseURL url.URL) *WhoAmIHandler {
 	return &WhoAmIHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("WhoAmIHandler")),
 		identityProvider: identityProvider,
 		apiBaseURL:       apiBaseURL,
 	}
 }
 
-func (h *WhoAmIHandler) whoAmIHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *WhoAmIHandler) whoAmIHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("whoami-handler.whoami")
+
 	identity, err := h.identityProvider.GetIdentity(r.Context(), authInfo)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to get identity")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForWhoAmI(identity)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForWhoAmI(identity)), nil
 }
 
 func (h *WhoAmIHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(WhoAmIPath, h.handlerWrapper.Wrap(h.whoAmIHandler))
+	router.Method("GET", WhoAmIPath, routing.Handler(h.whoAmIHandler))
 }

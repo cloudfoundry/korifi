@@ -1,4 +1,4 @@
-package handlers
+package middleware
 
 import (
 	"context"
@@ -16,7 +16,7 @@ const (
 	cacheTTL = 120 * time.Second
 )
 
-type CFUserMiddleware struct {
+type cfUser struct {
 	privilegedClient                client.Client
 	identityProvider                IdentityProvider
 	cfRootNamespace                 string
@@ -24,23 +24,23 @@ type CFUserMiddleware struct {
 	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry
 }
 
-func NewCFUserMiddleware(
+func CFUser(
 	privilegedClient client.Client,
 	identityProvider IdentityProvider,
 	cfRootNamespace string,
 	cfUserCache *cache.Expiring,
 	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry,
-) *CFUserMiddleware {
-	return &CFUserMiddleware{
+) func(http.Handler) http.Handler {
+	return (&cfUser{
 		privilegedClient:                privilegedClient,
 		identityProvider:                identityProvider,
 		cfRootNamespace:                 cfRootNamespace,
 		cfUserCache:                     cfUserCache,
 		unauthenticatedEndpointRegistry: unauthenticatedEndpointRegistry,
-	}
+	}).middleware
 }
 
-func (m *CFUserMiddleware) Middleware(next http.Handler) http.Handler {
+func (m *cfUser) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if m.unauthenticatedEndpointRegistry.IsUnauthenticatedEndpoint(r.URL.Path) {
 			next.ServeHTTP(w, r)
@@ -73,7 +73,7 @@ func (m *CFUserMiddleware) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (m *CFUserMiddleware) isCFUser(ctx context.Context, identity authorization.Identity) (bool, error) {
+func (m *cfUser) isCFUser(ctx context.Context, identity authorization.Identity) (bool, error) {
 	_, isCFUser := m.cfUserCache.Get(identity.Hash())
 	if isCFUser {
 		return true, nil

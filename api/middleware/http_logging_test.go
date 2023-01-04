@@ -1,37 +1,33 @@
-package handlers_test
+package middleware_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/middleware"
+	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("HttpLoggingMiddleware", func() {
-	var (
-		logLines   []string
-		middleware handlers.HTTPLogging
-	)
-
-	BeforeEach(func() {
-		middleware = handlers.NewHTTPLogging(funcr.NewJSON(func(obj string) {
-			logLines = append(logLines, obj)
-		}, funcr.Options{}))
-	})
+	var logLines []string
 
 	It("logs the request", func() {
 		res := httptest.NewRecorder()
-		req, err := http.NewRequest("POST", "/path", strings.NewReader("request-body"))
+		ctx := logr.NewContext(context.Background(), funcr.NewJSON(func(obj string) {
+			logLines = append(logLines, obj)
+		}, funcr.Options{}))
+		req, err := http.NewRequestWithContext(ctx, "POST", "/path", strings.NewReader("request-body"))
 		req.RemoteAddr = "remote-addr"
 		Expect(err).NotTo(HaveOccurred())
 
-		middleware.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		middleware.HTTPLogging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			Expect(r.Method).To(Equal("POST"))
 			Expect(r.URL.Path).To(Equal("/path"))
 

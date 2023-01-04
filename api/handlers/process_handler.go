@@ -6,13 +6,12 @@ import (
 	"net/http"
 	"net/url"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
@@ -45,7 +44,6 @@ type ProcessStatsFetcher interface {
 }
 
 type ProcessHandler struct {
-	handlerWrapper      *AuthAwareHandlerFuncWrapper
 	serverURL           url.URL
 	processRepo         CFProcessRepository
 	processStatsFetcher ProcessStatsFetcher
@@ -61,7 +59,6 @@ func NewProcessHandler(
 	decoderValidator *DecoderValidator,
 ) *ProcessHandler {
 	return &ProcessHandler{
-		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ProcessHandler")),
 		serverURL:           serverURL,
 		processRepo:         processRepo,
 		processStatsFetcher: processStatsFetcher,
@@ -70,26 +67,32 @@ func NewProcessHandler(
 	}
 }
 
-func (h *ProcessHandler) processGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ProcessHandler) processGetHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("process-handler.process-get")
+
 	processGUID := chi.URLParam(r, "guid")
 
-	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
+	process, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
 }
 
-func (h *ProcessHandler) processGetSidecarsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ProcessHandler) processGetSidecarsHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("process-handler.process-get-sidecars")
+
 	processGUID := chi.URLParam(r, "guid")
 
-	_, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
+	_, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch process from Kubernetes", "ProcessGUID", processGUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
 		"pagination": map[string]interface{}{
 			"total_results": 0,
 			"total_pages":   1,
@@ -106,7 +109,10 @@ func (h *ProcessHandler) processGetSidecarsHandler(ctx context.Context, logger l
 	}), nil
 }
 
-func (h *ProcessHandler) processScaleHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ProcessHandler) processScaleHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("process-handler.process-scale")
+
 	processGUID := chi.URLParam(r, "guid")
 
 	var payload payloads.ProcessScale
@@ -114,26 +120,32 @@ func (h *ProcessHandler) processScaleHandler(ctx context.Context, logger logr.Lo
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	processRecord, err := h.processScaler.ScaleProcess(ctx, authInfo, processGUID, payload.ToRecord())
+	processRecord, err := h.processScaler.ScaleProcess(r.Context(), authInfo, processGUID, payload.ToRecord())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed due to error from Kubernetes", "processGUID", processGUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(processRecord, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(processRecord, h.serverURL)), nil
 }
 
-func (h *ProcessHandler) processGetStatsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ProcessHandler) processGetStatsHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("process-handler.process-get-stats")
+
 	processGUID := chi.URLParam(r, "guid")
 
-	records, err := h.processStatsFetcher.FetchStats(ctx, authInfo, processGUID)
+	records, err := h.processStatsFetcher.FetchStats(r.Context(), authInfo, processGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
 }
 
-func (h *ProcessHandler) processListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
+func (h *ProcessHandler) processListHandler(r *http.Request) (*routing.Response, error) { //nolint:dupl
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("process-handler.process-list")
+
 	if err := r.ParseForm(); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
@@ -144,15 +156,18 @@ func (h *ProcessHandler) processListHandler(ctx context.Context, logger logr.Log
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	processList, err := h.processRepo.ListProcesses(ctx, authInfo, processListFilter.ToMessage())
+	processList, err := h.processRepo.ListProcesses(r.Context(), authInfo, processListFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch processes(s) from Kubernetes")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessList(processList, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcessList(processList, h.serverURL, *r.URL)), nil
 }
 
-func (h *ProcessHandler) processPatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ProcessHandler) processPatchHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("process-handler.process-patch")
+
 	processGUID := chi.URLParam(r, "guid")
 
 	var payload payloads.ProcessPatch
@@ -160,24 +175,24 @@ func (h *ProcessHandler) processPatchHandler(ctx context.Context, logger logr.Lo
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
-	process, err := h.processRepo.GetProcess(ctx, authInfo, processGUID)
+	process, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process from Kubernetes", "ProcessGUID", processGUID)
 	}
 
-	updatedProcess, err := h.processRepo.PatchProcess(ctx, authInfo, payload.ToProcessPatchMessage(processGUID, process.SpaceGUID))
+	updatedProcess, err := h.processRepo.PatchProcess(r.Context(), authInfo, payload.ToProcessPatchMessage(processGUID, process.SpaceGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch process from Kubernetes", "ProcessGUID", processGUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(updatedProcess, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForProcess(updatedProcess, h.serverURL)), nil
 }
 
 func (h *ProcessHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(ProcessPath, h.handlerWrapper.Wrap(h.processGetHandler))
-	router.Get(ProcessSidecarsPath, h.handlerWrapper.Wrap(h.processGetSidecarsHandler))
-	router.Post(ProcessScalePath, h.handlerWrapper.Wrap(h.processScaleHandler))
-	router.Get(ProcessStatsPath, h.handlerWrapper.Wrap(h.processGetStatsHandler))
-	router.Get(ProcessesPath, h.handlerWrapper.Wrap(h.processListHandler))
-	router.Patch(ProcessPath, h.handlerWrapper.Wrap(h.processPatchHandler))
+	router.Method("GET", ProcessPath, routing.Handler(h.processGetHandler))
+	router.Method("GET", ProcessSidecarsPath, routing.Handler(h.processGetSidecarsHandler))
+	router.Method("POST", ProcessScalePath, routing.Handler(h.processScaleHandler))
+	router.Method("GET", ProcessStatsPath, routing.Handler(h.processGetStatsHandler))
+	router.Method("GET", ProcessesPath, routing.Handler(h.processListHandler))
+	router.Method("PATCH", ProcessPath, routing.Handler(h.processPatchHandler))
 }

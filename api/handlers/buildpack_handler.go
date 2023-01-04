@@ -10,10 +10,10 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -26,9 +26,8 @@ type BuildpackRepository interface {
 }
 
 type BuildpackHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-	serverURL      url.URL
-	buildpackRepo  BuildpackRepository
+	serverURL     url.URL
+	buildpackRepo BuildpackRepository
 }
 
 func NewBuildpackHandler(
@@ -36,13 +35,15 @@ func NewBuildpackHandler(
 	buildpackRepo BuildpackRepository,
 ) *BuildpackHandler {
 	return &BuildpackHandler{
-		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildpackHandler")),
-		serverURL:      serverURL,
-		buildpackRepo:  buildpackRepo,
+		serverURL:     serverURL,
+		buildpackRepo: buildpackRepo,
 	}
 }
 
-func (h *BuildpackHandler) buildpackListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *BuildpackHandler) buildpackListHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("buildpack-handler.buildpack-list")
+
 	if err := r.ParseForm(); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
@@ -53,14 +54,14 @@ func (h *BuildpackHandler) buildpackListHandler(ctx context.Context, logger logr
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	buildpacks, err := h.buildpackRepo.ListBuildpacks(ctx, authInfo)
+	buildpacks, err := h.buildpackRepo.ListBuildpacks(r.Context(), authInfo)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch buildpacks from Kubernetes")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil
 }
 
 func (h *BuildpackHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(BuildpacksPath, h.handlerWrapper.Wrap(h.buildpackListHandler))
+	router.Method("GET", BuildpacksPath, routing.Handler(h.buildpackListHandler))
 }

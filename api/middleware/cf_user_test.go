@@ -1,4 +1,4 @@
-package handlers_test
+package middleware_test
 
 import (
 	"context"
@@ -8,9 +8,8 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/correlation"
-	"code.cloudfoundry.org/korifi/api/handlers"
-	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/middleware"
+	"code.cloudfoundry.org/korifi/api/middleware/fake"
 	controllersfake "code.cloudfoundry.org/korifi/controllers/fake"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,15 +21,20 @@ import (
 
 var _ = Describe("CfUserMiddleware", func() {
 	var (
-		cfUserMiddleware                *handlers.CFUserMiddleware
+		cfUserMiddleware                func(http.Handler) http.Handler
 		k8sClient                       *controllersfake.Client
 		identityProvider                *fake.IdentityProvider
 		teapotHandler                   http.Handler
 		cfUserCache                     *cache.Expiring
 		unauthenticatedEndpointRegistry *fake.UnauthenticatedEndpointRegistry
+		authInfo                        authorization.Info
+		ctx                             context.Context
 	)
 
 	BeforeEach(func() {
+		authInfo = authorization.Info{Token: "a-token"}
+		ctx = authorization.NewContext(context.Background(), &authInfo)
+
 		k8sClient = new(controllersfake.Client)
 		k8sClient.ListStub = func(_ context.Context, objectsList client.ObjectList, _ ...client.ListOption) error {
 			rbList, ok := objectsList.(*rbacv1.RoleBindingList)
@@ -47,7 +51,7 @@ var _ = Describe("CfUserMiddleware", func() {
 			return nil
 		}
 
-		teapotHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		teapotHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusTeapot)
 		})
 
@@ -61,14 +65,14 @@ var _ = Describe("CfUserMiddleware", func() {
 		unauthenticatedEndpointRegistry.IsUnauthenticatedEndpointReturns(false)
 
 		cfUserCache = cache.NewExpiringWithClock(testing.NewFakeClock(time.Now()))
-		cfUserMiddleware = handlers.NewCFUserMiddleware(k8sClient, identityProvider, "cfroot", cfUserCache, unauthenticatedEndpointRegistry)
+		cfUserMiddleware = middleware.CFUser(k8sClient, identityProvider, "cfroot", cfUserCache, unauthenticatedEndpointRegistry)
 	})
 
 	JustBeforeEach(func() {
 		request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/v3/apps", nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		cfUserMiddleware.Middleware(teapotHandler).ServeHTTP(rr, request)
+		cfUserMiddleware(teapotHandler).ServeHTTP(rr, request)
 	})
 
 	It("delegates to the next middleware", func() {
@@ -189,9 +193,9 @@ var _ = Describe("CfUserMiddleware", func() {
 			rr = httptest.NewRecorder()
 
 			request, err := http.NewRequestWithContext(
-				correlation.ContextWithId(authorization.NewContext(context.Background(), &authorization.Info{
+				authorization.NewContext(context.Background(), &authorization.Info{
 					Token: "b-token",
-				}), "another-correlationID"),
+				}),
 				http.MethodGet,
 				"http://localhost/bar",
 				nil,
@@ -203,7 +207,7 @@ var _ = Describe("CfUserMiddleware", func() {
 				Kind: rbacv1.UserKind,
 			}, nil)
 
-			cfUserMiddleware.Middleware(teapotHandler).ServeHTTP(rr, request)
+			cfUserMiddleware(teapotHandler).ServeHTTP(rr, request)
 		})
 
 		It("lists the role bindings again (does not cache previous result)", func() {
@@ -218,7 +222,7 @@ var _ = Describe("CfUserMiddleware", func() {
 			request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/bar", nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			cfUserMiddleware.Middleware(teapotHandler).ServeHTTP(rr, request)
+			cfUserMiddleware(teapotHandler).ServeHTTP(rr, request)
 		})
 
 		It("delegates to the next middleware", func() {

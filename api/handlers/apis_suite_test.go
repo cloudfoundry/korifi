@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/correlation"
 	"github.com/go-chi/chi"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
@@ -28,12 +27,11 @@ const (
 )
 
 var (
-	rr            *httptest.ResponseRecorder
-	router        *chi.Mux
-	serverURL     *url.URL
-	ctx           context.Context
-	authInfo      authorization.Info
-	correlationID string
+	rr        *httptest.ResponseRecorder
+	router    *chi.Mux
+	serverURL *url.URL
+	ctx       context.Context
+	authInfo  authorization.Info
 )
 
 func TestApis(t *testing.T) {
@@ -47,8 +45,7 @@ var _ = BeforeSuite(func() {
 
 var _ = BeforeEach(func() {
 	authInfo = authorization.Info{Token: "a-token"}
-	correlationID = generateGUID("corrID")
-	ctx = correlation.ContextWithId(authorization.NewContext(context.Background(), &authInfo), correlationID)
+	ctx = authorization.NewContext(context.Background(), &authInfo)
 	rr = httptest.NewRecorder()
 	router = chi.NewMux()
 

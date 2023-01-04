@@ -10,10 +10,10 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/routing"
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -43,7 +43,6 @@ type CFRoleRepository interface {
 }
 
 type RoleHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	apiBaseURL       url.URL
 	roleRepo         CFRoleRepository
 	decoderValidator *DecoderValidator
@@ -51,14 +50,16 @@ type RoleHandler struct {
 
 func NewRoleHandler(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator *DecoderValidator) *RoleHandler {
 	return &RoleHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("RoleHandler")),
 		apiBaseURL:       apiBaseURL,
 		roleRepo:         roleRepo,
 		decoderValidator: decoderValidator,
 	}
 }
 
-func (h *RoleHandler) roleCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RoleHandler) roleCreateHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("role-handler.role-create")
+
 	var payload payloads.RoleCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
@@ -67,14 +68,14 @@ func (h *RoleHandler) roleCreateHandler(ctx context.Context, logger logr.Logger,
 	role := payload.ToMessage()
 	role.GUID = uuid.NewString()
 
-	record, err := h.roleRepo.CreateRole(ctx, authInfo, role)
+	record, err := h.roleRepo.CreateRole(r.Context(), authInfo, role)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create role", "Role Type", role.Type, "Space", role.Space, "User", role.User)
 	}
 
-	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateRole(record, h.apiBaseURL)), nil
+	return routing.NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForCreateRole(record, h.apiBaseURL)), nil
 }
 
 func (h *RoleHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(RolesPath, h.handlerWrapper.Wrap(h.roleCreateHandler))
+	router.Method("POST", RolesPath, routing.Handler(h.roleCreateHandler))
 }

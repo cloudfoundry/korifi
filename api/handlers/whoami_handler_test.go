@@ -7,7 +7,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apis "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -34,7 +33,6 @@ var _ = Describe("WhoAmI", func() {
 
 	JustBeforeEach(func() {
 		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, nil)
-		req.Header.Add(headers.Authorization, authHeader)
 		Expect(err).NotTo(HaveOccurred())
 
 		router.ServeHTTP(rr, req)

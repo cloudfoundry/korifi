@@ -1,16 +1,14 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
-	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
@@ -29,18 +27,18 @@ const (
 const JobResourceType = "Job"
 
 type JobHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-	serverURL      url.URL
+	serverURL url.URL
 }
 
 func NewJobHandler(serverURL url.URL) *JobHandler {
 	return &JobHandler{
-		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("JobHandler")),
-		serverURL:      serverURL,
+		serverURL: serverURL,
 	}
 }
 
-func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *JobHandler) jobGetHandler(r *http.Request) (*routing.Response, error) {
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("job-handler.job-get")
+
 	jobGUID := chi.URLParam(r, "guid")
 
 	jobType, resourceGUID, match := parseJobGUID(jobGUID)
@@ -68,11 +66,11 @@ func (h *JobHandler) jobGetHandler(ctx context.Context, logger logr.Logger, auth
 		)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(jobResponse), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
 func (h *JobHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(JobPath, h.handlerWrapper.Wrap(h.jobGetHandler))
+	router.Method("GET", JobPath, routing.Handler(h.jobGetHandler))
 }
 
 func parseJobGUID(jobGUID string) (string, string, bool) {
