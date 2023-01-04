@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -12,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
@@ -35,6 +38,7 @@ const (
 
 	AppStartedState = "STARTED"
 	AppStoppedState = "STOPPED"
+	AppRevisionKey  = "korifi.cloudfoundry.org/app-rev"
 )
 
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
@@ -233,20 +237,30 @@ func (h *App) start(r *http.Request) (*routing.Response, error) {
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
-	if app.DropletGUID == "" {
-		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(err, "Assign a droplet before starting this app."), "App droplet not set before start", "AppGUID", appGUID)
+
+	app, err = h.startApp(r.Context(), authInfo, app)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to start app", "AppGUID", appGUID)
 	}
 
-	app, err = h.appRepo.SetAppDesiredState(r.Context(), authInfo, repositories.SetAppDesiredStateMessage{
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
+}
+
+func (h *App) startApp(ctx context.Context, authInfo authorization.Info, app repositories.AppRecord) (repositories.AppRecord, error) {
+	if app.DropletGUID == "" {
+		return repositories.AppRecord{}, apierrors.NewUnprocessableEntityError(errors.New("app droplet not set"), "Assign a droplet before starting this app.")
+	}
+
+	app, err := h.appRepo.SetAppDesiredState(ctx, authInfo, repositories.SetAppDesiredStateMessage{
 		AppGUID:      app.GUID,
 		SpaceGUID:    app.SpaceGUID,
 		DesiredState: AppStartedState,
 	})
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
+		return repositories.AppRecord{}, fmt.Errorf("failed to update app desired state: %w", err)
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
+	return app, nil
 }
 
 func (h *App) stop(r *http.Request) (*routing.Response, error) {
@@ -259,16 +273,43 @@ func (h *App) stop(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	app, err = h.appRepo.SetAppDesiredState(r.Context(), authInfo, repositories.SetAppDesiredStateMessage{
+	app, err = h.stopApp(r.Context(), authInfo, app)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to stop app", "AppGUID", appGUID)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
+}
+
+func (h *App) stopApp(ctx context.Context, authInfo authorization.Info, app repositories.AppRecord) (repositories.AppRecord, error) {
+	appRevision, err := strconv.Atoi(app.Annotations[AppRevisionKey])
+	if err != nil {
+		return repositories.AppRecord{}, apierrors.NewUnprocessableEntityError(err, "failed to parse app revision")
+	}
+
+	app, err = h.appRepo.PatchAppMetadata(ctx, authInfo, repositories.PatchAppMetadataMessage{
+		MetadataPatch: repositories.MetadataPatch{
+			Annotations: map[string]*string{
+				AppRevisionKey: tools.PtrTo(strconv.Itoa(appRevision + 1)),
+			},
+		},
+		AppGUID:   app.GUID,
+		SpaceGUID: app.SpaceGUID,
+	})
+	if err != nil {
+		return repositories.AppRecord{}, apierrors.NewUnprocessableEntityError(err, "failed to update app revision")
+	}
+
+	app, err = h.appRepo.SetAppDesiredState(ctx, authInfo, repositories.SetAppDesiredStateMessage{
 		AppGUID:      app.GUID,
 		SpaceGUID:    app.SpaceGUID,
 		DesiredState: AppStoppedState,
 	})
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
+		return repositories.AppRecord{}, fmt.Errorf("failed to update app desired state: %w", err)
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
+	return app, nil
 }
 
 func (h *App) getProcesses(r *http.Request) (*routing.Response, error) {
@@ -341,33 +382,14 @@ func (h *App) restart(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	if app.DropletGUID == "" {
-		return nil, apierrors.LogAndReturn(
-			logger,
-			apierrors.NewUnprocessableEntityError(fmt.Errorf("app %s has no droplet set", app.GUID), "Assign a droplet before starting this app."),
-			"App droplet not set before start",
-			"AppGUID", appGUID,
-		)
-	}
-
-	if app.State == repositories.StartedState {
-		app, err = h.appRepo.SetAppDesiredState(r.Context(), authInfo, repositories.SetAppDesiredStateMessage{
-			AppGUID:      app.GUID,
-			SpaceGUID:    app.SpaceGUID,
-			DesiredState: AppStoppedState,
-		})
-		if err != nil {
-			return nil, apierrors.LogAndReturn(logger, err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
-		}
-	}
-
-	app, err = h.appRepo.SetAppDesiredState(r.Context(), authInfo, repositories.SetAppDesiredStateMessage{
-		AppGUID:      app.GUID,
-		SpaceGUID:    app.SpaceGUID,
-		DesiredState: AppStartedState,
-	})
+	app, err = h.stopApp(r.Context(), authInfo, app)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to update app in Kubernetes", "AppGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to stop app", "AppGUID", appGUID)
+	}
+
+	app, err = h.startApp(r.Context(), authInfo, app)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to start app", "AppGUID", appGUID)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil

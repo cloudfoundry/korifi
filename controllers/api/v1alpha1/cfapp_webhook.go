@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"strconv"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -42,14 +40,20 @@ var _ webhook.Defaulter = &CFApp{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *CFApp) Default() {
 	cfapplog.Info("Mutating CFApp webhook handler", "name", r.Name)
-	appLabels := r.GetLabels()
+	r.SetLabels(r.defaultLabels(r.GetLabels()))
+	r.SetAnnotations(r.defaultAnnotations(r.GetAnnotations()))
+}
+
+func (r *CFApp) defaultLabels(appLabels map[string]string) map[string]string {
 	if appLabels == nil {
 		appLabels = make(map[string]string)
 	}
 	appLabels[CFAppGUIDLabelKey] = r.Name
-	r.SetLabels(appLabels)
 
-	appAnnotations := r.GetAnnotations()
+	return appLabels
+}
+
+func (r *CFApp) defaultAnnotations(appAnnotations map[string]string) map[string]string {
 	if appAnnotations == nil {
 		appAnnotations = make(map[string]string)
 	}
@@ -58,14 +62,5 @@ func (r *CFApp) Default() {
 		appAnnotations[CFAppRevisionKey] = CFAppRevisionKeyDefault
 	}
 
-	if (r.Spec.DesiredState == StoppedState) && (r.Status.ObservedDesiredState != "") && (r.Spec.DesiredState != r.Status.ObservedDesiredState) {
-		currentRevValue := appAnnotations[CFAppRevisionKey]
-		revValue, err := strconv.Atoi(currentRevValue)
-		if err != nil {
-			appAnnotations[CFAppRevisionKey] = CFAppRevisionKeyDefault
-		} else {
-			appAnnotations[CFAppRevisionKey] = strconv.Itoa(revValue + 1)
-		}
-	}
-	r.SetAnnotations(appAnnotations)
+	return appAnnotations
 }
