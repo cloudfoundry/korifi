@@ -3,7 +3,6 @@ package v1alpha1_test
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -57,19 +56,25 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 		Expect(cfApp.Annotations).To(HaveKeyWithValue("someAnnotation", "blah"))
 	})
 
-	When("the app is being stopped", func() {
-		JustBeforeEach(func() {
-			Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-				cfApp.Spec.DesiredState = "STOPPED"
-				cfApp.Status.ObservedDesiredState = "STARTED"
-				// the values below are required
-				cfApp.Status.Conditions = []metav1.Condition{}
-				cfApp.Status.VCAPServicesSecretName = "foo"
-			})).To(Succeed())
+	When("the app does not have any labels", func() {
+		BeforeEach(func() {
+			cfApp.Labels = nil
 		})
 
-		It("increments the app revision annotation", func() {
-			Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "1"))
+		It("adds a label mathching metadata.name", func() {
+			Expect(cfApp.Labels).To(HaveLen(1))
+			Expect(cfApp.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfApp.Name))
+		})
+	})
+
+	When("the app does not have any annotations", func() {
+		BeforeEach(func() {
+			cfApp.Annotations = nil
+		})
+
+		It("adds an app revision annotation", func() {
+			Expect(cfApp.Annotations).To(HaveLen(1))
+			Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
 		})
 	})
 })

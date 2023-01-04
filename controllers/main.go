@@ -17,12 +17,13 @@ limitations under the License.
 package main
 
 import (
-	"code.cloudfoundry.org/korifi/tools"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"time"
+
+	"code.cloudfoundry.org/korifi/tools"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"

@@ -13,6 +13,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
@@ -89,6 +90,7 @@ var _ = Describe("App", func() {
 						},
 					},
 					Annotations: map[string]string{
+						AppRevisionKey:   "0",
 						"annotation-key": "annotation-value",
 					},
 					Labels: map[string]string{
@@ -136,6 +138,7 @@ var _ = Describe("App", func() {
                         "label-key": "label-value"
                       },
                       "annotations": {
+						"korifi.cloudfoundry.org/app-rev": "0",
                         "annotation-key": "annotation-value"
                       }
                     },
@@ -369,6 +372,9 @@ var _ = Describe("App", func() {
 					Name:      "first-test-app",
 					SpaceGUID: "test-space-guid",
 					State:     "STOPPED",
+					Annotations: map[string]string{
+						AppRevisionKey: "0",
+					},
 					Lifecycle: repositories.Lifecycle{
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
@@ -445,7 +451,9 @@ var _ = Describe("App", func() {
 						},
 						"metadata": {
 						  "labels": {},
-						  "annotations": {}
+						  "annotations": {
+						    "korifi.cloudfoundry.org/app-rev": "0"
+						  }
 						},
 						"links": {
 						  "self": {
@@ -665,6 +673,9 @@ var _ = Describe("App", func() {
 					Name:      "test-app",
 					SpaceGUID: spaceGUID,
 					State:     "STOPPED",
+					Annotations: map[string]string{
+						AppRevisionKey: "0",
+					},
 					Lifecycle: repositories.Lifecycle{
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
@@ -681,6 +692,7 @@ var _ = Describe("App", func() {
 						"foo.example.com/my-identifier": "aruba",
 					},
 					Annotations: map[string]string{
+						AppRevisionKey:                "0",
 						"hello":                       "there",
 						"foo.example.com/lorem-ipsum": "Lorem ipsum.",
 					},
@@ -734,14 +746,10 @@ var _ = Describe("App", func() {
 					} `json:"metadata"`
 				}
 				Expect(json.NewDecoder(rr.Body).Decode(&jsonBody)).To(Succeed())
-				Expect(jsonBody.Metadata.Annotations).To(Equal(map[string]string{
-					"hello":                       "there",
-					"foo.example.com/lorem-ipsum": "Lorem ipsum.",
-				}))
-				Expect(jsonBody.Metadata.Labels).To(Equal(map[string]string{
-					"env":                           "production",
-					"foo.example.com/my-identifier": "aruba",
-				}))
+				Expect(jsonBody.Metadata.Annotations).To(HaveKeyWithValue("hello", "there"))
+				Expect(jsonBody.Metadata.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", "Lorem ipsum."))
+				Expect(jsonBody.Metadata.Labels).To(HaveKeyWithValue("env", "production"))
+				Expect(jsonBody.Metadata.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", "aruba"))
 			})
 		})
 
@@ -794,6 +802,9 @@ var _ = Describe("App", func() {
 					Name:      "test-app",
 					SpaceGUID: spaceGUID,
 					State:     "STOPPED",
+					Annotations: map[string]string{
+						AppRevisionKey: "0",
+					},
 					Lifecycle: repositories.Lifecycle{
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
@@ -1079,6 +1090,9 @@ var _ = Describe("App", func() {
 				SpaceGUID:   spaceGUID,
 				DropletGUID: "some-droplet-guid",
 				State:       "STOPPED",
+				Annotations: map[string]string{
+					AppRevisionKey: "0",
+				},
 				Lifecycle: repositories.Lifecycle{
 					Type: "buildpack",
 					Data: repositories.LifecycleData{
@@ -1128,7 +1142,9 @@ var _ = Describe("App", func() {
                     },
                     "metadata": {
                       "labels": {},
-                      "annotations": {}
+                      "annotations": {
+					    "korifi.cloudfoundry.org/app-rev": "0"
+					  }
                     },
                     "links": {
                       "self": {
@@ -1205,6 +1221,9 @@ var _ = Describe("App", func() {
 					SpaceGUID:   spaceGUID,
 					DropletGUID: "",
 					State:       "STOPPED",
+					Annotations: map[string]string{
+						AppRevisionKey: "0",
+					},
 					Lifecycle: repositories.Lifecycle{
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
@@ -1233,11 +1252,16 @@ var _ = Describe("App", func() {
 	})
 
 	Describe("the POST /v3/apps/:guid/actions/stop endpoint", func() {
+		var fetchAppRecord repositories.AppRecord
+
 		BeforeEach(func() {
-			fetchAppRecord := repositories.AppRecord{
-				Name:        appName,
-				GUID:        appGUID,
-				SpaceGUID:   spaceGUID,
+			fetchAppRecord = repositories.AppRecord{
+				Name:      appName,
+				GUID:      appGUID,
+				SpaceGUID: spaceGUID,
+				Annotations: map[string]string{
+					AppRevisionKey: "0",
+				},
 				DropletGUID: "some-droplet-guid",
 				State:       "STARTED",
 				Lifecycle: repositories.Lifecycle{
@@ -1252,6 +1276,7 @@ var _ = Describe("App", func() {
 			setAppDesiredStateRecord := fetchAppRecord
 			setAppDesiredStateRecord.State = "STOPPED"
 			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
+			appRepo.PatchAppMetadataReturns(setAppDesiredStateRecord, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
@@ -1289,7 +1314,9 @@ var _ = Describe("App", func() {
 					},
 					"metadata": {
 						"labels": {},
-						"annotations": {}
+						"annotations": {
+						  "korifi.cloudfoundry.org/app-rev": "0"
+						}
 					},
 					"links": {
 						"self": {
@@ -1336,6 +1363,32 @@ var _ = Describe("App", func() {
 					}
 				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
 			})
+
+			It("bumps the app revision annotation", func() {
+				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
+				_, _, actualPatchMsg := appRepo.PatchAppMetadataArgsForCall(0)
+				Expect(actualPatchMsg.Annotations).To(HaveKeyWithValue(AppRevisionKey, tools.PtrTo("1")))
+			})
+
+			When("bumping the app revision annotation fails", func() {
+				BeforeEach(func() {
+					appRepo.PatchAppMetadataReturns(repositories.AppRecord{}, errors.New("patch-app-rev-err"))
+				})
+
+				It("returns an error", func() {
+					expectUnprocessableEntityError("failed to update app revision")
+				})
+			})
+
+			When("the app revision cannot be parsed", func() {
+				BeforeEach(func() {
+					fetchAppRecord.Annotations[AppRevisionKey] = "nan"
+				})
+
+				It("returns an error", func() {
+					expectUnprocessableEntityError("failed to parse app revision")
+				})
+			})
 		})
 
 		When("when the app is STOPPED", func() {
@@ -1346,6 +1399,9 @@ var _ = Describe("App", func() {
 					SpaceGUID:   spaceGUID,
 					DropletGUID: "some-droplet-guid",
 					State:       "STOPPED",
+					Annotations: map[string]string{
+						AppRevisionKey: "0",
+					},
 					Lifecycle: repositories.Lifecycle{
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
@@ -1394,7 +1450,9 @@ var _ = Describe("App", func() {
 					},
 					"metadata": {
 						"labels": {},
-						"annotations": {}
+						"annotations": {
+						  "korifi.cloudfoundry.org/app-rev": "0"
+						}
 					},
 					"links": {
 						"self": {
@@ -1471,6 +1529,9 @@ var _ = Describe("App", func() {
 					SpaceGUID:   spaceGUID,
 					DropletGUID: "",
 					State:       "STOPPED",
+					Annotations: map[string]string{
+						AppRevisionKey: "0",
+					},
 					Lifecycle: repositories.Lifecycle{
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
@@ -1512,7 +1573,9 @@ var _ = Describe("App", func() {
 					},
 					"metadata": {
 						"labels": {},
-						"annotations": {}
+						"annotations": {
+						  "korifi.cloudfoundry.org/app-rev": "0"
+						}
 					},
 					"links": {
 						"self": {
@@ -2598,11 +2661,15 @@ var _ = Describe("App", func() {
 
 	Describe("the GET /v3/apps/:guid/actions/restart endpoint", func() {
 		var fetchAppRecord repositories.AppRecord
+
 		BeforeEach(func() {
 			fetchAppRecord = repositories.AppRecord{
-				Name:        appName,
-				GUID:        appGUID,
-				SpaceGUID:   spaceGUID,
+				Name:      appName,
+				GUID:      appGUID,
+				SpaceGUID: spaceGUID,
+				Annotations: map[string]string{
+					AppRevisionKey: "0",
+				},
 				DropletGUID: "some-droplet-guid",
 				State:       "STARTED",
 				Lifecycle: repositories.Lifecycle{
@@ -2663,6 +2730,9 @@ var _ = Describe("App", func() {
 					SpaceGUID:   spaceGUID,
 					DropletGUID: "",
 					State:       "STOPPED",
+					Annotations: map[string]string{
+						AppRevisionKey: "0",
+					},
 					Lifecycle: repositories.Lifecycle{
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
@@ -2672,6 +2742,7 @@ var _ = Describe("App", func() {
 					},
 				}
 				appRepo.GetAppReturns(noDropletAppRecord, nil)
+				appRepo.SetAppDesiredStateReturns(noDropletAppRecord, nil)
 			})
 
 			It("returns an error", func() {
@@ -2720,7 +2791,9 @@ var _ = Describe("App", func() {
                     },
                     "metadata": {
                       "labels": {},
-                      "annotations": {}
+                      "annotations": {
+					    "korifi.cloudfoundry.org/app-rev": "0"
+					  }
                     },
                     "links": {
                       "self": {
@@ -2798,12 +2871,6 @@ var _ = Describe("App", func() {
 				Expect(rr.Code).To(Equal(200))
 			})
 
-			It("only calls setDesiredState to START the app", func() {
-				Expect(appRepo.SetAppDesiredStateCallCount()).To(Equal(1))
-				_, _, appDesiredStateMessage := appRepo.SetAppDesiredStateArgsForCall(0)
-				Expect(appDesiredStateMessage.DesiredState).To(Equal("STARTED"))
-			})
-
 			It("returns the App in the response with a state of STARTED", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
@@ -2830,7 +2897,9 @@ var _ = Describe("App", func() {
                     },
                     "metadata": {
                       "labels": {},
-                      "annotations": {}
+                      "annotations": {
+					    "korifi.cloudfoundry.org/app-rev": "0"
+					  }
                     },
                     "links": {
                       "self": {
