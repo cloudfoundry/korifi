@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -22,9 +22,10 @@ import (
 )
 
 const (
-	appGUID   = "test-app-guid"
-	appName   = "test-app"
-	spaceGUID = "test-space-guid"
+	appGUID     = "test-app-guid"
+	appName     = "test-app"
+	spaceGUID   = "test-space-guid"
+	dropletGUID = "test-droplet-guid"
 )
 
 var _ = Describe("App", func() {
@@ -37,6 +38,8 @@ var _ = Describe("App", func() {
 		domainRepo    *fake.CFDomainRepository
 		spaceRepo     *fake.SpaceRepository
 		req           *http.Request
+
+		appRecord repositories.AppRecord
 	)
 
 	BeforeEach(func() {
@@ -62,58 +65,54 @@ var _ = Describe("App", func() {
 			decoderValidator,
 		)
 		apiHandler.RegisterRoutes(router)
+
+		appRecord = repositories.AppRecord{
+			GUID:        appGUID,
+			Name:        "test-app",
+			SpaceGUID:   spaceGUID,
+			State:       "STOPPED",
+			DropletGUID: "test-droplet-guid",
+			Lifecycle: repositories.Lifecycle{
+				Type: "buildpack",
+				Data: repositories.LifecycleData{
+					Buildpacks: []string{},
+				},
+			},
+			Annotations: map[string]string{
+				AppRevisionKey:   "0",
+				"annotation-key": "annotation-value",
+			},
+			Labels: map[string]string{
+				"label-key": "label-value",
+			},
+		}
+		appRepo.GetAppReturns(appRecord, nil)
 	})
 
 	JustBeforeEach(func() {
 		router.ServeHTTP(rr, req)
 	})
 
-	Describe("the GET /v3/apps/:guid endpoint", func() {
+	Describe("GET /v3/apps/:guid", func() {
 		BeforeEach(func() {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID, nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID, nil)
 		})
 
-		When("the app exists and is accessible", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{
-					GUID:      appGUID,
-					Name:      "test-app",
-					SpaceGUID: spaceGUID,
-					State:     "STOPPED",
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-					Annotations: map[string]string{
-						AppRevisionKey:   "0",
-						"annotation-key": "annotation-value",
-					},
-					Labels: map[string]string{
-						"label-key": "label-value",
-					},
-				}, nil)
-			})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+		It("passes authInfo from context to GetApp", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
 
-			It("passes authInfo from context to GetApp", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
+		It("returns the App in the response", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			It("returns the App in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
                     "guid": "%[2]s",
                     "created_at": "",
                     "updated_at": "",
@@ -186,7 +185,6 @@ var _ = Describe("App", func() {
                       }
                     }
                 }`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
-			})
 		})
 
 		When("the app is not accessible", func() {
@@ -194,7 +192,6 @@ var _ = Describe("App", func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
-			// TODO: should we return code 100004 instead?
 			It("returns an error", func() {
 				expectNotFoundError("App not found")
 			})
@@ -211,20 +208,127 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the POST /v3/apps endpoint", func() {
-		const (
-			testAppName = "test-app"
-		)
-
-		queuePostRequest := func(requestBody string) {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps", strings.NewReader(requestBody))
-			Expect(err).NotTo(HaveOccurred())
+	Describe("POST /v3/apps", func() {
+		requestBody := func(spaceGUID string) io.Reader {
+			return strings.NewReader(`{
+				"name": "` + appName + `",
+				"relationships": {
+					"space": {
+						"data": {
+							"guid": "` + spaceGUID + `"
+						}
+					}
+				}
+			}`)
 		}
+
+		BeforeEach(func() {
+			appRepo.CreateAppReturns(appRecord, nil)
+			req = createHttpRequest("POST", "/v3/apps", requestBody(spaceGUID))
+		})
+
+		It("returns status 201 Created", func() {
+			Expect(rr.Code).To(Equal(http.StatusCreated))
+		})
+
+		It("passes authInfo from context to CreateApp", func() {
+			Expect(appRepo.CreateAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.CreateAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
+
+		It("returns the App in the response", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader))
+
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+                    "guid": "%[2]s",
+                    "created_at": "",
+                    "updated_at": "",
+                    "name": "test-app",
+                    "state": "STOPPED",
+                    "lifecycle": {
+                      "type": "buildpack",
+                      "data": {
+                        "buildpacks": [],
+                        "stack": ""
+                      }
+                    },
+                    "relationships": {
+                      "space": {
+                        "data": {
+                          "guid": "%[3]s"
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "labels": {
+                        "label-key": "label-value"
+                      },
+                      "annotations": {
+						"korifi.cloudfoundry.org/app-rev": "0",
+                        "annotation-key": "annotation-value"
+                      }
+                    },
+                    "links": {
+                      "self": {
+                        "href": "https://api.example.org/v3/apps/%[2]s"
+                      },
+                      "environment_variables": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
+                      },
+                      "space": {
+                        "href": "https://api.example.org/v3/spaces/%[3]s"
+                      },
+                      "processes": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/processes"
+                      },
+                      "packages": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/packages"
+                      },
+                      "current_droplet": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
+                      },
+                      "droplets": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/droplets"
+                      },
+                      "tasks": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/tasks"
+                      },
+                      "start": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/actions/start",
+                        "method": "POST"
+                      },
+                      "stop": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
+                        "method": "POST"
+                      },
+                      "revisions": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/revisions"
+                      },
+                      "deployed_revisions": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
+                      },
+                      "features": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/features"
+                      }
+                    }
+                }`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
+		})
+
+		When("creating the app fails", func() {
+			BeforeEach(func() {
+				appRepo.CreateAppReturns(repositories.AppRecord{}, errors.New("create-app-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
-				queuePostRequest(`{`)
+				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{`))
 			})
 
 			It("returns a status 400 Bad Request ", func() {
@@ -249,7 +353,7 @@ var _ = Describe("App", func() {
 
 		When("the request body does not validate", func() {
 			BeforeEach(func() {
-				queuePostRequest(`{"description" : "Invalid Request"}`)
+				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{"description" : "Invalid Request"}`))
 			})
 
 			It("returns an error", func() {
@@ -259,10 +363,10 @@ var _ = Describe("App", func() {
 
 		When("the request body is invalid with invalid app name", func() {
 			BeforeEach(func() {
-				queuePostRequest(`{
+				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{
 					"name": 12345,
 					"relationships": { "space": { "data": { "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576" } } }
-				}`)
+				}`))
 			})
 
 			It("returns an error", func() {
@@ -272,11 +376,11 @@ var _ = Describe("App", func() {
 
 		When("the request body is invalid with invalid environment variable object", func() {
 			BeforeEach(func() {
-				queuePostRequest(`{
+				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{
 					"name": "my_app",
 					"environment_variables": [],
 					"relationships": { "space": { "data": { "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576" } } }
-				}`)
+				}`))
 			})
 
 			It("returns an error", func() {
@@ -286,9 +390,9 @@ var _ = Describe("App", func() {
 
 		When("the request body is invalid with missing required name field", func() {
 			BeforeEach(func() {
-				queuePostRequest(`{
+				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{
 					"relationships": { "space": { "data": { "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806" } } }
-				}`)
+				}`))
 			})
 
 			It("returns an error", func() {
@@ -298,11 +402,11 @@ var _ = Describe("App", func() {
 
 		When("the request body is invalid with missing data within lifecycle", func() {
 			BeforeEach(func() {
-				queuePostRequest(`{
+				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{
 					"name": "test-app",
 					"lifecycle":{},
 					"relationships": { "space": { "data": { "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806" } } }
-				}`)
+				}`))
 			})
 
 			It("returns a status 422 Unprocessable Entity", func() {
@@ -341,9 +445,7 @@ var _ = Describe("App", func() {
 		When("the space does not exist", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewNotFoundError(nil, repositories.SpaceResourceType))
-
-				requestBody := initializeCreateAppRequestBody(testAppName, "no-such-guid", nil, nil, nil)
-				queuePostRequest(requestBody)
+				req = createHttpRequest("POST", "/v3/apps", requestBody("no-such-guid"))
 			})
 
 			It("returns an error", func() {
@@ -354,8 +456,6 @@ var _ = Describe("App", func() {
 		When("the action errors", func() {
 			BeforeEach(func() {
 				appRepo.CreateAppReturns(repositories.AppRecord{}, errors.New("nope"))
-				requestBody := initializeCreateAppRequestBody(testAppName, spaceGUID, nil, nil, nil)
-				queuePostRequest(requestBody)
 			})
 
 			It("returns an error", func() {
@@ -364,7 +464,7 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the GET /v3/apps endpoint", func() {
+	Describe("GET /v3/apps", func() {
 		BeforeEach(func() {
 			appRepo.ListAppsReturns([]repositories.AppRecord{
 				{
@@ -379,7 +479,6 @@ var _ = Describe("App", func() {
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
 							Buildpacks: []string{},
-							Stack:      "",
 						},
 					},
 				},
@@ -388,34 +487,32 @@ var _ = Describe("App", func() {
 					Name:      "second-test-app",
 					SpaceGUID: "test-space-guid",
 					State:     "STOPPED",
+					Annotations: map[string]string{
+						AppRevisionKey: "0",
+					},
 					Lifecycle: repositories.Lifecycle{
 						Type: "buildpack",
 						Data: repositories.LifecycleData{
 							Buildpacks: []string{},
-							Stack:      "",
 						},
 					},
 				},
 			}, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps", nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("GET", "/v3/apps", nil)
 		})
 
-		When("on the happy path", func() {
-			When("Query Parameters are not provided", func() {
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-				})
+		It("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		})
 
-				It("returns the Pagination Data and App Resources in the response", func() {
-					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+		It("returns the Pagination Data and App Resources in the response", func() {
+			Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
 				"pagination": {
 				  "total_results": 2,
 				  "total_pages": 1,
@@ -521,7 +618,9 @@ var _ = Describe("App", func() {
 						},
 						"metadata": {
 						  "labels": {},
-						  "annotations": {}
+						  "annotations": {
+						    "korifi.cloudfoundry.org/app-rev": "0"
+						  }
 						},
 						"links": {
 						  "self": {
@@ -569,37 +668,29 @@ var _ = Describe("App", func() {
 					}
 				]
 			}`, defaultServerURL)), "Response body matches response:")
-				})
+		})
+
+		It("invokes the repository with the provided auth info", func() {
+			Expect(appRepo.ListAppsCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.ListAppsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				req = createHttpRequest("GET", "/v3/apps?names=app1,app2&space_guids=space1,space2", nil)
 			})
 
-			It("invokes the repository with the provided auth info", func() {
+			It("passes them to the repository", func() {
 				Expect(appRepo.ListAppsCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.ListAppsArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
+				_, _, message := appRepo.ListAppsArgsForCall(0)
+
+				Expect(message.Names).To(ConsistOf("app1", "app2"))
+				Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
 			})
 
-			When("filtering query params are provided", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps?names=app1,app2&space_guids=space1,space2", nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("passes them to the repository", func() {
-					Expect(appRepo.ListAppsCallCount()).To(Equal(1))
-					_, _, message := appRepo.ListAppsArgsForCall(0)
-
-					Expect(message.Names).To(ConsistOf("app1", "app2"))
-					Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
-				})
-
-				It("correctly sets query parameters in response pagination links", func() {
-					Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2"))
-				})
+			It("correctly sets query parameters in response pagination links", func() {
+				Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2"))
 			})
 		})
 
@@ -648,9 +739,7 @@ var _ = Describe("App", func() {
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps?foo=bar", nil)
-				Expect(err).NotTo(HaveOccurred())
+				req = createHttpRequest("GET", "/v3/apps?foo=bar", nil)
 			})
 
 			It("returns an Unknown key error", func() {
@@ -659,54 +748,10 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the PATCH /v3/apps/:guid endpoint", func() {
-		queuePatchRequest := func(requestBody string) {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/apps/"+appGUID, strings.NewReader(requestBody))
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		When("the app exists and is accessible and we patch the annotations and labels", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{
-					GUID:      appGUID,
-					Name:      "test-app",
-					SpaceGUID: spaceGUID,
-					State:     "STOPPED",
-					Annotations: map[string]string{
-						AppRevisionKey: "0",
-					},
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}, nil)
-				appRepo.PatchAppMetadataReturns(repositories.AppRecord{
-					GUID: appGUID,
-					Name: "test-app",
-					Labels: map[string]string{
-						"env":                           "production",
-						"foo.example.com/my-identifier": "aruba",
-					},
-					Annotations: map[string]string{
-						AppRevisionKey:                "0",
-						"hello":                       "there",
-						"foo.example.com/lorem-ipsum": "Lorem ipsum.",
-					},
-					SpaceGUID: spaceGUID,
-					State:     "STOPPED",
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}, nil)
-				queuePatchRequest(`{
+	Describe("PATCH /v3/apps/:guid", func() {
+		BeforeEach(func() {
+			appRepo.PatchAppMetadataReturns(appRecord, nil)
+			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
 				  "metadata": {
 					"labels": {
 					  "env": "production",
@@ -717,52 +762,106 @@ var _ = Describe("App", func() {
 					  "foo.example.com/lorem-ipsum": "Lorem ipsum."
 					}
 				  }
-				}`)
-			})
+				}`))
+		})
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-			It("patches the app with the new labels and annotations", func() {
-				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
-				_, _, msg := appRepo.PatchAppMetadataArgsForCall(0)
-				Expect(msg.AppGUID).To(Equal(appGUID))
-				Expect(msg.SpaceGUID).To(Equal(spaceGUID))
-				Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
-				Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
-				Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
-				Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
-			})
+		It("patches the app with the new labels and annotations", func() {
+			Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
+			_, _, msg := appRepo.PatchAppMetadataArgsForCall(0)
+			Expect(msg.AppGUID).To(Equal(appGUID))
+			Expect(msg.SpaceGUID).To(Equal(spaceGUID))
+			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
+			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
+			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
+			Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+		})
 
-			It("includes the labels and annotations in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("returns the App in the response", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				var jsonBody struct {
-					Metadata struct {
-						Annotations map[string]string `json:"annotations"`
-						Labels      map[string]string `json:"labels"`
-					} `json:"metadata"`
-				}
-				Expect(json.NewDecoder(rr.Body).Decode(&jsonBody)).To(Succeed())
-				Expect(jsonBody.Metadata.Annotations).To(HaveKeyWithValue("hello", "there"))
-				Expect(jsonBody.Metadata.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", "Lorem ipsum."))
-				Expect(jsonBody.Metadata.Labels).To(HaveKeyWithValue("env", "production"))
-				Expect(jsonBody.Metadata.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", "aruba"))
-			})
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+                    "guid": "%[2]s",
+                    "created_at": "",
+                    "updated_at": "",
+                    "name": "test-app",
+                    "state": "STOPPED",
+                    "lifecycle": {
+                      "type": "buildpack",
+                      "data": {
+                        "buildpacks": [],
+                        "stack": ""
+                      }
+                    },
+                    "relationships": {
+                      "space": {
+                        "data": {
+                          "guid": "%[3]s"
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "labels": {
+                        "label-key": "label-value"
+                      },
+                      "annotations": {
+						"korifi.cloudfoundry.org/app-rev": "0",
+                        "annotation-key": "annotation-value"
+                      }
+                    },
+                    "links": {
+                      "self": {
+                        "href": "https://api.example.org/v3/apps/%[2]s"
+                      },
+                      "environment_variables": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
+                      },
+                      "space": {
+                        "href": "https://api.example.org/v3/spaces/%[3]s"
+                      },
+                      "processes": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/processes"
+                      },
+                      "packages": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/packages"
+                      },
+                      "current_droplet": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
+                      },
+                      "droplets": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/droplets"
+                      },
+                      "tasks": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/tasks"
+                      },
+                      "start": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/actions/start",
+                        "method": "POST"
+                      },
+                      "stop": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
+                        "method": "POST"
+                      },
+                      "revisions": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/revisions"
+                      },
+                      "deployed_revisions": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
+                      },
+                      "features": {
+                        "href": "https://api.example.org/v3/apps/%[2]s/features"
+                      }
+                    }
+                }`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
 		})
 
 		When("the user doesn't have permission to get the App", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
-				queuePatchRequest(`{
-				  "metadata": {
-					"labels": {
-					  "env": "production"
-					}
-				  }
-				}`)
 			})
 
 			It("returns a not found error", func() {
@@ -777,13 +876,6 @@ var _ = Describe("App", func() {
 		When("fetching the App errors", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
-				queuePatchRequest(`{
-				  "metadata": {
-					"labels": {
-					  "env": "production",
-					}
-				  }
-				}`)
 			})
 
 			It("returns an error", func() {
@@ -797,31 +889,7 @@ var _ = Describe("App", func() {
 
 		When("patching the App errors", func() {
 			BeforeEach(func() {
-				appRecord := repositories.AppRecord{
-					GUID:      appGUID,
-					Name:      "test-app",
-					SpaceGUID: spaceGUID,
-					State:     "STOPPED",
-					Annotations: map[string]string{
-						AppRevisionKey: "0",
-					},
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}
-				appRepo.GetAppReturns(appRecord, nil)
 				appRepo.PatchAppMetadataReturns(repositories.AppRecord{}, errors.New("boom"))
-				queuePatchRequest(`{
-				  "metadata": {
-					"labels": {
-					  "env": "production"
-					}
-				  }
-				}`)
 			})
 
 			It("returns an error", func() {
@@ -832,13 +900,13 @@ var _ = Describe("App", func() {
 		When("a label is invalid", func() {
 			When("the prefix is cloudfoundry.org", func() {
 				BeforeEach(func() {
-					queuePatchRequest(`{
+					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
 					  "metadata": {
 						"labels": {
 						  "cloudfoundry.org/test": "production"
 					    }
-        		     }
-					}`)
+        		      }
+					}`))
 				})
 
 				It("returns an unprocessable entity error", func() {
@@ -848,13 +916,13 @@ var _ = Describe("App", func() {
 
 			When("the prefix is a subdomain of cloudfoundry.org", func() {
 				BeforeEach(func() {
-					queuePatchRequest(`{
+					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
 					  "metadata": {
 						"labels": {
 						  "korifi.cloudfoundry.org/test": "production"
 					    }
-    		         }
-					}`)
+    		          }
+					}`))
 				})
 
 				It("returns an unprocessable entity error", func() {
@@ -866,13 +934,13 @@ var _ = Describe("App", func() {
 		When("an annotation is invalid", func() {
 			When("the prefix is cloudfoundry.org", func() {
 				BeforeEach(func() {
-					queuePatchRequest(`{
+					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
 					  "metadata": {
 						"annotations": {
 						  "cloudfoundry.org/test": "there"
 						}
 					  }
-					}`)
+					}`))
 				})
 
 				It("returns an unprocessable entity error", func() {
@@ -881,13 +949,13 @@ var _ = Describe("App", func() {
 
 				When("the prefix is a subdomain of cloudfoundry.org", func() {
 					BeforeEach(func() {
-						queuePatchRequest(`{
-					  "metadata": {
-						"annotations": {
-						  "korifi.cloudfoundry.org/test": "there"
-						}
-					  }
-					}`)
+						req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
+						  "metadata": {
+							"annotations": {
+							  "korifi.cloudfoundry.org/test": "there"
+							}
+						  }
+						}`))
 					})
 
 					It("returns an unprocessable entity error", func() {
@@ -898,32 +966,21 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the PATCH /v3/apps/:guid/relationships/current_droplet endpoint", func() {
-		const (
-			dropletGUID = "test-droplet-guid"
-		)
-
-		var (
-			app     repositories.AppRecord
-			droplet repositories.DropletRecord
-		)
+	Describe("PATCH /v3/apps/:guid/relationships/current_droplet", func() {
+		var droplet repositories.DropletRecord
 
 		BeforeEach(func() {
-			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
 			droplet = repositories.DropletRecord{GUID: dropletGUID, AppGUID: appGUID}
 
-			appRepo.GetAppReturns(app, nil)
 			dropletRepo.GetDropletReturns(droplet, nil)
 			appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{
 				AppGUID:     appGUID,
 				DropletGUID: dropletGUID,
 			}, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
+			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
 					{ "data": { "guid": "`+dropletGUID+`" } }
                 `))
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		itDoesntSetTheCurrentDroplet := func() {
@@ -932,24 +989,23 @@ var _ = Describe("App", func() {
 			})
 		}
 
-		When("on the happy path", func() {
-			It("responds with a 200 code", func() {
-				Expect(rr.Code).To(Equal(200))
-			})
+		It("responds with a 200 code", func() {
+			Expect(rr.Code).To(Equal(200))
+		})
 
-			It("updates the k8s record via the repository", func() {
-				Expect(appRepo.SetCurrentDropletCallCount()).To(Equal(1))
-				_, _, message := appRepo.SetCurrentDropletArgsForCall(0)
-				Expect(message.AppGUID).To(Equal(appGUID))
-				Expect(message.DropletGUID).To(Equal(dropletGUID))
-				Expect(message.SpaceGUID).To(Equal(spaceGUID))
-			})
+		It("updates the k8s record via the repository", func() {
+			Expect(appRepo.SetCurrentDropletCallCount()).To(Equal(1))
+			_, _, message := appRepo.SetCurrentDropletArgsForCall(0)
+			Expect(message.AppGUID).To(Equal(appGUID))
+			Expect(message.DropletGUID).To(Equal(dropletGUID))
+			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+		})
 
-			It("responds with JSON", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("responds with JSON", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(`{
+			Expect(rr.Body.String()).To(MatchJSON(`{
                 	"data": {
                 		"guid": "` + dropletGUID + `"
                 	},
@@ -962,19 +1018,18 @@ var _ = Describe("App", func() {
                 		}
                 	}
                 }`))
-			})
+		})
 
-			It("fetches the right App", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-				Expect(actualAppGUID).To(Equal(appGUID))
-			})
+		It("fetches the right App", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAppGUID).To(Equal(appGUID))
+		})
 
-			It("fetches the right Droplet", func() {
-				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
-				_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
-				Expect(actualDropletGUID).To(Equal(dropletGUID))
-			})
+		It("fetches the right Droplet", func() {
+			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+			_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
+			Expect(actualDropletGUID).To(Equal(dropletGUID))
 		})
 
 		When("setting the current droplet fails", func() {
@@ -1059,11 +1114,9 @@ var _ = Describe("App", func() {
 
 		When("the guid is missing", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
+				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
 					{ "data": {  } }
                 `))
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns an error", func() {
@@ -1082,45 +1135,24 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the POST /v3/apps/:guid/actions/start endpoint", func() {
+	Describe("POST /v3/apps/:guid/actions/start", func() {
 		BeforeEach(func() {
-			fetchAppRecord := repositories.AppRecord{
-				Name:        appName,
-				GUID:        appGUID,
-				SpaceGUID:   spaceGUID,
-				DropletGUID: "some-droplet-guid",
-				State:       "STOPPED",
-				Annotations: map[string]string{
-					AppRevisionKey: "0",
-				},
-				Lifecycle: repositories.Lifecycle{
-					Type: "buildpack",
-					Data: repositories.LifecycleData{
-						Buildpacks: []string{},
-						Stack:      "",
-					},
-				},
-			}
-			appRepo.GetAppReturns(fetchAppRecord, nil)
-			setAppDesiredStateRecord := fetchAppRecord
-			setAppDesiredStateRecord.State = "STARTED"
-			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
+			updatedAppRecord := appRecord
+			updatedAppRecord.State = "STARTED"
+			appRepo.SetAppDesiredStateReturns(updatedAppRecord, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/start", nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/start", nil)
 		})
 
-		When("on the happy path", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-			It("returns the App in the response with a state of STARTED", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("returns the App in the response with a state of STARTED", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
                     "guid": "%[2]s",
                     "created_at": "",
                     "updated_at": "",
@@ -1141,8 +1173,11 @@ var _ = Describe("App", func() {
                       }
                     },
                     "metadata": {
-                      "labels": {},
+                      "labels": {
+					    "label-key": "label-value"
+					  },
                       "annotations": {
+					    "annotation-key": "annotation-value",
 					    "korifi.cloudfoundry.org/app-rev": "0"
 					  }
                     },
@@ -1190,7 +1225,6 @@ var _ = Describe("App", func() {
                       }
                     }
                 }`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
-			})
 		})
 
 		When("getting the app is forbidden", func() {
@@ -1215,24 +1249,8 @@ var _ = Describe("App", func() {
 
 		When("the app has no droplet", func() {
 			BeforeEach(func() {
-				fetchAppRecord := repositories.AppRecord{
-					Name:        appName,
-					GUID:        appGUID,
-					SpaceGUID:   spaceGUID,
-					DropletGUID: "",
-					State:       "STOPPED",
-					Annotations: map[string]string{
-						AppRevisionKey: "0",
-					},
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}
-				appRepo.GetAppReturns(fetchAppRecord, nil)
+				appRecord.DropletGUID = ""
+				appRepo.GetAppReturns(appRecord, nil)
 			})
 
 			It("returns an error", func() {
@@ -1251,48 +1269,25 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the POST /v3/apps/:guid/actions/stop endpoint", func() {
-		var fetchAppRecord repositories.AppRecord
-
+	Describe("POST /v3/apps/:guid/actions/stop", func() {
 		BeforeEach(func() {
-			fetchAppRecord = repositories.AppRecord{
-				Name:      appName,
-				GUID:      appGUID,
-				SpaceGUID: spaceGUID,
-				Annotations: map[string]string{
-					AppRevisionKey: "0",
-				},
-				DropletGUID: "some-droplet-guid",
-				State:       "STARTED",
-				Lifecycle: repositories.Lifecycle{
-					Type: "buildpack",
-					Data: repositories.LifecycleData{
-						Buildpacks: []string{},
-						Stack:      "",
-					},
-				},
-			}
-			appRepo.GetAppReturns(fetchAppRecord, nil)
-			setAppDesiredStateRecord := fetchAppRecord
-			setAppDesiredStateRecord.State = "STOPPED"
-			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
-			appRepo.PatchAppMetadataReturns(setAppDesiredStateRecord, nil)
+			updatedAppRecord := appRecord
+			updatedAppRecord.State = "STOPPED"
+			appRepo.SetAppDesiredStateReturns(updatedAppRecord, nil)
+			appRepo.PatchAppMetadataReturns(updatedAppRecord, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
 		})
 
-		When("when the app is STARTED", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-			It("returns the App in the response with a state of STOPPED", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("returns the App in the response with a state of STOPPED", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"guid": "%[2]s",
 					"created_at": "",
 					"updated_at": "",
@@ -1313,8 +1308,11 @@ var _ = Describe("App", func() {
 						}
 					},
 					"metadata": {
-						"labels": {},
+						"labels": {
+						  "label-key": "label-value"
+						},
 						"annotations": {
+					      "annotation-key": "annotation-value",
 						  "korifi.cloudfoundry.org/app-rev": "0"
 						}
 					},
@@ -1362,142 +1360,31 @@ var _ = Describe("App", func() {
 						}
 					}
 				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
-			})
-
-			It("bumps the app revision annotation", func() {
-				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
-				_, _, actualPatchMsg := appRepo.PatchAppMetadataArgsForCall(0)
-				Expect(actualPatchMsg.Annotations).To(HaveKeyWithValue(AppRevisionKey, tools.PtrTo("1")))
-			})
-
-			When("bumping the app revision annotation fails", func() {
-				BeforeEach(func() {
-					appRepo.PatchAppMetadataReturns(repositories.AppRecord{}, errors.New("patch-app-rev-err"))
-				})
-
-				It("returns an error", func() {
-					expectUnprocessableEntityError("failed to update app revision")
-				})
-			})
-
-			When("the app revision cannot be parsed", func() {
-				BeforeEach(func() {
-					fetchAppRecord.Annotations[AppRevisionKey] = "nan"
-				})
-
-				It("returns an error", func() {
-					expectUnprocessableEntityError("failed to parse app revision")
-				})
-			})
 		})
 
-		When("when the app is STOPPED", func() {
+		It("bumps the app revision annotation", func() {
+			Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
+			_, _, actualPatchMsg := appRepo.PatchAppMetadataArgsForCall(0)
+			Expect(actualPatchMsg.Annotations).To(HaveKeyWithValue(AppRevisionKey, tools.PtrTo("1")))
+		})
+
+		When("bumping the app revision annotation fails", func() {
 			BeforeEach(func() {
-				fetchAppRecord := repositories.AppRecord{
-					Name:        appName,
-					GUID:        appGUID,
-					SpaceGUID:   spaceGUID,
-					DropletGUID: "some-droplet-guid",
-					State:       "STOPPED",
-					Annotations: map[string]string{
-						AppRevisionKey: "0",
-					},
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}
-				appRepo.GetAppReturns(fetchAppRecord, nil)
-				setAppDesiredStateRecord := fetchAppRecord
-				setAppDesiredStateRecord.State = "STOPPED"
-				appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
-
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
-				Expect(err).NotTo(HaveOccurred())
+				appRepo.PatchAppMetadataReturns(repositories.AppRecord{}, errors.New("patch-app-rev-err"))
 			})
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			It("returns an error", func() {
+				expectUnprocessableEntityError("failed to update app revision")
+			})
+		})
+
+		When("the app revision cannot be parsed", func() {
+			BeforeEach(func() {
+				appRecord.Annotations[AppRevisionKey] = "nan"
 			})
 
-			It("returns the App in the response with a state of STOPPED", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-					"guid": "%[2]s",
-					"created_at": "",
-					"updated_at": "",
-					"name": "%[4]s",
-					"state": "STOPPED",
-					"lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					"relationships": {
-						"space": {
-							"data": {
-								"guid": "%[3]s"
-							}
-						}
-					},
-					"metadata": {
-						"labels": {},
-						"annotations": {
-						  "korifi.cloudfoundry.org/app-rev": "0"
-						}
-					},
-					"links": {
-						"self": {
-							"href": "https://api.example.org/v3/apps/%[2]s"
-						},
-						"environment_variables": {
-							"href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-						},
-						"space": {
-							"href": "https://api.example.org/v3/spaces/%[3]s"
-						},
-						"processes": {
-							"href": "https://api.example.org/v3/apps/%[2]s/processes"
-						},
-						"packages": {
-							"href": "https://api.example.org/v3/apps/%[2]s/packages"
-						},
-						"current_droplet": {
-							"href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-						},
-						"droplets": {
-							"href": "https://api.example.org/v3/apps/%[2]s/droplets"
-						},
-						"tasks": {
-							"href": "https://api.example.org/v3/apps/%[2]s/tasks"
-						},
-						"start": {
-							"href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-							"method": "POST"
-						},
-						"stop": {
-							"href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-							"method": "POST"
-						},
-						"revisions": {
-							"href": "https://api.example.org/v3/apps/%[2]s/revisions"
-						},
-						"deployed_revisions": {
-							"href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-						},
-						"features": {
-							"href": "https://api.example.org/v3/apps/%[2]s/features"
-						}
-					}
-				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
+			It("returns an error", func() {
+				expectUnprocessableEntityError("failed to parse app revision")
 			})
 		})
 
@@ -1521,109 +1408,6 @@ var _ = Describe("App", func() {
 			})
 		})
 
-		When("the app has no droplet", func() {
-			BeforeEach(func() {
-				fetchAppRecord := repositories.AppRecord{
-					Name:        appName,
-					GUID:        appGUID,
-					SpaceGUID:   spaceGUID,
-					DropletGUID: "",
-					State:       "STOPPED",
-					Annotations: map[string]string{
-						AppRevisionKey: "0",
-					},
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}
-				appRepo.GetAppReturns(fetchAppRecord, nil)
-			})
-
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
-
-			It("returns the App in the response with a state of STOPPED", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-					"guid": "%[2]s",
-					"created_at": "",
-					"updated_at": "",
-					"name": "%[4]s",
-					"state": "STOPPED",
-					"lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					"relationships": {
-						"space": {
-							"data": {
-								"guid": "%[3]s"
-							}
-						}
-					},
-					"metadata": {
-						"labels": {},
-						"annotations": {
-						  "korifi.cloudfoundry.org/app-rev": "0"
-						}
-					},
-					"links": {
-						"self": {
-							"href": "https://api.example.org/v3/apps/%[2]s"
-						},
-						"environment_variables": {
-							"href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-						},
-						"space": {
-							"href": "https://api.example.org/v3/spaces/%[3]s"
-						},
-						"processes": {
-							"href": "https://api.example.org/v3/apps/%[2]s/processes"
-						},
-						"packages": {
-							"href": "https://api.example.org/v3/apps/%[2]s/packages"
-						},
-						"current_droplet": {
-							"href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-						},
-						"droplets": {
-							"href": "https://api.example.org/v3/apps/%[2]s/droplets"
-						},
-						"tasks": {
-							"href": "https://api.example.org/v3/apps/%[2]s/tasks"
-						},
-						"start": {
-							"href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-							"method": "POST"
-						},
-						"stop": {
-							"href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-							"method": "POST"
-						},
-						"revisions": {
-							"href": "https://api.example.org/v3/apps/%[2]s/revisions"
-						},
-						"deployed_revisions": {
-							"href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-						},
-						"features": {
-							"href": "https://api.example.org/v3/apps/%[2]s/features"
-						}
-					}
-				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
-			})
-		})
-
 		When("there is an unknown error updating app desiredState", func() {
 			BeforeEach(func() {
 				appRepo.SetAppDesiredStateReturns(repositories.AppRecord{}, errors.New("unknown!"))
@@ -1635,11 +1419,12 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the GET /v3/apps/:guid/processes endpoint", func() {
+	Describe("GET /v3/apps/:guid/processes", func() {
 		var (
-			process1Record *repositories.ProcessRecord
-			process2Record *repositories.ProcessRecord
+			process1Record repositories.ProcessRecord
+			process2Record repositories.ProcessRecord
 		)
+
 		BeforeEach(func() {
 			processRecord := repositories.ProcessRecord{
 				GUID:             "process-1-guid",
@@ -1653,45 +1438,38 @@ var _ = Describe("App", func() {
 				Ports:            []int32{8080},
 				HealthCheck: repositories.HealthCheck{
 					Type: "port",
-					Data: repositories.HealthCheckData{
-						HTTPEndpoint:             "",
-						InvocationTimeoutSeconds: 0,
-						TimeoutSeconds:           0,
-					},
 				},
 				Labels:      map[string]string{},
 				Annotations: map[string]string{},
 				CreatedAt:   "2016-03-23T18:48:22Z",
 				UpdatedAt:   "2016-03-23T18:48:42Z",
 			}
-			processRecord2 := processRecord
-			processRecord2.GUID = "process-2-guid"
-			processRecord2.Type = "worker"
-			processRecord2.DesiredInstances = 1
-			processRecord2.HealthCheck.Type = "process"
 
-			process1Record = &processRecord
-			process2Record = &processRecord2
+			process1Record = processRecord
+
+			process2Record = processRecord
+			process2Record.GUID = "process-2-guid"
+			process2Record.Type = "worker"
+			process2Record.DesiredInstances = 1
+			process2Record.HealthCheck.Type = "process"
+
 			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
-				processRecord,
-				processRecord2,
+				process1Record,
+				process2Record,
 			}, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/processes", nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes", nil)
 		})
-		When("On the happy path and", func() {
-			When("The App has associated processes", func() {
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
 
-				It("returns the Processes in the response", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+		It("returns the processes", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+			Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
 						"pagination": {
 						  "total_results": 2,
 						  "total_pages": 1,
@@ -1798,146 +1576,86 @@ var _ = Describe("App", func() {
 							}
 						]
 					}`, defaultServerURL, appGUID, spaceGUID, process1Record.GUID, process2Record.GUID)), "Response body matches response:")
-				})
+		})
+
+		When("the app cannot be accessed", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
-			When("The App does not have associated processes", func() {
-				BeforeEach(func() {
-					processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, nil)
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("returns a response with an empty resources array", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
-						"pagination": {
-						  "total_results": 0,
-						  "total_pages": 1,
-						  "first": {
-							"href": "%[1]s/v3/apps/%[2]s/processes"
-						  },
-						  "last": {
-							"href": "%[1]s/v3/apps/%[2]s/processes"
-						  },
-						  "next": null,
-						  "previous": null
-						},
-						"resources": []
-					}`, defaultServerURL, appGUID)), "Response body matches response:")
-				})
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
 			})
 		})
 
-		When("On the sad path and", func() {
-			When("the app cannot be accessed", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("App not found")
-				})
+		When("there is some other error fetching the app", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
-			When("there is some other error fetching the app", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+			It("returns an error", func() {
+				expectUnknownError()
 			})
-			When("there is some error fetching the app's processes", func() {
-				BeforeEach(func() {
-					processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
-				})
+		})
 
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+		When("there is some error fetching the app's processes", func() {
+			BeforeEach(func() {
+				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
 
-	Describe("the GET /v3/apps/:guid/processes/{type} endpoint", func() {
-		const (
-			processTypeWeb = "web"
-			processGUID1   = "process-1-guid"
-			createdAt      = "1906-04-18T13:12:00Z"
-			updatedAt      = "1906-04-18T13:12:01Z"
-			command        = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-			memoryInMB     = 256
-			diskInMB       = 1024
-			instances      = 1
-			baseURL        = "https://api.example.org"
-		)
-
-		makeGetRequest := func(processType string) {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/processes/"+processType, nil)
-			Expect(err).NotTo(HaveOccurred())
-		}
-
+	Describe("GET /v3/apps/:guid/processes/{type}", func() {
 		BeforeEach(func() {
 			processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{
-				GUID:             processGUID1,
+				GUID:             "process-1-guid",
 				SpaceGUID:        spaceGUID,
 				AppGUID:          appGUID,
-				Type:             processTypeWeb,
-				Command:          command,
-				DesiredInstances: instances,
-				MemoryMB:         memoryInMB,
-				DiskQuotaMB:      diskInMB,
+				Type:             "web",
+				Command:          "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
+				DesiredInstances: 1,
+				MemoryMB:         256,
+				DiskQuotaMB:      1024,
 				Ports:            []int32{8080},
 				HealthCheck: repositories.HealthCheck{
 					Type: "port",
-					Data: repositories.HealthCheckData{
-						HTTPEndpoint:             "",
-						InvocationTimeoutSeconds: 0,
-						TimeoutSeconds:           0,
-					},
 				},
 				Labels:      map[string]string{},
 				Annotations: map[string]string{},
-				CreatedAt:   createdAt,
-				UpdatedAt:   updatedAt,
+				CreatedAt:   "1906-04-18T13:12:00Z",
+				UpdatedAt:   "1906-04-18T13:12:01Z",
 			}, nil)
+
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes/web", nil)
 		})
 
-		When("on the happy path", func() {
-			BeforeEach(func() {
-				makeGetRequest(processTypeWeb)
-			})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK))
+		})
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+		It("passes the authorization.Info to the process repository", func() {
+			Expect(processRepo.GetProcessByAppTypeAndSpaceCallCount()).To(Equal(1))
+			_, actualAuthInfo, _, _, _ := processRepo.GetProcessByAppTypeAndSpaceArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
 
-			It("passes the authorization.Info to the process repository", func() {
-				Expect(processRepo.GetProcessByAppTypeAndSpaceCallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _, _ := processRepo.GetProcessByAppTypeAndSpaceArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
+		It("returns a process", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			It("returns a process", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "` + processGUID1 + `",
-					"created_at": "` + createdAt + `",
-					"updated_at": "` + updatedAt + `",
+			Expect(rr.Body.String()).To(MatchJSON(`{
+					"guid": "process-1-guid",
+					"created_at": "1906-04-18T13:12:00Z",
+					"updated_at": "1906-04-18T13:12:01Z",
 					"type": "web",
 					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": ` + fmt.Sprint(instances) + `,
-					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
-					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
+					"instances": 1,
+					"memory_in_mb": 256,
+					"disk_in_mb": 1024,
 					"health_check": {
 					   "type": "port",
 					   "data": {
@@ -1958,30 +1676,28 @@ var _ = Describe("App", func() {
 					},
 					"links": {
 					   "self": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `"
+						  "href": "https://api.example.org/v3/processes/process-1-guid"
 					   },
 					   "scale": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `/actions/scale",
+						  "href": "https://api.example.org/v3/processes/process-1-guid/actions/scale",
 						  "method": "POST"
 					   },
 					   "app": {
-						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
+						  "href": "https://api.example.org/v3/apps/` + appGUID + `"
 					   },
 					   "space": {
-						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
+						  "href": "https://api.example.org/v3/spaces/` + spaceGUID + `"
 					   },
 					   "stats": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID1 + `/stats"
+						  "href": "https://api.example.org/v3/processes/process-1-guid/stats"
 					   }
 					}
 				 }`))
-			})
 		})
 
 		When("the user lacks access in the app namespace", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(errors.New("Forbidden"), repositories.AppResourceType))
-				makeGetRequest(processTypeWeb)
 			})
 
 			It("returns an not found error", func() {
@@ -1992,7 +1708,6 @@ var _ = Describe("App", func() {
 		When("getting the app fails", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app"))
-				makeGetRequest(processTypeWeb)
 			})
 
 			It("returns an error", func() {
@@ -2003,8 +1718,8 @@ var _ = Describe("App", func() {
 		When("there is an error fetching processes", func() {
 			BeforeEach(func() {
 				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, errors.New("some-error"))
-				makeGetRequest(processTypeWeb)
 			})
+
 			It("return a process unknown error", func() {
 				expectUnknownError()
 			})
@@ -2012,207 +1727,119 @@ var _ = Describe("App", func() {
 	})
 
 	Describe("the POST /v3/apps/:guid/process/:processType/actions/scale endpoint", func() {
-		const (
-			processGUID           = "process-guid"
-			spaceGUID             = "space-guid"
-			appGUID               = "app-guid"
-			createdAt             = "1906-04-18T13:12:00Z"
-			updatedAt             = "1906-04-18T13:12:01Z"
-			processType           = "web"
-			command               = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-			memoryInMB      int64 = 256
-			diskInMB        int64 = 1024
-			healthcheckType       = "port"
-			instances             = 5
-
-			baseURL = "https://api.example.org"
-		)
-
-		var (
-			labels      = map[string]string{}
-			annotations = map[string]string{}
-		)
-
-		queuePostRequest := func(requestBody string) {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/processes/"+processType+"/actions/scale", strings.NewReader(requestBody))
-			Expect(err).NotTo(HaveOccurred())
-		}
-
 		BeforeEach(func() {
 			processScaler.ScaleAppProcessReturns(repositories.ProcessRecord{
-				GUID:             processGUID,
+				GUID:             "process-1-guid",
 				SpaceGUID:        spaceGUID,
 				AppGUID:          appGUID,
-				CreatedAt:        createdAt,
-				UpdatedAt:        updatedAt,
-				Type:             processType,
-				Command:          command,
-				DesiredInstances: instances,
-				MemoryMB:         memoryInMB,
-				DiskQuotaMB:      diskInMB,
+				Type:             "web",
+				Command:          "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
+				DesiredInstances: 5,
+				MemoryMB:         256,
+				DiskQuotaMB:      1024,
+				Ports:            []int32{8080},
 				HealthCheck: repositories.HealthCheck{
-					Type: healthcheckType,
-					Data: repositories.HealthCheckData{},
+					Type: "port",
 				},
-				Labels:      labels,
-				Annotations: annotations,
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+				CreatedAt:   "1906-04-18T13:12:00Z",
+				UpdatedAt:   "1906-04-18T13:12:01Z",
 			}, nil)
 
-			queuePostRequest(fmt.Sprintf(`{
-				"instances": %[1]d,
-				"memory_in_mb": %[2]d,
-				"disk_in_mb": %[3]d
-			}`, instances, memoryInMB, diskInMB))
+			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(fmt.Sprintf(`{
+				"instances": %d,
+				"memory_in_mb": %d,
+				"disk_in_mb": %d
+			}`, 5, 256, 1024)))
 		})
 
-		When("on the happy path and", func() {
-			When("all scale fields are set", func() {
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-				It("returns the scaled process", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("returns the scaled process", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "` + processGUID + `",
-					"created_at": "` + createdAt + `",
-					"updated_at": "` + updatedAt + `",
-					"type": "web",
-					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": ` + fmt.Sprint(instances) + `,
-					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
-					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
-					"health_check": {
-					   "type": "` + healthcheckType + `",
-					   "data": {
-						  "timeout": null,
-						  "invocation_timeout": null
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "` + appGUID + `"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
-					   },
-					   "scale": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
-					   },
-					   "space": {
-						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
-					   },
-					   "stats": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
-					   }
-					}
+			Expect(rr.Body.String()).To(MatchJSON(`{
+						"guid": "process-1-guid",
+						"created_at": "1906-04-18T13:12:00Z",
+						"updated_at": "1906-04-18T13:12:01Z",
+						"type": "web",
+						"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
+						"instances": 5,
+						"memory_in_mb": 256,
+						"disk_in_mb": 1024,
+						"health_check": {
+						   "type": "port",
+						   "data": {
+							  "timeout": null,
+							  "invocation_timeout": null
+						   }
+						},
+						"relationships": {
+						   "app": {
+							  "data": {
+								 "guid": "` + appGUID + `"
+							  }
+						   }
+						},
+						"metadata": {
+						   "labels": {},
+						   "annotations": {}
+						},
+						"links": {
+						   "self": {
+							  "href": "https://api.example.org/v3/processes/process-1-guid"
+						   },
+						   "scale": {
+							  "href": "https://api.example.org/v3/processes/process-1-guid/actions/scale",
+							  "method": "POST"
+						   },
+						   "app": {
+							  "href": "https://api.example.org/v3/apps/` + appGUID + `"
+						   },
+						   "space": {
+							  "href": "https://api.example.org/v3/spaces/` + spaceGUID + `"
+						   },
+						   "stats": {
+							  "href": "https://api.example.org/v3/processes/process-1-guid/stats"
+						   }
+						}
 				 }`))
-				})
+		})
+
+		When("only some fields are set", func() {
+			BeforeEach(func() {
+				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(fmt.Sprintf(`{
+						"memory_in_mb": %d
+					}`, 1024)))
 			})
 
-			When("only some fields are set", func() {
-				BeforeEach(func() {
-					queuePostRequest(fmt.Sprintf(`{
-						"memory_in_mb": %[1]d
-					}`, memoryInMB))
-				})
-
-				It("invokes the scale function with only a subset of the scale fields", func() {
-					Expect(processScaler.ScaleAppProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
-					_, _, _, _, invokedProcessScale := processScaler.ScaleAppProcessArgsForCall(0)
-					Expect(invokedProcessScale.Instances).To(BeNil())
-					Expect(invokedProcessScale.DiskMB).To(BeNil())
-					Expect(*invokedProcessScale.MemoryMB).To(Equal(memoryInMB))
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("returns the scaled process", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "` + processGUID + `",
-					"created_at": "` + createdAt + `",
-					"updated_at": "` + updatedAt + `",
-					"type": "web",
-					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": ` + fmt.Sprint(instances) + `,
-					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
-					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
-					"health_check": {
-					   "type": "` + healthcheckType + `",
-					   "data": {
-						  "timeout": null,
-						  "invocation_timeout": null
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "` + appGUID + `"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
-					   },
-					   "scale": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
-					   },
-					   "space": {
-						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
-					   },
-					   "stats": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
-					   }
-					}
-				 }`))
-				})
+			It("invokes the scale function with only a subset of the scale fields", func() {
+				Expect(processScaler.ScaleAppProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
+				_, _, _, _, invokedProcessScale := processScaler.ScaleAppProcessArgsForCall(0)
+				Expect(invokedProcessScale.Instances).To(BeNil())
+				Expect(invokedProcessScale.DiskMB).To(BeNil())
+				Expect(*invokedProcessScale.MemoryMB).To(BeNumerically("==", 1024))
 			})
 		})
 
-		When("on the sad path and", func() {
-			When("the request JSON is invalid", func() {
-				BeforeEach(func() {
-					queuePostRequest(`}`)
-				})
+		When("the request JSON is invalid", func() {
+			BeforeEach(func() {
+				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(`}`))
+			})
 
-				It("returns a status 400 Bad Request ", func() {
-					Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
-				})
+			It("returns a status 400 Bad Request ", func() {
+				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+			})
 
-				It("has the expected error response body", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			It("has the expected error response body", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-					Expect(rr.Body.String()).To(MatchJSON(`{
+				Expect(rr.Body.String()).To(MatchJSON(`{
 						"errors": [
 							{
 								"title": "CF-MessageParseError",
@@ -2221,147 +1848,121 @@ var _ = Describe("App", func() {
 							}
 						]
 					}`), "Response body matches response:")
-				})
-			})
-
-			When("there is an error scaling the app", func() {
-				BeforeEach(func() {
-					processScaler.ScaleAppProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
-				})
 			})
 		})
 
-		When("the validating scale parameters", func() {
-			DescribeTable("returns validation",
-				func(requestBody string, status int) {
-					tableTestRecorder := httptest.NewRecorder()
-					queuePostRequest(requestBody)
-					router.ServeHTTP(tableTestRecorder, req)
-					Expect(tableTestRecorder.Code).To(Equal(status))
-				},
-				Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),
-				Entry("memory is not a positive integer", `{"memory_in_mb":0}`, http.StatusUnprocessableEntity),
-				Entry("disk is not a positive integer", `{"disk_in_mb":0}`, http.StatusUnprocessableEntity),
-				Entry("instances is zero", `{"instances":0}`, http.StatusOK),
-				Entry("memory is a positive integer", `{"memory_in_mb":1024}`, http.StatusOK),
-				Entry("disk is a positive integer", `{"disk_in_mb":1024}`, http.StatusOK),
-			)
+		When("there is an error scaling the app", func() {
+			BeforeEach(func() {
+				processScaler.ScaleAppProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
 		})
+
+		DescribeTable("request body validation",
+			func(requestBody string, status int) {
+				tableTestRecorder := httptest.NewRecorder()
+				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(requestBody))
+				router.ServeHTTP(tableTestRecorder, req)
+				Expect(tableTestRecorder.Code).To(Equal(status))
+			},
+			Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),
+			Entry("memory is not a positive integer", `{"memory_in_mb":0}`, http.StatusUnprocessableEntity),
+			Entry("disk is not a positive integer", `{"disk_in_mb":0}`, http.StatusUnprocessableEntity),
+			Entry("instances is zero", `{"instances":0}`, http.StatusOK),
+			Entry("memory is a positive integer", `{"memory_in_mb":1024}`, http.StatusOK),
+			Entry("disk is a positive integer", `{"disk_in_mb":1024}`, http.StatusOK),
+		)
 	})
 
-	Describe("the GET /v3/apps/:guid/routes endpoint", func() {
-		const (
-			testDomainGUID = "test-domain-guid"
-			testRouteGUID  = "test-route-guid"
-			testRouteHost  = "test-route-host"
-			testSpaceGUID  = "test-space-guid"
-		)
-
-		var (
-			route1Record *repositories.RouteRecord
-
-			domainRecord *repositories.DomainRecord
-		)
-
+	Describe("GET /v3/apps/:guid/routes", func() {
 		BeforeEach(func() {
-			appRepo.GetAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: testSpaceGUID}, nil)
-
-			routeRecord := repositories.RouteRecord{
-				GUID:      testRouteGUID,
-				SpaceGUID: testSpaceGUID,
-				Domain: repositories.DomainRecord{
-					GUID: testDomainGUID,
-				},
-
-				Host:         testRouteHost,
-				Path:         "/some_path",
-				Protocol:     "http",
-				Destinations: nil,
-				Labels:       nil,
-				Annotations:  nil,
-				CreatedAt:    "2019-05-10T17:17:48Z",
-				UpdatedAt:    "2019-05-10T17:17:48Z",
-			}
-
-			route1Record = &routeRecord
 			routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{
-				routeRecord,
+				{
+					GUID:      "test-route-guid",
+					SpaceGUID: "test-space-guid",
+					Domain: repositories.DomainRecord{
+						GUID: "test-domain-guid",
+					},
+
+					Host:         "test-route-host",
+					Path:         "/some_path",
+					Protocol:     "http",
+					Destinations: nil,
+					Labels:       nil,
+					Annotations:  nil,
+					CreatedAt:    "2019-05-10T17:17:48Z",
+					UpdatedAt:    "2019-05-10T17:17:48Z",
+				},
 			}, nil)
 
-			domainRecord = &repositories.DomainRecord{
-				GUID: testDomainGUID,
+			domainRepo.GetDomainReturns(repositories.DomainRecord{
+				GUID: "test-domain-guid",
 				Name: "example.org",
-			}
-			domainRepo.GetDomainReturns(*domainRecord, nil)
+			}, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/routes", nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/routes", nil)
 		})
 
-		When("on the happy path and", func() {
-			It("sends authInfo from the context to the repo methods", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
+		It("sends authInfo from the context to the repo methods", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 
-				Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _ = routeRepo.ListRoutesForAppArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, _, _ = routeRepo.ListRoutesForAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 
-				Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ = domainRepo.GetDomainArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
+			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ = domainRepo.GetDomainArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
 
-			When("the App has associated routes", func() {
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-				})
+		It("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		})
 
-				It("returns the Pagination Data and App Resources in the response", func() {
-					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+		It("returns the Pagination Data and App Resources in the response", func() {
+			Expect(rr.Body.String()).To(MatchJSON(`{
 						"pagination": {
 							"total_results": 1,
 							"total_pages": 1,
 							"first": {
-								"href": "%[1]s/v3/apps/%[2]s/routes"
+								"href": "https://api.example.org/v3/apps/test-app-guid/routes"
 							},
 							"last": {
-								"href": "%[1]s/v3/apps/%[2]s/routes"
+								"href": "https://api.example.org/v3/apps/test-app-guid/routes"
 							},
 							"next": null,
 							"previous": null
 						},
 						"resources": [
 							{
-								"guid": "%[3]s",
+								"guid": "test-route-guid",
 								"port": null,
-								"path": "%[4]s",
-								"protocol": "%[5]s",
-								"host": "%[6]s",
-								"url": "%[6]s.%[7]s%[4]s",
-								"created_at": "%[8]s",
-								"updated_at": "%[9]s",
+								"path": "/some_path",
+								"protocol": "http",
+								"host": "test-route-host",
+								"url": "test-route-host.example.org/some_path",
+								"created_at": "2019-05-10T17:17:48Z",
+								"updated_at": "2019-05-10T17:17:48Z",
 								"destinations": [],
 								"relationships": {
 									"space": {
 										"data": {
-											"guid": "%[10]s"
+											"guid": "test-space-guid"
 										}
 									},
 									"domain": {
 										"data": {
-											"guid": "%[11]s"
+											"guid": "test-domain-guid"
 										}
 									}
 								},
@@ -2371,109 +1972,61 @@ var _ = Describe("App", func() {
 								},
 								"links": {
 									"self":{
-										"href": "%[1]s/v3/routes/%[3]s"
+										"href": "https://api.example.org/v3/routes/test-route-guid"
 									},
 									"space":{
-										"href": "%[1]s/v3/spaces/%[10]s"
+										"href": "https://api.example.org/v3/spaces/test-space-guid"
 									},
 									"domain":{
-										"href": "%[1]s/v3/domains/%[11]s"
+										"href": "https://api.example.org/v3/domains/test-domain-guid"
 									},
 									"destinations":{
-										"href": "%[1]s/v3/routes/%[3]s/destinations"
+										"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
 									}
 								}
 							}
 						]
-					}`, defaultServerURL, appGUID, route1Record.GUID, route1Record.Path, route1Record.Protocol, route1Record.Host, domainRecord.Name, route1Record.CreatedAt, route1Record.UpdatedAt, route1Record.SpaceGUID, domainRecord.GUID)), "Response body matches response:")
-				})
+					}`))
+		})
+
+		When("the app cannot be accessed", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
-			When("The App does not have associated routes", func() {
-				BeforeEach(func() {
-					routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, nil)
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("returns a response with an empty resources array", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
-						"pagination": {
-						  "total_results": 0,
-						  "total_pages": 1,
-						  "first": {
-							"href": "%[1]s/v3/apps/%[2]s/routes"
-						  },
-						  "last": {
-							"href": "%[1]s/v3/apps/%[2]s/routes"
-						  },
-						  "next": null,
-						  "previous": null
-						},
-						"resources": []
-					}`, defaultServerURL, appGUID)), "Response body matches response:")
-				})
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
 			})
 		})
 
-		When("on the sad path and", func() {
-			When("the app cannot be accessed", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("App not found")
-				})
+		When("there is some other error fetching the app", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
-			When("there is some other error fetching the app", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
-				})
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
 
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+		When("there is some error fetching the app's routes", func() {
+			BeforeEach(func() {
+				routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
 			})
 
-			When("there is some error fetching the app's routes", func() {
-				BeforeEach(func() {
-					routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
 
-	Describe("the GET /v3/apps/:guid/droplets/current", func() {
-		const (
-			dropletGUID = "test-droplet-guid"
-			packageGUID = "test-package-guid"
-		)
-
-		var (
-			app       repositories.AppRecord
-			droplet   repositories.DropletRecord
-			timestamp string
-		)
-
+	Describe("GET /v3/apps/:guid/droplets/current", func() {
 		BeforeEach(func() {
-			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID, DropletGUID: dropletGUID}
-			timestamp = time.Unix(1631892190, 0).String()
-			droplet = repositories.DropletRecord{
+			dropletRepo.GetDropletReturns(repositories.DropletRecord{
 				GUID:      dropletGUID,
 				State:     "STAGED",
-				CreatedAt: timestamp,
-				UpdatedAt: timestamp,
+				CreatedAt: "2019-05-10T17:17:48Z",
+				UpdatedAt: "2019-05-10T17:17:48Z",
 				Lifecycle: repositories.Lifecycle{
 					Type: "buildpack",
 					Data: repositories.LifecycleData{
@@ -2487,38 +2040,32 @@ var _ = Describe("App", func() {
 					"web":  "bundle exec rackup config.ru -p $PORT",
 				},
 				AppGUID:     appGUID,
-				PackageGUID: packageGUID,
-			}
+				PackageGUID: "test-package-guid",
+			}, nil)
 
-			appRepo.GetAppReturns(app, nil)
-			dropletRepo.GetDropletReturns(droplet, nil)
-
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
 		})
 
-		When("on the happy path", func() {
-			It("responds with a 200 code", func() {
-				Expect(rr.Code).To(Equal(200))
-			})
+		It("responds with a 200 code", func() {
+			Expect(rr.Code).To(Equal(200))
+		})
 
-			It("sends the authInfo from the context to the repo methods", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
+		It("sends the authInfo from the context to the repo methods", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 
-				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ = dropletRepo.GetDropletArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
+			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ = dropletRepo.GetDropletArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
 
-			It("responds with the current droplet encoded as JSON", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("responds with the current droplet encoded as JSON", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					  "guid": "`+dropletGUID+`",
+			Expect(rr.Body.String()).To(MatchJSON(`{
+					  "guid": "` + dropletGUID + `",
 					  "state": "STAGED",
 					  "error": null,
 					  "lifecycle": {
@@ -2537,27 +2084,27 @@ var _ = Describe("App", func() {
 					  "buildpacks": [],
 					  "stack": "cflinuxfs3",
 					  "image": null,
-					  "created_at": "`+timestamp+`",
-					  "updated_at": "`+timestamp+`",
+					  "created_at": "2019-05-10T17:17:48Z",
+					  "updated_at": "2019-05-10T17:17:48Z",
 					  "relationships": {
 						"app": {
 						  "data": {
-							"guid": "`+appGUID+`"
+							"guid": "` + appGUID + `"
 						  }
 						}
 					  },
 					  "links": {
 						"self": {
-						  "href": "`+defaultServerURI("/v3/droplets/", dropletGUID)+`"
+						  "href": "` + defaultServerURI("/v3/droplets/", dropletGUID) + `"
 						},
 						"package": {
-						  "href": "`+defaultServerURI("/v3/packages/", packageGUID)+`"
+						  "href": "` + defaultServerURI("/v3/packages/", "test-package-guid") + `"
 						},
 						"app": {
-						  "href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
+						  "href": "` + defaultServerURI("/v3/apps/", appGUID) + `"
 						},
 						"assign_current_droplet": {
-						  "href": "`+defaultServerURI("/v3/apps/", appGUID, "/relationships/current_droplet")+`",
+						  "href": "` + defaultServerURI("/v3/apps/", appGUID, "/relationships/current_droplet") + `",
 						  "method": "PATCH"
 						  },
 						"download": null
@@ -2566,23 +2113,22 @@ var _ = Describe("App", func() {
 						"labels": {},
 						"annotations": {}
 					  }
-					}`), "Response body matches response:")
-			})
-
-			It("fetches the correct App", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-				Expect(actualAppGUID).To(Equal(appGUID))
-			})
-
-			It("fetches the correct Droplet", func() {
-				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
-				_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
-				Expect(actualDropletGUID).To(Equal(dropletGUID))
-			})
+					}`))
 		})
 
-		When("the App is not accessible", func() {
+		It("fetches the correct app", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAppGUID).To(Equal(appGUID))
+		})
+
+		It("fetches the correct droplet", func() {
+			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+			_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
+			Expect(actualDropletGUID).To(Equal(dropletGUID))
+		})
+
+		When("the app is not accessible", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
@@ -2602,13 +2148,16 @@ var _ = Describe("App", func() {
 			})
 		})
 
-		When("the App doesn't have a current droplet assigned", func() {
+		When("the app doesn't have a current droplet assigned", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID, DropletGUID: ""}, nil)
+				appRepo.GetAppReturns(repositories.AppRecord{
+					GUID:        appGUID,
+					SpaceGUID:   spaceGUID,
+					DropletGUID: "",
+				}, nil)
 			})
 
-			// This test case is special due to [issue/965](https://github.com/cloudfoundry/korifi/issues/965)
-			It("returns a Not Found error", func() {
+			It("returns a NotFound error with code 10010 (that is ignored by the cf cli)", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
 				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
 				var bodyJSON map[string]interface{}
@@ -2630,8 +2179,7 @@ var _ = Describe("App", func() {
 				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewForbiddenError(nil, repositories.DropletResourceType))
 			})
 
-			// This test case is special due to [issue/965](https://github.com/cloudfoundry/korifi/issues/965)
-			It("returns a Not Found error", func() {
+			It("returns a NotFound error with code 10010 (that is ignored by the cf cli)", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
 				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
 				var bodyJSON map[string]interface{}
@@ -2659,35 +2207,17 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the GET /v3/apps/:guid/actions/restart endpoint", func() {
-		var fetchAppRecord repositories.AppRecord
-
+	Describe("GET /v3/apps/:guid/actions/restart", func() {
 		BeforeEach(func() {
-			fetchAppRecord = repositories.AppRecord{
-				Name:      appName,
-				GUID:      appGUID,
-				SpaceGUID: spaceGUID,
-				Annotations: map[string]string{
-					AppRevisionKey: "0",
-				},
-				DropletGUID: "some-droplet-guid",
-				State:       "STARTED",
-				Lifecycle: repositories.Lifecycle{
-					Type: "buildpack",
-					Data: repositories.LifecycleData{
-						Buildpacks: []string{},
-						Stack:      "",
-					},
-				},
-			}
-			appRepo.GetAppReturns(fetchAppRecord, nil)
-			setAppDesiredStateRecord := fetchAppRecord
-			setAppDesiredStateRecord.State = "STARTED"
-			appRepo.SetAppDesiredStateReturns(setAppDesiredStateRecord, nil)
+			updatedAppRecord := appRecord
+			updatedAppRecord.State = "STARTED"
+			appRepo.SetAppDesiredStateReturns(updatedAppRecord, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
+		})
+
+		It("responds with a 200 code", func() {
+			Expect(rr.Code).To(Equal(200))
 		})
 
 		It("sends the authInfo from the context to the repo methods", func() {
@@ -2700,6 +2230,95 @@ var _ = Describe("App", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			_, actualAuthInfo, _ = appRepo.SetAppDesiredStateArgsForCall(1)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
+
+		It("calls setDesiredState to STOP and START the app", func() {
+			Expect(appRepo.SetAppDesiredStateCallCount()).To(Equal(2))
+
+			_, _, appDesiredStateMessage := appRepo.SetAppDesiredStateArgsForCall(0)
+			Expect(appDesiredStateMessage.DesiredState).To(Equal("STOPPED"))
+
+			_, _, appDesiredStateMessage = appRepo.SetAppDesiredStateArgsForCall(1)
+			Expect(appDesiredStateMessage.DesiredState).To(Equal("STARTED"))
+		})
+
+		It("returns the App in the response with a state of STARTED", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+			Expect(rr.Body.String()).To(MatchJSON(`{
+                    "guid": "test-app-guid",
+                    "created_at": "",
+                    "updated_at": "",
+                    "name": "test-app",
+                    "state": "STARTED",
+                    "lifecycle": {
+                      "type": "buildpack",
+                      "data": {
+                        "buildpacks": [],
+                        "stack": ""
+                      }
+                    },
+                    "relationships": {
+                      "space": {
+                        "data": {
+                          "guid": "test-space-guid"
+                        }
+                      }
+                    },
+                    "metadata": {
+                      "labels": {
+                        "label-key": "label-value"
+                      },
+                      "annotations": {
+						"korifi.cloudfoundry.org/app-rev": "0",
+                        "annotation-key": "annotation-value"
+                      }
+                    },
+                    "links": {
+                      "self": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid"
+                      },
+                      "environment_variables": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/environment_variables"
+                      },
+                      "space": {
+                        "href": "https://api.example.org/v3/spaces/test-space-guid"
+                      },
+                      "processes": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/processes"
+                      },
+                      "packages": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/packages"
+                      },
+                      "current_droplet": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/droplets/current"
+                      },
+                      "droplets": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/droplets"
+                      },
+                      "tasks": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/tasks"
+                      },
+                      "start": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/actions/start",
+                        "method": "POST"
+                      },
+                      "stop": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/actions/stop",
+                        "method": "POST"
+                      },
+                      "revisions": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/revisions"
+                      },
+                      "deployed_revisions": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/revisions/deployed"
+                      },
+                      "features": {
+                        "href": "https://api.example.org/v3/apps/test-app-guid/features"
+                      }
+                    }
+                }`))
 		})
 
 		When("no permissions to get the app", func() {
@@ -2724,25 +2343,9 @@ var _ = Describe("App", func() {
 
 		When("the app has no droplet", func() {
 			BeforeEach(func() {
-				noDropletAppRecord := repositories.AppRecord{
-					Name:        appName,
-					GUID:        appGUID,
-					SpaceGUID:   spaceGUID,
-					DropletGUID: "",
-					State:       "STOPPED",
-					Annotations: map[string]string{
-						AppRevisionKey: "0",
-					},
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}
-				appRepo.GetAppReturns(noDropletAppRecord, nil)
-				appRepo.SetAppDesiredStateReturns(noDropletAppRecord, nil)
+				appRecord.DropletGUID = ""
+				appRepo.GetAppReturns(appRecord, nil)
+				appRepo.SetAppDesiredStateReturns(appRecord, nil)
 			})
 
 			It("returns an error", func() {
@@ -2750,201 +2353,38 @@ var _ = Describe("App", func() {
 			})
 		})
 
-		When("the app is in STARTED state", func() {
-			It("responds with a 200 code", func() {
-				Expect(rr.Code).To(Equal(200))
+		When("stopping the app fails", func() {
+			BeforeEach(func() {
+				appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, errors.New("stop-app"))
 			})
 
-			It("calls setDesiredState to STOP and START the app", func() {
-				Expect(appRepo.SetAppDesiredStateCallCount()).To(Equal(2))
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
 
-				_, _, appDesiredStateMessage := appRepo.SetAppDesiredStateArgsForCall(0)
-				Expect(appDesiredStateMessage.DesiredState).To(Equal("STOPPED"))
-
-				_, _, appDesiredStateMessage = appRepo.SetAppDesiredStateArgsForCall(1)
-				Expect(appDesiredStateMessage.DesiredState).To(Equal("STARTED"))
+		When("starting the app fails", func() {
+			BeforeEach(func() {
+				appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, errors.New("start-app"))
 			})
 
-			It("returns the App in the response with a state of STARTED", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-                    "guid": "%[2]s",
-                    "created_at": "",
-                    "updated_at": "",
-                    "name": "%[4]s",
-                    "state": "STARTED",
-                    "lifecycle": {
-                      "type": "buildpack",
-                      "data": {
-                        "buildpacks": [],
-                        "stack": ""
-                      }
-                    },
-                    "relationships": {
-                      "space": {
-                        "data": {
-                          "guid": "%[3]s"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "labels": {},
-                      "annotations": {
-					    "korifi.cloudfoundry.org/app-rev": "0"
-					  }
-                    },
-                    "links": {
-                      "self": {
-                        "href": "https://api.example.org/v3/apps/%[2]s"
-                      },
-                      "environment_variables": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-                      },
-                      "space": {
-                        "href": "https://api.example.org/v3/spaces/%[3]s"
-                      },
-                      "processes": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/processes"
-                      },
-                      "packages": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/packages"
-                      },
-                      "current_droplet": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-                      },
-                      "droplets": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets"
-                      },
-                      "tasks": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/tasks"
-                      },
-                      "start": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-                        "method": "POST"
-                      },
-                      "stop": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-                        "method": "POST"
-                      },
-                      "revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions"
-                      },
-                      "deployed_revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-                      },
-                      "features": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/features"
-                      }
-                    }
-                }`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
-			})
-
-			When("stopping the app fails", func() {
-				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(0, repositories.AppRecord{}, errors.New("stop-app"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
-				})
-			})
-
-			When("starting the app fails", func() {
-				BeforeEach(func() {
-					appRepo.SetAppDesiredStateReturnsOnCall(1, repositories.AppRecord{}, errors.New("start-app"))
-				})
-
-				It("returns a forbidden error", func() {
-					expectUnknownError()
-				})
+			It("returns a forbidden error", func() {
+				expectUnknownError()
 			})
 		})
 
 		When("the app is in STOPPED state", func() {
 			BeforeEach(func() {
-				fetchAppRecord.State = "STOPPED"
-				appRepo.GetAppReturns(fetchAppRecord, nil)
+				appRecord.State = "STOPPED"
+				appRepo.GetAppReturns(appRecord, nil)
 			})
+
 			It("responds with a 200 code", func() {
 				Expect(rr.Code).To(Equal(200))
 			})
 
-			It("returns the App in the response with a state of STARTED", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-                    "guid": "%[2]s",
-                    "created_at": "",
-                    "updated_at": "",
-                    "name": "%[4]s",
-                    "state": "STARTED",
-                    "lifecycle": {
-                      "type": "buildpack",
-                      "data": {
-                        "buildpacks": [],
-                        "stack": ""
-                      }
-                    },
-                    "relationships": {
-                      "space": {
-                        "data": {
-                          "guid": "%[3]s"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "labels": {},
-                      "annotations": {
-					    "korifi.cloudfoundry.org/app-rev": "0"
-					  }
-                    },
-                    "links": {
-                      "self": {
-                        "href": "https://api.example.org/v3/apps/%[2]s"
-                      },
-                      "environment_variables": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-                      },
-                      "space": {
-                        "href": "https://api.example.org/v3/spaces/%[3]s"
-                      },
-                      "processes": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/processes"
-                      },
-                      "packages": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/packages"
-                      },
-                      "current_droplet": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-                      },
-                      "droplets": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets"
-                      },
-                      "tasks": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/tasks"
-                      },
-                      "start": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-                        "method": "POST"
-                      },
-                      "stop": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-                        "method": "POST"
-                      },
-                      "revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions"
-                      },
-                      "deployed_revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-                      },
-                      "features": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/features"
-                      }
-                    }
-                }`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
+			It("returns the app in the response with a state of STARTED", func() {
+				Expect(rr.Body.String()).To(ContainSubstring(`"state":"STARTED"`))
 			})
 		})
 
@@ -2969,44 +2409,34 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the DELETE /v3/apps/:guid endpoint", func() {
-		var app repositories.AppRecord
-
+	Describe("DELETE /v3/apps/:guid", func() {
 		BeforeEach(func() {
-			app = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
-
-			appRepo.GetAppReturns(app, nil)
-
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "DELETE", "/v3/apps/"+appGUID, nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("DELETE", "/v3/apps/"+appGUID, nil)
 		})
 
-		When("on the happy path", func() {
-			It("responds with a 202 accepted response", func() {
-				Expect(rr.Code).To(Equal(http.StatusAccepted))
-			})
-
-			It("responds with a job URL in a location header", func() {
-				locationHeader := rr.Header().Get("Location")
-				Expect(locationHeader).To(Equal("https://api.example.org/v3/jobs/app.delete~"+appGUID), "Matching Location header")
-			})
-
-			It("fetches the right App", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-				Expect(actualAppGUID).To(Equal(appGUID))
-			})
-
-			It("deletes the K8s record via the repository", func() {
-				Expect(appRepo.DeleteAppCallCount()).To(Equal(1))
-				_, _, message := appRepo.DeleteAppArgsForCall(0)
-				Expect(message.AppGUID).To(Equal(appGUID))
-				Expect(message.SpaceGUID).To(Equal(spaceGUID))
-			})
+		It("responds with a 202 accepted response", func() {
+			Expect(rr.Code).To(Equal(http.StatusAccepted))
 		})
 
-		When("fetching the App errors", func() {
+		It("responds with a job URL in a location header", func() {
+			locationHeader := rr.Header().Get("Location")
+			Expect(locationHeader).To(Equal("https://api.example.org/v3/jobs/app.delete~"+appGUID), "Matching Location header")
+		})
+
+		It("fetches the right app", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAppGUID).To(Equal(appGUID))
+		})
+
+		It("deletes the K8s record via the repository", func() {
+			Expect(appRepo.DeleteAppCallCount()).To(Equal(1))
+			_, _, message := appRepo.DeleteAppArgsForCall(0)
+			Expect(message.AppGUID).To(Equal(appGUID))
+			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+		})
+
+		When("fetching the app errors", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
@@ -3016,7 +2446,7 @@ var _ = Describe("App", func() {
 			})
 		})
 
-		When("deleting the App errors", func() {
+		When("deleting the app errors", func() {
 			BeforeEach(func() {
 				appRepo.DeleteAppReturns(errors.New("boom"))
 			})
@@ -3027,44 +2457,39 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the GET /v3/apps/:guid/env endpoint", func() {
+	Describe("GET /v3/apps/:guid/env", func() {
 		BeforeEach(func() {
-			appEnvRecord := repositories.AppEnvRecord{
+			appRepo.GetAppEnvReturns(repositories.AppEnvRecord{
 				AppGUID:              appGUID,
 				SpaceGUID:            spaceGUID,
 				EnvironmentVariables: map[string]string{"VAR": "VAL"},
 				SystemEnv:            map[string]interface{}{},
-			}
-			appRepo.GetAppEnvReturns(appEnvRecord, nil)
+			}, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/apps/"+appGUID+"/env", nil)
-			Expect(err).NotTo(HaveOccurred())
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/env", nil)
 		})
 
-		When("on the happy path", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
 
-			It("passes authInfo from context to GetAppEnv", func() {
-				Expect(appRepo.GetAppEnvCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := appRepo.GetAppEnvArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
+		It("passes authInfo from context to GetAppEnv", func() {
+			Expect(appRepo.GetAppEnvCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.GetAppEnvArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
 
-			It("returns the env vars in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("returns the env vars in the response", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(`{
+			Expect(rr.Body.String()).To(MatchJSON(`{
                   "staging_env_json": {},
                   "running_env_json": {},
                   "environment_variables": { "VAR": "VAL" },
                   "system_env_json": {},
                   "application_env_json": {}
                 }`))
-			})
 		})
 
 		When("there is an error fetching the app env", func() {
@@ -3078,53 +2503,29 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("the PATCH /v3/apps/:guid/environment_variables", func() {
-		const (
-			key0 = "KEY0"
-			key1 = "KEY1"
-			key2 = "KEY2"
-		)
-
-		queuePatchRequest := func(appGUID, requestBody string) {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(requestBody))
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		var (
-			appReturns       repositories.AppRecord
-			appSecretReturns repositories.AppEnvVarsRecord
-			appEnvVars       map[string]string
-		)
-
+	Describe("PATCH /v3/apps/:guid/environment_variables", func() {
 		BeforeEach(func() {
-			appReturns = repositories.AppRecord{GUID: appGUID, SpaceGUID: spaceGUID}
-			appRepo.GetAppReturns(appReturns, nil)
-
-			appEnvVars = map[string]string{
-				key0: "VAL0",
-				key2: "VAL2",
-			}
-			appSecretReturns = repositories.AppEnvVarsRecord{
-				Name:                 appGUID + "-env",
-				AppGUID:              appGUID,
-				SpaceGUID:            spaceGUID,
-				EnvironmentVariables: appEnvVars,
-			}
-			appRepo.PatchAppEnvVarsReturns(appSecretReturns, nil)
-			queuePatchRequest(appGUID, `{ "var": { "`+key1+`": null, "`+key2+`": "VAL2" } }`)
+			appRepo.PatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{
+				Name:      appGUID + "-env",
+				AppGUID:   appGUID,
+				SpaceGUID: spaceGUID,
+				EnvironmentVariables: map[string]string{
+					"KEY0": "VAL0",
+					"KEY2": "VAL2",
+				},
+			}, nil)
+			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(`{ "var": { "KEY1": null, "KEY2": "VAL2" } }`))
 		})
 
-		When("on the happy path", func() {
-			It("responds with a 200 code", func() {
-				Expect(rr.Code).To(Equal(200))
-			})
+		It("responds with a 200 code", func() {
+			Expect(rr.Code).To(Equal(200))
+		})
 
-			It("responds with JSON", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		It("responds with JSON", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"var": {
 						"KEY0": "VAL0",
 						"KEY2": "VAL2"
@@ -3138,64 +2539,58 @@ var _ = Describe("App", func() {
 						}
 					}
 				}`, defaultServerURL, appGUID)))
-			})
-
-			It("fetches the right App", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-				Expect(actualAppGUID).To(Equal(appGUID))
-			})
-
-			It("updates the k8s record via the repository", func() {
-				Expect(appRepo.PatchAppEnvVarsCallCount()).To(Equal(1))
-				_, _, message := appRepo.PatchAppEnvVarsArgsForCall(0)
-				Expect(message.AppGUID).To(Equal(appGUID))
-				Expect(message.SpaceGUID).To(Equal(spaceGUID))
-				var value1 *string
-				value2 := "VAL2"
-				Expect(message.EnvironmentVariables).To(Equal(map[string]*string{
-					key1: value1,
-					key2: &value2,
-				}))
-			})
 		})
 
-		When("the validating env vars", func() {
-			DescribeTable("returns response code",
-				func(requestBody string, status int) {
-					tableTestRecorder := httptest.NewRecorder()
-					queuePatchRequest(appGUID, requestBody)
-					router.ServeHTTP(tableTestRecorder, req)
-					Expect(tableTestRecorder.Code).To(Equal(status))
-				},
-				Entry("contains a null value", `{ "var": { "key": null } }`, http.StatusOK),
-				Entry("contains an int value", `{ "var": { "key": 9999 } }`, http.StatusOK),
-				Entry("contains an float value", `{ "var": { "key": 9999.9 } }`, http.StatusOK),
-				Entry("contains an bool value", `{ "var": { "key": true } }`, http.StatusOK),
-				Entry("contains an string value", `{ "var": { "key": "string" } }`, http.StatusOK),
-				Entry("contains a PORT key", `{ "var": { "PORT": 9000 } }`, http.StatusUnprocessableEntity),
-				Entry("contains a VPORT key", `{ "var": { "VPORT": 9000 } }`, http.StatusOK),
-				Entry("contains a PORTO key", `{ "var": { "PORTO": 9000 } }`, http.StatusOK),
-				Entry("contains a VCAP_ key prefix", `{ "var": {"VCAP_POTATO":"foo" } }`, http.StatusUnprocessableEntity),
-				Entry("contains a VMC_ key prefix", `{ "var": {"VMC_APPLE":"bar" } }`, http.StatusUnprocessableEntity),
-			)
+		It("fetches the right app", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAppGUID).To(Equal(appGUID))
 		})
 
-		When("on the sad path and", func() {
-			When("the request JSON is invalid", func() {
-				BeforeEach(func() {
-					queuePatchRequest(appGUID, `{`)
-				})
+		It("updates the k8s record via the repository", func() {
+			Expect(appRepo.PatchAppEnvVarsCallCount()).To(Equal(1))
+			_, _, message := appRepo.PatchAppEnvVarsArgsForCall(0)
+			Expect(message.AppGUID).To(Equal(appGUID))
+			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+			Expect(message.EnvironmentVariables).To(Equal(map[string]*string{
+				"KEY1": nil,
+				"KEY2": tools.PtrTo("VAL2"),
+			}))
+		})
 
-				It("returns a status 400 Bad Request ", func() {
-					Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
-				})
+		DescribeTable("env var validation",
+			func(requestBody string, status int) {
+				tableTestRecorder := httptest.NewRecorder()
+				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(requestBody))
+				router.ServeHTTP(tableTestRecorder, req)
+				Expect(tableTestRecorder.Code).To(Equal(status))
+			},
+			Entry("contains a null value", `{ "var": { "key": null } }`, http.StatusOK),
+			Entry("contains an int value", `{ "var": { "key": 9999 } }`, http.StatusOK),
+			Entry("contains an float value", `{ "var": { "key": 9999.9 } }`, http.StatusOK),
+			Entry("contains an bool value", `{ "var": { "key": true } }`, http.StatusOK),
+			Entry("contains an string value", `{ "var": { "key": "string" } }`, http.StatusOK),
+			Entry("contains a PORT key", `{ "var": { "PORT": 9000 } }`, http.StatusUnprocessableEntity),
+			Entry("contains a VPORT key", `{ "var": { "VPORT": 9000 } }`, http.StatusOK),
+			Entry("contains a PORTO key", `{ "var": { "PORTO": 9000 } }`, http.StatusOK),
+			Entry("contains a VCAP_ key prefix", `{ "var": {"VCAP_POTATO":"foo" } }`, http.StatusUnprocessableEntity),
+			Entry("contains a VMC_ key prefix", `{ "var": {"VMC_APPLE":"bar" } }`, http.StatusUnprocessableEntity),
+		)
 
-				It("has the expected error response body", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		When("the request JSON is invalid", func() {
+			BeforeEach(func() {
+				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(`{`))
+			})
 
-					Expect(rr.Body.String()).To(MatchJSON(`{
+			It("returns a status 400 Bad Request ", func() {
+				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+			})
+
+			It("has the expected error response body", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
 						"errors": [
 							{
 								"title": "CF-MessageParseError",
@@ -3204,50 +2599,34 @@ var _ = Describe("App", func() {
 							}
 						]
 					}`), "Response body matches response:")
-				})
+			})
+		})
+
+		When("there is some other error fetching the app", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
 			})
 
-			When("there is some other error fetching the app", func() {
-				BeforeEach(func() {
-					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
-				})
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
 
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+		When("there is some error updating the app environment variables", func() {
+			BeforeEach(func() {
+				appRepo.PatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{}, errors.New("unknown!"))
 			})
 
-			When("there is some error updating the app environment variables", func() {
-				BeforeEach(func() {
-					appRepo.PatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{}, errors.New("unknown!"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
 })
 
-func initializeCreateAppRequestBody(appName, spaceGUID string, envVars, labels, annotations map[string]string) string {
-	marshaledEnvironmentVariables, _ := json.Marshal(envVars)
-	marshaledLabels, _ := json.Marshal(labels)
-	marshaledAnnotations, _ := json.Marshal(annotations)
+func createHttpRequest(method string, url string, body io.Reader) *http.Request {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	Expect(err).NotTo(HaveOccurred())
 
-	return `{
-		"name": "` + appName + `",
-		"relationships": {
-			"space": {
-				"data": {
-					"guid": "` + spaceGUID + `"
-				}
-			}
-		},
-		"environment_variables": ` + string(marshaledEnvironmentVariables) + `,
-		"metadata": {
-			"labels": ` + string(marshaledLabels) + `,
-			"annotations": ` + string(marshaledAnnotations) + `
-		}
-	}`
+	return req
 }
