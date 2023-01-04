@@ -26,7 +26,6 @@ type UnauthenticatedEndpointRegistry interface {
 }
 
 type authentication struct {
-	logger                          logr.Logger
 	authInfoParser                  AuthInfoParser
 	identityProvider                IdentityProvider
 	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry

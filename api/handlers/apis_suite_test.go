@@ -152,30 +152,6 @@ func expectUnknownKeyError(detail string) {
 	}`, detail))
 }
 
-func expectNotAuthenticatedError() {
-	expectJSONResponse(http.StatusUnauthorized, `{
-        "errors": [
-            {
-                "detail": "Authentication error",
-                "title": "CF-NotAuthenticated",
-                "code": 10002
-            }
-        ]
-    }`)
-}
-
-func expectInvalidAuthError() {
-	expectJSONResponse(http.StatusUnauthorized, `{
-      "errors": [
-          {
-            "detail": "Invalid Auth Token",
-            "title": "CF-InvalidAuthToken",
-            "code": 1000
-          }
-        ]
-    }`)
-}
-
 func generateGUID(prefix string) string {
 	guid := uuid.NewString()
 
