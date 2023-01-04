@@ -1,18 +1,14 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
-	"github.com/go-logr/logr"
 	"github.com/golang-jwt/jwt"
-
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -20,18 +16,16 @@ const (
 )
 
 type OAuthTokenHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-	apiBaseURL     url.URL
+	apiBaseURL url.URL
 }
 
 func NewOAuthToken(apiBaseURL url.URL) *OAuthTokenHandler {
 	return &OAuthTokenHandler{
-		handlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("OAuthTokenHandler")),
-		apiBaseURL:     apiBaseURL,
+		apiBaseURL: apiBaseURL,
 	}
 }
 
-func (h *OAuthTokenHandler) oauthTokenHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *OAuthTokenHandler) oauthTokenHandler(r *http.Request) (*routing.Response, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})
@@ -42,12 +36,12 @@ func (h *OAuthTokenHandler) oauthTokenHandler(ctx context.Context, logger logr.L
 		panic(err.Error())
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(map[string]string{
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(map[string]string{
 		"token_type":   "bearer",
 		"access_token": tokenString,
 	}), nil
 }
 
 func (h *OAuthTokenHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(OAuthTokenPath, h.handlerWrapper.Wrap(h.oauthTokenHandler))
+	router.Method("POST", OAuthTokenPath, routing.Handler(h.oauthTokenHandler))
 }

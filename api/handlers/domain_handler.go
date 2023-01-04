@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
@@ -33,7 +33,6 @@ type CFDomainRepository interface {
 }
 
 type DomainHandler struct {
-	handlerWrapper       *AuthAwareHandlerFuncWrapper
 	serverURL            url.URL
 	requestJSONValidator RequestJSONValidator
 	domainRepo           CFDomainRepository
@@ -45,14 +44,16 @@ func NewDomainHandler(
 	domainRepo CFDomainRepository,
 ) *DomainHandler {
 	return &DomainHandler{
-		handlerWrapper:       NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("DomainHandler")),
 		serverURL:            serverURL,
 		requestJSONValidator: requestJSONValidator,
 		domainRepo:           domainRepo,
 	}
 }
 
-func (h *DomainHandler) domainCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *DomainHandler) domainCreateHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("domain-handler.domain-create")
+
 	var payload payloads.DomainCreate
 	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
@@ -64,26 +65,32 @@ func (h *DomainHandler) domainCreateHandler(ctx context.Context, logger logr.Log
 		return nil, apierrors.LogAndReturn(logger, apierr, apierr.Detail())
 	}
 
-	domain, err := h.domainRepo.CreateDomain(ctx, authInfo, domainCreateMessage)
+	domain, err := h.domainRepo.CreateDomain(r.Context(), authInfo, domainCreateMessage)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error creating domain in repository")
 	}
 
-	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForDomain(domain, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForDomain(domain, h.serverURL)), nil
 }
 
-func (h *DomainHandler) domainGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *DomainHandler) domainGetHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("domain-handler.domain-get")
+
 	domainGUID := chi.URLParam(r, "guid")
 
-	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
+	domain, err := h.domainRepo.GetDomain(r.Context(), authInfo, domainGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error getting domain in repository")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.serverURL)), nil
 }
 
-func (h *DomainHandler) domainUpdateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *DomainHandler) domainUpdateHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("domain-handler.domain-update")
+
 	domainGUID := chi.URLParam(r, "guid")
 
 	var payload payloads.DomainUpdate
@@ -91,20 +98,23 @@ func (h *DomainHandler) domainUpdateHandler(ctx context.Context, logger logr.Log
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	_, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
+	_, err := h.domainRepo.GetDomain(r.Context(), authInfo, domainGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error getting domain in repository")
 	}
 
-	domain, err := h.domainRepo.UpdateDomain(ctx, authInfo, payload.ToMessage(domainGUID))
+	domain, err := h.domainRepo.UpdateDomain(r.Context(), authInfo, payload.ToMessage(domainGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error updating domain in repository")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.serverURL)), nil
 }
 
-func (h *DomainHandler) domainListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) { //nolint:dupl
+func (h *DomainHandler) domainListHandler(r *http.Request) (*routing.Response, error) { //nolint:dupl
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("domain-handler.domain-list")
+
 	if err := r.ParseForm(); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
@@ -115,32 +125,35 @@ func (h *DomainHandler) domainListHandler(ctx context.Context, logger logr.Logge
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	domainList, err := h.domainRepo.ListDomains(ctx, authInfo, domainListFilter.ToMessage())
+	domainList, err := h.domainRepo.ListDomains(r.Context(), authInfo, domainListFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch domain(s) from Kubernetes")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.serverURL, *r.URL)), nil
 }
 
-func (h *DomainHandler) domainDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *DomainHandler) domainDeleteHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("domain-handler.domain-delete")
+
 	domainGUID := chi.URLParam(r, "guid")
 
-	err := h.domainRepo.DeleteDomain(ctx, authInfo, domainGUID)
+	err := h.domainRepo.DeleteDomain(r.Context(), authInfo, domainGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to delete domain from Kubernetes", "domainGUID", domainGUID)
 	}
 
-	return NewHandlerResponse(http.StatusAccepted).WithHeader(
+	return routing.NewHandlerResponse(http.StatusAccepted).WithHeader(
 		"Location",
 		presenter.JobURLForRedirects(domainGUID, presenter.DomainDeleteOperation, h.serverURL),
 	), nil
 }
 
 func (h *DomainHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(DomainsPath, h.handlerWrapper.Wrap(h.domainCreateHandler))
-	router.Get(DomainPath, h.handlerWrapper.Wrap(h.domainGetHandler))
-	router.Patch(DomainPath, h.handlerWrapper.Wrap(h.domainUpdateHandler))
-	router.Get(DomainsPath, h.handlerWrapper.Wrap(h.domainListHandler))
-	router.Delete(DomainPath, h.handlerWrapper.Wrap(h.domainDeleteHandler))
+	router.Method("POST", DomainsPath, routing.Handler(h.domainCreateHandler))
+	router.Method("GET", DomainPath, routing.Handler(h.domainGetHandler))
+	router.Method("PATCH", DomainPath, routing.Handler(h.domainUpdateHandler))
+	router.Method("GET", DomainsPath, routing.Handler(h.domainListHandler))
+	router.Method("DELETE", DomainPath, routing.Handler(h.domainDeleteHandler))
 }

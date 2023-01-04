@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
@@ -30,11 +30,9 @@ type AppLogsReader interface {
 // LogCacheHandler implements the minimal set of log-cache API endpoints/features necessary
 // to support the "cf push" workfloh.handlerWrapper.
 type LogCacheHandler struct {
-	authenticatedHandlerWrapper   *AuthAwareHandlerFuncWrapper
-	unauthenticatedHandlerWrapper *AuthAwareHandlerFuncWrapper
-	appRepo                       CFAppRepository
-	buildRepo                     CFBuildRepository
-	appLogsReader                 AppLogsReader
+	appRepo       CFAppRepository
+	buildRepo     CFBuildRepository
+	appLogsReader AppLogsReader
 }
 
 func NewLogCacheHandler(
@@ -43,22 +41,23 @@ func NewLogCacheHandler(
 	appLogsReader AppLogsReader,
 ) *LogCacheHandler {
 	return &LogCacheHandler{
-		authenticatedHandlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
-		unauthenticatedHandlerWrapper: NewUnauthenticatedHandlerFuncWrapper(ctrl.Log.WithName("LogCacheHandler")),
-		appRepo:                       appRepo,
-		buildRepo:                     buildRepository,
-		appLogsReader:                 appLogsReader,
+		appRepo:       appRepo,
+		buildRepo:     buildRepository,
+		appLogsReader: appLogsReader,
 	}
 }
 
-func (h *LogCacheHandler) logCacheInfoHandler(ctx context.Context, logger logr.Logger, _ authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	return NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
+func (h *LogCacheHandler) logCacheInfoHandler(r *http.Request) (*routing.Response, error) {
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(map[string]interface{}{
 		"version":   logCacheVersion,
 		"vm_uptime": "0",
 	}), nil
 }
 
-func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *LogCacheHandler) logCacheReadHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("log-cache-handler.log-cache-read")
+
 	if err := r.ParseForm(); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
@@ -81,15 +80,15 @@ func (h *LogCacheHandler) logCacheReadHandler(ctx context.Context, logger logr.L
 	appGUID := chi.URLParam(r, "guid")
 
 	var logs []repositories.LogRecord
-	logs, err = h.appLogsReader.Read(ctx, logger, authInfo, appGUID, *logReadPayload)
+	logs, err = h.appLogsReader.Read(r.Context(), logger, authInfo, appGUID, *logReadPayload)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to read app logs", "appGUID", appGUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForLogs(logs)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForLogs(logs)), nil
 }
 
 func (h *LogCacheHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(LogCacheInfoPath, h.unauthenticatedHandlerWrapper.Wrap(h.logCacheInfoHandler))
-	router.Get(LogCacheReadPath, h.authenticatedHandlerWrapper.Wrap(h.logCacheReadHandler))
+	router.Method("GET", LogCacheInfoPath, routing.Handler(h.logCacheInfoHandler))
+	router.Method("GET", LogCacheReadPath, routing.Handler(h.logCacheReadHandler))
 }

@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/middleware"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
@@ -226,21 +227,21 @@ func main() {
 	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
 	authInfoParser := authorization.NewInfoParser()
 	router.Use(
-		handlers.NewCorrelationIDMiddleware().Middleware,
-		handlers.NewCFCliVersionMiddleware().Middleware,
-		handlers.NewHTTPLogging(ctrl.Log.WithName("http-logger")).Middleware,
-		handlers.NewAuthenticationMiddleware(
+		middleware.Correlation(ctrl.Log),
+		middleware.CFCliVersion,
+		middleware.HTTPLogging,
+		middleware.Authentication(
 			authInfoParser,
 			cachingIdentityProvider,
 			unauthenticatedEndpoints,
-		).Middleware,
-		handlers.NewCFUserMiddleware(
+		),
+		middleware.CFUser(
 			privilegedCRClient,
 			cachingIdentityProvider,
 			config.RootNamespace,
 			cache.NewExpiring(),
 			unauthenticatedEndpoints,
-		).Middleware,
+		),
 	)
 
 	apiHandlers := []APIHandler{

@@ -11,10 +11,10 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -33,7 +33,6 @@ type BuildHandler struct {
 	buildRepo            CFBuildRepository
 	packageRepo          CFPackageRepository
 	appRepo              CFAppRepository
-	handlerWrapper       *AuthAwareHandlerFuncWrapper
 	requestJSONValidator RequestJSONValidator
 }
 
@@ -45,7 +44,6 @@ func NewBuildHandler(
 	requestJSONValidator RequestJSONValidator,
 ) *BuildHandler {
 	return &BuildHandler{
-		handlerWrapper:       NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("BuildHandler")),
 		serverURL:            serverURL,
 		buildRepo:            buildRepo,
 		packageRepo:          packageRepo,
@@ -54,18 +52,23 @@ func NewBuildHandler(
 	}
 }
 
-func (h *BuildHandler) buildGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *BuildHandler) buildGetHandler(r *http.Request) (*routing.Response, error) {
 	buildGUID := chi.URLParam(r, "guid")
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("build-handler.build-get")
 
-	build, err := h.buildRepo.GetBuild(ctx, authInfo, buildGUID)
+	build, err := h.buildRepo.GetBuild(r.Context(), authInfo, buildGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.BuildResourceType), "guid", buildGUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuild(build, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForBuild(build, h.serverURL)), nil
 }
 
-func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *BuildHandler) buildCreateHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("build-handler.build-create")
+
 	var payload payloads.BuildCreate
 	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
@@ -104,10 +107,10 @@ func (h *BuildHandler) buildCreateHandler(ctx context.Context, logger logr.Logge
 		return nil, apierrors.LogAndReturn(logger, err, "Error creating build with repository")
 	}
 
-	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForBuild(record, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForBuild(record, h.serverURL)), nil
 }
 
 func (h *BuildHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(BuildPath, h.handlerWrapper.Wrap(h.buildGetHandler))
-	router.Post(BuildsPath, h.handlerWrapper.Wrap(h.buildCreateHandler))
+	router.Method("GET", BuildPath, routing.Handler(h.buildGetHandler))
+	router.Method("POST", BuildsPath, routing.Handler(h.buildCreateHandler))
 }

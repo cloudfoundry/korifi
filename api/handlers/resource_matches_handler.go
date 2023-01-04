@@ -1,35 +1,28 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/routing"
 	"github.com/go-chi/chi"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
 	ResourceMatchesPath = "/v3/resource_matches"
 )
 
-type ResourceMatchesHandler struct {
-	handlerWrapper *AuthAwareHandlerFuncWrapper
-}
+type ResourceMatchesHandler struct{}
 
 func NewResourceMatchesHandler() *ResourceMatchesHandler {
-	return &ResourceMatchesHandler{
-		handlerWrapper: NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ResourceMatchesHandler")),
-	}
+	return &ResourceMatchesHandler{}
 }
 
-func (h *ResourceMatchesHandler) resourceMatchesPostHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	return NewHandlerResponse(http.StatusCreated).WithBody(map[string]interface{}{
+func (h *ResourceMatchesHandler) resourceMatchesPostHandler(r *http.Request) (*routing.Response, error) {
+	return routing.NewHandlerResponse(http.StatusCreated).WithBody(map[string]interface{}{
 		"resources": []interface{}{},
 	}), nil
 }
 
 func (h *ResourceMatchesHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(ResourceMatchesPath, h.handlerWrapper.Wrap(h.resourceMatchesPostHandler))
+	router.Method("POST", ResourceMatchesPath, routing.Handler(h.resourceMatchesPostHandler))
 }

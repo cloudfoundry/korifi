@@ -9,11 +9,11 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -33,7 +33,6 @@ type CFTaskRepository interface {
 }
 
 type TaskHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	serverURL        url.URL
 	appRepo          CFAppRepository
 	taskRepo         CFTaskRepository
@@ -47,7 +46,6 @@ func NewTaskHandler(
 	decoderValidator *DecoderValidator,
 ) *TaskHandler {
 	return &TaskHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("TaskHandler")),
 		serverURL:        serverURL,
 		taskRepo:         taskRepo,
 		appRepo:          appRepo,
@@ -55,27 +53,36 @@ func NewTaskHandler(
 	}
 }
 
-func (h *TaskHandler) taskGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *TaskHandler) taskGetHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("task-handler.task-get")
+
 	taskGUID := chi.URLParam(r, "taskGUID")
 
-	taskRecord, err := h.taskRepo.GetTask(ctx, authInfo, taskGUID)
+	taskRecord, err := h.taskRepo.GetTask(r.Context(), authInfo, taskGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get task", "taskGUID", taskGUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
-func (h *TaskHandler) taskListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
-	tasks, err := h.taskRepo.ListTasks(ctx, authInfo, repositories.ListTaskMessage{})
+func (h *TaskHandler) taskListHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("task-handler.task-list")
+
+	tasks, err := h.taskRepo.ListTasks(r.Context(), authInfo, repositories.ListTaskMessage{})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
 }
 
-func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *TaskHandler) taskCreateHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("task-handler.task-create")
+
 	appGUID := chi.URLParam(r, "appGUID")
 
 	var payload payloads.TaskCreate
@@ -83,7 +90,7 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	appRecord, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding app", "appGUID", appGUID)
 	}
@@ -96,15 +103,18 @@ func (h *TaskHandler) taskCreateHandler(ctx context.Context, logger logr.Logger,
 		)
 	}
 
-	taskRecord, err := h.taskRepo.CreateTask(ctx, authInfo, payload.ToMessage(appRecord))
+	taskRecord, err := h.taskRepo.CreateTask(r.Context(), authInfo, payload.ToMessage(appRecord))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to create task")
 	}
 
-	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
-func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *TaskHandler) appTaskListHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("task-handler.app-task-list")
+
 	appGUID := chi.URLParam(r, "appGUID")
 
 	if err := r.ParseForm(); err != nil {
@@ -112,7 +122,7 @@ func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger
 		return nil, err
 	}
 
-	_, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	_, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding app", "appGUID", appGUID)
 	}
@@ -126,34 +136,37 @@ func (h *TaskHandler) appTaskListHandler(ctx context.Context, logger logr.Logger
 
 	taskListMessage := taskListFilter.ToMessage()
 	taskListMessage.AppGUIDs = []string{appGUID}
-	tasks, err := h.taskRepo.ListTasks(ctx, authInfo, taskListMessage)
+	tasks, err := h.taskRepo.ListTasks(r.Context(), authInfo, taskListMessage)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForTaskList(tasks, h.serverURL, *r.URL)), nil
 }
 
-func (h *TaskHandler) cancelTaskHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *TaskHandler) cancelTaskHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("task-handler.cancel-task")
+
 	taskGUID := chi.URLParam(r, "taskGUID")
 
-	if _, err := h.taskRepo.GetTask(ctx, authInfo, taskGUID); err != nil {
+	if _, err := h.taskRepo.GetTask(r.Context(), authInfo, taskGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding task", "taskGUID", taskGUID)
 	}
 
-	taskRecord, err := h.taskRepo.CancelTask(ctx, authInfo, taskGUID)
+	taskRecord, err := h.taskRepo.CancelTask(r.Context(), authInfo, taskGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to cancel task")
 	}
 
-	return NewHandlerResponse(http.StatusAccepted).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusAccepted).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
 func (h *TaskHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(TaskPath, h.handlerWrapper.Wrap(h.taskGetHandler))
-	router.Get(TaskRoot, h.handlerWrapper.Wrap(h.taskListHandler))
-	router.Post(TasksPath, h.handlerWrapper.Wrap(h.taskCreateHandler))
-	router.Get(TasksPath, h.handlerWrapper.Wrap(h.appTaskListHandler))
-	router.Post(TaskCancelPath, h.handlerWrapper.Wrap(h.cancelTaskHandler))
-	router.Put(TaskCancelPathDeprecated, h.handlerWrapper.Wrap(h.cancelTaskHandler))
+	router.Method("GET", TaskPath, routing.Handler(h.taskGetHandler))
+	router.Method("GET", TaskRoot, routing.Handler(h.taskListHandler))
+	router.Method("POST", TasksPath, routing.Handler(h.taskCreateHandler))
+	router.Method("GET", TasksPath, routing.Handler(h.appTaskListHandler))
+	router.Method("POST", TaskCancelPath, routing.Handler(h.cancelTaskHandler))
+	router.Method("PUT", TaskCancelPathDeprecated, routing.Handler(h.cancelTaskHandler))
 }

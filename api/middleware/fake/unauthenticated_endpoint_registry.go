@@ -4,7 +4,7 @@ package fake
 import (
 	"sync"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/middleware"
 )
 
 type UnauthenticatedEndpointRegistry struct {
@@ -108,4 +108,4 @@ func (fake *UnauthenticatedEndpointRegistry) recordInvocation(key string, args [
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ handlers.UnauthenticatedEndpointRegistry = new(UnauthenticatedEndpointRegistry)
+var _ middleware.UnauthenticatedEndpointRegistry = new(UnauthenticatedEndpointRegistry)

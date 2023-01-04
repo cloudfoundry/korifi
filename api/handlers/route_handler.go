@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
@@ -37,7 +37,6 @@ type CFRouteRepository interface {
 }
 
 type RouteHandler struct {
-	handlerWrapper   *AuthAwareHandlerFuncWrapper
 	serverURL        url.URL
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
@@ -55,7 +54,6 @@ func NewRouteHandler(
 	decoderValidator *DecoderValidator,
 ) *RouteHandler {
 	return &RouteHandler{
-		handlerWrapper:   NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("RouteHandler")),
 		serverURL:        serverURL,
 		routeRepo:        routeRepo,
 		domainRepo:       domainRepo,
@@ -65,18 +63,24 @@ func NewRouteHandler(
 	}
 }
 
-func (h *RouteHandler) routeGetHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RouteHandler) routeGetHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("route-handler.route-get")
+
 	routeGUID := chi.URLParam(r, "guid")
 
-	route, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
+	route, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRoute(route, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRoute(route, h.serverURL)), nil
 }
 
-func (h *RouteHandler) routeGetListHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RouteHandler) routeGetListHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("route-handler.route-get-list")
+
 	if err := r.ParseForm(); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
@@ -87,33 +91,39 @@ func (h *RouteHandler) routeGetListHandler(ctx context.Context, logger logr.Logg
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	routes, err := h.lookupRouteAndDomainList(ctx, authInfo, routeListFilter.ToMessage())
+	routes, err := h.lookupRouteAndDomainList(r.Context(), authInfo, routeListFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch routes from Kubernetes")
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteList(routes, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteList(routes, h.serverURL, *r.URL)), nil
 }
 
-func (h *RouteHandler) routeGetDestinationsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RouteHandler) routeGetDestinationsHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("route-handler.route-get-destinations")
+
 	routeGUID := chi.URLParam(r, "guid")
 
-	route, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
+	route, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(route, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(route, h.serverURL)), nil
 }
 
-func (h *RouteHandler) routeCreateHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RouteHandler) routeCreateHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("route-handler.route-create")
+
 	var payload payloads.RouteCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	spaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.spaceRepo.GetSpace(ctx, authInfo, spaceGUID)
+	_, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(
 			logger,
@@ -129,7 +139,7 @@ func (h *RouteHandler) routeCreateHandler(ctx context.Context, logger logr.Logge
 	}
 
 	domainGUID := payload.Relationships.Domain.Data.GUID
-	domain, err := h.domainRepo.GetDomain(ctx, authInfo, domainGUID)
+	domain, err := h.domainRepo.GetDomain(r.Context(), authInfo, domainGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger,
 			apierrors.AsUnprocessableEntity(
@@ -143,17 +153,20 @@ func (h *RouteHandler) routeCreateHandler(ctx context.Context, logger logr.Logge
 	}
 
 	createRouteMessage := payload.ToMessage(domain.Namespace, domain.Name)
-	responseRouteRecord, err := h.routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
+	responseRouteRecord, err := h.routeRepo.CreateRoute(r.Context(), authInfo, createRouteMessage)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create route", "Route Host", payload.Host)
 	}
 
 	responseRouteRecord = responseRouteRecord.UpdateDomainRef(domain)
 
-	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForRoute(responseRouteRecord, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForRoute(responseRouteRecord, h.serverURL)), nil
 }
 
-func (h *RouteHandler) routeAddDestinationsHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RouteHandler) routeAddDestinationsHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("route-handler.route-add-destinations")
+
 	var destinationCreatePayload payloads.DestinationListCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &destinationCreatePayload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
@@ -161,26 +174,29 @@ func (h *RouteHandler) routeAddDestinationsHandler(ctx context.Context, logger l
 
 	routeGUID := chi.URLParam(r, "guid")
 
-	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
+	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
 		return nil, err
 	}
 
 	destinationListCreateMessage := destinationCreatePayload.ToMessage(routeRecord)
 
-	responseRouteRecord, err := h.routeRepo.AddDestinationsToRoute(ctx, authInfo, destinationListCreateMessage)
+	responseRouteRecord, err := h.routeRepo.AddDestinationsToRoute(r.Context(), authInfo, destinationListCreateMessage)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to add destination on route", "Route GUID", routeRecord.GUID)
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(responseRouteRecord, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(responseRouteRecord, h.serverURL)), nil
 }
 
-func (h *RouteHandler) routeDeleteDestinationHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RouteHandler) routeDeleteDestinationHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("route-handler.route-delete-destination")
+
 	routeGUID := chi.URLParam(r, "guid")
 	destinationGUID := chi.URLParam(r, "destination_guid")
 
-	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
+	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
 		return nil, err
 	}
@@ -197,18 +213,21 @@ func (h *RouteHandler) routeDeleteDestinationHandler(ctx context.Context, logger
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to remove destination from route", "Route GUID", routeRecord.GUID, "Destination GUID", destinationGUID)
 	}
 
-	return NewHandlerResponse(http.StatusNoContent), nil
+	return routing.NewHandlerResponse(http.StatusNoContent), nil
 }
 
-func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RouteHandler) routeDeleteHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("route-handler.route-delete")
+
 	routeGUID := chi.URLParam(r, "guid")
 
-	routeRecord, err := h.lookupRouteAndDomain(ctx, logger, authInfo, routeGUID)
+	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = h.routeRepo.DeleteRoute(ctx, authInfo, repositories.DeleteRouteMessage{
+	err = h.routeRepo.DeleteRoute(r.Context(), authInfo, repositories.DeleteRouteMessage{
 		GUID:      routeRecord.GUID,
 		SpaceGUID: routeRecord.SpaceGUID,
 	})
@@ -216,18 +235,18 @@ func (h *RouteHandler) routeDeleteHandler(ctx context.Context, logger logr.Logge
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to delete route", "routeGUID", routeGUID)
 	}
 
-	return NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
 }
 
 func (h *RouteHandler) RegisterRoutes(router *chi.Mux) {
-	router.Get(RoutePath, h.handlerWrapper.Wrap(h.routeGetHandler))
-	router.Get(RoutesPath, h.handlerWrapper.Wrap(h.routeGetListHandler))
-	router.Get(RouteDestinationsPath, h.handlerWrapper.Wrap(h.routeGetDestinationsHandler))
-	router.Post(RoutesPath, h.handlerWrapper.Wrap(h.routeCreateHandler))
-	router.Delete(RoutePath, h.handlerWrapper.Wrap(h.routeDeleteHandler))
-	router.Post(RouteDestinationsPath, h.handlerWrapper.Wrap(h.routeAddDestinationsHandler))
-	router.Delete(RouteDestinationPath, h.handlerWrapper.Wrap(h.routeDeleteDestinationHandler))
-	router.Patch(RoutePath, h.handlerWrapper.Wrap(h.routePatchHandler))
+	router.Method("GET", RoutePath, routing.Handler(h.routeGetHandler))
+	router.Method("GET", RoutesPath, routing.Handler(h.routeGetListHandler))
+	router.Method("GET", RouteDestinationsPath, routing.Handler(h.routeGetDestinationsHandler))
+	router.Method("POST", RoutesPath, routing.Handler(h.routeCreateHandler))
+	router.Method("DELETE", RoutePath, routing.Handler(h.routeDeleteHandler))
+	router.Method("POST", RouteDestinationsPath, routing.Handler(h.routeAddDestinationsHandler))
+	router.Method("DELETE", RouteDestinationPath, routing.Handler(h.routeDeleteDestinationHandler))
+	router.Method("PATCH", RoutePath, routing.Handler(h.routePatchHandler))
 }
 
 // Fetch Route and compose related Domain information within
@@ -272,10 +291,13 @@ func (h *RouteHandler) lookupRouteAndDomainList(ctx context.Context, authInfo au
 }
 
 //nolint:dupl
-func (h *RouteHandler) routePatchHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *RouteHandler) routePatchHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("route-handler.route-patch")
+
 	routeGUID := chi.URLParam(r, "guid")
 
-	route, err := h.routeRepo.GetRoute(ctx, authInfo, routeGUID)
+	route, err := h.routeRepo.GetRoute(r.Context(), authInfo, routeGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 	}
@@ -285,9 +307,9 @@ func (h *RouteHandler) routePatchHandler(ctx context.Context, logger logr.Logger
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	route, err = h.routeRepo.PatchRouteMetadata(ctx, authInfo, payload.ToMessage(routeGUID, route.SpaceGUID))
+	route, err = h.routeRepo.PatchRouteMetadata(r.Context(), authInfo, payload.ToMessage(routeGUID, route.SpaceGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch route metadata", "RouteGUID", routeGUID)
 	}
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRoute(route, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForRoute(route, h.serverURL)), nil
 }

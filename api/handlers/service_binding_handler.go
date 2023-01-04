@@ -8,13 +8,13 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/routing"
 )
 
 const (
@@ -23,7 +23,6 @@ const (
 )
 
 type ServiceBindingHandler struct {
-	handlerWrapper      *AuthAwareHandlerFuncWrapper
 	appRepo             CFAppRepository
 	serviceBindingRepo  CFServiceBindingRepository
 	serviceInstanceRepo CFServiceInstanceRepository
@@ -40,7 +39,6 @@ type CFServiceBindingRepository interface {
 
 func NewServiceBindingHandler(serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, decoderValidator *DecoderValidator) *ServiceBindingHandler {
 	return &ServiceBindingHandler{
-		handlerWrapper:      NewAuthAwareHandlerFuncWrapper(ctrl.Log.WithName("ServiceBindingHandler")),
 		appRepo:             appRepo,
 		serviceInstanceRepo: serviceInstanceRepo,
 		serviceBindingRepo:  serviceBindingRepo,
@@ -49,18 +47,21 @@ func NewServiceBindingHandler(serverURL url.URL, serviceBindingRepo CFServiceBin
 	}
 }
 
-func (h *ServiceBindingHandler) createHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ServiceBindingHandler) createHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("service-binding-handler.create")
+
 	var payload payloads.ServiceBindingCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	app, err := h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID)
+	app, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to get %s", repositories.AppResourceType))
 	}
 
-	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, payload.Relationships.ServiceInstance.Data.GUID)
+	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to get %s", repositories.ServiceInstanceResourceType))
 	}
@@ -74,26 +75,32 @@ func (h *ServiceBindingHandler) createHandler(ctx context.Context, logger logr.L
 		)
 	}
 
-	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
+	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(r.Context(), authInfo, payload.ToMessage(app.SpaceGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to create ServiceBinding", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
 	}
 
-	return NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
+	return routing.NewHandlerResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
 }
 
-func (h *ServiceBindingHandler) deleteHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ServiceBindingHandler) deleteHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("service-binding-handler.delete")
+
 	serviceBindingGUID := chi.URLParam(r, "guid")
 
-	err := h.serviceBindingRepo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
+	err := h.serviceBindingRepo.DeleteServiceBinding(r.Context(), authInfo, serviceBindingGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service binding", "guid", serviceBindingGUID)
 	}
 
-	return NewHandlerResponse(http.StatusNoContent), nil
+	return routing.NewHandlerResponse(http.StatusNoContent), nil
 }
 
-func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Logger, authInfo authorization.Info, r *http.Request) (*HandlerResponse, error) {
+func (h *ServiceBindingHandler) listHandler(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("service-binding-handler.list")
+
 	if err := r.ParseForm(); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(err, "unable to parse query"), "Unable to parse request query parameters")
 	}
@@ -104,7 +111,7 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(ctx, authInfo, listFilter.ToMessage())
+	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(r.Context(), authInfo, listFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to list %s", repositories.ServiceBindingResourceType))
 	}
@@ -117,17 +124,17 @@ func (h *ServiceBindingHandler) listHandler(ctx context.Context, logger logr.Log
 			listAppsMessage.Guids = append(listAppsMessage.Guids, serviceBinding.AppGUID)
 		}
 
-		appRecords, err = h.appRepo.ListApps(ctx, authInfo, listAppsMessage)
+		appRecords, err = h.appRepo.ListApps(r.Context(), authInfo, listAppsMessage)
 		if err != nil {
 			return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to list %s", repositories.AppResourceType))
 		}
 	}
 
-	return NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil
+	return routing.NewHandlerResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil
 }
 
 func (h *ServiceBindingHandler) RegisterRoutes(router *chi.Mux) {
-	router.Post(ServiceBindingsPath, h.handlerWrapper.Wrap(h.createHandler))
-	router.Get(ServiceBindingsPath, h.handlerWrapper.Wrap(h.listHandler))
-	router.Delete(ServiceBindingPath, h.handlerWrapper.Wrap(h.deleteHandler))
+	router.Method("POST", ServiceBindingsPath, routing.Handler(h.createHandler))
+	router.Method("GET", ServiceBindingsPath, routing.Handler(h.listHandler))
+	router.Method("DELETE", ServiceBindingPath, routing.Handler(h.deleteHandler))
 }

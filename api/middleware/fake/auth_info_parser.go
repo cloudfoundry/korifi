@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/middleware"
 )
 
 type AuthInfoParser struct {
@@ -114,4 +114,4 @@ func (fake *AuthInfoParser) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ handlers.AuthInfoParser = new(AuthInfoParser)
+var _ middleware.AuthInfoParser = new(AuthInfoParser)

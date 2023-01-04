@@ -1,9 +1,9 @@
-package handlers_test
+package middleware_test
 
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/middleware"
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -11,9 +11,8 @@ import (
 
 var _ = Describe("CliVersionMiddleware", func() {
 	var (
-		cliVersionMiddleware *handlers.CFCliVersionMiddleware
-		nextHandler          http.Handler
-		requestHeaders       map[string][]string
+		nextHandler    http.Handler
+		requestHeaders map[string][]string
 	)
 
 	BeforeEach(func() {
@@ -21,15 +20,13 @@ var _ = Describe("CliVersionMiddleware", func() {
 		nextHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusTeapot)
 		})
-
-		cliVersionMiddleware = handlers.NewCFCliVersionMiddleware()
 	})
 
 	JustBeforeEach(func() {
 		request, err := http.NewRequest(http.MethodGet, "http://localhost/foo", nil)
 		request.Header = requestHeaders
 		Expect(err).NotTo(HaveOccurred())
-		cliVersionMiddleware.Middleware(nextHandler).ServeHTTP(rr, request)
+		middleware.CFCliVersion(nextHandler).ServeHTTP(rr, request)
 	})
 
 	It("delegates to the next handler", func() {

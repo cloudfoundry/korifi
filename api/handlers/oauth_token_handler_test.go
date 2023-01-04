@@ -5,35 +5,23 @@ import (
 	"net/http"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apis "code.cloudfoundry.org/korifi/api/handlers"
 
 	"github.com/SermoDigital/jose/jws"
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("OAuthToken", func() {
-	const oauthTokenBase = "/oauth/token"
-
-	var (
-		OAuthTokenHandler *apis.OAuthTokenHandler
-		requestMethod     string
-		requestPath       string
-	)
+	var OAuthTokenHandler *apis.OAuthTokenHandler
 
 	BeforeEach(func() {
-		requestPath = oauthTokenBase
-		requestMethod = http.MethodPost
-		ctx = authorization.NewContext(ctx, &authorization.Info{Token: "the-token"})
 		OAuthTokenHandler = apis.NewOAuthToken(*serverURL)
 		OAuthTokenHandler.RegisterRoutes(router)
 	})
 
 	JustBeforeEach(func() {
-		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, nil)
-		req.Header.Add(headers.Authorization, authHeader)
+		req, err := http.NewRequest(http.MethodPost, "/oauth/token", nil)
 		Expect(err).NotTo(HaveOccurred())
 
 		router.ServeHTTP(rr, req)

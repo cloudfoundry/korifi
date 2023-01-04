@@ -1,10 +1,9 @@
-package handlers
+package middleware
 
 import (
 	"net/http"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/correlation"
 	"github.com/go-logr/logr"
 )
 
@@ -29,18 +28,10 @@ func (w *responseWriterWrapper) WriteHeader(statusCode int) {
 	w.status = statusCode
 }
 
-type HTTPLogging struct {
-	logger logr.Logger
-}
-
-func NewHTTPLogging(logger logr.Logger) HTTPLogging {
-	return HTTPLogging{logger}
-}
-
-func (l HTTPLogging) Middleware(next http.Handler) http.Handler {
+func HTTPLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t1 := time.Now()
-		logger := correlation.AddCorrelationIDToLogger(r.Context(), l.logger)
+		logger := logr.FromContextOrDiscard(r.Context()).WithName("http-logger")
 
 		logger.Info("request", "url", r.URL, "method", r.Method, "remoteAddr", r.RemoteAddr, "contentLength", r.ContentLength)
 
