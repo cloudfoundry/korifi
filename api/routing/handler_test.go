@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/routing"
 	"code.cloudfoundry.org/korifi/api/routing/fake"
 	"github.com/go-http-utils/headers"

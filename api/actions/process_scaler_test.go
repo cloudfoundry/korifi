@@ -6,8 +6,8 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/actions/shared/fake"
-	"code.cloudfoundry.org/korifi/api/apierrors"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 

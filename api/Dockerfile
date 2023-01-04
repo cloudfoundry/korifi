@@ -9,7 +9,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY api/actions api/actions
-COPY api/apierrors api/apierrors
+COPY api/errors api/errors
 COPY api/authorization api/authorization
 COPY api/config/config.go api/config/config.go
 COPY api/handlers api/handlers

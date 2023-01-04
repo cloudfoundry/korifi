@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 
 	"code.cloudfoundry.org/bytefmt"

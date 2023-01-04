@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"code.cloudfoundry.org/korifi/api/apierrors"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 )
 
 type keyedPayload interface {
