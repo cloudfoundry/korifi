@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 )
@@ -76,6 +75,12 @@ func (h *Role) create(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForCreateRole(record, h.apiBaseURL)), nil
 }
 
-func (h *Role) RegisterRoutes(router *chi.Mux) {
-	router.Method("POST", RolesPath, routing.Handler(h.create))
+func (h *Role) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Role) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "POST", Pattern: RolesPath, Handler: h.create},
+	}
 }

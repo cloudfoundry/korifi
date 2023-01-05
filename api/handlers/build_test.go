@@ -20,7 +20,7 @@ var _ = Describe("Build", func() {
 	var req *http.Request
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/builds/{guid} endpoint", func() {
@@ -73,7 +73,7 @@ var _ = Describe("Build", func() {
 				new(fake.CFAppRepository),
 				decoderValidator,
 			)
-			apiHandler.RegisterRoutes(router)
+			routerBuilder.LoadRoutes(apiHandler)
 		})
 
 		When("on the happy path", func() {
@@ -406,7 +406,7 @@ var _ = Describe("Build", func() {
 				appRepo,
 				requestJSONValidator,
 			)
-			apiHandler.RegisterRoutes(router)
+			routerBuilder.LoadRoutes(apiHandler)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(""))

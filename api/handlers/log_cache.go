@@ -88,7 +88,14 @@ func (h *LogCache) read(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForLogs(logs)), nil
 }
 
-func (h *LogCache) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", LogCacheInfoPath, routing.Handler(h.info))
-	router.Method("GET", LogCacheReadPath, routing.Handler(h.read))
+func (h *LogCache) UnauthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: LogCacheInfoPath, Handler: h.info},
+	}
+}
+
+func (h *LogCache) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: LogCacheReadPath, Handler: h.read},
+	}
 }

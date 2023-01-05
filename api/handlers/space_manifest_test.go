@@ -36,7 +36,7 @@ var _ = Describe("SpaceManifest", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	Describe("POST /v3/spaces/{spaceGUID}/actions/apply_manifest", func() {
@@ -46,7 +46,7 @@ var _ = Describe("SpaceManifest", func() {
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Add("Content-type", "application/x-yaml")
 
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		When("the manifest is valid", func() {
@@ -447,7 +447,7 @@ var _ = Describe("SpaceManifest", func() {
 
 	Describe("POST /v3/spaces/{spaceGUID}/manifest_diff", func() {
 		JustBeforeEach(func() {
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		When("the space exists", func() {

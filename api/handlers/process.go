@@ -188,11 +188,17 @@ func (h *Process) update(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcess(updatedProcess, h.serverURL)), nil
 }
 
-func (h *Process) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", ProcessPath, routing.Handler(h.get))
-	router.Method("GET", ProcessSidecarsPath, routing.Handler(h.getSidecars))
-	router.Method("POST", ProcessScalePath, routing.Handler(h.scale))
-	router.Method("GET", ProcessStatsPath, routing.Handler(h.getStats))
-	router.Method("GET", ProcessesPath, routing.Handler(h.list))
-	router.Method("PATCH", ProcessPath, routing.Handler(h.update))
+func (h *Process) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Process) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: ProcessPath, Handler: h.get},
+		{Method: "GET", Pattern: ProcessSidecarsPath, Handler: h.getSidecars},
+		{Method: "POST", Pattern: ProcessScalePath, Handler: h.scale},
+		{Method: "GET", Pattern: ProcessStatsPath, Handler: h.getStats},
+		{Method: "GET", Pattern: ProcessesPath, Handler: h.list},
+		{Method: "PATCH", Pattern: ProcessPath, Handler: h.update},
+	}
 }

@@ -136,11 +136,17 @@ func (h *Space) delete(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteOperation, h.apiBaseURL)), nil
 }
 
-func (h *Space) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", SpacesPath, routing.Handler(h.list))
-	router.Method("POST", SpacesPath, routing.Handler(h.create))
-	router.Method("PATCH", SpacePath, routing.Handler(h.update))
-	router.Method("DELETE", SpacePath, routing.Handler(h.delete))
+func (h *Space) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Space) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: SpacesPath, Handler: h.list},
+		{Method: "POST", Pattern: SpacesPath, Handler: h.create},
+		{Method: "PATCH", Pattern: SpacePath, Handler: h.update},
+		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
+	}
 }
 
 func parseCommaSeparatedList(list string) []string {

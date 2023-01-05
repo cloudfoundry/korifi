@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/routing"
-	"github.com/go-chi/chi"
 )
 
 const (
@@ -23,6 +22,12 @@ func (h *ResourceMatches) create(r *http.Request) (*routing.Response, error) {
 	}), nil
 }
 
-func (h *ResourceMatches) RegisterRoutes(router *chi.Mux) {
-	router.Method("POST", ResourceMatchesPath, routing.Handler(h.create))
+func (h *ResourceMatches) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *ResourceMatches) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "POST", Pattern: ResourceMatchesPath, Handler: h.create},
+	}
 }

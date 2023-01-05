@@ -162,11 +162,17 @@ func (h *Task) cancel(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusAccepted).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
-func (h *Task) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", TaskPath, routing.Handler(h.get))
-	router.Method("GET", TaskRoot, routing.Handler(h.list))
-	router.Method("POST", TasksPath, routing.Handler(h.create))
-	router.Method("GET", TasksPath, routing.Handler(h.listForApp))
-	router.Method("POST", TaskCancelPath, routing.Handler(h.cancel))
-	router.Method("PUT", TaskCancelPathDeprecated, routing.Handler(h.cancel))
+func (h *Task) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Task) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: TaskPath, Handler: h.get},
+		{Method: "GET", Pattern: TaskRoot, Handler: h.list},
+		{Method: "POST", Pattern: TasksPath, Handler: h.create},
+		{Method: "GET", Pattern: TasksPath, Handler: h.listForApp},
+		{Method: "POST", Pattern: TaskCancelPath, Handler: h.cancel},
+		{Method: "PUT", Pattern: TaskCancelPathDeprecated, Handler: h.cancel},
+	}
 }

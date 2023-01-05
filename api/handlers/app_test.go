@@ -64,7 +64,6 @@ var _ = Describe("App", func() {
 			processScaler,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
 
 		appRecord = repositories.AppRecord{
 			GUID:        appGUID,
@@ -87,10 +86,11 @@ var _ = Describe("App", func() {
 			},
 		}
 		appRepo.GetAppReturns(appRecord, nil)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("GET /v3/apps/:guid", func() {
@@ -1865,7 +1865,7 @@ var _ = Describe("App", func() {
 			func(requestBody string, status int) {
 				tableTestRecorder := httptest.NewRecorder()
 				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(requestBody))
-				router.ServeHTTP(tableTestRecorder, req)
+				routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
 				Expect(tableTestRecorder.Code).To(Equal(status))
 			},
 			Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),
@@ -2562,7 +2562,7 @@ var _ = Describe("App", func() {
 			func(requestBody string, status int) {
 				tableTestRecorder := httptest.NewRecorder()
 				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(requestBody))
-				router.ServeHTTP(tableTestRecorder, req)
+				routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
 				Expect(tableTestRecorder.Code).To(Equal(status))
 			},
 			Entry("contains a null value", `{ "var": { "key": null } }`, http.StatusOK),

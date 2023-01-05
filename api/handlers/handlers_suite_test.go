@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"github.com/go-chi/chi"
+	"code.cloudfoundry.org/korifi/api/routing"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -27,11 +27,11 @@ const (
 )
 
 var (
-	rr        *httptest.ResponseRecorder
-	router    *chi.Mux
-	serverURL *url.URL
-	ctx       context.Context
-	authInfo  authorization.Info
+	rr            *httptest.ResponseRecorder
+	routerBuilder *routing.RouterBuilder
+	serverURL     *url.URL
+	ctx           context.Context
+	authInfo      authorization.Info
 )
 
 func TestHandlers(t *testing.T) {
@@ -47,7 +47,7 @@ var _ = BeforeEach(func() {
 	authInfo = authorization.Info{Token: "a-token"}
 	ctx = authorization.NewContext(context.Background(), &authInfo)
 	rr = httptest.NewRecorder()
-	router = chi.NewMux()
+	routerBuilder = routing.NewRouterBuilder()
 
 	var err error
 	serverURL, err = url.Parse(defaultServerURL)

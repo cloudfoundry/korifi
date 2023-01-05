@@ -161,12 +161,18 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.apiBaseURL, *r.URL)), nil
 }
 
-func (h *Org) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", OrgsPath, routing.Handler(h.list))
-	router.Method("POST", OrgsPath, routing.Handler(h.create))
-	router.Method("DELETE", OrgPath, routing.Handler(h.delete))
-	router.Method("PATCH", OrgPath, routing.Handler(h.update))
-	router.Method("GET", OrgDomainsPath, routing.Handler(h.listDomains))
+func (h *Org) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Org) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: OrgsPath, Handler: h.list},
+		{Method: "POST", Pattern: OrgsPath, Handler: h.create},
+		{Method: "DELETE", Pattern: OrgPath, Handler: h.delete},
+		{Method: "PATCH", Pattern: OrgPath, Handler: h.update},
+		{Method: "GET", Pattern: OrgDomainsPath, Handler: h.listDomains},
+	}
 }
 
 func decodePEMNotAfter(certPEM []byte) (time.Time, bool) {

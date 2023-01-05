@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/routing"
-	"github.com/go-chi/chi"
 )
 
 const (
@@ -31,6 +30,12 @@ func (h *RootV3) get(r *http.Request) (*routing.Response, error) {
 	}), nil
 }
 
-func (h *RootV3) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", RootV3Path, routing.Handler(h.get))
+func (h *RootV3) UnauthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: RootV3Path, Handler: h.get},
+	}
+}
+
+func (h *RootV3) AuthenticatedRoutes() []routing.Route {
+	return nil
 }

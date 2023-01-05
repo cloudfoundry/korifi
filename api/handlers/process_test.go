@@ -42,11 +42,11 @@ var _ = Describe("Process", func() {
 			processScaler,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/processes/:guid endpoint", func() {
@@ -481,7 +481,7 @@ var _ = Describe("Process", func() {
 				func(requestBody string, status int) {
 					tableTestRecorder := httptest.NewRecorder()
 					queuePostRequest(requestBody)
-					router.ServeHTTP(tableTestRecorder, req)
+					routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
 					Expect(tableTestRecorder.Code).To(Equal(status))
 				},
 				Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),

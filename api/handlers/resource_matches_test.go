@@ -14,12 +14,12 @@ var _ = Describe("ResourceMatches", func() {
 	var req *http.Request
 
 	BeforeEach(func() {
-		handler := NewResourceMatches()
-		handler.RegisterRoutes(router)
+		apiHandler := NewResourceMatches()
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("Get Resource Match Endpoint", func() {

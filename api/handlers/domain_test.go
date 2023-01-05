@@ -34,11 +34,11 @@ var _ = Describe("Domain", func() {
 			requestJSONValidator,
 			domainRepo,
 		)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("POST /v3/domain", func() {

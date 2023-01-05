@@ -7,7 +7,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-chi/chi"
 	"github.com/golang-jwt/jwt"
 )
 
@@ -42,6 +41,12 @@ func (h *OAuth) token(r *http.Request) (*routing.Response, error) {
 	}), nil
 }
 
-func (h *OAuth) RegisterRoutes(router *chi.Mux) {
-	router.Method("POST", OAuthTokenPath, routing.Handler(h.token))
+func (h *OAuth) UnauthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "POST", Pattern: OAuthTokenPath, Handler: h.token},
+	}
+}
+
+func (h *OAuth) AuthenticatedRoutes() []routing.Route {
+	return nil
 }

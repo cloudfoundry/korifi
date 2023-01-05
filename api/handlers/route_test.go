@@ -54,14 +54,14 @@ var _ = Describe("Route", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
 		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(requestBody))
 		Expect(err).NotTo(HaveOccurred())
 
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/routes/:guid endpoint", func() {

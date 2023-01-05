@@ -134,8 +134,14 @@ func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusNoContent), nil
 }
 
-func (h *ServiceInstance) RegisterRoutes(router *chi.Mux) {
-	router.Method("POST", ServiceInstancesPath, routing.Handler(h.create))
-	router.Method("GET", ServiceInstancesPath, routing.Handler(h.list))
-	router.Method("DELETE", ServiceInstancePath, routing.Handler(h.delete))
+func (h *ServiceInstance) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *ServiceInstance) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "POST", Pattern: ServiceInstancesPath, Handler: h.create},
+		{Method: "GET", Pattern: ServiceInstancesPath, Handler: h.list},
+		{Method: "DELETE", Pattern: ServiceInstancePath, Handler: h.delete},
+	}
 }

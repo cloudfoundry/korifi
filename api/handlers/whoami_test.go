@@ -24,14 +24,14 @@ var _ = Describe("WhoAmI", func() {
 		identityProvider.GetIdentityReturns(authorization.Identity{Name: "the-user", Kind: rbacv1.UserKind}, nil)
 		ctx = authorization.NewContext(ctx, &authorization.Info{Token: "the-token"})
 		apiHandler = handlers.NewWhoAmI(identityProvider, *serverURL)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/whoami", nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("Who Am I", func() {

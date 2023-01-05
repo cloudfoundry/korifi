@@ -38,11 +38,11 @@ var _ = Describe("Task", func() {
 		}, nil)
 
 		apiHandler := handlers.NewTask(*serverURL, appRepo, taskRepo, decoderValidator)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("POST /v3/apps/:app-guid/tasks", func() {

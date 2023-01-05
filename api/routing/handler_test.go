@@ -25,7 +25,7 @@ var _ = Describe("Handler", func() {
 		delegate.Stub = func(*http.Request) (*routing.Response, error) {
 			return response, nil
 		}
-		handler = routing.Handler(delegate.Spy)
+		handler = delegate.Spy
 	})
 
 	JustBeforeEach(func() {

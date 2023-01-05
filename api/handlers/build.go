@@ -110,7 +110,13 @@ func (h *Build) create(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForBuild(record, h.serverURL)), nil
 }
 
-func (h *Build) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", BuildPath, routing.Handler(h.get))
-	router.Method("POST", BuildsPath, routing.Handler(h.create))
+func (h *Build) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Build) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: BuildPath, Handler: h.get},
+		{Method: "POST", Pattern: BuildsPath, Handler: h.create},
+	}
 }

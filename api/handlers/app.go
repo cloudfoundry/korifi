@@ -523,21 +523,27 @@ func (h *App) update(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }
 
-func (h *App) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", AppPath, routing.Handler(h.get))
-	router.Method("GET", AppsPath, routing.Handler(h.list))
-	router.Method("POST", AppsPath, routing.Handler(h.create))
-	router.Method("PATCH", AppCurrentDropletRelationshipPath, routing.Handler(h.setCurrentDroplet))
-	router.Method("GET", AppCurrentDropletPath, routing.Handler(h.getCurrentDroplet))
-	router.Method("POST", AppStartPath, routing.Handler(h.start))
-	router.Method("POST", AppStopPath, routing.Handler(h.stop))
-	router.Method("POST", AppRestartPath, routing.Handler(h.restart))
-	router.Method("POST", AppProcessScalePath, routing.Handler(h.scaleProcess))
-	router.Method("GET", AppProcessesPath, routing.Handler(h.getProcesses))
-	router.Method("GET", AppProcessByTypePath, routing.Handler(h.getProcess))
-	router.Method("GET", AppRoutesPath, routing.Handler(h.getRoutes))
-	router.Method("DELETE", AppPath, routing.Handler(h.delete))
-	router.Method("PATCH", AppEnvVarsPath, routing.Handler(h.updateEnvVars))
-	router.Method("GET", AppEnvPath, routing.Handler(h.getEnvironment))
-	router.Method("PATCH", AppPath, routing.Handler(h.update))
+func (h *App) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *App) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: AppPath, Handler: h.get},
+		{Method: "GET", Pattern: AppsPath, Handler: h.list},
+		{Method: "POST", Pattern: AppsPath, Handler: h.create},
+		{Method: "PATCH", Pattern: AppCurrentDropletRelationshipPath, Handler: h.setCurrentDroplet},
+		{Method: "GET", Pattern: AppCurrentDropletPath, Handler: h.getCurrentDroplet},
+		{Method: "POST", Pattern: AppStartPath, Handler: h.start},
+		{Method: "POST", Pattern: AppStopPath, Handler: h.stop},
+		{Method: "POST", Pattern: AppRestartPath, Handler: h.restart},
+		{Method: "POST", Pattern: AppProcessScalePath, Handler: h.scaleProcess},
+		{Method: "GET", Pattern: AppProcessesPath, Handler: h.getProcesses},
+		{Method: "GET", Pattern: AppProcessByTypePath, Handler: h.getProcess},
+		{Method: "GET", Pattern: AppRoutesPath, Handler: h.getRoutes},
+		{Method: "DELETE", Pattern: AppPath, Handler: h.delete},
+		{Method: "PATCH", Pattern: AppEnvVarsPath, Handler: h.updateEnvVars},
+		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
+		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
+	}
 }

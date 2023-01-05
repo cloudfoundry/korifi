@@ -57,9 +57,15 @@ func NewSpaceManifest(
 	}
 }
 
-func (h *SpaceManifest) RegisterRoutes(router *chi.Mux) {
-	router.Method("POST", SpaceManifestApplyPath, routing.Handler(h.apply))
-	router.Method("POST", SpaceManifestDiffPath, routing.Handler(h.diff))
+func (h *SpaceManifest) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *SpaceManifest) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "POST", Pattern: SpaceManifestApplyPath, Handler: h.apply},
+		{Method: "POST", Pattern: SpaceManifestDiffPath, Handler: h.diff},
+	}
 }
 
 func (h *SpaceManifest) apply(r *http.Request) (*routing.Response, error) {

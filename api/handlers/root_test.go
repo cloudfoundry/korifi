@@ -19,11 +19,11 @@ var _ = Describe("Root", func() {
 		apiHandler := handlers.NewRoot(
 			defaultServerURL,
 		)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("GET / endpoint", func() {
