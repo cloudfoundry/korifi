@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -93,7 +92,7 @@ func (h *Space) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.update")
 
-	spaceGUID := chi.URLParam(r, "guid")
+	spaceGUID := routing.URLParam(r, "guid")
 
 	space, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {
@@ -117,7 +116,7 @@ func (h *Space) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.delete")
 
-	spaceGUID := chi.URLParam(r, "guid")
+	spaceGUID := routing.URLParam(r, "guid")
 
 	spaceRecord, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -45,7 +44,7 @@ func (h *Droplet) get(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.droplet.get")
 
-	dropletGUID := chi.URLParam(r, "guid")
+	dropletGUID := routing.URLParam(r, "guid")
 
 	droplet, err := h.dropletRepo.GetDroplet(r.Context(), authInfo, dropletGUID)
 	if err != nil {

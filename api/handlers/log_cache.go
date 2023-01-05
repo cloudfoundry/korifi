@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator"
 )
@@ -77,7 +76,7 @@ func (h *LogCache) read(r *http.Request) (*routing.Response, error) {
 		)
 	}
 
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	var logs []repositories.LogRecord
 	logs, err = h.appLogsReader.Read(r.Context(), logger, authInfo, appGUID, *logReadPayload)

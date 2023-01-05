@@ -16,8 +16,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 
-	"github.com/go-chi/chi"
-
 	"github.com/go-logr/logr"
 )
 
@@ -116,7 +114,7 @@ func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.delete")
 
-	serviceInstanceGUID := chi.URLParam(r, "guid")
+	serviceInstanceGUID := routing.URLParam(r, "guid")
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
 	if err != nil {

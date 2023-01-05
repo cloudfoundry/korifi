@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-chi/chi"
 	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 
@@ -72,7 +71,7 @@ func (h *SpaceManifest) apply(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space-manifest.apply")
 
-	spaceGUID := chi.URLParam(r, "spaceGUID")
+	spaceGUID := routing.URLParam(r, "spaceGUID")
 	var manifest payloads.Manifest
 	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
@@ -90,7 +89,7 @@ func (h *SpaceManifest) diff(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space-manifest.diff")
 
-	spaceGUID := chi.URLParam(r, "spaceGUID")
+	spaceGUID := routing.URLParam(r, "spaceGUID")
 
 	if _, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get space", "guid", spaceGUID)

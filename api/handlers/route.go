@@ -12,7 +12,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -67,7 +66,7 @@ func (h *Route) get(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.get")
 
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := routing.URLParam(r, "guid")
 
 	route, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
@@ -103,7 +102,7 @@ func (h *Route) listDestinations(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.list-destinations")
 
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := routing.URLParam(r, "guid")
 
 	route, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
@@ -172,7 +171,7 @@ func (h *Route) insertDestinations(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := routing.URLParam(r, "guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
@@ -193,8 +192,8 @@ func (h *Route) deleteDestination(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.delete-destination")
 
-	routeGUID := chi.URLParam(r, "guid")
-	destinationGUID := chi.URLParam(r, "destination_guid")
+	routeGUID := routing.URLParam(r, "guid")
+	destinationGUID := routing.URLParam(r, "destination_guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
@@ -220,7 +219,7 @@ func (h *Route) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.delete")
 
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := routing.URLParam(r, "guid")
 
 	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
 	if err != nil {
@@ -301,7 +300,7 @@ func (h *Route) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.update")
 
-	routeGUID := chi.URLParam(r, "guid")
+	routeGUID := routing.URLParam(r, "guid")
 
 	route, err := h.routeRepo.GetRoute(r.Context(), authInfo, routeGUID)
 	if err != nil {

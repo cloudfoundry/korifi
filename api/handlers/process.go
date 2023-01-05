@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -71,7 +70,7 @@ func (h *Process) get(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.get")
 
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := routing.URLParam(r, "guid")
 
 	process, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
 	if err != nil {
@@ -85,7 +84,7 @@ func (h *Process) getSidecars(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.get-sidecars")
 
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := routing.URLParam(r, "guid")
 
 	_, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
 	if err != nil {
@@ -113,7 +112,7 @@ func (h *Process) scale(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.scale")
 
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.ProcessScale
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -132,7 +131,7 @@ func (h *Process) getStats(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.get-stats")
 
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := routing.URLParam(r, "guid")
 
 	records, err := h.processStatsFetcher.FetchStats(r.Context(), authInfo, processGUID)
 	if err != nil {
@@ -168,7 +167,7 @@ func (h *Process) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.update")
 
-	processGUID := chi.URLParam(r, "guid")
+	processGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.ProcessPatch
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {

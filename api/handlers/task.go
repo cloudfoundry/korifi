@@ -12,7 +12,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/routing"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -57,7 +56,7 @@ func (h *Task) get(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.task.get")
 
-	taskGUID := chi.URLParam(r, "taskGUID")
+	taskGUID := routing.URLParam(r, "taskGUID")
 
 	taskRecord, err := h.taskRepo.GetTask(r.Context(), authInfo, taskGUID)
 	if err != nil {
@@ -83,7 +82,7 @@ func (h *Task) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.task.create")
 
-	appGUID := chi.URLParam(r, "appGUID")
+	appGUID := routing.URLParam(r, "appGUID")
 
 	var payload payloads.TaskCreate
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -115,7 +114,7 @@ func (h *Task) listForApp(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.task.list-for-app")
 
-	appGUID := chi.URLParam(r, "appGUID")
+	appGUID := routing.URLParam(r, "appGUID")
 
 	if err := r.ParseForm(); err != nil {
 		logger.Error(err, "Unable to parse request query parameters")
@@ -148,7 +147,7 @@ func (h *Task) cancel(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.task.cancel")
 
-	taskGUID := chi.URLParam(r, "taskGUID")
+	taskGUID := routing.URLParam(r, "taskGUID")
 
 	if _, err := h.taskRepo.GetTask(r.Context(), authInfo, taskGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding task", "taskGUID", taskGUID)
