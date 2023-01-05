@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -75,7 +74,7 @@ func (h *Org) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.update")
 
-	orgGUID := chi.URLParam(r, "guid")
+	orgGUID := routing.URLParam(r, "guid")
 
 	_, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID)
 	if err != nil {
@@ -99,7 +98,7 @@ func (h *Org) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.delete")
 
-	orgGUID := chi.URLParam(r, "guid")
+	orgGUID := routing.URLParam(r, "guid")
 
 	deleteOrgMessage := repositories.DeleteOrgMessage{
 		GUID: orgGUID,
@@ -137,7 +136,7 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.list-domains")
 
-	orgGUID := chi.URLParam(r, "guid")
+	orgGUID := routing.URLParam(r, "guid")
 
 	if _, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")

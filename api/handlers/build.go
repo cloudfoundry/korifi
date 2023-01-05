@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -53,7 +52,7 @@ func NewBuild(
 }
 
 func (h *Build) get(r *http.Request) (*routing.Response, error) {
-	buildGUID := chi.URLParam(r, "guid")
+	buildGUID := routing.URLParam(r, "guid")
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.build.get")
 

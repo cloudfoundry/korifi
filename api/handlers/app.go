@@ -16,7 +16,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/routing"
 	"code.cloudfoundry.org/korifi/tools"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -96,7 +95,7 @@ func NewApp(
 }
 
 func (h *App) get(r *http.Request) (*routing.Response, error) {
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get")
 
@@ -159,7 +158,7 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.set-current-droplet")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.AppSetCurrentDroplet
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -204,7 +203,7 @@ func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {
 func (h *App) getCurrentDroplet(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-current-droplet")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -231,7 +230,7 @@ func (h *App) getCurrentDroplet(r *http.Request) (*routing.Response, error) {
 func (h *App) start(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.start")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -266,7 +265,7 @@ func (h *App) startApp(ctx context.Context, authInfo authorization.Info, app rep
 func (h *App) stop(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.stop")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -315,7 +314,7 @@ func (h *App) stopApp(ctx context.Context, authInfo authorization.Info, app repo
 func (h *App) getProcesses(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-processes")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -338,7 +337,7 @@ func (h *App) getProcesses(r *http.Request) (*routing.Response, error) {
 func (h *App) getRoutes(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-routes")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -356,8 +355,8 @@ func (h *App) getRoutes(r *http.Request) (*routing.Response, error) {
 func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.scale-process")
-	appGUID := chi.URLParam(r, "guid")
-	processType := chi.URLParam(r, "processType")
+	appGUID := routing.URLParam(r, "guid")
+	processType := routing.URLParam(r, "processType")
 
 	var payload payloads.ProcessScale
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -375,7 +374,7 @@ func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
 func (h *App) restart(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.restart")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -398,7 +397,7 @@ func (h *App) restart(r *http.Request) (*routing.Response, error) {
 func (h *App) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.delete")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -448,7 +447,7 @@ func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, aut
 func (h *App) updateEnvVars(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.update-env-vars")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.AppPatchEnvVars
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -471,7 +470,7 @@ func (h *App) updateEnvVars(r *http.Request) (*routing.Response, error) {
 func (h *App) getEnvironment(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-environment")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	appEnvRecord, err := h.appRepo.GetAppEnv(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -484,8 +483,8 @@ func (h *App) getEnvironment(r *http.Request) (*routing.Response, error) {
 func (h *App) getProcess(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-process")
-	appGUID := chi.URLParam(r, "guid")
-	processType := chi.URLParam(r, "type")
+	appGUID := routing.URLParam(r, "guid")
+	processType := routing.URLParam(r, "type")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
@@ -504,7 +503,7 @@ func (h *App) getProcess(r *http.Request) (*routing.Response, error) {
 func (h *App) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.update")
-	appGUID := chi.URLParam(r, "guid")
+	appGUID := routing.URLParam(r, "guid")
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {

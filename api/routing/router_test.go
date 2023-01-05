@@ -11,7 +11,8 @@ import (
 )
 
 func handler(r *http.Request) (*routing.Response, error) {
-	return routing.NewResponse(http.StatusTeapot).WithBody("hello"), nil
+	name := routing.URLParam(r, "name")
+	return routing.NewResponse(http.StatusTeapot).WithBody(map[string]string{"hello": name}), nil
 }
 
 func middleware(key, value string) func(http.Handler) http.Handler {
@@ -27,13 +28,13 @@ type routable struct{}
 
 func (r routable) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
-		{Method: http.MethodGet, Pattern: "/hello/auth", Handler: handler},
+		{Method: http.MethodGet, Pattern: "/auth", Handler: handler},
 	}
 }
 
 func (r routable) UnauthenticatedRoutes() []routing.Route {
 	return []routing.Route{
-		{Method: http.MethodGet, Pattern: "/hello", Handler: handler},
+		{Method: http.MethodGet, Pattern: "/hello/{name}", Handler: handler},
 	}
 }
 
@@ -53,13 +54,14 @@ var _ = Describe("Router", func() {
 	})
 
 	It("can serve unauthenticated routes", func() {
-		res, err := mkReq(router, http.MethodGet, "/hello")
+		res, err := mkReq(router, http.MethodGet, "/hello/world")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(HaveHTTPStatus(http.StatusTeapot))
+		Expect(res).To(HaveHTTPBody(MatchJSON(`{"hello":"world"}`)))
 	})
 
 	It("can serve authenticated routes", func() {
-		res, err := mkReq(router, http.MethodGet, "/hello/auth")
+		res, err := mkReq(router, http.MethodGet, "/auth")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(HaveHTTPStatus(http.StatusTeapot))
 	})
@@ -73,12 +75,12 @@ var _ = Describe("Router", func() {
 		})
 
 		It("applies to both unauthenticated and authenticated endpoints", func() {
-			res, err := mkReq(router, http.MethodGet, "/hello")
+			res, err := mkReq(router, http.MethodGet, "/hello/world")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).To(HaveHTTPHeaderWithValue("X-Test", "foo"))
 			Expect(res).To(HaveHTTPHeaderWithValue("X-Test-Other", "bar"))
 
-			res, err = mkReq(router, http.MethodGet, "/hello/auth")
+			res, err = mkReq(router, http.MethodGet, "/auth")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).To(HaveHTTPHeaderWithValue("X-Test", "foo"))
 			Expect(res).To(HaveHTTPHeaderWithValue("X-Test-Other", "bar"))
@@ -94,12 +96,12 @@ var _ = Describe("Router", func() {
 		})
 
 		It("applies to only authenticated endpoints", func() {
-			res, err := mkReq(router, http.MethodGet, "/hello")
+			res, err := mkReq(router, http.MethodGet, "/hello/world")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).NotTo(HaveHTTPHeaderWithValue("X-Test", "foo"))
 			Expect(res).NotTo(HaveHTTPHeaderWithValue("X-Test-Other", "bar"))
 
-			res, err = mkReq(router, http.MethodGet, "/hello/auth")
+			res, err = mkReq(router, http.MethodGet, "/auth")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).To(HaveHTTPHeaderWithValue("X-Test", "foo"))
 			Expect(res).To(HaveHTTPHeaderWithValue("X-Test-Other", "bar"))
@@ -117,7 +119,7 @@ var _ = Describe("Router", func() {
 		})
 
 		It("applies auth after common", func() {
-			res, err := mkReq(router, http.MethodGet, "/hello/auth")
+			res, err := mkReq(router, http.MethodGet, "/auth")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).NotTo(HaveHTTPHeaderWithValue("X-Test", "bar"))
 		})

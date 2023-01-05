@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -78,7 +77,7 @@ func (h Package) get(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.get")
 
-	packageGUID := chi.URLParam(r, "guid")
+	packageGUID := routing.URLParam(r, "guid")
 	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
@@ -150,7 +149,7 @@ func (h Package) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	packageGUID := chi.URLParam(r, "guid")
+	packageGUID := routing.URLParam(r, "guid")
 	packageRecord, err := h.packageRepo.UpdatePackage(r.Context(), authInfo, payload.ToMessage(packageGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error updating package")
@@ -163,7 +162,7 @@ func (h Package) upload(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.upload")
 
-	packageGUID := chi.URLParam(r, "guid")
+	packageGUID := routing.URLParam(r, "guid")
 	err := r.ParseForm()
 	if err != nil { // untested - couldn't find a way to trigger this branch
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewInvalidRequestError(err, "Unable to parse body as multipart form"), "Error parsing multipart form")
@@ -216,7 +215,7 @@ func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	packageGUID := chi.URLParam(r, "guid")
+	packageGUID := routing.URLParam(r, "guid")
 	_, err = h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")

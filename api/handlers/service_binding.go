@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -87,7 +86,7 @@ func (h *ServiceBinding) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-binding.delete")
 
-	serviceBindingGUID := chi.URLParam(r, "guid")
+	serviceBindingGUID := routing.URLParam(r, "guid")
 
 	err := h.serviceBindingRepo.DeleteServiceBinding(r.Context(), authInfo, serviceBindingGUID)
 	if err != nil {

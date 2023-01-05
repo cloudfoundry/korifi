@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -39,7 +38,7 @@ func NewJob(serverURL url.URL) *Job {
 func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.job.get")
 
-	jobGUID := chi.URLParam(r, "guid")
+	jobGUID := routing.URLParam(r, "guid")
 
 	jobType, resourceGUID, match := parseJobGUID(jobGUID)
 

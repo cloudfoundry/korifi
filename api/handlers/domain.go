@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -77,7 +76,7 @@ func (h *Domain) get(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.get")
 
-	domainGUID := chi.URLParam(r, "guid")
+	domainGUID := routing.URLParam(r, "guid")
 
 	domain, err := h.domainRepo.GetDomain(r.Context(), authInfo, domainGUID)
 	if err != nil {
@@ -91,7 +90,7 @@ func (h *Domain) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.update")
 
-	domainGUID := chi.URLParam(r, "guid")
+	domainGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.DomainUpdate
 	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
@@ -137,7 +136,7 @@ func (h *Domain) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.delete")
 
-	domainGUID := chi.URLParam(r, "guid")
+	domainGUID := routing.URLParam(r, "guid")
 
 	err := h.domainRepo.DeleteDomain(r.Context(), authInfo, domainGUID)
 	if err != nil {

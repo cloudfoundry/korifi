@@ -6,6 +6,8 @@ import (
 	"github.com/go-chi/chi"
 )
 
+var URLParam = chi.URLParam
+
 type Route struct {
 	Method  string
 	Pattern string
