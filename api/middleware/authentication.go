@@ -18,17 +18,11 @@ type IdentityProvider interface {
 	GetIdentity(context.Context, authorization.Info) (authorization.Identity, error)
 }
 
-//counterfeiter:generate -o fake -fake-name UnauthenticatedEndpointRegistry . UnauthenticatedEndpointRegistry
 //counterfeiter:generate -o fake -fake-name AuthInfoParser . AuthInfoParser
 
-type UnauthenticatedEndpointRegistry interface {
-	IsUnauthenticatedEndpoint(requestPath string) bool
-}
-
 type authentication struct {
-	authInfoParser                  AuthInfoParser
-	identityProvider                IdentityProvider
-	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry
+	authInfoParser   AuthInfoParser
+	identityProvider IdentityProvider
 }
 
 type AuthInfoParser interface {
@@ -38,21 +32,15 @@ type AuthInfoParser interface {
 func Authentication(
 	authInfoParser AuthInfoParser,
 	identityProvider IdentityProvider,
-	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry,
 ) func(http.Handler) http.Handler {
 	return (&authentication{
-		authInfoParser:                  authInfoParser,
-		identityProvider:                identityProvider,
-		unauthenticatedEndpointRegistry: unauthenticatedEndpointRegistry,
+		authInfoParser:   authInfoParser,
+		identityProvider: identityProvider,
 	}).middleware
 }
 
 func (a *authentication) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.unauthenticatedEndpointRegistry.IsUnauthenticatedEndpoint(r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
 		logger := logr.FromContextOrDiscard(r.Context()).WithName("authentication-middleware")
 
 		authInfo, err := a.authInfoParser.Parse(r.Header.Get(headers.Authorization))

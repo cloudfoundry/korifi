@@ -226,19 +226,16 @@ func main() {
 	)
 
 	authInfoParser := authorization.NewInfoParser()
-	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
 	routerBuilder.UseAuthMiddleware(
 		middleware.Authentication(
 			authInfoParser,
 			cachingIdentityProvider,
-			unauthenticatedEndpoints,
 		),
 		middleware.CFUser(
 			privilegedCRClient,
 			cachingIdentityProvider,
 			config.RootNamespace,
 			cache.NewExpiring(),
-			unauthenticatedEndpoints,
 		),
 	)
 
