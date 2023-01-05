@@ -17,11 +17,10 @@ const (
 )
 
 type cfUser struct {
-	privilegedClient                client.Client
-	identityProvider                IdentityProvider
-	cfRootNamespace                 string
-	cfUserCache                     *cache.Expiring
-	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry
+	privilegedClient client.Client
+	identityProvider IdentityProvider
+	cfRootNamespace  string
+	cfUserCache      *cache.Expiring
 }
 
 func CFUser(
@@ -29,24 +28,17 @@ func CFUser(
 	identityProvider IdentityProvider,
 	cfRootNamespace string,
 	cfUserCache *cache.Expiring,
-	unauthenticatedEndpointRegistry UnauthenticatedEndpointRegistry,
 ) func(http.Handler) http.Handler {
 	return (&cfUser{
-		privilegedClient:                privilegedClient,
-		identityProvider:                identityProvider,
-		cfRootNamespace:                 cfRootNamespace,
-		cfUserCache:                     cfUserCache,
-		unauthenticatedEndpointRegistry: unauthenticatedEndpointRegistry,
+		privilegedClient: privilegedClient,
+		identityProvider: identityProvider,
+		cfRootNamespace:  cfRootNamespace,
+		cfUserCache:      cfUserCache,
 	}).middleware
 }
 
 func (m *cfUser) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if m.unauthenticatedEndpointRegistry.IsUnauthenticatedEndpoint(r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		authInfo, ok := authorization.InfoFromContext(r.Context())
 		if !ok {
 			next.ServeHTTP(w, r)

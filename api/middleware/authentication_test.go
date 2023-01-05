@@ -18,13 +18,12 @@ const authHeader = "Authorization: something"
 
 var _ = Describe("Authentication Middleware", func() {
 	var (
-		authMiddleware                  func(http.Handler) http.Handler
-		nextHandler                     http.Handler
-		identityProvider                *fake.IdentityProvider
-		authInfoParser                  *fake.AuthInfoParser
-		requestPath                     string
-		actualReq                       *http.Request
-		unauthenticatedEndpointRegistry *fake.UnauthenticatedEndpointRegistry
+		authMiddleware   func(http.Handler) http.Handler
+		nextHandler      http.Handler
+		identityProvider *fake.IdentityProvider
+		authInfoParser   *fake.AuthInfoParser
+		requestPath      string
+		actualReq        *http.Request
 	)
 
 	BeforeEach(func() {
@@ -41,13 +40,9 @@ var _ = Describe("Authentication Middleware", func() {
 		identityProvider = new(fake.IdentityProvider)
 		identityProvider.GetIdentityReturns(authorization.Identity{}, nil)
 
-		unauthenticatedEndpointRegistry = new(fake.UnauthenticatedEndpointRegistry)
-		unauthenticatedEndpointRegistry.IsUnauthenticatedEndpointReturns(false)
-
 		authMiddleware = middleware.Authentication(
 			authInfoParser,
 			identityProvider,
-			unauthenticatedEndpointRegistry,
 		)
 	})
 
@@ -73,17 +68,6 @@ var _ = Describe("Authentication Middleware", func() {
 		actualAuthInfo, ok := authorization.InfoFromContext(actualReq.Context())
 		Expect(ok).To(BeTrue())
 		Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
-	})
-
-	When("the endpoint does not require authentication", func() {
-		BeforeEach(func() {
-			unauthenticatedEndpointRegistry.IsUnauthenticatedEndpointReturns(true)
-		})
-
-		It("does not verify authentication and passes through", func() {
-			Expect(authInfoParser.ParseCallCount()).To(BeZero())
-			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
-		})
 	})
 
 	When("parsing the Authorization header fails", func() {

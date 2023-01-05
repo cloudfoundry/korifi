@@ -21,14 +21,13 @@ import (
 
 var _ = Describe("CfUserMiddleware", func() {
 	var (
-		cfUserMiddleware                func(http.Handler) http.Handler
-		k8sClient                       *controllersfake.Client
-		identityProvider                *fake.IdentityProvider
-		teapotHandler                   http.Handler
-		cfUserCache                     *cache.Expiring
-		unauthenticatedEndpointRegistry *fake.UnauthenticatedEndpointRegistry
-		authInfo                        authorization.Info
-		ctx                             context.Context
+		cfUserMiddleware func(http.Handler) http.Handler
+		k8sClient        *controllersfake.Client
+		identityProvider *fake.IdentityProvider
+		teapotHandler    http.Handler
+		cfUserCache      *cache.Expiring
+		authInfo         authorization.Info
+		ctx              context.Context
 	)
 
 	BeforeEach(func() {
@@ -61,11 +60,8 @@ var _ = Describe("CfUserMiddleware", func() {
 			Kind: rbacv1.UserKind,
 		}, nil)
 
-		unauthenticatedEndpointRegistry = new(fake.UnauthenticatedEndpointRegistry)
-		unauthenticatedEndpointRegistry.IsUnauthenticatedEndpointReturns(false)
-
 		cfUserCache = cache.NewExpiringWithClock(testing.NewFakeClock(time.Now()))
-		cfUserMiddleware = middleware.CFUser(k8sClient, identityProvider, "cfroot", cfUserCache, unauthenticatedEndpointRegistry)
+		cfUserMiddleware = middleware.CFUser(k8sClient, identityProvider, "cfroot", cfUserCache)
 	})
 
 	JustBeforeEach(func() {
@@ -83,20 +79,6 @@ var _ = Describe("CfUserMiddleware", func() {
 		Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
 		_, actualAuthInfo := identityProvider.GetIdentityArgsForCall(0)
 		Expect(actualAuthInfo).To(Equal(authInfo))
-	})
-
-	When("requesting unauthenticated endpoint", func() {
-		BeforeEach(func() {
-			unauthenticatedEndpointRegistry.IsUnauthenticatedEndpointReturns(true)
-		})
-
-		It("does not check the identity", func() {
-			Expect(identityProvider.GetIdentityCallCount()).To(BeZero())
-		})
-
-		It("delegates to the next middleware", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
-		})
 	})
 
 	When("checking the identity fails", func() {
