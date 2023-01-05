@@ -21,11 +21,11 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/repositories/registry"
+	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 
-	"github.com/go-chi/chi"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"go.uber.org/zap/zapcore"
@@ -49,10 +49,6 @@ var createTimeout = time.Second * 120
 func init() {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
-}
-
-type APIHandler interface {
-	RegisterRoutes(router *chi.Mux)
 }
 
 func main() {
@@ -222,14 +218,16 @@ func main() {
 		panic(fmt.Sprintf("could not wire validator: %v", err))
 	}
 
-	router := chi.NewMux()
-
-	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
-	authInfoParser := authorization.NewInfoParser()
-	router.Use(
+	routerBuilder := routing.NewRouterBuilder()
+	routerBuilder.UseMiddleware(
 		middleware.Correlation(ctrl.Log),
 		middleware.CFCliVersion,
 		middleware.HTTPLogging,
+	)
+
+	authInfoParser := authorization.NewInfoParser()
+	unauthenticatedEndpoints := handlers.NewUnauthenticatedEndpoints()
+	routerBuilder.UseAuthMiddleware(
 		middleware.Authentication(
 			authInfoParser,
 			cachingIdentityProvider,
@@ -244,7 +242,7 @@ func main() {
 		),
 	)
 
-	apiHandlers := []APIHandler{
+	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(config.ServerURL),
 		handlers.NewRoot(
 			config.ServerURL,
@@ -364,7 +362,7 @@ func main() {
 		),
 	}
 	for _, handler := range apiHandlers {
-		handler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(handler)
 	}
 
 	portString := fmt.Sprintf(":%v", config.InternalPort)
@@ -372,7 +370,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              portString,
-		Handler:           router,
+		Handler:           routerBuilder.Build(),
 		IdleTimeout:       time.Duration(config.IdleTimeout * int(time.Second)),
 		ReadTimeout:       time.Duration(config.ReadTimeout * int(time.Second)),
 		ReadHeaderTimeout: time.Duration(config.ReadHeaderTimeout * int(time.Second)),

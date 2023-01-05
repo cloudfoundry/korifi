@@ -150,10 +150,16 @@ func (h *Domain) delete(r *http.Request) (*routing.Response, error) {
 	), nil
 }
 
-func (h *Domain) RegisterRoutes(router *chi.Mux) {
-	router.Method("POST", DomainsPath, routing.Handler(h.create))
-	router.Method("GET", DomainPath, routing.Handler(h.get))
-	router.Method("PATCH", DomainPath, routing.Handler(h.update))
-	router.Method("GET", DomainsPath, routing.Handler(h.list))
-	router.Method("DELETE", DomainPath, routing.Handler(h.delete))
+func (h *Domain) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Domain) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "POST", Pattern: DomainsPath, Handler: h.create},
+		{Method: "GET", Pattern: DomainPath, Handler: h.get},
+		{Method: "PATCH", Pattern: DomainPath, Handler: h.update},
+		{Method: "GET", Pattern: DomainsPath, Handler: h.list},
+		{Method: "DELETE", Pattern: DomainPath, Handler: h.delete},
+	}
 }

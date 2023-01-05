@@ -60,6 +60,12 @@ func (h *Droplet) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil
 }
 
-func (h *Droplet) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", DropletPath, routing.Handler(h.get))
+func (h *Droplet) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Droplet) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: DropletPath, Handler: h.get},
+	}
 }

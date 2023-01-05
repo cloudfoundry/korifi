@@ -43,14 +43,14 @@ var _ = Describe("Space", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
 		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(requestBody))
 		Expect(err).NotTo(HaveOccurred())
 
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("Create Space", func() {

@@ -133,8 +133,14 @@ func (h *ServiceBinding) list(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceBinding) RegisterRoutes(router *chi.Mux) {
-	router.Method("POST", ServiceBindingsPath, routing.Handler(h.create))
-	router.Method("GET", ServiceBindingsPath, routing.Handler(h.list))
-	router.Method("DELETE", ServiceBindingPath, routing.Handler(h.delete))
+func (h *ServiceBinding) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *ServiceBinding) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "POST", Pattern: ServiceBindingsPath, Handler: h.create},
+		{Method: "GET", Pattern: ServiceBindingsPath, Handler: h.list},
+		{Method: "DELETE", Pattern: ServiceBindingPath, Handler: h.delete},
+	}
 }

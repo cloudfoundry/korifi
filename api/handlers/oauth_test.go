@@ -17,14 +17,14 @@ var _ = Describe("OAuth", func() {
 
 	BeforeEach(func() {
 		apiHandler = handlers.NewOAuth(*serverURL)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
 		req, err := http.NewRequest(http.MethodPost, "/oauth/token", nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("POST /oauth/token", func() {

@@ -22,11 +22,11 @@ var _ = Describe("Buildpack", func() {
 		buildpackRepo = new(fake.BuildpackRepository)
 
 		apiHandler := NewBuildpack(*serverURL, buildpackRepo)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/buildpacks endpoint", func() {

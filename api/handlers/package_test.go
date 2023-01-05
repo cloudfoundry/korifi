@@ -64,7 +64,7 @@ var _ = Describe("Package", func() {
 			packageImagePullSecretName,
 		)
 
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	Describe("the GET /v3/packages/:guid endpoint", func() {
@@ -90,7 +90,7 @@ var _ = Describe("Package", func() {
 			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+packageGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {
@@ -213,7 +213,7 @@ var _ = Describe("Package", func() {
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/packages"+queryParamString, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {
@@ -523,7 +523,7 @@ var _ = Describe("Package", func() {
 			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(""))
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("returns status 201", func() {
@@ -696,7 +696,7 @@ var _ = Describe("Package", func() {
 			req, err := http.NewRequestWithContext(ctx, "PATCH", "/v3/packages/"+packageGUID, strings.NewReader(""))
 			Expect(err).NotTo(HaveOccurred())
 
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {
@@ -838,7 +838,7 @@ var _ = Describe("Package", func() {
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Add("Content-Type", formDataHeader)
 
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {
@@ -1083,7 +1083,7 @@ var _ = Describe("Package", func() {
 		JustBeforeEach(func() {
 			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/packages/"+packageGUID+"/droplets"+queryString, nil)
 			Expect(err).NotTo(HaveOccurred())
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("returns status 200", func() {

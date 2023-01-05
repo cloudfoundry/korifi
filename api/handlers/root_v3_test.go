@@ -14,11 +14,11 @@ var _ = Describe("RootV3", func() {
 
 	BeforeEach(func() {
 		apiHandler := handlers.NewRootV3(defaultServerURL)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3 endpoint", func() {

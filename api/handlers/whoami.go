@@ -9,7 +9,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
-	"github.com/go-chi/chi"
 	"github.com/go-logr/logr"
 )
 
@@ -47,6 +46,12 @@ func (h *WhoAmI) whoAmI(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForWhoAmI(identity)), nil
 }
 
-func (h *WhoAmI) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", WhoAmIPath, routing.Handler(h.whoAmI))
+func (h *WhoAmI) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *WhoAmI) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: WhoAmIPath, Handler: h.whoAmI},
+	}
 }

@@ -44,7 +44,7 @@ var _ = Describe("Org", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = handlers.NewOrg(*serverURL, orgRepo, domainRepo, decoderValidator, time.Hour)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	Describe("Create Org", func() {
@@ -53,7 +53,7 @@ var _ = Describe("Org", func() {
 			Expect(err).NotTo(HaveOccurred())
 			request.Header.Add(headers.Authorization, "Bearer my-token")
 
-			router.ServeHTTP(rr, request)
+			routerBuilder.Build().ServeHTTP(rr, request)
 		}
 
 		BeforeEach(func() {
@@ -273,7 +273,7 @@ var _ = Describe("Org", func() {
 		})
 
 		JustBeforeEach(func() {
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		When("happy path", func() {
@@ -387,7 +387,7 @@ var _ = Describe("Org", func() {
 			request, err = http.NewRequestWithContext(ctx, http.MethodPatch, orgsBase+"/"+orgGUID, strings.NewReader(requestBody))
 			Expect(err).NotTo(HaveOccurred())
 			request.Header.Add(headers.Authorization, "Bearer my-token")
-			router.ServeHTTP(rr, request)
+			routerBuilder.Build().ServeHTTP(rr, request)
 		})
 
 		When("the org exists and is accessible and we patch the annotations and labels", func() {
@@ -609,7 +609,7 @@ var _ = Describe("Org", func() {
 
 		When("on the happy path", func() {
 			BeforeEach(func() {
-				router.ServeHTTP(rr, request)
+				routerBuilder.Build().ServeHTTP(rr, request)
 			})
 			It("responds with a 202 accepted response", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
@@ -632,7 +632,7 @@ var _ = Describe("Org", func() {
 		When("invoking the delete org repository yields a forbidden error", func() {
 			BeforeEach(func() {
 				orgRepo.DeleteOrgReturns(apierrors.NewForbiddenError(errors.New("boom"), repositories.OrgResourceType))
-				router.ServeHTTP(rr, request)
+				routerBuilder.Build().ServeHTTP(rr, request)
 			})
 
 			It("returns NotFound error", func() {
@@ -643,7 +643,7 @@ var _ = Describe("Org", func() {
 		When("invoking the delete org repository fails", func() {
 			BeforeEach(func() {
 				orgRepo.DeleteOrgReturns(errors.New("unknown-error"))
-				router.ServeHTTP(rr, request)
+				routerBuilder.Build().ServeHTTP(rr, request)
 			})
 
 			It("returns unknown error", func() {
@@ -679,7 +679,7 @@ var _ = Describe("Org", func() {
 		JustBeforeEach(func() {
 			req, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 			Expect(err).NotTo(HaveOccurred())
-			router.ServeHTTP(rr, req)
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		Describe("on the happy path", func() {

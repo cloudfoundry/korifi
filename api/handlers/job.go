@@ -69,8 +69,14 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
-func (h *Job) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", JobPath, routing.Handler(h.get))
+func (h *Job) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Job) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: JobPath, Handler: h.get},
+	}
 }
 
 func parseJobGUID(jobGUID string) (string, string, bool) {

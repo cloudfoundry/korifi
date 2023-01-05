@@ -232,11 +232,17 @@ func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDropletList(dropletList, h.serverURL, *r.URL)), nil
 }
 
-func (h *Package) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", PackagePath, routing.Handler(h.get))
-	router.Method("PATCH", PackagePath, routing.Handler(h.update))
-	router.Method("GET", PackagesPath, routing.Handler(h.list))
-	router.Method("POST", PackagesPath, routing.Handler(h.create))
-	router.Method("POST", PackageUploadPath, routing.Handler(h.upload))
-	router.Method("GET", PackageDropletsPath, routing.Handler(h.listDroplets))
+func (h *Package) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Package) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: PackagePath, Handler: h.get},
+		{Method: "PATCH", Pattern: PackagePath, Handler: h.update},
+		{Method: "GET", Pattern: PackagesPath, Handler: h.list},
+		{Method: "POST", Pattern: PackagesPath, Handler: h.create},
+		{Method: "POST", Pattern: PackageUploadPath, Handler: h.upload},
+		{Method: "GET", Pattern: PackageDropletsPath, Handler: h.listDroplets},
+	}
 }

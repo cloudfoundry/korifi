@@ -238,15 +238,21 @@ func (h *Route) delete(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
 }
 
-func (h *Route) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", RoutePath, routing.Handler(h.get))
-	router.Method("GET", RoutesPath, routing.Handler(h.list))
-	router.Method("GET", RouteDestinationsPath, routing.Handler(h.listDestinations))
-	router.Method("POST", RoutesPath, routing.Handler(h.create))
-	router.Method("DELETE", RoutePath, routing.Handler(h.delete))
-	router.Method("POST", RouteDestinationsPath, routing.Handler(h.insertDestinations))
-	router.Method("DELETE", RouteDestinationPath, routing.Handler(h.deleteDestination))
-	router.Method("PATCH", RoutePath, routing.Handler(h.update))
+func (h *Route) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Route) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: RoutePath, Handler: h.get},
+		{Method: "GET", Pattern: RoutesPath, Handler: h.list},
+		{Method: "GET", Pattern: RouteDestinationsPath, Handler: h.listDestinations},
+		{Method: "POST", Pattern: RoutesPath, Handler: h.create},
+		{Method: "DELETE", Pattern: RoutePath, Handler: h.delete},
+		{Method: "POST", Pattern: RouteDestinationsPath, Handler: h.insertDestinations},
+		{Method: "DELETE", Pattern: RouteDestinationPath, Handler: h.deleteDestination},
+		{Method: "PATCH", Pattern: RoutePath, Handler: h.update},
+	}
 }
 
 // Fetch Route and compose related Domain information within

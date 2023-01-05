@@ -42,11 +42,11 @@ var _ = Describe("ServiceInstance", func() {
 			spaceRepo,
 			decoderValidator,
 		)
-		apiHandler.RegisterRoutes(router)
+		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		router.ServeHTTP(rr, req)
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("the POST /v3/service_instances endpoint", func() {

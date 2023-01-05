@@ -6,8 +6,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
-
-	"github.com/go-chi/chi"
 )
 
 const (
@@ -30,6 +28,12 @@ func (h *ServiceRouteBinding) list(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL)), nil
 }
 
-func (h *ServiceRouteBinding) RegisterRoutes(router *chi.Mux) {
-	router.Method("GET", ServiceRouteBindingsPath, routing.Handler(h.list))
+func (h *ServiceRouteBinding) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *ServiceRouteBinding) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: ServiceRouteBindingsPath, Handler: h.list},
+	}
 }
