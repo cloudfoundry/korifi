@@ -1,3 +1,4 @@
+{{- if .Values.expose }}
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy
 metadata:
@@ -21,3 +22,4 @@ spec:
     fqdn: {{ .Values.apiServer.url }}
     tls:
       secretName: korifi-api-ingress-cert
+{{- end }}

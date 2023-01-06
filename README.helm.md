@@ -32,6 +32,7 @@ Here are all the values that can be set for the chart:
     - `caCert` (_String_): Proxy's PEM-encoded CA certificate (*not* as Base64).
     - `host` (_String_): Must be a host string, a host:port pair, or a URL to the base of the apiserver.
   - `builderName` (_String_): ID of the builder used to build apps. Defaults to `kpack-image-builder`.
+  - `expose` (_Boolean_): Expose the API component via Contour. Set to false if you want to expose the API using other means.
   - `image` (_String_): Reference to the API container image.
   - `include` (_Boolean_): Deploy the API component.
   - `lifecycle`: Default lifecycle for apps.

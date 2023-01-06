@@ -5,6 +5,10 @@
       "description": "Deploy the API component.",
       "type": "boolean"
     },
+    "expose": {
+      "description": "Expose the API component via Contour. Set to false if you want to expose the API using other means.",
+      "type": "boolean"
+    },
     "replicas": {
       "description": "Number of replicas.",
       "type": "integer"
@@ -143,6 +147,7 @@
   },
   "required": [
     "include",
+    "expose",
     "apiServer",
     "image",
     "lifecycle",
