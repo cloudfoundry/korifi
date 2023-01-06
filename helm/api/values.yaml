@@ -8,6 +8,7 @@ global:
   containerRegistryCACertSecret:
 
 include: true
+expose: true
 replicas: 1
 resources:
   requests:

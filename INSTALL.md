@@ -205,6 +205,13 @@ It may take some time before the address is available. Retry this until you see 
 
 The type of DNS records to create will differ based on the type of the endpoint: `ip` endpoints (e.g. the ones created by GKE) will need an `A` record, while `hostname` endpoints (e.g. on EKS) a `CNAME` record.
 
+#### Custom Ingress
+
+If you want to expose the API server using a means other than Contour, you can
+switch off the default contour api-server ingress by setting the `api.expose`
+value to `false` in the `helm install` command above. Make sure your ingress
+targets a service with name `korifi-api-svc` and port `443`.
+
 ## Test Korifi
 
 ```sh
