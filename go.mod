@@ -14,7 +14,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
 	github.com/go-logr/logr v1.2.3
-	github.com/go-playground/locales v0.14.0
+	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.11.1
