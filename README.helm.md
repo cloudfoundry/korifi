@@ -53,6 +53,7 @@ Here are all the values that can be set for the chart:
 - `controllers`:
   - `image` (_String_): Reference to the controllers container image.
   - `include` (_Boolean_): Deploy the controllers component.
+  - `namespaceLabels`: Key value pairs that are going to be set as labels in the workload namespaces created by Korifi
   - `processDefaults`:
     - `diskQuotaMB` (_Integer_): Default disk quota for the `web` process.
     - `memoryMB` (_Integer_): Default memory limit for the `web` process.

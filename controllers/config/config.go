@@ -16,6 +16,7 @@ type ControllerConfig struct {
 	WorkloadsTLSSecretNamespace string            `yaml:"workloads_tls_secret_namespace"`
 	BuilderName                 string            `yaml:"builderName"`
 	RunnerName                  string            `yaml:"runnerName"`
+	NamespaceLabels             map[string]string `yaml:"namespaceLabels"`
 }
 
 type CFProcessDefaults struct {

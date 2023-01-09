@@ -72,6 +72,7 @@ var _ = Describe("LoadFromPath", func() {
 			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
 			BuilderName:                 "buildReconciler",
 			RunnerName:                  "statefulset-runner",
+			NamespaceLabels:             map[string]string{},
 		}))
 	})
 

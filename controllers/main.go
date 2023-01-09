@@ -32,6 +32,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	workloadscontrollers "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
@@ -45,6 +46,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
+	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -194,11 +196,17 @@ func main() {
 			os.Exit(1)
 		}
 
+		labelCompiler := labels.NewCompiler().Defaults(map[string]string{
+			admission.EnforceLevelLabel: string(admission.LevelRestricted),
+			admission.AuditLevelLabel:   string(admission.LevelRestricted),
+		})
+
 		if err = workloadscontrollers.NewCFOrgReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFOrg"),
 			controllerConfig.ContainerRegistrySecretName,
+			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFOrg")
 			os.Exit(1)
@@ -210,6 +218,7 @@ func main() {
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
 			controllerConfig.ContainerRegistrySecretName,
 			controllerConfig.CFRootNamespace,
+			labelCompiler.Defaults(controllerConfig.NamespaceLabels),
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
 			os.Exit(1)

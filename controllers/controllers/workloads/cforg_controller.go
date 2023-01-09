@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
@@ -44,17 +45,23 @@ type CFOrgReconciler struct {
 	scheme                      *runtime.Scheme
 	log                         logr.Logger
 	containerRegistrySecretName string
+	labelCompiler               labels.Compiler
 }
 
-func NewCFOrgReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger, containerRegistrySecretName string) *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg] {
-	orgReconciler := CFOrgReconciler{
+func NewCFOrgReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	log logr.Logger,
+	containerRegistrySecretName string,
+	labelCompiler labels.Compiler,
+) *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg] {
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](log, client, &CFOrgReconciler{
 		client:                      client,
 		scheme:                      scheme,
 		log:                         log,
 		containerRegistrySecretName: containerRegistrySecretName,
-	}
-
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](log, client, &orgReconciler)
+		labelCompiler:               labelCompiler,
+	})
 }
 
 const (
@@ -106,21 +113,24 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 		return ctrl.Result{}, err
 	}
 
+	cfOrg.Status.GUID = cfOrg.Name
+
 	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
 	if !cfOrg.GetDeletionTimestamp().IsZero() {
 		return r.finalize(ctx, log, cfOrg)
 	}
 
-	labels := map[string]string{korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName}
-	err := createOrPatchNamespace(ctx, r.client, log, cfOrg, labels)
+	err := createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
+		korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName,
+	}))
 	if err != nil {
 		log.Error(err, "Error creating namespace")
 		return ctrl.Result{}, err
 	}
 
-	namespace, ok := getNamespace(ctx, log, r.client, cfOrg.Name)
-	if !ok {
+	err = getNamespace(ctx, log, r.client, cfOrg.Name)
+	if err != nil {
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
@@ -136,7 +146,6 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 		return ctrl.Result{}, err
 	}
 
-	cfOrg.Status.GUID = namespace.Name
 	meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
 		Type:   StatusConditionReady,
 		Status: metav1.ConditionTrue,
