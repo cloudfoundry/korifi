@@ -11,13 +11,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/pod-security-admission/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-
 func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string) error {
 	log = log.WithName("createOrPatchNamespace")
 
@@ -35,8 +33,6 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 		for key, value := range labels {
 			namespace.Labels[key] = value
 		}
-		namespace.Labels[api.EnforceLevelLabel] = string(api.LevelRestricted)
-		namespace.Labels[api.AuditLevelLabel] = string(api.LevelRestricted)
 
 		return nil
 	})
@@ -168,14 +164,14 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 	return nil
 }
 
-func getNamespace(ctx context.Context, log logr.Logger, client client.Client, namespaceName string) (*corev1.Namespace, bool) {
+func getNamespace(ctx context.Context, log logr.Logger, client client.Client, namespaceName string) error {
 	log = log.WithValues("namespace", namespaceName)
 
 	namespace := new(corev1.Namespace)
 	err := client.Get(ctx, types.NamespacedName{Name: namespaceName}, namespace)
 	if err != nil {
 		log.Error(err, "failed to get namespace")
-		return nil, false
+		return err
 	}
-	return namespace, true
+	return nil
 }

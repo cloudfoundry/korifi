@@ -11,8 +11,10 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	admission "k8s.io/pod-security-admission/api"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -140,11 +142,17 @@ var _ = BeforeSuite(func() {
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	labelCompiler := labels.NewCompiler().Defaults(map[string]string{
+		admission.EnforceLevelLabel: string(admission.LevelRestricted),
+		admission.AuditLevelLabel:   string(admission.LevelRestricted),
+	})
+
 	err = NewCFOrgReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFOrg"),
 		controllerConfig.ContainerRegistrySecretName,
+		labelCompiler,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -164,6 +172,7 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
 		controllerConfig.ContainerRegistrySecretName,
 		controllerConfig.CFRootNamespace,
+		labelCompiler,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

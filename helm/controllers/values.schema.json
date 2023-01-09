@@ -82,6 +82,11 @@
     "workloadsTLSSecret": {
       "description": "TLS secret used when setting up an app routes.",
       "type": "string"
+    },
+    "namespaceLabels": {
+      "description": "Key value pairs that are going to be set as labels in the workload namespaces created by Korifi",
+      "type": "object",
+      "properties": {}
     }
   },
   "required": [

@@ -17,3 +17,7 @@ data:
     taskTTL: {{ .Values.taskTTL }}
     workloads_tls_secret_name: {{ .Values.workloadsTLSSecret }}
     workloads_tls_secret_namespace: {{ .Release.Namespace }}
+    namespaceLabels:
+    {{- range $key, $value := .Values.namespaceLabels }}
+      {{ $key }}: {{ $value }}
+    {{- end }}

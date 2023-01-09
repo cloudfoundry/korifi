@@ -23,6 +23,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -30,7 +31,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -52,6 +53,7 @@ type CFSpaceReconciler struct {
 	log                         logr.Logger
 	containerRegistrySecretName string
 	rootNamespace               string
+	labelCompiler               labels.Compiler
 }
 
 func NewCFSpaceReconciler(
@@ -60,15 +62,16 @@ func NewCFSpaceReconciler(
 	log logr.Logger,
 	containerRegistrySecretName string,
 	rootNamespace string,
+	labelCompiler labels.Compiler,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace] {
-	spaceReconciler := CFSpaceReconciler{
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](log, client, &CFSpaceReconciler{
 		client:                      client,
 		scheme:                      scheme,
 		log:                         log,
 		containerRegistrySecretName: containerRegistrySecretName,
 		rootNamespace:               rootNamespace,
-	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](log, client, &spaceReconciler)
+		labelCompiler:               labelCompiler,
+	})
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfspaces,verbs=get;list;watch;create;update;patch;delete
@@ -97,21 +100,24 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		return ctrl.Result{}, err
 	}
 
+	cfSpace.Status.GUID = cfSpace.GetName()
+
 	getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
 	if !cfSpace.GetDeletionTimestamp().IsZero() {
 		return r.finalize(ctx, log, cfSpace)
 	}
 
-	labels := map[string]string{korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName}
-	err := createOrPatchNamespace(ctx, r.client, log, cfSpace, labels)
+	err := createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
+		korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName,
+	}))
 	if err != nil {
 		log.Error(err, "Error creating namespace")
 		return ctrl.Result{}, err
 	}
 
-	namespace, ok := getNamespace(ctx, log, r.client, cfSpace.Name)
-	if !ok {
+	err = getNamespace(ctx, log, r.client, cfSpace.Name)
+	if err != nil {
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
@@ -133,7 +139,6 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		return ctrl.Result{}, err
 	}
 
-	cfSpace.Status.GUID = namespace.Name
 	meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
 		Type:   StatusConditionReady,
 		Status: metav1.ConditionTrue,
@@ -220,7 +225,7 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 	}
 
 	propagatedServiceAccounts := new(corev1.ServiceAccountList)
-	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
+	labelSelector, err := k8s_labels.ValidatedSelectorFromSet(map[string]string{
 		korifiv1alpha1.PropagatedFromLabel: r.rootNamespace,
 	})
 	if err != nil {
