@@ -56,7 +56,7 @@ This is the above method, but run with `dlv` for remote debugging.
 ./scripts/deploy-on-kind <kind-cluster-name> --debug
 ```
 
-To remote debug, connect with `dlv` on `localhost:30051` (controller), `localhost:30052` (api), `localhost:30053` (kpack-image-builder), `localhost:30054` (statefulset-runner), or `localhost:30055` (job-task-runner).
+To remote debug, connect with `dlv` on `localhost:30051` (controller) or `localhost:30052` (api).
 
 A sample VSCode `launch.json` configuration is provided below:
 
@@ -110,9 +110,6 @@ These are:
 
 -   korifi-api
 -   korifi-controllers
--   korifi-kpack-image-builder
--   korifi-statefulset-runner
--   korifi-job-task-runner
 
 Each time a commit is merged into the main branch, a image will be stored tagged with a `dev` tag.
 The format is `dev-<next-release>-<commit sha>`.

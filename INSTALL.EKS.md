@@ -264,7 +264,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
   --set=global.containerRepositoryPrefix="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${CLUSTER_NAME}/" \
   --set=global.containerRegistrySecret="" \
   --set=global.eksContainerRegistryRoleARN="${ECR_ROLE_ARN}" \
-  --set=kpack-image-builder.builderRepository="${KPACK_BUILDER_REPO}" \
+  --set=kpackImageBuilder.builderRepository="${KPACK_BUILDER_REPO}" \
   --wait
 ```
 
