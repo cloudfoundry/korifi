@@ -57,8 +57,8 @@ No changes here, follow the [common instructions](./INSTALL.md#install-korifi).
 If using DockerHub as recommended above, set the following values:
 
 -   `api.packageRepository`: `index.docker.io/<username>/packages`;
--   `kpack-image-builder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
--   `kpack-image-builder.dropletRepository`: `index.docker.io/<username>/droplets`.
+-   `kpackImageBuilder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
+-   `kpackImageBuilder.dropletRepository`: `index.docker.io/<username>/droplets`.
 
 If `$KORIFI_NAMESPACE` doesn't exist yet, you can add the `--create-namespace` flag to the `helm` invocation.
 

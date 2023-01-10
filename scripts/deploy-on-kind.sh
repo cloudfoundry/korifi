@@ -28,9 +28,6 @@ flags:
       wires up ports for remote debugging:
         localhost:30051 (controllers)
         localhost:30052 (api)
-        localhost:30053 (kpack-image-builder)
-        localhost:30054 (statefulset-runner)
-        localhost:30055 (job-task-runner)
 
   -s, --use-registry-service-account
       Use a service account credentials to access the registry (testing not using secrets)

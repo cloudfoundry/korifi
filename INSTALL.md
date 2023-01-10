@@ -53,7 +53,7 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 [Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/releases/latest) to install the latest version.
 
-The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpack-image-builder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
+The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpackImageBuilder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
 
 ### Contour
 
@@ -162,7 +162,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=api.apiServer.url="api.$BASE_DOMAIN" \
     --set=global.defaultAppDomainName="apps.$BASE_DOMAIN" \
     --set=global.containerRepositoryPrefix=europe-west1-docker.pkg.dev/my-project/korifi/ \
-    --set=kpack-image-builder.builderRepository=europe-west1-docker.pkg.dev/my-project/korifi/kpack-builder \
+    --set=kpackImageBuilder.builderRepository=europe-west1-docker.pkg.dev/my-project/korifi/kpack-builder \
     --wait
 ```
 
