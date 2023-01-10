@@ -133,6 +133,14 @@ var _ = BeforeSuite(func() {
 
 	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
+	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType))
+	orgPlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), namespace)
+	Expect(workloads.NewCFOrgValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
+	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), namespace)
+	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
+
 	//+kubebuilder:scaffold:webhook
 
 	go func() {
