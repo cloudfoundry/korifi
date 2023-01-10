@@ -33,7 +33,7 @@ type CFOrgSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// The mutable, user-friendly name of the CFOrg. Unlike metadata.name, the user can change this field.
-	// +kubebuilder:validation:Pattern="^[-\\w]+$"
+	// +kubebuilder:validation:Pattern="^[[:alnum:][:punct:][:print:]]+$"
 	DisplayName string `json:"displayName"`
 }
 

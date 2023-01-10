@@ -45,7 +45,7 @@ spec:
               displayName:
                 description: The mutable, user-friendly name of the CFOrg. Unlike
                   metadata.name, the user can change this field.
-                pattern: ^[-\w]+$
+                pattern: ^[[:alnum:][:punct:][:print:]]+$
                 type: string
             required:
             - displayName

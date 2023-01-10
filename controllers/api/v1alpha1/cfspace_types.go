@@ -27,7 +27,7 @@ const (
 // CFSpaceSpec defines the desired state of CFSpace
 type CFSpaceSpec struct {
 	// The mutable, user-friendly name of the space. Unlike metadata.name, the user can change this field
-	// +kubebuilder:validation:Pattern="^[-\\w]+$"
+	// +kubebuilder:validation:Pattern="^[[:alnum:][:punct:][:print:]]+$"
 	DisplayName string `json:"displayName"`
 }
 
