@@ -56,7 +56,7 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 			return
 		}
 
-		namespace := "korifi"
+		namespace := systemNamespace()
 		printPodsLogs(clientset, []podContainerDescriptor{
 			{
 				Namespace:     namespace,
@@ -77,6 +77,15 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 			printDropletNotFoundDebugInfo(clientset, message)
 		}
 	}
+}
+
+func systemNamespace() string {
+	systemNS, found := os.LookupEnv("SYSTEM_NAMESPACE")
+	if found {
+		return systemNS
+	}
+
+	return "korifi"
 }
 
 func fullLogOnErr() bool {
