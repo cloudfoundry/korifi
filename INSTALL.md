@@ -163,6 +163,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=global.defaultAppDomainName="apps.$BASE_DOMAIN" \
     --set=global.containerRepositoryPrefix=europe-west1-docker.pkg.dev/my-project/korifi/ \
     --set=kpack-image-builder.builderRepository=europe-west1-docker.pkg.dev/my-project/korifi/kpack-builder \
+    --wait
 ```
 
 `global.containerRepositoryPrefix` is used to determine the container repository for the package and droplet images produced by Korifi.
