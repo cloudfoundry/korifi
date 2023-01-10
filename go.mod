@@ -25,7 +25,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/mileusna/useragent v1.2.1
-	github.com/onsi/ginkgo/v2 v2.6.1
+	github.com/onsi/ginkgo/v2 v2.7.0
 	github.com/onsi/gomega v1.24.2
 	github.com/pivotal/kpack v0.9.1
 	github.com/projectcontour/contour v1.23.2
