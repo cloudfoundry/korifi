@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: korifi-api-config
+  namespace: {{ .Release.Namespace }}
+data:
+  korifi_api_config.yaml: |
+    externalFQDN: {{ .Values.api.apiServer.url }}
+    externalPort: {{ .Values.api.apiServer.port | default 0 }}
+    internalPort: {{ .Values.api.apiServer.internalPort }}
+    idleTimeout: {{ .Values.api.apiServer.timeouts.idle }}
+    readTimeout: {{ .Values.api.apiServer.timeouts.read }}
+    readHeaderTimeout: {{ .Values.api.apiServer.timeouts.readHeader }}
+    writeTimeout: {{ .Values.api.apiServer.timeouts.write }}
+    rootNamespace: {{ .Values.global.rootNamespace }}
+    builderName: {{ .Values.api.builderName }}
+    defaultLifecycleConfig:
+      type: {{ .Values.api.lifecycle.type }}
+      stack: {{ .Values.api.lifecycle.stack }}
+      stagingMemoryMB: {{ .Values.api.lifecycle.stagingRequirements.memoryMB }}
+      stagingDiskMB: {{ .Values.api.lifecycle.stagingRequirements.diskMB }}
+    containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
+    {{- if not .Values.global.eksContainerRegistryRoleARN }}
+    packageRegistrySecretName: {{ required "global.containerRegistrySecret is required when global.eksContainerRegistryRoleARN is not set" .Values.global.containerRegistrySecret }}
+    {{- end }}
+    defaultDomainName: {{ .Values.global.defaultAppDomainName }}
+    userCertificateExpirationWarningDuration: {{ .Values.api.userCertificateExpirationWarningDuration }}
+    {{- if .Values.api.authProxy }}
+    authProxyHost: {{ .Values.api.authProxy.host | quote }}
+    authProxyCACert: {{ .Values.api.authProxy.caCert | quote }}
+    {{- end }}
+    {{- if .Values.global.eksContainerRegistryRoleARN }}
+    containerRegistryType: "ECR"
+    {{- end }}
+  role_mappings_config.yaml: |
+    roleMappings:
+      admin:
+        name: korifi-controllers-admin
+        propagate: true
+      admin_read_only:
+        name: korifi-controllers-admin-read-only
+        propagate: true
+      cf_user:
+        name: korifi-controllers-root-namespace-user
+        propagate: false
+      global_auditor:
+        name: korifi-controllers-global-auditor
+        propagate: true
+      organization_auditor:
+        name: korifi-controllers-organization-auditor
+        propagate: false
+      organization_billing_manager:
+        name: korifi-controllers-organization-billing-manager
+        propagate: false
+      organization_manager:
+        name: korifi-controllers-organization-manager
+        propagate: true
+      organization_user:
+        name: korifi-controllers-organization-user
+        propagate: false
+      space_auditor:
+        name: korifi-controllers-space-auditor
+        propagate: false
+      space_developer:
+        name: korifi-controllers-space-developer
+        propagate: false
+      space_manager:
+        name: korifi-controllers-space-manager
+        propagate: false
+      space_supporter:
+        name: korifi-controllers-space-supporter
+        propagate: false

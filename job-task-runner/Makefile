@@ -44,7 +44,7 @@ manifests: install-controller-gen ## Generate WebhookConfiguration, ClusterRole 
 	$(CONTROLLER_GEN) \
 		paths="./..." \
 		rbac:roleName=korifi-job-task-runner-taskworkload-manager-role \
-		output:rbac:artifacts:config=../helm/job-task-runner/templates
+		output:rbac:artifacts:config=../helm/korifi/job-task-runner
 
 .PHONY: generate
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

@@ -36,16 +36,16 @@ help: ## Display this help.
 
 ##@ Development
 
-webhooks-file = ../helm/controllers/templates/manifests.yaml
+webhooks-file = ../helm/korifi/controllers/manifests.yaml
 manifests: install-controller-gen install-yq
 	$(CONTROLLER_GEN) \
 		paths="./..." \
 		crd \
 		rbac:roleName=korifi-controllers-manager-role \
 		webhook \
-		output:crd:artifacts:config=../helm/controllers/templates/crds \
-		output:rbac:artifacts:config=../helm/controllers/templates \
-		output:webhook:artifacts:config=../helm/controllers/templates
+		output:crd:artifacts:config=../helm/korifi/controllers/crds \
+		output:rbac:artifacts:config=../helm/korifi/controllers \
+		output:webhook:artifacts:config=../helm/korifi/controllers
 
 	$(YQ) -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-controllers-serving-cert")' $(webhooks-file)
 	$(YQ) -i 'with(.metadata; .name="korifi-controllers-" + .name)' $(webhooks-file)

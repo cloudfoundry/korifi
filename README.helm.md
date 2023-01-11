@@ -9,7 +9,6 @@ See [_Customizing the Chart Before Installing_](https://helm.sh/docs/intro/using
 
 Here are all the values that can be set for the chart:
 
-- `adminUserName` (_String_): Name of the admin user that will be bound to the Cloud Foundry Admin role.
 - `global`: Global values that are shared between Korifi and its subcharts.
   - `containerRegistrySecret` (_String_): Name of the `Secret` to use when pushing or pulling from package, droplet and kpack-build repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
   - `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.
@@ -18,6 +17,7 @@ Here are all the values that can be set for the chart:
   - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
   - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
   - `rootNamespace` (_String_): Root of the Cloud Foundry namespace hierarchy.
+- `adminUserName` (_String_): Name of the admin user that will be bound to the Cloud Foundry Admin role.
 - `api`:
   - `apiServer`:
     - `internalPort` (_Integer_): Port used internally by the API container.
@@ -52,7 +52,6 @@ Here are all the values that can be set for the chart:
   - `userCertificateExpirationWarningDuration` (_String_): Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
 - `controllers`:
   - `image` (_String_): Reference to the controllers container image.
-  - `include` (_Boolean_): Deploy the controllers component.
   - `namespaceLabels`: Key value pairs that are going to be set as labels in the workload namespaces created by Korifi
   - `processDefaults`:
     - `diskQuotaMB` (_Integer_): Default disk quota for the `web` process.
@@ -70,8 +69,7 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `workloadsTLSSecret` (_String_): TLS secret used when setting up an app routes.
-- `job-task-runner`:
-  - `image` (_String_): Reference to the `job-task-runner` container image.
+- `jobTaskRunner`:
   - `include` (_Boolean_): Deploy the `job-task-runner` component.
   - `jobTTL` (_String_): How long before the `Job` backing up a task is deleted after completion. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `replicas` (_Integer_): Number of replicas.
@@ -82,12 +80,11 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
-- `kpack-image-builder`:
+- `kpackImageBuilder`:
   - `builderRepository` (_String_): Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.
   - `clusterBuilderName` (_String_): The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.
   - `clusterStackBuildImage` (_String_): The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.
   - `clusterStackRunImage` (_String_): The image to use for running defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.
-  - `image` (_String_): Reference to the `kpack-image-builder` container image.
   - `include` (_Boolean_): Deploy the `kpack-image-builder` component.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
@@ -97,8 +94,7 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
-- `statefulset-runner`:
-  - `image` (_String_): Reference to the `statefulset-runner` container image.
+- `statefulsetRunner`:
   - `include` (_Boolean_): Deploy the `statefulset-runner` component.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.

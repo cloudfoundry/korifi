@@ -56,7 +56,7 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 			return
 		}
 
-		namespace := "korifi"
+		namespace := systemNamespace()
 		printPodsLogs(clientset, []podContainerDescriptor{
 			{
 				Namespace:     namespace,
@@ -71,30 +71,21 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 				LabelValue: "korifi-controllers",
 				Container:  "manager",
 			},
-			{
-				Namespace:  namespace,
-				LabelKey:   "app",
-				LabelValue: "korifi-job-task-runner",
-				Container:  "manager",
-			},
-			{
-				Namespace:  namespace,
-				LabelKey:   "app",
-				LabelValue: "korifi-kpack-image-builder",
-				Container:  "manager",
-			},
-			{
-				Namespace:  namespace,
-				LabelKey:   "app",
-				LabelValue: "korifi-statefulset-runner",
-				Container:  "manager",
-			},
 		})
 
 		if strings.Contains(message, "Droplet not found") {
 			printDropletNotFoundDebugInfo(clientset, message)
 		}
 	}
+}
+
+func systemNamespace() string {
+	systemNS, found := os.LookupEnv("SYSTEM_NAMESPACE")
+	if found {
+		return systemNS
+	}
+
+	return "korifi"
 }
 
 func fullLogOnErr() bool {

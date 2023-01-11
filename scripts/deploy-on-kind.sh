@@ -28,9 +28,6 @@ flags:
       wires up ports for remote debugging:
         localhost:30051 (controllers)
         localhost:30052 (api)
-        localhost:30053 (kpack-image-builder)
-        localhost:30054 (statefulset-runner)
-        localhost:30055 (job-task-runner)
 
   -s, --use-registry-service-account
       Use a service account credentials to access the registry (testing not using secrets)
@@ -161,7 +158,7 @@ function deploy_korifi() {
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
         --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
-        --set=kpack-image-builder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+        --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
         --wait
     else
       registry_configuration=()

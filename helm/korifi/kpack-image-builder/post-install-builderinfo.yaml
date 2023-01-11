@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  name: create-builderinfo
+  namespace: {{ .Release.Namespace }}
+spec:
+  template:
+    metadata:
+      name: create-builderinfo
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      serviceAccountName: korifi-controllers-controller-manager
+      restartPolicy: Never
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
+      containers:
+      - name: post-install-create-builderinfo
+        image: "alpine/k8s:1.25.2"
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        command:
+        - sh
+        - -c
+        - |
+          cat <<EOF | kubectl -n {{ .Values.global.rootNamespace }} apply -f -
+          apiVersion: korifi.cloudfoundry.org/v1alpha1
+          kind: BuilderInfo
+          metadata:
+            name: kpack-image-builder
+          EOF
