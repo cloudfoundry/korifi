@@ -13,7 +13,15 @@ import (
 func printDocForSchema(schema map[string]any, indentLevel int) {
 	indentStr := strings.Repeat("  ", indentLevel)
 	names := maps.Keys(schema)
-	sort.Strings(names)
+	sort.Slice(names, func(a, b int) bool {
+		if names[a] == "global" {
+			return true
+		}
+		if names[b] == "global" {
+			return false
+		}
+		return names[a] < names[b]
+	})
 
 	for _, name := range names {
 		value := schema[name].(map[string]any)
@@ -38,15 +46,6 @@ func printDocForSchema(schema map[string]any, indentLevel int) {
 }
 
 func main() {
-	files := [][2]string{
-		{"", "helm/korifi/values.schema.json"},
-		{"api", "helm/api/values.schema.json"},
-		{"controllers", "helm/controllers/values.schema.json"},
-		{"job-task-runner", "helm/job-task-runner/values.schema.json"},
-		{"kpack-image-builder", "helm/kpack-image-builder/values.schema.json"},
-		{"statefulset-runner", "helm/statefulset-runner/values.schema.json"},
-	}
-
 	fmt.Printf(`# Korifi Helm chart
 
 This documents the [Helm](https://helm.sh/) chart for [Korifi](https://github.com/cloudfoundry/korifi).
@@ -60,25 +59,15 @@ Here are all the values that can be set for the chart:
 
 `, "`")
 
-	for _, f := range files {
-		section := f[0]
-		file := f[1]
-
-		bs, err := os.ReadFile(file)
-		if err != nil {
-			panic(err)
-		}
-		var schema map[string]any
-		err = json.Unmarshal(bs, &schema)
-		if err != nil {
-			panic(err)
-		}
-
-		if section != "" {
-			fmt.Printf("- `%s`:\n", section)
-			printDocForSchema(schema["properties"].(map[string]any), 1)
-		} else {
-			printDocForSchema(schema["properties"].(map[string]any), 0)
-		}
+	bs, err := os.ReadFile("helm/korifi/values.schema.json")
+	if err != nil {
+		panic(err)
 	}
+	var schema map[string]any
+	err = json.Unmarshal(bs, &schema)
+	if err != nil {
+		panic(err)
+	}
+
+	printDocForSchema(schema["properties"].(map[string]any), 0)
 }

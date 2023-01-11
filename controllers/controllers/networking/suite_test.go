@@ -47,7 +47,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		// TODO: Reconcile with CRDInstallOptions
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "helm", "controllers", "templates", "crds"),
+			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
 			filepath.Join("..", "..", "..", "tests", "vendor", "contour"),
 		},
 		ErrorIfCRDPathMissing: true,

@@ -40,11 +40,10 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: install-controller-gen
 	$(CONTROLLER_GEN) \
 		paths="./..." \
 		rbac:roleName=korifi-kpack-build-manager-role \
-		output:rbac:artifacts:config=../helm/kpack-image-builder/templates
+		output:rbac:artifacts:config=../helm/korifi/kpack-image-builder
 
 .PHONY: generate
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

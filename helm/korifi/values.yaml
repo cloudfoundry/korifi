@@ -10,16 +10,104 @@ global:
 adminUserName:
 
 api:
+  include: true
+  expose: true
+
   image: cloudfoundry/korifi-api:latest
+
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  apiServer:
+    url: ""
+    # To override default port, set port to a non-zero value
+    port: 0
+    internalPort: 9000
+    timeouts:
+      read: 900
+      write: 900
+      idle: 900
+      readHeader: 10
+
+  lifecycle:
+    type: buildpack
+    stack: cflinuxfs3
+    stagingRequirements:
+      memoryMB: 1024
+      diskMB: 1024
+
+  builderName: kpack-image-builder
+  userCertificateExpirationWarningDuration: 168h
+
+  authProxy:
+    host: ""
+    caCert: ""
 
 controllers:
   image: cloudfoundry/korifi-controllers:latest
 
-kpack-image-builder:
-  image: cloudfoundry/korifi-kpack-image-builder:latest
+  replicas: 1
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 50m
+      memory: 100Mi
 
-statefulset-runner:
-  image: cloudfoundry/korifi-statefulset-runner:latest
+  reconcilers:
+    build: kpack-image-builder
+    app: statefulset-runner
+  processDefaults:
+    memoryMB: 1024
+    diskQuotaMB: 1024
+  taskTTL: 30d
+  workloadsTLSSecret: korifi-workloads-ingress-cert
 
-job-task-runner:
-  image: cloudfoundry/korifi-job-task-runner:latest
+  namespaceLabels: {}
+
+kpackImageBuilder:
+  include: true
+  replicas: 1
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+
+  clusterBuilderName: ""
+  clusterStackBuildImage: paketobuildpacks/build:full-cnb
+  clusterStackRunImage: paketobuildpacks/run:full-cnb
+  builderRepository: ""
+
+statefulsetRunner:
+  include: true
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
+jobTaskRunner:
+  include: true
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
+  jobTTL: 24h

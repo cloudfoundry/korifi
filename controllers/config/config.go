@@ -8,6 +8,12 @@ import (
 )
 
 type ControllerConfig struct {
+	// components
+	IncludeKpackImageBuilder bool `yaml:"includeKpackImageBuilder"`
+	IncludeJobTaskRunner     bool `yaml:"includeJobTaskRunner"`
+	IncludeStatefulsetRunner bool `yaml:"includeStatefulsetRunner"`
+
+	// core controllers
 	CFProcessDefaults           CFProcessDefaults `yaml:"cfProcessDefaults"`
 	CFRootNamespace             string            `yaml:"cfRootNamespace"`
 	ContainerRegistrySecretName string            `yaml:"containerRegistrySecretName"`
@@ -17,6 +23,15 @@ type ControllerConfig struct {
 	BuilderName                 string            `yaml:"builderName"`
 	RunnerName                  string            `yaml:"runnerName"`
 	NamespaceLabels             map[string]string `yaml:"namespaceLabels"`
+
+	// job-task-runner
+	JobTTL string `yaml:"jobTTL"`
+
+	// kpack-image-builder
+	ClusterBuilderName        string `yaml:"clusterBuilderName"`
+	BuilderServiceAccount     string `yaml:"builderServiceAccount"`
+	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
+	ContainerRegistryType     string `yaml:"containerRegistryType"`
 }
 
 type CFProcessDefaults struct {
@@ -28,6 +43,7 @@ type CFProcessDefaults struct {
 const (
 	defaultTaskTTL       = 30 * 24 * time.Hour
 	defaultTimeout int64 = 60
+	defaultJobTTL        = 24 * time.Hour
 )
 
 func LoadFromPath(path string) (*ControllerConfig, error) {
@@ -57,4 +73,12 @@ func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {
 	}
 
 	return tools.ParseDuration(c.TaskTTL)
+}
+
+func (c ControllerConfig) ParseJobTTL() (time.Duration, error) {
+	if c.JobTTL == "" {
+		return defaultJobTTL, nil
+	}
+
+	return tools.ParseDuration(c.JobTTL)
 }

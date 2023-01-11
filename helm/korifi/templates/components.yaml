@@ -1,0 +1,38 @@
+{{- $ctx := . }}
+{{- if .Values.api.include }}
+{{- range $path, $_ := .Files.Glob "api/*.yaml" }}
+---
+{{ tpl ($.Files.Get $path) $ctx }}
+{{- end }}
+{{- end }}
+
+{{- range $path, $_ := .Files.Glob "controllers/**/*.yaml" }}
+---
+{{ tpl ($.Files.Get $path) $ctx }}
+{{- end }}
+
+{{- range $path, $_ := .Files.Glob "controllers/*.yaml" }}
+---
+{{ tpl ($.Files.Get $path) $ctx }}
+{{- end }}
+
+{{- if .Values.kpackImageBuilder.include }}
+{{- range $path, $_ := .Files.Glob "kpack-image-builder/*.yaml" }}
+---
+{{ tpl ($.Files.Get $path) $ctx }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.jobTaskRunner.include }}
+{{- range $path, $_ := .Files.Glob "job-task-runner/*.yaml" }}
+---
+{{ tpl ($.Files.Get $path) $ctx }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.statefulsetRunner.include }}
+{{- range $path, $_ := .Files.Glob "statefulset-runner/*.yaml" }}
+---
+{{ tpl ($.Files.Get $path) $ctx }}
+{{- end }}
+{{- end }}

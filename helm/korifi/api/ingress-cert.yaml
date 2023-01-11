@@ -1,0 +1,15 @@
+{{- if .Values.global.generateIngressCertificates }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: korifi-api-ingress-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  commonName: {{ .Values.api.apiServer.url }}
+  dnsNames:
+  - {{ .Values.api.apiServer.url }}
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: korifi-api-ingress-cert
+{{- end }}
