@@ -33,7 +33,7 @@ metadata:
   name: ${csr_name}
 spec:
   signerName: "kubernetes.io/kube-apiserver-client"
-  request: "$(base64 "${csr_file}" | tr -d "\n\r")"
+  request: "$(cat "${csr_file}" | base64 | tr -d "\n\r")"
   expirationSeconds: $((days * 24 * 60 * 60))
   usages:
   - client auth
