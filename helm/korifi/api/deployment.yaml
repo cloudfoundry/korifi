@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: korifi-api
+  name: korifi-api-deployment
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.api.replicas | default 1}}
+  selector:
+    matchLabels:
+      app: korifi-api
+  template:
+    metadata:
+      labels:
+        app: korifi-api
+      annotations:
+        checksum/config: {{ tpl ($.Files.Get "api/configmap.yaml") $ | sha256sum }}
+    spec:
+      containers:
+      - env:
+        - name: APICONFIG
+          value: /etc/korifi-api-config
+        - name: TLSCONFIG
+          value: /etc/korifi-tls-config
+        image: {{ .Values.api.image }}
+{{- if .Values.global.debug }}
+        command:
+        - "/dlv"
+        args:
+        - "--listen=:40000"
+        - "--headless=true"
+        - "--api-version=2"
+        - "exec"
+        - "/cfapi"
+        - "--continue"
+        - "--accept-multiclient"
+{{- end }}
+        name: korifi-api
+        ports:
+        - containerPort: {{ .Values.api.apiServer.internalPort }}
+          name: web
+        {{- include "korifi.resources" . | indent 8 }}
+        {{- include "korifi.securityContext" . | indent 8 }}
+        volumeMounts:
+        - mountPath: /etc/korifi-api-config
+          name: korifi-api-config
+          readOnly: true
+        - mountPath: /etc/korifi-tls-config
+          name: korifi-tls-config
+          readOnly: true
+{{- if .Values.global.containerRegistryCACertSecret }}
+        - mountPath: /etc/ssl/certs/registry-ca.crt
+          name: korifi-registry-ca-cert
+          subPath: ca.crt
+          readOnly: true
+{{- end }}
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
+      serviceAccountName: korifi-api-system-serviceaccount
+      volumes:
+      - configMap:
+          name: korifi-api-config
+        name: korifi-api-config
+      - name: korifi-tls-config
+        secret:
+          secretName: korifi-api-internal-cert
+{{- if .Values.global.containerRegistryCACertSecret }}
+      - name: korifi-registry-ca-cert
+        secret:
+          secretName: {{ .Values.global.containerRegistryCACertSecret }}
+{{- end }}

@@ -2,27 +2,5 @@ apiVersion: v2
 name: korifi
 description: A Helm chart to deploy all Korifi components
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "dev"
-
-dependencies:
-  - name: controllers
-    repository: file://../controllers
-    version: 0.1.0
-    condition: controllers.include
-  - name: api
-    repository: file://../api
-    version: 0.1.0
-    condition: api.include
-  - name: statefulset-runner
-    repository: file://../statefulset-runner
-    version: 0.1.0
-    condition: statefulset-runner.include
-  - name: job-task-runner
-    repository: file://../job-task-runner
-    version: 0.1.0
-    condition: job-task-runner.include
-  - name: kpack-image-builder
-    repository: file://../kpack-image-builder
-    version: 0.1.0
-    condition: kpack-image-builder.include

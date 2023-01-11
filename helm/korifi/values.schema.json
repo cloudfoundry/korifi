@@ -1,6 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "properties": {
+    "adminUserName": {
+      "description": "Name of the admin user that will be bound to the Cloud Foundry Admin role.",
+      "type": "string"
+    },
     "global": {
       "description": "Global values that are shared between Korifi and its subcharts.",
       "properties": {
@@ -40,12 +44,426 @@
       ],
       "type": "object"
     },
-    "adminUserName": {
-      "description": "Name of the admin user that will be bound to the Cloud Foundry Admin role.",
-      "type": "string"
+    "api": {
+      "properties": {
+        "include": {
+          "description": "Deploy the API component.",
+          "type": "boolean"
+        },
+        "expose": {
+          "description": "Expose the API component via Contour. Set to false if you want to expose the API using other means.",
+          "type": "boolean"
+        },
+        "replicas": {
+          "description": "Number of replicas.",
+          "type": "integer"
+        },
+        "resources": {
+          "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
+          "type": "object",
+          "properties": {
+            "requests": {
+              "description": "Resource requests.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU request.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory request.",
+                  "type": "string"
+                }
+              }
+            },
+            "limits": {
+              "description": "Resource limits.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU limit.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory limit.",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "apiServer": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "description": "API URL.",
+              "type": "string"
+            },
+            "port": {
+              "description": "API external port. Defaults to `443`.",
+              "type": "integer"
+            },
+            "internalPort": {
+              "description": "Port used internally by the API container.",
+              "type": "integer"
+            },
+            "timeouts": {
+              "type": "object",
+              "description": "HTTP timeouts.",
+              "properties": {
+                "read": {
+                  "description": "Read timeout.",
+                  "type": "integer"
+                },
+                "write": {
+                  "description": "Write timeout.",
+                  "type": "integer"
+                },
+                "idle": {
+                  "description": "Idle timeout.",
+                  "type": "integer"
+                },
+                "readHeader": {
+                  "description": "Read header timeout.",
+                  "type": "integer"
+                }
+              },
+              "required": ["read", "write", "idle", "readHeader"]
+            }
+          },
+          "required": ["url", "port", "internalPort", "timeouts"]
+        },
+        "image": {
+          "description": "Reference to the API container image.",
+          "type": "string"
+        },
+        "lifecycle": {
+          "type": "object",
+          "description": "Default lifecycle for apps.",
+          "properties": {
+            "type": {
+              "description": "Lifecycle type (only `buildpack` accepted currently).",
+              "type": "string",
+              "enum": ["buildpack"]
+            },
+            "stack": {
+              "description": "Stack.",
+              "type": "string"
+            },
+            "stagingRequirements": {
+              "type": "object",
+              "properties": {
+                "memoryMB": {
+                  "description": "Memory in MB for staging.",
+                  "type": "integer"
+                },
+                "diskMB": {
+                  "description": "Disk in MB for staging.",
+                  "type": "integer"
+                }
+              },
+              "required": ["memoryMB", "diskMB"]
+            }
+          },
+          "required": ["type", "stack", "stagingRequirements"]
+        },
+        "builderName": {
+          "description": "ID of the builder used to build apps. Defaults to `kpack-image-builder`.",
+          "type": "string"
+        },
+        "userCertificateExpirationWarningDuration": {
+          "description": "Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.",
+          "type": "string"
+        },
+        "authProxy": {
+          "type": "object",
+          "description": "Needed if using a cluster authentication proxy, e.g. [Pinniped](https://pinniped.dev/).",
+          "properties": {
+            "host": {
+              "description": "Must be a host string, a host:port pair, or a URL to the base of the apiserver.",
+              "type": "string"
+            },
+            "caCert": {
+              "description": "Proxy's PEM-encoded CA certificate (*not* as Base64).",
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "include",
+        "expose",
+        "apiServer",
+        "image",
+        "lifecycle",
+        "builderName",
+        "userCertificateExpirationWarningDuration"
+      ],
+      "type": "object"
+    },
+    "controllers": {
+      "properties": {
+        "replicas": {
+          "description": "Number of replicas.",
+          "type": "integer"
+        },
+        "resources": {
+          "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
+          "type": "object",
+          "properties": {
+            "requests": {
+              "description": "Resource requests.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU request.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory request.",
+                  "type": "string"
+                }
+              }
+            },
+            "limits": {
+              "description": "Resource limits.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU limit.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory limit.",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "image": {
+          "description": "Reference to the controllers container image.",
+          "type": "string"
+        },
+        "reconcilers": {
+          "type": "object",
+          "properties": {
+            "build": {
+              "description": "ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.",
+              "type": "string"
+            },
+            "app": {
+              "description": "ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.",
+              "type": "string"
+            }
+          },
+          "required": ["build", "app"]
+        },
+        "processDefaults": {
+          "type": "object",
+          "properties": {
+            "memoryMB": {
+              "description": "Default memory limit for the `web` process.",
+              "type": "integer"
+            },
+            "diskQuotaMB": {
+              "description": "Default disk quota for the `web` process.",
+              "type": "integer"
+            }
+          },
+          "required": ["memoryMB", "diskQuotaMB"]
+        },
+        "taskTTL": {
+          "description": "How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.",
+          "type": "string"
+        },
+        "workloadsTLSSecret": {
+          "description": "TLS secret used when setting up an app routes.",
+          "type": "string"
+        },
+        "namespaceLabels": {
+          "description": "Key value pairs that are going to be set as labels in the workload namespaces created by Korifi",
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "required": ["image", "reconcilers", "taskTTL", "workloadsTLSSecret"],
+      "type": "object"
+    },
+    "kpackImageBuilder": {
+      "properties": {
+        "include": {
+          "description": "Deploy the `kpack-image-builder` component.",
+          "type": "boolean"
+        },
+        "replicas": {
+          "description": "Number of replicas.",
+          "type": "integer"
+        },
+        "resources": {
+          "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
+          "type": "object",
+          "properties": {
+            "requests": {
+              "description": "Resource requests.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU request.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory request.",
+                  "type": "string"
+                }
+              }
+            },
+            "limits": {
+              "description": "Resource limits.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU limit.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory limit.",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "clusterBuilderName": {
+          "description": "The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.",
+          "type": "string"
+        },
+        "clusterStackBuildImage": {
+          "description": "The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.",
+          "type": "string"
+        },
+        "clusterStackRunImage": {
+          "description": "The image to use for running defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.",
+          "type": "string"
+        },
+        "builderRepository": {
+          "description": "Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.",
+          "type": "string"
+        }
+      },
+      "required": ["include"],
+      "type": "object"
+    },
+    "statefulsetRunner": {
+      "properties": {
+        "include": {
+          "description": "Deploy the `statefulset-runner` component.",
+          "type": "boolean"
+        },
+        "replicas": {
+          "description": "Number of replicas.",
+          "type": "integer"
+        },
+        "resources": {
+          "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
+          "type": "object",
+          "properties": {
+            "requests": {
+              "description": "Resource requests.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU request.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory request.",
+                  "type": "string"
+                }
+              }
+            },
+            "limits": {
+              "description": "Resource limits.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU limit.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory limit.",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": ["include"],
+      "type": "object"
+    },
+    "jobTaskRunner": {
+      "properties": {
+        "include": {
+          "description": "Deploy the `job-task-runner` component.",
+          "type": "boolean"
+        },
+        "replicas": {
+          "description": "Number of replicas.",
+          "type": "integer"
+        },
+        "resources": {
+          "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
+          "type": "object",
+          "properties": {
+            "requests": {
+              "description": "Resource requests.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU request.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory request.",
+                  "type": "string"
+                }
+              }
+            },
+            "limits": {
+              "description": "Resource limits.",
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "description": "CPU limit.",
+                  "type": "string"
+                },
+                "memory": {
+                  "description": "Memory limit.",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "jobTTL": {
+          "description": "How long before the `Job` backing up a task is deleted after completion. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.",
+          "type": "string"
+        }
+      },
+      "required": ["include", "jobTTL"],
+      "type": "object"
     }
   },
-  "required": ["global", "adminUserName"],
+  "required": [
+    "global",
+    "adminUserName",
+    "api",
+    "controllers",
+    "kpackImageBuilder",
+    "statefulsetRunner",
+    "jobTaskRunner"
+  ],
   "title": "Values",
   "type": "object"
 }

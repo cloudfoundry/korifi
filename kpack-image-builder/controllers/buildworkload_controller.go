@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/config"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"

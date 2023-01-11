@@ -40,20 +40,20 @@ help: ## Display this help.
 
 ##@ Development
 
-webhooks-file = ../helm/statefulset-runner/templates/manifests.yaml
+webhooks-file = ../helm/korifi/statefulset-runner/manifests.yaml
 .PHONY: manifests
 manifests: install-controller-gen install-yq
 	$(CONTROLLER_GEN) \
 		paths="./..." \
 		rbac:roleName=korifi-statefulset-runner-appworkload-manager-role \
 		webhook \
-		output:rbac:artifacts:config=../helm/statefulset-runner/templates \
-		output:webhook:artifacts:config=../helm/statefulset-runner/templates
+		output:rbac:artifacts:config=../helm/korifi/statefulset-runner \
+		output:webhook:artifacts:config=../helm/korifi/statefulset-runner
 
-	$(YQ) -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-statefulset-runner-serving-cert")' $(webhooks-file)
+	$(YQ) -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-controllers-serving-cert")' $(webhooks-file)
 	$(YQ) -i 'with(.metadata; .name="korifi-statefulset-runner-" + .name)' $(webhooks-file)
 	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
-	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.name="korifi-statefulset-runner-" + .clientConfig.service.name)' $(webhooks-file)
+	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.name="korifi-controllers-" + .clientConfig.service.name)' $(webhooks-file)
 	$(YQ) -i 'with(.webhooks[]; .objectSelector.matchLabels["korifi.cloudfoundry.org/add-stsr-index"]="true")' $(webhooks-file)
 
 

@@ -14,15 +14,10 @@ controllers:
   taskTTL: 5s
   image: cloudfoundry/korifi-controllers:latest
 
-job-task-runner:
-  image: cloudfoundry/korifi-job-task-runner:latest
+jobTaskRunner:
   jobTTL: 5s
 
-kpack-image-builder:
-  image: cloudfoundry/korifi-kpack-image-builder:latest
+kpackImageBuilder:
   builderRepository: localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder
   clusterStackBuildImage: paketobuildpacks/build:base-cnb
   clusterStackRunImage: paketobuildpacks/run:base-cnb
-
-statefulset-runner:
-  image: cloudfoundry/korifi-statefulset-runner:latest

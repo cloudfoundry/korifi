@@ -161,7 +161,7 @@ function deploy_korifi() {
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
         --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
-        --set=kpack-image-builder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+        --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
         --wait
     else
       registry_configuration=()

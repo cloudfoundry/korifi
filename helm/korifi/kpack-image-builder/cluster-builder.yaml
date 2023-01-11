@@ -1,0 +1,53 @@
+{{- if not .Values.kpackImageBuilder.clusterBuilderName }}
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStore
+metadata:
+  name: cf-default-buildpacks
+spec:
+  sources:
+  - image: gcr.io/paketo-buildpacks/java
+  - image: gcr.io/paketo-buildpacks/nodejs
+  - image: gcr.io/paketo-buildpacks/ruby
+  - image: gcr.io/paketo-buildpacks/procfile
+  - image: gcr.io/paketo-buildpacks/go
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStack
+metadata:
+  name: cf-default-stack
+spec:
+  id: "io.buildpacks.stacks.bionic"
+  buildImage:
+    image: {{ .Values.kpackImageBuilder.clusterStackBuildImage | quote }}
+  runImage:
+    image: {{ .Values.kpackImageBuilder.clusterStackRunImage | quote }}
+
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterBuilder
+metadata:
+  name: cf-kpack-cluster-builder
+spec:
+  serviceAccountRef:
+    name: kpack-service-account
+    namespace: {{ .Values.global.rootNamespace }}
+  tag: {{ required "builderRepository is required when clusterBuilderName is unset" .Values.kpackImageBuilder.builderRepository }}
+  stack:
+    name: cf-default-stack
+    kind: ClusterStack
+  store:
+    name: cf-default-buildpacks
+    kind: ClusterStore
+  order:
+  - group:
+    - id: paketo-buildpacks/java
+  - group:
+    - id: paketo-buildpacks/go
+  - group:
+    - id: paketo-buildpacks/nodejs
+  - group:
+    - id: paketo-buildpacks/ruby
+  - group:
+    - id: paketo-buildpacks/procfile
+{{- end }}
