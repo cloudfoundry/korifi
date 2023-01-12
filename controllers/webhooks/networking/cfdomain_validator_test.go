@@ -19,10 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	rootNamespace = "cf"
-)
-
 var _ = Describe("CFDomainValidator", func() {
 	var (
 		ctx context.Context
@@ -190,7 +186,7 @@ func createCFDomain(name string) korifiv1alpha1.CFDomain {
 	return korifiv1alpha1.CFDomain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      uuid.NewString(),
-			Namespace: rootNamespace,
+			Namespace: namespace,
 		},
 		Spec: korifiv1alpha1.CFDomainSpec{
 			Name: name,

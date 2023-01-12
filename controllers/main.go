@@ -410,7 +410,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = networking.NewCFRouteDefaulter().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
 			os.Exit(1)
 		}

@@ -117,7 +117,6 @@ var _ = BeforeSuite(func() {
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
 	).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr)).To(Succeed())
 	Expect(networking.NewCFRouteValidator(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
 		namespace,
