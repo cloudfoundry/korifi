@@ -1698,16 +1698,6 @@ var _ = Describe("Route", func() {
 				Expect(message.RouteGUID).To(Equal(routeGuid))
 				Expect(message.SpaceGUID).To(Equal(spaceGuid))
 				Expect(message.DestinationGuid).To(Equal(destinationGuid))
-
-				Expect(message.ExistingDestinations).To(ConsistOf(
-					MatchAllFields(Fields{
-						"GUID":        Equal(destinationGuid),
-						"AppGUID":     Equal(appGuid),
-						"ProcessType": Equal("web"),
-						"Port":        Equal(8080),
-						"Protocol":    Equal("http1"),
-					}),
-				))
 			})
 
 			When("the route doesn't exist", func() {

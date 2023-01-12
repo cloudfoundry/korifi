@@ -201,10 +201,9 @@ func (h *Route) deleteDestination(r *http.Request) (*routing.Response, error) {
 	}
 
 	message := repositories.RemoveDestinationFromRouteMessage{
-		DestinationGuid:      destinationGUID,
-		RouteGUID:            routeRecord.GUID,
-		SpaceGUID:            routeRecord.SpaceGUID,
-		ExistingDestinations: routeRecord.Destinations,
+		DestinationGuid: destinationGUID,
+		RouteGUID:       routeGUID,
+		SpaceGUID:       routeRecord.SpaceGUID,
 	}
 
 	_, err = h.routeRepo.RemoveDestinationFromRoute(r.Context(), authInfo, message)

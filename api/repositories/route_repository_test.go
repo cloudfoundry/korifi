@@ -1257,10 +1257,9 @@ var _ = Describe("RouteRepository", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			destinationDeleteMessage := RemoveDestinationFromRouteMessage{
-				RouteGUID:            routeRecord.GUID,
-				SpaceGUID:            routeRecord.SpaceGUID,
-				ExistingDestinations: routeRecord.Destinations,
-				DestinationGuid:      destinationGUID,
+				RouteGUID:       routeRecord.GUID,
+				SpaceGUID:       routeRecord.SpaceGUID,
+				DestinationGuid: destinationGUID,
 			}
 			_, removeDestinationErr = routeRepo.RemoveDestinationFromRoute(testCtx, authInfo, destinationDeleteMessage)
 		})

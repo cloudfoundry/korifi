@@ -362,32 +362,15 @@ var _ = Describe("Applier", func() {
 
 				_, _, removeDest1Msg := routeRepo.RemoveDestinationFromRouteArgsForCall(0)
 				Expect(removeDest1Msg).To(Equal(repositories.RemoveDestinationFromRouteMessage{
-					RouteGUID: "route-guid",
-					SpaceGUID: "space-guid",
-					ExistingDestinations: []repositories.DestinationRecord{{
-						GUID:    "dest1-guid",
-						AppGUID: "app-guid",
-					}, {
-						GUID:    "dest2-guid",
-						AppGUID: "app-guid",
-					}, {
-						GUID:    "dest3-guid",
-						AppGUID: "another-app-guid",
-					}},
+					RouteGUID:       "route-guid",
+					SpaceGUID:       "space-guid",
 					DestinationGuid: "dest1-guid",
 				}))
 
 				_, _, removeDest2Msg := routeRepo.RemoveDestinationFromRouteArgsForCall(1)
 				Expect(removeDest2Msg).To(Equal(repositories.RemoveDestinationFromRouteMessage{
-					RouteGUID: "route-guid",
-					SpaceGUID: "space-guid",
-					ExistingDestinations: []repositories.DestinationRecord{{
-						GUID:    "dest2-guid",
-						AppGUID: "app-guid",
-					}, {
-						GUID:    "dest3-guid",
-						AppGUID: "another-app-guid",
-					}},
+					RouteGUID:       "route-guid",
+					SpaceGUID:       "space-guid",
 					DestinationGuid: "dest2-guid",
 				}))
 			})

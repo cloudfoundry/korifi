@@ -176,29 +176,16 @@ func (a *Applier) deleteAppDestinations(
 }
 
 func (a *Applier) deleteAppDestination(ctx context.Context, authInfo authorization.Info, route repositories.RouteRecord, destinationGUID string, existingDestinations []repositories.DestinationRecord) ([]repositories.DestinationRecord, error) {
-	_, err := a.routeRepo.RemoveDestinationFromRoute(ctx, authInfo, repositories.RemoveDestinationFromRouteMessage{
-		RouteGUID:            route.GUID,
-		SpaceGUID:            route.SpaceGUID,
-		ExistingDestinations: existingDestinations,
-		DestinationGuid:      destinationGUID,
+	route, err := a.routeRepo.RemoveDestinationFromRoute(ctx, authInfo, repositories.RemoveDestinationFromRouteMessage{
+		RouteGUID:       route.GUID,
+		SpaceGUID:       route.SpaceGUID,
+		DestinationGuid: destinationGUID,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return removeDestinationFromList(destinationGUID, existingDestinations), nil
-}
-
-func removeDestinationFromList(destinationGUID string, destinations []repositories.DestinationRecord) []repositories.DestinationRecord {
-	result := []repositories.DestinationRecord{}
-	for _, d := range destinations {
-		if d.GUID == destinationGUID {
-			continue
-		}
-		result = append(result, d)
-	}
-
-	return result
+	return route.Destinations, nil
 }
 
 func splitRoute(route string) (string, string, string) {
