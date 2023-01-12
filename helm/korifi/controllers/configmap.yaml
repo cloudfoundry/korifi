@@ -8,6 +8,7 @@ data:
     includeKpackImageBuilder: {{ .Values.kpackImageBuilder.include }}
     includeJobTaskRunner: {{ .Values.jobTaskRunner.include }}
     includeStatefulsetRunner: {{ .Values.statefulsetRunner.include }}
+    includeContourRouter: {{ .Values.contourRouter.include }}
   korifi_controllers_config.yaml: |-
     builderName: {{ .Values.controllers.reconcilers.build }}
     runnerName: {{ .Values.controllers.reconcilers.app }}
