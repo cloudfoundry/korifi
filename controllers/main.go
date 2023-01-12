@@ -178,16 +178,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (networkingcontrollers.NewCFRouteReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFRoute"),
-			controllerConfig,
-		)).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
-			os.Exit(1)
-		}
-
 		if err = (servicescontrollers.NewCFServiceInstanceReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
@@ -326,6 +316,19 @@ func main() {
 				os.Exit(1)
 			}
 		}
+
+		if controllerConfig.IncludeContourRouter {
+			if err = (networkingcontrollers.NewCFRouteReconciler(
+				mgr.GetClient(),
+				mgr.GetScheme(),
+				ctrl.Log.WithName("controllers").WithName("CFRoute"),
+				controllerConfig,
+			)).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
+				os.Exit(1)
+			}
+		}
+
 	}
 
 	// Setup webhooks with manager

@@ -111,3 +111,6 @@ jobTaskRunner:
       memory: 64Mi
 
   jobTTL: 24h
+
+contourRouter:
+  include: true

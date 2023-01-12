@@ -50,6 +50,8 @@ Here are all the values that can be set for the chart:
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
   - `userCertificateExpirationWarningDuration` (_String_): Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
+- `contourRouter`:
+  - `include` (_Boolean_): Deploy the `contour-router` component.
 - `controllers`:
   - `image` (_String_): Reference to the controllers container image.
   - `namespaceLabels`: Key value pairs that are going to be set as labels in the workload namespaces created by Korifi
