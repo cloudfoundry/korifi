@@ -99,6 +99,7 @@ rules:
   - delete
   - list
   - patch
+  - update
 
 - apiGroups:
   - korifi.cloudfoundry.org

@@ -66,10 +66,9 @@ type AddDestinationsToRouteMessage struct {
 }
 
 type RemoveDestinationFromRouteMessage struct {
-	RouteGUID            string
-	SpaceGUID            string
-	ExistingDestinations []DestinationRecord
-	DestinationGuid      string
+	RouteGUID       string
+	SpaceGUID       string
+	DestinationGuid string
 }
 
 type DestinationMessage struct {
@@ -390,25 +389,25 @@ func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 			Name:      message.RouteGUID,
 			Namespace: message.SpaceGUID,
 		},
-		Spec: korifiv1alpha1.CFRouteSpec{
-			Destinations: destinationRecordsToCFDestinations(message.ExistingDestinations),
-		},
+	}
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to get route: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	var newDestinationList []DestinationRecord
-	for _, dest := range message.ExistingDestinations {
+	updatedDestinations := []korifiv1alpha1.Destination{}
+	for _, dest := range cfRoute.Spec.Destinations {
 		if dest.GUID != message.DestinationGuid {
-			newDestinationList = append(newDestinationList, dest)
+			updatedDestinations = append(updatedDestinations, dest)
 		}
 	}
 
-	if len(newDestinationList) == len(message.ExistingDestinations) {
+	if len(updatedDestinations) == len(cfRoute.Spec.Destinations) {
 		return RouteRecord{}, apierrors.NewUnprocessableEntityError(nil, "Unable to unmap route from destination. Ensure the route has a destination with this guid.")
 	}
+	cfRoute.Spec.Destinations = updatedDestinations
 
-	err = k8s.PatchResource(ctx, userClient, cfRoute, func() {
-		cfRoute.Spec.Destinations = destinationRecordsToCFDestinations(newDestinationList)
-	})
+	err = userClient.Update(ctx, cfRoute)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to remove destination from route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
