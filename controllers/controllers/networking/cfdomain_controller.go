@@ -87,8 +87,8 @@ func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logg
 		return ctrl.Result{}, err
 	}
 
-	for _, route := range domainRoutes {
-		err = r.client.Delete(ctx, &route)
+	for i := range domainRoutes {
+		err = r.client.Delete(ctx, &domainRoutes[i])
 		if err != nil {
 			log.Error(err, "failed to list CFRoutes")
 			return ctrl.Result{}, err
