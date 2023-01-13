@@ -57,13 +57,14 @@ func NewCFDomainReconciler(
 func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfDomain.Namespace, "name", cfDomain.Name)
 
-	if err := k8s.AddFinalizer(ctx, log, r.client, cfDomain, CFDomainFinalizerName); err != nil {
-		log.Error(err, "Error adding finalizer")
-		return ctrl.Result{}, err
-	}
-
 	if !cfDomain.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFDomain(ctx, log, cfDomain)
+	}
+
+	err := k8s.AddFinalizer(ctx, log, r.client, cfDomain, CFDomainFinalizerName)
+	if err != nil {
+		log.Error(err, "Error adding finalizer")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
