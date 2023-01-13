@@ -9,6 +9,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -90,7 +91,15 @@ var _ = BeforeSuite(func() {
 	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	err = (NewCFDomainReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFDomain"),
+	)).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = shared.SetupIndexWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		defer GinkgoRecover()

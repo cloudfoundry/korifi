@@ -197,5 +197,42 @@ var _ = Describe("Domain", func() {
 				g.Expect(string(resp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 		})
+
+		When("the domain has routes", func() {
+			var spaceGUID string
+			BeforeEach(func() {
+				spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
+
+				var createRouteErr cfErrs
+				createRouteResp, err := adminClient.R().
+					SetBody(routeResource{
+						resource: resource{
+							Relationships: map[string]relationship{
+								"domain": {Data: resource{GUID: domainGUID}},
+								"space":  {Data: resource{GUID: spaceGUID}},
+							},
+						},
+						Host: "my-host",
+						Path: "/foo",
+					}).
+					SetError(&createRouteErr).
+					Post("/v3/routes")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createRouteErr.Errors).To(BeEmpty())
+				Expect(createRouteResp).To(HaveRestyStatusCode(http.StatusCreated))
+			})
+
+			It("deletes the domain routes", func() {
+				Eventually(func(g Gomega) {
+					var routes responseResourceList
+					listRoutesResp, err := adminClient.R().
+						SetResult(&routes).
+						Get("/v3/routes?space_guids=" + spaceGUID)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(listRoutesResp).To(HaveRestyStatusCode(http.StatusOK))
+					g.Expect(routes.Resources).To(BeEmpty())
+				}).Should(Succeed())
+			})
+		})
 	})
 })
