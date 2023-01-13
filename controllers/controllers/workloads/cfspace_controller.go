@@ -95,7 +95,12 @@ func NewCFSpaceReconciler(
 func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfSpace.Namespace, "name", cfSpace.Name)
 
-	if err := k8s.AddFinalizer(ctx, log, r.client, cfSpace, spaceFinalizerName); err != nil {
+	if !cfSpace.GetDeletionTimestamp().IsZero() {
+		return r.finalize(ctx, log, cfSpace)
+	}
+
+	err := k8s.AddFinalizer(ctx, log, r.client, cfSpace, spaceFinalizerName)
+	if err != nil {
 		log.Error(err, "Error adding finalizer")
 		return ctrl.Result{}, err
 	}
@@ -104,11 +109,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 
 	getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
-	if !cfSpace.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, log, cfSpace)
-	}
-
-	err := createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
+	err = createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName,
 	}))
 	if err != nil {

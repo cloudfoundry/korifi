@@ -76,17 +76,18 @@ func NewCFRouteReconciler(
 func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfRoute.Namespace, "name", cfRoute.Name)
 
-	if err := k8s.AddFinalizer(ctx, log, r.client, cfRoute, CFRouteFinalizerName); err != nil {
-		log.Error(err, "Error adding finalizer")
-		return ctrl.Result{}, err
-	}
-
 	if !cfRoute.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFRoute(ctx, log, cfRoute)
 	}
 
+	err := k8s.AddFinalizer(ctx, log, r.client, cfRoute, CFRouteFinalizerName)
+	if err != nil {
+		log.Error(err, "Error adding finalizer")
+		return ctrl.Result{}, err
+	}
+
 	var cfDomain korifiv1alpha1.CFDomain
-	err := r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, &cfDomain)
+	err = r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, &cfDomain)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			cfRoute.Status = createInvalidRouteStatus(cfRoute, "CFDomain not found", "InvalidDomainRef", err.Error())

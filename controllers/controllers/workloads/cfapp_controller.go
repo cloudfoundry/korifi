@@ -60,17 +60,18 @@ func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log log
 func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfApp.Namespace, "name", cfApp.Name)
 
-	if err := k8s.AddFinalizer(ctx, log, r.k8sClient, cfApp, cfAppFinalizerName); err != nil {
-		log.Error(err, "Error adding finalizer")
-		return ctrl.Result{}, err
-	}
-
 	if !cfApp.GetDeletionTimestamp().IsZero() {
 		err := r.finalizeCFApp(ctx, log, cfApp)
 		return ctrl.Result{}, err
 	}
 
-	err := r.reconcileVCAPServicesSecret(ctx, log, cfApp)
+	err := k8s.AddFinalizer(ctx, log, r.k8sClient, cfApp, cfAppFinalizerName)
+	if err != nil {
+		log.Error(err, "Error adding finalizer")
+		return ctrl.Result{}, err
+	}
+
+	err = r.reconcileVCAPServicesSecret(ctx, log, cfApp)
 	if err != nil {
 		log.Error(err, "unable to create CFApp VCAP Services secret")
 		return ctrl.Result{}, err
