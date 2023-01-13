@@ -10,6 +10,7 @@ import (
 
 const (
 	IndexRouteDestinationAppName           = "destinationAppName"
+	IndexRouteDomainQualifiedName          = "domainQualifiedName"
 	IndexServiceBindingAppGUID             = "serviceBindingAppGUID"
 	IndexServiceBindingServiceInstanceGUID = "serviceBindingServiceInstanceGUID"
 	IndexAppTasks                          = "appTasks"
@@ -17,6 +18,11 @@ const (
 
 func SetupIndexWithManager(mgr manager.Manager) error {
 	err := mgr.GetFieldIndexer().IndexField(context.Background(), new(korifiv1alpha1.CFRoute), IndexRouteDestinationAppName, routeDestinationAppNameIndexFn)
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), new(korifiv1alpha1.CFRoute), IndexRouteDomainQualifiedName, routeDomainQualifiedNameIndexFn)
 	if err != nil {
 		return err
 	}
@@ -49,6 +55,11 @@ func routeDestinationAppNameIndexFn(rawObj client.Object) []string {
 		destinationAppNames = append(destinationAppNames, destination.AppRef.Name)
 	}
 	return destinationAppNames
+}
+
+func routeDomainQualifiedNameIndexFn(rawObj client.Object) []string {
+	route := rawObj.(*korifiv1alpha1.CFRoute)
+	return []string{route.Spec.DomainRef.Namespace + "." + route.Spec.DomainRef.Name}
 }
 
 func serviceBindingAppGUIDIndexFn(rawObj client.Object) []string {

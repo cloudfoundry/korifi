@@ -242,6 +242,15 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "CFTask")
 			os.Exit(1)
 		}
+
+		if err = (networkingcontrollers.NewCFDomainReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFDomain"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
+			os.Exit(1)
+		}
 		//+kubebuilder:scaffold:builder
 
 		// Setup Index with Manager
