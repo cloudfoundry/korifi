@@ -108,7 +108,12 @@ const (
 func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfOrg.Namespace, "name", cfOrg.Name)
 
-	if err := k8s.AddFinalizer(ctx, log, r.client, cfOrg, orgFinalizerName); err != nil {
+	if !cfOrg.GetDeletionTimestamp().IsZero() {
+		return r.finalize(ctx, log, cfOrg)
+	}
+
+	err := k8s.AddFinalizer(ctx, log, r.client, cfOrg, orgFinalizerName)
+	if err != nil {
 		log.Error(err, "Error adding finalizer")
 		return ctrl.Result{}, err
 	}
@@ -117,11 +122,7 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 
 	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
-	if !cfOrg.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, log, cfOrg)
-	}
-
-	err := createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
+	err = createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName,
 	}))
 	if err != nil {
