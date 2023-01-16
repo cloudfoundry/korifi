@@ -140,16 +140,20 @@ var _ = Describe("Processes", func() {
 
 		When("we wait for the metrics to be ready", func() {
 			BeforeEach(func() {
-				Eventually(func() statsUsage {
+				Eventually(func(g Gomega) {
 					var err error
 					resp, err = restyClient.R().
 						SetResult(&processStats).
 						SetError(&errResp).
 						Get("/v3/processes/" + processGUID + "/stats")
-					Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred())
 
-					return processStats.Resources[0].Usage
-				}).ShouldNot(Equal(statsUsage{}))
+					// no 'g.' here - we require all calls to return 200
+					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+					g.Expect(len(processStats.Resources)).ToNot(BeZero())
+					g.Expect(processStats.Resources[0].Usage).ToNot(BeZero())
+				}).Should(Succeed())
 			})
 
 			It("succeeds", func() {

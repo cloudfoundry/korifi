@@ -38,7 +38,6 @@ type CFBuildRepository interface {
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
 
 type PodRepository interface {
-	ListPodStats(ctx context.Context, authInfo authorization.Info, message repositories.ListPodStatsMessage) ([]repositories.PodStatsRecord, error)
 	GetRuntimeLogsForApp(context.Context, logr.Logger, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)
 }
 
