@@ -28,6 +28,13 @@ rules:
   - get
 
 - apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - get
+
+- apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - cforgs

@@ -37,6 +37,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,6 +50,7 @@ var createTimeout = time.Second * 120
 func init() {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
+	utilruntime.Must(metricsv1beta1.AddToScheme(scheme.Scheme))
 }
 
 func main() {
@@ -103,10 +105,6 @@ func main() {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
-	metricsFetcherFunction, err := repositories.CreateMetricsFetcher(k8sClientConfig)
-	if err != nil {
-		panic(err)
-	}
 	orgRepo := repositories.NewOrgRepo(
 		config.RootNamespace,
 		privilegedCRClient,
@@ -128,7 +126,6 @@ func main() {
 	)
 	podRepo := repositories.NewPodRepo(
 		userClientFactory,
-		metricsFetcherFunction,
 	)
 	cfAppConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp,
 		korifiv1alpha1.CFAppList](createTimeout)
@@ -186,7 +183,6 @@ func main() {
 		config.RootNamespace,
 		config.RoleMappings,
 	)
-
 	imageRepo := repositories.NewImageRepository(
 		privilegedK8sClient,
 		userClientFactory,
@@ -201,9 +197,10 @@ func main() {
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](createTimeout),
 	)
+	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
 
 	processScaler := actions.NewProcessScaler(appRepo, processRepo)
-	processStats := actions.NewProcessStats(processRepo, podRepo, appRepo)
+	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
 		domainRepo,
 		config.DefaultDomainName,

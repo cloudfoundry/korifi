@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -39,7 +40,7 @@ type ProcessScaler interface {
 
 //counterfeiter:generate -o fake -fake-name ProcessStatsFetcher . ProcessStatsFetcher
 type ProcessStatsFetcher interface {
-	FetchStats(context.Context, authorization.Info, string) ([]repositories.PodStatsRecord, error)
+	FetchStats(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
 }
 
 type Process struct {

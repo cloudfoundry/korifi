@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/api/actions"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
@@ -510,12 +511,12 @@ var _ = Describe("Process", func() {
 			process2Mem = 8
 			process1Disk = 50
 			process2Disk = 100
-			processStatsFetcher.FetchStatsReturns([]repositories.PodStatsRecord{
+			processStatsFetcher.FetchStatsReturns([]actions.PodStatsRecord{
 				{
 					Type:  "web",
 					Index: 0,
 					State: "RUNNING",
-					Usage: repositories.Usage{
+					Usage: actions.Usage{
 						Time: &process1Time,
 						CPU:  &process1CPU,
 						Mem:  &process1Mem,
@@ -526,7 +527,7 @@ var _ = Describe("Process", func() {
 					Type:  "web",
 					Index: 1,
 					State: "RUNNING",
-					Usage: repositories.Usage{
+					Usage: actions.Usage{
 						Time: &process2Time,
 						CPU:  &process2CPU,
 						Mem:  &process2Mem,
@@ -602,7 +603,7 @@ var _ = Describe("Process", func() {
 
 		When("the process is down", func() {
 			BeforeEach(func() {
-				processStatsFetcher.FetchStatsReturns([]repositories.PodStatsRecord{
+				processStatsFetcher.FetchStatsReturns([]actions.PodStatsRecord{
 					{
 						Type:  "web",
 						Index: 0,
@@ -633,9 +634,9 @@ var _ = Describe("Process", func() {
 			})
 		})
 
-		When("the process stats are not authorized", func() {
+		When("the pod metrics are not authorized", func() {
 			BeforeEach(func() {
-				processStatsFetcher.FetchStatsReturns(nil, apierrors.NewForbiddenError(nil, repositories.ProcessStatsResourceType))
+				processStatsFetcher.FetchStatsReturns(nil, apierrors.NewForbiddenError(nil, repositories.PodMetricsResourceType))
 			})
 
 			It("returns an error", func() {

@@ -1,8 +1,6 @@
 package presenter
 
-import (
-	"code.cloudfoundry.org/korifi/api/repositories"
-)
+import "code.cloudfoundry.org/korifi/api/actions"
 
 type ProcessStatsResponse struct {
 	Resources []ProcessStatsResource `json:"resources"`
@@ -39,7 +37,7 @@ type ProcessInstancePort struct {
 
 type ProcessDetails struct{}
 
-func ForProcessStats(records []repositories.PodStatsRecord) ProcessStatsResponse {
+func ForProcessStats(records []actions.PodStatsRecord) ProcessStatsResponse {
 	resources := []ProcessStatsResource{}
 	for _, record := range records {
 		resources = append(resources, statRecordToResource(record))
@@ -47,7 +45,7 @@ func ForProcessStats(records []repositories.PodStatsRecord) ProcessStatsResponse
 	return ProcessStatsResponse{resources}
 }
 
-func statRecordToResource(record repositories.PodStatsRecord) ProcessStatsResource {
+func statRecordToResource(record actions.PodStatsRecord) ProcessStatsResource {
 	var processInstancePorts *[]ProcessInstancePort
 	if record.State != "DOWN" {
 		processInstancePorts = &[]ProcessInstancePort{}
