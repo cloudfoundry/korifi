@@ -12,6 +12,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,15 +24,15 @@ var _ = Describe("Process", func() {
 	)
 
 	var (
-		processRepo         *fake.CFProcessRepository
-		processStatsFetcher *fake.ProcessStatsFetcher
-		processScaler       *fake.ProcessScaler
-		req                 *http.Request
+		processRepo   *fake.CFProcessRepository
+		processStats  *fake.ProcessStats
+		processScaler *fake.ProcessScaler
+		req           *http.Request
 	)
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
-		processStatsFetcher = new(fake.ProcessStatsFetcher)
+		processStats = new(fake.ProcessStats)
 		processScaler = new(fake.ProcessScaler)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
@@ -39,7 +40,7 @@ var _ = Describe("Process", func() {
 		apiHandler := NewProcess(
 			*serverURL,
 			processRepo,
-			processStatsFetcher,
+			processStats,
 			processScaler,
 			decoderValidator,
 		)
@@ -511,7 +512,7 @@ var _ = Describe("Process", func() {
 			process2Mem = 8
 			process1Disk = 50
 			process2Disk = 100
-			processStatsFetcher.FetchStatsReturns([]actions.PodStatsRecord{
+			processStats.FetchStatsReturns([]actions.PodStatsRecord{
 				{
 					Type:  "web",
 					Index: 0,
@@ -522,6 +523,8 @@ var _ = Describe("Process", func() {
 						Mem:  &process1Mem,
 						Disk: &process1Disk,
 					},
+					MemQuota:  tools.PtrTo(int64(1024)),
+					DiskQuota: tools.PtrTo(int64(2048)),
 				},
 				{
 					Type:  "web",
@@ -533,6 +536,8 @@ var _ = Describe("Process", func() {
 						Mem:  &process2Mem,
 						Disk: &process2Disk,
 					},
+					MemQuota:  tools.PtrTo(int64(1024)),
+					DiskQuota: tools.PtrTo(int64(2048)),
 				},
 			}, nil)
 
@@ -547,8 +552,8 @@ var _ = Describe("Process", func() {
 			})
 
 			It("passes the authorization.Info to the fetch process stats func", func() {
-				Expect(processStatsFetcher.FetchStatsCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := processStatsFetcher.FetchStatsArgsForCall(0)
+				Expect(processStats.FetchStatsCallCount()).To(Equal(1))
+				_, actualAuthInfo, _ := processStats.FetchStatsArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 			})
 
@@ -564,8 +569,8 @@ var _ = Describe("Process", func() {
 							"state": "RUNNING",
 							"host": null,
 							"uptime": null,
-							"mem_quota": null,
-							"disk_quota": null,
+							"mem_quota": 1024,
+							"disk_quota": 2048,
 							"fds_quota": null,
 							"isolation_segment": null,
 							"details": null,
@@ -583,8 +588,8 @@ var _ = Describe("Process", func() {
 							"state": "RUNNING",
 							"host": null,
 							"uptime": null,
-							"mem_quota": null,
-							"disk_quota": null,
+							"mem_quota": 1024,
+							"disk_quota": 2048,
 							"fds_quota": null,
 							"isolation_segment": null,
 							"details": null,
@@ -603,7 +608,7 @@ var _ = Describe("Process", func() {
 
 		When("the process is down", func() {
 			BeforeEach(func() {
-				processStatsFetcher.FetchStatsReturns([]actions.PodStatsRecord{
+				processStats.FetchStatsReturns([]actions.PodStatsRecord{
 					{
 						Type:  "web",
 						Index: 0,
@@ -634,19 +639,19 @@ var _ = Describe("Process", func() {
 			})
 		})
 
-		When("the pod metrics are not authorized", func() {
+		When("fetching stats fails with an unauthorized error", func() {
 			BeforeEach(func() {
-				processStatsFetcher.FetchStatsReturns(nil, apierrors.NewForbiddenError(nil, repositories.PodMetricsResourceType))
+				processStats.FetchStatsReturns(nil, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
 			})
 
-			It("returns an error", func() {
-				expectNotFoundError("Process Stats not found")
+			It("returns a not found error", func() {
+				expectNotFoundError("App not found")
 			})
 		})
 
 		When("fetching the process stats errors", func() {
 			BeforeEach(func() {
-				processStatsFetcher.FetchStatsReturns(nil, errors.New("boom"))
+				processStats.FetchStatsReturns(nil, errors.New("boom"))
 			})
 
 			It("returns an error", func() {

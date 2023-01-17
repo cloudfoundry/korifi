@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 )
 
-type ProcessStatsFetcher struct {
+type ProcessStats struct {
 	FetchStatsStub        func(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
 	fetchStatsMutex       sync.RWMutex
 	fetchStatsArgsForCall []struct {
@@ -30,7 +30,7 @@ type ProcessStatsFetcher struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ProcessStatsFetcher) FetchStats(arg1 context.Context, arg2 authorization.Info, arg3 string) ([]actions.PodStatsRecord, error) {
+func (fake *ProcessStats) FetchStats(arg1 context.Context, arg2 authorization.Info, arg3 string) ([]actions.PodStatsRecord, error) {
 	fake.fetchStatsMutex.Lock()
 	ret, specificReturn := fake.fetchStatsReturnsOnCall[len(fake.fetchStatsArgsForCall)]
 	fake.fetchStatsArgsForCall = append(fake.fetchStatsArgsForCall, struct {
@@ -51,26 +51,26 @@ func (fake *ProcessStatsFetcher) FetchStats(arg1 context.Context, arg2 authoriza
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *ProcessStatsFetcher) FetchStatsCallCount() int {
+func (fake *ProcessStats) FetchStatsCallCount() int {
 	fake.fetchStatsMutex.RLock()
 	defer fake.fetchStatsMutex.RUnlock()
 	return len(fake.fetchStatsArgsForCall)
 }
 
-func (fake *ProcessStatsFetcher) FetchStatsCalls(stub func(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)) {
+func (fake *ProcessStats) FetchStatsCalls(stub func(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)) {
 	fake.fetchStatsMutex.Lock()
 	defer fake.fetchStatsMutex.Unlock()
 	fake.FetchStatsStub = stub
 }
 
-func (fake *ProcessStatsFetcher) FetchStatsArgsForCall(i int) (context.Context, authorization.Info, string) {
+func (fake *ProcessStats) FetchStatsArgsForCall(i int) (context.Context, authorization.Info, string) {
 	fake.fetchStatsMutex.RLock()
 	defer fake.fetchStatsMutex.RUnlock()
 	argsForCall := fake.fetchStatsArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *ProcessStatsFetcher) FetchStatsReturns(result1 []actions.PodStatsRecord, result2 error) {
+func (fake *ProcessStats) FetchStatsReturns(result1 []actions.PodStatsRecord, result2 error) {
 	fake.fetchStatsMutex.Lock()
 	defer fake.fetchStatsMutex.Unlock()
 	fake.FetchStatsStub = nil
@@ -80,7 +80,7 @@ func (fake *ProcessStatsFetcher) FetchStatsReturns(result1 []actions.PodStatsRec
 	}{result1, result2}
 }
 
-func (fake *ProcessStatsFetcher) FetchStatsReturnsOnCall(i int, result1 []actions.PodStatsRecord, result2 error) {
+func (fake *ProcessStats) FetchStatsReturnsOnCall(i int, result1 []actions.PodStatsRecord, result2 error) {
 	fake.fetchStatsMutex.Lock()
 	defer fake.fetchStatsMutex.Unlock()
 	fake.FetchStatsStub = nil
@@ -96,7 +96,7 @@ func (fake *ProcessStatsFetcher) FetchStatsReturnsOnCall(i int, result1 []action
 	}{result1, result2}
 }
 
-func (fake *ProcessStatsFetcher) Invocations() map[string][][]interface{} {
+func (fake *ProcessStats) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.fetchStatsMutex.RLock()
@@ -108,7 +108,7 @@ func (fake *ProcessStatsFetcher) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *ProcessStatsFetcher) recordInvocation(key string, args []interface{}) {
+func (fake *ProcessStats) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -120,4 +120,4 @@ func (fake *ProcessStatsFetcher) recordInvocation(key string, args []interface{}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ handlers.ProcessStatsFetcher = new(ProcessStatsFetcher)
+var _ handlers.ProcessStats = new(ProcessStats)

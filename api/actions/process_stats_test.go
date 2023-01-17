@@ -3,7 +3,6 @@ package actions_test
 import (
 	"context"
 	"errors"
-	"strconv"
 	"time"
 
 	. "code.cloudfoundry.org/korifi/api/actions"
@@ -54,6 +53,8 @@ var _ = Describe("ProcessStats", func() {
 			AppGUID:          "the-app-guid",
 			DesiredInstances: 2,
 			Type:             "web",
+			MemoryMB:         1024,
+			DiskQuotaMB:      2048,
 		}, nil)
 
 		appRepo.GetAppReturns(repositories.AppRecord{
@@ -114,6 +115,8 @@ var _ = Describe("ProcessStats", func() {
 		Expect(responseRecords[0].Usage.CPU).To(Equal(tools.PtrTo(0.123)))
 		Expect(responseRecords[0].Usage.Mem).To(Equal(tools.PtrTo(int64(456))))
 		Expect(responseRecords[0].Usage.Disk).To(Equal(tools.PtrTo(int64(890))))
+		Expect(responseRecords[0].MemQuota).To(Equal(tools.PtrTo(int64(1024 * 1024 * 1024))))
+		Expect(responseRecords[0].DiskQuota).To(Equal(tools.PtrTo(int64(2048 * 1024 * 1024))))
 
 		Expect(responseRecords[1].Index).To(Equal(1))
 		Expect(responseRecords[1].Type).To(Equal("web"))
@@ -122,6 +125,8 @@ var _ = Describe("ProcessStats", func() {
 		Expect(responseRecords[1].Usage.CPU).To(Equal(tools.PtrTo(0.124)))
 		Expect(responseRecords[1].Usage.Mem).To(Equal(tools.PtrTo(int64(457))))
 		Expect(responseRecords[1].Usage.Disk).To(Equal(tools.PtrTo(int64(891))))
+		Expect(responseRecords[1].MemQuota).To(Equal(tools.PtrTo(int64(1024 * 1024 * 1024))))
+		Expect(responseRecords[1].DiskQuota).To(Equal(tools.PtrTo(int64(2048 * 1024 * 1024))))
 	})
 
 	When("stats for some instances are missing", func() {
@@ -368,8 +373,4 @@ func createPodMetrics(cpuStr, memStr, diskStr string) metricsv1beta1.PodMetrics 
 			},
 		},
 	}
-}
-
-func matchElementsWithIndexIDFn(index int, element interface{}) string {
-	return strconv.Itoa(index)
 }

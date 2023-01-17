@@ -14,8 +14,8 @@ type ProcessStatsResource struct {
 	Host             *string                `json:"host"`
 	InstancePorts    *[]ProcessInstancePort `json:"instance_ports,omitempty"`
 	Uptime           *int                   `json:"uptime"`
-	MemQuota         *int                   `json:"mem_quota"`
-	DiskQuota        *int                   `json:"disk_quota"`
+	MemQuota         *int64                 `json:"mem_quota"`
+	DiskQuota        *int64                 `json:"disk_quota"`
 	FDSQuota         *int                   `json:"fds_quota"`
 	IsolationSegment *string                `json:"isolation_segment"`
 	Details          *ProcessDetails        `json:"details"`
@@ -61,5 +61,7 @@ func statRecordToResource(record actions.PodStatsRecord) ProcessStatsResource {
 			Mem:  record.Usage.Mem,
 			Disk: record.Usage.Disk,
 		},
+		MemQuota:  record.MemQuota,
+		DiskQuota: record.DiskQuota,
 	}
 }

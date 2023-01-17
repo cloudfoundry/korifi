@@ -38,32 +38,32 @@ type ProcessScaler interface {
 	ScaleProcess(ctx context.Context, authInfo authorization.Info, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
 }
 
-//counterfeiter:generate -o fake -fake-name ProcessStatsFetcher . ProcessStatsFetcher
-type ProcessStatsFetcher interface {
+//counterfeiter:generate -o fake -fake-name ProcessStats . ProcessStats
+type ProcessStats interface {
 	FetchStats(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
 }
 
 type Process struct {
-	serverURL           url.URL
-	processRepo         CFProcessRepository
-	processStatsFetcher ProcessStatsFetcher
-	processScaler       ProcessScaler
-	decoderValidator    *DecoderValidator
+	serverURL        url.URL
+	processRepo      CFProcessRepository
+	processStats     ProcessStats
+	processScaler    ProcessScaler
+	decoderValidator *DecoderValidator
 }
 
 func NewProcess(
 	serverURL url.URL,
 	processRepo CFProcessRepository,
-	processStatsFetcher ProcessStatsFetcher,
+	processStatsFetcher ProcessStats,
 	scaleProcessFunc ProcessScaler,
 	decoderValidator *DecoderValidator,
 ) *Process {
 	return &Process{
-		serverURL:           serverURL,
-		processRepo:         processRepo,
-		processStatsFetcher: processStatsFetcher,
-		processScaler:       scaleProcessFunc,
-		decoderValidator:    decoderValidator,
+		serverURL:        serverURL,
+		processRepo:      processRepo,
+		processStats:     processStatsFetcher,
+		processScaler:    scaleProcessFunc,
+		decoderValidator: decoderValidator,
 	}
 }
 
@@ -134,7 +134,7 @@ func (h *Process) getStats(r *http.Request) (*routing.Response, error) {
 
 	processGUID := routing.URLParam(r, "guid")
 
-	records, err := h.processStatsFetcher.FetchStats(r.Context(), authInfo, processGUID)
+	records, err := h.processStats.FetchStats(r.Context(), authInfo, processGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
 	}

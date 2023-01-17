@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
@@ -41,10 +42,12 @@ type (
 	}
 
 	PodStatsRecord struct {
-		Type  string
-		Index int
-		State string `default:"DOWN"`
-		Usage Usage
+		Type      string
+		Index     int
+		State     string `default:"DOWN"`
+		Usage     Usage
+		MemQuota  *int64
+		DiskQuota *int64
 	}
 
 	ProcessStats struct {
@@ -144,6 +147,9 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 
 		time := m.Metrics.Timestamp.UTC().Format(repositories.TimestampFormat)
 		records[index].Usage.Time = &time
+
+		records[index].MemQuota = tools.PtrTo(megabytesToBytes(processRecord.MemoryMB))
+		records[index].DiskQuota = tools.PtrTo(megabytesToBytes(processRecord.DiskQuotaMB))
 	}
 	return records, nil
 }
@@ -190,6 +196,7 @@ func extractEnvVarFromContainer(container corev1.Container, envVar string) (stri
 	return "", fmt.Errorf("%s not set", envVar)
 }
 
+// Logic from Kubernetes in Action 2nd Edition - Ch 6.
 // DOWN => !pod || !pod.conditions.PodScheduled
 // CRASHED => any(pod.ContainerStatuses.State isA Terminated)
 // RUNNING => pod.conditions.Ready
@@ -247,4 +254,8 @@ func aggregateContainerMetrics(containers []metricsv1beta1.ContainerMetrics) map
 	}
 
 	return metrics
+}
+
+func megabytesToBytes(mb int64) int64 {
+	return mb * 1024 * 1024
 }
