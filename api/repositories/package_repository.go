@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -66,10 +65,8 @@ type PackageRecord struct {
 }
 
 type ListPackagesMessage struct {
-	AppGUIDs        []string
-	SortBy          string
-	DescendingOrder bool
-	States          []string
+	AppGUIDs []string
+	States   []string
 }
 
 type CreatePackageMessage struct {
@@ -204,21 +201,7 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 		}
 		filteredPackages = append(filteredPackages, applyPackageFilter(packageList.Items, message)...)
 	}
-	orderedPackages := orderPackages(filteredPackages, message)
-
-	return r.convertToPackageRecords(orderedPackages), nil
-}
-
-func orderPackages(packages []korifiv1alpha1.CFPackage, message ListPackagesMessage) []korifiv1alpha1.CFPackage {
-	sort.Slice(packages, func(i, j int) bool {
-		if message.SortBy == "created_at" && message.DescendingOrder {
-			return !packages[i].CreationTimestamp.Before(&packages[j].CreationTimestamp)
-		}
-		// For now, we order by created_at by default- if you really want to optimize runtime you can use bucketsort
-		return packages[i].CreationTimestamp.Before(&packages[j].CreationTimestamp)
-	})
-
-	return packages
+	return r.convertToPackageRecords(filteredPackages), nil
 }
 
 func applyPackageFilter(packages []korifiv1alpha1.CFPackage, message ListPackagesMessage) []korifiv1alpha1.CFPackage {

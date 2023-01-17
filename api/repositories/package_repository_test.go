@@ -318,58 +318,6 @@ var _ = Describe("PackageRepository", func() {
 					})
 				})
 
-				When("SortBy is provided and value is created_at", func() {
-					When("descending order is false", func() {
-						BeforeEach(func() {
-							listMessage = repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: false}
-						})
-
-						It("fetches packages sorted by created_at in ascending order", func() {
-							Expect(packageList).To(ConsistOf(
-								MatchFields(IgnoreExtras, Fields{
-									"GUID":    Equal(package1GUID),
-									"AppGUID": Equal(appGUID),
-								}),
-								MatchFields(IgnoreExtras, Fields{
-									"GUID":    Equal(package2GUID),
-									"AppGUID": Equal(appGUID2),
-								}),
-							))
-
-							firstCreatedAt, err := time.Parse(time.RFC3339, packageList[0].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							secondCreatedAt, err := time.Parse(time.RFC3339, packageList[1].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(firstCreatedAt).To(BeTemporally("<=", secondCreatedAt))
-						})
-					})
-
-					When("descending order is true", func() {
-						BeforeEach(func() {
-							listMessage = repositories.ListPackagesMessage{SortBy: "created_at", DescendingOrder: true}
-						})
-
-						It("fetches packages sorted by created_at in descending order", func() {
-							Expect(packageList).To(ContainElements(
-								MatchFields(IgnoreExtras, Fields{
-									"GUID":    Equal(package1GUID),
-									"AppGUID": Equal(appGUID),
-								}),
-								MatchFields(IgnoreExtras, Fields{
-									"GUID":    Equal(package2GUID),
-									"AppGUID": Equal(appGUID2),
-								}),
-							))
-
-							firstCreatedAt, err := time.Parse(time.RFC3339, packageList[0].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							secondCreatedAt, err := time.Parse(time.RFC3339, packageList[1].CreatedAt)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(firstCreatedAt).To(BeTemporally(">=", secondCreatedAt))
-						})
-					})
-				})
-
 				When("State filter is provided", func() {
 					When("filtering by State=READY", func() {
 						BeforeEach(func() {

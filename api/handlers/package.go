@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -105,7 +106,28 @@ func (h Package) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository", "error")
 	}
 
+	if err := h.sortList(records, r.FormValue("order_by")); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
+	}
+
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForPackageList(records, h.serverURL, *r.URL)), nil
+}
+
+func (h Package) sortList(records []repositories.PackageRecord, order string) error {
+	switch order {
+	case "":
+	case "created_at":
+		sort.Slice(records, func(i, j int) bool { return records[i].CreatedAt < records[j].CreatedAt })
+	case "-created_at":
+		sort.Slice(records, func(i, j int) bool { return records[i].CreatedAt > records[j].CreatedAt })
+	case "updated_at":
+		sort.Slice(records, func(i, j int) bool { return records[i].UpdatedAt < records[j].UpdatedAt })
+	case "-updated_at":
+		sort.Slice(records, func(i, j int) bool { return records[i].UpdatedAt > records[j].UpdatedAt })
+	default:
+		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at")
+	}
+	return nil
 }
 
 func (h Package) create(r *http.Request) (*routing.Response, error) {
