@@ -196,10 +196,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		labelCompiler := labels.NewCompiler().Defaults(map[string]string{
-			admission.EnforceLevelLabel: string(admission.LevelRestricted),
-			admission.AuditLevelLabel:   string(admission.LevelRestricted),
-		})
+		labelCompiler := labels.NewCompiler().
+			Defaults(map[string]string{
+				admission.EnforceLevelLabel: string(admission.LevelRestricted),
+				admission.AuditLevelLabel:   string(admission.LevelRestricted),
+			}).
+			Defaults(controllerConfig.NamespaceLabels)
 
 		if err = workloadscontrollers.NewCFOrgReconciler(
 			mgr.GetClient(),
@@ -218,7 +220,7 @@ func main() {
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
 			controllerConfig.ContainerRegistrySecretName,
 			controllerConfig.CFRootNamespace,
-			labelCompiler.Defaults(controllerConfig.NamespaceLabels),
+			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
 			os.Exit(1)
