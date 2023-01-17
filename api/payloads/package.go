@@ -2,7 +2,6 @@ package payloads
 
 import (
 	"net/url"
-	"strings"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -46,15 +45,12 @@ func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackage
 type PackageListQueryParameters struct {
 	AppGUIDs string
 	States   string
-	OrderBy  string
 }
 
 func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessage {
 	return repositories.ListPackagesMessage{
-		AppGUIDs:        ParseArrayParam(p.AppGUIDs),
-		States:          ParseArrayParam(p.States),
-		SortBy:          strings.TrimPrefix(p.OrderBy, "-"),
-		DescendingOrder: strings.HasPrefix(p.OrderBy, "-"),
+		AppGUIDs: ParseArrayParam(p.AppGUIDs),
+		States:   ParseArrayParam(p.States),
 	}
 }
 
@@ -64,7 +60,6 @@ func (p *PackageListQueryParameters) SupportedKeys() []string {
 
 func (p *PackageListQueryParameters) DecodeFromURLValues(values url.Values) error {
 	p.AppGUIDs = values.Get("app_guids")
-	p.OrderBy = values.Get("order_by")
 	p.States = values.Get("states")
 	return nil
 }

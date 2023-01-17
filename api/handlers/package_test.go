@@ -2,11 +2,13 @@ package handlers_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -334,53 +336,61 @@ var _ = Describe("Package", func() {
 			})
 		})
 
-		When("an invalid 'order_by' parameter is sent", func() {
+		Describe("Order results", func() {
+			type res struct {
+				GUID string `json:"guid"`
+			}
+			type resList struct {
+				Resources []res `json:"resources"`
+			}
+
 			BeforeEach(func() {
-				queryParamString = "?order_by=some_weird_value"
+				packageRepo.ListPackagesReturns([]repositories.PackageRecord{
+					{
+						GUID:      "1",
+						CreatedAt: "2023-01-17T14:58:32Z",
+						UpdatedAt: "2023-01-18T14:58:32Z",
+					},
+					{
+						GUID:      "2",
+						CreatedAt: "2023-01-17T14:57:32Z",
+						UpdatedAt: "2023-01-17T14:57:32Z",
+					},
+					{
+						GUID:      "3",
+						CreatedAt: "2023-01-16T14:57:32Z",
+						UpdatedAt: "2023-01-20:57:32Z",
+					},
+				}, nil)
 			})
 
-			It("ignores it and returns status 200", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
-		})
+			DescribeTable("ordering results", func(orderBy string, expectedOrder ...string) {
+				req = createHttpRequest("GET", "/v3/packages?order_by="+orderBy, nil)
+				rr = httptest.NewRecorder()
+				routerBuilder.Build().ServeHTTP(rr, req)
+				var respList resList
+				err := json.Unmarshal(rr.Body.Bytes(), &respList)
+				Expect(err).NotTo(HaveOccurred())
+				expectedList := make([]res, len(expectedOrder))
+				for i := range expectedOrder {
+					expectedList[i] = res{GUID: expectedOrder[i]}
+				}
+				Expect(respList.Resources).To(Equal(expectedList))
+			},
+				Entry("created_at ASC", "created_at", "3", "2", "1"),
+				Entry("created_at DESC", "-created_at", "1", "2", "3"),
+				Entry("updated_at ASC", "updated_at", "2", "1", "3"),
+				Entry("updated_at DESC", "-updated_at", "3", "1", "2"),
+			)
 
-		When("an 'order_by' parameter is sent", func() {
-			BeforeEach(func() {
-				queryParamString = "?order_by=created_at"
-			})
+			When("order_by is not a valid field", func() {
+				BeforeEach(func() {
+					queryParamString = "?order_by=not_valid"
+				})
 
-			It("calls repository ListPackage with the correct message object", func() {
-				_, _, message := packageRepo.ListPackagesArgsForCall(0)
-				Expect(message).To(Equal(repositories.ListPackagesMessage{
-					AppGUIDs:        []string{},
-					SortBy:          "created_at",
-					DescendingOrder: false,
-					States:          []string{},
-				}))
-			})
-
-			It("returns status 200", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
-		})
-
-		When("an 'order_by' descending parameter is sent", func() {
-			BeforeEach(func() {
-				queryParamString = "?order_by=-created_at"
-			})
-
-			It("calls repository ListPackage with the correct message object", func() {
-				_, _, message := packageRepo.ListPackagesArgsForCall(0)
-				Expect(message).To(Equal(repositories.ListPackagesMessage{
-					AppGUIDs:        []string{},
-					SortBy:          "created_at",
-					DescendingOrder: true,
-					States:          []string{},
-				}))
-			})
-
-			It("returns status 200", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				It("returns an Unknown key error", func() {
+					expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at'")
+				})
 			})
 		})
 
@@ -402,10 +412,8 @@ var _ = Describe("Package", func() {
 			It("calls repository ListPackage with the correct message object", func() {
 				_, _, message := packageRepo.ListPackagesArgsForCall(0)
 				Expect(message).To(Equal(repositories.ListPackagesMessage{
-					AppGUIDs:        []string{},
-					SortBy:          "",
-					DescendingOrder: false,
-					States:          []string{"READY", "AWAITING_UPLOAD"},
+					AppGUIDs: []string{},
+					States:   []string{"READY", "AWAITING_UPLOAD"},
 				}))
 			})
 
