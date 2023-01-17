@@ -66,6 +66,7 @@ func (h *Buildpack) list(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil
 }
 
+// nolint:dupl
 func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string) error {
 	switch order {
 	case "":
