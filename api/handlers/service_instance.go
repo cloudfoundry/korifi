@@ -115,6 +115,7 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL)), nil
 }
 
+// nolint:dupl
 func (h *ServiceInstance) sortList(siList []repositories.ServiceInstanceRecord, order string) error {
 	switch order {
 	case "":
