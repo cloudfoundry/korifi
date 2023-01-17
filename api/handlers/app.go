@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -152,7 +153,36 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app(s) from Kubernetes")
 	}
 
+	if err := h.sortList(appList, r.FormValue("order_by")); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
+	}
+
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForAppList(appList, h.serverURL, *r.URL)), nil
+}
+
+func (h *App) sortList(appList []repositories.AppRecord, order string) error {
+	switch order {
+	case "":
+	case "created_at":
+		sort.Slice(appList, func(i, j int) bool { return appList[i].CreatedAt < appList[j].CreatedAt })
+	case "-created_at":
+		sort.Slice(appList, func(i, j int) bool { return appList[i].CreatedAt > appList[j].CreatedAt })
+	case "updated_at":
+		sort.Slice(appList, func(i, j int) bool { return appList[i].UpdatedAt < appList[j].UpdatedAt })
+	case "-updated_at":
+		sort.Slice(appList, func(i, j int) bool { return appList[i].UpdatedAt > appList[j].UpdatedAt })
+	case "name":
+		sort.Slice(appList, func(i, j int) bool { return appList[i].Name < appList[j].Name })
+	case "-name":
+		sort.Slice(appList, func(i, j int) bool { return appList[i].Name > appList[j].Name })
+	case "state":
+		sort.Slice(appList, func(i, j int) bool { return appList[i].State < appList[j].State })
+	case "-state":
+		sort.Slice(appList, func(i, j int) bool { return appList[i].State > appList[j].State })
+	default:
+		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at", "name", "state")
+	}
+	return nil
 }
 
 func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {

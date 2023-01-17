@@ -694,6 +694,81 @@ var _ = Describe("App", func() {
 			})
 		})
 
+		Describe("Order results", func() {
+			type res struct {
+				GUID string `json:"guid"`
+			}
+			type resList struct {
+				Resources []res `json:"resources"`
+			}
+
+			BeforeEach(func() {
+				appRepo.ListAppsReturns([]repositories.AppRecord{
+					{
+						GUID:      "1",
+						Name:      "first-test-app",
+						State:     "STOPPED",
+						CreatedAt: "2023-01-17T14:58:32Z",
+						UpdatedAt: "2023-01-18T14:58:32Z",
+					},
+					{
+						GUID:      "2",
+						Name:      "second-test-app",
+						State:     "BROKEN",
+						CreatedAt: "2023-01-17T14:57:32Z",
+						UpdatedAt: "2023-01-19T14:57:32Z",
+					},
+					{
+						GUID:      "3",
+						Name:      "third-test-app",
+						State:     "STARTED",
+						CreatedAt: "2023-01-16T14:57:32Z",
+						UpdatedAt: "2023-01-20:57:32Z",
+					},
+					{
+						GUID:      "4",
+						Name:      "fourth-test-app",
+						State:     "FIXED",
+						CreatedAt: "2023-01-17T13:57:32Z",
+						UpdatedAt: "2023-01-19T14:58:32Z",
+					},
+				}, nil)
+			})
+
+			DescribeTable("ordering results", func(orderBy string, expectedOrder ...string) {
+				req = createHttpRequest("GET", "/v3/apps?order_by="+orderBy, nil)
+				rr = httptest.NewRecorder()
+				routerBuilder.Build().ServeHTTP(rr, req)
+				var respList resList
+				err := json.Unmarshal(rr.Body.Bytes(), &respList)
+				Expect(err).NotTo(HaveOccurred())
+				expectedList := make([]res, len(expectedOrder))
+				for i := range expectedOrder {
+					expectedList[i] = res{GUID: expectedOrder[i]}
+				}
+				Expect(respList.Resources).To(Equal(expectedList))
+			},
+				Entry("created_at ASC", "created_at", "3", "4", "2", "1"),
+				Entry("created_at DESC", "-created_at", "1", "2", "4", "3"),
+				Entry("updated_at ASC", "updated_at", "1", "2", "4", "3"),
+				Entry("updated_at DESC", "-updated_at", "3", "4", "2", "1"),
+				Entry("name ASC", "name", "1", "4", "2", "3"),
+				Entry("name DESC", "-name", "3", "2", "4", "1"),
+				Entry("state ASC", "state", "2", "4", "3", "1"),
+				Entry("state DESC", "-state", "1", "3", "4", "2"),
+			)
+
+			When("order_by is not a valid field", func() {
+				BeforeEach(func() {
+					req = createHttpRequest("GET", "/v3/apps?order_by=not_valid", nil)
+				})
+
+				It("returns an Unknown key error", func() {
+					expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at', 'name', 'state'")
+				})
+			})
+		})
+
 		When("no apps can be found", func() {
 			BeforeEach(func() {
 				appRepo.ListAppsReturns([]repositories.AppRecord{}, nil)

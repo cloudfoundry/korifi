@@ -200,6 +200,24 @@ func NewForbiddenError(cause error, resourceType string) ForbiddenError {
 	}
 }
 
+type BadQueryParamValueError struct {
+	apiError
+}
+
+func NewBadQueryParamValueError(key string, validValues ...string) BadQueryParamValueError {
+	for i := range validValues {
+		validValues[i] = fmt.Sprintf("'%s'", validValues[i])
+	}
+	return BadQueryParamValueError{
+		apiError: apiError{
+			title:      "CF-BadQueryParameter",
+			detail:     fmt.Sprintf("The query parameter is invalid: %s can only be: %s", key, strings.Join(validValues, ", ")),
+			code:       10005,
+			httpStatus: http.StatusBadRequest,
+		},
+	}
+}
+
 type UnknownKeyError struct {
 	apiError
 }
