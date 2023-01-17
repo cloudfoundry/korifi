@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sort"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -58,7 +59,32 @@ func (h *Buildpack) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch buildpacks from Kubernetes")
 	}
 
+	if err := h.sortList(buildpacks, r.FormValue("order_by")); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
+	}
+
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil
+}
+
+func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string) error {
+	switch order {
+	case "":
+	case "created_at":
+		sort.Slice(bpList, func(i, j int) bool { return bpList[i].CreatedAt < bpList[j].CreatedAt })
+	case "-created_at":
+		sort.Slice(bpList, func(i, j int) bool { return bpList[i].CreatedAt > bpList[j].CreatedAt })
+	case "updated_at":
+		sort.Slice(bpList, func(i, j int) bool { return bpList[i].UpdatedAt < bpList[j].UpdatedAt })
+	case "-updated_at":
+		sort.Slice(bpList, func(i, j int) bool { return bpList[i].UpdatedAt > bpList[j].UpdatedAt })
+	case "position":
+		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position < bpList[j].Position })
+	case "-position":
+		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position > bpList[j].Position })
+	default:
+		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at", "position")
+	}
+	return nil
 }
 
 func (h *Buildpack) UnauthenticatedRoutes() []routing.Route {
