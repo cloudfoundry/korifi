@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -107,7 +108,32 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service instance")
 	}
 
+	if err := h.sortList(serviceInstanceList, r.FormValue("order_by")); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
+	}
+
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL)), nil
+}
+
+func (h *ServiceInstance) sortList(siList []repositories.ServiceInstanceRecord, order string) error {
+	switch order {
+	case "":
+	case "created_at":
+		sort.Slice(siList, func(i, j int) bool { return siList[i].CreatedAt < siList[j].CreatedAt })
+	case "-created_at":
+		sort.Slice(siList, func(i, j int) bool { return siList[i].CreatedAt > siList[j].CreatedAt })
+	case "updated_at":
+		sort.Slice(siList, func(i, j int) bool { return siList[i].UpdatedAt < siList[j].UpdatedAt })
+	case "-updated_at":
+		sort.Slice(siList, func(i, j int) bool { return siList[i].UpdatedAt > siList[j].UpdatedAt })
+	case "name":
+		sort.Slice(siList, func(i, j int) bool { return siList[i].Name < siList[j].Name })
+	case "-name":
+		sort.Slice(siList, func(i, j int) bool { return siList[i].Name > siList[j].Name })
+	default:
+		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at", "name")
+	}
+	return nil
 }
 
 func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {

@@ -228,14 +228,12 @@ var _ = Describe("PackageListQueryParameters", func() {
 		err := packageList.DecodeFromURLValues(url.Values{
 			"app_guids": []string{"app_guid"},
 			"states":    []string{"state"},
-			"order_by":  []string{"order"},
 		})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(packageList).To(Equal(payloads.PackageListQueryParameters{
 			AppGUIDs: "app_guid",
 			States:   "state",
-			OrderBy:  "order",
 		}))
 	})
 })

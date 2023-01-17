@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -56,10 +55,8 @@ type CreateServiceInstanceMessage struct {
 }
 
 type ListServiceInstanceMessage struct {
-	Names           []string
-	SpaceGuids      []string
-	OrderBy         string
-	DescendingOrder bool
+	Names      []string
+	SpaceGuids []string
 }
 
 type DeleteServiceInstanceMessage struct {
@@ -136,9 +133,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		filteredServiceInstances = append(filteredServiceInstances, applyServiceInstanceListFilter(serviceInstanceList.Items, message)...)
 	}
 
-	orderedServiceInstances := orderServiceInstances(filteredServiceInstances, message.OrderBy, message.DescendingOrder)
-
-	return returnServiceInstanceList(orderedServiceInstances), nil
+	return returnServiceInstanceList(filteredServiceInstances), nil
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
@@ -257,33 +252,6 @@ func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceIns
 		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceInstanceToServiceInstanceRecord(serviceInstance))
 	}
 	return serviceInstanceRecords
-}
-
-func orderServiceInstances(serviceInstances []korifiv1alpha1.CFServiceInstance, sortBy string, desc bool) []korifiv1alpha1.CFServiceInstance {
-	sort.Slice(serviceInstances, func(i, j int) bool {
-		var less bool
-
-		switch sortBy {
-		case "created_at":
-			less = serviceInstances[i].CreationTimestamp.Before(&serviceInstances[j].CreationTimestamp)
-		case "updated_at":
-			// Ignoring the errors that could be returned as there is no way to handle them
-			updateTime1, _ := getTimeLastUpdatedTimestamp(&serviceInstances[i].ObjectMeta)
-			updateTime2, _ := getTimeLastUpdatedTimestamp(&serviceInstances[j].ObjectMeta)
-			less = updateTime1 < updateTime2
-		default:
-			// Default to sorting by name
-			less = serviceInstances[i].Spec.DisplayName < serviceInstances[j].Spec.DisplayName
-		}
-
-		if desc {
-			return !less
-		}
-
-		return less
-	})
-
-	return serviceInstances
 }
 
 func updateSecretTypeFields(secret *corev1.Secret) {

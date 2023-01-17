@@ -1,10 +1,12 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -342,7 +344,7 @@ var _ = Describe("ServiceInstance", func() {
 		})
 	})
 
-	Describe("the GET /v3/service_instances endpoint", func() {
+	Describe("GET /v3/service_instances", func() {
 		const (
 			serviceInstanceName1 = "my-upsi-1"
 			serviceInstanceGUID1 = "service-instance-guid-1"
@@ -538,36 +540,73 @@ var _ = Describe("ServiceInstance", func() {
 
 			When("the order_by query parameter is provided", func() {
 				BeforeEach(func() {
-					makeListRequest("order_by=name")
-				})
-
-				It("passes it to the repository", func() {
-					Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
-					_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
-
-					Expect(message.OrderBy).To(Equal("name"))
-					Expect(message.DescendingOrder).To(BeFalse(), "DescendingOrder was not false as expected")
+					makeListRequest("order_by=-name")
 				})
 
 				It("correctly sets the query parameter in response pagination links", func() {
-					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=name"))
+					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=-name"))
+				})
+			})
+
+			Describe("Order results", func() {
+				type res struct {
+					GUID string `json:"guid"`
+				}
+				type resList struct {
+					Resources []res `json:"resources"`
+				}
+
+				BeforeEach(func() {
+					serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
+						{
+							GUID:      "1",
+							Name:      "first-test-si",
+							CreatedAt: "2023-01-17T14:58:32Z",
+							UpdatedAt: "2023-01-18T14:58:32Z",
+						},
+						{
+							GUID:      "2",
+							Name:      "second-test-si",
+							CreatedAt: "2023-01-17T14:57:32Z",
+							UpdatedAt: "2023-01-19T14:57:32Z",
+						},
+						{
+							GUID:      "3",
+							Name:      "third-test-si",
+							CreatedAt: "2023-01-16T14:57:32Z",
+							UpdatedAt: "2023-01-20:57:32Z",
+						},
+					}, nil)
 				})
 
-				When("the order_by query parameter value begins with '-'", func() {
+				DescribeTable("ordering results", func(orderBy string, expectedOrder ...string) {
+					req = createHttpRequest("GET", "/v3/service_instances?order_by="+orderBy, nil)
+					rr = httptest.NewRecorder()
+					routerBuilder.Build().ServeHTTP(rr, req)
+					var respList resList
+					err := json.Unmarshal(rr.Body.Bytes(), &respList)
+					Expect(err).NotTo(HaveOccurred())
+					expectedList := make([]res, len(expectedOrder))
+					for i := range expectedOrder {
+						expectedList[i] = res{GUID: expectedOrder[i]}
+					}
+					Expect(respList.Resources).To(Equal(expectedList))
+				},
+					Entry("created_at ASC", "created_at", "3", "2", "1"),
+					Entry("created_at DESC", "-created_at", "1", "2", "3"),
+					Entry("updated_at ASC", "updated_at", "1", "2", "3"),
+					Entry("updated_at DESC", "-updated_at", "3", "2", "1"),
+					Entry("name ASC", "name", "1", "2", "3"),
+					Entry("name DESC", "-name", "3", "2", "1"),
+				)
+
+				When("order_by is not a valid field", func() {
 					BeforeEach(func() {
-						makeListRequest("order_by=-name")
+						makeListRequest("order_by=foo")
 					})
 
-					It("sets the DescendingOrder field in the message to true", func() {
-						Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
-						_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
-
-						Expect(message.OrderBy).To(Equal("name"))
-						Expect(message.DescendingOrder).To(BeTrue(), "DescendingOrder was not true as expected")
-					})
-
-					It("correctly sets the query parameter in response pagination links", func() {
-						Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=-name"))
+					It("returns an Unknown key error", func() {
+						expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at', 'name'")
 					})
 				})
 			})

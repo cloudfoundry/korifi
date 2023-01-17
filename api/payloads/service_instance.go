@@ -2,7 +2,6 @@ package payloads
 
 import (
 	"net/url"
-	"strings"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -40,10 +39,8 @@ type ServiceInstanceList struct {
 
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
-		Names:           ParseArrayParam(l.Names),
-		SpaceGuids:      ParseArrayParam(l.SpaceGuids),
-		OrderBy:         strings.TrimPrefix(l.OrderBy, "-"),
-		DescendingOrder: strings.HasPrefix(l.OrderBy, "-"),
+		Names:      ParseArrayParam(l.Names),
+		SpaceGuids: ParseArrayParam(l.SpaceGuids),
 	}
 }
 
