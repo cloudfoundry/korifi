@@ -27,22 +27,8 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, client, namespace, func() error {
-		if namespace.Labels == nil {
-			namespace.Labels = make(map[string]string)
-		}
-
-		for key, value := range labels {
-			namespace.Labels[key] = value
-		}
-
-		if namespace.Annotations == nil {
-			namespace.Annotations = make(map[string]string)
-		}
-
-		for key, value := range annotations {
-			namespace.Annotations[key] = value
-		}
-
+		updateMap(&namespace.Labels, labels)
+		updateMap(&namespace.Annotations, annotations)
 		return nil
 	})
 	if err != nil {
@@ -51,6 +37,16 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 
 	log.Info("Namespace reconciled", "operation", result)
 	return nil
+}
+
+func updateMap(dest *map[string]string, values map[string]string) {
+	if *dest == nil {
+		*dest = make(map[string]string)
+	}
+
+	for key, value := range values {
+		(*dest)[key] = value
+	}
 }
 
 func propagateSecret(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, secretName string) error {

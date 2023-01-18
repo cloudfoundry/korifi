@@ -203,6 +203,40 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		})
 	})
 
+	When("the CFSpace is updated after namespace modifications", func() {
+		var originalSpace *korifiv1alpha1.CFSpace
+
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+			originalSpace = cfSpace.DeepCopy()
+			var createdNamespace corev1.Namespace
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &createdNamespace)).To(Succeed())
+			}).Should(Succeed())
+
+			updatedNamespace := createdNamespace.DeepCopy()
+			updatedNamespace.Labels["foo.com/bar"] = "42"
+			updatedNamespace.Annotations["foo.com/bar"] = "43"
+			Expect(k8sClient.Patch(ctx, updatedNamespace, client.MergeFrom(&createdNamespace))).To(Succeed())
+
+			cfSpace.Spec.DisplayName += "x"
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sClient.Patch(ctx, cfSpace, client.MergeFrom(originalSpace))).To(Succeed())
+		})
+
+		It("sets the new display name annotation and preserves the added label and annoations", func() {
+			Eventually(func(g Gomega) {
+				var createdSpace corev1.Namespace
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(createdSpace.Annotations).To(HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, cfSpace.Spec.DisplayName))
+				g.Expect(createdSpace.Labels).To(HaveKeyWithValue("foo.com/bar", "42"))
+				g.Expect(createdSpace.Annotations).To(HaveKeyWithValue("foo.com/bar", "43"))
+			}).Should(Succeed())
+		})
+	})
+
 	When("role-bindings are added/updated in CFOrg namespace after CFSpace creation", func() {
 		var newlyCreatedRoleBinding *rbacv1.RoleBinding
 		BeforeEach(func() {
