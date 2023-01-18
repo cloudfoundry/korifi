@@ -328,6 +328,7 @@ func main() {
 			decoderValidator,
 		),
 		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
+		handlers.NewUser(*serverURL),
 		handlers.NewBuildpack(
 			*serverURL,
 			buildpackRepo,
