@@ -3,6 +3,7 @@ package workloads_test
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -40,7 +41,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		Expect(k8sClient.Create(ctx, &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   orgNamespace,
-				Labels: map[string]string{korifiv1alpha1.OrgNameLabel: orgNamespace},
+				Labels: map[string]string{korifiv1alpha1.OrgNameKey: orgNamespace},
 			},
 		})).To(Succeed())
 
@@ -81,6 +82,16 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 
 			It("fails", func() {
 				Expect(err).To(MatchError(ContainSubstring("Organization 'not-an-org' does not exist for Space 'my-space'")))
+			})
+		})
+
+		When("the CFSpace name would not be a valid label value (>63 chars)", func() {
+			BeforeEach(func() {
+				cfSpace.Name = strings.Repeat("a", 64)
+			})
+
+			It("should fail", func() {
+				Expect(err).To(MatchError(ContainSubstring("space name cannot be longer than 63 chars")))
 			})
 		})
 
@@ -154,7 +165,7 @@ func makeCFSpace(namespace string, displayName string) *korifiv1alpha1.CFSpace {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      uuid.NewString(),
 			Namespace: namespace,
-			Labels:    map[string]string{korifiv1alpha1.SpaceNameLabel: displayName},
+			Labels:    map[string]string{korifiv1alpha1.SpaceNameKey: displayName},
 		},
 		Spec: korifiv1alpha1.CFSpaceSpec{
 			DisplayName: displayName,

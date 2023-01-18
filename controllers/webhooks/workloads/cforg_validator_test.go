@@ -55,7 +55,17 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			})
 
 			It("should fail", func() {
-				Expect(createErr.Error()).To(ContainSubstring(fmt.Sprintf("Organization '%s' must be placed in the root 'cf' namespace", org1Name)))
+				Expect(createErr).To(MatchError(ContainSubstring(fmt.Sprintf("Organization '%s' must be placed in the root 'cf' namespace", org1Name))))
+			})
+		})
+
+		When("the CFOrg name would not be a valid label value (>63 chars)", func() {
+			BeforeEach(func() {
+				org1.Name = strings.Repeat("a", 64)
+			})
+
+			It("should fail", func() {
+				Expect(createErr).To(MatchError(ContainSubstring("org name cannot be longer than 63 chars")))
 			})
 		})
 

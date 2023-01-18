@@ -2,6 +2,7 @@ package workloads
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -50,6 +51,10 @@ func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 	space, ok := obj.(*korifiv1alpha1.CFSpace)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
+	}
+
+	if len(space.Name) > maxLabelLength {
+		return errors.New("space name cannot be longer than 63 chars")
 	}
 
 	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)

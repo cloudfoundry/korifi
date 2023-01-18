@@ -21,7 +21,9 @@ import (
 )
 
 const (
-	OrgNameLabel = "cloudfoundry.org/org-name"
+	OrgNameKey             = "cloudfoundry.org/org-name"
+	OrgGUIDKey             = "cloudfoundry.org/org-guid"
+	OrgSpaceDeprecatedName = "XXX-deprecated-XXX"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

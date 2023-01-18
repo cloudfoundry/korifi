@@ -84,7 +84,11 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdSpace corev1.Namespace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &createdSpace)).To(Succeed())
-				g.Expect(createdSpace.Labels).To(HaveKeyWithValue(korifiv1alpha1.SpaceNameLabel, spaceName))
+				g.Expect(createdSpace.Labels).To(SatisfyAll(
+					HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, korifiv1alpha1.OrgSpaceDeprecatedName),
+					HaveKeyWithValue(korifiv1alpha1.SpaceGUIDKey, spaceGUID),
+				))
+				g.Expect(createdSpace.Annotations).To(HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, cfSpace.Spec.DisplayName))
 			}).Should(Succeed())
 		})
 

@@ -123,8 +123,11 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
 	err = createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
-		korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName,
-	}))
+		korifiv1alpha1.OrgNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
+		korifiv1alpha1.OrgGUIDKey: cfOrg.Name,
+	}), map[string]string{
+		korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName,
+	})
 	if err != nil {
 		log.Error(err, "Error creating namespace")
 		return ctrl.Result{}, err

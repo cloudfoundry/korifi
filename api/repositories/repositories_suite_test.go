@@ -157,7 +157,7 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfOrg.Name,
 			Labels: map[string]string{
-				korifiv1alpha1.OrgNameLabel: cfOrg.Spec.DisplayName,
+				korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName,
 			},
 		},
 	}
@@ -197,7 +197,7 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfSpace.Name,
 			Labels: map[string]string{
-				korifiv1alpha1.SpaceNameLabel: cfSpace.Spec.DisplayName,
+				korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName,
 			},
 		},
 	}

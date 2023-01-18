@@ -83,7 +83,11 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var orgNamespace v1.Namespace
 				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &orgNamespace)).To(Succeed())
-				g.Expect(orgNamespace.Labels).To(HaveKeyWithValue("cloudfoundry.org/org-name", cfOrg.Spec.DisplayName))
+				g.Expect(orgNamespace.Labels).To(SatisfyAll(
+					HaveKeyWithValue(korifiv1alpha1.OrgNameKey, korifiv1alpha1.OrgSpaceDeprecatedName),
+					HaveKeyWithValue(korifiv1alpha1.OrgGUIDKey, orgGUID),
+				))
+				g.Expect(orgNamespace.Annotations).To(HaveKeyWithValue(korifiv1alpha1.OrgNameKey, cfOrg.Spec.DisplayName))
 			}).Should(Succeed())
 		})
 
@@ -109,21 +113,21 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		})
 
 		It("propagates the role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to \"true\" from root-ns to org namespace", func() {
-			Eventually(func(g Gomega) error {
+			Eventually(func(_ Gomega) error {
 				var createdRoleBinding rbacv1.RoleBinding
 				return k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBinding.Name}, &createdRoleBinding)
 			}).Should(Succeed())
 		})
 
 		It("does not propagate role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to \"false\"", func() {
-			Consistently(func(g Gomega) bool {
+			Consistently(func(_ Gomega) bool {
 				var newRoleBinding rbacv1.RoleBinding
 				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBindingWithPropagateAnnotationSetToFalse.Name}, &newRoleBinding))
 			}, time.Second).Should(BeTrue())
 		})
 
 		It("does not propagate role-bindings with missing annotation \"cloudfoundry.org/propagate-cf-role\"", func() {
-			Consistently(func(g Gomega) bool {
+			Consistently(func(_ Gomega) bool {
 				var newRoleBinding rbacv1.RoleBinding
 				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBindingWithMissingPropagateAnnotation.Name}, &newRoleBinding))
 			}, time.Second).Should(BeTrue())

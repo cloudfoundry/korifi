@@ -16,7 +16,8 @@ import (
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string) error {
+
+func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string, annotations map[string]string) error {
 	log = log.WithName("createOrPatchNamespace")
 
 	namespace := &corev1.Namespace{
@@ -32,6 +33,14 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 
 		for key, value := range labels {
 			namespace.Labels[key] = value
+		}
+
+		if namespace.Annotations == nil {
+			namespace.Annotations = make(map[string]string)
+		}
+
+		for key, value := range annotations {
+			namespace.Annotations[key] = value
 		}
 
 		return nil

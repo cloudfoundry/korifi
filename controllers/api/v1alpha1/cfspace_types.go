@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	SpaceNameLabel = "cloudfoundry.org/space-name"
+	SpaceNameKey = "cloudfoundry.org/space-name"
+	SpaceGUIDKey = "cloudfoundry.org/space-guid"
 )
 
 // CFSpaceSpec defines the desired state of CFSpace
