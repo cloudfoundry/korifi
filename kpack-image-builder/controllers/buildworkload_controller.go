@@ -153,6 +153,11 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 			return ctrl.Result{}, err
 		}
 
+		if err = r.imageRepoCreator.CreateRepository(ctx, r.repositoryRef(appGUIDFromBuildWorkload(buildWorkload))); err != nil {
+			r.log.Error(err, "failed to create image repository")
+			return ctrl.Result{}, err
+		}
+
 		return ctrl.Result{}, r.createKpackImageAndUpdateStatus(ctx, buildWorkload)
 	}
 
@@ -212,10 +217,11 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 }
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
-	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
+	appGUID := appGUIDFromBuildWorkload(buildWorkload)
 	kpackImageName := buildWorkload.Name
 	kpackImageNamespace := buildWorkload.Namespace
 	kpackImageTag := r.repositoryRef(appGUID)
+
 	desiredKpackImage := buildv1alpha2.Image{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kpackImageName,
@@ -251,7 +257,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		return err
 	}
 
-	err = r.createKpackImageIfNotExists(ctx, desiredKpackImage, appGUID)
+	err = r.createKpackImage(ctx, desiredKpackImage, appGUID)
 	if err != nil {
 		return err
 	}
@@ -266,27 +272,14 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 	return nil
 }
 
-func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha2.Image, appGUID string) error {
-	var foundKpackImage buildv1alpha2.Image
-	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(&desiredKpackImage), &foundKpackImage)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if err = r.imageRepoCreator.CreateRepository(ctx, r.repositoryRef(appGUID)); err != nil {
-				r.log.Error(err, "failed to create image repository")
-				return err
-			}
-
-			err = r.k8sClient.Create(ctx, &desiredKpackImage)
-			if err != nil {
-				r.log.Error(err, "Error when creating kpack image")
-				return err
-			}
-		} else {
-			r.log.Error(err, "Error when checking if kpack image exists")
-			return err
-		}
+func (r *BuildWorkloadReconciler) createKpackImage(ctx context.Context, desiredKpackImage buildv1alpha2.Image, appGUID string) error {
+	err := r.k8sClient.Create(ctx, &desiredKpackImage)
+	if apierrors.IsAlreadyExists(err) {
+		return nil
 	}
-	return nil
+
+	r.log.Error(err, "Error when checking if kpack image exists")
+	return err
 }
 
 func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*korifiv1alpha1.BuildDropletStatus, error) {
@@ -348,4 +341,8 @@ func filterBuildWorkloads(object client.Object) bool {
 
 	// Only reconcile buildworkloads that have their Spec.BuilderName matching this builder
 	return buildWorkload.Spec.BuilderName == kpackReconcilerName
+}
+
+func appGUIDFromBuildWorkload(buildWorkload *korifiv1alpha1.BuildWorkload) string {
+	return buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
 }

@@ -308,14 +308,13 @@ var _ = Describe("Apps", func() {
 
 	Describe("Built apps", func() {
 		var (
-			pkgGUID   string
 			buildGUID string
 			result    resource
 		)
 
 		BeforeEach(func() {
 			appGUID = createApp(space1GUID, generateGUID("app"))
-			pkgGUID = createPackage(appGUID)
+			pkgGUID := createPackage(appGUID)
 			uploadTestApp(pkgGUID, appBitsFile)
 			buildGUID = createBuild(pkgGUID)
 			waitForDroplet(buildGUID)
@@ -362,6 +361,20 @@ var _ = Describe("Apps", func() {
 			It("returns 200", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.Data.GUID).To(Equal(buildGUID))
+			})
+
+			When("the app is restaged", func() {
+				BeforeEach(func() {
+					anotherPkgGUID := createPackage(appGUID)
+					uploadTestApp(anotherPkgGUID, appBitsFile)
+					buildGUID = createBuild(anotherPkgGUID)
+					waitForDroplet(buildGUID)
+				})
+
+				It("returns 200", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					Expect(result.Data.GUID).To(Equal(buildGUID))
+				})
 			})
 		})
 
