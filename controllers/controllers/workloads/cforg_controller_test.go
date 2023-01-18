@@ -161,6 +161,40 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		})
 	})
 
+	When("the CFOrg is updated after namespace modifications", func() {
+		var originalOrg *korifiv1alpha1.CFOrg
+
+		BeforeEach(func() {
+			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
+			originalOrg = cfOrg.DeepCopy()
+			var createdNamespace v1.Namespace
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &createdNamespace)).To(Succeed())
+			}).Should(Succeed())
+
+			updatedNamespace := createdNamespace.DeepCopy()
+			updatedNamespace.Labels["foo.com/bar"] = "42"
+			updatedNamespace.Annotations["foo.com/bar"] = "43"
+			Expect(k8sClient.Patch(testCtx, updatedNamespace, client.MergeFrom(&createdNamespace))).To(Succeed())
+
+			cfOrg.Spec.DisplayName += "x"
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sClient.Patch(testCtx, &cfOrg, client.MergeFrom(originalOrg))).To(Succeed())
+		})
+
+		It("sets the new display name annotation and preserves the added label and annoations", func() {
+			Eventually(func(g Gomega) {
+				var createdOrg v1.Namespace
+				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &createdOrg)).To(Succeed())
+				g.Expect(createdOrg.Annotations).To(HaveKeyWithValue(korifiv1alpha1.OrgNameKey, cfOrg.Spec.DisplayName))
+				g.Expect(createdOrg.Labels).To(HaveKeyWithValue("foo.com/bar", "42"))
+				g.Expect(createdOrg.Annotations).To(HaveKeyWithValue("foo.com/bar", "43"))
+			}).Should(Succeed())
+		})
+	})
+
 	When("role-bindings are added/updated in root-ns after CFOrg creation", func() {
 		var newlyCreatedRoleBinding *rbacv1.RoleBinding
 		BeforeEach(func() {
