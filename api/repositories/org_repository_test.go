@@ -76,7 +76,7 @@ var _ = Describe("OrgRepository", func() {
 				return
 			}
 
-			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{korifiv1alpha1.OrgNameLabel: org.Spec.DisplayName})
+			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{korifiv1alpha1.OrgNameKey: org.Spec.DisplayName})
 
 			meta.SetStatusCondition(&(org.Status.Conditions), metav1.Condition{
 				Type:    "Ready",

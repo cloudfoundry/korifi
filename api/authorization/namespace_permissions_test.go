@@ -118,8 +118,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Get Authorized Org Namespaces", func() {
 		BeforeEach(func() {
-			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.OrgNameLabel: "org1"})
-			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.OrgNameLabel: "org2"})
+			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.OrgNameKey: "org1"})
+			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.OrgNameKey: "org2"})
 
 			createRoleBindingForUser(userName, roleName1, org1NS)
 			createRoleBindingForUser(userName, roleName2, org1NS)
@@ -184,8 +184,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Get Authorized Space Namespaces", func() {
 		BeforeEach(func() {
-			space1NS = createNamespace("space1", map[string]string{korifiv1alpha1.SpaceNameLabel: "space1"})
-			space2NS = createNamespace("space2", map[string]string{korifiv1alpha1.SpaceNameLabel: "space2"})
+			space1NS = createNamespace("space1", map[string]string{korifiv1alpha1.SpaceNameKey: "space1"})
+			space2NS = createNamespace("space2", map[string]string{korifiv1alpha1.SpaceNameKey: "space2"})
 
 			createRoleBindingForUser(userName, roleName1, space1NS)
 			createRoleBindingForUser("some-other-user", roleName1, space2NS)
@@ -222,8 +222,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Authorized In", func() {
 		BeforeEach(func() {
-			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.OrgNameLabel: "org1"})
-			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.OrgNameLabel: "org2"})
+			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.OrgNameKey: "org1"})
+			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.OrgNameKey: "org2"})
 
 			createRoleBindingForUser(userName, roleName1, org1NS)
 			createRoleBindingForUser("some-other-user", roleName1, org2NS)

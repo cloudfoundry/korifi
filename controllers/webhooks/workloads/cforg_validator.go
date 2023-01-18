@@ -2,6 +2,7 @@ package workloads
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -20,6 +21,7 @@ const (
 	OrgDecodingErrorType = "OrgDecodingError"
 	// Note: the cf cli expects the specfic text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
 	duplicateOrgNameErrorMessage = "Organization '%s' already exists."
+	maxLabelLength               = 63
 )
 
 var cfOrgLog = logf.Log.WithName("cforg-validate")
@@ -51,6 +53,10 @@ func (v *CFOrgValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 	org, ok := obj.(*korifiv1alpha1.CFOrg)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
+	}
+
+	if len(org.Name) > maxLabelLength {
+		return errors.New("org name cannot be longer than 63 chars")
 	}
 
 	err := v.placementValidator.ValidateOrgCreate(*org)

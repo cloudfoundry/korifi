@@ -34,11 +34,11 @@ func NewNamespacePermissions(privilegedClient client.Client, identityProvider Id
 }
 
 func (o *NamespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
-	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.OrgNameLabel, "Org")
+	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.OrgNameKey, "Org")
 }
 
 func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
-	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.SpaceNameLabel, "Space")
+	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.SpaceNameKey, "Space")
 }
 
 func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLabel, resourceType string) (map[string]bool, error) {
