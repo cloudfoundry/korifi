@@ -28,7 +28,6 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -151,16 +150,34 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 
 func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
 	namespace := cfBuild.Namespace
-	desiredWorkload := korifiv1alpha1.BuildWorkload{
+
+	buildServices, err := r.prepareBuildServices(ctx, namespace, cfApp.Name)
+	if err != nil {
+		return fmt.Errorf("prepareBuildServices: %w", err)
+	}
+
+	imageEnvironment, err := r.envBuilder.BuildEnv(ctx, cfApp)
+	if err != nil {
+		r.log.Error(err, "failed building environment")
+		return fmt.Errorf("prepareEnvironment: %w", err)
+	}
+
+	desiredWorkload := &korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfBuild.Name,
 			Namespace: namespace,
-			Labels: map[string]string{
-				korifiv1alpha1.CFBuildGUIDLabelKey: cfBuild.Name,
-				korifiv1alpha1.CFAppGUIDLabelKey:   cfApp.Name,
-			},
 		},
-		Spec: korifiv1alpha1.BuildWorkloadSpec{
+	}
+
+	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, desiredWorkload, func() error {
+		if desiredWorkload.Labels == nil {
+			desiredWorkload.Labels = map[string]string{}
+		}
+
+		desiredWorkload.Labels[korifiv1alpha1.CFBuildGUIDLabelKey] = cfBuild.Name
+		desiredWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
+
+		desiredWorkload.Spec = korifiv1alpha1.BuildWorkloadSpec{
 			BuildRef: korifiv1alpha1.RequiredLocalObjectReference{
 				Name: cfBuild.Name,
 			},
@@ -172,31 +189,15 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 			},
 			BuilderName: r.controllerConfig.BuilderName,
 			Buildpacks:  cfBuild.Spec.Lifecycle.Data.Buildpacks,
-		},
-	}
+			Services:    buildServices,
+			Env:         imageEnvironment,
+		}
 
-	buildServices, err := r.prepareBuildServices(ctx, namespace, cfApp.Name)
-	if err != nil {
-		return fmt.Errorf("prepareBuildServices: %w", err)
-	}
-	desiredWorkload.Spec.Services = buildServices
+		return controllerutil.SetControllerReference(cfBuild, desiredWorkload, r.scheme)
+	})
 
-	imageEnvironment, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.log.Error(err, "failed building environment")
-		return fmt.Errorf("prepareEnvironment: %w", err)
-	}
-	desiredWorkload.Spec.Env = imageEnvironment
-
-	err = controllerutil.SetControllerReference(cfBuild, &desiredWorkload, r.scheme)
-	if err != nil {
-		r.log.Error(err, "failed to set OwnerRef on BuildWorkload")
-		return fmt.Errorf("failed to set OwnerRef on BuildWorkload: %w", err)
-	}
-
-	err = r.createBuildWorkloadIfNotExists(ctx, desiredWorkload)
-	if err != nil {
-		return fmt.Errorf("createBuildWorkloadIfNotExists: %w", err)
+		return fmt.Errorf("failed to createOrPatch build workload: %w", err)
 	}
 
 	meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
@@ -234,24 +235,6 @@ func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace,
 		}
 	}
 	return buildServices, nil
-}
-
-func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {
-	var foundWorkload korifiv1alpha1.BuildWorkload
-	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(&desiredWorkload), &foundWorkload)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			err = r.k8sClient.Create(ctx, &desiredWorkload)
-			if err != nil {
-				r.log.Error(err, "Error when creating BuildWorkload")
-				return err
-			}
-		} else {
-			r.log.Error(err, "Error when checking if BuildWorkload exists")
-			return err
-		}
-	}
-	return nil
 }
 
 // getConditionOrSetAsUnknown is a helper function that retrieves the value of the provided conditionType, like
