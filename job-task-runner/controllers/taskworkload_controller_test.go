@@ -2,208 +2,106 @@ package controllers_test
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
-	"code.cloudfoundry.org/korifi/job-task-runner/controllers/fake"
-	"code.cloudfoundry.org/korifi/tools/k8s"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var _ = Describe("TaskworkloadController", func() {
+var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 	var (
-		statusGetter *fake.TaskStatusGetter
-
-		reconciler           *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload]
-		reconcileResult      ctrl.Result
-		reconcileErr         error
-		req                  ctrl.Request
-		taskWorkload         *korifiv1alpha1.TaskWorkload
-		getTaskWorkloadError error
-		createdJob           *batchv1.Job
-		existingJob          *batchv1.Job
-		getExistingJobError  error
-		createJobError       error
+		taskWorkload *korifiv1alpha1.TaskWorkload
+		createErr    error
 	)
 
 	BeforeEach(func() {
-		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-
 		taskWorkload = &korifiv1alpha1.TaskWorkload{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-task-workload",
-				Namespace: "my-namespace",
+				Name:      prefixedGUID("taskworkload"),
+				Namespace: testNamespace.Name,
 			},
 			Spec: korifiv1alpha1.TaskWorkloadSpec{
 				Image:   "my-image",
-				Command: []string{"my", "command"},
+				Command: []string{"echo", "hello"},
+				Env:     []corev1.EnvVar{{Name: "MY_ENV_VAR", Value: "foo"}},
+				Resources: corev1.ResourceRequirements{
+					Limits: map[corev1.ResourceName]resource.Quantity{
+						corev1.ResourceCPU:              *resource.NewScaledQuantity(1000, resource.Milli),
+						corev1.ResourceMemory:           *resource.NewScaledQuantity(1024, resource.Mega),
+						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(1024, resource.Mega),
+					},
+					Requests: map[corev1.ResourceName]resource.Quantity{
+						corev1.ResourceCPU:              *resource.NewScaledQuantity(500, resource.Milli),
+						corev1.ResourceMemory:           *resource.NewScaledQuantity(512, resource.Mega),
+						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(512, resource.Mega),
+					},
+				},
+				ImagePullSecrets: []corev1.LocalObjectReference{{
+					Name: "my-image-secret",
+				}},
 			},
 		}
-		getTaskWorkloadError = nil
-
-		createdJob = &batchv1.Job{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-task-workload",
-				Namespace: "my-namespace",
-			},
-			Spec:   batchv1.JobSpec{},
-			Status: batchv1.JobStatus{},
-		}
-		existingJob = &batchv1.Job{}
-		getExistingJobError = nil
-		createJobError = nil
-
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
-			switch obj := obj.(type) {
-			case *korifiv1alpha1.TaskWorkload:
-				taskWorkload.DeepCopyInto(obj)
-				return getTaskWorkloadError
-			case *batchv1.Job:
-				existingJob.DeepCopyInto(obj)
-				return getExistingJobError
-			default:
-				panic("TestClient Get provided an unexpected object type")
-			}
-		}
-
-		fakeClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
-			switch obj := obj.(type) {
-			case *batchv1.Job:
-				createdJob.DeepCopyInto(obj)
-				return createJobError
-			default:
-				panic("TestClient Create provided an unexpected object type")
-			}
-		}
-
-		statusGetter = new(fake.TaskStatusGetter)
-		statusGetter.GetStatusConditionsReturns([]metav1.Condition{{
-			Type:               "foo",
-			Status:             metav1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-			Reason:             "something",
-		}}, nil)
-
-		reconciler = controllers.NewTaskWorkloadReconciler(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), fakeClient, scheme.Scheme, statusGetter, time.Hour)
-
-		req = ctrl.Request{NamespacedName: client.ObjectKeyFromObject(taskWorkload)}
 	})
 
 	JustBeforeEach(func() {
-		reconcileResult, reconcileErr = reconciler.Reconcile(context.Background(), req)
+		createErr = k8sClient.Create(context.Background(), taskWorkload)
 	})
 
-	When("getting the TaskWorkload fails", func() {
-		BeforeEach(func() {
-			getTaskWorkloadError = errors.New("get-task-workload-failed")
-		})
+	It("creates a job owned by the task workload", func() {
+		Expect(createErr).NotTo(HaveOccurred())
 
-		It("returns the error", func() {
-			Expect(reconcileErr).To(Equal(getTaskWorkloadError))
-		})
+		jobList := &batchv1.JobList{}
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.List(context.Background(), jobList, client.InNamespace(testNamespace.Name)))
+			g.Expect(jobList.Items).To(HaveLen(1))
+		}).Should(Succeed())
+
+		job := jobList.Items[0]
+		Expect(job.Name).To(Equal(taskWorkload.Name))
+		Expect(job.OwnerReferences).To(HaveLen(1))
+		Expect(job.OwnerReferences[0].Name).To(Equal(taskWorkload.Name))
+		Expect(*job.OwnerReferences[0].Controller).To(BeTrue())
+		Expect(job.Spec.Parallelism).To(Equal(tools.PtrTo(int32(1))))
+		Expect(job.Spec.Completions).To(Equal(tools.PtrTo(int32(1))))
+		Expect(job.Spec.BackoffLimit).To(Equal(tools.PtrTo(int32(0))))
+		Expect(job.Spec.TTLSecondsAfterFinished).To(Equal(tools.PtrTo(int32(60))))
+
+		podSpec := job.Spec.Template.Spec
+		Expect(podSpec.RestartPolicy).To(Equal(corev1.RestartPolicyNever))
+		Expect(podSpec.SecurityContext).To(Equal(&corev1.PodSecurityContext{
+			RunAsNonRoot: tools.PtrTo(true),
+		}))
+		Expect(podSpec.AutomountServiceAccountToken).To(Equal(tools.PtrTo(false)))
+		Expect(podSpec.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: "my-image-secret"}))
+		Expect(podSpec.Containers).To(HaveLen(1))
+		Expect(podSpec.Containers[0].Name).To(Equal("workload"))
+		Expect(podSpec.Containers[0].Image).To(Equal("my-image"))
+		Expect(podSpec.Containers[0].Command).To(Equal([]string{"echo", "hello"}))
+		Expect(podSpec.Containers[0].Env).To(Equal(taskWorkload.Spec.Env))
+		Expect(podSpec.Containers[0].Resources).To(Equal(taskWorkload.Spec.Resources))
+		Expect(podSpec.Containers[0].SecurityContext).To(Equal(&corev1.SecurityContext{
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			AllowPrivilegeEscalation: tools.PtrTo(false),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}))
+		Expect(podSpec.ServiceAccountName).To(Equal("korifi-task"))
 	})
 
-	When("the TaskWorkload is not found", func() {
-		BeforeEach(func() {
-			getTaskWorkloadError = k8serrors.NewNotFound(schema.GroupResource{}, "foo")
-		})
-
-		It("does not return an error", func() {
-			Expect(reconcileErr).NotTo(HaveOccurred())
-			Expect(reconcileResult).To(Equal(ctrl.Result{}))
-		})
-	})
-
-	When("getting the job fails", func() {
-		BeforeEach(func() {
-			getExistingJobError = errors.New("get-existing-job-error")
-		})
-
-		It("returns the error", func() {
-			Expect(reconcileErr).To(Equal(getExistingJobError))
-		})
-	})
-
-	When("the job doesn't yet exist", func() {
-		BeforeEach(func() {
-			getExistingJobError = k8serrors.NewNotFound(schema.GroupResource{}, "job")
-		})
-
-		It("creates a job", func() {
-			Expect(reconcileErr).NotTo(HaveOccurred())
-			Expect(reconcileResult).To(Equal(ctrl.Result{}))
-
-			Expect(fakeClient.CreateCallCount()).To(Equal(1))
-			_, createdObject, _ := fakeClient.CreateArgsForCall(0)
-
-			job, ok := createdObject.(*batchv1.Job)
-			Expect(ok).To(BeTrue())
-			Expect(job.Namespace).To(Equal(taskWorkload.Namespace))
-			Expect(job.Name).To(Equal(taskWorkload.Name))
-		})
-
-		When("the job already exists while creating", func() {
-			BeforeEach(func() {
-				createJobError = k8serrors.NewAlreadyExists(schema.GroupResource{}, "foo")
-			})
-
-			It("returns an error", func() {
-				Expect(reconcileErr).To(Equal(createJobError))
-			})
-		})
-
-		When("creating the job fails for another reason", func() {
-			BeforeEach(func() {
-				createJobError = errors.New("create-job-error")
-			})
-
-			It("returns the error", func() {
-				Expect(reconcileErr).To(Equal(createJobError))
-			})
-		})
-	})
-
-	When("the job already exists", func() {
-		BeforeEach(func() {
-			existingJob = &batchv1.Job{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-task-workload",
-					Namespace: "my-namespace",
-				},
-				Spec:   batchv1.JobSpec{},
-				Status: batchv1.JobStatus{},
-			}
-		})
-	})
-
-	It("sets the task status conditions", func() {
-		Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
-		_, object, _, _ := fakeStatusWriter.PatchArgsForCall(0)
-		patchedTaskWorkload, ok := object.(*korifiv1alpha1.TaskWorkload)
-		Expect(ok).To(BeTrue())
-		Expect(meta.IsStatusConditionTrue(patchedTaskWorkload.Status.Conditions, "foo")).To(BeTrue())
-	})
-
-	When("getting the status conditions fails", func() {
-		BeforeEach(func() {
-			statusGetter.GetStatusConditionsReturns(nil, errors.New("get-conditions-error"))
-		})
-
-		It("returns the error", func() {
-			Expect(reconcileErr).To(MatchError(ContainSubstring("get-conditions-error")))
-		})
+	It("sets the initialized condition on the task workload status", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
+			g.Expect(meta.IsStatusConditionTrue(taskWorkload.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+		}).Should(Succeed())
 	})
 })

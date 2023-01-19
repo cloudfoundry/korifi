@@ -17,25 +17,126 @@ limitations under the License.
 package controllers_test
 
 import (
+	"context"
+	"path/filepath"
 	"testing"
+	"time"
 
-	"code.cloudfoundry.org/korifi/job-task-runner/controllers/fake"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
+	"code.cloudfoundry.org/korifi/job-task-runner/jobs"
+
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	//+kubebuilder:scaffold:imports
+)
+
+// These tests use Ginkgo (BDD-style Go testing framework). Refer to
+// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+
+var (
+	cancel        context.CancelFunc
+	k8sClient     client.Client
+	testEnv       *envtest.Environment
+	testNamespace *corev1.Namespace
 )
 
 func TestJobTaskWorkloadController(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Job TaskWorkload Controller Suite")
+
+	SetDefaultEventuallyTimeout(10 * time.Second)
+	SetDefaultEventuallyPollingInterval(200 * time.Millisecond)
+
+	RunSpecs(t, "Job TaskWorkload Controller Integration Suite")
 }
 
-var (
-	fakeClient       *fake.Client
-	fakeStatusWriter *fake.StatusWriter
-)
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	ctx, cancelFunc := context.WithCancel(context.TODO())
+	cancel = cancelFunc
+
+	By("bootstrapping test environment")
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "helm", "korifi", "controllers", "crds"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	//+kubebuilder:scaffold:scheme
+
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme.Scheme,
+		Host:               webhookInstallOptions.LocalServingHost,
+		Port:               webhookInstallOptions.LocalServingPort,
+		CertDir:            webhookInstallOptions.LocalServingCertDir,
+		LeaderElection:     false,
+		MetricsBindAddress: "0",
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	logger := ctrl.Log.WithName("job-task-runner").WithName("TaskWorkload")
+	managerClient := k8sManager.GetClient()
+
+	taskWorkloadReconciler := controllers.NewTaskWorkloadReconciler(
+		logger,
+		managerClient,
+		k8sManager.GetScheme(),
+		jobs.NewStatusGetter(logger, managerClient),
+		time.Minute,
+	)
+	err = taskWorkloadReconciler.SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient).NotTo(BeNil())
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+})
+
+var _ = AfterSuite(func() {
+	cancel()
+	By("tearing down the test environment")
+	Expect(testEnv.Stop()).To(Succeed())
+})
 
 var _ = BeforeEach(func() {
-	fakeClient = new(fake.Client)
-	fakeStatusWriter = &fake.StatusWriter{}
-	fakeClient.StatusReturns(fakeStatusWriter)
+	testNamespace = createNamespace(context.Background(), k8sClient, prefixedGUID("testns"))
 })
+
+func prefixedGUID(prefix string) string {
+	return prefix + "-" + uuid.NewString()[:8]
+}
+
+func createNamespace(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+	return ns
+}

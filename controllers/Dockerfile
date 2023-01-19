@@ -17,8 +17,8 @@ COPY controllers/webhooks controllers/webhooks
 
 COPY kpack-image-builder/controllers/ kpack-image-builder/controllers
 
-COPY job-task-runner/api job-task-runner/api
 COPY job-task-runner/controllers job-task-runner/controllers
+COPY job-task-runner/jobs job-task-runner/jobs
 
 COPY statefulset-runner/api/ statefulset-runner/api
 COPY statefulset-runner/controllers/ statefulset-runner/controllers

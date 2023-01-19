@@ -34,12 +34,11 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 const (
-	workloadContainerName = "workload"
+	WorkloadContainerName = "workload"
 	ServiceAccountName    = "korifi-task"
 )
 
@@ -85,7 +84,7 @@ func NewTaskWorkloadReconciler(
 func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload) (ctrl.Result, error) {
 	logger := r.logger.WithValues("namespace", taskWorkload.Namespace, "name", taskWorkload.Name)
 
-	job, err := r.getOrCreateJob(ctx, logger, taskWorkload)
+	job, err := r.createOrPatchJob(ctx, logger, taskWorkload)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -98,37 +97,19 @@ func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWork
 	return ctrl.Result{}, nil
 }
 
-func (r TaskWorkloadReconciler) getOrCreateJob(ctx context.Context, logger logr.Logger, taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
-	job := &batchv1.Job{}
-
-	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(taskWorkload), job)
-	if err == nil {
-		return job, nil
+func (r TaskWorkloadReconciler) createOrPatchJob(ctx context.Context, logger logr.Logger, taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      taskWorkload.Name,
+			Namespace: taskWorkload.Namespace,
+		},
 	}
 
-	if !k8serrors.IsNotFound(err) {
-		logger.Error(err, "getting job failed")
-		return nil, err
-	}
-
-	return r.createJob(ctx, logger, taskWorkload)
-}
-
-func (r TaskWorkloadReconciler) createJob(ctx context.Context, logger logr.Logger, taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
-	job, err := r.workloadToJob(taskWorkload)
+	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, job, func() error {
+		return r.applyWorkloadToJob(taskWorkload, job)
+	})
 	if err != nil {
-		logger.Error(err, "failed to convert task workload to job")
-		return nil, err
-	}
-
-	err = r.k8sClient.Create(ctx, job)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			logger.Info("job for TaskWorkload already exists")
-		} else {
-			logger.Error(err, "failed to create job for task workload")
-		}
-		return nil, err
+		logger.Error(err, "failed to create/patch job for task workload")
 	}
 
 	return job, nil
@@ -140,53 +121,42 @@ func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Bui
 		Owns(&batchv1.Job{})
 }
 
-func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      taskWorkload.Name,
-			Namespace: taskWorkload.Namespace,
-		},
-		Spec: batchv1.JobSpec{
-			BackoffLimit:            tools.PtrTo(int32(0)),
-			Parallelism:             tools.PtrTo(int32(1)),
-			Completions:             tools.PtrTo(int32(1)),
-			TTLSecondsAfterFinished: tools.PtrTo(int32(r.jobTTL.Seconds())),
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: tools.PtrTo(true),
-					},
-					AutomountServiceAccountToken: tools.PtrTo(false),
-					ImagePullSecrets:             taskWorkload.Spec.ImagePullSecrets,
-					Containers: []corev1.Container{{
-						Name:      workloadContainerName,
-						Image:     taskWorkload.Spec.Image,
-						Command:   taskWorkload.Spec.Command,
-						Resources: taskWorkload.Spec.Resources,
-						Env:       taskWorkload.Spec.Env,
-						SecurityContext: &corev1.SecurityContext{
-							Capabilities: &corev1.Capabilities{
-								Drop: []corev1.Capability{"ALL"},
-							},
-							AllowPrivilegeEscalation: tools.PtrTo(false),
-							SeccompProfile: &corev1.SeccompProfile{
-								Type: corev1.SeccompProfileTypeRuntimeDefault,
-							},
-						},
-					}},
-					ServiceAccountName: ServiceAccountName,
+func (r *TaskWorkloadReconciler) applyWorkloadToJob(taskWorkload *korifiv1alpha1.TaskWorkload, job *batchv1.Job) error {
+	job.Spec = batchv1.JobSpec{
+		BackoffLimit:            tools.PtrTo(int32(0)),
+		Parallelism:             tools.PtrTo(int32(1)),
+		Completions:             tools.PtrTo(int32(1)),
+		TTLSecondsAfterFinished: tools.PtrTo(int32(r.jobTTL.Seconds())),
+		Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				RestartPolicy: corev1.RestartPolicyNever,
+				SecurityContext: &corev1.PodSecurityContext{
+					RunAsNonRoot: tools.PtrTo(true),
 				},
+				AutomountServiceAccountToken: tools.PtrTo(false),
+				ImagePullSecrets:             taskWorkload.Spec.ImagePullSecrets,
+				Containers: []corev1.Container{{
+					Name:      WorkloadContainerName,
+					Image:     taskWorkload.Spec.Image,
+					Command:   taskWorkload.Spec.Command,
+					Resources: taskWorkload.Spec.Resources,
+					Env:       taskWorkload.Spec.Env,
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{"ALL"},
+						},
+						AllowPrivilegeEscalation: tools.PtrTo(false),
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+				}},
+				ServiceAccountName: ServiceAccountName,
 			},
 		},
 	}
 
-	err := controllerutil.SetControllerReference(taskWorkload, job, r.scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	return job, nil
+	return controllerutil.SetControllerReference(taskWorkload, job, r.scheme)
 }
 
 func (r *TaskWorkloadReconciler) updateTaskWorkloadStatus(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload, job *batchv1.Job) error {

@@ -1,10 +1,11 @@
-package controllers
+package jobs
 
 import (
 	"context"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +18,10 @@ type StatusGetter struct {
 	k8sClient client.Client
 }
 
-func NewStatusGetter(logger logr.Logger, k8sClient client.Client) *StatusGetter {
+func NewStatusGetter(
+	logger logr.Logger,
+	k8sClient client.Client,
+) *StatusGetter {
 	return &StatusGetter{
 		logger:    logger,
 		k8sClient: k8sClient,
@@ -95,7 +99,7 @@ func (s *StatusGetter) getFailedContainerStatus(ctx context.Context, job *batchv
 	jobPod := jobPods.Items[0]
 
 	for _, containerStatus := range jobPod.Status.ContainerStatuses {
-		if containerStatus.Name != workloadContainerName {
+		if containerStatus.Name != controllers.WorkloadContainerName {
 			continue
 		}
 

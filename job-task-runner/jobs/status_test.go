@@ -1,4 +1,4 @@
-package controllers_test
+package jobs_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
+	"code.cloudfoundry.org/korifi/job-task-runner/jobs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("StatusGetter", func() {
 	var (
-		statusGetter  *controllers.StatusGetter
+		statusGetter  *jobs.StatusGetter
 		job           *batchv1.Job
 		conditions    []metav1.Condition
 		conditionsErr error
@@ -30,7 +30,7 @@ var _ = Describe("StatusGetter", func() {
 			Status: batchv1.JobStatus{},
 		}
 
-		statusGetter = controllers.NewStatusGetter(ctrl.Log.WithName("test"), fakeClient)
+		statusGetter = jobs.NewStatusGetter(ctrl.Log.WithName("test"), fakeClient)
 	})
 
 	JustBeforeEach(func() {
@@ -151,7 +151,7 @@ var _ = Describe("StatusGetter", func() {
 				},
 			}
 
-			fakeClient.ListStub = func(ctx context.Context, objList client.ObjectList, opts ...client.ListOption) error {
+			fakeClient.ListStub = func(_ context.Context, objList client.ObjectList, _ ...client.ListOption) error {
 				list, ok := objList.(*corev1.PodList)
 				Expect(ok).To(BeTrue())
 				*list = podList
@@ -161,6 +161,7 @@ var _ = Describe("StatusGetter", func() {
 		})
 
 		It("returns a failed status with values from the failed container", func() {
+			Expect(conditionsErr).NotTo(HaveOccurred())
 			Expect(meta.IsStatusConditionTrue(conditions, korifiv1alpha1.TaskFailedConditionType)).To(BeTrue())
 			failedCondition := meta.FindStatusCondition(conditions, korifiv1alpha1.TaskFailedConditionType)
 			Expect(failedCondition.LastTransitionTime).To(Equal(later))

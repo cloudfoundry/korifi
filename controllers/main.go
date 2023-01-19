@@ -37,6 +37,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
+	"code.cloudfoundry.org/korifi/job-task-runner/jobs"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/imageprocessfetcher"
 	statesetfulrunnerv1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
@@ -305,7 +306,7 @@ func main() {
 				logger,
 				mgr.GetClient(),
 				mgr.GetScheme(),
-				jobtaskrunnercontrollers.NewStatusGetter(logger, mgr.GetClient()),
+				jobs.NewStatusGetter(logger, mgr.GetClient()),
 				jobTTL,
 			)
 			if err = taskWorkloadReconciler.SetupWithManager(mgr); err != nil {
