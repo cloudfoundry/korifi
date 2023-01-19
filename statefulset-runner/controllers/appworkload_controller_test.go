@@ -2,207 +2,142 @@ package controllers_test
 
 import (
 	"context"
-	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
-	"code.cloudfoundry.org/korifi/statefulset-runner/fake"
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/apps/v1"
+	"github.com/onsi/gomega/gstruct"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-const (
-	testAppWorkloadGUID = "test-appworkload-guid"
-	testNamespace       = "test-ns"
-)
-
-var _ = Describe("AppWorkload Reconcile", func() {
+var _ = Describe("AppWorkloadsController", func() {
 	var (
-		reconciler             *k8s.PatchingReconciler[korifiv1alpha1.AppWorkload, *korifiv1alpha1.AppWorkload]
-		reconcileResult        ctrl.Result
-		reconcileErr           error
-		ctx                    context.Context
-		req                    ctrl.Request
-		appWorkload            *korifiv1alpha1.AppWorkload
-		statefulSet            *v1.StatefulSet
-		fakeWorkloadToStSet    *fake.WorkloadToStatefulsetConverter
-		fakePDB                *fake.PDB
-		getAppWorkloadError    error
-		getStatefulSetError    error
-		createStatefulSetError error
+		ctx           context.Context
+		appWorkload   *korifiv1alpha1.AppWorkload
+		namespaceName string
 	)
 
 	BeforeEach(func() {
-		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		appWorkload = createAppWorkload("some-namespace", "guid_1234")
-		statefulSet = &v1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "converted-stset",
-				Namespace: testNamespace,
-			},
-		}
-
-		fakeWorkloadToStSet = new(fake.WorkloadToStatefulsetConverter)
-		fakeWorkloadToStSet.ConvertReturns(statefulSet, nil)
-
-		fakePDB = new(fake.PDB)
-
 		ctx = context.Background()
-		req = ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      testAppWorkloadGUID,
-				Namespace: testNamespace,
+		namespaceName = prefixedGUID("ns")
+		createNamespace(ctx, k8sClient, namespaceName)
+
+		appWorkload = &korifiv1alpha1.AppWorkload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      prefixedGUID("rw"),
+				Namespace: namespaceName,
+			},
+			Spec: korifiv1alpha1.AppWorkloadSpec{
+				GUID:    prefixedGUID("process"),
+				Version: "1",
+				AppGUID: "my-app",
+
+				ProcessType:      "web",
+				Image:            "my-image",
+				Command:          []string{"do-it", "with", "args"},
+				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "something"}},
+				Env:              []corev1.EnvVar{},
+				LivenessProbe:    &corev1.Probe{},
+				StartupProbe:     &corev1.Probe{},
+				Ports:            []int32{8080},
+				Instances:        5,
+				RunnerName:       "statefulset-runner",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceEphemeralStorage: resource.MustParse("100Mi"),
+						corev1.ResourceMemory:           resource.MustParse("5Mi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("5m"),
+						corev1.ResourceMemory: resource.MustParse("5Mi"),
+					},
+				},
 			},
 		}
-
-		getAppWorkloadError = nil
-		getStatefulSetError = apierrors.NewNotFound(schema.GroupResource{
-			Group:    "v1",
-			Resource: "StatefulSet",
-		}, "some-resource")
-		createStatefulSetError = nil
-
-		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
-			switch obj := obj.(type) {
-			case *korifiv1alpha1.AppWorkload:
-				appWorkload.DeepCopyInto(obj)
-				return getAppWorkloadError
-			case *v1.StatefulSet:
-				if getStatefulSetError == nil {
-					statefulSet.DeepCopyInto(obj)
-				}
-				return getStatefulSetError
-			default:
-				panic("TestClient Get provided an unexpected object type")
-			}
-		}
-
-		fakeClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
-			switch obj.(type) {
-			case *v1.StatefulSet:
-				return createStatefulSetError
-			default:
-				panic("TestClient Create provided an unexpected object type")
-			}
-		}
-
-		reconciler = controllers.NewAppWorkloadReconciler(fakeClient, scheme.Scheme, fakeWorkloadToStSet, fakePDB, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	})
+
+	getStatefulsetForAppWorkload := func(g Gomega) appsv1.StatefulSet {
+		stsetList := appsv1.StatefulSetList{}
+		g.Eventually(func(g Gomega) {
+			err := k8sClient.List(context.Background(), &stsetList, client.MatchingLabels{
+				controllers.LabelGUID: appWorkload.Spec.GUID,
+			})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(stsetList.Items).To(HaveLen(1))
+		}).Should(Succeed())
+
+		return stsetList.Items[0]
+	}
 
 	JustBeforeEach(func() {
-		reconcileResult, reconcileErr = reconciler.Reconcile(ctx, req)
+		Expect(k8sClient.Create(ctx, appWorkload)).To(Succeed())
 	})
 
-	When("the appworkload is being created", func() {
-		It("returns an empty result and does not return error", func() {
-			Expect(reconcileResult).To(Equal(ctrl.Result{}))
-			Expect(reconcileErr).NotTo(HaveOccurred())
-		})
-
-		It("converts the app workload to a statefulset", func() {
-			Expect(fakeWorkloadToStSet.ConvertCallCount()).To(Equal(1))
-			actualWorkload := fakeWorkloadToStSet.ConvertArgsForCall(0)
-			Expect(actualWorkload.Name).To(Equal(appWorkload.Name))
-		})
-
-		When("coverting the app workload to statefulset fails", func() {
-			BeforeEach(func() {
-				fakeWorkloadToStSet.ConvertReturns(nil, errors.New("convert-error"))
-			})
-
-			It("returns the error", func() {
-				Expect(reconcileErr).To(MatchError("convert-error"))
-			})
-		})
-
-		It("creates a StatefulSet", func() {
-			Expect(fakeClient.CreateCallCount()).To(Equal(1), "Client.Create call count mismatch")
-			_, obj, _ := fakeClient.CreateArgsForCall(0)
-			Expect(obj).To(BeAssignableToTypeOf(new(v1.StatefulSet)))
-		})
-
-		When("creating the StatefulSet fails", func() {
-			BeforeEach(func() {
-				createStatefulSetError = errors.New("big sad")
-			})
-
-			It("returns an error", func() {
-				Expect(reconcileErr).To(MatchError("big sad"))
-			})
-		})
-
-		When("reconciler name on the AppWorkload is not statefulset-runner", func() {
-			BeforeEach(func() {
-				appWorkload.Spec.RunnerName = "MyCustomReconciler"
-			})
-
-			It("does not create/patch statefulset", func() {
-				Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
-			})
-		})
+	It("creates the statefulset", func() {
+		Expect(getStatefulsetForAppWorkload(Default).Namespace).To(Equal(namespaceName))
 	})
 
-	When("the appworkload is being deleted", func() {
+	It("the created statefulset contains an owner reference to our appworkload", func() {
+		statefulset := getStatefulsetForAppWorkload(Default)
+
+		Expect(statefulset.OwnerReferences).To(HaveLen(1))
+		Expect(statefulset.OwnerReferences[0].Kind).To(Equal("AppWorkload"))
+		Expect(statefulset.OwnerReferences[0].Name).To(Equal(appWorkload.Name))
+	})
+
+	It("creates the pod disruption budget", func() {
+		statefulSet := getStatefulsetForAppWorkload(Default)
+		pdb := new(policyv1.PodDisruptionBudget)
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: statefulSet.Name, Namespace: namespaceName}, pdb)).To(Succeed())
+		}).Should(Succeed())
+		Expect(*pdb.Spec.MinAvailable).To(Equal(intstr.FromString("50%")))
+	})
+
+	When("reconciler name on the AppWorkload is not statefulset-runner", func() {
 		BeforeEach(func() {
-			getAppWorkloadError = apierrors.NewNotFound(schema.GroupResource{
-				Group:    "v1alpha1",
-				Resource: "AppWorkload",
-			}, "some-resource")
+			appWorkload.Spec.RunnerName = "MyCustomReconciler"
 		})
 
-		It("returns an empty result and does not return error", func() {
-			Expect(reconcileResult).To(Equal(ctrl.Result{}))
-			Expect(reconcileErr).NotTo(HaveOccurred())
+		It("does not create statefulsets", func() {
+			Consistently(func(g Gomega) {
+				stsetList := appsv1.StatefulSetList{}
+				err := k8sClient.List(context.Background(), &stsetList, client.InNamespace(namespaceName))
+
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(stsetList.Items).To(BeEmpty())
+			}).Should(Succeed())
 		})
 	})
 
-	When("the appworkload is being updated", func() {
-		BeforeEach(func() {
-			getStatefulSetError = nil
-
-			desiredStSet := statefulSet.DeepCopy()
-			desiredStSet.Spec.Replicas = tools.PtrTo(int32(2))
-			fakeWorkloadToStSet.ConvertReturns(desiredStSet, nil)
+	Describe("Scaling AppWorkload", func() {
+		JustBeforeEach(func() {
+			Expect(k8s.Patch(context.Background(), k8sClient, appWorkload, func() {
+				appWorkload.Spec.Instances = 2
+				appWorkload.Spec.Resources.Requests[corev1.ResourceCPU] = resource.MustParse("1024m")
+				appWorkload.Spec.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("10Mi")
+				appWorkload.Spec.Resources.Limits[corev1.ResourceMemory] = resource.MustParse("10Mi")
+			})).To(Succeed())
 		})
 
-		It("scales instances", func() {
-			Expect(fakeClient.PatchCallCount()).To(BeNumerically(">", 1))
-			_, updatedObject, _, _ := fakeClient.PatchArgsForCall(0)
-			updatedStSet, ok := updatedObject.(*v1.StatefulSet)
-			Expect(ok).To(BeTrue())
-			Expect(updatedStSet.Spec.Replicas).To(Equal(tools.PtrTo(int32(2))))
-		})
-
-		When("updating the pod disruption budget fails", func() {
-			BeforeEach(func() {
-				fakePDB.UpdateReturns(errors.New("boom"))
-			})
-
-			It("returns an error", func() {
-				Expect(reconcileErr).To(MatchError("boom"))
-			})
+		It("updates the StatefulSet", func() {
+			Eventually(func(g Gomega) {
+				statefulSet := getStatefulsetForAppWorkload(g)
+				g.Expect(statefulSet.Spec.Replicas).To(gstruct.PointTo(BeNumerically("==", 2)))
+				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("10Mi"))
+				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1024m"))
+				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
+			}).Should(Succeed())
 		})
 	})
 })
-
-func expectedValFrom(fieldPath string) *corev1.EnvVarSource {
-	return &corev1.EnvVarSource{
-		FieldRef: &corev1.ObjectFieldSelector{
-			APIVersion: "",
-			FieldPath:  fieldPath,
-		},
-	}
-}

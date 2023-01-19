@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
 	appsv1 "k8s.io/api/apps/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,32 +35,29 @@ func (c *PDBUpdater) Update(ctx context.Context, statefulSet *appsv1.StatefulSet
 
 func (c *PDBUpdater) createPDB(ctx context.Context, statefulSet *appsv1.StatefulSet) error {
 	minAvailable := intstr.FromString(PdbMinAvailableInstances)
-
 	pdb := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulSet.Name,
 			Namespace: statefulSet.Namespace,
-			Labels: map[string]string{
-				LabelGUID:    statefulSet.Labels[LabelGUID],
-				LabelVersion: statefulSet.Labels[LabelVersion],
-			},
 		},
-		Spec: policyv1.PodDisruptionBudgetSpec{
+	}
+
+	_, err := controllerutil.CreateOrPatch(ctx, c.client, pdb, func() error {
+		if pdb.Labels == nil {
+			pdb.Labels = map[string]string{}
+		}
+		pdb.Labels[LabelGUID] = statefulSet.Labels[LabelGUID]
+		pdb.Labels[LabelVersion] = statefulSet.Labels[LabelVersion]
+
+		pdb.Spec = policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
 			Selector:     statefulSet.Spec.Selector,
-		},
-	}
-
-	if err := controllerutil.SetOwnerReference(statefulSet, pdb, scheme.Scheme); err != nil {
-		return fmt.Errorf("pdb updater failed to set owner ref : %w", err)
-	}
-
-	err := c.client.Create(ctx, pdb)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			return nil
 		}
-		return fmt.Errorf("failed to create pod distruption budget: %w", err)
+
+		return controllerutil.SetOwnerReference(statefulSet, pdb, scheme.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to createOrPatch pod distruption budget: %w", err)
 	}
 
 	return nil

@@ -2,9 +2,10 @@ package controllers_test
 
 import (
 	"context"
-	"errors"
 
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/tools"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,26 +14,28 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("PDB", func() {
 	var (
-		creator   *controllers.PDBUpdater
-		stSet     *appsv1.StatefulSet
-		ctx       context.Context
-		instances int32
+		creator       *controllers.PDBUpdater
+		stSet         *appsv1.StatefulSet
+		ctx           context.Context
+		namespaceName string
 	)
 
 	BeforeEach(func() {
-		creator = controllers.NewPDBUpdater(fakeClient)
-		instances = 2
+		ctx = context.Background()
+		creator = controllers.NewPDBUpdater(k8sClient)
+
+		namespaceName = prefixedGUID("ns")
+		createNamespace(ctx, k8sClient, namespaceName)
 
 		stSet = &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "name",
-				Namespace: "namespace",
+				Namespace: namespaceName,
 				UID:       "uid",
 				Labels: map[string]string{
 					controllers.LabelGUID:    "label-guid",
@@ -40,7 +43,7 @@ var _ = Describe("PDB", func() {
 				},
 			},
 			Spec: appsv1.StatefulSetSpec{
-				Replicas: &instances,
+				Replicas: tools.PtrTo(int32(2)),
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						controllers.LabelGUID:    "label-guid",
@@ -49,92 +52,40 @@ var _ = Describe("PDB", func() {
 				},
 			},
 		}
-
-		ctx = context.Background()
 	})
 
-	Describe("Update", func() {
-		var updateErr error
+	JustBeforeEach(func() {
+		Expect(creator.Update(ctx, stSet)).To(Succeed())
+	})
+
+	It("creates a pod disruption budget", func() {
+		Eventually(func(g Gomega) {
+			pdb := &policyv1.PodDisruptionBudget{}
+			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(stSet), pdb)).To(Succeed())
+			g.Expect(pdb.Spec.MinAvailable).To(PointTo(Equal(intstr.FromString("50%"))))
+			g.Expect(pdb.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelGUID, stSet.Labels[controllers.LabelGUID]))
+			g.Expect(pdb.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelVersion, stSet.Labels[controllers.LabelVersion]))
+			g.Expect(pdb.OwnerReferences).To(HaveLen(1))
+			g.Expect(pdb.OwnerReferences[0].Name).To(Equal(stSet.Name))
+			g.Expect(pdb.OwnerReferences[0].UID).To(Equal(stSet.UID))
+		}).Should(Succeed())
+	})
+
+	When("the statefulset has been scaled down to less than 2 instances", func() {
 		JustBeforeEach(func() {
-			updateErr = creator.Update(ctx, stSet)
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(stSet), &policyv1.PodDisruptionBudget{}))
+			}).Should(Succeed())
+
+			stSet.Spec.Replicas = tools.PtrTo(int32(1))
+			Expect(creator.Update(ctx, stSet)).To(Succeed())
 		})
 
-		It("succeeds", func() {
-			Expect(updateErr).NotTo(HaveOccurred())
-		})
-
-		It("creates a pod disruption budget", func() {
-			Expect(fakeClient.CreateCallCount()).To(Equal(1))
-
-			_, obj, createOpts := fakeClient.CreateArgsForCall(0)
-
-			Expect(obj).To(BeAssignableToTypeOf(&policyv1.PodDisruptionBudget{}))
-			pdb := obj.(*policyv1.PodDisruptionBudget)
-
-			Expect(pdb.Namespace).To(Equal("namespace"))
-			Expect(pdb.Name).To(Equal("name"))
-			Expect(pdb.Spec.MinAvailable).To(PointTo(Equal(intstr.FromString("50%"))))
-			Expect(pdb.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelGUID, stSet.Labels[controllers.LabelGUID]))
-			Expect(pdb.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelVersion, stSet.Labels[controllers.LabelVersion]))
-			Expect(pdb.OwnerReferences).To(HaveLen(1))
-			Expect(pdb.OwnerReferences[0].Name).To(Equal(stSet.Name))
-			Expect(pdb.OwnerReferences[0].UID).To(Equal(stSet.UID))
-
-			Expect(createOpts).To(BeEmpty())
-		})
-
-		When("pod disruption budget creation fails", func() {
-			BeforeEach(func() {
-				fakeClient.CreateReturns(errors.New("boom"))
-			})
-
-			It("should propagate the error", func() {
-				Expect(updateErr).To(MatchError(ContainSubstring("boom")))
-			})
-		})
-
-		When("the statefulset has less than 2 target instances", func() {
-			var instances int32
-
-			BeforeEach(func() {
-				instances = 1
-				stSet.Spec.Replicas = &instances
-			})
-
-			It("does not create but does try to delete pdb", func() {
-				Expect(fakeClient.CreateCallCount()).To(BeZero())
-				Expect(fakeClient.DeleteAllOfCallCount()).To(Equal(1))
-			})
-
-			When("there is no PDB already", func() {
-				BeforeEach(func() {
-					fakeClient.DeleteReturns(k8serrors.NewNotFound(schema.GroupResource{}, "nope"))
-				})
-
-				It("succeeds", func() {
-					Expect(updateErr).NotTo(HaveOccurred())
-				})
-			})
-
-			When("deleting the PDB fails", func() {
-				BeforeEach(func() {
-					fakeClient.DeleteAllOfReturns(errors.New("oops"))
-				})
-
-				It("returns an error", func() {
-					Expect(updateErr).To(MatchError(ContainSubstring("oops")))
-				})
-			})
-		})
-
-		When("the pod distruption budget already exists", func() {
-			BeforeEach(func() {
-				fakeClient.CreateReturns(k8serrors.NewAlreadyExists(schema.GroupResource{}, "boom"))
-			})
-
-			It("succeeds", func() {
-				Expect(updateErr).NotTo(HaveOccurred())
-			})
+		It("deletes the PDB", func() {
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(stSet), &policyv1.PodDisruptionBudget{})
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 		})
 	})
 })
