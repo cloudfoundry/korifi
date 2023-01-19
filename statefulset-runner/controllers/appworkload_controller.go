@@ -109,7 +109,7 @@ func NewAppWorkloadReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads/status,verbs=get;patch
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;patch;get;list;watch
-//+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;patch;deletecollection
+//+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;patch;deletecollection;list;watch
 
 func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
 	if appWorkload.Spec.RunnerName != AppWorkloadReconcilerName {

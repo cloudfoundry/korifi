@@ -40,4 +40,6 @@ rules:
   verbs:
   - create
   - deletecollection
+  - list
   - patch
+  - watch
