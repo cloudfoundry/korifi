@@ -33,7 +33,7 @@ var _ = Describe("BuildpackRepository", func() {
 				})
 			})
 
-			It("lists the buildpacks in order", func() {
+			It("returns all buildpacks", func() {
 				buildpackRecords, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(buildpackRecords).To(ConsistOf(

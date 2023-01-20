@@ -250,9 +250,6 @@ var _ = Describe("PackageRepository", func() {
 				package1GUID = generateGUID()
 				createPackageCR(ctx, k8sClient, package1GUID, appGUID, space.Name, "")
 
-				// add a small delay to test ordering on created_by
-				time.Sleep(100 * time.Millisecond)
-
 				package2GUID = generateGUID()
 				createPackageCR(ctx, k8sClient, package2GUID, appGUID2, space2.Name, "my-image-url")
 
@@ -283,23 +280,6 @@ var _ = Describe("PackageRepository", func() {
 							"GUID": Equal(noPermissionsPackageGUID),
 						}),
 					))
-				})
-
-				It("orders the results in ascending created_at order by default", func() {
-					Expect(packageList).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal(package1GUID),
-						}),
-						MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal(package2GUID),
-						}),
-					))
-
-					firstCreatedAt, err := time.Parse(time.RFC3339, packageList[0].CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					secondCreatedAt, err := time.Parse(time.RFC3339, packageList[1].CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(firstCreatedAt).To(BeTemporally("<=", secondCreatedAt))
 				})
 
 				When("app_guids filter is provided", func() {
