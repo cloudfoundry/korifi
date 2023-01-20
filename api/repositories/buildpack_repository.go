@@ -30,10 +30,6 @@ type BuildpackRecord struct {
 	UpdatedAt string
 }
 
-type ListBuildpacksMessage struct {
-	OrderBy []string
-}
-
 func NewBuildpackRepository(builderName string, userClientFactory authorization.UserK8sClientFactory, rootNamespace string) *BuildpackRepository {
 	return &BuildpackRepository{
 		builderName:       builderName,
