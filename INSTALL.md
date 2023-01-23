@@ -113,13 +113,13 @@ kubectl --namespace "$ROOT_NAMESPACE" create secret docker-registry image-regist
 Make sure the value of `--docker-server` is a valid [URI authority](https://datatracker.ietf.org/doc/html/rfc3986#section-3.2).
 
 -   If using **DockerHub**:
-    -   `--docker-server` should be `https://index.docker.io/v1/`;
+    -   `--docker-server` should be omitted;
     -   `--docker-username` should be your DockerHub user;
     -   `--docker-password` can be either your DockerHub password or a [generated personal access token](https://hub.docker.com/settings/security?generateToken=true).
--   If using **GCR**:
-    -   `--docker-server` should be `gcr.io`;
+-   If using **Google Artifact Registry**:
+    -   `--docker-server` should be `<region>-docker.pkg.dev`;
     -   `--docker-username` should be `_json_key`;
-    -   `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in GCR.
+    -   `--docker-password` should be the JSON-formatted access token for a service account that has permission to manage images in Google Artifact Registry.
 
 ### TLS certificates
 
@@ -170,13 +170,13 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
 In particular, the app GUID and image type (`packages` or `droplets`) are appended to form the name of the repository.
 For example:
 
-| Registry  | containerRepositoryPrefix                                    | Resultant Image Ref                                                            | Notes                                                                                                    |
-| --------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| ACR       | `<projectID>.azurecr.io/foo/bar/korifi-`                     | `<projectID>.azurecr.io/foo/bar/korifi-<appGUID>-packages`                     | Repositories are created dynamically during push by ACR                                                  |
-| DockerHub | `index.docker.io/<dockerOrganisation>/`                      | `index.docker.io/<dockerOrganisation>/<appGUID>-packages`                      | Docker does not support nested repositories                                                              |
-| ECR       | `<projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-` | `<projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-<appGUID>-packages` | Korifi will create the repository before pushing, as dynamic repository creation is not posssible on ECR |
-| GAR       | `<region>-docker.pkg.dev/<projectID>/foo/bar/korifi-`        | `<region>-docker.pkg.dev/<projectID>/foo/bar/korifi-<appGUID>-packages`        | The `foo` repository must already exist in GAR                                                           |
-| GCR       | `gcr.io/<projectID>/foo/bar/korifi-`                         | `gcr.io/<projectID>/foo/bar/korifi-<appGUID>-packages`                         | Repositories are created dynamically during push by GCR                                                  |
+| Registry                          | containerRepositoryPrefix                                    | Resultant Image Ref                                                            | Notes                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Azure Container Registry          | `<projectID>.azurecr.io/foo/bar/korifi-`                     | `<projectID>.azurecr.io/foo/bar/korifi-<appGUID>-packages`                     | Repositories are created dynamically during push by ACR                                                  |
+| DockerHub                         | `index.docker.io/<dockerOrganisation>/`                      | `index.docker.io/<dockerOrganisation>/<appGUID>-packages`                      | Docker does not support nested repositories                                                              |
+| Amazon Elastic Container Registry | `<projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-` | `<projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-<appGUID>-packages` | Korifi will create the repository before pushing, as dynamic repository creation is not posssible on ECR |
+| Google Artifact Registry          | `<region>-docker.pkg.dev/<projectID>/foo/bar/korifi-`        | `<region>-docker.pkg.dev/<projectID>/foo/bar/korifi-<appGUID>-packages`        | The `foo` repository must already exist in GAR                                                           |
+| Google Container Registry         | `gcr.io/<projectID>/foo/bar/korifi-`                         | `gcr.io/<projectID>/foo/bar/korifi-<appGUID>-packages`                         | Repositories are created dynamically during push by GCR                                                  |
 
 The chart provides various other values that can be set. See [`README.helm.md`](./README.helm.md) for details.
 
