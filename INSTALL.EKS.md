@@ -44,7 +44,7 @@ Your kubeconfig will be updated to be targeting the new cluster when this comman
 
 ### Install the EBS CSI addon
 
-Create the EBS CSI addon to allow PVCs (https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html).
+Create the [EBS CSI](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html) addon to allow PVCs.
 
 First, set up the service account and role for the addon:
 
