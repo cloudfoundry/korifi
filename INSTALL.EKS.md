@@ -40,7 +40,7 @@ eksctl create cluster \
   --with-oidc
 ```
 
-Your kubeconfig will be updated to be targetting the new cluster when this command completes.
+Your kubeconfig will be updated to be targeting the new cluster when this command completes.
 
 ### Install the EBS CSI addon
 
@@ -72,11 +72,9 @@ eksctl create addon \
 
 ### Setup IAM role for access to ECR
 
-The main difference when installing Korifi on EKS with ECR, as opposed to other container registries,
-is that ECR tokens issued by the AWS CLI expire in 12 hours.
+The main difference when installing Korifi on EKS with ECR, as opposed to other container registries, is that ECR tokens issued by the AWS CLI expire in 12 hours.
 This means they are not a good option for storing in Kubernetes secrets for Korifi to use.
-Instead, we must grant the ECR push and pull permissions in an IAM role
-and allow that role to be associated with various service accounts used by Korifi and Kpack.
+Instead, we must grant the ECR push and pull permissions in an IAM role and allow that role to be associated with various service accounts used by Korifi and Kpack.
 
 The [AWS docs](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
 have more details about associating IAM roles with Kubernetes service accounts.
