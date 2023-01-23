@@ -266,6 +266,12 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
   --wait
 ```
 
+## Post-install Configuration
+
+### DNS
+
+Follow the [common instructions](./INSTALL.md#dns).
+
 ## Test Korifi
 
 First, let's create a CLI profile for your Korifi admin user:
