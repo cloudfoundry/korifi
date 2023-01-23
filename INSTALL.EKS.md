@@ -137,7 +137,7 @@ cat >trust-relationships.json <<EOF
           "${OIDC_PROVIDER}:sub": [
             "system:serviceaccount:kpack:controller",
             "system:serviceaccount:korifi:korifi-api-system-serviceaccount",
-            "system:serviceaccount:korifi:korifi-kpack-build-controller-manager",
+            "system:serviceaccount:korifi:korifi-controllers-controller-manager",
             "system:serviceaccount:*:kpack-service-account"
           ]
         }
