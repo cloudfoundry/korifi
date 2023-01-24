@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -62,13 +63,13 @@ var _ = Describe("CFDomainReconciler Integration Tests", func() {
 		}
 		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
-		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFRoute{
+		createValidRoute(ctx, &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GenerateGUID(),
 				Namespace: route1Namespace,
 			},
 			Spec: korifiv1alpha1.CFRouteSpec{
-				Host:     "test-route-host",
+				Host:     "test-route-host-1",
 				Path:     "/test/path/1",
 				Protocol: "http",
 				DomainRef: corev1.ObjectReference{
@@ -76,15 +77,15 @@ var _ = Describe("CFDomainReconciler Integration Tests", func() {
 					Namespace: domainNamespace,
 				},
 			},
-		})).To(Succeed())
+		})
 
-		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFRoute{
+		createValidRoute(ctx, &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      GenerateGUID(),
 				Namespace: route2Namespace,
 			},
 			Spec: korifiv1alpha1.CFRouteSpec{
-				Host:     "test-route-host",
+				Host:     "test-route-host-2",
 				Path:     "/test/path/2",
 				Protocol: "http",
 				DomainRef: corev1.ObjectReference{
@@ -92,7 +93,7 @@ var _ = Describe("CFDomainReconciler Integration Tests", func() {
 					Namespace: domainNamespace,
 				},
 			},
-		})).To(Succeed())
+		})
 	})
 
 	Describe("Delete CFDomain", func() {
@@ -113,3 +114,12 @@ var _ = Describe("CFDomainReconciler Integration Tests", func() {
 		})
 	})
 })
+
+func createValidRoute(ctx context.Context, route *korifiv1alpha1.CFRoute) {
+	Expect(k8sClient.Create(ctx, route)).To(Succeed())
+	Eventually(func(g Gomega) {
+		createdRoute := &korifiv1alpha1.CFRoute{}
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(route), createdRoute)).To(Succeed())
+		g.Expect(meta.IsStatusConditionTrue(createdRoute.Status.Conditions, "Valid")).To(BeTrue())
+	}).Should(Succeed())
+}
