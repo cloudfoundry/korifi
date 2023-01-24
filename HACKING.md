@@ -5,6 +5,7 @@
 In order to build & test korifi yourself, consider installing:
 
 -   [Golang](https://go.dev/doc/install)
+-   [Golang linters aggregator](https://golangci-lint.run/usage/install/)
 -   [Docker](https://docs.docker.com/get-docker/)
 -   [kind](https://kubernetes.io/docs/tasks/tools/#kind)
 -   [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl)
