@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,10 +34,11 @@ var _ = Describe("RoleRepository", func() {
 	BeforeEach(func() {
 		authorizedInChecker = new(fake.AuthorizedInChecker)
 		roleMappings := map[string]config.Role{
-			"space_developer":      {Name: spaceDeveloperRole.Name},
-			"organization_manager": {Name: orgManagerRole.Name, Propagate: true},
-			"organization_user":    {Name: orgUserRole.Name},
+			"space_developer":      {Name: spaceDeveloperRole.Name, Level: config.SpaceRole},
+			"organization_manager": {Name: orgManagerRole.Name, Level: config.OrgRole, Propagate: true},
+			"organization_user":    {Name: orgUserRole.Name, Level: config.OrgRole},
 			"cf_user":              {Name: rootNamespaceUserRole.Name},
+			"admin":                {Name: adminRole.Name, Propagate: true},
 		}
 		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
 		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, time.Millisecond*2000)
@@ -44,6 +46,7 @@ var _ = Describe("RoleRepository", func() {
 			userClientFactory,
 			spaceRepo,
 			authorizedInChecker,
+			nsPerms,
 			rootNamespace,
 			roleMappings,
 		)
@@ -121,8 +124,8 @@ var _ = Describe("RoleRepository", func() {
 			})
 
 			It("updated the create/updated timestamps", func() {
-				Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(createdRole.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(time.Parse(time.RFC3339, createdRole.CreatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(time.Parse(time.RFC3339, createdRole.UpdatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
 				Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
 			})
 
@@ -280,8 +283,8 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		It("updated the create/updated timestamps", func() {
-			Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-			Expect(createdRole.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+			Expect(time.Parse(time.RFC3339, createdRole.CreatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
+			Expect(time.Parse(time.RFC3339, createdRole.UpdatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
 			Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
 		})
 
@@ -367,6 +370,108 @@ var _ = Describe("RoleRepository", func() {
 					BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}),
 					MatchError(ContainSubstring("no RoleBinding found")),
 				))
+			})
+		})
+	})
+
+	Describe("list roles", func() {
+		var (
+			otherOrg            *korifiv1alpha1.CFOrg
+			cfSpace, otherSpace *korifiv1alpha1.CFSpace
+			roles               []repositories.RoleRecord
+			listErr             error
+		)
+
+		BeforeEach(func() {
+			otherOrg = createOrgWithCleanup(ctx, uuid.NewString())
+			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, uuid.NewString())
+			otherSpace = createSpaceWithCleanup(ctx, cfOrg.Name, uuid.NewString())
+			createRoleBinding(ctx, "my-user", orgUserRole.Name, cfOrg.Name)
+			createRoleBinding(ctx, "my-user", spaceDeveloperRole.Name, cfSpace.Name)
+			createRoleBinding(ctx, "my-user", spaceDeveloperRole.Name, otherSpace.Name)
+			createRoleBinding(ctx, "my-user", orgUserRole.Name, otherOrg.Name)
+		})
+
+		JustBeforeEach(func() {
+			roles, listErr = roleRepo.ListRoles(ctx, authInfo)
+		})
+
+		It("returns an empty list when user has no permissions to list roles", func() {
+			Expect(listErr).NotTo(HaveOccurred())
+			Expect(roles).To(BeEmpty())
+		})
+
+		When("the user has permission to list roles in some namespaces", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+			})
+
+			It("returns the bindings in cfOrg and cfSpace only (for system user and my-user)", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(roles).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Kind":  Equal("User"),
+						"User":  Equal("my-user"),
+						"Type":  Equal("space_developer"),
+						"Space": Equal(cfSpace.Name),
+						"Org":   BeEmpty(),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Kind":  Equal("User"),
+						"User":  Equal("my-user"),
+						"Type":  Equal("organization_user"),
+						"Space": BeEmpty(),
+						"Org":   Equal(cfOrg.Name),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Kind":  Equal("User"),
+						"User":  Equal(userName),
+						"Type":  Equal("space_developer"),
+						"Space": Equal(cfSpace.Name),
+						"Org":   BeEmpty(),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Kind":  Equal("User"),
+						"User":  Equal(userName),
+						"Type":  Equal("organization_user"),
+						"Space": BeEmpty(),
+						"Org":   Equal(cfOrg.Name),
+					}),
+				))
+			})
+
+			When("there are propagated role bindings", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, "my-user", orgManagerRole.Name, cfSpace.Name, korifiv1alpha1.PropagatedFromLabel, "foo")
+				})
+
+				It("ignores them", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(roles).To(HaveLen(4))
+				})
+			})
+
+			When("there are non-cf role bindings", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, "my-user", "some-role", cfSpace.Name)
+				})
+
+				It("ignores them", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(roles).To(HaveLen(4))
+				})
+			})
+
+			When("there are root namespace permissions", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, orgManagerRole.Name, rootNamespace)
+				})
+
+				It("ignores them", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(roles).To(HaveLen(4))
+				})
 			})
 		})
 	})

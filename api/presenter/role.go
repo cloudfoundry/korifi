@@ -2,7 +2,6 @@ package presenter
 
 import (
 	"net/url"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -23,6 +22,7 @@ type RoleResponse struct {
 
 type RoleLinks struct {
 	Self         *Link `json:"self"`
+	User         *Link `json:"user"`
 	Space        *Link `json:"space,omitempty"`
 	Organization *Link `json:"organization,omitempty"`
 }
@@ -31,11 +31,20 @@ func ForCreateRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleRespons
 	return toRoleResponse(role, apiBaseURL)
 }
 
+func ForRoleList(roles []repositories.RoleRecord, apiBaseURL, requestURL url.URL) ListResponse {
+	items := make([]any, len(roles))
+	for i := range items {
+		items[i] = toRoleResponse(roles[i], apiBaseURL)
+	}
+
+	return ForList(items, apiBaseURL, requestURL)
+}
+
 func toRoleResponse(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
 	resp := RoleResponse{
 		GUID:      role.GUID,
-		CreatedAt: role.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt: role.CreatedAt.UTC().Format(time.RFC3339),
+		CreatedAt: role.CreatedAt,
+		UpdatedAt: role.CreatedAt,
 		Type:      role.Type,
 		Relationships: Relationships{
 			"user":         Relationship{Data: &RelationshipData{GUID: role.User}},
@@ -45,6 +54,9 @@ func toRoleResponse(role repositories.RoleRecord, apiBaseURL url.URL) RoleRespon
 		Links: RoleLinks{
 			Self: &Link{
 				HRef: buildURL(apiBaseURL).appendPath(rolesBase, role.GUID).build(),
+			},
+			User: &Link{
+				HRef: buildURL(apiBaseURL).appendPath(usersBase, role.User).build(),
 			},
 		},
 	}

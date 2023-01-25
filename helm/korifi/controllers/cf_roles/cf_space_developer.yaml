@@ -97,6 +97,13 @@ rules:
     - watch
 
 - apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - list
+
+- apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - cfroutes

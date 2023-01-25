@@ -10,48 +10,55 @@ import (
 )
 
 const (
-	defaultExternalProtocol = "https"
+	defaultExternalProtocol           = "https"
+	OrgRole                 RoleLevel = "org"
+	SpaceRole               RoleLevel = "space"
 )
 
-type APIConfig struct {
-	InternalPort      int `yaml:"internalPort"`
-	IdleTimeout       int `yaml:"idleTimeout"`
-	ReadTimeout       int `yaml:"readTimeout"`
-	ReadHeaderTimeout int `yaml:"readHeaderTimeout"`
-	WriteTimeout      int `yaml:"writeTimeout"`
+type (
+	APIConfig struct {
+		InternalPort      int `yaml:"internalPort"`
+		IdleTimeout       int `yaml:"idleTimeout"`
+		ReadTimeout       int `yaml:"readTimeout"`
+		ReadHeaderTimeout int `yaml:"readHeaderTimeout"`
+		WriteTimeout      int `yaml:"writeTimeout"`
 
-	ExternalFQDN string `yaml:"externalFQDN"`
-	ExternalPort int    `yaml:"externalPort"`
+		ExternalFQDN string `yaml:"externalFQDN"`
+		ExternalPort int    `yaml:"externalPort"`
 
-	ServerURL string
+		ServerURL string
 
-	RootNamespace                            string                 `yaml:"rootNamespace"`
-	BuilderName                              string                 `yaml:"builderName"`
-	ContainerRepositoryPrefix                string                 `yaml:"containerRepositoryPrefix"`
-	ContainerRegistryType                    string                 `yaml:"containerRegistryType"`
-	PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
-	DefaultDomainName                        string                 `yaml:"defaultDomainName"`
-	UserCertificateExpirationWarningDuration string                 `yaml:"userCertificateExpirationWarningDuration"`
-	DefaultLifecycleConfig                   DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
+		RootNamespace                            string                 `yaml:"rootNamespace"`
+		BuilderName                              string                 `yaml:"builderName"`
+		ContainerRepositoryPrefix                string                 `yaml:"containerRepositoryPrefix"`
+		ContainerRegistryType                    string                 `yaml:"containerRegistryType"`
+		PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
+		DefaultDomainName                        string                 `yaml:"defaultDomainName"`
+		UserCertificateExpirationWarningDuration string                 `yaml:"userCertificateExpirationWarningDuration"`
+		DefaultLifecycleConfig                   DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 
-	RoleMappings map[string]Role `yaml:"roleMappings"`
+		RoleMappings map[string]Role `yaml:"roleMappings"`
 
-	AuthProxyHost   string `yaml:"authProxyHost"`
-	AuthProxyCACert string `yaml:"authProxyCACert"`
-}
+		AuthProxyHost   string `yaml:"authProxyHost"`
+		AuthProxyCACert string `yaml:"authProxyCACert"`
+	}
 
-type Role struct {
-	Name      string `yaml:"name"`
-	Propagate bool   `yaml:"propagate"`
-}
+	RoleLevel string
 
-// DefaultLifecycleConfig contains default values of the Lifecycle block of CFApps and Builds created by the Shim
-type DefaultLifecycleConfig struct {
-	Type            string `yaml:"type"`
-	Stack           string `yaml:"stack"`
-	StagingMemoryMB int    `yaml:"stagingMemoryMB"`
-	StagingDiskMB   int    `yaml:"stagingDiskMB"`
-}
+	Role struct {
+		Name      string    `yaml:"name"`
+		Level     RoleLevel `yaml:"level"`
+		Propagate bool      `yaml:"propagate"`
+	}
+
+	// DefaultLifecycleConfig contains default values of the Lifecycle block of CFApps and Builds created by the Shim
+	DefaultLifecycleConfig struct {
+		Type            string `yaml:"type"`
+		Stack           string `yaml:"stack"`
+		StagingMemoryMB int    `yaml:"stagingMemoryMB"`
+		StagingDiskMB   int    `yaml:"stagingDiskMB"`
+	}
+)
 
 func LoadFromPath(path string) (*APIConfig, error) {
 	var config APIConfig

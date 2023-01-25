@@ -238,11 +238,12 @@ func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole
 	return clusterRole
 }
 
-func createRoleBinding(ctx context.Context, userName, roleName, namespace string) {
+func createRoleBinding(ctx context.Context, userName, roleName, namespace string, labels ...string) {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      generateGUID(),
 			Namespace: namespace,
+			Labels:    map[string]string{},
 		},
 		Subjects: []rbacv1.Subject{{
 			Kind: rbacv1.UserKind,
@@ -253,5 +254,10 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 			Name: roleName,
 		},
 	}
+
+	for i := 0; i < len(labels); i += 2 {
+		roleBinding.Labels[labels[i]] = labels[i+1]
+	}
+
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
 }

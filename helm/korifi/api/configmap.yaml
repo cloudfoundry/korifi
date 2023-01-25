@@ -48,25 +48,33 @@ data:
         propagate: true
       organization_auditor:
         name: korifi-controllers-organization-auditor
+        level: org
         propagate: false
       organization_billing_manager:
         name: korifi-controllers-organization-billing-manager
+        level: org
         propagate: false
       organization_manager:
         name: korifi-controllers-organization-manager
+        level: org
         propagate: true
       organization_user:
         name: korifi-controllers-organization-user
+        level: org
         propagate: false
       space_auditor:
         name: korifi-controllers-space-auditor
+        level: space
         propagate: false
       space_developer:
         name: korifi-controllers-space-developer
+        level: space
         propagate: false
       space_manager:
         name: korifi-controllers-space-manager
+        level: space
         propagate: false
       space_supporter:
         name: korifi-controllers-space-supporter
+        level: space
         propagate: false

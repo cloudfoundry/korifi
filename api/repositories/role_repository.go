@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/google/uuid"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
@@ -42,8 +42,8 @@ type CreateRoleMessage struct {
 
 type RoleRecord struct {
 	GUID      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt string
+	UpdatedAt string
 	Type      string
 	Space     string
 	Org       string
@@ -52,20 +52,36 @@ type RoleRecord struct {
 }
 
 type RoleRepo struct {
-	rootNamespace       string
-	roleMappings        map[string]config.Role
-	authorizedInChecker AuthorizedInChecker
-	userClientFactory   authorization.UserK8sClientFactory
-	spaceRepo           *SpaceRepo
+	rootNamespace        string
+	roleMappings         map[string]config.Role
+	inverseRoleMappings  map[string]string
+	authorizedInChecker  AuthorizedInChecker
+	namespacePermissions *authorization.NamespacePermissions
+	userClientFactory    authorization.UserK8sClientFactory
+	spaceRepo            *SpaceRepo
 }
 
-func NewRoleRepo(userClientFactory authorization.UserK8sClientFactory, spaceRepo *SpaceRepo, authorizedInChecker AuthorizedInChecker, rootNamespace string, roleMappings map[string]config.Role) *RoleRepo {
+func NewRoleRepo(
+	userClientFactory authorization.UserK8sClientFactory,
+	spaceRepo *SpaceRepo,
+	authorizedInChecker AuthorizedInChecker,
+	namespacePermissions *authorization.NamespacePermissions,
+	rootNamespace string,
+	roleMappings map[string]config.Role,
+) *RoleRepo {
+	inverseRoleMappings := map[string]string{}
+	for k, v := range roleMappings {
+		inverseRoleMappings[v.Name] = k
+	}
+
 	return &RoleRepo{
-		rootNamespace:       rootNamespace,
-		roleMappings:        roleMappings,
-		authorizedInChecker: authorizedInChecker,
-		userClientFactory:   userClientFactory,
-		spaceRepo:           spaceRepo,
+		rootNamespace:        rootNamespace,
+		roleMappings:         roleMappings,
+		inverseRoleMappings:  inverseRoleMappings,
+		authorizedInChecker:  authorizedInChecker,
+		namespacePermissions: namespacePermissions,
+		userClientFactory:    userClientFactory,
+		spaceRepo:            spaceRepo,
 	}
 }
 
@@ -125,8 +141,8 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 
 	roleRecord := RoleRecord{
 		GUID:      role.GUID,
-		CreatedAt: roleBinding.CreationTimestamp.Time,
-		UpdatedAt: roleBinding.CreationTimestamp.Time,
+		CreatedAt: roleBinding.CreationTimestamp.Time.UTC().Format(TimestampFormat),
+		UpdatedAt: roleBinding.CreationTimestamp.Time.UTC().Format(TimestampFormat),
 		Type:      role.Type,
 		Space:     role.Space,
 		Org:       role.Org,
@@ -187,4 +203,77 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleGUID, roleCo
 			Name: roleConfigName,
 		},
 	}
+}
+
+func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info) ([]RoleRecord, error) {
+	spaceList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+	orgList, err := r.namespacePermissions.GetAuthorizedOrgNamespaces(ctx, authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+
+	var nsList []string
+	for k := range spaceList {
+		nsList = append(nsList, k)
+	}
+	for k := range orgList {
+		nsList = append(nsList, k)
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var roles []RoleRecord
+	for _, ns := range nsList {
+		roleBindings := &rbacv1.RoleBindingList{}
+		err := userClient.List(ctx, roleBindings, client.InNamespace(ns))
+		if err != nil {
+			if k8serrors.IsForbidden(err) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to list roles in namespace %s: %w", ns, apierrors.FromK8sError(err, RoleResourceType))
+		}
+
+		for _, roleBinding := range roleBindings.Items {
+			if roleBinding.Labels[korifiv1alpha1.PropagatedFromLabel] != "" {
+				continue
+			}
+
+			cfRoleName := r.inverseRoleMappings[roleBinding.RoleRef.Name]
+			if cfRoleName == "" {
+				continue
+			}
+
+			roles = append(roles, r.toRoleRecord(roleBinding, cfRoleName))
+		}
+	}
+
+	return roles, nil
+}
+
+func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName string) RoleRecord {
+	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&roleBinding.ObjectMeta)
+
+	record := RoleRecord{
+		GUID:      roleBinding.Name,
+		CreatedAt: roleBinding.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt: updatedAtTime,
+		Type:      cfRoleName,
+		User:      roleBinding.Subjects[0].Name,
+		Kind:      roleBinding.Subjects[0].Kind,
+	}
+
+	switch r.roleMappings[cfRoleName].Level {
+	case config.OrgRole:
+		record.Org = roleBinding.Namespace
+	case config.SpaceRole:
+		record.Space = roleBinding.Namespace
+	}
+
+	return record
 }
