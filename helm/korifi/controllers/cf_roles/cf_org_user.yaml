@@ -20,3 +20,10 @@ rules:
   verbs:
   - list
   - get
+
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - list

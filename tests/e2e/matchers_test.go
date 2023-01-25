@@ -5,7 +5,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 	"github.com/go-resty/resty/v2"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
+	"github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/matchers"
 	"github.com/onsi/gomega/types"
 )
@@ -155,4 +157,58 @@ func (m haveRestyHeaderWithValue) NegatedFailureMessage(actual interface{}) stri
 	}
 
 	return format.Message(helpers.NewActualRestyResponse(response), fmt.Sprintf("not to have header %q with value matching", m.key), matcher.FailureMessage(hdrVal))
+}
+
+type haveRelationshipMatcher struct {
+	relationshipName  string
+	relationshipKey   string
+	relationshipValue string
+}
+
+func HaveRelationship(relationshipName, relationshipKey, relationshipValue string) types.GomegaMatcher {
+	return &haveRelationshipMatcher{
+		relationshipName:  relationshipName,
+		relationshipKey:   relationshipKey,
+		relationshipValue: relationshipValue,
+	}
+}
+
+func (m *haveRelationshipMatcher) Match(actual interface{}) (bool, error) {
+	if actual == nil {
+		return false, nil
+	}
+
+	actualResource, ok := actual.(typedResource)
+	if !ok {
+		return false, fmt.Errorf("%#v is not a e2e_test.typedResource", actual)
+	}
+
+	rel, ok := actualResource.Relationships[m.relationshipName]
+	if !ok {
+		return false, fmt.Errorf("the missing relationship is %s", m.relationshipName)
+	}
+
+	return m.dataHaveKeyMatcher().Match(rel.Data)
+}
+
+func (m *haveRelationshipMatcher) FailureMessage(actual interface{}) (message string) {
+	return format.Message(
+		actual,
+		"to have relationship ",
+		fmt.Sprintf("%s:%s:%s \n%s", m.relationshipName, m.relationshipKey, m.relationshipValue, m.dataHaveKeyMatcher().FailureMessage(actual)),
+	)
+}
+
+func (m *haveRelationshipMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	return format.Message(
+		actual,
+		"not to have relationship ",
+		fmt.Sprintf("%s:%s:%s \n%s", m.relationshipName, m.relationshipKey, m.relationshipValue, m.dataHaveKeyMatcher().FailureMessage(actual)),
+	)
+}
+
+func (m *haveRelationshipMatcher) dataHaveKeyMatcher() types.GomegaMatcher {
+	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		m.relationshipKey: gomega.Equal(m.relationshipValue),
+	})
 }

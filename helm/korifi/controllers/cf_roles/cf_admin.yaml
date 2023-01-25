@@ -171,6 +171,7 @@ rules:
   - rolebindings
   verbs:
   - create
+  - list
 
 - apiGroups:
   - metrics.k8s.io

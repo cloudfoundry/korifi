@@ -116,6 +116,10 @@ type typedResource struct {
 	Metadata *metadata `json:"metadata,omitempty"`
 }
 
+type typedResourceList struct {
+	Resources []typedResource `json:"resources"`
+}
+
 type metadata struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`

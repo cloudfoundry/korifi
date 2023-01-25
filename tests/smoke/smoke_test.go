@@ -92,6 +92,11 @@ var _ = Describe("Smoke Tests", func() {
 				g.Expect(resp).To(HaveHTTPStatus(http.StatusOK))
 				g.Expect(resp).To(HaveHTTPBody(ContainSubstring("Hello World")))
 			}, 5*time.Minute, 30*time.Second).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cfLogs := cf.Cf("logs", appName, "--recent")
+				g.Expect(string(cfLogs.Wait().Out.Contents())).To(ContainSubstring("Console output from test-node-app"))
+			}, 2*time.Minute, 2*time.Second).Should(Succeed())
 		})
 	})
 })

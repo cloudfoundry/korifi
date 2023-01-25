@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("Roles", func() {
@@ -42,7 +43,7 @@ var _ = Describe("Roles", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("creates a role binding", func() {
+		It("creates a role", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.GUID).ToNot(BeEmpty())
 			Expect(result.Type).To(Equal("organization_manager"))
@@ -92,7 +93,7 @@ var _ = Describe("Roles", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("creates a role binding", func() {
+		It("creates a role", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.GUID).ToNot(BeEmpty())
 			Expect(result.Type).To(Equal("space_developer"))
@@ -109,6 +110,79 @@ var _ = Describe("Roles", func() {
 
 			It("returns forbidden error", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+			})
+		})
+	})
+
+	Describe("listing roles", func() {
+		var (
+			spaceGUID  string
+			resultList typedResourceList
+		)
+
+		BeforeEach(func() {
+			createOrgRole("organization_user", userName, commonTestOrgGUID)
+			spaceGUID = createSpace(uuid.NewString(), commonTestOrgGUID)
+			createSpaceRole("space_developer", userName, spaceGUID)
+		})
+
+		AfterEach(func() {
+			deleteSpace(spaceGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetResult(&resultList).
+				Get("/v3/roles")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("lists all the roles as an admin user", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(resultList.Resources).To(ContainElements(
+				SatisfyAll(
+					HaveRelationship("user", "GUID", userName),
+					HaveRelationship("organization", "GUID", commonTestOrgGUID),
+					MatchFields(IgnoreExtras, Fields{
+						"Type": Equal("organization_user"),
+					}),
+				),
+				SatisfyAll(
+					HaveRelationship("user", "GUID", userName),
+					HaveRelationship("space", "GUID", spaceGUID),
+					MatchFields(IgnoreExtras, Fields{
+						"Type": Equal("space_developer"),
+					}),
+				),
+			))
+		})
+
+		When("invoking as the cert user", func() {
+			BeforeEach(func() {
+				client = certClient
+			})
+
+			It("returns only the roles visible to the cert user", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(resultList.Resources).To(ContainElements(
+					SatisfyAll(
+						HaveRelationship("user", "GUID", userName),
+						HaveRelationship("organization", "GUID", commonTestOrgGUID),
+						MatchFields(IgnoreExtras, Fields{
+							"Type": Equal("organization_user"),
+						}),
+					),
+				))
+				Expect(resultList.Resources).ToNot(ContainElements(
+					SatisfyAll(
+						HaveRelationship("user", "GUID", userName),
+						HaveRelationship("space", "GUID", spaceGUID),
+						MatchFields(IgnoreExtras, Fields{
+							"Type": Equal("space_developer"),
+						}),
+					),
+				))
 			})
 		})
 	})

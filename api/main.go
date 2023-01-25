@@ -180,6 +180,7 @@ func main() {
 		userClientFactory,
 		spaceRepo,
 		authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider),
+		authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider),
 		config.RootNamespace,
 		config.RoleMappings,
 	)

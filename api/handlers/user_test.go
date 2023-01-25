@@ -69,10 +69,12 @@ var _ = Describe("User", func() {
 					},
 					"resources": [
 						{
-							"username": "foo"
+							"username": "foo",
+							"guid": "foo"
 						},
 						{
-							"username": "bar"
+							"username": "bar",
+							"guid": "bar"
 						}
 					]
 				}`)))
