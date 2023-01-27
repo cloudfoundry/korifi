@@ -45,20 +45,25 @@ func NewManifest(domainRepo shared.CFDomainRepository, defaultDomainName string,
 	}
 }
 
-func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifest payloads.Manifest) error {
+func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, spaceGUID string, manifesto payloads.Manifest) error {
 	err := a.ensureDefaultDomainConfigured(ctx, authInfo)
 	if err != nil {
 		return err
 	}
 
-	appInfo := manifest.Applications[0]
-	appState, err := a.stateCollector.CollectState(ctx, authInfo, appInfo.Name, spaceGUID)
-	if err != nil {
-		return err
+	for _, appInfo := range manifesto.Applications {
+		appState, err := a.stateCollector.CollectState(ctx, authInfo, appInfo.Name, spaceGUID)
+		if err != nil {
+			return err
+		}
+		appInfo = a.normalizer.Normalize(appInfo, appState)
+		err = a.applier.Apply(ctx, authInfo, spaceGUID, appInfo, appState)
+		if err != nil {
+			return err
+		}
 	}
-	appInfo = a.normalizer.Normalize(appInfo, appState)
 
-	return a.applier.Apply(ctx, authInfo, spaceGUID, appInfo, appState)
+	return nil
 }
 
 func (a *Manifest) ensureDefaultDomainConfigured(ctx context.Context, authInfo authorization.Info) error {

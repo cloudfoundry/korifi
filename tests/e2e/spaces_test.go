@@ -299,30 +299,32 @@ var _ = Describe("Spaces", func() {
 
 	Describe("manifests", func() {
 		var (
-			spaceGUID     string
-			resultErr     cfErrs
-			manifestBytes []byte
-			manifest      manifestResource
-			appName       string
+			spaceGUID          string
+			resultErr          cfErrs
+			manifestBytes      []byte
+			manifest           manifestResource
+			app1Name, app2Name string
 		)
 
 		BeforeEach(func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
-			appName = generateGUID("manifested-app")
+			app1Name = generateGUID("manifested-app-1")
+			app2Name = generateGUID("manifested-app-2")
 
-			route := fmt.Sprintf("%s.%s", appName, appFQDN)
-			command := "whatever"
+			route := fmt.Sprintf("%s.%s", app1Name, appFQDN)
 			manifest = manifestResource{
 				Version: 1,
 				Applications: []applicationResource{{
-					Name: appName,
-					Processes: []manifestApplicationProcessResource{{
-						Type:    "web",
-						Command: &command,
-					}},
+					Name:    app1Name,
+					Command: "whatever",
 					Routes: []manifestRouteResource{{
 						Route: &route,
+					}},
+				}, {
+					Name: app2Name,
+					Processes: []manifestApplicationProcessResource{{
+						Type: "bob",
 					}},
 				}},
 			}
@@ -363,16 +365,13 @@ var _ = Describe("Spaces", func() {
 						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 					}).Should(Succeed())
 
-					var apps resourceList
-					appsResp, err := restyClient.R().
-						SetResult(&apps).
-						Get("/v3/apps?names=" + appName)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(appsResp).To(HaveRestyStatusCode(http.StatusOK))
-					Expect(apps.Resources).To(HaveLen(1))
-
-					process := getProcess(apps.Resources[0].GUID, "web")
+					app1GUID := getAppGUIDFromName(app1Name)
+					process := getProcess(app1GUID, "web")
 					Expect(process.Instances).To(Equal(1))
+					Expect(process.Command).To(Equal("whatever"))
+					app2GUID := getAppGUIDFromName(app2Name)
+					Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
+					Expect(getProcess(app2GUID, "bob").Instances).To(Equal(0))
 				})
 			})
 

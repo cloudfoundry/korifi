@@ -117,8 +117,15 @@ var _ = Describe("Normalizer", func() {
 			}
 		})
 
+		It("always creates a web process", func() {
+			Expect(normalizedAppInfo.Processes).To(ContainElement(payloads.ManifestApplicationProcess{Type: "web"}))
+		})
+
 		It("preserves existing processes", func() {
-			Expect(normalizedAppInfo.Processes).To(ConsistOf(payloads.ManifestApplicationProcess{Type: "bob"}))
+			Expect(normalizedAppInfo.Processes).To(ConsistOf(
+				payloads.ManifestApplicationProcess{Type: "web"},
+				payloads.ManifestApplicationProcess{Type: "bob"},
+			))
 		})
 
 		DescribeTable("when app-level values are provided",
@@ -159,7 +166,7 @@ var _ = Describe("Normalizer", func() {
 				Expect(webProc.Timeout).To(Equal(effective.Timeout))
 			},
 
-			// without an existing web process
+			// without an explicit web process in the manifest
 			Entry("app-level command only",
 				appParams{Command: tools.PtrTo("echo boo")}, prcParams{},
 				expParams{Command: tools.PtrTo("echo boo")}),
@@ -188,7 +195,7 @@ var _ = Describe("Normalizer", func() {
 				appParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}, prcParams{},
 				expParams{Memory: tools.PtrTo("512M"), DiskQuota: tools.PtrTo("2G")}),
 
-			// with an existing web process without the given value set
+			// with an explicit web process in the manifest, but without the app-level value set
 			Entry("empty proc with app memory",
 				appParams{Memory: tools.PtrTo("512M")},
 				prcParams{Instances: tools.PtrTo(3)},

@@ -10,7 +10,7 @@ import (
 
 type Manifest struct {
 	Version      int                   `yaml:"version"`
-	Applications []ManifestApplication `yaml:"applications" validate:"max=1,dive"`
+	Applications []ManifestApplication `yaml:"applications"`
 }
 
 type ManifestApplication struct {

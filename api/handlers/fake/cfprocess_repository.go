@@ -11,6 +11,19 @@ import (
 )
 
 type CFProcessRepository struct {
+	CreateProcessStub        func(context.Context, authorization.Info, repositories.CreateProcessMessage) error
+	createProcessMutex       sync.RWMutex
+	createProcessArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.CreateProcessMessage
+	}
+	createProcessReturns struct {
+		result1 error
+	}
+	createProcessReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetProcessStub        func(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
 	getProcessMutex       sync.RWMutex
 	getProcessArgsForCall []struct {
@@ -75,6 +88,69 @@ type CFProcessRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CFProcessRepository) CreateProcess(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateProcessMessage) error {
+	fake.createProcessMutex.Lock()
+	ret, specificReturn := fake.createProcessReturnsOnCall[len(fake.createProcessArgsForCall)]
+	fake.createProcessArgsForCall = append(fake.createProcessArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.CreateProcessMessage
+	}{arg1, arg2, arg3})
+	stub := fake.CreateProcessStub
+	fakeReturns := fake.createProcessReturns
+	fake.recordInvocation("CreateProcess", []interface{}{arg1, arg2, arg3})
+	fake.createProcessMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFProcessRepository) CreateProcessCallCount() int {
+	fake.createProcessMutex.RLock()
+	defer fake.createProcessMutex.RUnlock()
+	return len(fake.createProcessArgsForCall)
+}
+
+func (fake *CFProcessRepository) CreateProcessCalls(stub func(context.Context, authorization.Info, repositories.CreateProcessMessage) error) {
+	fake.createProcessMutex.Lock()
+	defer fake.createProcessMutex.Unlock()
+	fake.CreateProcessStub = stub
+}
+
+func (fake *CFProcessRepository) CreateProcessArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateProcessMessage) {
+	fake.createProcessMutex.RLock()
+	defer fake.createProcessMutex.RUnlock()
+	argsForCall := fake.createProcessArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFProcessRepository) CreateProcessReturns(result1 error) {
+	fake.createProcessMutex.Lock()
+	defer fake.createProcessMutex.Unlock()
+	fake.CreateProcessStub = nil
+	fake.createProcessReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFProcessRepository) CreateProcessReturnsOnCall(i int, result1 error) {
+	fake.createProcessMutex.Lock()
+	defer fake.createProcessMutex.Unlock()
+	fake.CreateProcessStub = nil
+	if fake.createProcessReturnsOnCall == nil {
+		fake.createProcessReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.createProcessReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *CFProcessRepository) GetProcess(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ProcessRecord, error) {
@@ -346,6 +422,8 @@ func (fake *CFProcessRepository) PatchProcessReturnsOnCall(i int, result1 reposi
 func (fake *CFProcessRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.createProcessMutex.RLock()
+	defer fake.createProcessMutex.RUnlock()
 	fake.getProcessMutex.RLock()
 	defer fake.getProcessMutex.RUnlock()
 	fake.getProcessByAppTypeAndSpaceMutex.RLock()

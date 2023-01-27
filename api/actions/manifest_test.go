@@ -21,12 +21,10 @@ var _ = Describe("ApplyManifest", func() {
 		manifestAction *actions.Manifest
 		applyErr       error
 
-		domainRepository   *reposfake.CFDomainRepository
-		stateCollector     *fake.StateCollector
-		normalizer         *fake.Normalizer
-		applier            *fake.Applier
-		appState           manifest.AppState
-		normalizedManifest payloads.ManifestApplication
+		domainRepository *reposfake.CFDomainRepository
+		stateCollector   *fake.StateCollector
+		normalizer       *fake.Normalizer
+		applier          *fake.Applier
 
 		appManifest payloads.Manifest
 	)
@@ -37,22 +35,31 @@ var _ = Describe("ApplyManifest", func() {
 		normalizer = new(fake.Normalizer)
 		applier = new(fake.Applier)
 
-		appState = manifest.AppState{
+		stateCollector.CollectStateReturnsOnCall(0, manifest.AppState{
 			App: repositories.AppRecord{
-				GUID: "app-guid",
-				Name: "app-name",
+				GUID: "app1-guid",
+				Name: "app1",
 			},
-		}
-		stateCollector.CollectStateReturns(appState, nil)
+		}, nil)
+		stateCollector.CollectStateReturnsOnCall(1, manifest.AppState{
+			App: repositories.AppRecord{
+				GUID: "app2-guid",
+				Name: "app2",
+			},
+		}, nil)
 
-		normalizedManifest = payloads.ManifestApplication{
-			Name: "app-name",
-		}
-		normalizer.NormalizeReturns(normalizedManifest)
+		normalizer.NormalizeReturnsOnCall(0, payloads.ManifestApplication{
+			Name: "normalized-app1",
+		})
+		normalizer.NormalizeReturnsOnCall(1, payloads.ManifestApplication{
+			Name: "normalized-app2",
+		})
 
 		appManifest = payloads.Manifest{
 			Applications: []payloads.ManifestApplication{{
-				Name: "app-name",
+				Name: "app1",
+			}, {
+				Name: "app2",
 			}},
 		}
 
@@ -63,14 +70,38 @@ var _ = Describe("ApplyManifest", func() {
 		applyErr = manifestAction.Apply(context.Background(), authorization.Info{}, "space-guid", appManifest)
 	})
 
-	It("succeeds", func() {
+	It("normalizes the manifest and then applies it", func() {
 		Expect(applyErr).NotTo(HaveOccurred())
-	})
 
-	It("ensures the default domain is configured", func() {
 		Expect(domainRepository.GetDomainByNameCallCount()).To(Equal(1))
 		_, _, actualDomain := domainRepository.GetDomainByNameArgsForCall(0)
 		Expect(actualDomain).To(Equal("my.domain"))
+
+		Expect(stateCollector.CollectStateCallCount()).To(Equal(2))
+		_, _, actualAppName, actualSpaceGUID := stateCollector.CollectStateArgsForCall(0)
+		Expect(actualAppName).To(Equal("app1"))
+		Expect(actualSpaceGUID).To(Equal("space-guid"))
+		_, _, actualAppName, actualSpaceGUID = stateCollector.CollectStateArgsForCall(1)
+		Expect(actualAppName).To(Equal("app2"))
+		Expect(actualSpaceGUID).To(Equal("space-guid"))
+
+		Expect(normalizer.NormalizeCallCount()).To(Equal(2))
+		actualAppInManifest, actualState := normalizer.NormalizeArgsForCall(0)
+		Expect(actualAppInManifest.Name).To(Equal("app1"))
+		Expect(actualState.App.GUID).To(Equal("app1-guid"))
+		actualAppInManifest, actualState = normalizer.NormalizeArgsForCall(1)
+		Expect(actualAppInManifest.Name).To(Equal("app2"))
+		Expect(actualState.App.GUID).To(Equal("app2-guid"))
+
+		Expect(applier.ApplyCallCount()).To(Equal(2))
+		_, _, actualSpaceGUID, actualAppInManifest, actualState = applier.ApplyArgsForCall(0)
+		Expect(actualSpaceGUID).To(Equal("space-guid"))
+		Expect(actualAppInManifest.Name).To(Equal("normalized-app1"))
+		Expect(actualState.App.GUID).To(Equal("app1-guid"))
+		_, _, actualSpaceGUID, actualAppInManifest, actualState = applier.ApplyArgsForCall(1)
+		Expect(actualSpaceGUID).To(Equal("space-guid"))
+		Expect(actualAppInManifest.Name).To(Equal("normalized-app2"))
+		Expect(actualState.App.GUID).To(Equal("app2-guid"))
 	})
 
 	When("the default domain does not exist", func() {
@@ -93,36 +124,14 @@ var _ = Describe("ApplyManifest", func() {
 		})
 	})
 
-	It("collects the app state", func() {
-		Expect(stateCollector.CollectStateCallCount()).To(Equal(1))
-		_, _, actualAppName, actualSpaceGUID := stateCollector.CollectStateArgsForCall(0)
-		Expect(actualAppName).To(Equal("app-name"))
-		Expect(actualSpaceGUID).To(Equal("space-guid"))
-	})
-
 	When("collecting the app state fails", func() {
 		BeforeEach(func() {
-			stateCollector.CollectStateReturns(manifest.AppState{}, errors.New("collect-state-err"))
+			stateCollector.CollectStateReturnsOnCall(0, manifest.AppState{}, errors.New("collect-state-err"))
 		})
 
 		It("returns the error", func() {
 			Expect(applyErr).To(MatchError("collect-state-err"))
 		})
-	})
-
-	It("normalizes the manifest", func() {
-		Expect(normalizer.NormalizeCallCount()).To(Equal(1))
-		actualAppInManifest, actualState := normalizer.NormalizeArgsForCall(0)
-		Expect(actualAppInManifest.Name).To(Equal("app-name"))
-		Expect(actualState.App.GUID).To(Equal("app-guid"))
-	})
-
-	It("applies the normalized manifest", func() {
-		Expect(applier.ApplyCallCount()).To(Equal(1))
-		_, _, actualSpaceGUID, actualAppInManifest, actualState := applier.ApplyArgsForCall(0)
-		Expect(actualSpaceGUID).To(Equal("space-guid"))
-		Expect(actualAppInManifest.Name).To(Equal("app-name"))
-		Expect(actualState.App.GUID).To(Equal("app-guid"))
 	})
 
 	When("applying the normalized manifest fails", func() {

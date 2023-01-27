@@ -233,7 +233,7 @@ var _ = Describe("Apps", func() {
 	})
 
 	Describe("List app processes", func() {
-		var result resourceList
+		var result typedResourceList
 
 		BeforeEach(func() {
 			createSpaceRole("space_developer", certUserName, space1GUID)
@@ -246,9 +246,10 @@ var _ = Describe("Apps", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("successfully lists the empty set of processes", func() {
+		It("successfully lists the default web process", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Resources).To(BeEmpty())
+			Expect(result.Resources).To(HaveLen(1))
+			Expect(result.Resources[0].Type).To(Equal("web"))
 		})
 	})
 
