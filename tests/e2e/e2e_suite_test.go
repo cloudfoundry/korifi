@@ -164,6 +164,7 @@ type manifestResource struct {
 
 type applicationResource struct {
 	Name         string                               `yaml:"name"`
+	Command      string                               `yaml:"command"`
 	DefaultRoute bool                                 `yaml:"default-route"`
 	RandomRoute  bool                                 `yaml:"random-route"`
 	NoRoute      bool                                 `yaml:"no-route"`
@@ -230,14 +231,11 @@ type cfErrs struct {
 	Errors []cfErr
 }
 
-type processResourceList struct {
-	Resources []processResource `json:"resources"`
-}
-
 type processResource struct {
 	resource  `json:",inline"`
 	Type      string `json:"type"`
 	Instances int    `json:"instances"`
+	Command   string `yaml:"command"`
 }
 
 type metadataPatch struct {
@@ -533,19 +531,17 @@ func getEnv(appName string) map[string]interface{} {
 }
 
 func getProcess(appGUID, processType string) processResource {
-	var processList processResourceList
+	var process processResource
 	EventuallyWithOffset(1, func(g Gomega) {
 		resp, err := adminClient.R().
-			SetResult(&processList).
-			Get("/v3/processes?app_guids=" + appGUID)
+			SetResult(&process).
+			Get("/v3/apps/" + appGUID + "/processes/" + processType)
 
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-		g.Expect(processList.Resources).NotTo(BeEmpty())
 	}).Should(Succeed())
 
-	ExpectWithOffset(1, processList.Resources).To(HaveLen(1))
-	return processList.Resources[0]
+	return process
 }
 
 func createServiceInstance(spaceGUID, name string) string {

@@ -316,6 +316,27 @@ var _ = Describe("App", func() {
                 }`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
 		})
 
+		It("creates the `web` process", func() {
+			Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualMsg := processRepo.CreateProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMsg).To(Equal(repositories.CreateProcessMessage{
+				AppGUID:   appGUID,
+				SpaceGUID: spaceGUID,
+				Type:      "web",
+			}))
+		})
+
+		When("creating the process fails", func() {
+			BeforeEach(func() {
+				processRepo.CreateProcessReturns(errors.New("create-process-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
 		When("creating the app fails", func() {
 			BeforeEach(func() {
 				appRepo.CreateAppReturns(repositories.AppRecord{}, errors.New("create-app-err"))

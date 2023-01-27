@@ -73,14 +73,13 @@ func (n Normalizer) normalizeProcesses(appInfo payloads.ManifestApplication, app
 			break
 		}
 	}
+	if webProc == nil {
+		processes = append(processes, payloads.ManifestApplicationProcess{Type: korifiv1alpha1.ProcessTypeWeb})
+		webProc = &processes[len(processes)-1]
+	}
 
 	if appInfo.Memory != nil || appInfo.DiskQuota != nil || appInfo.Instances != nil || appInfo.Command != nil ||
 		appInfo.HealthCheckHTTPEndpoint != nil || appInfo.HealthCheckType != nil || appInfo.HealthCheckInvocationTimeout != nil || appInfo.Timeout != nil {
-
-		if webProc == nil {
-			processes = append(processes, payloads.ManifestApplicationProcess{Type: korifiv1alpha1.ProcessTypeWeb})
-			webProc = &processes[len(processes)-1]
-		}
 
 		webProc.Memory = procValIfSet(appInfo.Memory, webProc.Memory)
 		webProc.DiskQuota = procValIfSet(appInfo.DiskQuota, webProc.DiskQuota)
