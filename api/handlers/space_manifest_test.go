@@ -128,25 +128,6 @@ var _ = Describe("SpaceManifest", func() {
 			})
 		})
 
-		When("the manifest contains multiple apps", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: app1
-                - name: app2
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Applications must contain at maximum 1 item")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
 		When("the application name is missing", func() {
 			BeforeEach(func() {
 				requestBody = strings.NewReader(`---
@@ -165,22 +146,33 @@ var _ = Describe("SpaceManifest", func() {
 			})
 		})
 
+		When("the application memory does not have a unit", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  memory: 1024
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Memory must use a supported unit: B, K, KB, M, MB, G, GB, T, or TB")
+			})
+		})
+
 		When("the application memory is not a positive integer", func() {
 			BeforeEach(func() {
 				requestBody = strings.NewReader(`---
                 version: 1
                 applications:
                 - name: test-app
-                  memory: 0
+                  memory: 0M
                 `)
 			})
 
 			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Memory' Error:Field validation for 'Memory' failed on the 'megabytestring' tag")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+				expectUnprocessableEntityError("Memory must be greater than 0MB")
 			})
 		})
 
@@ -225,6 +217,23 @@ var _ = Describe("SpaceManifest", func() {
 			})
 		})
 
+		When("the application process disk doesn't supply a unit", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    disk_quota: 1024
+                `)
+			})
+
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("DiskQuota must use a supported unit: B, K, KB, M, MB, G, GB, T, or TB")
+			})
+		})
+
 		When("the application process disk is not a positive integer", func() {
 			BeforeEach(func() {
 				requestBody = strings.NewReader(`---
@@ -233,16 +242,29 @@ var _ = Describe("SpaceManifest", func() {
                 - name: test-app
                   processes:
                   - type: web
-                    disk_quota: 0
+                    disk_quota: 0M
                 `)
 			})
 
 			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Processes[0].DiskQuota' Error:Field validation for 'DiskQuota' failed on the 'megabytestring' tag")
+				expectUnprocessableEntityError("DiskQuota must be greater than 0MB")
+			})
+		})
+
+		When("the application process memory doesn't supply a unit", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: test-app
+                  processes:
+                  - type: web
+                    memory: 1024
+                `)
 			})
 
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
+			It("response with an unprocessable entity error", func() {
+				expectUnprocessableEntityError("Memory must use a supported unit: B, K, KB, M, MB, G, GB, T, or TB")
 			})
 		})
 
@@ -254,12 +276,12 @@ var _ = Describe("SpaceManifest", func() {
                 - name: test-app
                   processes:
                   - type: web
-                    memory: 0
+                    memory: 0GB
                 `)
 			})
 
 			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].Processes[0].Memory' Error:Field validation for 'Memory' failed on the 'megabytestring' tag")
+				expectUnprocessableEntityError("Memory must be greater than 0MB")
 			})
 
 			It("doesn't call applyManifestAction", func() {

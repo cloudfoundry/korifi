@@ -107,7 +107,12 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 	// Register custom validators
-	err = v.RegisterValidation("megabytestring", megabyteFormattedString, true)
+	err = v.RegisterValidation("amountWithUnit", amountWithUnit, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = v.RegisterValidation("positiveAmountWithUnit", positiveAmountWithUnit, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -139,6 +144,26 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 	v.RegisterStructValidation(checkDiskQuotaUnderscoreAndHyphenProc, payloads.ManifestApplicationProcess{})
 
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
+
+	err = v.RegisterTranslation("amountWithUnit", trans, func(ut ut.Translator) error {
+		return ut.Add("amountWithUnit", "{0} must use a supported unit: B, K, KB, M, MB, G, GB, T, or TB", false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("amountWithUnit", fe.Field())
+		return t
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = v.RegisterTranslation("positiveAmountWithUnit", trans, func(ut ut.Translator) error {
+		return ut.Add("positiveAmountWithUnit", "{0} must be greater than 0MB", false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("positiveAmountWithUnit", fe.Field())
+		return t
+	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	err = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
 		return ut.Add("cannot_have_both_org_and_space_set", "Cannot pass both 'organization' and 'space' in a create role request", false)
@@ -262,15 +287,25 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 	}
 }
 
-// Custom field validators
-func megabyteFormattedString(fl validator.FieldLevel) bool {
+var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|MB|G|GB|T|TB)$`)
+
+func amountWithUnit(fl validator.FieldLevel) bool {
 	val, ok := fl.Field().Interface().(string)
 	if !ok {
 		return true // the value is optional, and is set to nil
 	}
 
-	_, err := bytefmt.ToMegabytes(val)
-	return err == nil
+	return unitAmount.MatchString(val)
+}
+
+func positiveAmountWithUnit(fl validator.FieldLevel) bool {
+	val, ok := fl.Field().Interface().(string)
+	if !ok {
+		return true // the value is optional, and is set to nil
+	}
+
+	mbs, err := bytefmt.ToMegabytes(val)
+	return err == nil && mbs > 0
 }
 
 func routeString(fl validator.FieldLevel) bool {
