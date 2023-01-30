@@ -40,6 +40,12 @@ type CreateRoleMessage struct {
 	Kind  string
 }
 
+type DeleteRoleMessage struct {
+	GUID  string
+	Space string
+	Org   string
+}
+
 type RoleRecord struct {
 	GUID      string
 	CreatedAt string
@@ -59,6 +65,7 @@ type RoleRepo struct {
 	namespacePermissions *authorization.NamespacePermissions
 	userClientFactory    authorization.UserK8sClientFactory
 	spaceRepo            *SpaceRepo
+	namespaceRetriever   NamespaceRetriever
 }
 
 func NewRoleRepo(
@@ -68,6 +75,7 @@ func NewRoleRepo(
 	namespacePermissions *authorization.NamespacePermissions,
 	rootNamespace string,
 	roleMappings map[string]config.Role,
+	namespaceRetriever NamespaceRetriever,
 ) *RoleRepo {
 	inverseRoleMappings := map[string]string{}
 	for k, v := range roleMappings {
@@ -82,6 +90,7 @@ func NewRoleRepo(
 		namespacePermissions: namespacePermissions,
 		userClientFactory:    userClientFactory,
 		spaceRepo:            spaceRepo,
+		namespaceRetriever:   namespaceRetriever,
 	}
 }
 
@@ -256,11 +265,69 @@ func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info) (
 	return roles, nil
 }
 
+func (r *RoleRepo) GetRole(ctx context.Context, authInfo authorization.Info, roleGUID string) (RoleRecord, error) {
+	roles, err := r.ListRoles(ctx, authInfo)
+	if err != nil {
+		return RoleRecord{}, err
+	}
+
+	matchedRoles := []RoleRecord{}
+	for _, role := range roles {
+		if role.GUID == roleGUID {
+			matchedRoles = append(matchedRoles, role)
+		}
+	}
+
+	switch len(matchedRoles) {
+	case 0:
+		return RoleRecord{}, apierrors.NewNotFoundError(nil, RoleResourceType)
+	case 1:
+		return matchedRoles[0], nil
+	default:
+		return RoleRecord{}, fmt.Errorf("multiple role bindings with guid %q found", roleGUID)
+	}
+}
+
+func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, deleteMsg DeleteRoleMessage) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	ns := deleteMsg.Org
+	if ns == "" {
+		ns = deleteMsg.Space
+	}
+
+	roleBindings := &rbacv1.RoleBindingList{}
+	err = userClient.List(ctx, roleBindings, client.InNamespace(ns), client.MatchingLabels{
+		RoleGuidLabel: deleteMsg.GUID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list roles with guid %q in namespace %q: %w", deleteMsg.GUID, ns, apierrors.FromK8sError(err, RoleResourceType))
+	}
+
+	switch len(roleBindings.Items) {
+	case 0:
+		return apierrors.NewNotFoundError(nil, RoleResourceType)
+	case 1:
+		rb := &roleBindings.Items[0]
+		err := userClient.Delete(ctx, rb)
+		if err != nil {
+			return fmt.Errorf("failed to delete role binding %s/%s: %w", rb.Namespace, rb.Name, apierrors.FromK8sError(err, RoleResourceType))
+		}
+	default:
+		return fmt.Errorf("multiple role bindings with guid %q found", deleteMsg.GUID)
+	}
+
+	return nil
+}
+
 func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName string) RoleRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&roleBinding.ObjectMeta)
 
 	record := RoleRecord{
-		GUID:      roleBinding.Name,
+		GUID:      roleBinding.Labels[RoleGuidLabel],
 		CreatedAt: roleBinding.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt: updatedAtTime,
 		Type:      cfRoleName,

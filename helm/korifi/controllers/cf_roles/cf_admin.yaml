@@ -172,6 +172,7 @@ rules:
   verbs:
   - create
   - list
+  - delete
 
 - apiGroups:
   - metrics.k8s.io

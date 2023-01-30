@@ -186,4 +186,43 @@ var _ = Describe("Roles", func() {
 			})
 		})
 	})
+
+	Describe("deleting a role", func() {
+		var (
+			spaceGUID string
+			roleGUID  string
+		)
+
+		BeforeEach(func() {
+			createOrgRole("organization_user", userName, commonTestOrgGUID)
+			spaceGUID = createSpace(uuid.NewString(), commonTestOrgGUID)
+			roleGUID = createSpaceRole("space_developer", userName, spaceGUID)
+		})
+
+		AfterEach(func() {
+			deleteSpace(spaceGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = client.R().
+				SetResult(&result).
+				Delete("/v3/roles/" + roleGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds with a job redirect", func() {
+			Expect(resp).To(SatisfyAll(
+				HaveRestyStatusCode(http.StatusAccepted),
+				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/role.delete~"+roleGUID)),
+			))
+
+			jobURL := resp.Header().Get("Location")
+			Eventually(func(g Gomega) {
+				jobResp, err := client.R().Get(jobURL)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+			}).Should(Succeed())
+		})
+	})
 })
