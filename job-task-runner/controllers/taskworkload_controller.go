@@ -90,6 +90,10 @@ func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWork
 		return ctrl.Result{}, err
 	}
 
+	if job == nil {
+		return ctrl.Result{}, nil
+	}
+
 	if err := r.updateTaskWorkloadStatus(ctx, taskWorkload, job); err != nil {
 		logger.Error(err, "failed to update task workload status")
 		return ctrl.Result{}, err
@@ -106,12 +110,16 @@ func (r TaskWorkloadReconciler) getOrCreateJob(ctx context.Context, logger logr.
 		return job, nil
 	}
 
-	if !k8serrors.IsNotFound(err) {
-		logger.Error(err, "getting job failed")
-		return nil, err
+	if k8serrors.IsNotFound(err) {
+		if meta.IsStatusConditionTrue(taskWorkload.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType) {
+			return nil, nil
+		}
+
+		return r.createJob(ctx, logger, taskWorkload)
 	}
 
-	return r.createJob(ctx, logger, taskWorkload)
+	logger.Error(err, "getting job failed")
+	return nil, err
 }
 
 func (r TaskWorkloadReconciler) createJob(ctx context.Context, logger logr.Logger, taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
