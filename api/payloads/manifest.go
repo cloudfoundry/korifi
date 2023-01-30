@@ -10,7 +10,7 @@ import (
 
 type Manifest struct {
 	Version      int                   `yaml:"version"`
-	Applications []ManifestApplication `yaml:"applications"`
+	Applications []ManifestApplication `yaml:"applications" validate:"dive"`
 }
 
 type ManifestApplication struct {
@@ -21,13 +21,13 @@ type ManifestApplication struct {
 	NoRoute      bool              `yaml:"no-route"`
 	Command      *string           `yaml:"command"`
 	Instances    *int              `yaml:"instances" validate:"omitempty,gte=0"`
-	Memory       *string           `yaml:"memory" validate:"megabytestring"`
-	DiskQuota    *string           `yaml:"disk_quota" validate:"megabytestring"`
+	Memory       *string           `yaml:"memory" validate:"amountWithUnit,positiveAmountWithUnit"`
+	DiskQuota    *string           `yaml:"disk_quota" validate:"amountWithUnit,positiveAmountWithUnit"`
 	// AltDiskQuota supports `disk-quota` with a hyphen for backwards compatibility.
 	// Do not set both DiskQuota and AltDiskQuota.
 	//
 	// Deprecated: Use DiskQuota instead
-	AltDiskQuota                 *string                      `yaml:"disk-quota" validate:"megabytestring"`
+	AltDiskQuota                 *string                      `yaml:"disk-quota" validate:"amountWithUnit,positiveAmountWithUnit"`
 	HealthCheckHTTPEndpoint      *string                      `yaml:"health-check-http-endpoint"`
 	HealthCheckInvocationTimeout *int64                       `yaml:"health-check-invocation-timeout" validate:"omitempty,gte=1"`
 	HealthCheckType              *string                      `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
@@ -42,17 +42,17 @@ type ManifestApplication struct {
 type ManifestApplicationProcess struct {
 	Type      string  `yaml:"type" validate:"required"`
 	Command   *string `yaml:"command"`
-	DiskQuota *string `yaml:"disk_quota" validate:"megabytestring"`
+	DiskQuota *string `yaml:"disk_quota" validate:"amountWithUnit,positiveAmountWithUnit"`
 	// AltDiskQuota supports `disk-quota` with a hyphen for backwards compatibility.
 	// Do not set both DiskQuota and AltDiskQuota.
 	//
 	// Deprecated: Use DiskQuota instead
-	AltDiskQuota                 *string `yaml:"disk-quota" validate:"megabytestring"`
+	AltDiskQuota                 *string `yaml:"disk-quota" validate:"amountWithUnit,positiveAmountWithUnit"`
 	HealthCheckHTTPEndpoint      *string `yaml:"health-check-http-endpoint"`
 	HealthCheckInvocationTimeout *int64  `yaml:"health-check-invocation-timeout" validate:"omitempty,gte=1"`
 	HealthCheckType              *string `yaml:"health-check-type" validate:"omitempty,oneof=none process port http"`
 	Instances                    *int    `yaml:"instances" validate:"omitempty,gte=0"`
-	Memory                       *string `yaml:"memory" validate:"megabytestring"`
+	Memory                       *string `yaml:"memory" validate:"amountWithUnit,positiveAmountWithUnit"`
 	Timeout                      *int64  `yaml:"timeout" validate:"omitempty,gte=1"`
 }
 
