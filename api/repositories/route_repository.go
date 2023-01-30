@@ -395,6 +395,8 @@ func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 		return RouteRecord{}, fmt.Errorf("failed to get route: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
+	oldCfRoute := cfRoute.DeepCopy()
+
 	updatedDestinations := []korifiv1alpha1.Destination{}
 	for _, dest := range cfRoute.Spec.Destinations {
 		if dest.GUID != message.DestinationGuid {
@@ -407,7 +409,7 @@ func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 	}
 	cfRoute.Spec.Destinations = updatedDestinations
 
-	err = userClient.Update(ctx, cfRoute)
+	err = userClient.Patch(ctx, cfRoute, client.MergeFrom(oldCfRoute))
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to remove destination from route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
