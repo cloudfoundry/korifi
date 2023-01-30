@@ -67,3 +67,10 @@ rules:
   verbs:
   - get
   - list
+
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - delete

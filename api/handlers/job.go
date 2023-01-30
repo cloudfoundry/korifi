@@ -21,6 +21,7 @@ const (
 	routeDeletePrefix  = "route.delete"
 	spaceDeletePrefix  = "space.delete"
 	domainDeletePrefix = "domain.delete"
+	roleDeletePrefix   = "role.delete"
 )
 
 const JobResourceType = "Job"
@@ -55,7 +56,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	switch jobType {
 	case syncSpacePrefix:
 		jobResponse = presenter.ForManifestApplyJob(jobGUID, resourceGUID, h.serverURL)
-	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix, domainDeletePrefix:
+	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
 		jobResponse = presenter.ForDeleteJob(jobGUID, jobType, h.serverURL)
 	default:
 		return nil, apierrors.LogAndReturn(

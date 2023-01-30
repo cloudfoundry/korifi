@@ -183,6 +183,7 @@ func main() {
 		authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider),
 		config.RootNamespace,
 		config.RoleMappings,
+		namespaceRetriever,
 	)
 	imageRepo := repositories.NewImageRepository(
 		privilegedK8sClient,

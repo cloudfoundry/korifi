@@ -448,7 +448,7 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
-func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) {
+func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
 	rolesURL := apiServerRoot + "/v3/roles"
 
 	payload := typedResource{
@@ -462,21 +462,25 @@ func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) {
 	}
 
 	var resultErr cfErrs
+	var createdRole typedResource
 	resp, err := adminClient.R().
 		SetBody(payload).
+		SetResult(&createdRole).
 		SetError(&resultErr).
 		Post(rolesURL)
 
 	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 	ExpectWithOffset(2, resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+	return createdRole.GUID
 }
 
-func createOrgRole(roleName, userName, orgGUID string) {
-	createRole(roleName, "organization", userName, orgGUID)
+func createOrgRole(roleName, userName, orgGUID string) string {
+	return createRole(roleName, "organization", userName, orgGUID)
 }
 
-func createSpaceRole(roleName, userName, spaceGUID string) {
-	createRole(roleName, "space", userName, spaceGUID)
+func createSpaceRole(roleName, userName, spaceGUID string) string {
+	return createRole(roleName, "space", userName, spaceGUID)
 }
 
 func createApp(spaceGUID, name string) string {

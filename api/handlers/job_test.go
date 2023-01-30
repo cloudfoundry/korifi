@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
 
@@ -69,144 +70,25 @@ var _ = Describe("Job", func() {
 				})
 			})
 
-			When("the existing job operation is app.delete", func() {
-				BeforeEach(func() {
-					jobGUID = "app.delete~" + resourceGUID
+			Describe("job guid validation", func() {
+				When("the job guid provided does not have the expected delimiter", func() {
+					BeforeEach(func() {
+						jobGUID = "job.operation;some-resource-guid"
+					})
+
+					It("returns an error", func() {
+						expectNotFoundError("Job not found")
+					})
 				})
 
-				It("returns the job", func() {
-					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
-						"created_at": "",
-						"errors": null,
-						"guid": "%[2]s",
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/jobs/%[2]s"
-							}
-						},
-						"operation": "app.delete",
-						"state": "COMPLETE",
-						"updated_at": "",
-						"warnings": null
-					}`, defaultServerURL, jobGUID)))
-				})
-			})
+				When("the resource identifier portion has a prefixed guid", func() {
+					BeforeEach(func() {
+						jobGUID = "space.delete~cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649"
+					})
 
-			When("the existing job operation is org.delete", func() {
-				BeforeEach(func() {
-					resourceGUID = "cf-org-" + uuid.NewString()
-					jobGUID = "org.delete~" + resourceGUID
-				})
-
-				It("returns the job", func() {
-					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
-						"created_at": "",
-						"errors": null,
-						"guid": "%[2]s",
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/jobs/%[2]s"
-							}
-						},
-						"operation": "org.delete",
-						"state": "COMPLETE",
-						"updated_at": "",
-						"warnings": null
-					}`, defaultServerURL, jobGUID)))
-				})
-			})
-
-			When("the existing job operation is space.delete", func() {
-				BeforeEach(func() {
-					resourceGUID = "cf-space-" + uuid.NewString()
-					jobGUID = "space.delete~" + resourceGUID
-				})
-
-				It("returns the job", func() {
-					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
-						"created_at": "",
-						"errors": null,
-						"guid": "%[2]s",
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/jobs/%[2]s"
-							}
-						},
-						"operation": "space.delete",
-						"state": "COMPLETE",
-						"updated_at": "",
-						"warnings": null
-					}`, defaultServerURL, jobGUID)))
-				})
-			})
-
-			When("the existing job operation is route.delete", func() {
-				BeforeEach(func() {
-					resourceGUID = "cf-route-" + uuid.NewString()
-					jobGUID = "route.delete~" + resourceGUID
-				})
-
-				It("returns the job", func() {
-					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
-						"created_at": "",
-						"errors": null,
-						"guid": "%[2]s",
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/jobs/%[2]s"
-							}
-						},
-						"operation": "route.delete",
-						"state": "COMPLETE",
-						"updated_at": "",
-						"warnings": null
-					}`, defaultServerURL, jobGUID)))
-				})
-			})
-
-			When("the existing job operation is domain.delete", func() {
-				BeforeEach(func() {
-					resourceGUID = "cf-domain-" + uuid.NewString()
-					jobGUID = "domain.delete~" + resourceGUID
-				})
-
-				It("returns the job", func() {
-					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
-						"created_at": "",
-						"errors": null,
-						"guid": "%[2]s",
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/jobs/%[2]s"
-							}
-						},
-						"operation": "domain.delete",
-						"state": "COMPLETE",
-						"updated_at": "",
-						"warnings": null
-					}`, defaultServerURL, jobGUID)))
-				})
-			})
-		})
-
-		Describe("job guid validation", func() {
-			When("the job guid provided does not have the expected delimiter", func() {
-				BeforeEach(func() {
-					jobGUID = "job.operation;some-resource-guid"
-				})
-
-				It("returns an error", func() {
-					expectNotFoundError("Job not found")
-				})
-			})
-
-			When("the resource identifier portion has a prefixed guid", func() {
-				BeforeEach(func() {
-					jobGUID = "space.delete~cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649"
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK))
+					It("returns status 200 OK", func() {
+						Expect(rr.Code).To(Equal(http.StatusOK))
+					})
 				})
 			})
 
@@ -220,5 +102,36 @@ var _ = Describe("Job", func() {
 				})
 			})
 		})
+
+		DescribeTable("delete jobs", func(operation, guid string) {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+operation+"~"+guid, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			rr = httptest.NewRecorder()
+			routerBuilder.Build().ServeHTTP(rr, req)
+
+			Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
+						"created_at": "",
+						"errors": null,
+						"guid": "%[2]s~%[3]s",
+						"links": {
+							"self": {
+								"href": "%[1]s/v3/jobs/%[2]s~%[3]s"
+							}
+						},
+						"operation": "%[2]s",
+						"state": "COMPLETE",
+						"updated_at": "",
+						"warnings": null
+					}`, defaultServerURL, operation, guid)))
+		},
+
+			Entry("app delete", "app.delete", "cf-app-guid"),
+			Entry("org delete", "org.delete", "cf-org-guid"),
+			Entry("space delete", "space.delete", "cf-space-guid"),
+			Entry("route delete", "route.delete", "cf-route-guid"),
+			Entry("domain delete", "domain.delete", "cf-domain-guid"),
+			Entry("role delete", "role.delete", "cf-role-guid"),
+		)
 	})
 })
