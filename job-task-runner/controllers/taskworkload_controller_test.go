@@ -79,7 +79,7 @@ var _ = Describe("TaskworkloadController", func() {
 			}
 		}
 
-		fakeClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
+		fakeClient.CreateStub = func(_ context.Context, obj client.Object, _ ...client.CreateOption) error {
 			switch obj := obj.(type) {
 			case *batchv1.Job:
 				createdJob.DeepCopyInto(obj)
@@ -137,7 +137,7 @@ var _ = Describe("TaskworkloadController", func() {
 		})
 	})
 
-	When("the job doesn't yet exist", func() {
+	When("the job doesn't exist", func() {
 		BeforeEach(func() {
 			getExistingJobError = k8serrors.NewNotFound(schema.GroupResource{}, "job")
 		})
@@ -153,6 +153,22 @@ var _ = Describe("TaskworkloadController", func() {
 			Expect(ok).To(BeTrue())
 			Expect(job.Namespace).To(Equal(taskWorkload.Namespace))
 			Expect(job.Name).To(Equal(taskWorkload.Name))
+		})
+
+		When("the taskworkload has the initialized true condition", func() {
+			BeforeEach(func() {
+				meta.SetStatusCondition(&taskWorkload.Status.Conditions, metav1.Condition{
+					Type:   korifiv1alpha1.TaskInitializedConditionType,
+					Status: metav1.ConditionTrue,
+				})
+			})
+
+			It("doesn't create another job, doesn't update anything, and doesn't requeue", func() {
+				Expect(fakeClient.CreateCallCount()).To(Equal(0))
+				Expect(statusGetter.GetStatusConditionsCallCount()).To(Equal(0))
+				Expect(reconcileErr).NotTo(HaveOccurred())
+				Expect(reconcileResult).To(Equal(ctrl.Result{}))
+			})
 		})
 
 		When("the job already exists while creating", func() {
