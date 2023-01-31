@@ -225,7 +225,7 @@ This endpoint is fully supported.
 
 #### Supported parameters:
 
--   `type` (the only supported value is `space_developer`
+-   `type` (the only supported values are `space_developer` and `space_manager`)
 -   `relationships.user`
 -   `relationships.organization`
 -   `relationships.space`
