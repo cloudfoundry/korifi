@@ -51,7 +51,7 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 ### Kpack
 
-[Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/releases/latest) to install the latest version.
+[Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md) to install the [latest version](https://github.com/pivotal/kpack/releases/latest).
 
 The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpackImageBuilder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
 
