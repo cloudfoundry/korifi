@@ -177,6 +177,7 @@ For example:
 | Amazon Elastic Container Registry | `<projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-` | `<projectID>.dkr.ecr.<region>.amazonaws.com/foo/bar/korifi-<appGUID>-packages` | Korifi will create the repository before pushing, as dynamic repository creation is not posssible on ECR |
 | Google Artifact Registry          | `<region>-docker.pkg.dev/<projectID>/foo/bar/korifi-`        | `<region>-docker.pkg.dev/<projectID>/foo/bar/korifi-<appGUID>-packages`        | The `foo` repository must already exist in GAR                                                           |
 | Google Container Registry         | `gcr.io/<projectID>/foo/bar/korifi-`                         | `gcr.io/<projectID>/foo/bar/korifi-<appGUID>-packages`                         | Repositories are created dynamically during push by GCR                                                  |
+| GitHub Container Registry         | `ghcr.io/<githubUserName>/foo/bar/korifi-`                   | `ghcr.io/<githubUserName>/foo/bar/korifi-<appGUID>-package`                    | Repositories are created dynamically during push by GHCR                                                 |
 
 The chart provides various other values that can be set. See [`README.helm.md`](./README.helm.md) for details.
 
