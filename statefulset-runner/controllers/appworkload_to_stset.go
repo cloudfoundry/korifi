@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -209,14 +210,18 @@ func truncateString(str string, num int) string {
 }
 
 func toLabelSelectorRequirements(selector *metav1.LabelSelector) []metav1.LabelSelectorRequirement {
-	labels := selector.MatchLabels
-	reqs := make([]metav1.LabelSelectorRequirement, 0, len(labels))
+	labels := make([]string, 0, len(selector.MatchLabels))
+	for k := range selector.MatchLabels {
+		labels = append(labels, k)
+	}
+	sort.Strings(labels)
 
-	for label, value := range labels {
+	reqs := make([]metav1.LabelSelectorRequirement, 0, len(labels))
+	for _, label := range labels {
 		reqs = append(reqs, metav1.LabelSelectorRequirement{
 			Key:      label,
 			Operator: metav1.LabelSelectorOpIn,
-			Values:   []string{value},
+			Values:   []string{selector.MatchLabels[label]},
 		})
 	}
 
