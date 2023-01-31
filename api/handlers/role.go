@@ -18,6 +18,7 @@ import (
 
 const (
 	RolesPath = "/v3/roles"
+	RolePath  = RolesPath + "/{guid}"
 )
 
 type RoleName string
@@ -41,6 +42,8 @@ const (
 type CFRoleRepository interface {
 	CreateRole(context.Context, authorization.Info, repositories.CreateRoleMessage) (repositories.RoleRecord, error)
 	ListRoles(context.Context, authorization.Info) ([]repositories.RoleRecord, error)
+	GetRole(context.Context, authorization.Info, string) (repositories.RoleRecord, error)
+	DeleteRole(context.Context, authorization.Info, repositories.DeleteRoleMessage) error
 }
 
 type Role struct {
@@ -140,6 +143,28 @@ func (h *Role) sortList(roles []repositories.RoleRecord, order string) error {
 	return nil
 }
 
+func (h *Role) delete(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.role.delete")
+	roleGUID := routing.URLParam(r, "guid")
+
+	role, err := h.roleRepo.GetRole(r.Context(), authInfo, roleGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch role from Kubernetes", "RoleGUID", roleGUID)
+	}
+
+	err = h.roleRepo.DeleteRole(r.Context(), authInfo, repositories.DeleteRoleMessage{
+		GUID:  roleGUID,
+		Space: role.Space,
+		Org:   role.Org,
+	})
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to delete role", "RoleGUID", roleGUID)
+	}
+
+	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(roleGUID, presenter.RoleDeleteOperation, h.apiBaseURL)), nil
+}
+
 func (h *Role) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -148,5 +173,6 @@ func (h *Role) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "POST", Pattern: RolesPath, Handler: h.create},
 		{Method: "GET", Pattern: RolesPath, Handler: h.list},
+		{Method: "DELETE", Pattern: RolePath, Handler: h.delete},
 	}
 }

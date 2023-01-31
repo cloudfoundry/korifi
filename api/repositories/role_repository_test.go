@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -49,6 +50,7 @@ var _ = Describe("RoleRepository", func() {
 			nsPerms,
 			rootNamespace,
 			roleMappings,
+			namespaceRetriever,
 		)
 
 		roleCreateMessage = repositories.CreateRoleMessage{}
@@ -386,10 +388,10 @@ var _ = Describe("RoleRepository", func() {
 			otherOrg = createOrgWithCleanup(ctx, uuid.NewString())
 			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, uuid.NewString())
 			otherSpace = createSpaceWithCleanup(ctx, cfOrg.Name, uuid.NewString())
-			createRoleBinding(ctx, "my-user", orgUserRole.Name, cfOrg.Name)
-			createRoleBinding(ctx, "my-user", spaceDeveloperRole.Name, cfSpace.Name)
-			createRoleBinding(ctx, "my-user", spaceDeveloperRole.Name, otherSpace.Name)
-			createRoleBinding(ctx, "my-user", orgUserRole.Name, otherOrg.Name)
+			createRoleBinding(ctx, "my-user", orgUserRole.Name, cfOrg.Name, repositories.RoleGuidLabel, "1")
+			createRoleBinding(ctx, "my-user", spaceDeveloperRole.Name, cfSpace.Name, repositories.RoleGuidLabel, "2")
+			createRoleBinding(ctx, "my-user", spaceDeveloperRole.Name, otherSpace.Name, repositories.RoleGuidLabel, "3")
+			createRoleBinding(ctx, "my-user", orgUserRole.Name, otherOrg.Name, repositories.RoleGuidLabel, "4")
 		})
 
 		JustBeforeEach(func() {
@@ -403,14 +405,15 @@ var _ = Describe("RoleRepository", func() {
 
 		When("the user has permission to list roles in some namespaces", func() {
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name, repositories.RoleGuidLabel, "5")
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name, repositories.RoleGuidLabel, "6")
 			})
 
 			It("returns the bindings in cfOrg and cfSpace only (for system user and my-user)", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(roles).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
+						"GUID":  Equal("2"),
 						"Kind":  Equal("User"),
 						"User":  Equal("my-user"),
 						"Type":  Equal("space_developer"),
@@ -418,6 +421,7 @@ var _ = Describe("RoleRepository", func() {
 						"Org":   BeEmpty(),
 					}),
 					MatchFields(IgnoreExtras, Fields{
+						"GUID":  Equal("1"),
 						"Kind":  Equal("User"),
 						"User":  Equal("my-user"),
 						"Type":  Equal("organization_user"),
@@ -425,6 +429,7 @@ var _ = Describe("RoleRepository", func() {
 						"Org":   Equal(cfOrg.Name),
 					}),
 					MatchFields(IgnoreExtras, Fields{
+						"GUID":  Equal("6"),
 						"Kind":  Equal("User"),
 						"User":  Equal(userName),
 						"Type":  Equal("space_developer"),
@@ -432,6 +437,7 @@ var _ = Describe("RoleRepository", func() {
 						"Org":   BeEmpty(),
 					}),
 					MatchFields(IgnoreExtras, Fields{
+						"GUID":  Equal("5"),
 						"Kind":  Equal("User"),
 						"User":  Equal(userName),
 						"Type":  Equal("organization_user"),
@@ -471,6 +477,151 @@ var _ = Describe("RoleRepository", func() {
 				It("ignores them", func() {
 					Expect(listErr).NotTo(HaveOccurred())
 					Expect(roles).To(HaveLen(4))
+				})
+			})
+		})
+	})
+
+	Describe("delete role", func() {
+		var (
+			roleGUID  string
+			deleteMsg repositories.DeleteRoleMessage
+			deleteErr error
+		)
+
+		BeforeEach(func() {
+			roleGUID = uuid.NewString()
+
+			deleteMsg = repositories.DeleteRoleMessage{
+				GUID: roleGUID,
+				Org:  cfOrg.Name,
+			}
+		})
+
+		JustBeforeEach(func() {
+			createRoleBinding(ctx, "bob", orgManagerRole.Name, cfOrg.Name, repositories.RoleGuidLabel, roleGUID)
+
+			deleteErr = roleRepo.DeleteRole(ctx, authInfo, deleteMsg)
+		})
+
+		When("the user doesn't have permissions to delete roles", func() {
+			It("fails", func() {
+				Expect(deleteErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+
+		When("the user is allowed to delete roles", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Name)
+			})
+
+			It("deletes the role binding", func() {
+				Expect(deleteErr).NotTo(HaveOccurred())
+				roleBindings := &rbacv1.RoleBindingList{}
+				Expect(k8sClient.List(ctx, roleBindings, client.InNamespace(cfOrg.Name), client.MatchingLabels{
+					repositories.RoleGuidLabel: roleGUID,
+				})).To(Succeed())
+				Expect(roleBindings.Items).To(BeEmpty())
+			})
+
+			When("there is no role with that guid", func() {
+				BeforeEach(func() {
+					roleGUID = "i-do-not-exist"
+				})
+
+				It("returns an error", func() {
+					Expect(deleteErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			When("deleting space role", func() {
+				BeforeEach(func() {
+					deleteMsg.Org = ""
+					deleteMsg.Space = cfOrg.Name
+				})
+
+				It("deletes the role binding", func() {
+					Expect(deleteErr).NotTo(HaveOccurred())
+					roleBindings := &rbacv1.RoleBindingList{}
+					Expect(k8sClient.List(ctx, roleBindings, client.InNamespace(cfOrg.Name), client.MatchingLabels{
+						repositories.RoleGuidLabel: roleGUID,
+					})).To(Succeed())
+					Expect(roleBindings.Items).To(BeEmpty())
+				})
+			})
+
+			When("there are multiple role bindings with the specified guid", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, "bob", orgManagerRole.Name, cfOrg.Name, repositories.RoleGuidLabel, roleGUID)
+				})
+
+				It("returns an error", func() {
+					Expect(deleteErr).To(MatchError(ContainSubstring("multiple role bindings")))
+				})
+			})
+		})
+	})
+
+	Describe("get role", func() {
+		var (
+			guid        string
+			roleBinding rbacv1.RoleBinding
+
+			roleRecord repositories.RoleRecord
+			getErr     error
+		)
+
+		BeforeEach(func() {
+			guid = uuid.NewString()
+			roleBinding = createRoleBinding(ctx, "bob", orgManagerRole.Name, cfOrg.Name, repositories.RoleGuidLabel, guid)
+		})
+
+		JustBeforeEach(func() {
+			roleRecord, getErr = roleRepo.GetRole(ctx, authInfo, guid)
+		})
+
+		When("the user doesn't have role permissions", func() {
+			It("fails", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("the user has permissions in the org", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Name)
+			})
+
+			It("gets the role", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(roleRecord).To(Equal(repositories.RoleRecord{
+					GUID:      guid,
+					CreatedAt: roleBinding.CreationTimestamp.UTC().Format(time.RFC3339),
+					UpdatedAt: roleBinding.CreationTimestamp.UTC().Format(time.RFC3339),
+					Type:      "organization_manager",
+					Space:     "",
+					Org:       cfOrg.Name,
+					User:      "bob",
+					Kind:      "User",
+				}))
+			})
+
+			When("the role does not exist", func() {
+				BeforeEach(func() {
+					guid = "i-do-not-exist"
+				})
+
+				It("returns a not found error", func() {
+					Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			When("there are multiple role bindings with the same guid", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, "bob", orgManagerRole.Name, cfOrg.Name, repositories.RoleGuidLabel, guid)
+				})
+
+				It("returns an error", func() {
+					Expect(getErr).To(MatchError(ContainSubstring("multiple role bindings")))
 				})
 			})
 		})

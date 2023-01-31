@@ -26,6 +26,34 @@ type CFRoleRepository struct {
 		result1 repositories.RoleRecord
 		result2 error
 	}
+	DeleteRoleStub        func(context.Context, authorization.Info, repositories.DeleteRoleMessage) error
+	deleteRoleMutex       sync.RWMutex
+	deleteRoleArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteRoleMessage
+	}
+	deleteRoleReturns struct {
+		result1 error
+	}
+	deleteRoleReturnsOnCall map[int]struct {
+		result1 error
+	}
+	GetRoleStub        func(context.Context, authorization.Info, string) (repositories.RoleRecord, error)
+	getRoleMutex       sync.RWMutex
+	getRoleArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getRoleReturns struct {
+		result1 repositories.RoleRecord
+		result2 error
+	}
+	getRoleReturnsOnCall map[int]struct {
+		result1 repositories.RoleRecord
+		result2 error
+	}
 	ListRolesStub        func(context.Context, authorization.Info) ([]repositories.RoleRecord, error)
 	listRolesMutex       sync.RWMutex
 	listRolesArgsForCall []struct {
@@ -110,6 +138,135 @@ func (fake *CFRoleRepository) CreateRoleReturnsOnCall(i int, result1 repositorie
 	}{result1, result2}
 }
 
+func (fake *CFRoleRepository) DeleteRole(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteRoleMessage) error {
+	fake.deleteRoleMutex.Lock()
+	ret, specificReturn := fake.deleteRoleReturnsOnCall[len(fake.deleteRoleArgsForCall)]
+	fake.deleteRoleArgsForCall = append(fake.deleteRoleArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteRoleMessage
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteRoleStub
+	fakeReturns := fake.deleteRoleReturns
+	fake.recordInvocation("DeleteRole", []interface{}{arg1, arg2, arg3})
+	fake.deleteRoleMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFRoleRepository) DeleteRoleCallCount() int {
+	fake.deleteRoleMutex.RLock()
+	defer fake.deleteRoleMutex.RUnlock()
+	return len(fake.deleteRoleArgsForCall)
+}
+
+func (fake *CFRoleRepository) DeleteRoleCalls(stub func(context.Context, authorization.Info, repositories.DeleteRoleMessage) error) {
+	fake.deleteRoleMutex.Lock()
+	defer fake.deleteRoleMutex.Unlock()
+	fake.DeleteRoleStub = stub
+}
+
+func (fake *CFRoleRepository) DeleteRoleArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteRoleMessage) {
+	fake.deleteRoleMutex.RLock()
+	defer fake.deleteRoleMutex.RUnlock()
+	argsForCall := fake.deleteRoleArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFRoleRepository) DeleteRoleReturns(result1 error) {
+	fake.deleteRoleMutex.Lock()
+	defer fake.deleteRoleMutex.Unlock()
+	fake.DeleteRoleStub = nil
+	fake.deleteRoleReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFRoleRepository) DeleteRoleReturnsOnCall(i int, result1 error) {
+	fake.deleteRoleMutex.Lock()
+	defer fake.deleteRoleMutex.Unlock()
+	fake.DeleteRoleStub = nil
+	if fake.deleteRoleReturnsOnCall == nil {
+		fake.deleteRoleReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteRoleReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFRoleRepository) GetRole(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.RoleRecord, error) {
+	fake.getRoleMutex.Lock()
+	ret, specificReturn := fake.getRoleReturnsOnCall[len(fake.getRoleArgsForCall)]
+	fake.getRoleArgsForCall = append(fake.getRoleArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetRoleStub
+	fakeReturns := fake.getRoleReturns
+	fake.recordInvocation("GetRole", []interface{}{arg1, arg2, arg3})
+	fake.getRoleMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFRoleRepository) GetRoleCallCount() int {
+	fake.getRoleMutex.RLock()
+	defer fake.getRoleMutex.RUnlock()
+	return len(fake.getRoleArgsForCall)
+}
+
+func (fake *CFRoleRepository) GetRoleCalls(stub func(context.Context, authorization.Info, string) (repositories.RoleRecord, error)) {
+	fake.getRoleMutex.Lock()
+	defer fake.getRoleMutex.Unlock()
+	fake.GetRoleStub = stub
+}
+
+func (fake *CFRoleRepository) GetRoleArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getRoleMutex.RLock()
+	defer fake.getRoleMutex.RUnlock()
+	argsForCall := fake.getRoleArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFRoleRepository) GetRoleReturns(result1 repositories.RoleRecord, result2 error) {
+	fake.getRoleMutex.Lock()
+	defer fake.getRoleMutex.Unlock()
+	fake.GetRoleStub = nil
+	fake.getRoleReturns = struct {
+		result1 repositories.RoleRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFRoleRepository) GetRoleReturnsOnCall(i int, result1 repositories.RoleRecord, result2 error) {
+	fake.getRoleMutex.Lock()
+	defer fake.getRoleMutex.Unlock()
+	fake.GetRoleStub = nil
+	if fake.getRoleReturnsOnCall == nil {
+		fake.getRoleReturnsOnCall = make(map[int]struct {
+			result1 repositories.RoleRecord
+			result2 error
+		})
+	}
+	fake.getRoleReturnsOnCall[i] = struct {
+		result1 repositories.RoleRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFRoleRepository) ListRoles(arg1 context.Context, arg2 authorization.Info) ([]repositories.RoleRecord, error) {
 	fake.listRolesMutex.Lock()
 	ret, specificReturn := fake.listRolesReturnsOnCall[len(fake.listRolesArgsForCall)]
@@ -180,6 +337,10 @@ func (fake *CFRoleRepository) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.createRoleMutex.RLock()
 	defer fake.createRoleMutex.RUnlock()
+	fake.deleteRoleMutex.RLock()
+	defer fake.deleteRoleMutex.RUnlock()
+	fake.getRoleMutex.RLock()
+	defer fake.getRoleMutex.RUnlock()
 	fake.listRolesMutex.RLock()
 	defer fake.listRolesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

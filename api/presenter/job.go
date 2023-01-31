@@ -14,6 +14,7 @@ const (
 	SpaceApplyManifestOperation = "space.apply_manifest"
 	SpaceDeleteOperation        = "space.delete"
 	DomainDeleteOperation       = "domain.delete"
+	RoleDeleteOperation         = "role.delete"
 )
 
 type JobResponse struct {

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -746,6 +747,73 @@ var _ = Describe("Role", func() {
 		When("calling the repository fails", func() {
 			BeforeEach(func() {
 				roleRepo.ListRolesReturns(nil, errors.New("boom"))
+			})
+
+			It("returns the error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("delete a role", func() {
+		BeforeEach(func() {
+			roleRepo.GetRoleReturns(repositories.RoleRecord{
+				GUID:  "role-guid",
+				Space: "my-space",
+				Org:   "",
+			}, nil)
+		})
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "DELETE", rolesBase+"/role-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("gets the role from the repository", func() {
+			Expect(roleRepo.GetRoleCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualRoleGuid := roleRepo.GetRoleArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualRoleGuid).To(Equal("role-guid"))
+		})
+
+		When("getting the role is forbidden", func() {
+			BeforeEach(func() {
+				roleRepo.GetRoleReturns(repositories.RoleRecord{}, apierrors.NewForbiddenError(nil, "Role"))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError("Role not found")
+			})
+		})
+
+		When("getting the role fails", func() {
+			BeforeEach(func() {
+				roleRepo.GetRoleReturns(repositories.RoleRecord{}, errors.New("get-role-err"))
+			})
+
+			It("returns the error", func() {
+				expectUnknownError()
+			})
+		})
+
+		It("deletes the role from the repository", func() {
+			Expect(roleRepo.DeleteRoleCallCount()).To(Equal(1))
+			_, actualAuthInfo, roleDeleteMsg := roleRepo.DeleteRoleArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(roleDeleteMsg).To(Equal(repositories.DeleteRoleMessage{
+				GUID:  "role-guid",
+				Space: "my-space",
+			}))
+		})
+
+		It("returns HTTP status 202 Accepted with redirect location header", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Location", ContainSubstring("jobs/role.delete~role-guid")))
+		})
+
+		When("deleting the role from the repo fails", func() {
+			BeforeEach(func() {
+				roleRepo.DeleteRoleReturns(errors.New("delete-role-err"))
 			})
 
 			It("returns the error", func() {

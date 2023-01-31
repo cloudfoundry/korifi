@@ -10,8 +10,8 @@ directories:
       url: https://api.github.com/repos/servicebinding/runtime/releases/74823243
     path: service-binding
   - githubRelease:
-      tag: metrics-server-helm-chart-3.8.3
-      url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/85436003
+      tag: v0.6.2
+      url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/84197562
     path: metrics-server-local
   - githubRelease:
       tag: v1.11.0
