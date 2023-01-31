@@ -1,6 +1,8 @@
 package controllers_test
 
 import (
+	"fmt"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -256,5 +258,15 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				}},
 			))
 		})
+	})
+
+	It("should produce a stable statefulset", func() {
+		for i := 0; i < 100; i++ {
+			ss, err := converter.Convert(appWorkload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ss).To(Equal(statefulSet), func() string {
+				return fmt.Sprintf("failed on iteration %d", i)
+			})
+		}
 	})
 })
