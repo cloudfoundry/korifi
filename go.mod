@@ -28,7 +28,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.8.0
 	github.com/onsi/gomega v1.26.0
 	github.com/pivotal/kpack v0.9.2
-	github.com/projectcontour/contour v1.23.2
+	github.com/projectcontour/contour v1.24.0
 	golang.org/x/exp v0.0.0-20230131120322-dfa7d7a641b0
 	golang.org/x/text v0.6.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -80,7 +80,6 @@ require (
 	github.com/docker/docker v20.10.23+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.14.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
