@@ -24,16 +24,14 @@ var _ = Describe("Process", func() {
 	)
 
 	var (
-		processRepo   *fake.CFProcessRepository
-		processStats  *fake.ProcessStats
-		processScaler *fake.ProcessScaler
-		req           *http.Request
+		processRepo  *fake.CFProcessRepository
+		processStats *fake.ProcessStats
+		req          *http.Request
 	)
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
 		processStats = new(fake.ProcessStats)
-		processScaler = new(fake.ProcessScaler)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -41,7 +39,6 @@ var _ = Describe("Process", func() {
 			*serverURL,
 			processRepo,
 			processStats,
-			processScaler,
 			decoderValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -277,7 +274,12 @@ var _ = Describe("Process", func() {
 		}
 
 		BeforeEach(func() {
-			processScaler.ScaleProcessReturns(repositories.ProcessRecord{
+			processRepo.GetProcessReturns(repositories.ProcessRecord{
+				GUID:      processGUID,
+				SpaceGUID: spaceGUID,
+			}, nil)
+
+			processRepo.ScaleProcessReturns(repositories.ProcessRecord{
 				GUID:             processGUID,
 				SpaceGUID:        spaceGUID,
 				AppGUID:          appGUID,
@@ -303,23 +305,38 @@ var _ = Describe("Process", func() {
 			}`, instances, memoryInMB, diskInMB))
 		})
 
-		When("on the happy path and", func() {
-			It("passes the authorization.Info to the scale func", func() {
-				Expect(processScaler.ScaleProcessCallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _ := processScaler.ScaleProcessArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
+		It("gets the process", func() {
+			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualProcessGUID := processRepo.GetProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualProcessGUID).To(Equal(processGUID))
+		})
+
+		It("scales the process", func() {
+			Expect(processRepo.ScaleProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, scaleProcessMsg := processRepo.ScaleProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(scaleProcessMsg).To(Equal(repositories.ScaleProcessMessage{
+				GUID:      processGUID,
+				SpaceGUID: spaceGUID,
+				ProcessScaleValues: repositories.ProcessScaleValues{
+					Instances: tools.PtrTo(instances),
+					MemoryMB:  tools.PtrTo(memoryInMB),
+					DiskMB:    tools.PtrTo(diskInMB),
+				},
+			}))
+		})
+
+		When("all scale fields are set", func() {
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
 
-			When("all scale fields are set", func() {
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
+			It("returns the scaled process", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				It("returns the scaled process", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-					Expect(rr.Body.String()).To(MatchJSON(`{
+				Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "` + processGUID + `",
 					"created_at": "` + createdAt + `",
 					"updated_at": "` + updatedAt + `",
@@ -365,97 +382,95 @@ var _ = Describe("Process", func() {
 					   }
 					}
 				 }`))
-				})
-			})
-
-			When("only some fields are set", func() {
-				BeforeEach(func() {
-					queuePostRequest(fmt.Sprintf(`{
-						"memory_in_mb": %[1]d
-					}`, memoryInMB))
-				})
-
-				It("invokes the scale function with only a subset of the scale fields", func() {
-					Expect(processScaler.ScaleProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
-					_, _, _, invokedProcessScale := processScaler.ScaleProcessArgsForCall(0)
-					Expect(invokedProcessScale.Instances).To(BeNil())
-					Expect(invokedProcessScale.DiskMB).To(BeNil())
-					Expect(*invokedProcessScale.MemoryMB).To(Equal(memoryInMB))
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("returns the scaled process", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "` + processGUID + `",
-					"created_at": "` + createdAt + `",
-					"updated_at": "` + updatedAt + `",
-					"type": "web",
-					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": ` + fmt.Sprint(instances) + `,
-					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
-					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
-					"health_check": {
-					   "type": "` + healthcheckType + `",
-					   "data": {
-						  "timeout": null,
-						  "invocation_timeout": null
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "` + appGUID + `"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
-					   },
-					   "scale": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
-					   },
-					   "space": {
-						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
-					   },
-					   "stats": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
-					   }
-					}
-				 }`))
-				})
 			})
 		})
 
-		When("on the sad path and", func() {
-			When("the request JSON is invalid", func() {
-				BeforeEach(func() {
-					queuePostRequest(`}`)
-				})
+		When("only some fields are set", func() {
+			BeforeEach(func() {
+				queuePostRequest(fmt.Sprintf(`{
+						"memory_in_mb": %[1]d
+					}`, memoryInMB))
+			})
 
-				It("returns a status 400 Bad Request ", func() {
-					Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
-				})
+			It("invokes the scale function with only a subset of the scale fields", func() {
+				Expect(processRepo.ScaleProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
+				_, _, invokedProcessScale := processRepo.ScaleProcessArgsForCall(0)
+				Expect(invokedProcessScale.Instances).To(BeNil())
+				Expect(invokedProcessScale.DiskMB).To(BeNil())
+				Expect(*invokedProcessScale.MemoryMB).To(Equal(memoryInMB))
+			})
 
-				It("has the expected error response body", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
 
-					Expect(rr.Body.String()).To(MatchJSON(`{
+			It("returns the scaled process", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"guid": "` + processGUID + `",
+					"created_at": "` + createdAt + `",
+					"updated_at": "` + updatedAt + `",
+					"type": "web",
+					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
+					"instances": ` + fmt.Sprint(instances) + `,
+					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
+					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
+					"health_check": {
+					   "type": "` + healthcheckType + `",
+					   "data": {
+						  "timeout": null,
+						  "invocation_timeout": null
+					   }
+					},
+					"relationships": {
+					   "app": {
+						  "data": {
+							 "guid": "` + appGUID + `"
+						  }
+					   }
+					},
+					"metadata": {
+					   "labels": {},
+					   "annotations": {}
+					},
+					"links": {
+					   "self": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
+					   },
+					   "scale": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
+						  "method": "POST"
+					   },
+					   "app": {
+						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
+					   },
+					   "space": {
+						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
+					   },
+					   "stats": {
+						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
+					   }
+					}
+				 }`))
+			})
+		})
+
+		When("the request JSON is invalid", func() {
+			BeforeEach(func() {
+				queuePostRequest(`}`)
+			})
+
+			It("returns a status 400 Bad Request ", func() {
+				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+			})
+
+			It("has the expected error response body", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+				Expect(rr.Body.String()).To(MatchJSON(`{
 						"errors": [
 							{
 								"title": "CF-MessageParseError",
@@ -464,17 +479,36 @@ var _ = Describe("Process", func() {
 							}
 						]
 					}`), "Response body matches response:")
-				})
+			})
+		})
+
+		When("the user does not have permissions to get the process", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(nil, "Process"))
 			})
 
-			When("there is some other error fetching the process", func() {
-				BeforeEach(func() {
-					processScaler.ScaleProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
-				})
+			It("returns a NotFound error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
 
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+		When("getting the process errors", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("scaling errors", func() {
+			BeforeEach(func() {
+				processRepo.ScaleProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 
