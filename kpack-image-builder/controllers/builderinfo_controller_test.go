@@ -14,7 +14,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -48,7 +47,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 		}
 	})
 
-	When("the ClusterBuilder exists", func() {
+	When("the ClusterBuilder exists and is ready", func() {
 		BeforeEach(func() {
 			clusterBuilder = &buildv1alpha2.ClusterBuilder{
 				ObjectMeta: metav1.ObjectMeta{
@@ -74,6 +73,10 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					ID: stack,
 				},
 			}
+			clusterBuilder.Status.Conditions = append(clusterBuilder.Status.Conditions, corev1alpha1.Condition{
+				Type:   "Ready",
+				Status: "True",
+			})
 			Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 		})
 
@@ -89,12 +92,8 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			})
 
 			It("sets the buildpacks on the BuilderInfo", func() {
-				lookupKey := types.NamespacedName{
-					Name:      controllers.BuilderInfoName,
-					Namespace: rootNamespace.Name,
-				}
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
 
@@ -117,21 +116,42 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 				readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
 				Expect(readyCondition).NotTo(BeNil())
 				Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
-				Expect(readyCondition.Reason).To(Equal("cluster_builder_exists"))
+				Expect(readyCondition.Reason).To(Equal("ClusterBuilderReady"))
 				Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
 			})
 
 			It("sets the stacks on the BuilderInfo", func() {
-				lookupKey := types.NamespacedName{
-					Name:      controllers.BuilderInfoName,
-					Namespace: rootNamespace.Name,
-				}
-				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusStack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
-					return info.Status.Stacks
-				}).Should(HaveLen(1))
-
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(info.Status.Stacks).To(HaveLen(1))
+				}).Should(Succeed())
 				Expect(info.Status.Stacks[0]).To(HaveField("Name", Equal(stack)))
+			})
+
+			When("the cluster builder status is not ready", func() {
+				JustBeforeEach(func() {
+					ok := false
+					for i, cond := range clusterBuilder.Status.Conditions {
+						if cond.Type == "Ready" {
+							clusterBuilder.Status.Conditions[i].Status = v1.ConditionFalse
+							ok = true
+							break
+						}
+					}
+					Expect(ok).To(BeTrue())
+					Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
+				})
+
+				It("marks the builder info as not ready", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+						readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
+						g.Expect(readyCondition).NotTo(BeNil())
+						g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
+						g.Expect(readyCondition.Reason).To(Equal("ClusterBuilderNotReady"))
+						g.Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
+					}).Should(Succeed())
+				})
 			})
 		})
 
@@ -151,12 +171,8 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 				}
 				Expect(k8sClient.Create(context.Background(), info)).To(Succeed())
 
-				lookupKey := types.NamespacedName{
-					Name:      controllers.BuilderInfoName,
-					Namespace: rootNamespace.Name,
-				}
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
 			})
@@ -180,19 +196,21 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					Stack: corev1alpha1.BuildStack{
 						ID: newStack,
 					},
+					Status: corev1alpha1.Status{
+						Conditions: []corev1alpha1.Condition{{
+							Type:   "Ready",
+							Status: "False",
+						}},
+					},
 				}
 				Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 			})
 
 			It("updates the buildpacks on the BuilderInfo", func() {
-				lookupKey := types.NamespacedName{
-					Name:      controllers.BuilderInfoName,
-					Namespace: rootNamespace.Name,
-				}
-				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
-					return info.Status.Buildpacks
-				}).Should(HaveLen(4))
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(info.Status.Buildpacks).To(HaveLen(4))
+				}).Should(Succeed())
 
 				Expect(info.Status.Buildpacks[0]).To(MatchFields(IgnoreExtras, Fields{
 					"Name":    Equal(javaBuildpackName),
@@ -214,18 +232,14 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					"Version": Equal(rustBuildpackVersion),
 					"Stack":   Equal(newStack),
 				}))
-				Expect(meta.IsStatusConditionTrue(info.Status.Conditions, "Ready")).To(BeTrue())
+				Expect(meta.IsStatusConditionFalse(info.Status.Conditions, "Ready")).To(BeTrue())
 			})
 
 			It("updates the stacks on the BuilderInfo", func() {
-				lookupKey := types.NamespacedName{
-					Name:      controllers.BuilderInfoName,
-					Namespace: rootNamespace.Name,
-				}
-				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusStack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
-					return info.Status.Stacks
-				}).Should(ConsistOf(HaveField("Name", newStack)))
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(info.Status.Stacks).To(ConsistOf(HaveField("Name", newStack)))
+				}).Should(Succeed())
 			})
 		})
 
@@ -241,9 +255,8 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			})
 
 			It("doesn't modify that resource", func() {
-				lookupKey := client.ObjectKeyFromObject(info)
 				Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).Should(BeEmpty())
 			})
@@ -268,9 +281,8 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			})
 
 			It("doesn't modify that resource", func() {
-				lookupKey := client.ObjectKeyFromObject(info)
 				Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).Should(BeEmpty())
 			})
@@ -315,9 +327,8 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 		})
 
 		It("doesn't set the buildpacks on the BuilderInfo", func() {
-			lookupKey := client.ObjectKeyFromObject(info)
 			Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-				g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 				return info.Status.Buildpacks
 			}).Should(BeEmpty())
 
@@ -347,17 +358,19 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					Stack: corev1alpha1.BuildStack{
 						ID: stack,
 					},
+					Status: corev1alpha1.Status{
+						Conditions: []corev1alpha1.Condition{{
+							Type:   "Ready",
+							Status: "True",
+						}},
+					},
 				}
 				Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 			})
 
 			It("sets the buildpacks on the BuilderInfo", func() {
-				lookupKey := types.NamespacedName{
-					Name:      controllers.BuilderInfoName,
-					Namespace: rootNamespace.Name,
-				}
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
 
@@ -370,9 +383,8 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			})
 
 			It("sets the stack", func() {
-				lookupKey := client.ObjectKeyFromObject(info)
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusStack {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, info)).To(Succeed())
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Stacks
 				}).Should(HaveLen(1))
 
