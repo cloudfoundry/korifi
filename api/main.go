@@ -201,7 +201,6 @@ func main() {
 	)
 	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
 
-	processScaler := actions.NewProcessScaler(appRepo, processRepo)
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
 		domainRepo,
@@ -252,7 +251,6 @@ func main() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
-			processScaler,
 			decoderValidator,
 		),
 		handlers.NewRoute(
@@ -290,7 +288,6 @@ func main() {
 			*serverURL,
 			processRepo,
 			processStats,
-			processScaler,
 			decoderValidator,
 		),
 		handlers.NewDomain(

@@ -55,11 +55,6 @@ type CFAppRepository interface {
 	PatchAppMetadata(context.Context, authorization.Info, repositories.PatchAppMetadataMessage) (repositories.AppRecord, error)
 }
 
-//counterfeiter:generate -o fake -fake-name AppProcessScaler . AppProcessScaler
-type AppProcessScaler interface {
-	ScaleAppProcess(ctx context.Context, authInfo authorization.Info, appGUID string, processType string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
-}
-
 type App struct {
 	serverURL        url.URL
 	appRepo          CFAppRepository
@@ -68,7 +63,6 @@ type App struct {
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
 	spaceRepo        SpaceRepository
-	appProcessScaler AppProcessScaler
 	decoderValidator *DecoderValidator
 }
 
@@ -80,7 +74,6 @@ func NewApp(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	spaceRepo SpaceRepository,
-	appProcessScaler AppProcessScaler,
 	decoderValidator *DecoderValidator,
 ) *App {
 	return &App{
@@ -92,7 +85,6 @@ func NewApp(
 		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
 		spaceRepo:        spaceRepo,
-		appProcessScaler: appProcessScaler,
 	}
 }
 
@@ -394,21 +386,58 @@ func (h *App) getRoutes(r *http.Request) (*routing.Response, error) {
 
 func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.scale-process")
 	appGUID := routing.URLParam(r, "guid")
 	processType := routing.URLParam(r, "processType")
+	logger := logr.FromContextOrDiscard(r.Context()).
+		WithName("handlers.app.scale-process").
+		WithValues("appGUID", appGUID, "processType", processType)
 
 	var payload payloads.ProcessScale
 	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
-	processRecord, err := h.appProcessScaler.ScaleAppProcess(r.Context(), authInfo, appGUID, processType, payload.ToRecord())
+	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "falied to get app")
+	}
+
+	appProcesses, err := h.processRepo.ListProcesses(r.Context(), authInfo, repositories.ListProcessesMessage{
+		AppGUIDs:  []string{app.GUID},
+		SpaceGUID: app.SpaceGUID,
+	})
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list processes for app")
+	}
+
+	process, hasProcessType := findProcessType(appProcesses, processType)
+	if !hasProcessType {
+		return nil, apierrors.LogAndReturn(logger,
+			apierrors.NewNotFoundError(nil, repositories.ProcessResourceType),
+			"app does not have required process type",
+		)
+	}
+
+	scaledProcessRecord, err := h.processRepo.ScaleProcess(r.Context(), authInfo, repositories.ScaleProcessMessage{
+		GUID:               process.GUID,
+		SpaceGUID:          app.SpaceGUID,
+		ProcessScaleValues: payload.ToRecord(),
+	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed due to error from Kubernetes", "appGUID", appGUID)
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcess(processRecord, h.serverURL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcess(scaledProcessRecord, h.serverURL)), nil
+}
+
+func findProcessType(processes []repositories.ProcessRecord, processType string) (repositories.ProcessRecord, bool) {
+	for _, proc := range processes {
+		if proc.Type == processType {
+			return proc, true
+		}
+	}
+
+	return repositories.ProcessRecord{}, false
 }
 
 func (h *App) restart(r *http.Request) (*routing.Response, error) {

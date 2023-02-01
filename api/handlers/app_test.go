@@ -30,14 +30,13 @@ const (
 
 var _ = Describe("App", func() {
 	var (
-		appRepo       *fake.CFAppRepository
-		dropletRepo   *fake.CFDropletRepository
-		processRepo   *fake.CFProcessRepository
-		routeRepo     *fake.CFRouteRepository
-		processScaler *fake.AppProcessScaler
-		domainRepo    *fake.CFDomainRepository
-		spaceRepo     *fake.SpaceRepository
-		req           *http.Request
+		appRepo     *fake.CFAppRepository
+		dropletRepo *fake.CFDropletRepository
+		processRepo *fake.CFProcessRepository
+		routeRepo   *fake.CFRouteRepository
+		domainRepo  *fake.CFDomainRepository
+		spaceRepo   *fake.SpaceRepository
+		req         *http.Request
 
 		appRecord repositories.AppRecord
 	)
@@ -48,7 +47,6 @@ var _ = Describe("App", func() {
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
-		processScaler = new(fake.AppProcessScaler)
 		spaceRepo = new(fake.SpaceRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
@@ -61,7 +59,6 @@ var _ = Describe("App", func() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
-			processScaler,
 			decoderValidator,
 		)
 
@@ -1824,7 +1821,16 @@ var _ = Describe("App", func() {
 
 	Describe("the POST /v3/apps/:guid/process/:processType/actions/scale endpoint", func() {
 		BeforeEach(func() {
-			processScaler.ScaleAppProcessReturns(repositories.ProcessRecord{
+			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
+				{
+					GUID:      "process-1-guid",
+					SpaceGUID: spaceGUID,
+					AppGUID:   appGUID,
+					Type:      "web",
+				},
+			}, nil)
+
+			processRepo.ScaleProcessReturns(repositories.ProcessRecord{
 				GUID:             "process-1-guid",
 				SpaceGUID:        spaceGUID,
 				AppGUID:          appGUID,
@@ -1848,6 +1854,38 @@ var _ = Describe("App", func() {
 				"memory_in_mb": %d,
 				"disk_in_mb": %d
 			}`, 5, 256, 1024)))
+		})
+
+		It("gets the app", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualAppGUID).To(Equal(appGUID))
+		})
+
+		It("lists the app processes", func() {
+			Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
+			_, actualAuthInfo, listMsg := processRepo.ListProcessesArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(listMsg).To(Equal(repositories.ListProcessesMessage{
+				AppGUIDs:  []string{appGUID},
+				SpaceGUID: spaceGUID,
+			}))
+		})
+
+		It("scales the process", func() {
+			Expect(processRepo.ScaleProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
+			_, actualAuthInfo, scaleMsg := processRepo.ScaleProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(scaleMsg).To(Equal(repositories.ScaleProcessMessage{
+				GUID:      "process-1-guid",
+				SpaceGUID: spaceGUID,
+				ProcessScaleValues: repositories.ProcessScaleValues{
+					Instances: tools.PtrTo(5),
+					MemoryMB:  tools.PtrTo[int64](256),
+					DiskMB:    tools.PtrTo[int64](1024),
+				},
+			}))
 		})
 
 		It("returns status 200 OK", func() {
@@ -1906,22 +1944,6 @@ var _ = Describe("App", func() {
 				 }`))
 		})
 
-		When("only some fields are set", func() {
-			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(fmt.Sprintf(`{
-						"memory_in_mb": %d
-					}`, 1024)))
-			})
-
-			It("invokes the scale function with only a subset of the scale fields", func() {
-				Expect(processScaler.ScaleAppProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
-				_, _, _, _, invokedProcessScale := processScaler.ScaleAppProcessArgsForCall(0)
-				Expect(invokedProcessScale.Instances).To(BeNil())
-				Expect(invokedProcessScale.DiskMB).To(BeNil())
-				Expect(*invokedProcessScale.MemoryMB).To(BeNumerically("==", 1024))
-			})
-		})
-
 		When("the request JSON is invalid", func() {
 			BeforeEach(func() {
 				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(`}`))
@@ -1947,9 +1969,49 @@ var _ = Describe("App", func() {
 			})
 		})
 
+		When("the user does not have permissions to get the app", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, "App"))
+			})
+
+			It("return a NotFound error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("getting the app fails", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
+			})
+
+			It("return an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("listing the app processes fails", func() {
+			BeforeEach(func() {
+				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("boom"))
+			})
+
+			It("return an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("scaling a nonexistent process type", func() {
+			BeforeEach(func() {
+				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/bob/actions/scale", strings.NewReader("{}"))
+			})
+
+			It("return a NotFound error", func() {
+				expectNotFoundError("Process not found")
+			})
+		})
+
 		When("there is an error scaling the app", func() {
 			BeforeEach(func() {
-				processScaler.ScaleAppProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
+				processRepo.ScaleProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {

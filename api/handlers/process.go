@@ -32,11 +32,7 @@ type CFProcessRepository interface {
 	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
 	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 	CreateProcess(context.Context, authorization.Info, repositories.CreateProcessMessage) error
-}
-
-//counterfeiter:generate -o fake -fake-name ProcessScaler . ProcessScaler
-type ProcessScaler interface {
-	ScaleProcess(ctx context.Context, authInfo authorization.Info, processGUID string, scale repositories.ProcessScaleValues) (repositories.ProcessRecord, error)
+	ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ProcessStats . ProcessStats
@@ -48,7 +44,6 @@ type Process struct {
 	serverURL        url.URL
 	processRepo      CFProcessRepository
 	processStats     ProcessStats
-	processScaler    ProcessScaler
 	decoderValidator *DecoderValidator
 }
 
@@ -56,14 +51,12 @@ func NewProcess(
 	serverURL url.URL,
 	processRepo CFProcessRepository,
 	processStatsFetcher ProcessStats,
-	scaleProcessFunc ProcessScaler,
 	decoderValidator *DecoderValidator,
 ) *Process {
 	return &Process{
 		serverURL:        serverURL,
 		processRepo:      processRepo,
 		processStats:     processStatsFetcher,
-		processScaler:    scaleProcessFunc,
 		decoderValidator: decoderValidator,
 	}
 }
@@ -121,9 +114,18 @@ func (h *Process) scale(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	processRecord, err := h.processScaler.ScaleProcess(r.Context(), authInfo, processGUID, payload.ToRecord())
+	process, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed due to error from Kubernetes", "processGUID", processGUID)
+		return nil, apierrors.ForbiddenAsNotFound(err)
+	}
+
+	processRecord, err := h.processRepo.ScaleProcess(r.Context(), authInfo, repositories.ScaleProcessMessage{
+		GUID:               process.GUID,
+		SpaceGUID:          process.SpaceGUID,
+		ProcessScaleValues: payload.ToRecord(),
+	})
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to scale process", "processGUID", processGUID)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcess(processRecord, h.serverURL)), nil
