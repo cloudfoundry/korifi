@@ -164,13 +164,21 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	kpackReadyStatusCondition := kpackImage.Status.GetCondition(kpackReadyConditionType)
+	kpackReadyStatusCondition := kpackImage.Status.GetCondition(corev1alpha1.ConditionReady)
+	kpackBuilderReadyStatusCondition := kpackImage.Status.GetCondition(buildv1alpha2.ConditionBuilderReady)
 	if kpackReadyStatusCondition.IsFalse() {
 		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "BuildFailed",
 			Message: "Check build log output",
+		})
+	} else if kpackBuilderReadyStatusCondition.IsFalse() {
+		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "BuilderNotReady",
+			Message: "Check ClusterBuilder",
 		})
 	} else if kpackReadyStatusCondition.IsTrue() {
 		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{

@@ -23,8 +23,6 @@ import (
 
 var _ = Describe("BuildWorkloadReconciler", func() {
 	const (
-		succeededConditionType              = "Succeeded"
-		kpackReadyConditionType             = "Ready"
 		wellFormedRegistryCredentialsSecret = "image-registry-credentials"
 		kpackReconcilerName                 = "kpack-image-builder"
 	)
@@ -127,7 +125,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			Eventually(func(g Gomega) {
 				err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
 			}).Should(Succeed())
 		})
 
@@ -166,7 +164,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
 				}).Should(Succeed())
 			})
 		})
@@ -200,10 +198,10 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
 				}).Should(Succeed())
 
-				foundCondition := meta.FindStatusCondition(updatedWorkload.Status.Conditions, succeededConditionType)
+				foundCondition := meta.FindStatusCondition(updatedWorkload.Status.Conditions, "Succeeded")
 				Expect(foundCondition.Message).To(ContainSubstring("buildpack"))
 			})
 
@@ -244,7 +242,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					}).Should(Succeed())
 
 					Expect(k8s.Patch(context.Background(), k8sClient, createdKpackImage, func() {
-						setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionTrue)
+						setKpackImageStatus(createdKpackImage, "Ready", metav1.ConditionTrue)
 						createdKpackImage.Status.LatestImage = "some-org/my-image@sha256:some-sha"
 						createdKpackImage.Status.LatestStack = "cflinuxfs3"
 					})).To(Succeed())
@@ -272,7 +270,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					Consistently(func(g Gomega) {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, updatedBuildWorkload)
 						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+						g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
 						g.Expect(fakeImageProcessFetcher.CallCount()).To(BeZero())
 					}).Should(Succeed())
 				})
@@ -294,20 +292,41 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			}).Should(Succeed())
 		})
 
-		When("the image build failed", func() {
+		When("the Kpack image is not ready", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(context.Background(), k8sClient, createdKpackImage, func() {
-					setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionFalse)
+					setKpackImageStatus(createdKpackImage, "Ready", metav1.ConditionFalse)
 				})).To(Succeed())
 			})
 
-			It("sets the Succeeded conditions to False", func() {
+			It("sets the Succeeded condition to False", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Reason).To(Equal("BuildFailed"))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the Kpack builder is not ready", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(context.Background(), k8sClient, createdKpackImage, func() {
+					setKpackImageStatus(createdKpackImage, "Ready", metav1.ConditionUnknown)
+					setKpackImageStatus(createdKpackImage, "BuilderReady", metav1.ConditionFalse)
+				})).To(Succeed())
+			})
+
+			It("sets the Succeeded condition to False", func() {
+				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
+				Eventually(func(g Gomega) {
+					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Reason).To(Equal("BuilderNotReady"))
 				}).Should(Succeed())
 			})
 		})
@@ -330,7 +349,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				fakeImageProcessFetcher.Returns(returnedProcessTypes, returnedPorts, nil)
 
 				Expect(k8s.Patch(context.Background(), k8sClient, createdKpackImage, func() {
-					setKpackImageStatus(createdKpackImage, kpackReadyConditionType, metav1.ConditionTrue)
+					setKpackImageStatus(createdKpackImage, "Ready", metav1.ConditionTrue)
 					createdKpackImage.Status.LatestImage = kpackBuildImageRef
 					createdKpackImage.Status.LatestStack = kpackImageLatestStack
 				})).To(Succeed())
@@ -342,7 +361,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(context.Background(), lookupKey, updatedWorkload)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, succeededConditionType).Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionTrue))
 				}).Should(Succeed())
 			})
 
