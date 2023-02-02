@@ -3,7 +3,6 @@ package manifest
 import (
 	"math/rand"
 	"strings"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -131,7 +130,6 @@ func (n Normalizer) configureRandomRoute(appName string) payloads.ManifestRoute 
 }
 
 func generateRandomRoute() string {
-	rand.Seed(time.Now().Unix())
 	suffix := string('a'+rune(rand.Intn(26))) + string('a'+rune(rand.Intn(26)))
 	return adjectives[rand.Intn(len(adjectives))] + "-" + nouns[rand.Intn(len(nouns))] + "-" + suffix
 }
