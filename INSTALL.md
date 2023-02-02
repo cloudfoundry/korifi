@@ -161,8 +161,8 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=adminUserName="$ADMIN_USERNAME" \
     --set=api.apiServer.url="api.$BASE_DOMAIN" \
     --set=global.defaultAppDomainName="apps.$BASE_DOMAIN" \
-    --set=global.containerRepositoryPrefix=europe-west1-docker.pkg.dev/my-project/korifi/ \
-    --set=kpackImageBuilder.builderRepository=europe-west1-docker.pkg.dev/my-project/korifi/kpack-builder \
+    --set=global.containerRepositoryPrefix=europe-docker.pkg.dev/my-project/korifi/ \
+    --set=kpackImageBuilder.builderRepository=europe-docker.pkg.dev/my-project/korifi/kpack-builder \
     --wait
 ```
 
