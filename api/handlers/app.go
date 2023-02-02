@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -16,7 +15,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/go-logr/logr"
 )
@@ -313,25 +311,7 @@ func (h *App) stop(r *http.Request) (*routing.Response, error) {
 }
 
 func (h *App) stopApp(ctx context.Context, authInfo authorization.Info, app repositories.AppRecord) (repositories.AppRecord, error) {
-	appRevision, err := strconv.Atoi(app.Annotations[AppRevisionKey])
-	if err != nil {
-		return repositories.AppRecord{}, apierrors.NewUnprocessableEntityError(err, "failed to parse app revision")
-	}
-
-	app, err = h.appRepo.PatchAppMetadata(ctx, authInfo, repositories.PatchAppMetadataMessage{
-		MetadataPatch: repositories.MetadataPatch{
-			Annotations: map[string]*string{
-				AppRevisionKey: tools.PtrTo(strconv.Itoa(appRevision + 1)),
-			},
-		},
-		AppGUID:   app.GUID,
-		SpaceGUID: app.SpaceGUID,
-	})
-	if err != nil {
-		return repositories.AppRecord{}, apierrors.NewUnprocessableEntityError(err, "failed to update app revision")
-	}
-
-	app, err = h.appRepo.SetAppDesiredState(ctx, authInfo, repositories.SetAppDesiredStateMessage{
+	app, err := h.appRepo.SetAppDesiredState(ctx, authInfo, repositories.SetAppDesiredStateMessage{
 		AppGUID:      app.GUID,
 		SpaceGUID:    app.SpaceGUID,
 		DesiredState: AppStoppedState,

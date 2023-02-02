@@ -350,6 +350,8 @@ func main() {
 			os.Exit(1)
 		}
 
+		(&workloads.AppRevWebhook{}).SetupWebhookWithManager(mgr)
+
 		if err = (&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
 			os.Exit(1)

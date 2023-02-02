@@ -102,6 +102,8 @@ var _ = BeforeSuite(func() {
 
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
+	(&workloads.AppRevWebhook{}).SetupWebhookWithManager(mgr)
+
 	appNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType))
 	Expect(workloads.NewCFAppValidator(appNameDuplicateValidator).SetupWebhookWithManager(mgr)).To(Succeed())
 

@@ -1455,32 +1455,6 @@ var _ = Describe("App", func() {
 				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
 		})
 
-		It("bumps the app revision annotation", func() {
-			Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
-			_, _, actualPatchMsg := appRepo.PatchAppMetadataArgsForCall(0)
-			Expect(actualPatchMsg.Annotations).To(HaveKeyWithValue(AppRevisionKey, tools.PtrTo("1")))
-		})
-
-		When("bumping the app revision annotation fails", func() {
-			BeforeEach(func() {
-				appRepo.PatchAppMetadataReturns(repositories.AppRecord{}, errors.New("patch-app-rev-err"))
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("failed to update app revision")
-			})
-		})
-
-		When("the app revision cannot be parsed", func() {
-			BeforeEach(func() {
-				appRecord.Annotations[AppRevisionKey] = "nan"
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("failed to parse app revision")
-			})
-		})
-
 		When("fetching the app is forbidden", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, "App"))
