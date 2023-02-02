@@ -57,6 +57,7 @@ func (r *CFApp) defaultAnnotations(appAnnotations map[string]string) map[string]
 	if appAnnotations == nil {
 		appAnnotations = make(map[string]string)
 	}
+
 	_, hasRevAnnotation := appAnnotations[CFAppRevisionKey]
 	if !hasRevAnnotation {
 		appAnnotations[CFAppRevisionKey] = CFAppRevisionKeyDefault

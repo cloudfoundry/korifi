@@ -386,10 +386,15 @@ var _ = Describe("Apps", func() {
 		})
 
 		Describe("Restart an app", func() {
-			var result appResource
+			var result map[string]interface{}
 
 			BeforeEach(func() {
 				setCurrentDroplet(appGUID, buildGUID)
+				var err error
+				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/start")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result).To(HaveKeyWithValue("state", "STARTED"))
 			})
 
 			JustBeforeEach(func() {
@@ -400,7 +405,39 @@ var _ = Describe("Apps", func() {
 
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.State).To(Equal("STARTED"))
+				Expect(result).To(HaveKeyWithValue("state", "STARTED"))
+			})
+
+			It("sets the app rev to 1", func() {
+				Eventually(func(g Gomega) {
+					var err error
+					resp, err = certClient.R().
+						SetResult(&result).
+						Get("/v3/apps/" + appGUID)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "1"))))
+				}).Should(Succeed())
+			})
+
+			When("the app is restarted again", func() {
+				JustBeforeEach(func() {
+					var err error
+					resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("sets the app rev to 2", func() {
+					Eventually(func(g Gomega) {
+						var err error
+						resp, err = certClient.R().
+							SetResult(&result).
+							Get("/v3/apps/" + appGUID)
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+						g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "2"))))
+					}).Should(Succeed())
+				})
 			})
 
 			When("app environment has been changed", func() {
@@ -508,8 +545,21 @@ var _ = Describe("Apps", func() {
 						Get("/v3/apps/" + appGUID)
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", SatisfyAny(
+						Equal("0"),
+						Equal("1"),
+					)))))
 					g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "1"))))
 				}).Should(Succeed())
+
+				Consistently(func(g Gomega) {
+					resp, err := certClient.R().
+						SetResult(&result).
+						Get("/v3/apps/" + appGUID)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "1"))))
+				}, "2s", "200ms").Should(Succeed())
 			})
 		})
 	})

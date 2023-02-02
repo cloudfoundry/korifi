@@ -119,6 +119,26 @@ webhooks:
       service:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp-apprev
+    failurePolicy: Fail
+    name: mcfapprev.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - UPDATE
+        resources:
+          - cfapps
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cftask
     failurePolicy: Fail
     name: mcftask.korifi.cloudfoundry.org
