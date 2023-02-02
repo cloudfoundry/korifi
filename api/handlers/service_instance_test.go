@@ -1,14 +1,13 @@
 package handlers_test
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -283,9 +282,12 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("the request body is invalid with Tags that combine to exceed length 2048", func() {
 			BeforeEach(func() {
+				longString, err := randomString(2048)
+				Expect(err).NotTo(HaveOccurred())
+
 				makePostRequest(`{
 				"name": "` + serviceInstanceName + `",
-				"tags": ["` + randomString(2048) + `"],
+				"tags": ["` + longString + `"],
 				"relationships": {
 					"space": {
 						"data": {
@@ -743,9 +745,11 @@ var _ = Describe("ServiceInstance", func() {
 	})
 })
 
-func randomString(length int) string {
-	rand.Seed(time.Now().UnixNano())
+func randomString(length int) (string, error) {
 	b := make([]byte, length)
-	rand.Read(b)
-	return fmt.Sprintf("%x", b)[:length]
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", b)[:length], nil
 }
