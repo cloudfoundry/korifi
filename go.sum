@@ -294,8 +294,8 @@ github.com/mattn/go-isatty v0.0.17 h1:BTarxUcIeDqL27Mc+vyvdWYSL28zpIhv3RoTdsLMPn
 github.com/mattn/go-isatty v0.0.17/go.mod h1:kYGgaQfpe5nmfYZH+SKPsOc2e4SrIfOl2e/yFXSvRLM=
 github.com/matttproud/golang_protobuf_extensions v1.0.4 h1:mmDVorXM7PCGKw94cs5zkfA9PSy5pEvNWRP0ET0TIVo=
 github.com/matttproud/golang_protobuf_extensions v1.0.4/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
-github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0 h1:rBhB9Rls+yb8kA4x5a/cWxOufWfXt24E+kq4YlbGj3g=
-github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0/go.mod h1:fJ0UAZc1fx3xZhU4eSHQDJ1ApFmTVhp5VTpV9tm2ogg=
+github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1 h1:9XE5ykDiC8eNSqIPkxx0EsV3kMX1oe4kQWRZjIgytUA=
+github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1/go.mod h1:qbKwBR+qQODzH2WD/s53mdgp/xVcXMlJb59GRFOp6Z4=
 github.com/mileusna/useragent v1.2.1 h1:p3RJWhi3LfuI6BHdddojREyK3p6qX67vIfOVMnUIVr0=
 github.com/mileusna/useragent v1.2.1/go.mod h1:3d8TOmwL/5I8pJjyVDteHtgDGcefrFUX4ccGOMKNYYc=
 github.com/mitchellh/go-homedir v1.1.0 h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y=
