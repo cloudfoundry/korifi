@@ -114,21 +114,6 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
-	ScaleAppProcessStub        func(context.Context, authorization.Info, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
-	scaleAppProcessMutex       sync.RWMutex
-	scaleAppProcessArgsForCall []struct {
-		arg1 context.Context
-		arg2 authorization.Info
-		arg3 repositories.ScaleProcessMessage
-	}
-	scaleAppProcessReturns struct {
-		result1 repositories.ProcessRecord
-		result2 error
-	}
-	scaleAppProcessReturnsOnCall map[int]struct {
-		result1 repositories.ProcessRecord
-		result2 error
-	}
 	SetAppDesiredStateStub        func(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 	setAppDesiredStateMutex       sync.RWMutex
 	setAppDesiredStateArgsForCall []struct {
@@ -622,72 +607,6 @@ func (fake *CFAppRepository) PatchAppMetadataReturnsOnCall(i int, result1 reposi
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) ScaleAppProcess(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ScaleProcessMessage) (repositories.ProcessRecord, error) {
-	fake.scaleAppProcessMutex.Lock()
-	ret, specificReturn := fake.scaleAppProcessReturnsOnCall[len(fake.scaleAppProcessArgsForCall)]
-	fake.scaleAppProcessArgsForCall = append(fake.scaleAppProcessArgsForCall, struct {
-		arg1 context.Context
-		arg2 authorization.Info
-		arg3 repositories.ScaleProcessMessage
-	}{arg1, arg2, arg3})
-	stub := fake.ScaleAppProcessStub
-	fakeReturns := fake.scaleAppProcessReturns
-	fake.recordInvocation("ScaleAppProcess", []interface{}{arg1, arg2, arg3})
-	fake.scaleAppProcessMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFAppRepository) ScaleAppProcessCallCount() int {
-	fake.scaleAppProcessMutex.RLock()
-	defer fake.scaleAppProcessMutex.RUnlock()
-	return len(fake.scaleAppProcessArgsForCall)
-}
-
-func (fake *CFAppRepository) ScaleAppProcessCalls(stub func(context.Context, authorization.Info, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)) {
-	fake.scaleAppProcessMutex.Lock()
-	defer fake.scaleAppProcessMutex.Unlock()
-	fake.ScaleAppProcessStub = stub
-}
-
-func (fake *CFAppRepository) ScaleAppProcessArgsForCall(i int) (context.Context, authorization.Info, repositories.ScaleProcessMessage) {
-	fake.scaleAppProcessMutex.RLock()
-	defer fake.scaleAppProcessMutex.RUnlock()
-	argsForCall := fake.scaleAppProcessArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
-}
-
-func (fake *CFAppRepository) ScaleAppProcessReturns(result1 repositories.ProcessRecord, result2 error) {
-	fake.scaleAppProcessMutex.Lock()
-	defer fake.scaleAppProcessMutex.Unlock()
-	fake.ScaleAppProcessStub = nil
-	fake.scaleAppProcessReturns = struct {
-		result1 repositories.ProcessRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) ScaleAppProcessReturnsOnCall(i int, result1 repositories.ProcessRecord, result2 error) {
-	fake.scaleAppProcessMutex.Lock()
-	defer fake.scaleAppProcessMutex.Unlock()
-	fake.ScaleAppProcessStub = nil
-	if fake.scaleAppProcessReturnsOnCall == nil {
-		fake.scaleAppProcessReturnsOnCall = make(map[int]struct {
-			result1 repositories.ProcessRecord
-			result2 error
-		})
-	}
-	fake.scaleAppProcessReturnsOnCall[i] = struct {
-		result1 repositories.ProcessRecord
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *CFAppRepository) SetAppDesiredState(arg1 context.Context, arg2 authorization.Info, arg3 repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error) {
 	fake.setAppDesiredStateMutex.Lock()
 	ret, specificReturn := fake.setAppDesiredStateReturnsOnCall[len(fake.setAppDesiredStateArgsForCall)]
@@ -837,8 +756,6 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.patchAppEnvVarsMutex.RUnlock()
 	fake.patchAppMetadataMutex.RLock()
 	defer fake.patchAppMetadataMutex.RUnlock()
-	fake.scaleAppProcessMutex.RLock()
-	defer fake.scaleAppProcessMutex.RUnlock()
 	fake.setAppDesiredStateMutex.RLock()
 	defer fake.setAppDesiredStateMutex.RUnlock()
 	fake.setCurrentDropletMutex.RLock()
