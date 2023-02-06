@@ -75,10 +75,10 @@ type HealthCheckType string
 // HealthCheckData used to pass through input parameters to liveness probe
 type HealthCheckData struct {
 	// The http endpoint to use with "http" healthchecks
-	HTTPEndpoint string `json:"httpEndpoint,omitempty"`
+	HTTPEndpoint string `json:"httpEndpoint,omitempty"` //nolint:unused
 
-	InvocationTimeoutSeconds int64 `json:"invocationTimeoutSeconds"`
-	TimeoutSeconds           int64 `json:"timeoutSeconds"`
+	InvocationTimeoutSeconds int64 `json:"invocationTimeoutSeconds"` //nolint:unused
+	TimeoutSeconds           int64 `json:"timeoutSeconds"`           //nolint:unused
 }
 
 // CFProcessStatus defines the observed state of CFProcess
