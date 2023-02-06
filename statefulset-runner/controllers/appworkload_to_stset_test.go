@@ -70,7 +70,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 
 	It("should deny privilegeEscalation", func() {
 		Expect(statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation).NotTo(BeNil())
-		Expect(*statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation).To(Equal(false))
+		Expect(*statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
 	})
 
 	It("should drop all capabilities", func() {
@@ -178,7 +178,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	It("should run it with non-root user", func() {
 		Expect(statefulSet.Spec.Template.Spec.SecurityContext).NotTo(BeNil())
 		Expect(statefulSet.Spec.Template.Spec.SecurityContext.RunAsNonRoot).NotTo(BeNil())
-		Expect(*statefulSet.Spec.Template.Spec.SecurityContext.RunAsNonRoot).To(Equal(true))
+		Expect(*statefulSet.Spec.Template.Spec.SecurityContext.RunAsNonRoot).To(BeTrue())
 	})
 
 	It("should set soft inter-pod anti-affinity", func() {

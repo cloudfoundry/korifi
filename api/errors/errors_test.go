@@ -29,7 +29,7 @@ var _ = Describe("FromK8sError", func() {
 	})
 
 	It("returns nil", func() {
-		Expect(actualErr).To(BeNil())
+		Expect(actualErr).NotTo(HaveOccurred())
 	})
 
 	When("unauthorized k8s error", func() {
@@ -88,7 +88,7 @@ var _ = Describe("ForbiddenAsNotFound", func() {
 	})
 
 	It("returns nil", func() {
-		Expect(actualErr).To(BeNil())
+		Expect(actualErr).NotTo(HaveOccurred())
 	})
 
 	When("forbidden error", func() {
@@ -130,7 +130,7 @@ var _ = Describe("DropletForbiddenAsNotFound", func() {
 	})
 
 	It("returns nil", func() {
-		Expect(actualErr).To(BeNil())
+		Expect(actualErr).NotTo(HaveOccurred())
 	})
 
 	When("forbidden error", func() {
@@ -185,7 +185,7 @@ var _ = Describe("AsUnprocessibleEntity", func() {
 	})
 
 	It("returns nil", func() {
-		Expect(actualErr).To(BeNil())
+		Expect(actualErr).ToNot(HaveOccurred())
 	})
 
 	When("forbidden error", func() {

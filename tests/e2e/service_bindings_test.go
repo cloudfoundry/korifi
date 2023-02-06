@@ -171,7 +171,7 @@ var _ = Describe("Service Bindings", func() {
 			It("succeeds", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(len(result.Resources)).To(BeNumerically(">=", 1))
+				Expect(result.Resources).NotTo(BeEmpty())
 			})
 
 			It("doesn't return anything in the 'included' list", func() {
@@ -186,7 +186,7 @@ var _ = Describe("Service Bindings", func() {
 				It("returns an app in the 'included' list", func() {
 					Expect(httpError).NotTo(HaveOccurred())
 					Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-					Expect(len(result.Resources)).To(BeNumerically(">=", 1))
+					Expect(result.Resources).NotTo(BeEmpty())
 					Expect(result.Included).NotTo(BeNil())
 					Expect(result.Included.Apps).To(ContainElement(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(appGUID)}),

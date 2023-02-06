@@ -151,7 +151,7 @@ var _ = Describe("Processes", func() {
 					// no 'g.' here - we require all calls to return 200
 					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-					g.Expect(len(processStats.Resources)).ToNot(BeZero())
+					g.Expect(processStats.Resources).ToNot(BeEmpty())
 					g.Expect(processStats.Resources[0].Usage).ToNot(BeZero())
 				}).Should(Succeed())
 			})

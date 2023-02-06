@@ -137,7 +137,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var latestOrg korifiv1alpha1.CFOrg
 				err := k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &latestOrg)
-				g.Expect(err).To(BeNil())
+				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(meta.IsStatusConditionTrue(latestOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 5*time.Second).Should(Succeed())
 		})

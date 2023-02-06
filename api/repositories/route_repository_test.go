@@ -531,7 +531,7 @@ var _ = Describe("RouteRepository", func() {
 						})
 
 						By("returning a record with destinations that match the CFRoute CR", func() {
-							Expect(len(route.Destinations)).To(Equal(len(cfRoute1.Spec.Destinations)), "Route Record Destinations returned was not the correct length")
+							Expect(route.Destinations).To(HaveLen(1))
 							destinationRecord := route.Destinations[0]
 							Expect(destinationRecord.GUID).To(Equal(cfRoute1.Spec.Destinations[0].GUID))
 							Expect(destinationRecord.AppGUID).To(Equal(cfRoute1.Spec.Destinations[0].AppRef.Name))

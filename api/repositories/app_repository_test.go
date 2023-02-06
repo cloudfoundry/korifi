@@ -745,10 +745,10 @@ var _ = Describe("AppRepository", func() {
 
 			When("the secret doesn't already exist", func() {
 				It("returns a record matching the input and no error", func() {
+					Expect(returnedErr).NotTo(HaveOccurred())
 					Expect(returnedAppEnvVarsRecord.AppGUID).To(Equal(envSecret.AppGUID))
 					Expect(returnedAppEnvVarsRecord.SpaceGUID).To(Equal(envSecret.SpaceGUID))
 					Expect(returnedAppEnvVarsRecord.EnvironmentVariables).To(HaveLen(len(envSecret.EnvironmentVariables)))
-					Expect(returnedErr).To(BeNil())
 				})
 
 				It("returns a record with the created Secret's name", func() {

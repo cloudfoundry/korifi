@@ -299,7 +299,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			})
 
 			It("deletes the binding", func() {
-				Expect(ret).To(BeNil())
+				Expect(ret).NotTo(HaveOccurred())
 			})
 
 			When("the binding doesn't exist", func() {
