@@ -305,11 +305,6 @@ var _ = Describe("BuildRepository", func() {
 			})
 
 			When("on the happy path", func() {
-				const (
-					StagingConditionType   = "Staging"
-					SucceededConditionType = "Succeeded"
-				)
-
 				var build3 *korifiv1alpha1.CFBuild
 
 				BeforeEach(func() {
