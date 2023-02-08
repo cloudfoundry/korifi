@@ -48,7 +48,6 @@ var _ = Describe("CFServiceBinding", func() {
 		Expect(k8s.Patch(context.Background(), k8sClient, desiredCFApp, func() {
 			desiredCFApp.Status = korifiv1alpha1.CFAppStatus{
 				Conditions:             nil,
-				ObservedDesiredState:   korifiv1alpha1.StoppedState,
 				VCAPServicesSecretName: "foo",
 			}
 			meta.SetStatusCondition(&desiredCFApp.Status.Conditions, metav1.Condition{

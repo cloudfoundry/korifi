@@ -77,10 +77,6 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 		return ctrl.Result{}, err
 	}
 
-	if cfApp.Status.ObservedDesiredState != cfApp.Spec.DesiredState {
-		cfApp.Status.ObservedDesiredState = cfApp.Spec.DesiredState
-	}
-
 	if cfApp.Status.Conditions == nil {
 		cfApp.Status.Conditions = make([]metav1.Condition, 0)
 	}

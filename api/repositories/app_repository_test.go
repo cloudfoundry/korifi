@@ -1093,7 +1093,6 @@ var _ = Describe("AppRepository", func() {
 							Reason:             "staged",
 							Message:            "staged",
 						}},
-						ObservedDesiredState: "STOPPED",
 					}
 					g.Expect(k8sClient.Status().Patch(context.Background(), theAppCopy, client.MergeFrom(theApp))).To(Succeed())
 				}).Should(Succeed())
@@ -1532,7 +1531,6 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
 	cfApp.Status.Conditions = []metav1.Condition{}
-	cfApp.Status.ObservedDesiredState = "STOPPED"
 	Expect(k8sClient.Status().Update(context.Background(), cfApp)).To(Succeed())
 
 	return cfApp

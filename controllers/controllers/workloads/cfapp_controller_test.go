@@ -154,7 +154,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
 
-				g.Expect(createdCFApp.Status.ObservedDesiredState).To(Equal(cfApp.Spec.DesiredState))
 				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
 				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionRunning)).To(BeFalse())
 			}).Should(Succeed())
