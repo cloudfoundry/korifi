@@ -23,7 +23,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.2
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: clusterworkloadresourcemappings.servicebinding.io
 spec:
@@ -243,7 +243,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.2
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: servicebindings.servicebinding.io
 spec:
@@ -429,8 +429,8 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{ // Represents the observations of a foo's
-                    current state. // Known .status.conditions.type are: \"Available\",
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
                     \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
                     // +listType=map // +listMapKey=type Conditions []metav1.Condition
                     `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
@@ -674,8 +674,8 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{ // Represents the observations of a foo's
-                    current state. // Known .status.conditions.type are: \"Available\",
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
                     \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
                     // +listType=map // +listMapKey=type Conditions []metav1.Condition
                     `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
@@ -1063,8 +1063,8 @@ metadata:
         url: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
       - origins:
         - preresolved:
-            url: ghcr.io/servicebinding/runtime/bundle@sha256:50eae61cb276f77283371a204dae1b6d33d0b73aa181d93f136f33b0020e6db4
-        url: ghcr.io/servicebinding/runtime/bundle@sha256:50eae61cb276f77283371a204dae1b6d33d0b73aa181d93f136f33b0020e6db4
+            url: ghcr.io/servicebinding/runtime/bundle@sha256:445b7ea9774fe71d2b6dc0d5dbe423fa37967cd9163627077030414bfc25f055
+        url: ghcr.io/servicebinding/runtime/bundle@sha256:445b7ea9774fe71d2b6dc0d5dbe423fa37967cd9163627077030414bfc25f055
   labels:
     control-plane: controller-manager
   name: servicebinding-controller-manager
@@ -1086,7 +1086,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
-        image: ghcr.io/servicebinding/runtime/bundle@sha256:50eae61cb276f77283371a204dae1b6d33d0b73aa181d93f136f33b0020e6db4
+        image: ghcr.io/servicebinding/runtime/bundle@sha256:445b7ea9774fe71d2b6dc0d5dbe423fa37967cd9163627077030414bfc25f055
         livenessProbe:
           httpGet:
             path: /healthz
