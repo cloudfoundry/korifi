@@ -178,11 +178,7 @@ spec:
                   type: object
                 type: array
               observedDesiredState:
-                description: ObservedDesiredState specifies the currently-applied
-                  state of the CFApp (which may be different from spec.DesiredState)
-                enum:
-                - STOPPED
-                - STARTED
+                description: 'Deprecated: No longer used'
                 type: string
               vcapServicesSecretName:
                 description: VCAPServicesSecretName contains the name of the CFApp's
@@ -190,7 +186,6 @@ spec:
                 type: string
             required:
             - conditions
-            - observedDesiredState
             - vcapServicesSecretName
             type: object
         type: object

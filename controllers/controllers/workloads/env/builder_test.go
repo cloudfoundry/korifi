@@ -150,7 +150,6 @@ var _ = Describe("Builder", func() {
 			},
 			Status: korifiv1alpha1.CFAppStatus{
 				Conditions:             nil,
-				ObservedDesiredState:   korifiv1alpha1.StoppedState,
 				VCAPServicesSecretName: vcapServicesSecretName,
 			},
 		}

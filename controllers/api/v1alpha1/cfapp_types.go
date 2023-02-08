@@ -30,6 +30,7 @@ type CFAppSpec struct {
 
 	// The user-requested state of the CFApp. The currently-applied state of the CFApp is in status.ObservedDesiredState.
 	// Allowed values are "STARTED", and "STOPPED".
+	// +kubebuilder:validation:Enum=STOPPED;STARTED
 	DesiredState DesiredState `json:"desiredState"`
 
 	// Specifies how to build images for the app
@@ -43,7 +44,6 @@ type CFAppSpec struct {
 }
 
 // DesiredState defines the desired state of CFApp.
-// +kubebuilder:validation:Enum=STOPPED;STARTED
 type DesiredState string
 
 // CFAppStatus defines the observed state of CFApp
@@ -51,7 +51,8 @@ type CFAppStatus struct {
 	// Conditions capture the current status of the App
 	Conditions []metav1.Condition `json:"conditions"`
 
-	// ObservedDesiredState specifies the currently-applied state of the CFApp (which may be different from spec.DesiredState)
+	// Deprecated: No longer used
+	// +kubebuilder:validation:Optional
 	ObservedDesiredState DesiredState `json:"observedDesiredState"`
 
 	// VCAPServicesSecretName contains the name of the CFApp's VCAP_SERVICES Secret, which should exist in the same namespace
