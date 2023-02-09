@@ -51,7 +51,7 @@ func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]
 	if cfApp.Status.VCAPServicesSecretName != "" {
 		err := b.k8sClient.Get(ctx, types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Status.VCAPServicesSecretName}, &vcapServicesSecret)
 		if err != nil {
-			return nil, fmt.Errorf("error when trying to fetch app env Secret %s/%s: %w", cfApp.Namespace, cfApp.Status.VCAPServicesSecretName, err)
+			return nil, fmt.Errorf("error when trying to fetch vcap services secret %s/%s: %w", cfApp.Namespace, cfApp.Status.VCAPServicesSecretName, err)
 		}
 	}
 
