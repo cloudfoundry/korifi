@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,4 +87,20 @@ func matchesFilter(field string, filter []string) bool {
 	}
 
 	return false
+}
+
+func orgNameToGUID(name string) string {
+	return strings.TrimPrefix(name, OrgPrefix)
+}
+
+func orgGUIDToName(guid string) string {
+	return OrgPrefix + guid
+}
+
+func spaceNameToGUID(name string) string {
+	return strings.TrimPrefix(name, SpacePrefix)
+}
+
+func spaceGUIDToName(guid string) string {
+	return SpacePrefix + guid
 }

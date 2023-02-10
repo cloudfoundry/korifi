@@ -116,9 +116,9 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 		}
 	}
 
-	ns := role.Space
-	if ns == "" {
-		ns = role.Org
+	ns := spaceGUIDToName(role.Space)
+	if role.Space == "" {
+		ns = orgGUIDToName(role.Org)
 	}
 
 	roleBinding := createRoleBinding(ns, role.Type, role.Kind, role.User, role.GUID, k8sRoleConfig.Name, k8sRoleConfig.Propagate)

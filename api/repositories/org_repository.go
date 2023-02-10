@@ -84,7 +84,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 
 	cfOrg, err := r.createOrgCR(ctx, info, userClient, &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        OrgPrefix + uuid.NewString(),
+			Name:        orgGUIDToName(uuid.NewString()),
 			Namespace:   r.rootNamespace,
 			Labels:      message.Labels,
 			Annotations: message.Annotations,
@@ -167,7 +167,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 			continue
 		}
 
-		if !matchesFilter(cfOrg.Name, filter.GUIDs) {
+		if !matchesFilter(orgNameToGUID(cfOrg.Name), filter.GUIDs) {
 			continue
 		}
 
@@ -205,7 +205,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	}
 	err = userClient.Delete(ctx, &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.GUID,
+			Name:      orgGUIDToName(message.GUID),
 			Namespace: r.rootNamespace,
 		},
 	})
@@ -220,7 +220,7 @@ func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.I
 	}
 
 	cfOrg := new(korifiv1alpha1.CFOrg)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: message.GUID}, cfOrg)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: orgGUIDToName(message.GUID)}, cfOrg)
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgResourceType))
 	}
@@ -238,7 +238,7 @@ func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.I
 func cfOrgToOrgRecord(cfOrg korifiv1alpha1.CFOrg) OrgRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfOrg.ObjectMeta)
 	return OrgRecord{
-		GUID:        cfOrg.Name,
+		GUID:        orgNameToGUID(cfOrg.Name),
 		Name:        cfOrg.Spec.DisplayName,
 		Suspended:   false,
 		Labels:      cfOrg.Labels,

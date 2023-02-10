@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -13,7 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 )
 
-var _ = Describe("Orgs", func() {
+var _ = FDescribe("Orgs", func() {
 	var (
 		resp        *resty.Response
 		restyClient *helpers.CorrelatedRestyClient
@@ -55,8 +56,8 @@ var _ = Describe("Orgs", func() {
 		It("succeeds", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Name).To(Equal(orgName))
-			Expect(result.GUID).NotTo(BeEmpty())
-			Expect(result.GUID).To(HavePrefix("cf-org-"))
+			_, err := uuid.Parse(result.GUID)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("the org name already exists", func() {
