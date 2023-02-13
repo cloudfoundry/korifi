@@ -2596,6 +2596,7 @@ var _ = Describe("App", func() {
 				SpaceGUID:            spaceGUID,
 				EnvironmentVariables: map[string]string{"VAR": "VAL"},
 				SystemEnv:            map[string]interface{}{},
+				AppEnv:               map[string]interface{}{},
 			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/env", nil)

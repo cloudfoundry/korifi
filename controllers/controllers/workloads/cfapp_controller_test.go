@@ -132,9 +132,41 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			return createdSecret
 		}
 
-		It("eventually sets status.vcapServicesSecretName and creates the corresponding secret", func() {
+		It("sets status.vcapServicesSecretName and creates the corresponding secret", func() {
 			Eventually(func(g Gomega) {
 				createdSecret := waitForNonEmptyVcapServices(g)
+
+				g.Expect(createdSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+					{
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+						Kind:       "CFApp",
+						Name:       cfApp.Name,
+						UID:        cfApp.GetUID(),
+					},
+				}))
+				g.Expect(createdSecret.OwnerReferences).To(HaveLen(1))
+				g.Expect(createdSecret.OwnerReferences[0].Name).To(Equal(cfApp.Name))
+			}).Should(Succeed())
+		})
+
+		waitForNonEmptyVcapApplication := func(g Gomega) *corev1.Secret {
+			createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			vcapApplicationSecretName := createdCFApp.Status.VCAPApplicationSecretName
+			g.Expect(vcapApplicationSecretName).NotTo(BeEmpty())
+
+			vcapApplicationSecretLookupKey := types.NamespacedName{Name: vcapApplicationSecretName, Namespace: namespaceGUID}
+			createdSecret := new(corev1.Secret)
+			g.Expect(k8sClient.Get(ctx, vcapApplicationSecretLookupKey, createdSecret)).To(Succeed())
+			g.Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_APPLICATION", ContainSubstring("application_id")))
+
+			return createdSecret
+		}
+
+		FIt("sets status.vcapApplicationSecretName and creates the corresponding secret", func() {
+			Eventually(func(g Gomega) {
+				createdSecret := waitForNonEmptyVcapApplication(g)
 
 				g.Expect(createdSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 					{

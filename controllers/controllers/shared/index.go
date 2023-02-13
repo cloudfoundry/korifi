@@ -14,6 +14,8 @@ const (
 	IndexServiceBindingAppGUID             = "serviceBindingAppGUID"
 	IndexServiceBindingServiceInstanceGUID = "serviceBindingServiceInstanceGUID"
 	IndexAppTasks                          = "appTasks"
+	IndexSpaceNamespaceName                = "spaceNamespace"
+	IndexOrgNamespaceName                  = "orgNamespace"
 )
 
 func SetupIndexWithManager(mgr manager.Manager) error {
@@ -40,6 +42,22 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFTask{}, IndexAppTasks, func(object client.Object) []string {
 		task := object.(*korifiv1alpha1.CFTask)
 		return []string{task.Spec.AppRef.Name}
+	})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFSpace{}, IndexSpaceNamespaceName, func(object client.Object) []string {
+		space := object.(*korifiv1alpha1.CFSpace)
+		return []string{space.Status.GUID}
+	})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFOrg{}, IndexOrgNamespaceName, func(object client.Object) []string {
+		org := object.(*korifiv1alpha1.CFOrg)
+		return []string{org.Status.GUID}
 	})
 	if err != nil {
 		return err

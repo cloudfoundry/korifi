@@ -75,6 +75,7 @@ type AppRecord struct {
 	IsStaged              bool
 	envSecretName         string
 	vcapServiceSecretName string
+	vcapAppSecretName     string
 }
 
 type DesiredState string
@@ -101,6 +102,7 @@ type AppEnvRecord struct {
 	SpaceGUID            string
 	EnvironmentVariables map[string]string
 	SystemEnv            map[string]interface{}
+	AppEnv               map[string]interface{}
 }
 
 type CurrentDropletRecord struct {
@@ -573,12 +575,34 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 		appEnvVarMap = convertByteSliceValuesToStrings(appEnvVarSecret.Data)
 	}
 
-	systemEnvMap := map[string]interface{}{}
+	systemEnvMap, err := getSystemEnv(ctx, userClient, app)
+	if err != nil {
+		return AppEnvRecord{}, err
+	}
+
+	appEnvMap, err := getAppEnv(ctx, userClient, app)
+	if err != nil {
+		return AppEnvRecord{}, err
+	}
+
+	appEnvRecord := AppEnvRecord{
+		AppGUID:              appGUID,
+		SpaceGUID:            app.SpaceGUID,
+		EnvironmentVariables: appEnvVarMap,
+		SystemEnv:            systemEnvMap,
+		AppEnv:               appEnvMap,
+	}
+
+	return appEnvRecord, nil
+}
+
+func getSystemEnv(ctx context.Context, userClient client.Client, app AppRecord) (map[string]any, error) {
+	systemEnvMap := map[string]any{}
 	if app.vcapServiceSecretName != "" {
 		vcapServiceSecret := new(corev1.Secret)
-		err = userClient.Get(ctx, types.NamespacedName{Name: app.vcapServiceSecretName, Namespace: app.SpaceGUID}, vcapServiceSecret)
+		err := userClient.Get(ctx, types.NamespacedName{Name: app.vcapServiceSecretName, Namespace: app.SpaceGUID}, vcapServiceSecret)
 		if err != nil {
-			return AppEnvRecord{}, fmt.Errorf("error finding VCAP Service Secret %q for App %q: %w",
+			return map[string]any{}, fmt.Errorf("error finding VCAP Service Secret %q for App %q: %w",
 				app.vcapServiceSecretName,
 				app.GUID,
 				apierrors.FromK8sError(err, AppEnvResourceType))
@@ -587,7 +611,7 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 		if vcapServicesData, ok := vcapServiceSecret.Data["VCAP_SERVICES"]; ok {
 			vcapServicesPresenter := new(env.VcapServicesPresenter)
 			if err = json.Unmarshal(vcapServicesData, &vcapServicesPresenter); err != nil {
-				return AppEnvRecord{}, fmt.Errorf("error unmarshalling VCAP Service Secret %q for App %q: %w",
+				return map[string]any{}, fmt.Errorf("error unmarshalling VCAP Service Secret %q for App %q: %w",
 					app.vcapServiceSecretName,
 					app.GUID,
 					apierrors.FromK8sError(err, AppEnvResourceType))
@@ -599,14 +623,34 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 		}
 	}
 
-	appEnvRecord := AppEnvRecord{
-		AppGUID:              appGUID,
-		SpaceGUID:            app.SpaceGUID,
-		EnvironmentVariables: appEnvVarMap,
-		SystemEnv:            systemEnvMap,
+	return systemEnvMap, nil
+}
+
+func getAppEnv(ctx context.Context, userClient client.Client, app AppRecord) (map[string]any, error) {
+	appEnvMap := map[string]any{}
+	if app.vcapAppSecretName != "" {
+		vcapAppSecret := new(corev1.Secret)
+		err := userClient.Get(ctx, types.NamespacedName{Name: app.vcapAppSecretName, Namespace: app.SpaceGUID}, vcapAppSecret)
+		if err != nil {
+			return map[string]any{}, fmt.Errorf("error finding VCAP Application Secret %q for App %q: %w",
+				app.vcapAppSecretName,
+				app.GUID,
+				apierrors.FromK8sError(err, AppEnvResourceType))
+		}
+
+		if vcapAppDataBytes, ok := vcapAppSecret.Data["VCAP_APPLICATION"]; ok {
+			appData := map[string]any{}
+			if err = json.Unmarshal(vcapAppDataBytes, &appData); err != nil {
+				return map[string]any{}, fmt.Errorf("error unmarshalling VCAP Application Secret %q for App %q: %w",
+					app.vcapAppSecretName,
+					app.GUID,
+					apierrors.FromK8sError(err, AppEnvResourceType))
+			}
+			appEnvMap["VCAP_APPLICATION"] = appData
+		}
 	}
 
-	return appEnvRecord, nil
+	return appEnvMap, nil
 }
 
 func GenerateEnvSecretName(appGUID string) string {
@@ -684,6 +728,7 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, workloads.StatusConditionStaged),
 		envSecretName:         cfApp.Spec.EnvSecretName,
 		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,
+		vcapAppSecretName:     cfApp.Status.VCAPApplicationSecretName,
 	}
 }
 

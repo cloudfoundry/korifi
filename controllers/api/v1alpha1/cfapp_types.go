@@ -57,6 +57,9 @@ type CFAppStatus struct {
 
 	// VCAPServicesSecretName contains the name of the CFApp's VCAP_SERVICES Secret, which should exist in the same namespace
 	VCAPServicesSecretName string `json:"vcapServicesSecretName"`
+
+	// VCAPApplicationSecretName contains the name of the CFApp's VCAP_APPLICATION Secret, which should exist in the same namespace
+	VCAPApplicationSecretName string `json:"vcapApplicationSecretName"`
 }
 
 //+kubebuilder:object:root=true

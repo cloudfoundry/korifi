@@ -21,14 +21,6 @@ import (
 )
 
 var _ = Describe("Builder", func() {
-	const (
-		vcapServicesData       = "{}"
-		vcapServicesKey        = "VCAP_SERVICES"
-		envSecretName          = "app-env-secret"
-		vcapServicesSecretName = "app-guid-vcap-services"
-		cfAPIURL               = "https://foo.bar"
-	)
-
 	var (
 		serviceBinding       *korifiv1alpha1.CFServiceBinding
 		serviceInstance      *korifiv1alpha1.CFServiceInstance
@@ -49,7 +41,7 @@ var _ = Describe("Builder", func() {
 		ctx = context.Background()
 		serviceInstance = &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
+				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-instance-guid",
 			},
 			Spec: korifiv1alpha1.CFServiceInstanceSpec{
@@ -62,7 +54,7 @@ var _ = Describe("Builder", func() {
 
 		serviceBindingSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
+				Namespace: cfSpace.Status.GUID,
 				Name:      "service-binding-secret",
 			},
 			Data: map[string][]byte{
@@ -74,7 +66,7 @@ var _ = Describe("Builder", func() {
 		serviceBindingName := "my-service-binding"
 		serviceBinding = &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
+				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-binding-guid",
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -99,7 +91,7 @@ var _ = Describe("Builder", func() {
 
 		ensureCreate(&korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
+				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-instance-guid-2",
 			},
 			Spec: korifiv1alpha1.CFServiceInstanceSpec{
@@ -111,7 +103,7 @@ var _ = Describe("Builder", func() {
 
 		ensureCreate(&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
+				Namespace: cfSpace.Status.GUID,
 				Name:      "service-binding-secret-2",
 			},
 			Data: map[string][]byte{
@@ -122,7 +114,7 @@ var _ = Describe("Builder", func() {
 		serviceBindingName2 := "my-service-binding-2"
 		serviceBinding2 := &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
+				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-binding-guid-2",
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -147,8 +139,8 @@ var _ = Describe("Builder", func() {
 
 		appSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
-				Name:      envSecretName,
+				Namespace: cfSpace.Status.GUID,
+				Name:      "app-env-secret",
 			},
 			Data: map[string][]byte{
 				"app-secret": []byte("top-secret"),
@@ -158,11 +150,11 @@ var _ = Describe("Builder", func() {
 
 		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
+				Namespace: cfSpace.Status.GUID,
 				Name:      "app-guid",
 			},
 			Spec: korifiv1alpha1.CFAppSpec{
-				EnvSecretName: envSecretName,
+				EnvSecretName: "app-env-secret",
 				DisplayName:   "app-display-name",
 				DesiredState:  korifiv1alpha1.StoppedState,
 				Lifecycle: korifiv1alpha1.Lifecycle{
@@ -173,8 +165,9 @@ var _ = Describe("Builder", func() {
 		ensureCreate(cfApp)
 		ensurePatch(cfApp, func(app *korifiv1alpha1.CFApp) {
 			app.Status = korifiv1alpha1.CFAppStatus{
-				Conditions:             []metav1.Condition{},
-				VCAPServicesSecretName: vcapServicesSecretName,
+				Conditions:                []metav1.Condition{},
+				VCAPServicesSecretName:    "app-guid-vcap-services",
+				VCAPApplicationSecretName: "app-guid-vcap-application",
 			}
 			meta.SetStatusCondition(&app.Status.Conditions, metav1.Condition{
 				Type:               "Ready",
@@ -186,10 +179,10 @@ var _ = Describe("Builder", func() {
 
 		vcapServicesSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      vcapServicesSecretName,
-				Namespace: testNamespace,
+				Name:      "app-guid-vcap-services",
+				Namespace: cfSpace.Status.GUID,
 			},
-			Data: map[string][]byte{vcapServicesKey: []byte(vcapServicesData)},
+			Data: map[string][]byte{"VCAP_SERVICES": []byte("{}")},
 		}
 		ensureCreate(vcapServicesSecret)
 	})
@@ -418,10 +411,10 @@ var _ = Describe("Builder", func() {
 
 		When("there are no service bindings for the app", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.DeleteAllOf(ctx, &korifiv1alpha1.CFServiceBinding{}, client.InNamespace(testNamespace))).To(Succeed())
+				Expect(k8sClient.DeleteAllOf(ctx, &korifiv1alpha1.CFServiceBinding{}, client.InNamespace(cfSpace.Status.GUID))).To(Succeed())
 				Eventually(func(g Gomega) {
 					sbList := &korifiv1alpha1.CFServiceBindingList{}
-					g.Expect(k8sClient.List(ctx, sbList, client.InNamespace(testNamespace))).To(Succeed())
+					g.Expect(k8sClient.List(ctx, sbList, client.InNamespace(cfSpace.Status.GUID))).To(Succeed())
 					g.Expect(sbList.Items).To(BeEmpty())
 				}).Should(Succeed())
 			})
@@ -439,6 +432,31 @@ var _ = Describe("Builder", func() {
 			It("returns an error", func() {
 				Expect(buildVCAPServicesEnvValueErr).To(MatchError(ContainSubstring("error fetching CFServiceBinding Secret")))
 			})
+		})
+	})
+
+	Describe("BuildVCAPApplicationEnvValue", func() {
+		var (
+			vcapApplicationString           string
+			buildVCAPApplicationEnvValueErr error
+		)
+
+		JustBeforeEach(func() {
+			vcapApplicationString, buildVCAPApplicationEnvValueErr = builder.BuildVCAPApplicationEnvValue(context.Background(), cfApp)
+		})
+
+		It("sets the basic fields", func() {
+			Expect(buildVCAPApplicationEnvValueErr).ToNot(HaveOccurred())
+			appMap := map[string]string{}
+			Expect(json.Unmarshal([]byte(vcapApplicationString), &appMap)).To(Succeed())
+			Expect(appMap).To(HaveKeyWithValue("application_id", cfApp.Name))
+			Expect(appMap).To(HaveKeyWithValue("application_name", cfApp.Spec.DisplayName))
+			Expect(appMap).To(HaveKeyWithValue("name", cfApp.Spec.DisplayName))
+			Expect(appMap).To(HaveKeyWithValue("cf_api", BeEmpty()))
+			Expect(appMap).To(HaveKeyWithValue("space_id", cfSpace.Name))
+			Expect(appMap).To(HaveKeyWithValue("space_name", cfSpace.Spec.DisplayName))
+			Expect(appMap).To(HaveKeyWithValue("organization_id", cfOrg.Name))
+			Expect(appMap).To(HaveKeyWithValue("organization_name", cfOrg.Spec.DisplayName))
 		})
 	})
 })
