@@ -9,6 +9,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,7 +29,9 @@ var (
 	cancel        context.CancelFunc
 	testEnv       *envtest.Environment
 	k8sClient     client.Client
-	testNamespace string
+	rootNamespace string
+	cfOrg         *korifiv1alpha1.CFOrg
+	cfSpace       *korifiv1alpha1.CFSpace
 	ctx           context.Context
 )
 
@@ -88,17 +91,54 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	ctx = context.Background()
-	testNamespace = testutils.PrefixedGUID("test-namespace")
-	createNamespace(ctx, k8sClient, testNamespace)
+	rootNamespace = testutils.PrefixedGUID("root-namespace")
+	createNamespace(rootNamespace)
+
+	cfOrg = &korifiv1alpha1.CFOrg{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testutils.PrefixedGUID("org"),
+			Namespace: rootNamespace,
+		},
+		Spec: korifiv1alpha1.CFOrgSpec{
+			DisplayName: testutils.PrefixedGUID("org"),
+		},
+	}
+	createWithStatus(cfOrg, func(cfOrg *korifiv1alpha1.CFOrg) {
+		cfOrg.Status.Conditions = []metav1.Condition{}
+		cfOrg.Status.GUID = testutils.PrefixedGUID("org")
+	})
+	createNamespace(cfOrg.Status.GUID)
+
+	cfSpace = &korifiv1alpha1.CFSpace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testutils.PrefixedGUID("space"),
+			Namespace: cfOrg.Status.GUID,
+		},
+		Spec: korifiv1alpha1.CFSpaceSpec{
+			DisplayName: testutils.PrefixedGUID("space"),
+		},
+	}
+	createWithStatus(cfSpace, func(cfSpace *korifiv1alpha1.CFSpace) {
+		cfSpace.Status.Conditions = []metav1.Condition{}
+		cfSpace.Status.GUID = testutils.PrefixedGUID("space")
+	})
+	createNamespace(cfSpace.Status.GUID)
 })
 
-func createNamespace(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {
+func createNamespace(name string) *corev1.Namespace {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	}
-	Expect(
-		k8sClient.Create(ctx, ns)).To(Succeed())
+	Expect(k8sClient.Create(ctx, ns)).To(Succeed())
 	return ns
+}
+
+func createWithStatus[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, setStatus func(PT)) PT {
+	Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+	Expect(k8s.Patch(ctx, k8sClient, obj, func() {
+		setStatus(obj)
+	})).To(Succeed())
+	return obj
 }

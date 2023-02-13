@@ -41,6 +41,7 @@ var (
 	rootNamespace       string
 	appFQDN             string
 	commonTestOrgGUID   string
+	commonTestOrgName   string
 	appBitsFile         string
 	clusterVersionMinor int
 	clusterVersionMajor int
@@ -264,8 +265,8 @@ func TestE2E(t *testing.T) {
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestSetup()
-
-	commonTestOrgGUID = createOrg(generateGUID("common-test-org"))
+	commonTestOrgName = generateGUID("common-test-org")
+	commonTestOrgGUID = createOrg(commonTestOrgName)
 	createOrgRole("organization_user", certUserName, commonTestOrgGUID)
 
 	return []byte(commonTestOrgGUID)

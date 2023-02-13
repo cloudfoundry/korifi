@@ -180,12 +180,17 @@ spec:
               observedDesiredState:
                 description: 'Deprecated: No longer used'
                 type: string
+              vcapApplicationSecretName:
+                description: VCAPApplicationSecretName contains the name of the CFApp's
+                  VCAP_APPLICATION Secret, which should exist in the same namespace
+                type: string
               vcapServicesSecretName:
                 description: VCAPServicesSecretName contains the name of the CFApp's
                   VCAP_SERVICES Secret, which should exist in the same namespace
                 type: string
             required:
             - conditions
+            - vcapApplicationSecretName
             - vcapServicesSecretName
             type: object
         type: object

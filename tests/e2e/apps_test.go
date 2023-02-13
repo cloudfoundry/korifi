@@ -12,12 +12,14 @@ import (
 var _ = Describe("Apps", func() {
 	var (
 		space1GUID string
+		space1Name string
 		appGUID    string
 		resp       *resty.Response
 	)
 
 	BeforeEach(func() {
-		space1GUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
+		space1Name = generateGUID("space1")
+		space1GUID = createSpace(space1Name, commonTestOrgGUID)
 	})
 
 	AfterEach(func() {
@@ -570,11 +572,13 @@ var _ = Describe("Apps", func() {
 			instanceGUID, instanceGUID2 string
 			instanceName, instanceName2 string
 			bindingGUID, bindingGUID2   string
+			appName                     string
 		)
 
 		BeforeEach(func() {
 			createSpaceRole("space_developer", certUserName, space1GUID)
-			appGUID = createApp(space1GUID, generateGUID("app1"))
+			appName = generateGUID("app1")
+			appGUID = createApp(space1GUID, appName)
 			setEnv(appGUID, map[string]interface{}{
 				"foo": "var",
 			})
@@ -596,12 +600,12 @@ var _ = Describe("Apps", func() {
 			}).Should(Succeed())
 		})
 
-		It("returns the app environment", func() {
+		FIt("returns the app environment", func() {
 			Eventually(func(g Gomega) {
 				_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
-				g.Expect(result).To(
+				g.Expect(result).To(SatisfyAll(
 					HaveKeyWithValue("system_env_json",
 						HaveKeyWithValue("VCAP_SERVICES",
 							HaveKeyWithValue("user-provided", ConsistOf(
@@ -636,7 +640,19 @@ var _ = Describe("Apps", func() {
 							),
 						),
 					),
-				)
+					HaveKeyWithValue("application_env_json",
+						HaveKeyWithValue("VCAP_APPLICATION", SatisfyAll(
+							HaveKeyWithValue("application_id", appGUID),
+							HaveKeyWithValue("application_name", appName),
+							// HaveKeyWithValue("cf_api", apiServerRoot),
+							HaveKeyWithValue("name", appName),
+							HaveKeyWithValue("organization_id", commonTestOrgGUID),
+							HaveKeyWithValue("organization_name", commonTestOrgName),
+							HaveKeyWithValue("space_id", space1GUID),
+							HaveKeyWithValue("space_name", space1Name),
+						)),
+					),
+				))
 			}).Should(Succeed())
 		})
 

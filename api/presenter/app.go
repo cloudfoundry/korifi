@@ -172,11 +172,11 @@ func ForAppEnvVars(record repositories.AppEnvVarsRecord, baseURL url.URL) AppEnv
 }
 
 type AppEnvResponse struct {
-	EnvironmentVariables map[string]string      `json:"environment_variables"`
-	StagingEnvJSON       map[string]string      `json:"staging_env_json"`
-	RunningEnvJSON       map[string]string      `json:"running_env_json"`
-	SystemEnvJSON        map[string]interface{} `json:"system_env_json"`
-	ApplicationEnvJSON   map[string]string      `json:"application_env_json"`
+	EnvironmentVariables map[string]string `json:"environment_variables"`
+	StagingEnvJSON       map[string]string `json:"staging_env_json"`
+	RunningEnvJSON       map[string]string `json:"running_env_json"`
+	SystemEnvJSON        map[string]any    `json:"system_env_json"`
+	ApplicationEnvJSON   map[string]any    `json:"application_env_json"`
 }
 
 func ForAppEnv(envVarRecord repositories.AppEnvRecord) AppEnvResponse {
@@ -185,6 +185,6 @@ func ForAppEnv(envVarRecord repositories.AppEnvRecord) AppEnvResponse {
 		StagingEnvJSON:       map[string]string{},
 		RunningEnvJSON:       map[string]string{},
 		SystemEnvJSON:        envVarRecord.SystemEnv,
-		ApplicationEnvJSON:   map[string]string{},
+		ApplicationEnvJSON:   envVarRecord.AppEnv,
 	}
 }

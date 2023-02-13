@@ -59,6 +59,61 @@ func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]
 	return envVarsFromSecrets(appEnvSecret, vcapServicesSecret), nil
 }
 
+func (b *Builder) getSpaceFromNamespace(ctx context.Context, ns string) (korifiv1alpha1.CFSpace, error) {
+	spaces := korifiv1alpha1.CFSpaceList{}
+	if err := b.k8sClient.List(ctx, &spaces, client.MatchingFields{
+		shared.IndexSpaceNamespaceName: ns,
+	}); err != nil {
+		return korifiv1alpha1.CFSpace{}, fmt.Errorf("error listing cfSpaces: %w", err)
+	}
+
+	if len(spaces.Items) != 1 {
+		return korifiv1alpha1.CFSpace{}, fmt.Errorf("expected a unique CFSpace for namespace %q, got %d", ns, len(spaces.Items))
+	}
+
+	return spaces.Items[0], nil
+}
+
+func (b *Builder) getOrgFromNamespace(ctx context.Context, ns string) (korifiv1alpha1.CFOrg, error) {
+	orgs := korifiv1alpha1.CFOrgList{}
+	if err := b.k8sClient.List(ctx, &orgs, client.MatchingFields{
+		shared.IndexOrgNamespaceName: ns,
+	}); err != nil {
+		return korifiv1alpha1.CFOrg{}, fmt.Errorf("error listing cfOrgs: %w", err)
+	}
+
+	if len(orgs.Items) != 1 {
+		return korifiv1alpha1.CFOrg{}, fmt.Errorf("expected a unique CFOrg for namespace %q, got %d", ns, len(orgs.Items))
+	}
+
+	return orgs.Items[0], nil
+}
+
+func (b *Builder) BuildVCAPApplicationEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (string, error) {
+	space, err := b.getSpaceFromNamespace(ctx, cfApp.Namespace)
+	if err != nil {
+		return "", fmt.Errorf("failed retrieving space for CFApp: %w", err)
+	}
+	org, err := b.getOrgFromNamespace(ctx, space.Namespace)
+	if err != nil {
+		return "", fmt.Errorf("failed retrieving org for CFSpace: %w", err)
+	}
+
+	vars := map[string]string{
+		"application_id":    cfApp.Name,
+		"application_name":  cfApp.Spec.DisplayName,
+		"cf_api":            "",
+		"name":              cfApp.Spec.DisplayName,
+		"organization_id":   org.Name,
+		"organization_name": org.Spec.DisplayName,
+		"space_id":          space.Name,
+		"space_name":        space.Spec.DisplayName,
+	}
+
+	out, _ := json.Marshal(vars)
+	return string(out), nil
+}
+
 func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (string, error) {
 	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
 	err := b.k8sClient.List(ctx, serviceBindings,
