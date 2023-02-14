@@ -28,7 +28,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -42,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var createTimeout = time.Second * 120
@@ -58,21 +56,31 @@ func main() {
 	if !found {
 		panic("APICONFIG must be set")
 	}
-	config, err := config.LoadFromPath(configPath)
+	cfg, err := config.LoadFromPath(configPath)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
 		panic(errorMessage)
 	}
-	payloads.DefaultLifecycleConfig = config.DefaultLifecycleConfig
-	k8sClientConfig := config.GenerateK8sClientConfig(ctrl.GetConfigOrDie())
+	payloads.DefaultLifecycleConfig = cfg.DefaultLifecycleConfig
+	k8sClientConfig := cfg.GenerateK8sClientConfig(ctrl.GetConfigOrDie())
 
-	zapOpts := zap.Options{
-		// TODO: this needs to be configurable
-		Development: false,
-		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
+	logger, atomicLevel, err := tools.NewZapLogger(cfg.LogLevel)
+	if err != nil {
+		panic(fmt.Sprintf("error creating new zap logger: %v", err))
 	}
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
+	ctrl.SetLogger(logger)
 	klog.SetLogger(ctrl.Log)
+
+	eventChan := make(chan string)
+	go func() {
+		ctrl.Log.Info("Starting to watch config file at "+configPath+" for logger level changes", "currentLevel", atomicLevel.Level())
+		if err2 := tools.WatchForConfigChangeEvents(context.Background(), configPath, ctrl.Log, eventChan); err2 != nil {
+			ctrl.Log.Error(err2, "error watching logging config")
+			os.Exit(1)
+		}
+	}()
+
+	go tools.SyncLogLevel(context.Background(), ctrl.Log, eventChan, atomicLevel, config.GetLogLevelFromPath)
 
 	privilegedCRClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
 	if err != nil {
@@ -100,13 +108,13 @@ func main() {
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
 	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider)
 
-	serverURL, err := url.Parse(config.ServerURL)
+	serverURL, err := url.Parse(cfg.ServerURL)
 	if err != nil {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
 	orgRepo := repositories.NewOrgRepo(
-		config.RootNamespace,
+		cfg.RootNamespace,
 		privilegedCRClient,
 		userClientFactory,
 		nsPermissions,
@@ -148,7 +156,7 @@ func main() {
 	domainRepo := repositories.NewDomainRepo(
 		userClientFactory,
 		namespaceRetriever,
-		config.RootNamespace,
+		cfg.RootNamespace,
 	)
 	buildRepo := repositories.NewBuildRepo(
 		namespaceRetriever,
@@ -158,8 +166,8 @@ func main() {
 		userClientFactory,
 		namespaceRetriever,
 		nsPermissions,
-		toolsregistry.NewRepositoryCreator(config.ContainerRegistryType),
-		config.ContainerRepositoryPrefix,
+		toolsregistry.NewRepositoryCreator(cfg.ContainerRegistryType),
+		cfg.ContainerRepositoryPrefix,
 	)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
 		namespaceRetriever,
@@ -172,24 +180,24 @@ func main() {
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](createTimeout),
 	)
-	buildpackRepo := repositories.NewBuildpackRepository(config.BuilderName,
+	buildpackRepo := repositories.NewBuildpackRepository(cfg.BuilderName,
 		userClientFactory,
-		config.RootNamespace,
+		cfg.RootNamespace,
 	)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,
 		spaceRepo,
 		authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider),
 		authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider),
-		config.RootNamespace,
-		config.RoleMappings,
+		cfg.RootNamespace,
+		cfg.RoleMappings,
 		namespaceRetriever,
 	)
 	imageRepo := repositories.NewImageRepository(
 		privilegedK8sClient,
 		userClientFactory,
-		config.RootNamespace,
-		config.PackageRegistrySecretName,
+		cfg.RootNamespace,
+		cfg.PackageRegistrySecretName,
 		registry.NewImageBuilder(),
 		registry.NewImagePusher(remote.Write),
 	)
@@ -204,9 +212,9 @@ func main() {
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
 		domainRepo,
-		config.DefaultDomainName,
+		cfg.DefaultDomainName,
 		manifest.NewStateCollector(appRepo, domainRepo, processRepo, routeRepo),
-		manifest.NewNormalizer(config.DefaultDomainName),
+		manifest.NewNormalizer(cfg.DefaultDomainName),
 		manifest.NewApplier(appRepo, domainRepo, processRepo, routeRepo),
 	)
 	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
@@ -232,15 +240,15 @@ func main() {
 		middleware.CFUser(
 			privilegedCRClient,
 			cachingIdentityProvider,
-			config.RootNamespace,
+			cfg.RootNamespace,
 			cache.NewExpiring(),
 		),
 	)
 
 	apiHandlers := []routing.Routable{
-		handlers.NewRootV3(config.ServerURL),
+		handlers.NewRootV3(cfg.ServerURL),
 		handlers.NewRoot(
-			config.ServerURL,
+			cfg.ServerURL,
 		),
 		handlers.NewResourceMatches(),
 		handlers.NewApp(
@@ -271,7 +279,7 @@ func main() {
 			dropletRepo,
 			imageRepo,
 			decoderValidator,
-			config.PackageRegistrySecretName,
+			cfg.PackageRegistrySecretName,
 		),
 		handlers.NewBuild(
 			*serverURL,
@@ -308,7 +316,7 @@ func main() {
 			orgRepo,
 			domainRepo,
 			decoderValidator,
-			config.GetUserCertificateDuration(),
+			cfg.GetUserCertificateDuration(),
 		),
 		handlers.NewSpace(
 			*serverURL,
@@ -359,16 +367,16 @@ func main() {
 		routerBuilder.LoadRoutes(handler)
 	}
 
-	portString := fmt.Sprintf(":%v", config.InternalPort)
+	portString := fmt.Sprintf(":%v", cfg.InternalPort)
 	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
 
 	srv := &http.Server{
 		Addr:              portString,
 		Handler:           routerBuilder.Build(),
-		IdleTimeout:       time.Duration(config.IdleTimeout * int(time.Second)),
-		ReadTimeout:       time.Duration(config.ReadTimeout * int(time.Second)),
-		ReadHeaderTimeout: time.Duration(config.ReadHeaderTimeout * int(time.Second)),
-		WriteTimeout:      time.Duration(config.WriteTimeout * int(time.Second)),
+		IdleTimeout:       time.Duration(cfg.IdleTimeout * int(time.Second)),
+		ReadTimeout:       time.Duration(cfg.ReadTimeout * int(time.Second)),
+		ReadHeaderTimeout: time.Duration(cfg.ReadHeaderTimeout * int(time.Second)),
+		WriteTimeout:      time.Duration(cfg.WriteTimeout * int(time.Second)),
 		ErrorLog:          log.New(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"}, "", 0),
 	}
 
@@ -386,7 +394,7 @@ func main() {
 
 		go func() {
 			if err2 := certWatcher.Start(context.Background()); err2 != nil {
-				ctrl.Log.Error(err, "error watching TLS")
+				ctrl.Log.Error(err2, "error watching TLS")
 				os.Exit(1)
 			}
 		}()

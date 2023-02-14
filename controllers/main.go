@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -47,7 +48,6 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
-	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -56,7 +56,6 @@ import (
 	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -95,15 +94,25 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 
-	opts := zap.Options{
-		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
+	configPath, found := os.LookupEnv("CONTROLLERSCONFIG")
+	if !found {
+		panic("CONTROLLERSCONFIG must be set")
 	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	controllerConfig, err := config.LoadFromPath(configPath)
+	if err != nil {
+		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
+		panic(errorMessage)
+	}
 
+	logger, atomicLevel, err := tools.NewZapLogger(controllerConfig.LogLevel)
+	if err != nil {
+		panic(fmt.Sprintf("error creating new zap logger: %v", err))
+	}
+
+	ctrl.SetLogger(logger)
 	klog.SetLogger(ctrl.Log)
+
 	log.SetOutput(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"})
 
 	conf := ctrl.GetConfigOrDie()
@@ -121,19 +130,8 @@ func main() {
 		LeaderElectionID:       "13c200ec.cloudfoundry.org",
 	})
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+		setupLog.Error(err, "unable to initialize manager")
 		os.Exit(1)
-	}
-
-	configPath, found := os.LookupEnv("CONTROLLERSCONFIG")
-	if !found {
-		panic("CONTROLLERSCONFIG must be set")
-	}
-
-	controllerConfig, err := config.LoadFromPath(configPath)
-	if err != nil {
-		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
-		panic(errorMessage)
 	}
 
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
@@ -458,6 +456,17 @@ func main() {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
+
+	eventChan := make(chan string)
+	go func() {
+		setupLog.Info("Starting to watch config file at "+configPath+" for logger level changes", "currentLevel", atomicLevel.Level())
+		if err2 := tools.WatchForConfigChangeEvents(context.Background(), configPath, setupLog, eventChan); err2 != nil {
+			setupLog.Error(err2, "error watching logging config")
+			os.Exit(1)
+		}
+	}()
+
+	go tools.SyncLogLevel(context.Background(), setupLog, eventChan, atomicLevel, config.GetLogLevelFromPath)
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

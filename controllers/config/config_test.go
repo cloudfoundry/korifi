@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	"gopkg.in/yaml.v3"
 
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -43,6 +45,7 @@ var _ = Describe("LoadFromPath", func() {
 			BuilderName:                 "buildReconciler",
 			RunnerName:                  "statefulset-runner",
 			JobTTL:                      "jobTTL",
+			LogLevel:                    zapcore.DebugLevel,
 		}
 	})
 
@@ -76,6 +79,7 @@ var _ = Describe("LoadFromPath", func() {
 			NamespaceLabels:             map[string]string{},
 			ExtraVCAPApplicationValues:  map[string]any{},
 			JobTTL:                      "jobTTL",
+			LogLevel:                    zapcore.DebugLevel,
 		}))
 	})
 
@@ -86,6 +90,16 @@ var _ = Describe("LoadFromPath", func() {
 
 		It("uses the default", func() {
 			Expect(retConfig.CFProcessDefaults.Timeout).To(gstruct.PointTo(Equal(int64(60))))
+		})
+	})
+
+	When("log level is not set", func() {
+		BeforeEach(func() {
+			cfg.LogLevel = 0
+		})
+
+		It("uses the default", func() {
+			Expect(retConfig.LogLevel).To(Equal(zapcore.InfoLevel))
 		})
 	})
 })

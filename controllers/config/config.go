@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -25,6 +27,8 @@ type ControllerConfig struct {
 	RunnerName                  string            `yaml:"runnerName"`
 	NamespaceLabels             map[string]string `yaml:"namespaceLabels"`
 	ExtraVCAPApplicationValues  map[string]any    `yaml:"extraVCAPApplicationValues"`
+	LogLevel                    zapcore.Level     `yaml:"logLevel"`
+
 	// job-task-runner
 	JobTTL string `yaml:"jobTTL"`
 
@@ -59,6 +63,15 @@ func LoadFromPath(path string) (*ControllerConfig, error) {
 	}
 
 	return &config, nil
+}
+
+func GetLogLevelFromPath(path string) (zapcore.Level, error) {
+	cfg, err := LoadFromPath(path)
+	if err != nil {
+		return zapcore.InfoLevel, err
+	}
+
+	return cfg.LogLevel, nil
 }
 
 func (c ControllerConfig) WorkloadsTLSSecretNameWithNamespace() string {
