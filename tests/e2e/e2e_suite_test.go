@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -50,6 +51,7 @@ var (
 const (
 	defaultAppBitsFile = "assets/procfile.zip"
 	loggingAppBitsFile = "assets/node.zip"
+	doraBitsFile       = "assets/dora.zip"
 )
 
 type resource struct {
@@ -68,6 +70,10 @@ type relationship struct {
 
 type resourceList struct {
 	Resources []resource `json:"resources"`
+}
+
+type list[T any] struct {
+	Resources []T `json:"resources"`
 }
 
 type responseResource struct {
@@ -686,8 +692,9 @@ func createAppViaManifest(spaceGUID, appName string) string {
 	manifest := manifestResource{
 		Version: 1,
 		Applications: []applicationResource{{
-			Name:   appName,
-			Memory: "128MB",
+			Name:         appName,
+			Memory:       "128MB",
+			DefaultRoute: true,
 		}},
 	}
 	applySpaceManifest(manifest, spaceGUID)
@@ -705,6 +712,40 @@ func pushTestApp(spaceGUID, appBitsFile string) string {
 	startApp(appGUID)
 
 	return appGUID
+}
+
+func getAppRoute(appGUID string) string {
+	var routes list[routeResource]
+	resp, err := adminClient.R().
+		SetResult(&routes).
+		Get("/v3/apps/" + appGUID + "/routes")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(routes.Resources).ToNot(BeEmpty())
+	return routes.Resources[0].URL
+}
+
+var skipSSLClient = http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	},
+}
+
+func curlApp(appGUID, path string) []byte {
+	url := getAppRoute(appGUID)
+	var body []byte
+	Eventually(func(g Gomega) {
+		r, err := skipSSLClient.Get("https://" + url + path)
+		g.Expect(err).NotTo(HaveOccurred())
+		defer r.Body.Close()
+		g.Expect(r).To(HaveHTTPStatus(http.StatusOK))
+		body, err = ioutil.ReadAll(r.Body)
+		g.Expect(err).NotTo(HaveOccurred())
+	}).Should(Succeed())
+
+	return body
 }
 
 func getDomainGUID(domainName string) string {

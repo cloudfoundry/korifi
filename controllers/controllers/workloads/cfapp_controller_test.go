@@ -164,7 +164,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			return createdSecret
 		}
 
-		FIt("sets status.vcapApplicationSecretName and creates the corresponding secret", func() {
+		It("sets status.vcapApplicationSecretName and creates the corresponding secret", func() {
 			Eventually(func(g Gomega) {
 				createdSecret := waitForNonEmptyVcapApplication(g)
 

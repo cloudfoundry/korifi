@@ -23,5 +23,12 @@ directories:
       tags:
       - v1.24.1
     path: contour
+  - git:
+      commitTitle: Backfill default and override functionality for buildpack_name
+        configuration
+      sha: 7858cd3ab122fff89d1ea01e8e822be2efce72e4
+      tags:
+      - v10.0.0
+    path: testApps/dora
   path: vendor
 kind: LockConfig
