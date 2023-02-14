@@ -86,7 +86,7 @@ func (h *Domain) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.serverURL)), nil
 }
 
-func (h *Domain) update(r *http.Request) (*routing.Response, error) {
+func (h *Domain) update(r *http.Request) (*routing.Response, error) { //nolint:dupl
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.update")
 

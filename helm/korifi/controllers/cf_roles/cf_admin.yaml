@@ -119,6 +119,7 @@ rules:
     - create
     - delete
     - watch
+    - patch
 
 - apiGroups:
   - korifi.cloudfoundry.org

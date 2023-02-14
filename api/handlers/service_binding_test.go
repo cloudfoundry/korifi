@@ -8,10 +8,13 @@ import (
 	"net/http"
 	"strings"
 
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
+	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -53,7 +56,7 @@ var _ = Describe("ServiceBinding", func() {
 		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
-	Describe("the POST /v3/service_credential_bindings endpoint", func() {
+	Describe("POST /v3/service_credential_bindings", func() {
 		BeforeEach(func() {
 			appRepo.GetAppReturns(repositories.AppRecord{
 				GUID:      appGUID,
@@ -242,7 +245,7 @@ var _ = Describe("ServiceBinding", func() {
 		})
 	})
 
-	Describe("the GET /v3/service_credential_bindings endpoint", func() {
+	Describe("GET /v3/service_credential_bindings", func() {
 		BeforeEach(func() {
 			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{{
 				GUID:                serviceBindingGUID,
@@ -397,7 +400,7 @@ var _ = Describe("ServiceBinding", func() {
 		})
 	})
 
-	Describe("the DELETE /v3/service_credential_bindings/:guid endpoint", func() {
+	Describe("DELETE /v3/service_credential_bindings/:guid", func() {
 		const serviceBindingGUID = "test-service-instance-guid"
 
 		BeforeEach(func() {
@@ -415,6 +418,231 @@ var _ = Describe("ServiceBinding", func() {
 			Expect(serviceBindingRepo.DeleteServiceBindingCallCount()).To(Equal(1))
 			_, _, guid := serviceBindingRepo.DeleteServiceBindingArgsForCall(0)
 			Expect(guid).To(Equal(serviceBindingGUID))
+		})
+	})
+
+	Describe("PATCH /v3/service_credential_bindings/:guid", func() {
+		BeforeEach(func() {
+			serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{
+				GUID:                serviceBindingGUID,
+				Type:                "app",
+				AppGUID:             appGUID,
+				ServiceInstanceGUID: serviceInstanceGUID,
+				SpaceGUID:           spaceGUID,
+			}, nil)
+
+			serviceBindingRepo.UpdateServiceBindingReturns(repositories.ServiceBindingRecord{
+				GUID:                serviceBindingGUID,
+				Name:                tools.PtrTo("some-binding-name"),
+				Type:                "app",
+				AppGUID:             appGUID,
+				ServiceInstanceGUID: serviceInstanceGUID,
+				SpaceGUID:           spaceGUID,
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"bar": "baz",
+				},
+				CreatedAt: "created-on",
+				UpdatedAt: "updated-on",
+				LastOperation: repositories.ServiceBindingLastOperation{
+					Type:        "op1",
+					State:       "state1",
+					Description: tools.PtrTo("desc"),
+					CreatedAt:   "op1-created-on",
+					UpdatedAt:   "op1-updated-on",
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/service_credential_bindings/"+serviceBindingGUID, strings.NewReader(`{
+				  "metadata": {
+					"labels": {
+					  "foo": "bar"
+					},
+					"annotations": {
+					  "bar": "baz"
+					}
+				  }
+				}`))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("has the correct response type", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+		})
+
+		It("returns the correct JSON", func() {
+			Expect(rr.Body.String()).To(MatchJSON(`
+				{
+					"guid": "some-generated-guid",
+					"name": "some-binding-name",
+					"created_at": "created-on",
+					"updated_at": "updated-on",
+					"type": "app",
+					"last_operation": {
+					  "type": "op1",
+					  "state": "state1",
+					  "description": "desc",
+					  "created_at": "op1-created-on",
+					  "updated_at": "op1-updated-on"
+					},
+					"metadata": {
+						"labels": {
+							"foo": "bar"
+						},
+						"annotations": {
+							"bar": "baz"
+						}
+					},
+					"relationships": {
+						"app": {
+						  "data": {
+							"guid": "test-app-guid"
+						  }
+						},
+						"service_instance": {
+						  "data": {
+							"guid": "test-service-instance-guid"
+						  }
+						}
+					},
+					"links": {
+						"self": {
+						  "href": "https://api.example.org/v3/service_credential_bindings/some-generated-guid"
+						},
+						"details": {
+						  "href": "https://api.example.org/v3/service_credential_bindings/some-generated-guid/details"
+						},
+						"service_instance": {
+						  "href": "https://api.example.org/v3/service_instances/test-service-instance-guid"
+						},
+						"app": {
+						  "href": "https://api.example.org/v3/apps/test-app-guid"
+						}
+				}
+			}`))
+		})
+
+		It("invokes the service binding repo correctly", func() {
+			Expect(serviceBindingRepo.UpdateServiceBindingCallCount()).To(Equal(1))
+			_, _, updateMessage := serviceBindingRepo.UpdateServiceBindingArgsForCall(0)
+			Expect(updateMessage).To(Equal(repositories.UpdateServiceBindingMessage{
+				GUID: serviceBindingGUID,
+				MetadataPatch: repositories.MetadataPatch{
+					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+				},
+			}))
+		})
+
+		When("the payload cannot be decoded", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/service_credential_bindings/"+serviceBindingGUID, strings.NewReader(`{"one": "two"}`))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("invalid request body: json: unknown field \"one\"")
+			})
+		})
+
+		When("a label is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/service_credential_bindings/"+serviceBindingGUID, strings.NewReader(`{
+					  "metadata": {
+						"labels": {
+						  "cloudfoundry.org/test": "production"
+					    }
+        		      }
+					}`))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+
+			When("the prefix is a subdomain of cloudfoundry.org", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/service_credential_bindings/"+serviceBindingGUID, strings.NewReader(`{
+					  "metadata": {
+						"labels": {
+						  "korifi.cloudfoundry.org/test": "production"
+					    }
+    		          }
+					}`))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+		})
+
+		When("an annotation is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/service_credential_bindings/"+serviceBindingGUID, strings.NewReader(`{
+					  "metadata": {
+						"annotations": {
+						  "cloudfoundry.org/test": "there"
+						}
+					  }
+					}`))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+
+				When("the prefix is a subdomain of cloudfoundry.org", func() {
+					BeforeEach(func() {
+						var err error
+						req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/service_credential_bindings/"+serviceBindingGUID, strings.NewReader(`{
+						  "metadata": {
+							"annotations": {
+							  "korifi.cloudfoundry.org/test": "there"
+							}
+						  }
+						}`))
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("returns an unprocessable entity error", func() {
+						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					})
+				})
+			})
+		})
+
+		When("the service binding repo returns an error", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.UpdateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("update-sb-error"))
+			})
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the user is not authorized to get service bindings", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, "CFServiceBinding"))
+			})
+
+			It("returns 404 NotFound", func() {
+				expectNotFoundError("CFServiceBinding not found")
+			})
 		})
 	})
 })

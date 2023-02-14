@@ -70,8 +70,8 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 			},
 		},
 		Metadata: Metadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
+			Labels:      record.Labels,
+			Annotations: record.Annotations,
 		},
 	}
 }

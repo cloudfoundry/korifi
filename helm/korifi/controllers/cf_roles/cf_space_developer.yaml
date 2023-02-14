@@ -95,6 +95,7 @@ rules:
     - create
     - delete
     - watch
+    - patch
 
 - apiGroups:
   - rbac.authorization.k8s.io

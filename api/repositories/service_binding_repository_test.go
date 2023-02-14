@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -477,6 +478,158 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			It("returns the error", func() {
 				Expect(listErr).To(MatchError(ContainSubstring("failed to get identity")))
+			})
+		})
+	})
+
+	Describe("GetServiceBinding", func() {
+		var (
+			serviceBindingGUID string
+			searchGUID         string
+			serviceBinding     repositories.ServiceBindingRecord
+			getErr             error
+		)
+
+		BeforeEach(func() {
+			serviceBindingGUID = prefixedGUID("binding")
+			searchGUID = serviceBindingGUID
+
+			serviceBinding := &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceBindingGUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "CFServiceInstance",
+						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						Name:       serviceInstanceGUID,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+				},
+			}
+			Expect(
+				k8sClient.Create(testCtx, serviceBinding),
+			).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			serviceBinding, getErr = repo.GetServiceBinding(ctx, authInfo, searchGUID)
+		})
+
+		It("returns a forbidden error as no user bindings are in place", func() {
+			Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("fetches the CFServiceBinding we're looking for", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+
+				Expect(serviceBinding.GUID).To(Equal(serviceBindingGUID))
+			})
+
+			When("no CFServiceBinding exists", func() {
+				BeforeEach(func() {
+					searchGUID = "i-dont-exist"
+				})
+
+				It("returns an error", func() {
+					Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+		})
+	})
+
+	Describe("UpdateServiceBinding", func() {
+		var (
+			serviceBinding        *korifiv1alpha1.CFServiceBinding
+			updatedServiceBinding repositories.ServiceBindingRecord
+			updateMessage         repositories.UpdateServiceBindingMessage
+			updateErr             error
+		)
+
+		BeforeEach(func() {
+			serviceBinding = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      prefixedGUID("binding"),
+					Namespace: space.Name,
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Annotations: map[string]string{
+						"baz": "bat",
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "CFServiceInstance",
+						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						Name:       serviceInstanceGUID,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+				},
+			}
+			Expect(
+				k8sClient.Create(testCtx, serviceBinding),
+			).To(Succeed())
+
+			updateMessage = repositories.UpdateServiceBindingMessage{
+				GUID: serviceBinding.Name,
+				MetadataPatch: repositories.MetadataPatch{
+					Labels: map[string]*string{
+						"foo": tools.PtrTo("new-foo"),
+					},
+					Annotations: map[string]*string{
+						"baz": tools.PtrTo("new-baz"),
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			updatedServiceBinding, updateErr = repo.UpdateServiceBinding(ctx, authInfo, updateMessage)
+		})
+
+		It("fails because the user has no bindings", func() {
+			Expect(updateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user is a CFAdmin", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, space.Name)
+			})
+
+			It("updates the service binding metadata", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+
+				Expect(updatedServiceBinding.Labels).To(HaveKeyWithValue("foo", "new-foo"))
+				Expect(updatedServiceBinding.Annotations).To(HaveKeyWithValue("baz", "new-baz"))
+			})
+
+			It("updates the service binding metadata in kubernetes", func() {
+				updatedServiceBinding := new(korifiv1alpha1.CFServiceBinding)
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(serviceBinding), updatedServiceBinding)).To(Succeed())
+
+				Expect(updatedServiceBinding.Labels).To(HaveKeyWithValue("foo", "new-foo"))
+				Expect(updatedServiceBinding.Annotations).To(HaveKeyWithValue("baz", "new-baz"))
+			})
+
+			When("the service binding does not exist", func() {
+				BeforeEach(func() {
+					updateMessage.GUID = "i-do-not-exist"
+				})
+
+				It("returns a not found error", func() {
+					Expect(updateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
 			})
 		})
 	})
