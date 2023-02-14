@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,12 +23,13 @@ import (
 
 var _ = Describe("Builder", func() {
 	var (
-		serviceBinding       *korifiv1alpha1.CFServiceBinding
-		serviceInstance      *korifiv1alpha1.CFServiceInstance
-		serviceBindingSecret *corev1.Secret
-		vcapServicesSecret   *corev1.Secret
-		appSecret            *corev1.Secret
-		cfApp                *korifiv1alpha1.CFApp
+		serviceBinding        *korifiv1alpha1.CFServiceBinding
+		serviceInstance       *korifiv1alpha1.CFServiceInstance
+		serviceBindingSecret  *corev1.Secret
+		vcapServicesSecret    *corev1.Secret
+		vcapApplicationSecret *corev1.Secret
+		appSecret             *corev1.Secret
+		cfApp                 *korifiv1alpha1.CFApp
 
 		builder *env.Builder
 
@@ -37,8 +39,8 @@ var _ = Describe("Builder", func() {
 
 	BeforeEach(func() {
 		builder = env.NewBuilder(k8sClient)
-
 		ctx = context.Background()
+
 		serviceInstance = &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfSpace.Status.GUID,
@@ -185,47 +187,87 @@ var _ = Describe("Builder", func() {
 			Data: map[string][]byte{"VCAP_SERVICES": []byte("{}")},
 		}
 		ensureCreate(vcapServicesSecret)
+
+		vcapApplicationSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "app-guid-vcap-application",
+				Namespace: cfSpace.Status.GUID,
+			},
+			Data: map[string][]byte{"VCAP_APPLICATION": []byte(`{"foo":"bar"}`)},
+		}
+		ensureCreate(vcapApplicationSecret)
 	})
 
 	Describe("BuildEnv", func() {
+		var (
+			appSecretEnvMatcher       types.GomegaMatcher
+			vcapServicesEnvMatcher    types.GomegaMatcher
+			vcapApplicationEnvMatcher types.GomegaMatcher
+		)
+
 		JustBeforeEach(func() {
 			envVars, buildEnvErr = builder.BuildEnv(context.Background(), cfApp)
 		})
 
-		It("succeeds", func() {
-			Expect(buildEnvErr).NotTo(HaveOccurred())
+		BeforeEach(func() {
+			appSecretEnvMatcher = MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("app-secret"),
+				"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+					"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cfApp.Spec.EnvSecretName,
+						},
+						Key: "app-secret",
+					})),
+				})),
+			})
+			vcapServicesEnvMatcher = MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("VCAP_SERVICES"),
+				"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+					"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cfApp.Status.VCAPServicesSecretName,
+						},
+						Key: "VCAP_SERVICES",
+					})),
+				})),
+			})
+
+			vcapApplicationEnvMatcher = MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("VCAP_APPLICATION"),
+				"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+					"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cfApp.Status.VCAPApplicationSecretName,
+						},
+						Key: "VCAP_APPLICATION",
+					})),
+				})),
+			})
 		})
 
-		It("returns the user defined and vcap services env vars", func() {
+		It("returns the user defined and VCAP_* env vars", func() {
+			Expect(buildEnvErr).NotTo(HaveOccurred())
 			Expect(envVars).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("VCAP_SERVICES"),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: cfApp.Status.VCAPServicesSecretName,
-							},
-							Key: "VCAP_SERVICES",
-						})),
-					})),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("app-secret"),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: cfApp.Spec.EnvSecretName,
-							},
-							Key: "app-secret",
-						})),
-					})),
-				}),
+				appSecretEnvMatcher,
+				vcapServicesEnvMatcher,
+				vcapApplicationEnvMatcher,
 			))
 		})
 
 		When("the app env secret does not exist", func() {
 			BeforeEach(func() {
 				ensureDelete(appSecret)
+			})
+
+			It("errors", func() {
+				Expect(buildEnvErr).To(MatchError(ContainSubstring("error when trying to fetch app env Secret")))
+			})
+		})
+
+		When("the app env secret does not exist", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, appSecret)).To(Succeed())
 			})
 
 			It("errors", func() {
@@ -240,18 +282,11 @@ var _ = Describe("Builder", func() {
 				})
 			})
 
-			It("returns only vcap services env var", func() {
-				Expect(envVars).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("VCAP_SERVICES"),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: cfApp.Status.VCAPServicesSecretName,
-							},
-							Key: "VCAP_SERVICES",
-						})),
-					})),
-				})))
+			It("omits the app env", func() {
+				Expect(envVars).To(ConsistOf(
+					vcapServicesEnvMatcher,
+					vcapApplicationEnvMatcher,
+				))
 			})
 		})
 
@@ -266,18 +301,11 @@ var _ = Describe("Builder", func() {
 				Expect(buildEnvErr).NotTo(HaveOccurred())
 			})
 
-			It("returns only app vcap services env var", func() {
-				Expect(envVars).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("VCAP_SERVICES"),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: cfApp.Status.VCAPServicesSecretName,
-							},
-							Key: "VCAP_SERVICES",
-						})),
-					})),
-				})))
+			It("omits the app env", func() {
+				Expect(envVars).To(ConsistOf(
+					vcapServicesEnvMatcher,
+					vcapApplicationEnvMatcher,
+				))
 			})
 		})
 
@@ -298,18 +326,11 @@ var _ = Describe("Builder", func() {
 				})
 			})
 
-			It("returns only app env vars", func() {
-				Expect(envVars).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("app-secret"),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: cfApp.Spec.EnvSecretName,
-							},
-							Key: "app-secret",
-						})),
-					})),
-				})))
+			It("omits the vcap services env", func() {
+				Expect(envVars).To(ConsistOf(
+					appSecretEnvMatcher,
+					vcapApplicationEnvMatcher,
+				))
 			})
 		})
 
@@ -324,18 +345,55 @@ var _ = Describe("Builder", func() {
 				Expect(buildEnvErr).NotTo(HaveOccurred())
 			})
 
-			It("returns only the app env vars", func() {
-				Expect(envVars).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("app-secret"),
-					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: cfApp.Spec.EnvSecretName,
-							},
-							Key: "app-secret",
-						})),
-					})),
-				})))
+			It("omits the vcap services env", func() {
+				Expect(envVars).To(ConsistOf(
+					appSecretEnvMatcher,
+					vcapApplicationEnvMatcher,
+				))
+			})
+		})
+
+		When("the app vcap application secret does not exist", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, vcapApplicationSecret)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(buildEnvErr).To(MatchError(ContainSubstring("error when trying to fetch vcap application secret")))
+			})
+		})
+
+		When("the app vcap application secret is empty", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, k8sClient, vcapApplicationSecret, func() {
+					vcapApplicationSecret.Data = map[string][]byte{}
+				})).To(Succeed())
+			})
+
+			It("omits the vcap application env", func() {
+				Expect(envVars).To(ConsistOf(
+					appSecretEnvMatcher,
+					vcapServicesEnvMatcher,
+				))
+			})
+		})
+
+		When("the app does not have an associated app vcap application secret", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+					cfApp.Status.VCAPApplicationSecretName = ""
+				})).To(Succeed())
+			})
+
+			It("succeeds", func() {
+				Expect(buildEnvErr).NotTo(HaveOccurred())
+			})
+
+			It("omits the vcap application env", func() {
+				Expect(envVars).To(ConsistOf(
+					appSecretEnvMatcher,
+					vcapServicesEnvMatcher,
+				))
 			})
 		})
 	})

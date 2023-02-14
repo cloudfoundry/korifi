@@ -29,9 +29,20 @@ directories:
   - path: contour
     git:
       url: https://github.com/projectcontour/contour
+      depth: 1
       refSelection:
         semver:
           constraints: ">=1.19.1"
     includePaths:
       - examples/contour/*.yaml
     newRootPath: examples/contour
+  - path: testApps/dora
+    git:
+      url: https://github.com/cloudfoundry/cf-acceptance-tests
+      depth: 1
+      refSelection:
+        semver:
+          constraints: ">=10.0.0"
+    includePaths:
+      - assets/dora/**/*
+    newRootPath: assets/dora

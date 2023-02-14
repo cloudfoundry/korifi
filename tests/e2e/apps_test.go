@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
@@ -475,8 +476,24 @@ var _ = Describe("Apps", func() {
 		var processGUID string
 
 		BeforeEach(func() {
-			appGUID = pushTestApp(space1GUID, appBitsFile)
+			appGUID = pushTestApp(space1GUID, doraBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", certUserName, space1GUID)
+			})
+
+			It("runs with gettable /env.json endpoint", func() {
+				body := curlApp(appGUID, "/env.json")
+
+				env := map[string]string{}
+				err := json.Unmarshal(body, &env)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(env).To(HaveKeyWithValue("VCAP_SERVICES", Not(BeEmpty())))
+				Expect(env).To(HaveKeyWithValue("VCAP_APPLICATION", Not(BeEmpty())))
+			})
 		})
 
 		Describe("Scale a process", func() {
@@ -600,7 +617,7 @@ var _ = Describe("Apps", func() {
 			}).Should(Succeed())
 		})
 
-		FIt("returns the app environment", func() {
+		It("returns the app environment", func() {
 			Eventually(func(g Gomega) {
 				_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
 				g.Expect(err).NotTo(HaveOccurred())
