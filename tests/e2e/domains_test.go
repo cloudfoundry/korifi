@@ -151,10 +151,10 @@ var _ = Describe("Domain", func() {
 	})
 
 	Describe("List", func() {
-		var result responseResourceList
+		var result resourceList[responseResource]
 
 		BeforeEach(func() {
-			result = responseResourceList{}
+			result = resourceList[responseResource]{}
 			restyClient = certClient
 		})
 
@@ -224,7 +224,7 @@ var _ = Describe("Domain", func() {
 
 			It("deletes the domain routes", func() {
 				Eventually(func(g Gomega) {
-					var routes responseResourceList
+					var routes resourceList[responseResource]
 					listRoutesResp, err := adminClient.R().
 						SetResult(&routes).
 						Get("/v3/routes?space_guids=" + spaceGUID)

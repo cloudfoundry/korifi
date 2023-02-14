@@ -32,7 +32,7 @@ var _ = Describe("Apps", func() {
 			space2GUID, space3GUID       string
 			app1GUID, app2GUID, app3GUID string
 			app4GUID, app5GUID, app6GUID string
-			result                       resourceList
+			result                       resourceList[resource]
 		)
 
 		BeforeEach(func() {
@@ -236,7 +236,7 @@ var _ = Describe("Apps", func() {
 	})
 
 	Describe("List app processes", func() {
-		var result typedResourceList
+		var result resourceList[typedResource]
 
 		BeforeEach(func() {
 			createSpaceRole("space_developer", certUserName, space1GUID)
@@ -291,7 +291,7 @@ var _ = Describe("Apps", func() {
 	})
 
 	Describe("List app routes", func() {
-		var result resourceList
+		var result resourceList[resource]
 
 		BeforeEach(func() {
 			createSpaceRole("space_developer", certUserName, space1GUID)

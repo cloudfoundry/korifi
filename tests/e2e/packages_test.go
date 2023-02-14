@@ -253,10 +253,10 @@ var _ = Describe("Package", func() {
 
 	Describe("List Droplets", func() {
 		var buildGUID string
-		var resultList resourceList
+		var resultList resourceList[resource]
 
 		BeforeEach(func() {
-			resultList = resourceList{}
+			resultList = resourceList[resource]{}
 			packageGUID = createPackage(appGUID)
 			uploadTestApp(packageGUID, appBitsFile)
 			buildGUID = createBuild(packageGUID)
@@ -294,7 +294,7 @@ var _ = Describe("Package", func() {
 
 	Describe("List", func() {
 		var (
-			result       resourceList
+			result       resourceList[resource]
 			space2GUID   string
 			space3GUID   string
 			package1GUID string

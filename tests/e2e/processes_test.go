@@ -38,7 +38,7 @@ var _ = Describe("Processes", func() {
 			space2GUID     string
 			app2GUID       string
 			requestAppGUID string
-			result         resourceList
+			result         resourceList[resource]
 		)
 
 		JustBeforeEach(func() {
@@ -82,10 +82,10 @@ var _ = Describe("Processes", func() {
 	})
 
 	Describe("List sidecars", Ordered, func() {
-		var list resourceList
+		var list resourceList[resource]
 
 		BeforeEach(func() {
-			list = resourceList{}
+			list = resourceList[resource]{}
 
 			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
@@ -117,7 +117,7 @@ var _ = Describe("Processes", func() {
 	})
 
 	Describe("Get process stats", func() {
-		var processStats statsResourceList
+		var processStats resourceList[statsResource]
 
 		BeforeEach(func() {
 			createSpaceRole("space_developer", certUserName, spaceGUID)

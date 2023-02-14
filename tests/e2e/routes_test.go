@@ -88,7 +88,7 @@ var _ = Describe("Routes", func() {
 
 	Describe("list", func() {
 		var (
-			result  responseResourceList
+			result  resourceList[responseResource]
 			resp    *resty.Response
 			errResp cfErrs
 

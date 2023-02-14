@@ -68,11 +68,7 @@ type relationship struct {
 	Data resource `json:"data"`
 }
 
-type resourceList struct {
-	Resources []resource `json:"resources"`
-}
-
-type list[T any] struct {
+type resourceList[T any] struct {
 	Resources []T `json:"resources"`
 }
 
@@ -82,10 +78,6 @@ type responseResource struct {
 	CreatedAt string    `json:"created_at,omitempty"`
 	UpdatedAt string    `json:"updated_at,omitempty"`
 	Metadata  *metadata `json:"metadata,omitempty"`
-}
-
-type responseResourceList struct {
-	Resources []responseResource `json:"resources"`
 }
 
 type resourceListWithInclusion struct {
@@ -100,10 +92,6 @@ type includedApps struct {
 type bareResource struct {
 	GUID string `json:"guid,omitempty"`
 	Name string `json:"name,omitempty"`
-}
-
-type bareResourceList struct {
-	Resources []bareResource `json:""`
 }
 
 type appResource struct {
@@ -121,10 +109,6 @@ type typedResource struct {
 	resource `json:",inline"`
 	Type     string    `json:"type,omitempty"`
 	Metadata *metadata `json:"metadata,omitempty"`
-}
-
-type typedResourceList struct {
-	Resources []typedResource `json:"resources"`
 }
 
 type metadata struct {
@@ -158,10 +142,6 @@ type statsUsage struct {
 
 type statsResource struct {
 	Usage statsUsage
-}
-
-type statsResourceList struct {
-	Resources []statsResource `json:"resources"`
 }
 
 type manifestResource struct {
@@ -575,8 +555,8 @@ func createServiceInstance(spaceGUID, name string) string {
 	return serviceInstance.GUID
 }
 
-func listServiceInstances() resourceList {
-	var serviceInstances resourceList
+func listServiceInstances() resourceList[resource] {
+	var serviceInstances resourceList[resource]
 
 	resp, err := adminClient.R().
 		SetResult(&serviceInstances).
@@ -677,7 +657,7 @@ func uploadTestApp(pkgGUID, appBitsFile string) {
 func getAppGUIDFromName(appName string) string {
 	var appGUID string
 	Eventually(func(g Gomega) {
-		var result resourceList
+		var result resourceList[resource]
 		resp, err := adminClient.R().SetResult(&result).Get("/v3/apps?names=" + appName)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
@@ -715,7 +695,7 @@ func pushTestApp(spaceGUID, appBitsFile string) string {
 }
 
 func getAppRoute(appGUID string) string {
-	var routes list[routeResource]
+	var routes resourceList[routeResource]
 	resp, err := adminClient.R().
 		SetResult(&routes).
 		Get("/v3/apps/" + appGUID + "/routes")
@@ -749,7 +729,7 @@ func curlApp(appGUID, path string) []byte {
 }
 
 func getDomainGUID(domainName string) string {
-	res := bareResourceList{}
+	res := resourceList[bareResource]{}
 	resp, err := adminClient.R().
 		SetResult(&res).
 		Get("/v3/domains")
