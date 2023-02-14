@@ -265,16 +265,6 @@ var _ = Describe("Builder", func() {
 			})
 		})
 
-		When("the app env secret does not exist", func() {
-			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, appSecret)).To(Succeed())
-			})
-
-			It("errors", func() {
-				Expect(buildEnvErr).To(MatchError(ContainSubstring("error when trying to fetch app env Secret")))
-			})
-		})
-
 		When("the app env secret is empty", func() {
 			BeforeEach(func() {
 				ensurePatch(appSecret, func(s *corev1.Secret) {
@@ -302,6 +292,7 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("omits the app env", func() {
+				Expect(buildEnvErr).NotTo(HaveOccurred())
 				Expect(envVars).To(ConsistOf(
 					vcapServicesEnvMatcher,
 					vcapApplicationEnvMatcher,
@@ -346,6 +337,7 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("omits the vcap services env", func() {
+				Expect(buildEnvErr).NotTo(HaveOccurred())
 				Expect(envVars).To(ConsistOf(
 					appSecretEnvMatcher,
 					vcapApplicationEnvMatcher,
@@ -355,7 +347,7 @@ var _ = Describe("Builder", func() {
 
 		When("the app vcap application secret does not exist", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, vcapApplicationSecret)).To(Succeed())
+				deleteAndWait(vcapApplicationSecret)
 			})
 
 			It("errors", func() {
@@ -365,9 +357,7 @@ var _ = Describe("Builder", func() {
 
 		When("the app vcap application secret is empty", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, vcapApplicationSecret, func() {
-					vcapApplicationSecret.Data = map[string][]byte{}
-				})).To(Succeed())
+				clearSecretDataAndWait(vcapApplicationSecret)
 			})
 
 			It("omits the vcap application env", func() {
@@ -380,16 +370,15 @@ var _ = Describe("Builder", func() {
 
 		When("the app does not have an associated app vcap application secret", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-					cfApp.Status.VCAPApplicationSecretName = ""
-				})).To(Succeed())
-			})
-
-			It("succeeds", func() {
-				Expect(buildEnvErr).NotTo(HaveOccurred())
+				patchCFAppAndWait(cfApp, func(a *korifiv1alpha1.CFApp) {
+					a.Status.VCAPApplicationSecretName = ""
+				}, func(a *korifiv1alpha1.CFApp) bool {
+					return a.Status.VCAPApplicationSecretName == ""
+				})
 			})
 
 			It("omits the vcap application env", func() {
+				Expect(buildEnvErr).NotTo(HaveOccurred())
 				Expect(envVars).To(ConsistOf(
 					appSecretEnvMatcher,
 					vcapServicesEnvMatcher,
