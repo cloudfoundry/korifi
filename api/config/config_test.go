@@ -3,6 +3,8 @@ package config_test
 import (
 	"os"
 
+	"go.uber.org/zap/zapcore"
+
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/tools/registry"
 	. "github.com/onsi/ginkgo/v2"
@@ -139,6 +141,28 @@ var _ = Describe("Config", func() {
 
 			It("returns an error", func() {
 				Expect(loadErr).To(MatchError("AuthProxyCACert requires a value for AuthProxyHost"))
+			})
+		})
+	})
+
+	When("the log level is configured", func() {
+		BeforeEach(func() {
+			configMap["logLevel"] = "debug"
+		})
+
+		It("succeeds", func() {
+			Expect(loadErr).NotTo(HaveOccurred())
+			Expect(cfg.LogLevel).To(Equal(zapcore.DebugLevel))
+		})
+
+		When("the log level is not set", func() {
+			BeforeEach(func() {
+				delete(configMap, "logLevel")
+			})
+
+			It("uses the default", func() {
+				Expect(loadErr).NotTo(HaveOccurred())
+				Expect(cfg.LogLevel).To(Equal(zapcore.InfoLevel))
 			})
 		})
 	})

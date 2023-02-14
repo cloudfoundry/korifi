@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
+
+	"go.uber.org/zap/zapcore"
 	"k8s.io/client-go/rest"
 )
 
@@ -39,8 +41,9 @@ type (
 
 		RoleMappings map[string]Role `yaml:"roleMappings"`
 
-		AuthProxyHost   string `yaml:"authProxyHost"`
-		AuthProxyCACert string `yaml:"authProxyCACert"`
+		AuthProxyHost   string        `yaml:"authProxyHost"`
+		AuthProxyCACert string        `yaml:"authProxyCACert"`
+		LogLevel        zapcore.Level `yaml:"logLevel"`
 	}
 
 	RoleLevel string
@@ -78,6 +81,15 @@ func LoadFromPath(path string) (*APIConfig, error) {
 	}
 
 	return &config, nil
+}
+
+func GetLogLevelFromPath(path string) (zapcore.Level, error) {
+	cfg, err := LoadFromPath(path)
+	if err != nil {
+		return zapcore.InfoLevel, err
+	}
+
+	return cfg.LogLevel, nil
 }
 
 func (c *APIConfig) validate() error {
