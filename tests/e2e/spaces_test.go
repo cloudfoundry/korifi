@@ -117,7 +117,7 @@ var _ = Describe("Spaces", func() {
 			space11Name, space12Name, space13Name string
 			space21Name, space22Name, space23Name string
 			space31Name, space32Name, space33Name string
-			result                                resourceList
+			result                                resourceList[resource]
 			query                                 map[string]string
 		)
 
@@ -126,7 +126,7 @@ var _ = Describe("Spaces", func() {
 			space11GUID, space12GUID, space13GUID = "", "", ""
 			space21GUID, space22GUID, space23GUID = "", "", ""
 			space31GUID, space32GUID, space33GUID = "", "", ""
-			result = resourceList{}
+			result = resourceList[resource]{}
 
 			var orgWG sync.WaitGroup
 			orgErrChan := make(chan error, 3)

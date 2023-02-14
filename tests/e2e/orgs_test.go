@@ -95,7 +95,7 @@ var _ = Describe("Orgs", func() {
 		var (
 			org1Name, org2Name, org3Name, org4Name string
 			org1GUID, org2GUID, org3GUID, org4GUID string
-			result                                 resourceList
+			result                                 resourceList[resource]
 			query                                  map[string]string
 		)
 
@@ -284,7 +284,7 @@ var _ = Describe("Orgs", func() {
 		var (
 			domainName string
 			orgGUID    string
-			resultList responseResourceList
+			resultList resourceList[responseResource]
 			errResp    cfErrs
 		)
 

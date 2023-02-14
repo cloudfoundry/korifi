@@ -125,7 +125,7 @@ var _ = Describe("Tasks", func() {
 
 	Describe("Listing tasks", func() {
 		var (
-			list  resourceList
+			list  resourceList[resource]
 			guids []string
 		)
 
@@ -166,7 +166,7 @@ var _ = Describe("Tasks", func() {
 
 	Describe("List app's tasks", func() {
 		var (
-			list  resourceList
+			list  resourceList[resource]
 			guids []string
 		)
 

@@ -20,7 +20,7 @@ var _ = Describe("Buildpacks", func() {
 
 	Describe("list", func() {
 		var (
-			result responseResourceList
+			result resourceList[responseResource]
 			resp   *resty.Response
 		)
 

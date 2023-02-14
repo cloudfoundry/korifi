@@ -117,7 +117,7 @@ var _ = Describe("Roles", func() {
 	Describe("listing roles", func() {
 		var (
 			spaceGUID  string
-			resultList typedResourceList
+			resultList resourceList[typedResource]
 		)
 
 		BeforeEach(func() {
