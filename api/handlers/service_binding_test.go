@@ -528,6 +528,16 @@ var _ = Describe("ServiceBinding", func() {
 			_, _, guid := serviceBindingRepo.DeleteServiceBindingArgsForCall(0)
 			Expect(guid).To(Equal(serviceBindingGUID))
 		})
+
+		When("the user is not authorized to delete service bindings", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.DeleteServiceBindingReturns(apierrors.NewForbiddenError(nil, "CFServiceBinding"))
+			})
+
+			It("returns 404 NotFound", func() {
+				expectNotFoundError("CFServiceBinding not found")
+			})
+		})
 	})
 
 	Describe("PATCH /v3/service_credential_bindings/:guid", func() {

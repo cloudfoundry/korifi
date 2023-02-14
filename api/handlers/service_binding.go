@@ -92,7 +92,7 @@ func (h *ServiceBinding) delete(r *http.Request) (*routing.Response, error) {
 
 	err := h.serviceBindingRepo.DeleteServiceBinding(r.Context(), authInfo, serviceBindingGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service binding", "guid", serviceBindingGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error when deleting service binding", "guid", serviceBindingGUID)
 	}
 
 	return routing.NewResponse(http.StatusNoContent), nil

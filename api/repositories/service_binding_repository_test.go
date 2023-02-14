@@ -290,8 +290,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 			ret = repo.DeleteServiceBinding(testCtx, authInfo, serviceBindingGUID)
 		})
 
-		It("returns a not-found error for users with no role in the space", func() {
-			Expect(ret).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+		It("returns a forbidden error for users with no role in the space", func() {
+			Expect(ret).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 		})
 
 		When("the user is a space manager", func() {

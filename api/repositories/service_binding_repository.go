@@ -164,7 +164,7 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, binding)
 	if err != nil {
-		return apierrors.ForbiddenAsNotFound(apierrors.FromK8sError(err, ServiceBindingResourceType))
+		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
 	err = userClient.Delete(ctx, binding)
