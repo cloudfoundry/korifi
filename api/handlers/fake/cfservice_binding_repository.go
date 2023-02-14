@@ -39,6 +39,21 @@ type CFServiceBindingRepository struct {
 	deleteServiceBindingReturnsOnCall map[int]struct {
 		result1 error
 	}
+	GetServiceBindingStub        func(context.Context, authorization.Info, string) (repositories.ServiceBindingRecord, error)
+	getServiceBindingMutex       sync.RWMutex
+	getServiceBindingArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getServiceBindingReturns struct {
+		result1 repositories.ServiceBindingRecord
+		result2 error
+	}
+	getServiceBindingReturnsOnCall map[int]struct {
+		result1 repositories.ServiceBindingRecord
+		result2 error
+	}
 	ListServiceBindingsStub        func(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
 	listServiceBindingsMutex       sync.RWMutex
 	listServiceBindingsArgsForCall []struct {
@@ -52,6 +67,21 @@ type CFServiceBindingRepository struct {
 	}
 	listServiceBindingsReturnsOnCall map[int]struct {
 		result1 []repositories.ServiceBindingRecord
+		result2 error
+	}
+	UpdateServiceBindingStub        func(context.Context, authorization.Info, repositories.UpdateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
+	updateServiceBindingMutex       sync.RWMutex
+	updateServiceBindingArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.UpdateServiceBindingMessage
+	}
+	updateServiceBindingReturns struct {
+		result1 repositories.ServiceBindingRecord
+		result2 error
+	}
+	updateServiceBindingReturnsOnCall map[int]struct {
+		result1 repositories.ServiceBindingRecord
 		result2 error
 	}
 	invocations      map[string][][]interface{}
@@ -187,6 +217,72 @@ func (fake *CFServiceBindingRepository) DeleteServiceBindingReturnsOnCall(i int,
 	}{result1}
 }
 
+func (fake *CFServiceBindingRepository) GetServiceBinding(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ServiceBindingRecord, error) {
+	fake.getServiceBindingMutex.Lock()
+	ret, specificReturn := fake.getServiceBindingReturnsOnCall[len(fake.getServiceBindingArgsForCall)]
+	fake.getServiceBindingArgsForCall = append(fake.getServiceBindingArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetServiceBindingStub
+	fakeReturns := fake.getServiceBindingReturns
+	fake.recordInvocation("GetServiceBinding", []interface{}{arg1, arg2, arg3})
+	fake.getServiceBindingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServiceBindingRepository) GetServiceBindingCallCount() int {
+	fake.getServiceBindingMutex.RLock()
+	defer fake.getServiceBindingMutex.RUnlock()
+	return len(fake.getServiceBindingArgsForCall)
+}
+
+func (fake *CFServiceBindingRepository) GetServiceBindingCalls(stub func(context.Context, authorization.Info, string) (repositories.ServiceBindingRecord, error)) {
+	fake.getServiceBindingMutex.Lock()
+	defer fake.getServiceBindingMutex.Unlock()
+	fake.GetServiceBindingStub = stub
+}
+
+func (fake *CFServiceBindingRepository) GetServiceBindingArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getServiceBindingMutex.RLock()
+	defer fake.getServiceBindingMutex.RUnlock()
+	argsForCall := fake.getServiceBindingArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceBindingRepository) GetServiceBindingReturns(result1 repositories.ServiceBindingRecord, result2 error) {
+	fake.getServiceBindingMutex.Lock()
+	defer fake.getServiceBindingMutex.Unlock()
+	fake.GetServiceBindingStub = nil
+	fake.getServiceBindingReturns = struct {
+		result1 repositories.ServiceBindingRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceBindingRepository) GetServiceBindingReturnsOnCall(i int, result1 repositories.ServiceBindingRecord, result2 error) {
+	fake.getServiceBindingMutex.Lock()
+	defer fake.getServiceBindingMutex.Unlock()
+	fake.GetServiceBindingStub = nil
+	if fake.getServiceBindingReturnsOnCall == nil {
+		fake.getServiceBindingReturnsOnCall = make(map[int]struct {
+			result1 repositories.ServiceBindingRecord
+			result2 error
+		})
+	}
+	fake.getServiceBindingReturnsOnCall[i] = struct {
+		result1 repositories.ServiceBindingRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFServiceBindingRepository) ListServiceBindings(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error) {
 	fake.listServiceBindingsMutex.Lock()
 	ret, specificReturn := fake.listServiceBindingsReturnsOnCall[len(fake.listServiceBindingsArgsForCall)]
@@ -253,6 +349,72 @@ func (fake *CFServiceBindingRepository) ListServiceBindingsReturnsOnCall(i int, 
 	}{result1, result2}
 }
 
+func (fake *CFServiceBindingRepository) UpdateServiceBinding(arg1 context.Context, arg2 authorization.Info, arg3 repositories.UpdateServiceBindingMessage) (repositories.ServiceBindingRecord, error) {
+	fake.updateServiceBindingMutex.Lock()
+	ret, specificReturn := fake.updateServiceBindingReturnsOnCall[len(fake.updateServiceBindingArgsForCall)]
+	fake.updateServiceBindingArgsForCall = append(fake.updateServiceBindingArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.UpdateServiceBindingMessage
+	}{arg1, arg2, arg3})
+	stub := fake.UpdateServiceBindingStub
+	fakeReturns := fake.updateServiceBindingReturns
+	fake.recordInvocation("UpdateServiceBinding", []interface{}{arg1, arg2, arg3})
+	fake.updateServiceBindingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServiceBindingRepository) UpdateServiceBindingCallCount() int {
+	fake.updateServiceBindingMutex.RLock()
+	defer fake.updateServiceBindingMutex.RUnlock()
+	return len(fake.updateServiceBindingArgsForCall)
+}
+
+func (fake *CFServiceBindingRepository) UpdateServiceBindingCalls(stub func(context.Context, authorization.Info, repositories.UpdateServiceBindingMessage) (repositories.ServiceBindingRecord, error)) {
+	fake.updateServiceBindingMutex.Lock()
+	defer fake.updateServiceBindingMutex.Unlock()
+	fake.UpdateServiceBindingStub = stub
+}
+
+func (fake *CFServiceBindingRepository) UpdateServiceBindingArgsForCall(i int) (context.Context, authorization.Info, repositories.UpdateServiceBindingMessage) {
+	fake.updateServiceBindingMutex.RLock()
+	defer fake.updateServiceBindingMutex.RUnlock()
+	argsForCall := fake.updateServiceBindingArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceBindingRepository) UpdateServiceBindingReturns(result1 repositories.ServiceBindingRecord, result2 error) {
+	fake.updateServiceBindingMutex.Lock()
+	defer fake.updateServiceBindingMutex.Unlock()
+	fake.UpdateServiceBindingStub = nil
+	fake.updateServiceBindingReturns = struct {
+		result1 repositories.ServiceBindingRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceBindingRepository) UpdateServiceBindingReturnsOnCall(i int, result1 repositories.ServiceBindingRecord, result2 error) {
+	fake.updateServiceBindingMutex.Lock()
+	defer fake.updateServiceBindingMutex.Unlock()
+	fake.UpdateServiceBindingStub = nil
+	if fake.updateServiceBindingReturnsOnCall == nil {
+		fake.updateServiceBindingReturnsOnCall = make(map[int]struct {
+			result1 repositories.ServiceBindingRecord
+			result2 error
+		})
+	}
+	fake.updateServiceBindingReturnsOnCall[i] = struct {
+		result1 repositories.ServiceBindingRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFServiceBindingRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -260,8 +422,12 @@ func (fake *CFServiceBindingRepository) Invocations() map[string][][]interface{}
 	defer fake.createServiceBindingMutex.RUnlock()
 	fake.deleteServiceBindingMutex.RLock()
 	defer fake.deleteServiceBindingMutex.RUnlock()
+	fake.getServiceBindingMutex.RLock()
+	defer fake.getServiceBindingMutex.RUnlock()
 	fake.listServiceBindingsMutex.RLock()
 	defer fake.listServiceBindingsMutex.RUnlock()
+	fake.updateServiceBindingMutex.RLock()
+	defer fake.updateServiceBindingMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

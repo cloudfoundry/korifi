@@ -21,6 +21,8 @@ var _ = Describe("Service Bindings", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
+		appGUID = createApp(spaceGUID, generateGUID("app"))
+		instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
 	})
 
 	AfterEach(func() {
@@ -28,11 +30,6 @@ var _ = Describe("Service Bindings", func() {
 	})
 
 	Describe("Create", func() {
-		BeforeEach(func() {
-			appGUID = createApp(spaceGUID, generateGUID("app"))
-			instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
-		})
-
 		JustBeforeEach(func() {
 			httpResp, httpError = certClient.R().
 				SetBody(typedResource{
@@ -85,8 +82,6 @@ var _ = Describe("Service Bindings", func() {
 
 	Describe("Delete", func() {
 		BeforeEach(func() {
-			appGUID = createApp(spaceGUID, generateGUID("app"))
-			instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
 			bindingGUID = createServiceBinding(appGUID, instanceGUID)
 		})
 
@@ -129,8 +124,6 @@ var _ = Describe("Service Bindings", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = createApp(spaceGUID, generateGUID("app"))
-			instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"))
 			bindingGUID = createServiceBinding(appGUID, instanceGUID)
 
 			queryString = ""
@@ -193,6 +186,36 @@ var _ = Describe("Service Bindings", func() {
 					))
 				})
 			})
+		})
+	})
+
+	Describe("Patch", func() {
+		var respResource responseResource
+
+		BeforeEach(func() {
+			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			httpResp, err = certClient.R().
+				SetBody(metadataResource{
+					Metadata: &metadataPatch{
+						Annotations: &map[string]string{"foo": "bar"},
+						Labels:      &map[string]string{"baz": "bar"},
+					},
+				}).
+				SetResult(&respResource).
+				Patch("/v3/service_credential_bindings/" + bindingGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns 200 OK and updates service binding labels and annotations", func() {
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(respResource.GUID).To(Equal(bindingGUID))
+			Expect(respResource.Metadata.Annotations).To(HaveKeyWithValue("foo", "bar"))
+			Expect(respResource.Metadata.Labels).To(HaveKeyWithValue("baz", "bar"))
 		})
 	})
 })
