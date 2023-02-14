@@ -142,3 +142,30 @@ func createWithStatus[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, setStatus fun
 	})).To(Succeed())
 	return obj
 }
+
+func deleteAndWait[T client.Object](o T) {
+	Expect(k8sClient.Delete(ctx, o)).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(o), o)).To(MatchError(ContainSubstring("not found")))
+	}).Should(Succeed())
+}
+
+func clearSecretDataAndWait(s *corev1.Secret) {
+	Expect(k8s.Patch(ctx, k8sClient, s, func() {
+		s.Data = map[string][]byte{}
+	})).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(s), s)).To(Succeed())
+		g.Expect(s.Data).To(BeEmpty())
+	}).Should(Succeed())
+}
+
+func patchCFAppAndWait(cfApp *korifiv1alpha1.CFApp, setFn func(a *korifiv1alpha1.CFApp), checkFn func(a *korifiv1alpha1.CFApp) bool) {
+	Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+		setFn(cfApp)
+	})).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+		g.Expect(checkFn(cfApp)).To(BeTrue())
+	}).Should(Succeed())
+}
