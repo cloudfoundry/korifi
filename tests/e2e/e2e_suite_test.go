@@ -2,8 +2,9 @@ package e2e_test
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -249,15 +250,29 @@ func TestE2E(t *testing.T) {
 	RunSpecs(t, "E2E Suite")
 }
 
+type sharedSetupData struct {
+	CommonOrgName string `json:"commonOrgName"`
+	CommonOrgGUID string `json:"commonOrgGuid"`
+}
+
 var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestSetup()
 	commonTestOrgName = generateGUID("common-test-org")
 	commonTestOrgGUID = createOrg(commonTestOrgName)
 	createOrgRole("organization_user", certUserName, commonTestOrgGUID)
 
-	return []byte(commonTestOrgGUID)
-}, func(commonOrgGUIDBytes []byte) {
-	commonTestOrgGUID = string(commonOrgGUIDBytes)
+	bs, err := json.Marshal(sharedSetupData{
+		CommonOrgName: commonTestOrgName,
+		CommonOrgGUID: commonTestOrgGUID,
+	})
+	Expect(err).NotTo(HaveOccurred())
+	return bs
+}, func(bs []byte) {
+	var sharedSetup sharedSetupData
+	err := json.Unmarshal(bs, &sharedSetup)
+	Expect(err).NotTo(HaveOccurred())
+	commonTestOrgGUID = sharedSetup.CommonOrgGUID
+	commonTestOrgName = sharedSetup.CommonOrgName
 
 	SetDefaultEventuallyTimeout(240 * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
@@ -721,7 +736,7 @@ func curlApp(appGUID, path string) []byte {
 		g.Expect(err).NotTo(HaveOccurred())
 		defer r.Body.Close()
 		g.Expect(r).To(HaveHTTPStatus(http.StatusOK))
-		body, err = ioutil.ReadAll(r.Body)
+		body, err = io.ReadAll(r.Body)
 		g.Expect(err).NotTo(HaveOccurred())
 	}).Should(Succeed())
 
