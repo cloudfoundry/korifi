@@ -158,6 +158,19 @@ func (h *ServiceBinding) update(r *http.Request) (*routing.Response, error) { //
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
 }
 
+func (h *ServiceBinding) get(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-binding.get")
+
+	serviceBindingGUID := routing.URLParam(r, "guid")
+
+	serviceBinding, err := h.serviceBindingRepo.GetServiceBinding(r.Context(), authInfo, serviceBindingGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error getting service binding in repository")
+	}
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
+}
+
 func (h *ServiceBinding) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -168,5 +181,6 @@ func (h *ServiceBinding) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: ServiceBindingsPath, Handler: h.list},
 		{Method: "DELETE", Pattern: ServiceBindingPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: ServiceBindingPath, Handler: h.update},
+		{Method: "GET", Pattern: ServiceBindingPath, Handler: h.get},
 	}
 }

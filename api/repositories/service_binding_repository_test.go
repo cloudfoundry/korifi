@@ -154,6 +154,16 @@ var _ = Describe("ServiceBindingRepo", func() {
 			})
 		})
 
+		When("the user is not allowed to create service bindings", func() {
+			BeforeEach(func() {
+				doBindingControllerSimulation = false
+			})
+
+			It("returns a forbidden error", func() {
+				Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+			})
+		})
+
 		When("the user can create CFServiceBindings in the Space", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
