@@ -1359,7 +1359,7 @@ var _ = Describe("AppRepository", func() {
 				var (
 					vcapServiceSecretDataByte map[string][]byte
 					vcapServiceSecretData     map[string]string
-					vcapServiceDataPresenter  *env.VcapServicesPresenter
+					vcapServiceDataPresenter  *env.VCAPServices
 					err                       error
 				)
 
@@ -1368,7 +1368,7 @@ var _ = Describe("AppRepository", func() {
 					vcapServiceSecretDataByte, err = generateVcapServiceSecretDataByte()
 					Expect(err).NotTo(HaveOccurred())
 					vcapServiceSecretData = asMapOfStrings(vcapServiceSecretDataByte)
-					vcapServiceDataPresenter = new(env.VcapServicesPresenter)
+					vcapServiceDataPresenter = new(env.VCAPServices)
 					err = json.Unmarshal(vcapServiceSecretDataByte["VCAP_SERVICES"], vcapServiceDataPresenter)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -1592,7 +1592,7 @@ func generateVcapServiceSecretDataByte() (map[string][]byte, error) {
 		VolumeMounts:   nil,
 	}
 
-	vcapServicesData, err := json.Marshal(env.VcapServicesPresenter{
+	vcapServicesData, err := json.Marshal(env.VCAPServices{
 		UserProvided: []env.ServiceDetails{
 			serviceDetails,
 		},

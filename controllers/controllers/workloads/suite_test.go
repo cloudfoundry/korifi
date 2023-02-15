@@ -110,7 +110,8 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFApp"),
-		env.NewBuilder(k8sManager.GetClient()),
+		env.NewVCAPServicesEnvValueBuilder(k8sManager.GetClient()),
+		env.NewVCAPApplicationEnvValueBuilder(k8sManager.GetClient()),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -122,7 +123,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFBuild"),
 		controllerConfig,
-		env.NewBuilder(k8sManager.GetClient()),
+		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
 	)
 	err = (cfBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -132,7 +133,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFProcess"),
 		controllerConfig,
-		env.NewBuilder(k8sManager.GetClient()),
+		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -162,7 +163,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		k8sManager.GetEventRecorderFor("cftask-controller"),
 		ctrl.Log.WithName("controllers").WithName("CFTask"),
-		env.NewBuilder(k8sManager.GetClient()),
+		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
 		2*time.Second,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

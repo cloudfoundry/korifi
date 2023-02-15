@@ -2,18 +2,16 @@ package env
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type VcapServicesPresenter struct {
+type VCAPServices struct {
 	UserProvided []ServiceDetails `json:"user-provided,omitempty"`
 }
 
@@ -30,15 +28,15 @@ type ServiceDetails struct {
 	VolumeMounts   []string          `json:"volume_mounts"`
 }
 
-type Builder struct {
+type WorkloadEnvBuilder struct {
 	k8sClient client.Client
 }
 
-func NewBuilder(k8sClient client.Client) *Builder {
-	return &Builder{k8sClient: k8sClient}
+func NewWorkloadEnvBuilder(k8sClient client.Client) *WorkloadEnvBuilder {
+	return &WorkloadEnvBuilder{k8sClient: k8sClient}
 }
 
-func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error) {
+func (b *WorkloadEnvBuilder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error) {
 	var appEnvSecret, vcapServicesSecret, vcapApplicationSecret corev1.Secret
 
 	if cfApp.Spec.EnvSecretName != "" {
@@ -66,109 +64,6 @@ func (b *Builder) BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]
 	return envVarsFromSecrets(appEnvSecret, vcapServicesSecret, vcapApplicationSecret), nil
 }
 
-func (b *Builder) getSpaceFromNamespace(ctx context.Context, ns string) (korifiv1alpha1.CFSpace, error) {
-	spaces := korifiv1alpha1.CFSpaceList{}
-	if err := b.k8sClient.List(ctx, &spaces, client.MatchingFields{
-		shared.IndexSpaceNamespaceName: ns,
-	}); err != nil {
-		return korifiv1alpha1.CFSpace{}, fmt.Errorf("error listing cfSpaces: %w", err)
-	}
-
-	if len(spaces.Items) != 1 {
-		return korifiv1alpha1.CFSpace{}, fmt.Errorf("expected a unique CFSpace for namespace %q, got %d", ns, len(spaces.Items))
-	}
-
-	return spaces.Items[0], nil
-}
-
-func (b *Builder) getOrgFromNamespace(ctx context.Context, ns string) (korifiv1alpha1.CFOrg, error) {
-	orgs := korifiv1alpha1.CFOrgList{}
-	if err := b.k8sClient.List(ctx, &orgs, client.MatchingFields{
-		shared.IndexOrgNamespaceName: ns,
-	}); err != nil {
-		return korifiv1alpha1.CFOrg{}, fmt.Errorf("error listing cfOrgs: %w", err)
-	}
-
-	if len(orgs.Items) != 1 {
-		return korifiv1alpha1.CFOrg{}, fmt.Errorf("expected a unique CFOrg for namespace %q, got %d", ns, len(orgs.Items))
-	}
-
-	return orgs.Items[0], nil
-}
-
-func (b *Builder) BuildVCAPApplicationEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (string, error) {
-	space, err := b.getSpaceFromNamespace(ctx, cfApp.Namespace)
-	if err != nil {
-		return "", fmt.Errorf("failed retrieving space for CFApp: %w", err)
-	}
-	org, err := b.getOrgFromNamespace(ctx, space.Namespace)
-	if err != nil {
-		return "", fmt.Errorf("failed retrieving org for CFSpace: %w", err)
-	}
-
-	vars := map[string]string{
-		"application_id":    cfApp.Name,
-		"application_name":  cfApp.Spec.DisplayName,
-		"cf_api":            "",
-		"name":              cfApp.Spec.DisplayName,
-		"organization_id":   org.Name,
-		"organization_name": org.Spec.DisplayName,
-		"space_id":          space.Name,
-		"space_name":        space.Spec.DisplayName,
-	}
-
-	out, _ := json.Marshal(vars)
-	return string(out), nil
-}
-
-func (b *Builder) BuildVCAPServicesEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (string, error) {
-	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
-	err := b.k8sClient.List(ctx, serviceBindings,
-		client.InNamespace(cfApp.Namespace),
-		client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name},
-	)
-	if err != nil {
-		return "", fmt.Errorf("error listing CFServiceBindings: %w", err)
-	}
-
-	if len(serviceBindings.Items) == 0 {
-		return "{}", nil
-	}
-
-	serviceEnvs := []ServiceDetails{}
-	for _, currentServiceBinding := range serviceBindings.Items {
-		// If finalizing do not append
-		if !currentServiceBinding.DeletionTimestamp.IsZero() {
-			continue
-		}
-
-		var serviceEnv ServiceDetails
-		serviceEnv, err = buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
-		if err != nil {
-			return "", err
-		}
-
-		serviceEnvs = append(serviceEnvs, serviceEnv)
-	}
-
-	toReturn, err := json.Marshal(VcapServicesPresenter{
-		UserProvided: serviceEnvs,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return string(toReturn), nil
-}
-
-func mapFromSecret(secret corev1.Secret) map[string]string {
-	convertedMap := make(map[string]string)
-	for k, v := range secret.Data {
-		convertedMap[k] = string(v)
-	}
-	return convertedMap
-}
-
 func envVarsFromSecrets(secrets ...corev1.Secret) []corev1.EnvVar {
 	var envVars []corev1.EnvVar
 	for _, secret := range secrets {
@@ -185,59 +80,4 @@ func envVarsFromSecrets(secrets ...corev1.Secret) []corev1.EnvVar {
 		}
 	}
 	return envVars
-}
-
-func fromServiceBinding(
-	serviceBinding korifiv1alpha1.CFServiceBinding,
-	serviceInstance korifiv1alpha1.CFServiceInstance,
-	serviceBindingSecret corev1.Secret,
-) ServiceDetails {
-	var serviceName string
-	var bindingName *string
-
-	if serviceBinding.Spec.DisplayName != nil {
-		serviceName = *serviceBinding.Spec.DisplayName
-		bindingName = serviceBinding.Spec.DisplayName
-	} else {
-		serviceName = serviceInstance.Spec.DisplayName
-		bindingName = nil
-	}
-
-	tags := serviceInstance.Spec.Tags
-	if tags == nil {
-		tags = []string{}
-	}
-
-	return ServiceDetails{
-		Label:          "user-provided",
-		Name:           serviceName,
-		Tags:           tags,
-		InstanceGUID:   serviceInstance.Name,
-		InstanceName:   serviceInstance.Spec.DisplayName,
-		BindingGUID:    serviceBinding.Name,
-		BindingName:    bindingName,
-		Credentials:    mapFromSecret(serviceBindingSecret),
-		SyslogDrainURL: nil,
-		VolumeMounts:   []string{},
-	}
-}
-
-func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, error) {
-	if serviceBinding.Status.Binding.Name == "" {
-		return ServiceDetails{}, fmt.Errorf("service binding secret name is empty")
-	}
-
-	serviceInstance := korifiv1alpha1.CFServiceInstance{}
-	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Spec.Service.Name}, &serviceInstance)
-	if err != nil {
-		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceInstance: %w", err)
-	}
-
-	secret := corev1.Secret{}
-	err = k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Status.Binding.Name}, &secret)
-	if err != nil {
-		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
-	}
-
-	return fromServiceBinding(serviceBinding, serviceInstance, secret), nil
 }

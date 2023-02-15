@@ -609,7 +609,7 @@ func getSystemEnv(ctx context.Context, userClient client.Client, app AppRecord) 
 		}
 
 		if vcapServicesData, ok := vcapServiceSecret.Data["VCAP_SERVICES"]; ok {
-			vcapServicesPresenter := new(env.VcapServicesPresenter)
+			vcapServicesPresenter := new(env.VCAPServices)
 			if err = json.Unmarshal(vcapServicesData, &vcapServicesPresenter); err != nil {
 				return map[string]any{}, fmt.Errorf("error unmarshalling VCAP Service Secret %q for App %q: %w",
 					app.vcapServiceSecretName,
