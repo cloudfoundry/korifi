@@ -25,11 +25,8 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		orgName = "my-org"
 	)
 	var (
-		testCtx                                      context.Context
-		rootNamespace                                *v1.Namespace
 		orgGUID                                      string
 		cfOrg                                        korifiv1alpha1.CFOrg
-		imageRegistrySecret                          *v1.Secret
 		role                                         *rbacv1.ClusterRole
 		username                                     string
 		roleBinding                                  *rbacv1.RoleBinding
@@ -38,9 +35,6 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		testCtx = context.Background()
-		rootNamespace = createNamespace(testCtx, k8sClient, PrefixedGUID("root-ns"))
-		imageRegistrySecret = createSecret(testCtx, k8sClient, packageRegistrySecretName, rootNamespace.Name)
 		rules := []rbacv1.PolicyRule{
 			{
 				Verbs:     []string{"create"},
@@ -48,21 +42,21 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				Resources: []string{"cfapps"},
 			},
 		}
-		role = createClusterRole(testCtx, k8sClient, PrefixedGUID("clusterrole"), rules)
+		role = createClusterRole(ctx, k8sClient, PrefixedGUID("clusterrole"), rules)
 
 		username = PrefixedGUID("user")
-		roleBinding = createRoleBinding(testCtx, k8sClient, PrefixedGUID("role-binding"), username, role.Name, rootNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
+		roleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role.Name, cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
 
 		username2 := PrefixedGUID("user2")
-		roleBindingWithPropagateAnnotationSetToFalse = createRoleBinding(testCtx, k8sClient, PrefixedGUID("rb-propagate-annotation-false"), username2, role.Name, rootNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "false"})
+		roleBindingWithPropagateAnnotationSetToFalse = createRoleBinding(ctx, k8sClient, PrefixedGUID("rb-propagate-annotation-false"), username2, role.Name, cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-cf-role": "false"})
 
-		roleBindingWithMissingPropagateAnnotation = createRoleBinding(testCtx, k8sClient, PrefixedGUID("rb-missing-propagate-annotation"), username2, role.Name, rootNamespace.Name, nil)
+		roleBindingWithMissingPropagateAnnotation = createRoleBinding(ctx, k8sClient, PrefixedGUID("rb-missing-propagate-annotation"), username2, role.Name, cfRootNamespace, nil)
 
 		orgGUID = PrefixedGUID("cf-org")
 		cfOrg = korifiv1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      orgGUID,
-				Namespace: rootNamespace.Name,
+				Namespace: cfRootNamespace,
 			},
 			Spec: korifiv1alpha1.CFOrgSpec{
 				DisplayName: orgName,
@@ -70,19 +64,15 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		}
 	})
 
-	AfterEach(func() {
-		Expect(k8sClient.Delete(context.Background(), rootNamespace)).To(Succeed())
-	})
-
 	When("the CFOrg is created", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
+			Expect(k8sClient.Create(ctx, &cfOrg)).To(Succeed())
 		})
 
 		It("creates an org namespace and sets labels", func() {
 			Eventually(func(g Gomega) {
 				var orgNamespace v1.Namespace
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &orgNamespace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: orgGUID}, &orgNamespace)).To(Succeed())
 				g.Expect(orgNamespace.Labels).To(SatisfyAll(
 					HaveKeyWithValue(korifiv1alpha1.OrgNameKey, korifiv1alpha1.OrgSpaceDeprecatedName),
 					HaveKeyWithValue(korifiv1alpha1.OrgGUIDKey, orgGUID),
@@ -94,7 +84,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		It("sets the finalizer on cfOrg", func() {
 			Eventually(func(g Gomega) []string {
 				var createdCFOrg korifiv1alpha1.CFOrg
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &createdCFOrg)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfRootNamespace, Name: orgGUID}, &createdCFOrg)).To(Succeed())
 				return createdCFOrg.ObjectMeta.Finalizers
 			}).Should(ConsistOf([]string{
 				"cfOrg.korifi.cloudfoundry.org",
@@ -104,7 +94,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		It("propagates the image-registry-credentials from root-ns to org namespace", func() {
 			Eventually(func(g Gomega) {
 				var createdSecret v1.Secret
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &createdSecret)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &createdSecret)).To(Succeed())
 				g.Expect(createdSecret.Immutable).To(Equal(imageRegistrySecret.Immutable))
 				g.Expect(createdSecret.Data).To(Equal(imageRegistrySecret.Data))
 				g.Expect(createdSecret.StringData).To(Equal(imageRegistrySecret.StringData))
@@ -115,28 +105,28 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		It("propagates the role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to \"true\" from root-ns to org namespace", func() {
 			Eventually(func(_ Gomega) error {
 				var createdRoleBinding rbacv1.RoleBinding
-				return k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBinding.Name}, &createdRoleBinding)
+				return k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBinding.Name}, &createdRoleBinding)
 			}).Should(Succeed())
 		})
 
 		It("does not propagate role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to \"false\"", func() {
 			Consistently(func(_ Gomega) bool {
 				var newRoleBinding rbacv1.RoleBinding
-				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBindingWithPropagateAnnotationSetToFalse.Name}, &newRoleBinding))
+				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBindingWithPropagateAnnotationSetToFalse.Name}, &newRoleBinding))
 			}, time.Second).Should(BeTrue())
 		})
 
 		It("does not propagate role-bindings with missing annotation \"cloudfoundry.org/propagate-cf-role\"", func() {
 			Consistently(func(_ Gomega) bool {
 				var newRoleBinding rbacv1.RoleBinding
-				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBindingWithMissingPropagateAnnotation.Name}, &newRoleBinding))
+				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: roleBindingWithMissingPropagateAnnotation.Name}, &newRoleBinding))
 			}, time.Second).Should(BeTrue())
 		})
 
 		It("sets the CFOrg 'Ready' condition to 'True'", func() {
 			Eventually(func(g Gomega) {
 				var latestOrg korifiv1alpha1.CFOrg
-				err := k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &latestOrg)
+				err := k8sClient.Get(ctx, types.NamespacedName{Namespace: cfRootNamespace, Name: orgGUID}, &latestOrg)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(meta.IsStatusConditionTrue(latestOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 5*time.Second).Should(Succeed())
@@ -145,7 +135,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		It("sets status on CFOrg", func() {
 			Eventually(func(g Gomega) {
 				var createdOrg korifiv1alpha1.CFOrg
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &createdOrg)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfRootNamespace, Name: orgGUID}, &createdOrg)).To(Succeed())
 				g.Expect(createdOrg.Status.GUID).To(Equal(orgGUID))
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}).Should(Succeed())
@@ -154,7 +144,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		It("sets restricted pod security labels on the namespace", func() {
 			Eventually(func(g Gomega) {
 				var ns v1.Namespace
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &ns)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: orgGUID}, &ns)).To(Succeed())
 				g.Expect(ns.Labels).To(HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)))
 				g.Expect(ns.Labels).To(HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)))
 			}).Should(Succeed())
@@ -165,29 +155,29 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		var originalOrg *korifiv1alpha1.CFOrg
 
 		BeforeEach(func() {
-			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
+			Expect(k8sClient.Create(ctx, &cfOrg)).To(Succeed())
 			originalOrg = cfOrg.DeepCopy()
 			var createdNamespace v1.Namespace
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &createdNamespace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: orgGUID}, &createdNamespace)).To(Succeed())
 			}).Should(Succeed())
 
 			updatedNamespace := createdNamespace.DeepCopy()
 			updatedNamespace.Labels["foo.com/bar"] = "42"
 			updatedNamespace.Annotations["foo.com/bar"] = "43"
-			Expect(k8sClient.Patch(testCtx, updatedNamespace, client.MergeFrom(&createdNamespace))).To(Succeed())
+			Expect(k8sClient.Patch(ctx, updatedNamespace, client.MergeFrom(&createdNamespace))).To(Succeed())
 
 			cfOrg.Spec.DisplayName += "x"
 		})
 
 		JustBeforeEach(func() {
-			Expect(k8sClient.Patch(testCtx, &cfOrg, client.MergeFrom(originalOrg))).To(Succeed())
+			Expect(k8sClient.Patch(ctx, &cfOrg, client.MergeFrom(originalOrg))).To(Succeed())
 		})
 
 		It("sets the new display name annotation and preserves the added label and annoations", func() {
 			Eventually(func(g Gomega) {
 				var createdOrg v1.Namespace
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &createdOrg)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: orgGUID}, &createdOrg)).To(Succeed())
 				g.Expect(createdOrg.Annotations).To(HaveKeyWithValue(korifiv1alpha1.OrgNameKey, cfOrg.Spec.DisplayName))
 				g.Expect(createdOrg.Labels).To(HaveKeyWithValue("foo.com/bar", "42"))
 				g.Expect(createdOrg.Annotations).To(HaveKeyWithValue("foo.com/bar", "43"))
@@ -198,20 +188,20 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 	When("role-bindings are added/updated in root-ns after CFOrg creation", func() {
 		var newlyCreatedRoleBinding *rbacv1.RoleBinding
 		BeforeEach(func() {
-			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
+			Expect(k8sClient.Create(ctx, &cfOrg)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var createdOrg korifiv1alpha1.CFOrg
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &createdOrg)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfRootNamespace, Name: orgGUID}, &createdOrg)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
-			newlyCreatedRoleBinding = createRoleBinding(testCtx, k8sClient, PrefixedGUID("newly-created-role-binding"), PrefixedGUID("new-user"), role.Name, rootNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
+			newlyCreatedRoleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("newly-created-role-binding"), PrefixedGUID("new-user"), role.Name, cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
 		})
 
 		It("propagates the new role-binding to org namespace", func() {
 			Eventually(func(g Gomega) {
 				var createdRoleBindings rbacv1.RoleBindingList
-				g.Expect(k8sClient.List(testCtx, &createdRoleBindings, client.InNamespace(cfOrg.Name))).To(Succeed())
+				g.Expect(k8sClient.List(ctx, &createdRoleBindings, client.InNamespace(cfOrg.Name))).To(Succeed())
 				g.Expect(createdRoleBindings.Items).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -230,39 +220,39 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 
 	When("role bindings are deleted in the root-ns after CFOrg creation", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
+			Expect(k8sClient.Create(ctx, &cfOrg)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var createdOrg korifiv1alpha1.CFOrg
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Namespace: rootNamespace.Name, Name: orgGUID}, &createdOrg)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfRootNamespace, Name: orgGUID}, &createdOrg)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
-			Expect(k8sClient.Delete(testCtx, roleBinding)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, roleBinding)).To(Succeed())
 		})
 
 		It("deletes the corresponding role binding in CFOrg", func() {
 			Eventually(func() bool {
 				var deletedRoleBinding rbacv1.RoleBinding
-				return apierrors.IsNotFound(k8sClient.Get(testCtx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfOrg.Name}, &deletedRoleBinding))
+				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfOrg.Name}, &deletedRoleBinding))
 			}).Should(BeTrue(), "timed out waiting for role binding to be deleted")
 		})
 	})
 
 	When("the CFOrg is deleted", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(testCtx, &cfOrg)).To(Succeed())
+			Expect(k8sClient.Create(ctx, &cfOrg)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var orgNamespace v1.Namespace
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &orgNamespace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: orgGUID}, &orgNamespace)).To(Succeed())
 			}).Should(Succeed())
 
-			Expect(k8sClient.Delete(testCtx, &cfOrg)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, &cfOrg)).To(Succeed())
 		})
 
 		It("eventually deletes the CFOrg", func() {
 			Eventually(func() bool {
 				var createdCFOrg korifiv1alpha1.CFOrg
-				return apierrors.IsNotFound(k8sClient.Get(context.Background(), types.NamespacedName{Name: orgGUID, Namespace: rootNamespace.Name}, &createdCFOrg))
+				return apierrors.IsNotFound(k8sClient.Get(context.Background(), types.NamespacedName{Name: orgGUID, Namespace: cfRootNamespace}, &createdCFOrg))
 			}).Should(BeTrue(), "timed out waiting for org to be deleted")
 		})
 
@@ -270,7 +260,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			// Envtests do not cleanup namespaces. For testing, we check for deletion timestamps on namespace.
 			Eventually(func(g Gomega) bool {
 				var orgNamespace v1.Namespace
-				g.Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: orgGUID}, &orgNamespace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: orgGUID}, &orgNamespace)).To(Succeed())
 				return orgNamespace.GetDeletionTimestamp().IsZero()
 			}).Should(BeFalse(), "timed out waiting for deletion timestamps to be set on namespace")
 		})

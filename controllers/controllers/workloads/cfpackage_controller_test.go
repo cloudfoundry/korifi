@@ -13,13 +13,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("CFPackageReconciler Integration Tests", func() {
 	var (
-		namespaceGUID string
-		ns            *corev1.Namespace
+		cfSpace       *korifiv1alpha1.CFSpace
 		cfApp         *korifiv1alpha1.CFApp
 		cfAppGUID     string
 		cfPackage     *korifiv1alpha1.CFPackage
@@ -27,29 +25,24 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		namespaceGUID = GenerateGUID()
+		cfSpace = createSpace(cfOrg)
 		cfAppGUID = GenerateGUID()
 		cfPackageGUID = GenerateGUID()
-		ns = createNamespace(context.Background(), k8sClient, namespaceGUID)
 
-		cfApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
+		cfApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
 		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
-	})
-
-	AfterEach(func() {
-		Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
 	})
 
 	When("a new CFPackage resource is created", func() {
 		BeforeEach(func() {
-			cfPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
+			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID)
 			Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
 		})
 
 		It("eventually reconciles to set the owner reference on the CFPackage", func() {
 			Eventually(func() []metav1.OwnerReference {
 				var createdCFPackage korifiv1alpha1.CFPackage
-				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfPackageGUID, Namespace: namespaceGUID}, &createdCFPackage)
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfPackageGUID, Namespace: cfSpace.Status.GUID}, &createdCFPackage)
 				if err != nil {
 					return nil
 				}

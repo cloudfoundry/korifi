@@ -1,7 +1,6 @@
 package workloads_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,9 +20,7 @@ import (
 
 var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	var (
-		ctx context.Context
-		ns  string
-
+		cfSpace   *korifiv1alpha1.CFSpace
 		cfTask    *korifiv1alpha1.CFTask
 		cfApp     *korifiv1alpha1.CFApp
 		cfDroplet *korifiv1alpha1.CFBuild
@@ -31,17 +28,11 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
-		ns = testutils.PrefixedGUID("namespace")
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: ns,
-			},
-		})).To(Succeed())
+		cfSpace = createSpace(cfOrg)
 
 		cfDroplet = &korifiv1alpha1.CFBuild{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ns,
+				Namespace: cfSpace.Status.GUID,
 				Name:      testutils.PrefixedGUID("droplet"),
 			},
 			Spec: korifiv1alpha1.CFBuildSpec{
@@ -74,7 +65,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		envSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testutils.PrefixedGUID("env-secret"),
-				Namespace: ns,
+				Namespace: cfSpace.Status.GUID,
 			},
 			StringData: map[string]string{
 				"BOB":  "flemming",
@@ -88,7 +79,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		cfProcess := &korifiv1alpha1.CFProcess{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ns,
+				Namespace: cfSpace.Status.GUID,
 				Name:      testutils.PrefixedGUID("web-process"),
 				Labels: map[string]string{
 					korifiv1alpha1.CFProcessTypeLabelKey: "web",
@@ -110,7 +101,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ns,
+				Namespace: cfSpace.Status.GUID,
 				Name:      cfAppName,
 			},
 			Spec: korifiv1alpha1.CFAppSpec{
@@ -127,7 +118,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		cfTask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ns,
+				Namespace: cfSpace.Status.GUID,
 				Name:      testutils.PrefixedGUID("cftask"),
 			},
 			Spec: korifiv1alpha1.CFTaskSpec{
@@ -156,7 +147,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 			JustBeforeEach(func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, task)).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue(), "task did not become initialized")
 				}).Should(Succeed())
 			})
@@ -169,7 +160,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		It("sets the app to be the task owner", func() {
 			Eventually(func(g Gomega) {
 				task := &korifiv1alpha1.CFTask{}
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, task)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
 				g.Expect(task.GetOwnerReferences()).To(ConsistOf(HaveField("Name", cfApp.Name)))
 			}).Should(Succeed())
 		})
@@ -179,7 +170,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var taskWorkloads korifiv1alpha1.TaskWorkloadList
 				g.Expect(k8sClient.List(ctx, &taskWorkloads,
-					client.InNamespace(ns),
+					client.InNamespace(cfSpace.Status.GUID),
 					client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
 				)).To(Succeed())
 				g.Expect(taskWorkloads.Items).To(HaveLen(1))
@@ -237,6 +228,17 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 						},
 					},
 				},
+				corev1.EnvVar{
+					Name: "VCAP_APPLICATION",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: cfApp.Status.VCAPApplicationSecretName,
+							},
+							Key: "VCAP_APPLICATION",
+						},
+					},
+				},
 			))
 		})
 
@@ -245,7 +247,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Eventually(func(g Gomega) {
 					var taskWorkloads korifiv1alpha1.TaskWorkloadList
 					g.Expect(k8sClient.List(ctx, &taskWorkloads,
-						client.InNamespace(ns),
+						client.InNamespace(cfSpace.Status.GUID),
 						client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
 					)).To(Succeed())
 					g.Expect(taskWorkloads.Items).To(HaveLen(1))
@@ -266,7 +268,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Eventually(func(g Gomega) {
 					var task korifiv1alpha1.CFTask
 
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: cfTask.Name}, &task)).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, &task)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskStartedConditionType)).To(BeTrue())
 				}).Should(Succeed())
 			})
