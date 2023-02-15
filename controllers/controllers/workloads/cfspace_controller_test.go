@@ -26,11 +26,8 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 	)
 
 	var (
-		ctx                                             context.Context
-		orgNamespace                                    *corev1.Namespace
 		spaceGUID                                       string
 		cfSpace                                         *korifiv1alpha1.CFSpace
-		imageRegistrySecret                             *corev1.Secret
 		role                                            *rbacv1.ClusterRole
 		username                                        string
 		roleBinding                                     *rbacv1.RoleBinding
@@ -42,9 +39,6 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
-		orgNamespace = createNamespaceWithCleanup(ctx, k8sClient, PrefixedGUID("cf-org"))
-		imageRegistrySecret = createSecret(ctx, k8sClient, packageRegistrySecretName, orgNamespace.Name)
 		rules := []rbacv1.PolicyRule{
 			{
 				Verbs:     []string{"create"},
@@ -55,9 +49,9 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		role = createClusterRole(ctx, k8sClient, PrefixedGUID("clusterrole"), rules)
 
 		username = PrefixedGUID("user")
-		roleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role.Name, orgNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
-		roleBindingWithPropagateAnnotationSetToFalse = createRoleBinding(ctx, k8sClient, PrefixedGUID("rb-propagate-annotation-false"), username, role.Name, orgNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "false"})
-		roleBindingWithMissingPropagateAnnotation = createRoleBinding(ctx, k8sClient, PrefixedGUID("rb-missing-propagate-annotation"), username, role.Name, orgNamespace.Name, nil)
+		roleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("role-binding"), username, role.Name, cfOrg.Status.GUID, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
+		roleBindingWithPropagateAnnotationSetToFalse = createRoleBinding(ctx, k8sClient, PrefixedGUID("rb-propagate-annotation-false"), username, role.Name, cfOrg.Status.GUID, map[string]string{"cloudfoundry.org/propagate-cf-role": "false"})
+		roleBindingWithMissingPropagateAnnotation = createRoleBinding(ctx, k8sClient, PrefixedGUID("rb-missing-propagate-annotation"), username, role.Name, cfOrg.Status.GUID, nil)
 
 		serviceAccount = createServiceAccount(ctx, k8sClient, PrefixedGUID("service-account"), cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-service-account": "true"})
 		serviceAccountWithPropagateAnnotationSetToFalse = createServiceAccount(ctx, k8sClient, PrefixedGUID("service-account-false-propagate"), cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-service-account": "false"})
@@ -67,7 +61,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		cfSpace = &korifiv1alpha1.CFSpace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      spaceGUID,
-				Namespace: orgNamespace.Name,
+				Namespace: cfOrg.Status.GUID,
 			},
 			Spec: korifiv1alpha1.CFSpaceSpec{
 				DisplayName: spaceName,
@@ -95,7 +89,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		It("sets the finalizer on cfSpace", func() {
 			Eventually(func(g Gomega) []string {
 				var createdCFSpace korifiv1alpha1.CFSpace
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
 				return createdCFSpace.ObjectMeta.Finalizers
 			}).Should(ConsistOf([]string{
 				"cfSpace.korifi.cloudfoundry.org",
@@ -243,11 +237,11 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
-			newlyCreatedRoleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("newly-created-role-binding"), username, role.Name, orgNamespace.Name, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
+			newlyCreatedRoleBinding = createRoleBinding(ctx, k8sClient, PrefixedGUID("newly-created-role-binding"), username, role.Name, cfOrg.Status.GUID, map[string]string{"cloudfoundry.org/propagate-cf-role": "true"})
 
 			Expect(k8s.Patch(ctx, k8sClient, roleBinding, func() {
 				roleBinding.SetLabels(map[string]string{"foo": "bar"})
@@ -281,7 +275,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
@@ -323,7 +317,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
@@ -378,7 +372,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
@@ -435,7 +429,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
@@ -455,7 +449,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: orgNamespace.Name, Name: spaceGUID}, &createdSpace)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
@@ -484,7 +478,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		It("eventually deletes the CFSpace", func() {
 			Eventually(func() bool {
 				var createdCFSpace korifiv1alpha1.CFSpace
-				return apierrors.IsNotFound(k8sClient.Get(context.Background(), types.NamespacedName{Name: spaceGUID, Namespace: orgNamespace.Name}, &createdCFSpace))
+				return apierrors.IsNotFound(k8sClient.Get(context.Background(), types.NamespacedName{Name: spaceGUID, Namespace: cfOrg.Status.GUID}, &createdCFSpace))
 			}).Should(BeTrue(), "timed out waiting for CFSpace to be deleted")
 		})
 

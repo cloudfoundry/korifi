@@ -23,18 +23,10 @@ import (
 )
 
 var _ = Describe("CFAppReconciler Integration Tests", func() {
-	var (
-		namespaceGUID string
-		ns            *corev1.Namespace
-	)
+	var cfSpace *korifiv1alpha1.CFSpace
 
 	BeforeEach(func() {
-		namespaceGUID = GenerateGUID()
-		ns = createNamespace(context.Background(), k8sClient, namespaceGUID)
-	})
-
-	AfterEach(func() {
-		Expect(k8sClient.Delete(context.Background(), ns)).To(Succeed())
+		cfSpace = createSpace(cfOrg)
 	})
 
 	When("a new CFApp resource is created", func() {
@@ -56,7 +48,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
-					Namespace: namespaceGUID,
+					Namespace: cfSpace.Status.GUID,
 				},
 				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  "test-app",
@@ -103,7 +95,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 						Name: cfApp.Name,
 					},
 					Service: corev1.ObjectReference{
-						Namespace: namespaceGUID,
+						Namespace: cfSpace.Status.GUID,
 						Name:      serviceInstance.Name,
 					},
 				},
@@ -117,73 +109,52 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			})).To(Succeed())
 		})
 
-		waitForNonEmptyVcapServices := func(g Gomega) *corev1.Secret {
-			createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
-			g.Expect(err).NotTo(HaveOccurred())
+		It("sets status.vcapApplicationSecretName and creates the corresponding secret", func() {
+			var createdSecret corev1.Secret
 
-			vcapServicesSecretName := createdCFApp.Status.VCAPServicesSecretName
-			g.Expect(vcapServicesSecretName).NotTo(BeEmpty())
+			Eventually(func(g Gomega) {
+				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
+				g.Expect(err).NotTo(HaveOccurred())
 
-			vcapServicesSecretLookupKey := types.NamespacedName{Name: vcapServicesSecretName, Namespace: namespaceGUID}
-			createdSecret := new(corev1.Secret)
-			g.Expect(k8sClient.Get(ctx, vcapServicesSecretLookupKey, createdSecret)).To(Succeed())
-			g.Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", ContainSubstring("user-provided")))
+				vcapApplicationSecretName := createdCFApp.Status.VCAPApplicationSecretName
+				g.Expect(vcapApplicationSecretName).NotTo(BeEmpty())
 
-			return createdSecret
+				vcapApplicationSecretLookupKey := types.NamespacedName{Name: vcapApplicationSecretName, Namespace: cfSpace.Status.GUID}
+				g.Expect(k8sClient.Get(ctx, vcapApplicationSecretLookupKey, &createdSecret)).To(Succeed())
+			}).Should(Succeed())
+
+			Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_APPLICATION", ContainSubstring("application_id")))
+			Expect(createdSecret.OwnerReferences).To(HaveLen(1))
+			Expect(createdSecret.OwnerReferences[0].Name).To(Equal(cfApp.Name))
+		})
+
+		getVCAPServicesSecret := func() *corev1.Secret {
+			secret := new(corev1.Secret)
+			Eventually(func(g Gomega) {
+				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				vcapServicesSecretName := createdCFApp.Status.VCAPServicesSecretName
+				g.Expect(vcapServicesSecretName).NotTo(BeEmpty())
+
+				vcapServicesSecretLookupKey := types.NamespacedName{Name: vcapServicesSecretName, Namespace: cfSpace.Status.GUID}
+				g.Expect(k8sClient.Get(ctx, vcapServicesSecretLookupKey, secret)).To(Succeed())
+				g.Expect(secret.Data).To(HaveKeyWithValue("VCAP_SERVICES", ContainSubstring("user-provided")))
+			}).Should(Succeed())
+
+			return secret
 		}
 
 		It("sets status.vcapServicesSecretName and creates the corresponding secret", func() {
-			Eventually(func(g Gomega) {
-				createdSecret := waitForNonEmptyVcapServices(g)
-
-				g.Expect(createdSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
-					{
-						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-						Kind:       "CFApp",
-						Name:       cfApp.Name,
-						UID:        cfApp.GetUID(),
-					},
-				}))
-				g.Expect(createdSecret.OwnerReferences).To(HaveLen(1))
-				g.Expect(createdSecret.OwnerReferences[0].Name).To(Equal(cfApp.Name))
-			}).Should(Succeed())
-		})
-
-		waitForNonEmptyVcapApplication := func(g Gomega) *corev1.Secret {
-			createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
-			g.Expect(err).NotTo(HaveOccurred())
-
-			vcapApplicationSecretName := createdCFApp.Status.VCAPApplicationSecretName
-			g.Expect(vcapApplicationSecretName).NotTo(BeEmpty())
-
-			vcapApplicationSecretLookupKey := types.NamespacedName{Name: vcapApplicationSecretName, Namespace: namespaceGUID}
-			createdSecret := new(corev1.Secret)
-			g.Expect(k8sClient.Get(ctx, vcapApplicationSecretLookupKey, createdSecret)).To(Succeed())
-			g.Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_APPLICATION", ContainSubstring("application_id")))
-
-			return createdSecret
-		}
-
-		It("sets status.vcapApplicationSecretName and creates the corresponding secret", func() {
-			Eventually(func(g Gomega) {
-				createdSecret := waitForNonEmptyVcapApplication(g)
-
-				g.Expect(createdSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
-					{
-						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-						Kind:       "CFApp",
-						Name:       cfApp.Name,
-						UID:        cfApp.GetUID(),
-					},
-				}))
-				g.Expect(createdSecret.OwnerReferences).To(HaveLen(1))
-				g.Expect(createdSecret.OwnerReferences[0].Name).To(Equal(cfApp.Name))
-			}).Should(Succeed())
+			createdSecret := getVCAPServicesSecret()
+			Expect(createdSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", ContainSubstring("user-provided")))
+			Expect(createdSecret.OwnerReferences).To(HaveLen(1))
+			Expect(createdSecret.OwnerReferences[0].Name).To(Equal(cfApp.Name))
 		})
 
 		It("sets its status.conditions", func() {
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
 
 				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
@@ -195,10 +166,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			var vcapServicesSecret *corev1.Secret
 
 			BeforeEach(func() {
-				Eventually(func(g Gomega) {
-					vcapServicesSecret = waitForNonEmptyVcapServices(g)
-				}).Should(Succeed())
-
+				vcapServicesSecret = getVCAPServicesSecret()
 				Expect(k8sClient.Delete(ctx, serviceBinding)).To(Succeed())
 			})
 
@@ -220,7 +188,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			cfAppGUID = GenerateGUID()
 
-			cfApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
+			cfApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
 			cfApp.Spec.CurrentDropletRef.Name = "droplet-that-does-not-exist"
 			Expect(
 				k8sClient.Create(context.Background(), cfApp),
@@ -229,7 +197,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		It("sets the staged condition to false", func() {
 			Consistently(func(g Gomega) {
-				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
 			}, "1s").Should(Succeed())
@@ -261,17 +229,17 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			cfPackageGUID = GenerateGUID()
 			cfBuildGUID = GenerateGUID()
 
-			cfApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
+			cfApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
 			Expect(
 				k8sClient.Create(context.Background(), cfApp),
 			).To(Succeed())
 
-			cfPackage = BuildCFPackageCRObject(cfPackageGUID, namespaceGUID, cfAppGUID)
+			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID)
 			Expect(
 				k8sClient.Create(context.Background(), cfPackage),
 			).To(Succeed())
 
-			cfBuild = BuildCFBuildObject(cfBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+			cfBuild = BuildCFBuildObject(cfBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
 			dropletProcessTypes = map[string]string{
 				processTypeWeb:    processTypeWebCommand,
 				processTypeWorker: processTypeWorkerCommand,
@@ -282,7 +250,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypes, []int32{port8080, port9000})
 			cfBuild = createBuildWithDroplet(context.Background(), k8sClient, cfBuild, buildDropletStatus)
 
-			patchAppWithDroplet(context.Background(), k8sClient, cfAppGUID, namespaceGUID, cfBuildGUID)
+			patchAppWithDroplet(context.Background(), k8sClient, cfAppGUID, cfSpace.Status.GUID, cfBuildGUID)
 		})
 
 		When("CFProcesses do not exist for the app", func() {
@@ -331,7 +299,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				cfRoute = &korifiv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      cfRouteGUID,
-						Namespace: namespaceGUID,
+						Namespace: cfSpace.Status.GUID,
 					},
 					Spec: korifiv1alpha1.CFRouteSpec{
 						Host:     "testRouteHost",
@@ -339,7 +307,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 						Protocol: "http",
 						DomainRef: corev1.ObjectReference{
 							Name:      "testDomainGUID",
-							Namespace: namespaceGUID,
+							Namespace: cfSpace.Status.GUID,
 						},
 						Destinations: []korifiv1alpha1.Destination{
 							{
@@ -394,7 +362,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			BeforeEach(func() {
 				beforeCtx := context.Background()
 				cfProcessForTypeWebGUID = GenerateGUID()
-				cfProcessForTypeWeb = BuildCFProcessCRObject(cfProcessForTypeWebGUID, namespaceGUID, cfAppGUID, processTypeWeb, processTypeWebCommand, "")
+				cfProcessForTypeWeb = BuildCFProcessCRObject(cfProcessForTypeWebGUID, cfSpace.Status.GUID, cfAppGUID, processTypeWeb, processTypeWebCommand, "")
 				cfProcessForTypeWeb.Spec.Command = ""
 				Expect(k8sClient.Create(beforeCtx, cfProcessForTypeWeb)).To(Succeed())
 			})
@@ -426,7 +394,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					}).Should(Succeed())
 					Consistently(func(g Gomega) {
 						proc := findProcessWithType(cfApp, processTypeWeb)
-						Expect(proc.Spec.Command).To(Equal("something else"))
+						g.Expect(proc.Spec.Command).To(Equal("something else"))
 					}).Should(Succeed())
 				})
 			})
@@ -463,7 +431,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				var existingWebProcess *korifiv1alpha1.CFProcess
 
 				BeforeEach(func() {
-					existingWebProcess = BuildCFProcessCRObject(GenerateGUID(), namespaceGUID, cfAppGUID, processTypeWeb, processTypeWebCommand, "")
+					existingWebProcess = BuildCFProcessCRObject(GenerateGUID(), cfSpace.Status.GUID, cfAppGUID, processTypeWeb, processTypeWebCommand, "")
 					Expect(
 						k8sClient.Create(context.Background(), existingWebProcess),
 					).To(Succeed())
@@ -497,7 +465,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				beforeCtx := context.Background()
 
 				otherBuildGUID = GenerateGUID()
-				otherCFBuild = BuildCFBuildObject(otherBuildGUID, namespaceGUID, cfPackageGUID, cfAppGUID)
+				otherCFBuild = BuildCFBuildObject(otherBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
 				dropletProcessTypeMap := map[string]string{
 					processTypeWeb: processTypeWebCommand,
 				}
@@ -529,7 +497,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		It("sets the staged condition to true", func() {
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
 			}).Should(Succeed())
@@ -538,7 +506,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		When("the droplet disappears", func() {
 			JustBeforeEach(func() {
 				Eventually(func(g Gomega) {
-					createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
 				}).Should(Succeed())
@@ -547,7 +515,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 			It("unsets the staged condition", func() {
 				Eventually(func(g Gomega) {
-					createdCFApp, err := getApp(namespaceGUID, cfAppGUID)
+					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
 				}).Should(Succeed())
@@ -565,14 +533,14 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		BeforeEach(func() {
 			cfAppGUID = GenerateGUID()
-			cfApp = BuildCFAppCRObject(cfAppGUID, namespaceGUID)
+			cfApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
 			Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
 			cfRouteGUID = GenerateGUID()
 			cfRoute = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfRouteGUID,
-					Namespace: namespaceGUID,
+					Namespace: cfSpace.Status.GUID,
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "testRouteHost",
@@ -580,7 +548,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Protocol: "http",
 					DomainRef: corev1.ObjectReference{
 						Name:      "testDomainGUID",
-						Namespace: namespaceGUID,
+						Namespace: cfSpace.Status.GUID,
 					},
 					Destinations: []korifiv1alpha1.Destination{
 						{
@@ -614,7 +582,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		It("eventually deletes the CFApp", func() {
 			Eventually(func() bool {
 				var createdCFApp korifiv1alpha1.CFApp
-				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: namespaceGUID}, &createdCFApp)
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, &createdCFApp)
 				return apierrors.IsNotFound(err)
 			}).Should(BeTrue(), "timed out waiting for app to be deleted")
 		})
@@ -622,7 +590,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		It("eventually deletes the destination on the CFRoute", func() {
 			var createdCFRoute korifiv1alpha1.CFRoute
 			Eventually(func() []korifiv1alpha1.Destination {
-				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfRouteGUID, Namespace: namespaceGUID}, &createdCFRoute)
+				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfRouteGUID, Namespace: cfSpace.Status.GUID}, &createdCFRoute)
 				if err != nil {
 					return []korifiv1alpha1.Destination{}
 				}
@@ -645,7 +613,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				cfServiceBinding := korifiv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      PrefixedGUID("service-binding"),
-						Namespace: namespaceGUID,
+						Namespace: cfSpace.Status.GUID,
 					},
 					Spec: korifiv1alpha1.CFServiceBindingSpec{
 						AppRef: corev1.LocalObjectReference{
@@ -659,7 +627,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			It("deletes the referencing service bindings", func() {
 				Eventually(func(g Gomega) {
 					sbList := korifiv1alpha1.CFServiceBindingList{}
-					g.Expect(k8sClient.List(context.Background(), &sbList, client.InNamespace(namespaceGUID))).To(Succeed())
+					g.Expect(k8sClient.List(context.Background(), &sbList, client.InNamespace(cfSpace.Status.GUID))).To(Succeed())
 					g.Expect(sbList.Items).To(BeEmpty())
 				}).Should(Succeed())
 			})
