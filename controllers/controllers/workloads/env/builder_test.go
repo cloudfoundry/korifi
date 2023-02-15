@@ -3,10 +3,13 @@ package env_test
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -55,7 +58,7 @@ var _ = Describe("Builder", func() {
 				Type:        "user-provided",
 			},
 		}
-		Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
+		ensureCreate(serviceInstance)
 
 		serviceBindingSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -66,10 +69,10 @@ var _ = Describe("Builder", func() {
 				"foo": []byte("bar"),
 			},
 		}
-		Expect(k8sClient.Create(ctx, serviceBindingSecret)).To(Succeed())
+		ensureCreate(serviceBindingSecret)
 
 		serviceBindingName := "my-service-binding"
-		serviceBinding = createWithStatus(&korifiv1alpha1.CFServiceBinding{
+		serviceBinding = &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      "my-service-binding-guid",
@@ -83,7 +86,9 @@ var _ = Describe("Builder", func() {
 					Name: "app-guid",
 				},
 			},
-		}, func(sb *korifiv1alpha1.CFServiceBinding) {
+		}
+		ensureCreate(serviceBinding)
+		ensurePatch(serviceBinding, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
 				Conditions: []metav1.Condition{},
 				Binding: corev1.LocalObjectReference{
@@ -92,7 +97,7 @@ var _ = Describe("Builder", func() {
 			}
 		})
 
-		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceInstance{
+		ensureCreate(&korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      "my-service-instance-guid-2",
@@ -102,9 +107,9 @@ var _ = Describe("Builder", func() {
 				Tags:        []string{"t1", "t2"},
 				Type:        "user-provided",
 			},
-		})).To(Succeed())
+		})
 
-		Expect(k8sClient.Create(ctx, &corev1.Secret{
+		ensureCreate(&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      "service-binding-secret-2",
@@ -112,10 +117,10 @@ var _ = Describe("Builder", func() {
 			Data: map[string][]byte{
 				"bar": []byte("foo"),
 			},
-		})).To(Succeed())
+		})
 
 		serviceBindingName2 := "my-service-binding-2"
-		createWithStatus(&korifiv1alpha1.CFServiceBinding{
+		serviceBinding2 := &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      "my-service-binding-guid-2",
@@ -129,7 +134,9 @@ var _ = Describe("Builder", func() {
 					Name: "app-guid",
 				},
 			},
-		}, func(sb *korifiv1alpha1.CFServiceBinding) {
+		}
+		ensureCreate(serviceBinding2)
+		ensurePatch(serviceBinding2, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
 				Conditions: []metav1.Condition{},
 				Binding: corev1.LocalObjectReference{
@@ -147,9 +154,9 @@ var _ = Describe("Builder", func() {
 				"app-secret": []byte("top-secret"),
 			},
 		}
-		Expect(k8sClient.Create(ctx, appSecret)).To(Succeed())
+		ensureCreate(appSecret)
 
-		cfApp = createWithStatus(&korifiv1alpha1.CFApp{
+		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      "app-guid",
@@ -162,15 +169,18 @@ var _ = Describe("Builder", func() {
 					Type: "buildpack",
 				},
 			},
-		}, func(app *korifiv1alpha1.CFApp) {
+		}
+		ensureCreate(cfApp)
+		ensurePatch(cfApp, func(app *korifiv1alpha1.CFApp) {
 			app.Status = korifiv1alpha1.CFAppStatus{
 				Conditions:             []metav1.Condition{},
 				VCAPServicesSecretName: vcapServicesSecretName,
 			}
 			meta.SetStatusCondition(&app.Status.Conditions, metav1.Condition{
-				Type:   "Ready",
-				Status: metav1.ConditionTrue,
-				Reason: "testing",
+				Type:               "Ready",
+				Status:             metav1.ConditionTrue,
+				Reason:             "testing",
+				LastTransitionTime: metav1.Date(2023, 2, 15, 12, 0, 0, 0, time.FixedZone("", 0)),
 			})
 		})
 
@@ -181,13 +191,14 @@ var _ = Describe("Builder", func() {
 			},
 			Data: map[string][]byte{vcapServicesKey: []byte(vcapServicesData)},
 		}
-		Expect(k8sClient.Create(ctx, vcapServicesSecret)).To(Succeed())
+		ensureCreate(vcapServicesSecret)
 	})
 
 	Describe("BuildEnv", func() {
 		JustBeforeEach(func() {
 			envVars, buildEnvErr = builder.BuildEnv(context.Background(), cfApp)
 		})
+
 		It("succeeds", func() {
 			Expect(buildEnvErr).NotTo(HaveOccurred())
 		})
@@ -221,7 +232,7 @@ var _ = Describe("Builder", func() {
 
 		When("the app env secret does not exist", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, appSecret)).To(Succeed())
+				ensureDelete(appSecret)
 			})
 
 			It("errors", func() {
@@ -231,9 +242,9 @@ var _ = Describe("Builder", func() {
 
 		When("the app env secret is empty", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, appSecret, func() {
-					appSecret.Data = map[string][]byte{}
-				})).To(Succeed())
+				ensurePatch(appSecret, func(s *corev1.Secret) {
+					s.Data = map[string][]byte{}
+				})
 			})
 
 			It("returns only vcap services env var", func() {
@@ -253,9 +264,9 @@ var _ = Describe("Builder", func() {
 
 		When("the app does not have an associated app env secret", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-					cfApp.Spec.EnvSecretName = ""
-				})).To(Succeed())
+				ensurePatch(cfApp, func(a *korifiv1alpha1.CFApp) {
+					a.Spec.EnvSecretName = ""
+				})
 			})
 
 			It("succeeds", func() {
@@ -279,7 +290,7 @@ var _ = Describe("Builder", func() {
 
 		When("the app vcap services secret does not exist", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, vcapServicesSecret)).To(Succeed())
+				ensureDelete(vcapServicesSecret)
 			})
 
 			It("errors", func() {
@@ -289,9 +300,9 @@ var _ = Describe("Builder", func() {
 
 		When("the app vcap services secret is empty", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, vcapServicesSecret, func() {
-					vcapServicesSecret.Data = map[string][]byte{}
-				})).To(Succeed())
+				ensurePatch(vcapServicesSecret, func(s *corev1.Secret) {
+					s.Data = map[string][]byte{}
+				})
 			})
 
 			It("returns only app env vars", func() {
@@ -311,9 +322,9 @@ var _ = Describe("Builder", func() {
 
 		When("the app does not have an associated app vcap services secret", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-					cfApp.Status.VCAPServicesSecretName = ""
-				})).To(Succeed())
+				ensurePatch(cfApp, func(a *korifiv1alpha1.CFApp) {
+					a.Status.VCAPServicesSecretName = ""
+				})
 			})
 
 			It("succeeds", func() {
@@ -379,9 +390,9 @@ var _ = Describe("Builder", func() {
 
 		When("the service binding has no name", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, serviceBinding, func() {
-					serviceBinding.Spec.DisplayName = nil
-				})).To(Succeed())
+				ensurePatch(serviceBinding, func(sb *korifiv1alpha1.CFServiceBinding) {
+					sb.Spec.DisplayName = nil
+				})
 			})
 
 			It("uses the service instance name as name", func() {
@@ -395,9 +406,9 @@ var _ = Describe("Builder", func() {
 
 		When("service instance tags are nil", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, serviceInstance, func() {
-					serviceInstance.Spec.Tags = nil
-				})).To(Succeed())
+				ensurePatch(serviceInstance, func(si *korifiv1alpha1.CFServiceInstance) {
+					si.Spec.Tags = nil
+				})
 			})
 
 			It("sets an empty array to tags", func() {
@@ -422,7 +433,7 @@ var _ = Describe("Builder", func() {
 
 		When("getting the service binding secret fails", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, serviceBindingSecret)).To(Succeed())
+				ensureDelete(serviceBindingSecret)
 			})
 
 			It("returns an error", func() {
@@ -431,6 +442,33 @@ var _ = Describe("Builder", func() {
 		})
 	})
 })
+
+func ensureCreate(obj client.Object) {
+	Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+	}).Should(Succeed())
+}
+
+func ensurePatch[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, modifyFunc func(PT)) {
+	Expect(k8s.Patch(ctx, k8sClient, obj, func() {
+		modifyFunc(obj)
+	})).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+		objCopy := obj.DeepCopy()
+		modifyFunc(objCopy)
+		g.Expect(equality.Semantic.DeepEqual(objCopy, obj)).To(BeTrue())
+	}).Should(Succeed())
+}
+
+func ensureDelete(obj client.Object) {
+	Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
+	Eventually(func(g Gomega) {
+		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+		g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+	}).Should(Succeed())
+}
 
 func extractServiceInfo(vcapServicesData string) []map[string]interface{} {
 	var vcapServices map[string]interface{}
@@ -451,12 +489,4 @@ func extractServiceInfo(vcapServicesData string) []map[string]interface{} {
 	}
 
 	return infos
-}
-
-func createWithStatus[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, setStatus func(PT)) PT {
-	Expect(k8sClient.Create(ctx, obj)).To(Succeed())
-	Expect(k8s.Patch(ctx, k8sClient, obj, func() {
-		setStatus(obj)
-	})).To(Succeed())
-	return obj
 }
