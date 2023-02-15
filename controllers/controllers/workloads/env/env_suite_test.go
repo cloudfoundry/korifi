@@ -7,6 +7,8 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -16,6 +18,8 @@ import (
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,6 +37,7 @@ var (
 	cfOrg         *korifiv1alpha1.CFOrg
 	cfSpace       *korifiv1alpha1.CFSpace
 	ctx           context.Context
+	cfApp         *korifiv1alpha1.CFApp
 )
 
 func TestEnvBuilders(t *testing.T) {
@@ -123,6 +128,35 @@ var _ = BeforeEach(func() {
 		cfSpace.Status.GUID = testutils.PrefixedGUID("space")
 	})
 	createNamespace(cfSpace.Status.GUID)
+
+	cfApp = &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfSpace.Status.GUID,
+			Name:      "app-guid",
+		},
+		Spec: korifiv1alpha1.CFAppSpec{
+			EnvSecretName: "app-env-secret",
+			DisplayName:   "app-display-name",
+			DesiredState:  korifiv1alpha1.StoppedState,
+			Lifecycle: korifiv1alpha1.Lifecycle{
+				Type: "buildpack",
+			},
+		},
+	}
+	ensureCreate(cfApp)
+	ensurePatch(cfApp, func(app *korifiv1alpha1.CFApp) {
+		app.Status = korifiv1alpha1.CFAppStatus{
+			Conditions:                []metav1.Condition{},
+			VCAPServicesSecretName:    "app-guid-vcap-services",
+			VCAPApplicationSecretName: "app-guid-vcap-application",
+		}
+		meta.SetStatusCondition(&app.Status.Conditions, metav1.Condition{
+			Type:               "Ready",
+			Status:             metav1.ConditionTrue,
+			Reason:             "testing",
+			LastTransitionTime: metav1.Date(2023, 2, 15, 12, 0, 0, 0, time.FixedZone("", 0)),
+		})
+	})
 })
 
 func createNamespace(name string) *corev1.Namespace {
@@ -167,5 +201,32 @@ func patchCFAppAndWait(cfApp *korifiv1alpha1.CFApp, setFn func(a *korifiv1alpha1
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 		g.Expect(checkFn(cfApp)).To(BeTrue())
+	}).Should(Succeed())
+}
+
+func ensureCreate(obj client.Object) {
+	Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+	}).Should(Succeed())
+}
+
+func ensurePatch[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, modifyFunc func(PT)) {
+	Expect(k8s.Patch(ctx, k8sClient, obj, func() {
+		modifyFunc(obj)
+	})).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+		objCopy := obj.DeepCopy()
+		modifyFunc(objCopy)
+		g.Expect(equality.Semantic.DeepEqual(objCopy, obj)).To(BeTrue())
+	}).Should(Succeed())
+}
+
+func ensureDelete(obj client.Object) {
+	Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
+	Eventually(func(g Gomega) {
+		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+		g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 	}).Should(Succeed())
 }

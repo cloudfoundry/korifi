@@ -141,7 +141,8 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFApp"),
-			env.NewBuilder(mgr.GetClient()),
+			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient()),
+			env.NewVCAPApplicationEnvValueBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 			os.Exit(1)
@@ -152,7 +153,7 @@ func main() {
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFBuild"),
 			controllerConfig,
-			env.NewBuilder(mgr.GetClient()),
+			env.NewWorkloadEnvBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
 			os.Exit(1)
@@ -172,7 +173,7 @@ func main() {
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFProcess"),
 			controllerConfig,
-			env.NewBuilder(mgr.GetClient()),
+			env.NewWorkloadEnvBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
 			os.Exit(1)
@@ -238,7 +239,7 @@ func main() {
 			mgr.GetScheme(),
 			mgr.GetEventRecorderFor("cftask-controller"),
 			ctrl.Log.WithName("controllers").WithName("CFTask"),
-			env.NewBuilder(mgr.GetClient()),
+			env.NewWorkloadEnvBuilder(mgr.GetClient()),
 			taskTTL,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFTask")
