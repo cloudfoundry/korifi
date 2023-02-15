@@ -29,7 +29,7 @@ var _ = Describe("Service Bindings", func() {
 		deleteSpace(spaceGUID)
 	})
 
-	Describe("Create", func() {
+	Describe("POST /v3/service_credential_bindings/{guid}", func() {
 		JustBeforeEach(func() {
 			httpResp, httpError = certClient.R().
 				SetBody(typedResource{
@@ -80,7 +80,27 @@ var _ = Describe("Service Bindings", func() {
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("GET /v3/service_credential_bindings/{guid}", func() {
+		var respResource responseResource
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+		})
+
+		JustBeforeEach(func() {
+			httpResp, httpError = certClient.R().
+				SetResult(&respResource).
+				Get("/v3/service_credential_bindings/" + bindingGUID)
+		})
+
+		It("gets the service binding", func() {
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(respResource.GUID).To(Equal(bindingGUID))
+		})
+	})
+
+	Describe("DELETE /v3/service_credential_bindings/{guid}", func() {
 		BeforeEach(func() {
 			bindingGUID = createServiceBinding(appGUID, instanceGUID)
 		})
@@ -117,7 +137,7 @@ var _ = Describe("Service Bindings", func() {
 		})
 	})
 
-	Describe("List", func() {
+	Describe("GET /v3/service_credential_bindings", func() {
 		var (
 			queryString string
 			result      resourceListWithInclusion
@@ -189,7 +209,7 @@ var _ = Describe("Service Bindings", func() {
 		})
 	})
 
-	Describe("Patch", func() {
+	Describe("PATCH /v3/service_credential_bindings/{guid}", func() {
 		var respResource responseResource
 
 		BeforeEach(func() {

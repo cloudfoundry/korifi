@@ -245,6 +245,115 @@ var _ = Describe("ServiceBinding", func() {
 		})
 	})
 
+	Describe("GET /v3/service_credential_bindings/{guid}", func() {
+		BeforeEach(func() {
+			serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{
+				GUID:                serviceBindingGUID,
+				Name:                tools.PtrTo("some-binding-name"),
+				Type:                "app",
+				AppGUID:             appGUID,
+				ServiceInstanceGUID: serviceInstanceGUID,
+				SpaceGUID:           spaceGUID,
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"bar": "baz",
+				},
+				CreatedAt: "created-on",
+				UpdatedAt: "updated-on",
+				LastOperation: repositories.ServiceBindingLastOperation{
+					Type:        "op1",
+					State:       "state1",
+					Description: tools.PtrTo("desc"),
+					CreatedAt:   "op1-created-on",
+					UpdatedAt:   "op1-updated-on",
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/service_credential_bindings/"+serviceBindingGUID, strings.NewReader(""))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("has the correct response type", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+		})
+
+		It("returns the correct JSON", func() {
+			Expect(rr.Body.String()).To(MatchJSON(`
+				{
+					"guid": "some-generated-guid",
+					"name": "some-binding-name",
+					"created_at": "created-on",
+					"updated_at": "updated-on",
+					"type": "app",
+					"last_operation": {
+					  "type": "op1",
+					  "state": "state1",
+					  "description": "desc",
+					  "created_at": "op1-created-on",
+					  "updated_at": "op1-updated-on"
+					},
+					"metadata": {
+						"labels": {
+							"foo": "bar"
+						},
+						"annotations": {
+							"bar": "baz"
+						}
+					},
+					"relationships": {
+						"app": {
+						  "data": {
+							"guid": "test-app-guid"
+						  }
+						},
+						"service_instance": {
+						  "data": {
+							"guid": "test-service-instance-guid"
+						  }
+						}
+					},
+					"links": {
+						"self": {
+						  "href": "https://api.example.org/v3/service_credential_bindings/some-generated-guid"
+						},
+						"details": {
+						  "href": "https://api.example.org/v3/service_credential_bindings/some-generated-guid/details"
+						},
+						"service_instance": {
+						  "href": "https://api.example.org/v3/service_instances/test-service-instance-guid"
+						},
+						"app": {
+						  "href": "https://api.example.org/v3/apps/test-app-guid"
+						}
+				}
+			}`))
+		})
+
+		When("the service bindding repo returns an error", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("get-service-binding-error"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the user is not authorized", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, "CFServiceBinding"))
+			})
+
+			It("returns 404 NotFound", func() {
+				expectNotFoundError("CFServiceBinding not found")
+			})
+		})
+	})
+
 	Describe("GET /v3/service_credential_bindings", func() {
 		BeforeEach(func() {
 			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{{
