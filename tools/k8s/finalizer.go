@@ -17,10 +17,11 @@ func AddFinalizer[T any, PT ObjectWithDeepCopy[T]](
 ) error {
 	origObj := PT(obj.DeepCopy())
 	if controllerutil.AddFinalizer(obj, finalizerName) {
-		return k8sClient.Patch(ctx, obj, client.MergeFrom(origObj))
+		if err := k8sClient.Patch(ctx, obj, client.MergeFrom(origObj)); err != nil {
+			return err
+		}
+		log.Info("added finalizer")
 	}
-
-	log.Info("Finalizer added")
 
 	return nil
 }
