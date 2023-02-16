@@ -52,13 +52,15 @@ type CFAppStatus struct {
 	Conditions []metav1.Condition `json:"conditions"`
 
 	// Deprecated: No longer used
-	// +kubebuilder:validation:Optional
+	//+kubebuilder:validation:Optional
 	ObservedDesiredState DesiredState `json:"observedDesiredState"`
 
 	// VCAPServicesSecretName contains the name of the CFApp's VCAP_SERVICES Secret, which should exist in the same namespace
+	//+kubebuilder:validation:Optional
 	VCAPServicesSecretName string `json:"vcapServicesSecretName"`
 
 	// VCAPApplicationSecretName contains the name of the CFApp's VCAP_APPLICATION Secret, which should exist in the same namespace
+	//+kubebuilder:validation:Optional
 	VCAPApplicationSecretName string `json:"vcapApplicationSecretName"`
 }
 
