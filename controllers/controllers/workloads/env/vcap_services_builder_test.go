@@ -5,7 +5,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -177,9 +176,9 @@ var _ = Describe("Builder", func() {
 
 		When("the service binding has no name", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, serviceBinding, func() {
-					serviceBinding.Spec.DisplayName = nil
-				})).To(Succeed())
+				ensurePatch(serviceBinding, func(s *korifiv1alpha1.CFServiceBinding) {
+					s.Spec.DisplayName = nil
+				})
 			})
 
 			It("uses the service instance name as name", func() {
@@ -193,9 +192,9 @@ var _ = Describe("Builder", func() {
 
 		When("service instance tags are nil", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, serviceInstance, func() {
-					serviceInstance.Spec.Tags = nil
-				})).To(Succeed())
+				ensurePatch(serviceInstance, func(s *korifiv1alpha1.CFServiceInstance) {
+					s.Spec.Tags = nil
+				})
 			})
 
 			It("sets an empty array to tags", func() {
@@ -220,7 +219,7 @@ var _ = Describe("Builder", func() {
 
 		When("getting the service binding secret fails", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, serviceBindingSecret)).To(Succeed())
+				ensureDelete(serviceBindingSecret)
 			})
 
 			It("returns an error", func() {

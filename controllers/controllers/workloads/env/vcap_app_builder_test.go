@@ -27,7 +27,7 @@ var _ = Describe("VCAP_APPLICATION env value builder", func() {
 			},
 			Data: map[string][]byte{"VCAP_APPLICATION": []byte(`{"foo":"bar"}`)},
 		}
-		Expect(k8sClient.Create(ctx, vcapApplicationSecret)).To(Succeed())
+		ensureCreate(vcapApplicationSecret)
 	})
 
 	Describe("BuildEnvValue", func() {
