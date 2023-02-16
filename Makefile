@@ -69,4 +69,3 @@ install-vendir:
 
 vendir-update-dependencies: install-vendir
 	$(VENDIR) sync --chdir tests
-	cd tests/vendor/testApps/dora; zip -r ../../../e2e/assets/dora .
