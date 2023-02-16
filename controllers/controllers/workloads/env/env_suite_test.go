@@ -108,9 +108,11 @@ var _ = BeforeEach(func() {
 			DisplayName: testutils.PrefixedGUID("org"),
 		},
 	}
-	createWithStatus(cfOrg, func(cfOrg *korifiv1alpha1.CFOrg) {
+	ensureCreate(cfOrg)
+	orgNSName := testutils.PrefixedGUID("org")
+	ensurePatch(cfOrg, func(cfOrg *korifiv1alpha1.CFOrg) {
 		cfOrg.Status.Conditions = []metav1.Condition{}
-		cfOrg.Status.GUID = testutils.PrefixedGUID("org")
+		cfOrg.Status.GUID = orgNSName
 	})
 	createNamespace(cfOrg.Status.GUID)
 
@@ -123,9 +125,11 @@ var _ = BeforeEach(func() {
 			DisplayName: testutils.PrefixedGUID("space"),
 		},
 	}
-	createWithStatus(cfSpace, func(cfSpace *korifiv1alpha1.CFSpace) {
+	ensureCreate(cfSpace)
+	cfNSName := testutils.PrefixedGUID("space")
+	ensurePatch(cfSpace, func(cfSpace *korifiv1alpha1.CFSpace) {
 		cfSpace.Status.Conditions = []metav1.Condition{}
-		cfSpace.Status.GUID = testutils.PrefixedGUID("space")
+		cfSpace.Status.GUID = cfNSName
 	})
 	createNamespace(cfSpace.Status.GUID)
 
@@ -167,41 +171,6 @@ func createNamespace(name string) *corev1.Namespace {
 	}
 	Expect(k8sClient.Create(ctx, ns)).To(Succeed())
 	return ns
-}
-
-func createWithStatus[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, setStatus func(PT)) PT {
-	Expect(k8sClient.Create(ctx, obj)).To(Succeed())
-	Expect(k8s.Patch(ctx, k8sClient, obj, func() {
-		setStatus(obj)
-	})).To(Succeed())
-	return obj
-}
-
-func deleteAndWait[T client.Object](o T) {
-	Expect(k8sClient.Delete(ctx, o)).To(Succeed())
-	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(o), o)).To(MatchError(ContainSubstring("not found")))
-	}).Should(Succeed())
-}
-
-func clearSecretDataAndWait(s *corev1.Secret) {
-	Expect(k8s.Patch(ctx, k8sClient, s, func() {
-		s.Data = map[string][]byte{}
-	})).To(Succeed())
-	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(s), s)).To(Succeed())
-		g.Expect(s.Data).To(BeEmpty())
-	}).Should(Succeed())
-}
-
-func patchCFAppAndWait(cfApp *korifiv1alpha1.CFApp, setFn func(a *korifiv1alpha1.CFApp), checkFn func(a *korifiv1alpha1.CFApp) bool) {
-	Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-		setFn(cfApp)
-	})).To(Succeed())
-	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-		g.Expect(checkFn(cfApp)).To(BeTrue())
-	}).Should(Succeed())
 }
 
 func ensureCreate(obj client.Object) {
