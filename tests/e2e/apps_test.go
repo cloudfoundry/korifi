@@ -263,7 +263,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID, _ = pushTestApp(space1GUID, appBitsFile)
+			appGUID, _ = pushTestApp(space1GUID, procfileAppBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
 
@@ -320,7 +320,7 @@ var _ = Describe("Apps", func() {
 		BeforeEach(func() {
 			appGUID = createApp(space1GUID, generateGUID("app"))
 			pkgGUID = createPackage(appGUID)
-			uploadTestApp(pkgGUID, appBitsFile)
+			uploadTestApp(pkgGUID, procfileAppBitsFile)
 			buildGUID = createBuild(pkgGUID)
 			waitForDroplet(buildGUID)
 
@@ -479,7 +479,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID, appName = pushTestApp(space1GUID, doraBitsFile)
+			appGUID, appName = pushTestApp(space1GUID, doraAppBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
 
@@ -497,11 +497,11 @@ var _ = Describe("Apps", func() {
 			BeforeEach(func() {
 				body := curlApp(appGUID, "")
 				Expect(body).To(ContainSubstring("Hi, I'm Dora!"))
-				Expect(pushTestAppWithName(space1GUID, loggingAppBitsFile, appName)).To(Equal(appGUID))
+				Expect(pushTestAppWithName(space1GUID, nodeAppBitsFile, appName)).To(Equal(appGUID))
 			})
 
 			It("returns a different endpoint result", func() {
-				Eventually(func() []byte { return curlApp(appGUID, "") }).Should(ContainSubstring("hello-world from a node app!"))
+				Eventually(func() []byte { return curlApp(appGUID, "") }).Should(ContainSubstring("Hello from a node app!"))
 			})
 		})
 

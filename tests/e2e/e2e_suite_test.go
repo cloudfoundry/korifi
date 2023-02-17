@@ -1,12 +1,14 @@
 package e2e_test
 
 import (
+	"archive/zip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
@@ -29,31 +31,28 @@ import (
 var (
 	correlationId string
 
-	adminClient         *helpers.CorrelatedRestyClient
-	certClient          *helpers.CorrelatedRestyClient
-	tokenClient         *helpers.CorrelatedRestyClient
-	longCertClient      *helpers.CorrelatedRestyClient
-	apiServerRoot       string
-	serviceAccountName  string
-	serviceAccountToken string
-	certUserName        string
-	certPEM             string
-	longCertUserName    string
-	longCertPEM         string
-	rootNamespace       string
-	appFQDN             string
-	commonTestOrgGUID   string
-	commonTestOrgName   string
-	appBitsFile         string
-	clusterVersionMinor int
-	clusterVersionMajor int
-)
-
-const (
-	defaultAppBitsFile   = "assets/procfile.zip"
-	loggingAppBitsFile   = "assets/node.zip"
-	doraBitsFile         = "assets/dora.zip"
-	multiProcessBitsFile = "assets/multi-process-sample.zip"
+	adminClient             *helpers.CorrelatedRestyClient
+	certClient              *helpers.CorrelatedRestyClient
+	tokenClient             *helpers.CorrelatedRestyClient
+	longCertClient          *helpers.CorrelatedRestyClient
+	apiServerRoot           string
+	serviceAccountName      string
+	serviceAccountToken     string
+	certUserName            string
+	certPEM                 string
+	longCertUserName        string
+	longCertPEM             string
+	rootNamespace           string
+	appFQDN                 string
+	commonTestOrgGUID       string
+	commonTestOrgName       string
+	procfileAppBitsFile     string
+	nodeAppBitsFile         string
+	doraAppBitsFile         string
+	multiProcessAppBitsFile string
+	assetsTmpDir            string
+	clusterVersionMinor     int
+	clusterVersionMajor     int
 )
 
 type resource struct {
@@ -280,10 +279,12 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	prepareAssets()
 	commonTestSetup()
 })
 
 var _ = SynchronizedAfterSuite(func() {
+	os.RemoveAll(assetsTmpDir)
 }, func() {
 	deleteOrg(commonTestOrgGUID)
 })
@@ -326,6 +327,24 @@ func ensureServerIsUp() {
 
 		return resp.StatusCode, nil
 	}, "5m").Should(Equal(http.StatusOK), "API Server at %s was not running after 5 minutes", apiServerRoot)
+}
+
+func prepareAssets() {
+	var err error
+	assetsTmpDir, err = os.MkdirTemp("", "e2e-test-assets")
+	Expect(err).NotTo(HaveOccurred())
+
+	procfileAppBitsFile = filepath.Join(assetsTmpDir, "procfile.zip")
+	Expect(zipAsset("assets/procfile", procfileAppBitsFile)).To(Succeed())
+
+	nodeAppBitsFile = filepath.Join(assetsTmpDir, "node.zip")
+	Expect(zipAsset("assets/node", nodeAppBitsFile)).To(Succeed())
+
+	doraAppBitsFile = filepath.Join(assetsTmpDir, "dora.zip")
+	Expect(zipAsset("assets/dora", doraAppBitsFile)).To(Succeed())
+
+	multiProcessAppBitsFile = filepath.Join(assetsTmpDir, "multi-process.zip")
+	Expect(zipAsset("assets/multi-process", multiProcessAppBitsFile)).To(Succeed())
 }
 
 func generateGUID(prefix string) string {
@@ -848,15 +867,6 @@ func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail
 	))
 }
 
-func getAppBitsFile() string {
-	val, ok := os.LookupEnv("APP_BITS_FILE")
-	if ok {
-		return val
-	} else {
-		return defaultAppBitsFile
-	}
-}
-
 func commonTestSetup() {
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
@@ -870,7 +880,7 @@ func commonTestSetup() {
 	longCertPEM = os.Getenv("E2E_LONGCERT_USER_PEM")
 
 	appFQDN = mustHaveEnv("APP_FQDN")
-	appBitsFile = getAppBitsFile()
+
 	clusterVersionMinor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MINOR"))
 	clusterVersionMajor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MAJOR"))
 
@@ -880,4 +890,52 @@ func commonTestSetup() {
 	certClient = makeClient("E2E_USER_PEM", "E2E_USER_TOKEN")
 	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+}
+
+func zipAsset(src, output string) error {
+	file, err := os.Create(output)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	w := zip.NewWriter(file)
+	defer w.Close()
+
+	walker := func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		f, err := w.Create(rel)
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(f, file)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+	err = filepath.Walk(src, walker)
+	if err != nil {
+		panic(err)
+	}
+
+	return err
 }
