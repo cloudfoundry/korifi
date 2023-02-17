@@ -85,7 +85,7 @@ kubectl -n servicebinding-system rollout status deployment/servicebinding-contro
 kubectl apply -f "$VENDOR_DIR/service-binding/servicebinding-workloadresourcemappings-v"*".yaml"
 
 if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
-  if [[ -v INSECURE_TLS_METRICS_SERVER ]]; then
+  if [[  "${INSECURE_TLS_METRICS_SERVER}" == "true"  ]]; then
     echo "************************************************"
     echo " Installing Metrics Server Insecure TLS options"
     echo "************************************************"
