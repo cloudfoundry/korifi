@@ -5,6 +5,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="${ROOT_DIR}/scripts"
 
+# workaround for https://github.com/carvel-dev/kbld/issues/213
+# kbld fails with git error messages in languages than other english
+export LC_ALL=en_US.UTF-8
+
 function usage_text() {
   cat <<EOF
 Usage:
@@ -172,7 +176,7 @@ function deploy_korifi() {
         --namespace korifi \
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
-        "${registry_configuration[@]}" \
+        ${registry_configuration[@]-} \
         --wait
     fi
   }
