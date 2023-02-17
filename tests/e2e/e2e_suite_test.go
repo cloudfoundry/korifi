@@ -50,9 +50,10 @@ var (
 )
 
 const (
-	defaultAppBitsFile = "assets/procfile.zip"
-	loggingAppBitsFile = "assets/node.zip"
-	doraBitsFile       = "assets/dora.zip"
+	defaultAppBitsFile   = "assets/procfile.zip"
+	loggingAppBitsFile   = "assets/node.zip"
+	doraBitsFile         = "assets/dora.zip"
+	multiProcessBitsFile = "assets/multi-process-sample.zip"
 )
 
 type resource struct {
@@ -697,8 +698,13 @@ func createAppViaManifest(spaceGUID, appName string) string {
 	return getAppGUIDFromName(appName)
 }
 
-func pushTestApp(spaceGUID, appBitsFile string) string {
-	appGUID := createAppViaManifest(spaceGUID, generateGUID("app"))
+func pushTestApp(spaceGUID, appBitsFile string) (string, string) {
+	appName := generateGUID("app")
+	return pushTestAppWithName(spaceGUID, appBitsFile, appName), appName
+}
+
+func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
+	appGUID := createAppViaManifest(spaceGUID, appName)
 	pkgGUID := createPackage(appGUID)
 	uploadTestApp(pkgGUID, appBitsFile)
 	buildGUID := createBuild(pkgGUID)

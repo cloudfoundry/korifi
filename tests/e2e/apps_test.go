@@ -263,7 +263,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = pushTestApp(space1GUID, appBitsFile)
+			appGUID, _ = pushTestApp(space1GUID, appBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
 
@@ -473,26 +473,36 @@ var _ = Describe("Apps", func() {
 	})
 
 	Describe("Running Apps", func() {
-		var processGUID string
+		var (
+			appName     string
+			processGUID string
+		)
 
 		BeforeEach(func() {
-			appGUID = pushTestApp(space1GUID, doraBitsFile)
+			appGUID, appName = pushTestApp(space1GUID, doraBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
 
-		When("the user is a space developer", func() {
+		It("Runs with gettable /env.json endpoint", func() {
+			body := curlApp(appGUID, "/env.json")
+
+			env := map[string]string{}
+			err := json.Unmarshal(body, &env)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(env).To(HaveKeyWithValue("VCAP_SERVICES", Not(BeEmpty())))
+			Expect(env).To(HaveKeyWithValue("VCAP_APPLICATION", Not(BeEmpty())))
+		})
+
+		When("the app is re-pushed with different code", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, space1GUID)
+				body := curlApp(appGUID, "")
+				Expect(body).To(ContainSubstring("Hi, I'm Dora!"))
+				Expect(pushTestAppWithName(space1GUID, loggingAppBitsFile, appName)).To(Equal(appGUID))
 			})
 
-			It("runs with gettable /env.json endpoint", func() {
-				body := curlApp(appGUID, "/env.json")
-
-				env := map[string]string{}
-				err := json.Unmarshal(body, &env)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(env).To(HaveKeyWithValue("VCAP_SERVICES", Not(BeEmpty())))
-				Expect(env).To(HaveKeyWithValue("VCAP_APPLICATION", Not(BeEmpty())))
+			It("it returns a different endpoint result", func() {
+				body := curlApp(appGUID, "")
+				Expect(body).To(ContainSubstring("hello-world from a node app!"))
 			})
 		})
 

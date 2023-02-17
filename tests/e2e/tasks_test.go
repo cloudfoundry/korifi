@@ -19,7 +19,7 @@ var _ = Describe("Tasks", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
-		appGUID = pushTestApp(spaceGUID, appBitsFile)
+		appGUID, _ = pushTestApp(spaceGUID, appBitsFile)
 	})
 
 	AfterEach(func() {
