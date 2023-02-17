@@ -24,7 +24,7 @@ type ControllerConfig struct {
 	BuilderName                 string            `yaml:"builderName"`
 	RunnerName                  string            `yaml:"runnerName"`
 	NamespaceLabels             map[string]string `yaml:"namespaceLabels"`
-
+	ExtraVCAPApplicationValues  map[string]any    `yaml:"extraVCAPApplicationValues"`
 	// job-task-runner
 	JobTTL string `yaml:"jobTTL"`
 

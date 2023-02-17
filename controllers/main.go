@@ -142,7 +142,7 @@ func main() {
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFApp"),
 			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient()),
-			env.NewVCAPApplicationEnvValueBuilder(mgr.GetClient()),
+			env.NewVCAPApplicationEnvValueBuilder(mgr.GetClient(), controllerConfig.ExtraVCAPApplicationValues),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 			os.Exit(1)

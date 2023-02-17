@@ -26,6 +26,11 @@ data:
     {{- range $key, $value := .Values.controllers.namespaceLabels }}
       {{ $key }}: {{ $value }}
     {{- end }}
+    extraVCAPApplicationValues:
+    {{- $defaultDict := dict "cf_api" (printf "https://%s" .Values.api.apiServer.url) -}}
+    {{- range $key, $value := merge .Values.controllers.extraVCAPApplicationValues $defaultDict }}
+      {{ $key }}: {{ $value }}
+    {{- end }}
 {{- if .Values.kpackImageBuilder.include }}
   kpack_build_controllers_config.yaml: |
     cfRootNamespace: {{ .Values.global.rootNamespace }}

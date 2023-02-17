@@ -661,7 +661,6 @@ var _ = Describe("Apps", func() {
 						HaveKeyWithValue("VCAP_APPLICATION", SatisfyAll(
 							HaveKeyWithValue("application_id", appGUID),
 							HaveKeyWithValue("application_name", appName),
-							// HaveKeyWithValue("cf_api", apiServerRoot),
 							HaveKeyWithValue("name", appName),
 							HaveKeyWithValue("organization_id", commonTestOrgGUID),
 							HaveKeyWithValue("organization_name", commonTestOrgName),
