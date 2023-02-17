@@ -7,27 +7,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("VCAP_APPLICATION env value builder", func() {
-	var (
-		vcapApplicationSecret *corev1.Secret
-		builder               *env.VCAPApplicationEnvValueBuilder
-	)
+	var builder *env.VCAPApplicationEnvValueBuilder
 
 	BeforeEach(func() {
-		builder = env.NewVCAPApplicationEnvValueBuilder(k8sClient)
-
-		vcapApplicationSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "app-guid-vcap-application",
-				Namespace: cfSpace.Status.GUID,
-			},
-			Data: map[string][]byte{"VCAP_APPLICATION": []byte(`{"foo":"bar"}`)},
-		}
-		ensureCreate(vcapApplicationSecret)
+		builder = env.NewVCAPApplicationEnvValueBuilder(k8sClient, nil)
 	})
 
 	Describe("BuildEnvValue", func() {
@@ -43,16 +29,39 @@ var _ = Describe("VCAP_APPLICATION env value builder", func() {
 		It("sets the basic fields", func() {
 			Expect(buildVCAPApplicationEnvValueErr).ToNot(HaveOccurred())
 			Expect(vcapApplication).To(HaveKey("VCAP_APPLICATION"))
-			vcapAppValue := map[string]string{}
+			vcapAppValue := map[string]any{}
 			Expect(json.Unmarshal([]byte(vcapApplication["VCAP_APPLICATION"]), &vcapAppValue)).To(Succeed())
 			Expect(vcapAppValue).To(HaveKeyWithValue("application_id", cfApp.Name))
 			Expect(vcapAppValue).To(HaveKeyWithValue("application_name", cfApp.Spec.DisplayName))
 			Expect(vcapAppValue).To(HaveKeyWithValue("name", cfApp.Spec.DisplayName))
-			Expect(vcapAppValue).To(HaveKeyWithValue("cf_api", BeEmpty()))
 			Expect(vcapAppValue).To(HaveKeyWithValue("space_id", cfSpace.Name))
 			Expect(vcapAppValue).To(HaveKeyWithValue("space_name", cfSpace.Spec.DisplayName))
 			Expect(vcapAppValue).To(HaveKeyWithValue("organization_id", cfOrg.Name))
 			Expect(vcapAppValue).To(HaveKeyWithValue("organization_name", cfOrg.Spec.DisplayName))
+		})
+
+		When("extra values are provided", func() {
+			BeforeEach(func() {
+				builder = env.NewVCAPApplicationEnvValueBuilder(k8sClient, map[string]any{
+					"application_id": "not-the-application-id",
+					"foo":            "bar",
+					"answer":         42,
+					"innit":          true,
+					"x":              map[string]any{"y": "z"},
+				})
+			})
+
+			It("includes them", func() {
+				Expect(buildVCAPApplicationEnvValueErr).ToNot(HaveOccurred())
+				Expect(vcapApplication).To(HaveKey("VCAP_APPLICATION"))
+				vcapAppValue := map[string]any{}
+				Expect(json.Unmarshal([]byte(vcapApplication["VCAP_APPLICATION"]), &vcapAppValue)).To(Succeed())
+				Expect(vcapAppValue).To(HaveKeyWithValue("application_id", cfApp.Name))
+				Expect(vcapAppValue).To(HaveKeyWithValue("foo", "bar"))
+				Expect(vcapAppValue).To(HaveKeyWithValue("answer", 42.0))
+				Expect(vcapAppValue).To(HaveKeyWithValue("innit", true))
+				Expect(vcapAppValue).To(HaveKeyWithValue("x", HaveKeyWithValue("y", "z")))
+			})
 		})
 	})
 })

@@ -282,7 +282,12 @@
           "type": "string"
         },
         "namespaceLabels": {
-          "description": "Key-value pairs that are going to be set as labels on the namespaces created by Korifi",
+          "description": "Key-value pairs that are going to be set as labels on the namespaces created by Korifi.",
+          "type": "object",
+          "properties": {}
+        },
+        "extraVCAPApplicationValues": {
+          "description": "Key-value pairs that are going to be set in the VCAP_APPLICATION env var on apps. Nested values are not supported.",
           "type": "object",
           "properties": {}
         }

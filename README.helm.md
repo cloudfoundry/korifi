@@ -53,8 +53,9 @@ Here are all the values that can be set for the chart:
 - `contourRouter`:
   - `include` (_Boolean_): Deploy the `contour-router` component.
 - `controllers`:
+  - `extraVCAPApplicationValues`: Key-value pairs that are going to be set in the VCAP_APPLICATION env var on apps. Nested values are not supported.
   - `image` (_String_): Reference to the controllers container image.
-  - `namespaceLabels`: Key-value pairs that are going to be set as labels on the namespaces created by Korifi
+  - `namespaceLabels`: Key-value pairs that are going to be set as labels on the namespaces created by Korifi.
   - `processDefaults`:
     - `diskQuotaMB` (_Integer_): Default disk quota for the `web` process.
     - `memoryMB` (_Integer_): Default memory limit for the `web` process.

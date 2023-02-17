@@ -12,11 +12,15 @@ import (
 )
 
 type VCAPApplicationEnvValueBuilder struct {
-	k8sClient client.Client
+	k8sClient   client.Client
+	extraValues map[string]any
 }
 
-func NewVCAPApplicationEnvValueBuilder(k8sClient client.Client) *VCAPApplicationEnvValueBuilder {
-	return &VCAPApplicationEnvValueBuilder{k8sClient: k8sClient}
+func NewVCAPApplicationEnvValueBuilder(k8sClient client.Client, extraValues map[string]any) *VCAPApplicationEnvValueBuilder {
+	return &VCAPApplicationEnvValueBuilder{
+		k8sClient:   k8sClient,
+		extraValues: extraValues,
+	}
 }
 
 func (b *VCAPApplicationEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string]string, error) {
@@ -29,16 +33,17 @@ func (b *VCAPApplicationEnvValueBuilder) BuildEnvValue(ctx context.Context, cfAp
 		return nil, fmt.Errorf("failed retrieving org for CFSpace: %w", err)
 	}
 
-	vars := map[string]string{
-		"application_id":    cfApp.Name,
-		"application_name":  cfApp.Spec.DisplayName,
-		"cf_api":            "",
-		"name":              cfApp.Spec.DisplayName,
-		"organization_id":   org.Name,
-		"organization_name": org.Spec.DisplayName,
-		"space_id":          space.Name,
-		"space_name":        space.Spec.DisplayName,
+	vars := b.extraValues
+	if vars == nil {
+		vars = map[string]any{}
 	}
+	vars["application_id"] = cfApp.Name
+	vars["application_name"] = cfApp.Spec.DisplayName
+	vars["name"] = cfApp.Spec.DisplayName
+	vars["organization_id"] = org.Name
+	vars["organization_name"] = org.Spec.DisplayName
+	vars["space_id"] = space.Name
+	vars["space_name"] = space.Spec.DisplayName
 
 	marshalledVars, _ := json.Marshal(vars)
 

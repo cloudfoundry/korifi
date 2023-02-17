@@ -71,6 +71,7 @@ controllers:
   workloadsTLSSecret: korifi-workloads-ingress-cert
 
   namespaceLabels: {}
+  extraVCAPApplicationValues: {}
 
 kpackImageBuilder:
   include: true

@@ -74,6 +74,7 @@ var _ = Describe("LoadFromPath", func() {
 			BuilderName:                 "buildReconciler",
 			RunnerName:                  "statefulset-runner",
 			NamespaceLabels:             map[string]string{},
+			ExtraVCAPApplicationValues:  map[string]any{},
 			JobTTL:                      "jobTTL",
 		}))
 	})

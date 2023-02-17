@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFApp"),
 		env.NewVCAPServicesEnvValueBuilder(k8sManager.GetClient()),
-		env.NewVCAPApplicationEnvValueBuilder(k8sManager.GetClient()),
+		env.NewVCAPApplicationEnvValueBuilder(k8sManager.GetClient(), nil),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
