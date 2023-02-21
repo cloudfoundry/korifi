@@ -500,9 +500,8 @@ var _ = Describe("Apps", func() {
 				Expect(pushTestAppWithName(space1GUID, loggingAppBitsFile, appName)).To(Equal(appGUID))
 			})
 
-			It("it returns a different endpoint result", func() {
-				body := curlApp(appGUID, "")
-				Expect(body).To(ContainSubstring("hello-world from a node app!"))
+			It("returns a different endpoint result", func() {
+				Eventually(func() []byte { return curlApp(appGUID, "") }).Should(ContainSubstring("hello-world from a node app!"))
 			})
 		})
 
