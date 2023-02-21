@@ -26,7 +26,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1
 	github.com/mileusna/useragent v1.2.1
 	github.com/onsi/ginkgo/v2 v2.8.1
-	github.com/onsi/gomega v1.27.0
+	github.com/onsi/gomega v1.27.1
 	github.com/pivotal/kpack v0.9.2
 	github.com/projectcontour/contour v1.24.1
 	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
@@ -133,7 +133,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
