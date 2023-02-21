@@ -32,9 +32,12 @@ const (
 type TaskRecord struct {
 	Name              string
 	GUID              string
+	SpaceGUID         string
 	Command           string
 	AppGUID           string
 	DropletGUID       string
+	Labels            map[string]string
+	Annotations       map[string]string
 	SequenceID        int64
 	CreationTimestamp time.Time
 	MemoryMB          int64
@@ -52,6 +55,12 @@ type CreateTaskMessage struct {
 type ListTaskMessage struct {
 	AppGUIDs    []string
 	SequenceIDs []int64
+}
+
+type PatchTaskMetadataMessage struct {
+	MetadataPatch
+	TaskGUID  string
+	SpaceGUID string
 }
 
 func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
@@ -211,6 +220,28 @@ func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, 
 	return taskToRecord(task), nil
 }
 
+func (r *TaskRepo) PatchTaskMetadata(ctx context.Context, authInfo authorization.Info, message PatchTaskMetadataMessage) (TaskRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	task := new(korifiv1alpha1.CFTask)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: message.SpaceGUID, Name: message.TaskGUID}, task)
+	if err != nil {
+		return TaskRecord{}, fmt.Errorf("failed to get task: %w", apierrors.FromK8sError(err, TaskResourceType))
+	}
+
+	err = k8s.PatchResource(ctx, userClient, task, func() {
+		message.Apply(task)
+	})
+	if err != nil {
+		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
+	}
+
+	return taskToRecord(task), nil
+}
+
 func filterByAppGUIDs(tasks []korifiv1alpha1.CFTask, appGUIDs []string) []korifiv1alpha1.CFTask {
 	if len(appGUIDs) == 0 {
 		return tasks
@@ -255,6 +286,7 @@ func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 	taskRecord := TaskRecord{
 		Name:              task.Name,
 		GUID:              task.Name,
+		SpaceGUID:         task.Namespace,
 		Command:           task.Spec.Command,
 		AppGUID:           task.Spec.AppRef.Name,
 		SequenceID:        task.Status.SequenceID,
@@ -263,6 +295,8 @@ func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 		DiskMB:            task.Status.DiskQuotaMB,
 		DropletGUID:       task.Status.DropletRef.Name,
 		State:             toRecordState(task),
+		Labels:            task.Labels,
+		Annotations:       task.Annotations,
 	}
 
 	failedCond := meta.FindStatusCondition(task.Status.Conditions, korifiv1alpha1.TaskFailedConditionType)

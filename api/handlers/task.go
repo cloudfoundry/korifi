@@ -29,26 +29,27 @@ type CFTaskRepository interface {
 	GetTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
 	ListTasks(context.Context, authorization.Info, repositories.ListTaskMessage) ([]repositories.TaskRecord, error)
 	CancelTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
+	PatchTaskMetadata(ctx context.Context, info authorization.Info, message repositories.PatchTaskMetadataMessage) (repositories.TaskRecord, error)
 }
 
 type Task struct {
 	serverURL        url.URL
 	appRepo          CFAppRepository
 	taskRepo         CFTaskRepository
-	decoderValidator *DecoderValidator
+	requestValidator RequestJSONValidator
 }
 
 func NewTask(
 	serverURL url.URL,
 	appRepo CFAppRepository,
 	taskRepo CFTaskRepository,
-	decoderValidator *DecoderValidator,
+	requestValidator RequestJSONValidator,
 ) *Task {
 	return &Task{
 		serverURL:        serverURL,
 		taskRepo:         taskRepo,
 		appRepo:          appRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -85,7 +86,7 @@ func (h *Task) create(r *http.Request) (*routing.Response, error) {
 	appGUID := routing.URLParam(r, "appGUID")
 
 	var payload payloads.TaskCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -161,6 +162,29 @@ func (h *Task) cancel(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusAccepted).WithBody(presenter.ForTask(taskRecord, h.serverURL)), nil
 }
 
+//nolint:dupl
+func (h *Task) update(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.task.update")
+	taskGUID := routing.URLParam(r, "taskGUID")
+
+	task, err := h.taskRepo.GetTask(r.Context(), authInfo, taskGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch task from Kubernetes", "TaskGUID", taskGUID)
+	}
+
+	var payload payloads.TaskUpdate
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	task, err = h.taskRepo.PatchTaskMetadata(r.Context(), authInfo, payload.ToMessage(taskGUID, task.SpaceGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch task metadata", "TaskGUID", taskGUID)
+	}
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForTask(task, h.serverURL)), nil
+}
+
 func (h *Task) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -168,6 +192,7 @@ func (h *Task) UnauthenticatedRoutes() []routing.Route {
 func (h *Task) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: TaskPath, Handler: h.get},
+		{Method: "PATCH", Pattern: TaskPath, Handler: h.update},
 		{Method: "GET", Pattern: TaskRoot, Handler: h.list},
 		{Method: "POST", Pattern: TasksPath, Handler: h.create},
 		{Method: "GET", Pattern: TasksPath, Handler: h.listForApp},

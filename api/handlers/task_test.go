@@ -1,9 +1,12 @@
 package handlers_test
 
 import (
+	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/tools"
 	"context"
 	"errors"
 	"fmt"
+	. "github.com/onsi/gomega/gstruct"
 	"net/http"
 	"strings"
 	"time"
@@ -20,16 +23,15 @@ import (
 
 var _ = Describe("Task", func() {
 	var (
-		req      *http.Request
-		appRepo  *fake.CFAppRepository
-		taskRepo *fake.CFTaskRepository
+		req                  *http.Request
+		appRepo              *fake.CFAppRepository
+		taskRepo             *fake.CFTaskRepository
+		requestJSONValidator handlers.RequestJSONValidator
 	)
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
 		taskRepo = new(fake.CFTaskRepository)
-		decoderValidator, err := handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
 
 		appRepo.GetAppReturns(repositories.AppRecord{
 			GUID:      "the-app-guid",
@@ -37,11 +39,15 @@ var _ = Describe("Task", func() {
 			IsStaged:  true,
 		}, nil)
 
-		apiHandler := handlers.NewTask(*serverURL, appRepo, taskRepo, decoderValidator)
-		routerBuilder.LoadRoutes(apiHandler)
+		var err error
+		requestJSONValidator, err = handlers.NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func() {
+		apiHandler := handlers.NewTask(*serverURL, appRepo, taskRepo, requestJSONValidator)
+		routerBuilder.LoadRoutes(apiHandler)
+
 		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
@@ -91,6 +97,10 @@ var _ = Describe("Task", func() {
               "disk_in_mb": 128,
               "droplet_guid": "the-droplet-guid",
               "state": "task-created",
+              "metadata": {
+                "labels": {},
+                "annotations": {}
+              },
               "relationships": {
                 "app": {
                   "data": {
@@ -257,6 +267,10 @@ var _ = Describe("Task", func() {
                       "droplet_guid": "droplet-1",
                       "created_at": "2016-05-04T17:00:41Z",
                       "updated_at": "2016-05-04T17:00:41Z",
+                      "metadata": {
+                        "labels": {},
+                        "annotations": {}
+                      },
                       "relationships": {
                         "app": {
                           "data": {
@@ -293,6 +307,10 @@ var _ = Describe("Task", func() {
                       "droplet_guid": "droplet-2",
                       "created_at": "2016-05-04T17:00:41Z",
                       "updated_at": "2016-05-04T17:00:41Z",
+                      "metadata": {
+                        "labels": {},
+                        "annotations": {}
+                      },
                       "relationships": {
                         "app": {
                           "data": {
@@ -496,6 +514,10 @@ var _ = Describe("Task", func() {
               "disk_in_mb": 234,
               "droplet_guid": "droplet-guid",
               "state": "stateful",
+              "metadata": {
+                "labels": {},
+                "annotations": {}
+              },
               "relationships": {
                 "app": {
                   "data": {
@@ -622,6 +644,10 @@ var _ = Describe("Task", func() {
               "disk_in_mb": 234,
               "droplet_guid": "droplet-guid",
               "state": "stateful",
+              "metadata": {
+                "labels": {},
+                "annotations": {}
+              },
               "relationships": {
                 "app": {
                   "data": {
@@ -696,6 +722,177 @@ var _ = Describe("Task", func() {
 			_, actualAuthInfo, taskGUID := taskRepo.CancelTaskArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(taskGUID).To(Equal("task-guid"))
+		})
+	})
+
+	Describe("PATCH /v3/tasks/:guid", func() {
+		var (
+			taskGUID                 string
+			taskRecord               repositories.TaskRecord
+			dropletGUID              string
+			fakeRequestJSONValidator *fake.RequestJSONValidator
+		)
+
+		BeforeEach(func() {
+			fakeRequestJSONValidator = new(fake.RequestJSONValidator)
+			requestJSONValidator = fakeRequestJSONValidator
+
+			body := &payloads.TaskUpdate{
+				Metadata: payloads.MetadataPatch{
+					Labels: map[string]*string{
+						"env":                           tools.PtrTo("production"),
+						"foo.example.com/my-identifier": tools.PtrTo("aruba"),
+					},
+					Annotations: map[string]*string{
+						"hello":                       tools.PtrTo("there"),
+						"foo.example.com/lorem-ipsum": tools.PtrTo("Lorem ipsum."),
+					},
+				},
+			}
+
+			fakeRequestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+				b, ok := i.(*payloads.TaskUpdate)
+				Expect(ok).To(BeTrue())
+				*b = *body
+				return nil
+			}
+
+			taskGUID = generateGUID("task")
+			dropletGUID = generateGUID("droplet")
+			taskRecord = repositories.TaskRecord{
+				Name:              "my-task",
+				GUID:              taskGUID,
+				SpaceGUID:         spaceGUID,
+				Command:           "do-the-thing",
+				AppGUID:           appGUID,
+				DropletGUID:       dropletGUID,
+				SequenceID:        0,
+				CreationTimestamp: time.Time{},
+				MemoryMB:          42,
+				DiskMB:            42,
+				State:             "RUNNING",
+				FailureReason:     "",
+			}
+			taskRepo.GetTaskReturns(taskRecord, nil)
+
+			updatedTaskRecord := taskRecord
+			updatedTaskRecord.Labels = map[string]string{
+				"env":                           "production",
+				"foo.example.com/my-identifier": "aruba",
+			}
+			updatedTaskRecord.Annotations = map[string]string{
+				"hello":                       "there",
+				"foo.example.com/lorem-ipsum": "Lorem ipsum.",
+			}
+			taskRepo.PatchTaskMetadataReturns(updatedTaskRecord, nil)
+
+			req = createHttpRequest("PATCH", "/v3/tasks/"+taskGUID, strings.NewReader(`ignored in test`))
+		})
+
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
+
+		It("patches the task with the new labels and annotations", func() {
+			Expect(taskRepo.PatchTaskMetadataCallCount()).To(Equal(1))
+			_, _, msg := taskRepo.PatchTaskMetadataArgsForCall(0)
+			Expect(msg.TaskGUID).To(Equal(taskGUID))
+			Expect(msg.SpaceGUID).To(Equal(spaceGUID))
+			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
+			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
+			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
+			Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+		})
+
+		It("returns the task in the response", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+              "name": "my-task",
+              "guid": "%[2]s",
+              "command": "do-the-thing",
+              "droplet_guid": "%[4]s",
+              "metadata": {
+                "labels": {
+                  "env": "production",
+                  "foo.example.com/my-identifier": "aruba"
+                },
+                "annotations": {
+                  "hello": "there",
+                  "foo.example.com/lorem-ipsum": "Lorem ipsum."
+                }
+              },
+              "relationships": {
+                "app": {
+                  "data": {
+                    "guid": "%[3]s"
+                  }
+                }
+              },
+              "links": {
+                "self": {
+                  "href": "%[1]s/v3/tasks/%[2]s"
+                },
+                "app": {
+                  "href": "%[1]s/v3/apps/%[3]s"
+                },
+                "droplet": {
+                  "href": "%[1]s/v3/droplets/%[4]s"
+                },
+                "cancel": {
+                  "href": "%[1]s/v3/tasks/%[2]s/actions/cancel",
+                  "method": "POST"
+                }
+              },
+              "sequence_id": 0,
+              "created_at": "0001-01-01T00:00:00Z",
+              "updated_at": "0001-01-01T00:00:00Z",
+              "memory_in_mb": 42,
+              "disk_in_mb": 42,
+              "state": "RUNNING",
+              "result": {
+                "failure_reason": null
+              }
+            }`, defaultServerURL, taskGUID, appGUID, dropletGUID)), "Response body matches response:")
+		})
+
+		When("the user doesn't have permission to get the task", func() {
+			BeforeEach(func() {
+				taskRepo.GetTaskReturns(repositories.TaskRecord{}, apierrors.NewForbiddenError(nil, repositories.TaskResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError("Task not found")
+			})
+
+			It("does not call patch", func() {
+				Expect(taskRepo.PatchTaskMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("fetching the task errors", func() {
+			BeforeEach(func() {
+				taskRepo.GetTaskReturns(repositories.TaskRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+
+			It("does not call patch", func() {
+				Expect(taskRepo.PatchTaskMetadataCallCount()).To(Equal(0))
+			})
+		})
+
+		When("patching the task errors", func() {
+			BeforeEach(func() {
+				taskRepo.PatchTaskMetadataReturns(repositories.TaskRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
 		})
 	})
 })

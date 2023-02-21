@@ -52,3 +52,18 @@ func (a *TaskList) DecodeFromURLValues(values url.Values) error {
 	a.SequenceIDs = ids
 	return nil
 }
+
+type TaskUpdate struct {
+	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (u *TaskUpdate) ToMessage(taskGUID, spaceGUID string) repositories.PatchTaskMetadataMessage {
+	return repositories.PatchTaskMetadataMessage{
+		TaskGUID:  taskGUID,
+		SpaceGUID: spaceGUID,
+		MetadataPatch: repositories.MetadataPatch{
+			Annotations: u.Metadata.Annotations,
+			Labels:      u.Metadata.Labels,
+		},
+	}
+}
