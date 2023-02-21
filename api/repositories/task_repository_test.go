@@ -1,7 +1,9 @@
 package repositories_test
 
 import (
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -367,7 +369,7 @@ var _ = Describe("TaskRepository", func() {
 			listedTasks, listErr = taskRepo.ListTasks(ctx, authInfo, listTaskMsg)
 		})
 
-		It("returs an empty list due to no permissions", func() {
+		It("returns an empty list due to no permissions", func() {
 			Expect(listErr).NotTo(HaveOccurred())
 			Expect(listedTasks).To(BeEmpty())
 		})
@@ -545,6 +547,230 @@ var _ = Describe("TaskRepository", func() {
 				It("returns a timeout error", func() {
 					Expect(cancelErr).To(MatchError(ContainSubstring("did not get the Canceled condition")))
 				})
+			})
+		})
+	})
+
+	Describe("PatchTaskMetadata", func() {
+		var (
+			cfTask                        *korifiv1alpha1.CFTask
+			taskGUID                      string
+			patchErr                      error
+			taskRecord                    repositories.TaskRecord
+			labelsPatch, annotationsPatch map[string]*string
+		)
+
+		BeforeEach(func() {
+			taskGUID = generateGUID()
+			cfTask = &korifiv1alpha1.CFTask{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      taskGUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFTaskSpec{
+					Command: "echo hello",
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
+
+			setStatusAndUpdate(defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name))
+
+			labelsPatch = nil
+			annotationsPatch = nil
+		})
+
+		JustBeforeEach(func() {
+			patchMsg := repositories.PatchTaskMetadataMessage{
+				TaskGUID:  taskGUID,
+				SpaceGUID: space.Name,
+				MetadataPatch: repositories.MetadataPatch{
+					Annotations: annotationsPatch,
+					Labels:      labelsPatch,
+				},
+			}
+
+			taskRecord, patchErr = taskRepo.PatchTaskMetadata(ctx, authInfo, patchMsg)
+		})
+
+		When("the user is authorized and the task exists", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			When("the task doesn't have labels or annotations", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"key-one": pointerTo("value-one"),
+						"key-two": pointerTo("value-two"),
+					}
+					annotationsPatch = map[string]*string{
+						"key-one": pointerTo("value-one"),
+						"key-two": pointerTo("value-two"),
+					}
+					Expect(k8s.PatchResource(ctx, k8sClient, cfTask, func() {
+						cfTask.Labels = nil
+						cfTask.Annotations = nil
+					})).To(Succeed())
+				})
+
+				It("returns the updated org record", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(taskRecord.GUID).To(Equal(taskGUID))
+					Expect(taskRecord.SpaceGUID).To(Equal(space.Name))
+					Expect(taskRecord.Labels).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+					Expect(taskRecord.Annotations).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+				})
+
+				It("sets the k8s CFSpace resource", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					updatedCFTask := new(korifiv1alpha1.CFTask)
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), updatedCFTask)).To(Succeed())
+					Expect(updatedCFTask.Labels).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+					Expect(updatedCFTask.Annotations).To(Equal(
+						map[string]string{
+							"key-one": "value-one",
+							"key-two": "value-two",
+						},
+					))
+				})
+			})
+
+			When("the task already has labels and annotations", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"key-one":        pointerTo("value-one-updated"),
+						"key-two":        pointerTo("value-two"),
+						"before-key-two": nil,
+					}
+					annotationsPatch = map[string]*string{
+						"key-one":        pointerTo("value-one-updated"),
+						"key-two":        pointerTo("value-two"),
+						"before-key-two": nil,
+					}
+					Expect(k8s.PatchResource(ctx, k8sClient, cfTask, func() {
+						cfTask.Labels = map[string]string{
+							"before-key-one": "value-one",
+							"before-key-two": "value-two",
+							"key-one":        "value-one",
+						}
+						cfTask.Annotations = map[string]string{
+							"before-key-one": "value-one",
+							"before-key-two": "value-two",
+							"key-one":        "value-one",
+						}
+					})).To(Succeed())
+				})
+
+				It("returns the updated task record", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(taskRecord.GUID).To(Equal(cfTask.Name))
+					Expect(taskRecord.SpaceGUID).To(Equal(cfTask.Namespace))
+					Expect(taskRecord.Labels).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+					Expect(taskRecord.Annotations).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+				})
+
+				It("sets the k8s cftask resource", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					updatedCFTask := new(korifiv1alpha1.CFTask)
+					Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfTask), updatedCFTask)).To(Succeed())
+					Expect(updatedCFTask.Labels).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+					Expect(updatedCFTask.Annotations).To(Equal(
+						map[string]string{
+							"before-key-one": "value-one",
+							"key-one":        "value-one-updated",
+							"key-two":        "value-two",
+						},
+					))
+				})
+			})
+
+			When("an annotation is invalid", func() {
+				BeforeEach(func() {
+					annotationsPatch = map[string]*string{
+						"-bad-annotation": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.annotations is invalid"),
+						ContainSubstring(`"-bad-annotation"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					labelsPatch = map[string]*string{
+						"-bad-label": pointerTo("stuff"),
+					}
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("metadata.labels is invalid"),
+						ContainSubstring(`"-bad-label"`),
+						ContainSubstring("alphanumeric"),
+					))
+				})
+			})
+		})
+
+		When("the user is authorized but the task does not exist", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				taskGUID = "invalidTaskName"
+			})
+
+			It("fails to get the task", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
+		When("the user is not authorized", func() {
+			It("return a forbidden error", func() {
+				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})

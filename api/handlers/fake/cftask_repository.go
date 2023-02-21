@@ -71,6 +71,21 @@ type CFTaskRepository struct {
 		result1 []repositories.TaskRecord
 		result2 error
 	}
+	PatchTaskMetadataStub        func(context.Context, authorization.Info, repositories.PatchTaskMetadataMessage) (repositories.TaskRecord, error)
+	patchTaskMetadataMutex       sync.RWMutex
+	patchTaskMetadataArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchTaskMetadataMessage
+	}
+	patchTaskMetadataReturns struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}
+	patchTaskMetadataReturnsOnCall map[int]struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -339,6 +354,72 @@ func (fake *CFTaskRepository) ListTasksReturnsOnCall(i int, result1 []repositori
 	}{result1, result2}
 }
 
+func (fake *CFTaskRepository) PatchTaskMetadata(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchTaskMetadataMessage) (repositories.TaskRecord, error) {
+	fake.patchTaskMetadataMutex.Lock()
+	ret, specificReturn := fake.patchTaskMetadataReturnsOnCall[len(fake.patchTaskMetadataArgsForCall)]
+	fake.patchTaskMetadataArgsForCall = append(fake.patchTaskMetadataArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchTaskMetadataMessage
+	}{arg1, arg2, arg3})
+	stub := fake.PatchTaskMetadataStub
+	fakeReturns := fake.patchTaskMetadataReturns
+	fake.recordInvocation("PatchTaskMetadata", []interface{}{arg1, arg2, arg3})
+	fake.patchTaskMetadataMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFTaskRepository) PatchTaskMetadataCallCount() int {
+	fake.patchTaskMetadataMutex.RLock()
+	defer fake.patchTaskMetadataMutex.RUnlock()
+	return len(fake.patchTaskMetadataArgsForCall)
+}
+
+func (fake *CFTaskRepository) PatchTaskMetadataCalls(stub func(context.Context, authorization.Info, repositories.PatchTaskMetadataMessage) (repositories.TaskRecord, error)) {
+	fake.patchTaskMetadataMutex.Lock()
+	defer fake.patchTaskMetadataMutex.Unlock()
+	fake.PatchTaskMetadataStub = stub
+}
+
+func (fake *CFTaskRepository) PatchTaskMetadataArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchTaskMetadataMessage) {
+	fake.patchTaskMetadataMutex.RLock()
+	defer fake.patchTaskMetadataMutex.RUnlock()
+	argsForCall := fake.patchTaskMetadataArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFTaskRepository) PatchTaskMetadataReturns(result1 repositories.TaskRecord, result2 error) {
+	fake.patchTaskMetadataMutex.Lock()
+	defer fake.patchTaskMetadataMutex.Unlock()
+	fake.PatchTaskMetadataStub = nil
+	fake.patchTaskMetadataReturns = struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFTaskRepository) PatchTaskMetadataReturnsOnCall(i int, result1 repositories.TaskRecord, result2 error) {
+	fake.patchTaskMetadataMutex.Lock()
+	defer fake.patchTaskMetadataMutex.Unlock()
+	fake.PatchTaskMetadataStub = nil
+	if fake.patchTaskMetadataReturnsOnCall == nil {
+		fake.patchTaskMetadataReturnsOnCall = make(map[int]struct {
+			result1 repositories.TaskRecord
+			result2 error
+		})
+	}
+	fake.patchTaskMetadataReturnsOnCall[i] = struct {
+		result1 repositories.TaskRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFTaskRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -350,6 +431,8 @@ func (fake *CFTaskRepository) Invocations() map[string][][]interface{} {
 	defer fake.getTaskMutex.RUnlock()
 	fake.listTasksMutex.RLock()
 	defer fake.listTasksMutex.RUnlock()
+	fake.patchTaskMetadataMutex.RLock()
+	defer fake.patchTaskMetadataMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

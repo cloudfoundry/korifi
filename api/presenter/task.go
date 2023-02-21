@@ -17,6 +17,7 @@ type TaskResponse struct {
 	GUID          string        `json:"guid"`
 	Command       string        `json:"command,omitempty"`
 	DropletGUID   string        `json:"droplet_guid"`
+	Metadata      Metadata      `json:"metadata"`
 	Relationships Relationships `json:"relationships"`
 	Links         TaskLinks     `json:"links"`
 	SequenceID    int64         `json:"sequence_id"`
@@ -58,6 +59,10 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse
 		DiskMB:      responseTask.DiskMB,
 		State:       responseTask.State,
 		Result:      result,
+		Metadata: Metadata{
+			Labels:      emptyMapIfNil(responseTask.Labels),
+			Annotations: emptyMapIfNil(responseTask.Annotations),
+		},
 		Relationships: Relationships{
 			"app": Relationship{
 				Data: &RelationshipData{
