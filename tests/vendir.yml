@@ -37,7 +37,7 @@ directories:
       - examples/contour/*.yaml
     newRootPath: examples/contour
 
-- path: e2e/assets/node
+- path: e2e/assets/vendored/node
   contents:
   - path: .
     git:
@@ -50,7 +50,7 @@ directories:
     includePaths:
     - assets/node/**/*
 
-- path: e2e/assets/dora
+- path: e2e/assets/vendored/dora
   contents:
   - path: .
     git:
