@@ -338,10 +338,10 @@ func prepareAssets() {
 	Expect(zipAsset("assets/procfile", procfileAppBitsFile)).To(Succeed())
 
 	nodeAppBitsFile = filepath.Join(assetsTmpDir, "node.zip")
-	Expect(zipAsset("assets/node", nodeAppBitsFile)).To(Succeed())
+	Expect(zipAsset("assets/vendored/node", nodeAppBitsFile)).To(Succeed())
 
 	doraAppBitsFile = filepath.Join(assetsTmpDir, "dora.zip")
-	Expect(zipAsset("assets/dora", doraAppBitsFile)).To(Succeed())
+	Expect(zipAsset("assets/vendored/dora", doraAppBitsFile)).To(Succeed())
 
 	multiProcessAppBitsFile = filepath.Join(assetsTmpDir, "multi-process.zip")
 	Expect(zipAsset("assets/multi-process", multiProcessAppBitsFile)).To(Succeed())
