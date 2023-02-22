@@ -40,6 +40,7 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
+manifests: install-controller-gen
 	$(CONTROLLER_GEN) \
 		paths="./..." \
 		rbac:roleName=korifi-kpack-build-manager-role \
