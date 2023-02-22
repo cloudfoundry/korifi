@@ -11,7 +11,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
+	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -54,6 +56,12 @@ var _ = Describe("Build", func() {
 						Buildpacks: []string{},
 						Stack:      "",
 					},
+				},
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"bar": "baz",
 				},
 				PackageGUID: packageGUID,
 				AppGUID:     appGUID,
@@ -116,8 +124,12 @@ var _ = Describe("Build", func() {
 						}
 					},
 					"metadata": {
-						"labels": {},
-						"annotations": {}
+						"labels": {
+							"foo": "bar"
+						},
+						"annotations": {
+							"bar": "baz"
+						}
 					},
 					"links": {
 						"self": {
@@ -395,6 +407,12 @@ var _ = Describe("Build", func() {
 						Stack:      expectedLifecycleStack,
 					},
 				},
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"bar": "baz",
+				},
 				PackageGUID: packageGUID,
 				AppGUID:     appGUID,
 			}, nil)
@@ -466,8 +484,12 @@ var _ = Describe("Build", func() {
 						}
 					},
 					"metadata": {
-						"labels": {},
-						"annotations": {}
+						"labels": {
+							"foo": "bar"
+						},
+						"annotations": {
+							"bar": "baz"
+						}
 					},
 					"links": {
 						"self": {
@@ -570,6 +592,277 @@ var _ = Describe("Build", func() {
 
 			It("returns an error", func() {
 				expectUnprocessableEntityError("oops")
+			})
+		})
+	})
+
+	Describe("the PATCH /v3/builds endpoint", func() {
+		var (
+			buildRepo                   *fake.CFBuildRepository
+			expectedLifecycleBuildpacks []string
+		)
+
+		const (
+			packageGUID = "the-package-guid"
+			appGUID     = "the-app-guid"
+			buildGUID   = "test-build-guid"
+
+			expectedStagingMem     = 1024
+			expectedStagingDisk    = 1024
+			expectedLifecycleType  = "buildpack"
+			expectedLifecycleStack = "cflinuxfs3d"
+			createdAt              = "1906-04-18T13:12:00Z"
+			updatedAt              = "1906-04-18T13:12:01Z"
+		)
+
+		BeforeEach(func() {
+			expectedLifecycleBuildpacks = []string{"buildpack-a", "buildpack-b"}
+
+			buildRepo = new(fake.CFBuildRepository)
+			buildRepo.GetBuildReturns(repositories.BuildRecord{
+				GUID:            buildGUID,
+				State:           "STAGING",
+				CreatedAt:       createdAt,
+				UpdatedAt:       updatedAt,
+				StagingMemoryMB: expectedStagingMem,
+				StagingDiskMB:   expectedStagingDisk,
+				Lifecycle: repositories.Lifecycle{
+					Type: expectedLifecycleType,
+					Data: repositories.LifecycleData{
+						Buildpacks: expectedLifecycleBuildpacks,
+						Stack:      expectedLifecycleStack,
+					},
+				},
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+				PackageGUID: packageGUID,
+				AppGUID:     appGUID,
+			}, nil)
+
+			buildRepo.UpdateBuildReturns(repositories.BuildRecord{
+				GUID:            buildGUID,
+				State:           "STAGING",
+				CreatedAt:       createdAt,
+				UpdatedAt:       updatedAt,
+				StagingMemoryMB: expectedStagingMem,
+				StagingDiskMB:   expectedStagingDisk,
+				Lifecycle: repositories.Lifecycle{
+					Type: expectedLifecycleType,
+					Data: repositories.LifecycleData{
+						Buildpacks: expectedLifecycleBuildpacks,
+						Stack:      expectedLifecycleStack,
+					},
+				},
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"bar": "baz",
+				},
+				PackageGUID: packageGUID,
+				AppGUID:     appGUID,
+			}, nil)
+
+			decoderValidator, err2 := NewDefaultDecoderValidator()
+			Expect(err2).NotTo(HaveOccurred())
+
+			apiHandler := NewBuild(
+				*serverURL,
+				buildRepo,
+				new(fake.CFPackageRepository),
+				new(fake.CFAppRepository),
+				decoderValidator,
+			)
+			routerBuilder.LoadRoutes(apiHandler)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/builds/"+buildGUID, strings.NewReader(`{
+				  "metadata": {
+					"labels": {
+					  "foo": "bar"
+					},
+					"annotations": {
+					  "bar": "baz"
+					}
+				  }
+				}`))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("on the happy path", func() {
+			It("has the correct response type", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+			})
+
+			It("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			})
+
+			It("calls update build with the correct payload", func() {
+				Expect(buildRepo.UpdateBuildCallCount()).To(Equal(1))
+				_, _, actualUpdate := buildRepo.UpdateBuildArgsForCall(0)
+
+				Expect(actualUpdate.GUID).To(Equal(buildGUID))
+				Expect(actualUpdate.MetadataPatch).To(Equal(repositories.MetadataPatch{
+					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+				}))
+			})
+
+			It("returns the Build in the response", func() {
+				Expect(rr.Body.String()).To(MatchJSON(`{
+					"guid": "`+buildGUID+`",
+					"created_at": "`+createdAt+`",
+					"updated_at": "`+updatedAt+`",
+					"created_by": {},
+					"state": "STAGING",
+					"staging_memory_in_mb": `+fmt.Sprint(expectedStagingMem)+`,
+					"staging_disk_in_mb": `+fmt.Sprint(expectedStagingDisk)+`,
+					"error": null,
+					"lifecycle": {
+						"type": "`+expectedLifecycleType+`",
+						"data": {
+							"buildpacks": ["`+expectedLifecycleBuildpacks[0]+`", "`+expectedLifecycleBuildpacks[1]+`"],
+							"stack": "`+expectedLifecycleStack+`"
+						}
+					},
+					"package": {
+						"guid": "`+packageGUID+`"
+					},
+					"droplet": null,
+					"relationships": {
+						"app": {
+							"data": {
+								"guid": "`+appGUID+`"
+							}
+						}
+					},
+					"metadata": {
+						"labels": {
+							"foo": "bar"
+						},
+						"annotations": {
+							"bar": "baz"
+						}
+					},
+					"links": {
+						"self": {
+							"href": "`+defaultServerURI("/v3/builds/", buildGUID)+`"
+						},
+						"app": {
+							"href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
+						}
+					}
+				}`), "Response body matches response:")
+			})
+		})
+
+		When("the payload cannot be decoded", func() {
+			BeforeEach(func() {
+				var err error
+				req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/builds/"+buildGUID, strings.NewReader(`{"one": "two"}`))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("invalid request body: json: unknown field \"one\"")
+			})
+		})
+
+		When("a label is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/builds/"+buildGUID, strings.NewReader(`{
+					  "metadata": {
+						"labels": {
+						  "cloudfoundry.org/test": "production"
+					    }
+				      }
+					}`))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+
+			When("the prefix is a subdomain of cloudfoundry.org", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/builds/"+buildGUID, strings.NewReader(`{
+					  "metadata": {
+						"labels": {
+						  "korifi.cloudfoundry.org/test": "production"
+					    }
+			          }
+					}`))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+			})
+		})
+
+		When("an annotation is invalid", func() {
+			When("the prefix is cloudfoundry.org", func() {
+				BeforeEach(func() {
+					var err error
+					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/builds/"+buildGUID, strings.NewReader(`{
+					  "metadata": {
+						"annotations": {
+						  "cloudfoundry.org/test": "there"
+						}
+					  }
+					}`))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				})
+
+				When("the prefix is a subdomain of cloudfoundry.org", func() {
+					BeforeEach(func() {
+						var err error
+						req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/builds/"+buildGUID, strings.NewReader(`{
+						  "metadata": {
+							"annotations": {
+							  "korifi.cloudfoundry.org/test": "there"
+							}
+						  }
+						}`))
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("returns an unprocessable entity error", func() {
+						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					})
+				})
+			})
+		})
+
+		When("the build repo returns an error", func() {
+			BeforeEach(func() {
+				buildRepo.UpdateBuildReturns(repositories.BuildRecord{}, errors.New("update-build-error"))
+			})
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the user is not authorized to get builds", func() {
+			BeforeEach(func() {
+				buildRepo.GetBuildReturns(repositories.BuildRecord{}, apierrors.NewForbiddenError(nil, "CFBuild"))
+			})
+
+			It("returns 404 NotFound", func() {
+				expectNotFoundError("CFBuild not found")
 			})
 		})
 	})

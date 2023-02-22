@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -225,6 +226,37 @@ type CreateBuildMessage struct {
 	Lifecycle       Lifecycle
 	Labels          map[string]string
 	Annotations     map[string]string
+}
+
+type UpdateBuildMessage struct {
+	GUID          string
+	MetadataPatch MetadataPatch
+}
+
+func (b *BuildRepo) UpdateBuild(ctx context.Context, authInfo authorization.Info, message UpdateBuildMessage) (BuildRecord, error) {
+	ns, err := b.namespaceRetriever.NamespaceFor(ctx, message.GUID, BuildResourceType)
+	if err != nil {
+		return BuildRecord{}, err
+	}
+
+	userClient, err := b.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return BuildRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
+	}
+
+	build := korifiv1alpha1.CFBuild{}
+	if err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: message.GUID}, &build); err != nil {
+		return BuildRecord{}, fmt.Errorf("failed to get build: %w", apierrors.FromK8sError(err, BuildResourceType))
+	}
+
+	err = k8s.PatchResource(ctx, userClient, &build, func() {
+		message.MetadataPatch.Apply(&build)
+	})
+	if err != nil {
+		return BuildRecord{}, fmt.Errorf("failed to patch build metadata: %w", apierrors.FromK8sError(err, BuildResourceType))
+	}
+
+	return b.cfBuildToBuildRecord(build), nil
 }
 
 func (m CreateBuildMessage) toCFBuild() korifiv1alpha1.CFBuild {

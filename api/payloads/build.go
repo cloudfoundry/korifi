@@ -26,3 +26,17 @@ func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord) repositories.C
 
 	return toReturn
 }
+
+type BuildUpdate struct {
+	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (c *BuildUpdate) ToMessage(buildGUID string) repositories.UpdateBuildMessage {
+	return repositories.UpdateBuildMessage{
+		GUID: buildGUID,
+		MetadataPatch: repositories.MetadataPatch{
+			Labels:      c.Metadata.Labels,
+			Annotations: c.Metadata.Annotations,
+		},
+	}
+}

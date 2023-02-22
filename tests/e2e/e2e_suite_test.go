@@ -128,7 +128,8 @@ type destinationRef struct {
 
 type buildResource struct {
 	resource `json:",inline"`
-	Package  resource `json:"package"`
+	Package  resource  `json:"package"`
+	Metadata *metadata `json:"metadata,omitempty"`
 }
 
 type dropletResource struct {

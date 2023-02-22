@@ -25,6 +25,7 @@ const (
 type CFBuildRepository interface {
 	GetBuild(context.Context, authorization.Info, string) (repositories.BuildRecord, error)
 	CreateBuild(context.Context, authorization.Info, repositories.CreateBuildMessage) (repositories.BuildRecord, error)
+	UpdateBuild(context.Context, authorization.Info, repositories.UpdateBuildMessage) (repositories.BuildRecord, error)
 }
 
 type Build struct {
@@ -109,6 +110,30 @@ func (h *Build) create(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForBuild(record, h.serverURL)), nil
 }
 
+func (h *Build) update(r *http.Request) (*routing.Response, error) { //nolint:dupl
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.build.update")
+
+	buildGUID := routing.URLParam(r, "guid")
+
+	var payload payloads.BuildUpdate
+	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	_, err := h.buildRepo.GetBuild(r.Context(), authInfo, buildGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.BuildResourceType), "guid", buildGUID)
+	}
+
+	build, err := h.buildRepo.UpdateBuild(r.Context(), authInfo, payload.ToMessage(buildGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Error updating build in repository")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForBuild(build, h.serverURL)), nil
+}
+
 func (h *Build) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -117,5 +142,6 @@ func (h *Build) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: BuildPath, Handler: h.get},
 		{Method: "POST", Pattern: BuildsPath, Handler: h.create},
+		{Method: "PATCH", Pattern: BuildPath, Handler: h.update},
 	}
 }

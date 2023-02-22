@@ -64,4 +64,33 @@ var _ = Describe("Builds", func() {
 			Expect(result.Package.GUID).To(Equal(pkgGUID))
 		})
 	})
+
+	Describe("update", func() {
+		var buildGUID string
+
+		BeforeEach(func() {
+			buildGUID = createBuild(pkgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetBody(metadataResource{
+					Metadata: &metadataPatch{
+						Annotations: &map[string]string{"foo": "bar"},
+						Labels:      &map[string]string{"baz": "bar"},
+					},
+				}).
+				SetResult(&result).
+				Patch("/v3/builds/" + buildGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the updated build", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(buildGUID))
+			Expect(result.Metadata.Annotations).To(HaveKeyWithValue("foo", "bar"))
+			Expect(result.Metadata.Labels).To(HaveKeyWithValue("baz", "bar"))
+		})
+	})
 })

@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("BuildRepository", func() {
@@ -38,8 +39,10 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		var (
-			namespace1 *corev1.Namespace
-			namespace2 *corev1.Namespace
+			namespace1             *corev1.Namespace
+			namespace2             *corev1.Namespace
+			buildCreateLabels      map[string]string
+			buildCreateAnnotations map[string]string
 		)
 
 		BeforeEach(func() {
@@ -57,11 +60,19 @@ var _ = Describe("BuildRepository", func() {
 			Expect(k8sClient.Delete(ctx, namespace2)).To(Succeed())
 		})
 
+		buildCreateLabels = map[string]string{
+			"foo": "bar",
+		}
+		buildCreateAnnotations = map[string]string{
+			"bar": "baz",
+		}
 		makeBuild := func(namespace, buildGUID, packageGUID, appGUID string) *korifiv1alpha1.CFBuild {
 			return &korifiv1alpha1.CFBuild{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      buildGUID,
-					Namespace: namespace,
+					Name:        buildGUID,
+					Namespace:   namespace,
+					Labels:      buildCreateLabels,
+					Annotations: buildCreateAnnotations,
 				},
 				Spec: korifiv1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
@@ -169,6 +180,14 @@ var _ = Describe("BuildRepository", func() {
 
 					It("returns a record with an AppGUID field matching the CR", func() {
 						Expect(buildRecord.AppGUID).To(Equal(build2.Spec.AppRef.Name))
+					})
+
+					It("returns a record with a Label field matching the CR", func() {
+						Expect(buildRecord.Labels).To(Equal(buildCreateLabels))
+					})
+
+					It("returns a record with an Annotation field matching the CR", func() {
+						Expect(buildRecord.Annotations).To(Equal(buildCreateAnnotations))
 					})
 				})
 
@@ -383,8 +402,12 @@ var _ = Describe("BuildRepository", func() {
 				k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
 			).To(Succeed())
 
-			buildCreateLabels = nil
-			buildCreateAnnotations = nil
+			buildCreateLabels = map[string]string{
+				"foo": "bar",
+			}
+			buildCreateAnnotations = map[string]string{
+				"bar": "baz",
+			}
 			buildCreateMsg = repositories.CreateBuildMessage{
 				AppGUID:         appGUID,
 				PackageGUID:     packageGUID,
@@ -444,7 +467,6 @@ var _ = Describe("BuildRepository", func() {
 				Expect(buildCreateRecord.AppGUID).To(Equal(appGUID))
 				Expect(buildCreateRecord.Labels).To(Equal(buildCreateLabels))
 				Expect(buildCreateRecord.Annotations).To(Equal(buildCreateAnnotations))
-				Expect(buildCreateRecord.Annotations).To(Equal(buildCreateAnnotations))
 			})
 
 			It("creates a new Build CR", func() {
@@ -471,6 +493,141 @@ var _ = Describe("BuildRepository", func() {
 				_, err := buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("UpdateBuild", func() {
+		const (
+			appGUID       = "app-1-guid"
+			packageGUID   = "package-1-guid"
+			stagingMemory = 1024
+			stagingDisk   = 2048
+		)
+
+		var (
+			namespace          *corev1.Namespace
+			buildGUID          string
+			build              *korifiv1alpha1.CFBuild
+			buildUpdateMsg     repositories.UpdateBuildMessage
+			updatedBuildRecord repositories.BuildRecord
+			updateError        error
+		)
+
+		BeforeEach(func() {
+			namespaceName := generateGUID()
+			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+			Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+			buildGUID = generateGUID()
+			build = &korifiv1alpha1.CFBuild{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      buildGUID,
+					Namespace: namespace.Name,
+					Labels: map[string]string{
+						"key1": "val1",
+						"key2": "val2",
+					},
+					Annotations: map[string]string{
+						"key1": "val1",
+						"key2": "val2",
+					},
+				},
+				Spec: korifiv1alpha1.CFBuildSpec{
+					PackageRef: corev1.LocalObjectReference{
+						Name: packageGUID,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+					StagingMemoryMB: stagingMemory,
+					StagingDiskMB:   stagingDisk,
+					Lifecycle: korifiv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: korifiv1alpha1.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, build)).To(Succeed())
+			buildUpdateMsg = repositories.UpdateBuildMessage{
+				GUID: buildGUID,
+				MetadataPatch: repositories.MetadataPatch{
+					Labels: map[string]*string{
+						"key1": pointerTo("val1edit"),
+						"key2": nil,
+						"key3": pointerTo("val3"),
+					},
+					Annotations: map[string]*string{
+						"key1": pointerTo("val1edit"),
+						"key2": nil,
+						"key3": pointerTo("val3"),
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			updatedBuildRecord, updateError = buildRepo.UpdateBuild(ctx, authInfo, buildUpdateMsg)
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
+		})
+
+		When("on the happy path", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+			})
+
+			It("succeeds", func() {
+				Expect(updateError).NotTo(HaveOccurred())
+			})
+
+			It("returns a record with a matching GUID", func() {
+				Expect(updatedBuildRecord.GUID).To(Equal(buildGUID))
+			})
+
+			It("returns a record with a Label field matching the CR", func() {
+				Expect(updatedBuildRecord.Labels).To(Equal(map[string]string{
+					"key1": "val1edit",
+					"key3": "val3",
+				}))
+			})
+
+			It("returns a record with an Annotation field matching the CR", func() {
+				Expect(updatedBuildRecord.Annotations).To(Equal(map[string]string{
+					"key1": "val1edit",
+					"key3": "val3",
+				}))
+			})
+
+			It("updates the build metadata in kubernetes", func() {
+				updatedBuild := new(korifiv1alpha1.CFBuild)
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(build), updatedBuild)).To(Succeed())
+
+				Expect(updatedBuild.Labels).To(SatisfyAll(
+					HaveKeyWithValue("key1", "val1edit"),
+					HaveKeyWithValue("key3", "val3")))
+				Expect(updatedBuild.Annotations).To(SatisfyAll(
+					HaveKeyWithValue("key1", "val1edit"),
+					HaveKeyWithValue("key3", "val3")))
+			})
+		})
+
+		It("returns a forbidden error", func() {
+			Expect(updateError).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the build does not exist", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace.Name)
+				buildUpdateMsg.GUID = "i-do-not-exist"
+			})
+
+			It("returns a not found error", func() {
+				Expect(updateError).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
