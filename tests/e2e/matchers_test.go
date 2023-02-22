@@ -1,7 +1,9 @@
 package e2e_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 	"github.com/go-resty/resty/v2"
@@ -15,6 +17,34 @@ import (
 func HaveRestyStatusCode(expected int) types.GomegaMatcher {
 	return &haveRestyStatusCode{
 		expected: expected,
+	}
+}
+
+func HaveRestyBody(expected interface{}) types.GomegaMatcher {
+	switch e := expected.(type) {
+	case types.GomegaMatcher:
+		return &haveRestyBody{matcher: e}
+	default:
+		return &haveRestyBody{matcher: &matchers.EqualMatcher{Expected: expected}}
+	}
+}
+
+func HaveRestyHeaderWithValue(key string, value interface{}) types.GomegaMatcher {
+	return haveRestyHeaderWithValue{
+		key:   key,
+		value: value,
+	}
+}
+
+func BeAValidJSONObject() types.GomegaMatcher {
+	return new(validJSONObjectMatcher)
+}
+
+func HaveRelationship(relationshipName, relationshipKey, relationshipValue string) types.GomegaMatcher {
+	return &haveRelationshipMatcher{
+		relationshipName:  relationshipName,
+		relationshipKey:   relationshipKey,
+		relationshipValue: relationshipValue,
 	}
 }
 
@@ -49,15 +79,6 @@ func (matcher *haveRestyStatusCode) NegatedFailureMessage(actual interface{}) st
 	return format.Message(helpers.NewActualRestyResponse(response), "not to have HTTP Status code", matcher.expected)
 }
 
-func HaveRestyBody(expected interface{}) types.GomegaMatcher {
-	switch e := expected.(type) {
-	case types.GomegaMatcher:
-		return &haveRestyBody{matcher: e}
-	default:
-		return &haveRestyBody{matcher: &matchers.EqualMatcher{Expected: expected}}
-	}
-}
-
 type haveRestyBody struct {
 	matcher types.GomegaMatcher
 }
@@ -87,13 +108,6 @@ func (m *haveRestyBody) NegatedFailureMessage(actual interface{}) string {
 	}
 
 	return format.Message(helpers.NewActualRestyResponse(response), "not to have body", m.matcher)
-}
-
-func HaveRestyHeaderWithValue(key string, value interface{}) types.GomegaMatcher {
-	return haveRestyHeaderWithValue{
-		key:   key,
-		value: value,
-	}
 }
 
 type haveRestyHeaderWithValue struct {
@@ -165,14 +179,6 @@ type haveRelationshipMatcher struct {
 	relationshipValue string
 }
 
-func HaveRelationship(relationshipName, relationshipKey, relationshipValue string) types.GomegaMatcher {
-	return &haveRelationshipMatcher{
-		relationshipName:  relationshipName,
-		relationshipKey:   relationshipKey,
-		relationshipValue: relationshipValue,
-	}
-}
-
 func (m *haveRelationshipMatcher) Match(actual interface{}) (bool, error) {
 	if actual == nil {
 		return false, nil
@@ -211,4 +217,41 @@ func (m *haveRelationshipMatcher) dataHaveKeyMatcher() types.GomegaMatcher {
 	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		m.relationshipKey: gomega.Equal(m.relationshipValue),
 	})
+}
+
+type validJSONObjectMatcher struct{}
+
+func (matcher *validJSONObjectMatcher) Match(actual interface{}) (bool, error) {
+	decoded := map[string]string{}
+	var body []byte
+	switch b := actual.(type) {
+	case []byte:
+		body = b
+	case string:
+		body = []byte(b)
+	case fmt.Stringer:
+		body = []byte(b.String())
+	case io.Reader:
+		var err error
+		body, err = io.ReadAll(b)
+		if err != nil {
+			return false, fmt.Errorf("error reading from %#v: %w", b, err)
+		}
+	default:
+		return false, fmt.Errorf("can't convert %#v to be a []byte", actual)
+	}
+
+	err := json.Unmarshal(body, &decoded)
+	if err != nil {
+		return false, fmt.Errorf("error unmarshaling %s: %w", body, err)
+	}
+	return true, nil
+}
+
+func (matcher *validJSONObjectMatcher) FailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Expected\n\t%#v\nto contain valid JSON", actual)
+}
+
+func (matcher *validJSONObjectMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Expected\n\t%#v\nnot to contain valid JSON", actual)
 }

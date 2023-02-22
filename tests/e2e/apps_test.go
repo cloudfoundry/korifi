@@ -487,10 +487,9 @@ var _ = Describe("Apps", func() {
 			body := curlApp(appGUID, "/env.json")
 
 			env := map[string]string{}
-			err := json.Unmarshal(body, &env)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(env).To(HaveKeyWithValue("VCAP_SERVICES", Not(BeEmpty())))
-			Expect(env).To(HaveKeyWithValue("VCAP_APPLICATION", Not(BeEmpty())))
+			Expect(json.Unmarshal(body, &env)).To(Succeed())
+			Expect(env).To(HaveKeyWithValue("VCAP_SERVICES", BeAValidJSONObject()))
+			Expect(env).To(HaveKeyWithValue("VCAP_APPLICATION", BeAValidJSONObject()))
 		})
 
 		When("the app is re-pushed with different code", func() {
