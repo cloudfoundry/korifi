@@ -50,6 +50,7 @@ type CreateTaskMessage struct {
 	Command   string
 	SpaceGUID string
 	AppGUID   string
+	Metadata
 }
 
 type ListTaskMessage struct {
@@ -68,8 +69,10 @@ func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
 
 	return &korifiv1alpha1.CFTask{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
-			Namespace: m.SpaceGUID,
+			Name:        guid,
+			Namespace:   m.SpaceGUID,
+			Labels:      m.Labels,
+			Annotations: m.Annotations,
 		},
 		Spec: korifiv1alpha1.CFTaskSpec{
 			Command: m.Command,

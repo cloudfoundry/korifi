@@ -2,6 +2,7 @@ package payloads_test
 
 import (
 	"bytes"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	"encoding/json"
 	"github.com/onsi/gomega/gstruct"
@@ -35,6 +36,98 @@ var _ = Describe("TaskList", func() {
 		Entry("empty sequence_id", "sequence_ids=1,,3", payloads.TaskList{SequenceIDs: []int64{1, 3}}, ""),
 		Entry("invalid sequence_ids", "sequence_ids=1,two,3", payloads.TaskList{}, "invalid syntax"),
 	)
+})
+
+var _ = Describe("TaskCreate", func() {
+	var (
+		createPayload payloads.TaskCreate
+		taskCreate    *payloads.TaskCreate
+		validatorErr  error
+	)
+
+	BeforeEach(func() {
+		taskCreate = new(payloads.TaskCreate)
+		createPayload = payloads.TaskCreate{
+			Command: "sleep 9000",
+			Metadata: payloads.Metadata{
+				Labels: map[string]string{
+					"foo": "bar",
+					"bar": "baz",
+				},
+				Annotations: map[string]string{
+					"example.org/jim": "hello",
+				},
+			},
+		}
+	})
+
+	JustBeforeEach(func() {
+		body, err := json.Marshal(createPayload)
+		Expect(err).NotTo(HaveOccurred())
+
+		req, err := http.NewRequest("", "", bytes.NewReader(body))
+		Expect(err).NotTo(HaveOccurred())
+
+		validatorErr = validator.DecodeAndValidateJSONPayload(req, taskCreate)
+	})
+
+	It("succeeds", func() {
+		Expect(validatorErr).NotTo(HaveOccurred())
+		Expect(taskCreate).To(gstruct.PointTo(Equal(createPayload)))
+	})
+
+	When("no command is set", func() {
+		BeforeEach(func() {
+			createPayload.Command = ""
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "Command is a required field")
+		})
+	})
+
+	When("metadata.labels contains an invalid key", func() {
+		BeforeEach(func() {
+			createPayload.Metadata = payloads.Metadata{
+				Labels: map[string]string{
+					"foo.cloudfoundry.org/bar": "jim",
+				},
+			}
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+		})
+	})
+
+	When("metadata.annotations contains an invalid key", func() {
+		BeforeEach(func() {
+			createPayload.Metadata = payloads.Metadata{
+				Annotations: map[string]string{
+					"foo.cloudfoundry.org/bar": "jim",
+				},
+			}
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+		})
+	})
+
+	Context("ToMessage()", func() {
+		It("converts to repo message correctly", func() {
+			msg := taskCreate.ToMessage(repositories.AppRecord{GUID: "appGUID", SpaceGUID: "spaceGUID"})
+			Expect(msg.AppGUID).To(Equal("appGUID"))
+			Expect(msg.SpaceGUID).To(Equal("spaceGUID"))
+			Expect(msg.Metadata.Labels).To(Equal(map[string]string{
+				"foo": "bar",
+				"bar": "baz",
+			}))
+			Expect(msg.Metadata.Annotations).To(Equal(map[string]string{
+				"example.org/jim": "hello",
+			}))
+		})
+	})
 })
 
 var _ = Describe("TaskUpdate", func() {
