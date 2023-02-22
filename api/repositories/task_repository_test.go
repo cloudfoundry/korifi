@@ -124,6 +124,10 @@ var _ = Describe("TaskRepository", func() {
 				Command:   "echo 'hello world'",
 				SpaceGUID: space.Name,
 				AppGUID:   cfApp.Name,
+				Metadata: repositories.Metadata{
+					Labels:      map[string]string{"color": "blue"},
+					Annotations: map[string]string{"extra-bugs": "true"},
+				},
 			}
 		})
 
@@ -152,6 +156,8 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 				Expect(taskRecord.State).To(Equal(repositories.TaskStatePending))
+				Expect(taskRecord.Labels).To(Equal(map[string]string{"color": "blue"}))
+				Expect(taskRecord.Annotations).To(Equal(map[string]string{"extra-bugs": "true"}))
 			})
 
 			When("the task never becomes initialized", func() {

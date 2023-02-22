@@ -9,7 +9,8 @@ import (
 )
 
 type TaskCreate struct {
-	Command string `json:"command" validate:"required"`
+	Command  string   `json:"command" validate:"required"`
+	Metadata Metadata `json:"metadata"`
 }
 
 func (p TaskCreate) ToMessage(appRecord repositories.AppRecord) repositories.CreateTaskMessage {
@@ -17,6 +18,7 @@ func (p TaskCreate) ToMessage(appRecord repositories.AppRecord) repositories.Cre
 		Command:   p.Command,
 		SpaceGUID: appRecord.SpaceGUID,
 		AppGUID:   appRecord.GUID,
+		Metadata:  repositories.Metadata(p.Metadata),
 	}
 }
 

@@ -52,9 +52,28 @@ var _ = Describe("Task", func() {
 	})
 
 	Describe("POST /v3/apps/:app-guid/tasks", func() {
+		var fakeRequestJSONValidator *fake.RequestJSONValidator
+
 		BeforeEach(func() {
+			fakeRequestJSONValidator = new(fake.RequestJSONValidator)
+			requestJSONValidator = fakeRequestJSONValidator
+
+			body := &payloads.TaskCreate{
+				Command: "echo hello",
+				Metadata: payloads.Metadata{
+					Labels:      map[string]string{"env": "production"},
+					Annotations: map[string]string{"hello": "there"},
+				},
+			}
+
+			fakeRequestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+				b, ok := i.(*payloads.TaskCreate)
+				Expect(ok).To(BeTrue())
+				*b = *body
+				return nil
+			}
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/the-app-guid/tasks", strings.NewReader(`{"command": "echo hello"}`))
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/the-app-guid/tasks", strings.NewReader(`ignored by test`))
 			Expect(err).NotTo(HaveOccurred())
 
 			taskRepo.CreateTaskReturns(repositories.TaskRecord{
@@ -68,6 +87,8 @@ var _ = Describe("Task", func() {
 				MemoryMB:          256,
 				DiskMB:            128,
 				State:             "task-created",
+				Labels:            map[string]string{"env": "production"},
+				Annotations:       map[string]string{"hello": "there"},
 			}, nil)
 		})
 
@@ -83,6 +104,8 @@ var _ = Describe("Task", func() {
 			Expect(createTaskMessage.Command).To(Equal("echo hello"))
 			Expect(createTaskMessage.AppGUID).To(Equal("the-app-guid"))
 			Expect(createTaskMessage.SpaceGUID).To(Equal("the-space-guid"))
+			Expect(createTaskMessage.Labels).To(Equal(map[string]string{"env": "production"}))
+			Expect(createTaskMessage.Annotations).To(Equal(map[string]string{"hello": "there"}))
 		})
 
 		It("returns the created task", func() {
@@ -98,8 +121,8 @@ var _ = Describe("Task", func() {
               "droplet_guid": "the-droplet-guid",
               "state": "task-created",
               "metadata": {
-                "labels": {},
-                "annotations": {}
+                "labels": {"env": "production"},
+                "annotations": {"hello": "there"}
               },
               "relationships": {
                 "app": {
@@ -127,18 +150,6 @@ var _ = Describe("Task", func() {
                 }
               }
             }`))
-		})
-
-		When("the task has no command", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "POST", "/v3/apps/the-app-guid/tasks", strings.NewReader(`{}`))
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an unprocessable entity error", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
-			})
 		})
 
 		When("the app does not exist", func() {
