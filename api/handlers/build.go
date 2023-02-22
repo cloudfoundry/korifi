@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -109,6 +110,10 @@ func (h *Build) create(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForBuild(record, h.serverURL)), nil
 }
 
+func (h *Build) update(r *http.Request) (*routing.Response, error) { //nolint:dupl
+	return nil, apierrors.NewUnprocessableEntityError(errors.New("update build failed"), "Labels and annotations are not supported for builds.")
+}
+
 func (h *Build) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -117,5 +122,6 @@ func (h *Build) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: BuildPath, Handler: h.get},
 		{Method: "POST", Pattern: BuildsPath, Handler: h.create},
+		{Method: "PATCH", Pattern: BuildPath, Handler: h.update},
 	}
 }

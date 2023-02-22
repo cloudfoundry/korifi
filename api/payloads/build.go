@@ -9,7 +9,7 @@ type BuildCreate struct {
 	StagingMemoryMB *int              `json:"staging_memory_in_mb"`
 	StagingDiskMB   *int              `json:"staging_disk_in_mb"`
 	Lifecycle       *Lifecycle        `json:"lifecycle"`
-	Metadata        Metadata          `json:"metadata"`
+	Metadata        BuildMetadata     `json:"metadata"`
 }
 
 func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord) repositories.CreateBuildMessage {
