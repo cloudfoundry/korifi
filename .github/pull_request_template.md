@@ -19,8 +19,8 @@ We've designed this PR template to speed up the PR review and merge process - pl
 ## Tag your pair, your PM, and/or team
 <!-- _Optional but it's helpful to tag a few other folks on your team or your team alias in case we need to follow up later._ -->
 
-## Things to remember
 <!--
+## Things to remember
 - Include any links to related PRs, issues, stories, slack discussions, etc... that will help establish context.
 - Is there anything else of note that the reviewers should know about this change?
 - This project follows the Cloud Foundry [Code of Conduct](https://www.cloudfoundry.org/code-of-conduct/)
