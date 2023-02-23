@@ -321,6 +321,10 @@ var _ = Describe("Spaces", func() {
 					Routes: []manifestRouteResource{{
 						Route: &route,
 					}},
+					Metadata: metadata{
+						Labels:      map[string]string{"foo": "FOO"},
+						Annotations: map[string]string{"bar": "BAR"},
+					},
 				}, {
 					Name: app2Name,
 					Processes: []manifestApplicationProcessResource{{
@@ -366,12 +370,102 @@ var _ = Describe("Spaces", func() {
 					}).Should(Succeed())
 
 					app1GUID := getAppGUIDFromName(app1Name)
-					process := getProcess(app1GUID, "web")
-					Expect(process.Instances).To(Equal(1))
-					Expect(process.Command).To(Equal("whatever"))
+
+					app1 := getApp(app1GUID)
+					Expect(app1.Metadata).NotTo(BeNil())
+					Expect(app1.Metadata.Labels).To(Equal(map[string]string{
+						"foo":                              "FOO",
+						"korifi.cloudfoundry.org/app-guid": app1GUID,
+					}))
+					Expect(app1.Metadata.Annotations).To(Equal(map[string]string{
+						"bar":                             "BAR",
+						"korifi.cloudfoundry.org/app-rev": "0",
+					}))
+
+					app1Process := getProcess(app1GUID, "web")
+					Expect(app1Process.Instances).To(Equal(1))
+					Expect(app1Process.Command).To(Equal("whatever"))
+
 					app2GUID := getAppGUIDFromName(app2Name)
 					Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
 					Expect(getProcess(app2GUID, "bob").Instances).To(Equal(0))
+				})
+
+				When("the app already exists", func() {
+					applyManifest := func(m manifestResource) {
+						mBytes, err := yaml.Marshal(m)
+						Expect(err).NotTo(HaveOccurred())
+
+						var requestErr error
+						r, err := restyClient.R().
+							SetHeader("Content-type", "application/x-yaml").
+							SetBody(mBytes).
+							SetError(&requestErr).
+							Post("/v3/spaces/" + spaceGUID + "/actions/apply_manifest")
+						Expect(err).NotTo(HaveOccurred())
+						Expect(requestErr).NotTo(HaveOccurred())
+
+						Expect(r).To(HaveRestyStatusCode(http.StatusAccepted))
+
+						jobURL := r.Header().Get("Location")
+						Eventually(func(g Gomega) {
+							jobResp, err := restyClient.R().Get(jobURL)
+							g.Expect(err).NotTo(HaveOccurred())
+							g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+						}).Should(Succeed())
+					}
+
+					BeforeEach(func() {
+						applyManifest(manifestResource{
+							Version: 1,
+							Applications: []applicationResource{{
+								Name:    app1Name,
+								Command: "ogWhatever",
+								Metadata: metadata{
+									Labels:      map[string]string{"foo": "ogFOO", "baz": "luhrmann"},
+									Annotations: map[string]string{"bar": "ogBAR", "fizz": "buzz"},
+								},
+								Processes: []manifestApplicationProcessResource{{
+									Type: "worker",
+								}},
+							}},
+						})
+					})
+
+					It("applies the changes correctly", func() {
+						Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+
+						jobURL := resp.Header().Get("Location")
+						Eventually(func(g Gomega) {
+							jobResp, err := restyClient.R().Get(jobURL)
+							g.Expect(err).NotTo(HaveOccurred())
+							g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+						}).Should(Succeed())
+
+						app1GUID := getAppGUIDFromName(app1Name)
+
+						app1 := getApp(app1GUID)
+						Expect(app1.Metadata).NotTo(BeNil())
+						Expect(app1.Metadata.Labels).To(Equal(map[string]string{
+							"foo":                              "FOO",
+							"baz":                              "luhrmann",
+							"korifi.cloudfoundry.org/app-guid": app1GUID,
+						}))
+						Expect(app1.Metadata.Annotations).To(Equal(map[string]string{
+							"bar":                             "BAR",
+							"fizz":                            "buzz",
+							"korifi.cloudfoundry.org/app-rev": "0",
+						}))
+
+						app1Process := getProcess(app1GUID, "web")
+						Expect(app1Process.Instances).To(Equal(1))
+						Expect(app1Process.Command).To(Equal("whatever"))
+						Expect(getProcess(app1GUID, "worker").Instances).To(Equal(0))
+
+						app2GUID := getAppGUIDFromName(app2Name)
+						Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
+						Expect(getProcess(app2GUID, "bob").Instances).To(Equal(0))
+					})
 				})
 			})
 
