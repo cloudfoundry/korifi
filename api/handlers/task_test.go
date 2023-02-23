@@ -1,15 +1,17 @@
 package handlers_test
 
 import (
-	"code.cloudfoundry.org/korifi/api/payloads"
-	"code.cloudfoundry.org/korifi/tools"
 	"context"
 	"errors"
 	"fmt"
-	. "github.com/onsi/gomega/gstruct"
 	"net/http"
 	"strings"
 	"time"
+
+	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/tools"
+
+	. "github.com/onsi/gomega/gstruct"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"

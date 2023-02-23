@@ -1,11 +1,12 @@
 package repositories_test
 
 import (
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"context"
 	"errors"
 	"sync"
 	"time"
+
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
