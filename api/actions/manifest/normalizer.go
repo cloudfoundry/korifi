@@ -30,6 +30,7 @@ func (n Normalizer) Normalize(appInfo payloads.ManifestApplication, appState App
 		Processes:  processes,
 		Routes:     routes,
 		NoRoute:    appInfo.NoRoute,
+		Metadata:   appInfo.Metadata,
 	}
 }
 

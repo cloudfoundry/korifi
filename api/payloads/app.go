@@ -43,8 +43,7 @@ func (p AppCreate) ToAppCreateMessage() repositories.CreateAppMessage {
 	return repositories.CreateAppMessage{
 		Name:                 p.Name,
 		SpaceGUID:            p.Relationships.Space.Data.GUID,
-		Labels:               p.Metadata.Labels,
-		Annotations:          p.Metadata.Annotations,
+		Metadata:             repositories.Metadata(p.Metadata),
 		State:                repositories.StoppedState,
 		Lifecycle:            lifecycleBlock,
 		EnvironmentVariables: p.EnvironmentVariables,

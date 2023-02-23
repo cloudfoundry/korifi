@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"code.cloudfoundry.org/korifi/tools"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -113,22 +114,20 @@ type CurrentDropletRecord struct {
 type CreateAppMessage struct {
 	Name                 string
 	SpaceGUID            string
-	Labels               map[string]string
-	Annotations          map[string]string
 	State                DesiredState
 	Lifecycle            Lifecycle
 	EnvironmentVariables map[string]string
+	Metadata
 }
 
 type PatchAppMessage struct {
 	Name                 string
 	AppGUID              string
 	SpaceGUID            string
-	Labels               map[string]string
-	Annotations          map[string]string
 	State                DesiredState
 	Lifecycle            Lifecycle
 	EnvironmentVariables map[string]string
+	Metadata
 }
 
 type DeleteAppMessage struct {
@@ -273,15 +272,14 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	app := korifiv1alpha1.CFApp{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: appPatchMessage.SpaceGUID, Name: appPatchMessage.AppGUID}, &app)
+	app := new(korifiv1alpha1.CFApp)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: appPatchMessage.SpaceGUID, Name: appPatchMessage.AppGUID}, app)
 	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
-	cfApp := appPatchMessage.toCFApp()
-	err = k8s.PatchResource(ctx, userClient, &app, func() {
-		app.Spec.Lifecycle = cfApp.Spec.Lifecycle
+	err = k8s.PatchResource(ctx, userClient, app, func() {
+		appPatchMessage.Apply(app)
 	})
 	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
@@ -297,7 +295,7 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 		return AppRecord{}, err
 	}
 
-	return cfAppToAppRecord(app), nil
+	return cfAppToAppRecord(*app), nil
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
@@ -681,26 +679,30 @@ func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
 	}
 }
 
-func (m *PatchAppMessage) toCFApp() korifiv1alpha1.CFApp {
-	return korifiv1alpha1.CFApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        m.AppGUID,
-			Namespace:   m.SpaceGUID,
-			Labels:      m.Labels,
-			Annotations: m.Annotations,
-		},
-		Spec: korifiv1alpha1.CFAppSpec{
-			DisplayName:  m.Name,
-			DesiredState: korifiv1alpha1.DesiredState(m.State),
-			Lifecycle: korifiv1alpha1.Lifecycle{
-				Type: korifiv1alpha1.LifecycleType(m.Lifecycle.Type),
-				Data: korifiv1alpha1.LifecycleData{
-					Buildpacks: m.Lifecycle.Data.Buildpacks,
-					Stack:      m.Lifecycle.Data.Stack,
-				},
-			},
+func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
+	app.Spec.Lifecycle = korifiv1alpha1.Lifecycle{
+		Type: korifiv1alpha1.LifecycleType(m.Lifecycle.Type),
+		Data: korifiv1alpha1.LifecycleData{
+			Buildpacks: m.Lifecycle.Data.Buildpacks,
+			Stack:      m.Lifecycle.Data.Stack,
 		},
 	}
+
+	metadataMessage := &MetadataPatch{Labels: map[string]*string{}, Annotations: map[string]*string{}}
+	for k, v := range m.Labels {
+		metadataMessage.Labels[k] = blankAsNil(v)
+	}
+	for k, v := range m.Annotations {
+		metadataMessage.Annotations[k] = blankAsNil(v)
+	}
+	metadataMessage.Apply(app)
+}
+
+func blankAsNil(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return tools.PtrTo(v)
 }
 
 func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {

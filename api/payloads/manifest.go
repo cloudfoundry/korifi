@@ -36,7 +36,8 @@ type ManifestApplication struct {
 	Routes                       []ManifestRoute              `yaml:"routes" validate:"dive"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
 	// Deprecated: Use Buildpacks instead
-	Buildpack string `yaml:"buildpack"`
+	Buildpack string   `yaml:"buildpack"`
+	Metadata  Metadata `yaml:"metadata"`
 }
 
 type ManifestApplicationProcess struct {
@@ -72,6 +73,7 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 		},
 		State:                repositories.DesiredState(korifiv1alpha1.StoppedState),
 		EnvironmentVariables: a.Env,
+		Metadata:             repositories.Metadata(a.Metadata),
 	}
 }
 
@@ -87,6 +89,7 @@ func (a ManifestApplication) ToAppPatchMessage(appGUID, spaceGUID string) reposi
 			},
 		},
 		EnvironmentVariables: a.Env,
+		Metadata:             repositories.Metadata(a.Metadata),
 	}
 }
 
