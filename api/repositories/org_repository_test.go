@@ -10,6 +10,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -133,7 +134,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
 				Expect(org.Name).To(Equal(orgGUID))
-				Expect(org.GUID).To(HavePrefix("cf-org-"))
+				helpers.EnsureValidUUID(org.GUID)
 				createdAt, err := time.Parse(time.RFC3339, org.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createdAt).To(BeTemporally("~", time.Now(), 2*time.Second))

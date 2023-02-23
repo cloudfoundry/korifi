@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	OrgPrefix       = "cf-org-"
+	OrgPrefix       = ""
 	OrgResourceType = "Org"
 )
 

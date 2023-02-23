@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	testhelpers "code.cloudfoundry.org/korifi/tests/helpers"
 )
 
 var _ = Describe("Orgs", func() {
@@ -56,7 +57,7 @@ var _ = Describe("Orgs", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Name).To(Equal(orgName))
 			Expect(result.GUID).NotTo(BeEmpty())
-			Expect(result.GUID).To(HavePrefix("cf-org-"))
+			testhelpers.EnsureValidUUID(result.GUID)
 		})
 
 		When("the org name already exists", func() {

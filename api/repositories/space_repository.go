@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	SpacePrefix       = "cf-space-"
+	SpacePrefix       = ""
 	SpaceResourceType = "Space"
 )
 

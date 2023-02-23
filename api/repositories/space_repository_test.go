@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -140,7 +141,7 @@ var _ = Describe("SpaceRepository", func() {
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: orgGUID, Name: space.GUID}, spaceCR)).To(Succeed())
 
 				Expect(space.Name).To(Equal(spaceName))
-				Expect(space.GUID).To(HavePrefix("cf-space-"))
+				helpers.EnsureValidUUID(space.GUID)
 				Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 				Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 			})
