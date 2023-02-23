@@ -291,6 +291,7 @@ func main() {
 		handlers.NewDroplet(
 			*serverURL,
 			dropletRepo,
+			decoderValidator,
 		),
 		handlers.NewProcess(
 			*serverURL,

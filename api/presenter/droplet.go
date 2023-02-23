@@ -61,8 +61,8 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) Dropl
 			},
 		},
 		Metadata: Metadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
+			Labels:      emptyMapIfNil(dropletRecord.Labels),
+			Annotations: emptyMapIfNil(dropletRecord.Annotations),
 		},
 		Links: map[string]*Link{
 			"self": {

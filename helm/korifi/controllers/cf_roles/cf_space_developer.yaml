@@ -74,6 +74,7 @@ rules:
   - get
   - list
   - create
+  - patch
 
 - apiGroups:
   - korifi.cloudfoundry.org
