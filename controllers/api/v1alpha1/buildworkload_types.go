@@ -52,6 +52,9 @@ type BuildWorkloadStatus struct {
 	Conditions []metav1.Condition `json:"conditions"`
 
 	Droplet *BuildDropletStatus `json:"droplet,omitempty"`
+
+	//+kubebuilder:validation:Optional
+	ObservedImageGeneration int64 `json:"observedImageGeneration"`
 }
 
 //+kubebuilder:object:root=true

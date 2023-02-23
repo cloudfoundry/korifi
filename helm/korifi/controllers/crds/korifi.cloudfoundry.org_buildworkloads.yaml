@@ -396,6 +396,9 @@ spec:
                 - registry
                 - stack
                 type: object
+              observedImageGeneration:
+                format: int64
+                type: integer
             required:
             - conditions
             type: object

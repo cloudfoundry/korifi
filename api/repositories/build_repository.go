@@ -127,13 +127,13 @@ func orderBuilds(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
 	return builds
 }
 
-func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Info, spaceGUID string, buildGUID string) ([]LogRecord, error) {
+func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Info, spaceGUID, imageGUID string) ([]LogRecord, error) {
 	userClient, err := b.userClientFactory.BuildK8sClient(authInfo)
 	if err != nil { // Untested
 		return []LogRecord{}, err
 	}
 	logWriter := new(strings.Builder)
-	err = NewBuildLogsClient(userClient).GetImageLogs(ctx, logWriter, buildGUID, spaceGUID)
+	err = NewBuildLogsClient(userClient).GetImageLogs(ctx, logWriter, imageGUID, spaceGUID)
 	if err != nil {
 		return nil, err
 	}
@@ -278,10 +278,10 @@ func NewBuildLogsClient(k8sClient k8sclient.Interface) *BuildLogsClient {
 
 const BuildWorkloadLabelKey = "korifi.cloudfoundry.org/build-workload-name"
 
-func (c *BuildLogsClient) GetImageLogs(ctx context.Context, writer io.Writer, buildGUID, namespace string) error {
+func (c *BuildLogsClient) GetImageLogs(ctx context.Context, writer io.Writer, imageGUID, namespace string) error {
 	return c.getPodLogs(ctx, writer, namespace, metav1.ListOptions{
 		Watch:         false,
-		LabelSelector: fmt.Sprintf("%s=%s", BuildWorkloadLabelKey, buildGUID),
+		LabelSelector: fmt.Sprintf("%s=%s", "image.kpack.io/image", imageGUID),
 	}, false)
 }
 
