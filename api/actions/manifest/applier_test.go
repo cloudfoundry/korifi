@@ -13,7 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("Applier", func() {
@@ -45,12 +45,16 @@ var _ = Describe("Applier", func() {
 			Processes:  []payloads.ManifestApplicationProcess{},
 			Routes:     []payloads.ManifestRoute{},
 			Buildpacks: []string{"buildpack-a"},
-			Metadata: payloads.Metadata{
-				Labels: map[string]string{
-					"foo": "FOO",
+			Metadata: payloads.MetadataPatch{
+				Labels: map[string]*string{
+					"foo":      tools.PtrTo("FOO"),
+					"novalue1": tools.PtrTo(""),
+					"clear1":   nil,
 				},
-				Annotations: map[string]string{
-					"bar": "BAR",
+				Annotations: map[string]*string{
+					"bar":      tools.PtrTo("BAR"),
+					"novalue2": tools.PtrTo(""),
+					"clear2":   nil,
 				},
 			},
 		}
@@ -80,8 +84,8 @@ var _ = Describe("Applier", func() {
 				},
 			}))
 			Expect(createAppMsg.EnvironmentVariables).To(Equal(appInfo.Env))
-			Expect(createAppMsg.Labels).To(Equal(map[string]string{"foo": "FOO"}))
-			Expect(createAppMsg.Annotations).To(Equal(map[string]string{"bar": "BAR"}))
+			Expect(createAppMsg.Labels).To(Equal(map[string]string{"foo": "FOO", "novalue1": ""}))
+			Expect(createAppMsg.Annotations).To(Equal(map[string]string{"bar": "BAR", "novalue2": ""}))
 		})
 
 		When("creating the app fails", func() {
@@ -101,8 +105,8 @@ var _ = Describe("Applier", func() {
 					GUID:        "my-guid",
 					EtcdUID:     "etcd-uid",
 					SpaceGUID:   "space-guid",
-					Labels:      map[string]string{"foo": "FOO'", "baz": "luhrmann"},
-					Annotations: map[string]string{"bar": "BAR'", "buzz": "bee"},
+					Labels:      map[string]string{"foo": "FOO'"},
+					Annotations: map[string]string{"bar": "BAR'"},
 				}
 			})
 
@@ -112,8 +116,17 @@ var _ = Describe("Applier", func() {
 				_, _, patchAppMsg := appRepo.PatchAppArgsForCall(0)
 				Expect(patchAppMsg.AppGUID).To(Equal("my-guid"))
 				Expect(patchAppMsg.Lifecycle.Data.Buildpacks).To(Equal([]string{"buildpack-a"}))
-				Expect(patchAppMsg.Labels).To(Equal(map[string]string{"foo": "FOO"}))
-				Expect(patchAppMsg.Annotations).To(Equal(map[string]string{"bar": "BAR"}))
+
+				Expect(patchAppMsg.Labels).To(MatchAllKeys(Keys{
+					"foo":      PointTo(Equal("FOO")),
+					"novalue1": PointTo(Equal("")),
+					"clear1":   BeNil(),
+				}))
+				Expect(patchAppMsg.Annotations).To(MatchAllKeys(Keys{
+					"bar":      PointTo(Equal("BAR")),
+					"novalue2": PointTo(Equal("")),
+					"clear2":   BeNil(),
+				}))
 			})
 
 			When("patching the app fails", func() {
@@ -170,7 +183,7 @@ var _ = Describe("Applier", func() {
 			Expect(createMsg.Command).To(Equal("echo foo"))
 			Expect(createMsg.DiskQuotaMB).To(BeEquivalentTo(512))
 			Expect(createMsg.MemoryMB).To(BeEquivalentTo(756))
-			Expect(createMsg.DesiredInstances).To(gstruct.PointTo(Equal(2)))
+			Expect(createMsg.DesiredInstances).To(PointTo(Equal(2)))
 			Expect(createMsg.HealthCheck).To(Equal(repositories.HealthCheck{
 				Type: "http",
 				Data: repositories.HealthCheckData{
@@ -187,7 +200,7 @@ var _ = Describe("Applier", func() {
 			Expect(createMsg.Command).To(Equal("echo bar"))
 			Expect(createMsg.DiskQuotaMB).To(BeEquivalentTo(256))
 			Expect(createMsg.MemoryMB).To(BeEquivalentTo(1024))
-			Expect(createMsg.DesiredInstances).To(gstruct.PointTo(Equal(3)))
+			Expect(createMsg.DesiredInstances).To(PointTo(Equal(3)))
 			Expect(createMsg.HealthCheck).To(Equal(repositories.HealthCheck{
 				Type: "port",
 				Data: repositories.HealthCheckData{
