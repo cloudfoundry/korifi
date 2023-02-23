@@ -1,7 +1,6 @@
 package repositories
 
 import (
-	"code.cloudfoundry.org/korifi/tools"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -127,7 +126,7 @@ type PatchAppMessage struct {
 	State                DesiredState
 	Lifecycle            Lifecycle
 	EnvironmentVariables map[string]string
-	Metadata
+	MetadataPatch
 }
 
 type DeleteAppMessage struct {
@@ -687,22 +686,7 @@ func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
 			Stack:      m.Lifecycle.Data.Stack,
 		},
 	}
-
-	metadataMessage := &MetadataPatch{Labels: map[string]*string{}, Annotations: map[string]*string{}}
-	for k, v := range m.Labels {
-		metadataMessage.Labels[k] = blankAsNil(v)
-	}
-	for k, v := range m.Annotations {
-		metadataMessage.Annotations[k] = blankAsNil(v)
-	}
-	metadataMessage.Apply(app)
-}
-
-func blankAsNil(v string) *string {
-	if v == "" {
-		return nil
-	}
-	return tools.PtrTo(v)
+	m.MetadataPatch.Apply(app)
 }
 
 func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {

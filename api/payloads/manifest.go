@@ -36,8 +36,8 @@ type ManifestApplication struct {
 	Routes                       []ManifestRoute              `yaml:"routes" validate:"dive"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
 	// Deprecated: Use Buildpacks instead
-	Buildpack string   `yaml:"buildpack"`
-	Metadata  Metadata `yaml:"metadata"`
+	Buildpack string        `yaml:"buildpack"`
+	Metadata  MetadataPatch `yaml:"metadata"`
 }
 
 type ManifestApplicationProcess struct {
@@ -73,8 +73,22 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 		},
 		State:                repositories.DesiredState(korifiv1alpha1.StoppedState),
 		EnvironmentVariables: a.Env,
-		Metadata:             repositories.Metadata(a.Metadata),
+		Metadata: repositories.Metadata{
+			Labels:      ignoreNilKeys(a.Metadata.Labels),
+			Annotations: ignoreNilKeys(a.Metadata.Annotations),
+		},
 	}
+}
+
+func ignoreNilKeys(m map[string]*string) map[string]string {
+	result := map[string]string{}
+	for k, v := range m {
+		if v == nil {
+			continue
+		}
+		result[k] = *v
+	}
+	return result
 }
 
 func (a ManifestApplication) ToAppPatchMessage(appGUID, spaceGUID string) repositories.PatchAppMessage {
@@ -89,7 +103,7 @@ func (a ManifestApplication) ToAppPatchMessage(appGUID, spaceGUID string) reposi
 			},
 		},
 		EnvironmentVariables: a.Env,
-		Metadata:             repositories.Metadata(a.Metadata),
+		MetadataPatch:        repositories.MetadataPatch(a.Metadata),
 	}
 }
 

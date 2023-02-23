@@ -1,6 +1,7 @@
 package repositories_test
 
 import (
+	"code.cloudfoundry.org/korifi/tools"
 	"context"
 	"encoding/json"
 	"errors"
@@ -575,15 +576,15 @@ var _ = Describe("AppRepository", func() {
 						}
 					})).To(Succeed())
 
-					appPatchMessage.Metadata.Labels = map[string]string{
-						"A": "42",
-						"B": "",
-						"D": "4",
+					appPatchMessage.MetadataPatch.Labels = map[string]*string{
+						"A": tools.PtrTo("42"),
+						"B": nil,
+						"D": tools.PtrTo("4"),
 					}
-					appPatchMessage.Metadata.Annotations = map[string]string{
-						"W": "23",
-						"X": "112358",
-						"Y": "",
+					appPatchMessage.MetadataPatch.Annotations = map[string]*string{
+						"W": tools.PtrTo("23"),
+						"X": tools.PtrTo("112358"),
+						"Y": nil,
 					}
 				})
 
