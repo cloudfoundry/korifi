@@ -25,8 +25,8 @@ func GetRootResponse(serverURL string) RootResponse {
 			"cloud_controller_v3": {Link: Link{HRef: serverURL + "/v3"}, Meta: APILinkMeta{Version: V3APIVersion}},
 			"network_policy_v0":   nil,
 			"network_policy_v1":   nil,
-			"login":               {Link: Link{HRef: serverURL}},
-			"uaa":                 nil,
+			"login":               {Link: Link{HRef: "https://uaa-127-0-0-1.nip.io"}},
+			"uaa":                 {Link: Link{HRef: "https://uaa-127-0-0-1.nip.io"}},
 			"credhub":             nil,
 			"routing":             nil,
 			"logging":             nil,
@@ -34,6 +34,5 @@ func GetRootResponse(serverURL string) RootResponse {
 			"log_stream":          nil,
 			"app_ssh":             nil,
 		},
-		CFOnK8s: true,
 	}
 }
