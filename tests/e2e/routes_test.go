@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
@@ -380,7 +381,13 @@ var _ = Describe("Routes", func() {
 				Expect(result.Destinations).To(HaveLen(1))
 				Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
 
-				Expect(resp.Body()).To(ContainSubstring("hello-world"))
+				// This enables replacing the default app output via APP_BITS_PATH and APP_BITS_OUTPUT
+				expectedOutput, ok := os.LookupEnv("APP_BITS_OUTPUT")
+				if !ok {
+					expectedOutput = "hello-world"
+				}
+
+				Expect(resp.Body()).To(ContainSubstring(expectedOutput))
 			})
 
 			When("an app from a different space is added", func() {
