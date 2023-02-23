@@ -42,6 +42,10 @@ var _ = Describe("Normalizer", func() {
 			Name:       "my-app",
 			Env:        map[string]string{"FOO": "bar"},
 			Buildpacks: []string{"buildpack-one", "buildpack-two"},
+			Metadata: payloads.MetadataPatch{
+				Labels:      map[string]*string{"foo": tools.PtrTo("FOO")},
+				Annotations: map[string]*string{"bar": tools.PtrTo("BAR")},
+			},
 		}
 		appState = manifest.AppState{
 			App:       repositories.AppRecord{},
@@ -61,6 +65,7 @@ var _ = Describe("Normalizer", func() {
 			Expect(normalizedAppInfo.NoRoute).To(Equal(appInfo.NoRoute))
 			Expect(normalizedAppInfo.Env).To(Equal(appInfo.Env))
 			Expect(normalizedAppInfo.Buildpacks).To(Equal(appInfo.Buildpacks))
+			Expect(normalizedAppInfo.Metadata).To(Equal(appInfo.Metadata))
 		})
 
 		When("no-route is set", func() {

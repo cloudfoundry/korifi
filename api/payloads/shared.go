@@ -38,13 +38,13 @@ func ParseArrayParam(arrayParam string) []string {
 }
 
 type Metadata struct {
-	Annotations map[string]string `json:"annotations" validate:"metadatavalidator"`
-	Labels      map[string]string `json:"labels" validate:"metadatavalidator"`
+	Annotations map[string]string `json:"annotations" yaml:"annotations" validate:"metadatavalidator"`
+	Labels      map[string]string `json:"labels"      yaml:"labels"      validate:"metadatavalidator"`
 }
 
 type MetadataPatch struct {
 	Annotations map[string]*string `json:"annotations" validate:"metadatavalidator"`
-	Labels      map[string]*string `json:"labels" validate:"metadatavalidator"`
+	Labels      map[string]*string `json:"labels"      validate:"metadatavalidator"`
 }
 
 func getInt(values url.Values, key string) (int64, error) {

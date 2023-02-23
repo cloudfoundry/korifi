@@ -560,6 +560,49 @@ var _ = Describe("AppRepository", func() {
 				Expect(patchedAppRecord.IsStaged).To(BeFalse())
 			})
 
+			When("patching labels and annotations", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Labels = map[string]string{
+							"A": "1",
+							"B": "2",
+							"C": "3",
+						}
+						cfApp.Annotations = map[string]string{
+							"X": "24",
+							"Y": "25",
+							"Z": "26",
+						}
+					})).To(Succeed())
+
+					appPatchMessage.Metadata.Labels = map[string]string{
+						"A": "42",
+						"B": "",
+						"D": "4",
+					}
+					appPatchMessage.Metadata.Annotations = map[string]string{
+						"W": "23",
+						"X": "112358",
+						"Y": "",
+					}
+				})
+
+				It("can add, update and delete them", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+
+					Expect(patchedAppRecord.Labels).To(Equal(map[string]string{
+						"A": "42",
+						"C": "3",
+						"D": "4",
+					}))
+					Expect(patchedAppRecord.Annotations).To(Equal(map[string]string{
+						"W": "23",
+						"X": "112358",
+						"Z": "26",
+					}))
+				})
+			})
+
 			When("no environment variables are given", func() {
 				BeforeEach(func() {
 					appPatchMessage.EnvironmentVariables = nil

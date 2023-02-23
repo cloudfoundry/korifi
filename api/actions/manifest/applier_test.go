@@ -45,6 +45,14 @@ var _ = Describe("Applier", func() {
 			Processes:  []payloads.ManifestApplicationProcess{},
 			Routes:     []payloads.ManifestRoute{},
 			Buildpacks: []string{"buildpack-a"},
+			Metadata: payloads.Metadata{
+				Labels: map[string]string{
+					"foo": "FOO",
+				},
+				Annotations: map[string]string{
+					"bar": "BAR",
+				},
+			},
 		}
 		appState = manifest.AppState{
 			App:       repositories.AppRecord{},
@@ -72,6 +80,8 @@ var _ = Describe("Applier", func() {
 				},
 			}))
 			Expect(createAppMsg.EnvironmentVariables).To(Equal(appInfo.Env))
+			Expect(createAppMsg.Labels).To(Equal(map[string]string{"foo": "FOO"}))
+			Expect(createAppMsg.Annotations).To(Equal(map[string]string{"bar": "BAR"}))
 		})
 
 		When("creating the app fails", func() {
@@ -87,10 +97,12 @@ var _ = Describe("Applier", func() {
 		When("the app exists", func() {
 			BeforeEach(func() {
 				appState.App = repositories.AppRecord{
-					Name:      "my-app",
-					GUID:      "my-guid",
-					EtcdUID:   "etcd-uid",
-					SpaceGUID: "space-guid",
+					Name:        "my-app",
+					GUID:        "my-guid",
+					EtcdUID:     "etcd-uid",
+					SpaceGUID:   "space-guid",
+					Labels:      map[string]string{"foo": "FOO'", "baz": "luhrmann"},
+					Annotations: map[string]string{"bar": "BAR'", "buzz": "bee"},
 				}
 			})
 
@@ -100,6 +112,8 @@ var _ = Describe("Applier", func() {
 				_, _, patchAppMsg := appRepo.PatchAppArgsForCall(0)
 				Expect(patchAppMsg.AppGUID).To(Equal("my-guid"))
 				Expect(patchAppMsg.Lifecycle.Data.Buildpacks).To(Equal([]string{"buildpack-a"}))
+				Expect(patchAppMsg.Labels).To(Equal(map[string]string{"foo": "FOO"}))
+				Expect(patchAppMsg.Annotations).To(Equal(map[string]string{"bar": "BAR"}))
 			})
 
 			When("patching the app fails", func() {
