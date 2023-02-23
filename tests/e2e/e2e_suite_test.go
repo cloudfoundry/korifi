@@ -61,6 +61,7 @@ type resource struct {
 	Relationships relationships `json:"relationships,omitempty"`
 	CreatedAt     string        `json:"created_at,omitempty"`
 	UpdatedAt     string        `json:"updated_at,omitempty"`
+	Metadata      *metadata     `json:"metadata,omitempty"`
 }
 
 type relationships map[string]relationship
@@ -159,6 +160,7 @@ type applicationResource struct {
 	Processes    []manifestApplicationProcessResource `yaml:"processes"`
 	Routes       []manifestRouteResource              `yaml:"routes"`
 	Memory       string                               `yaml:"memory,omitempty"`
+	Metadata     metadata                             `yaml:"metadata,omitempty"`
 }
 
 type manifestApplicationProcessResource struct {
@@ -569,6 +571,20 @@ func getEnv(appName string) map[string]interface{} {
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 
 	return env
+}
+
+func getApp(appGUID string) appResource {
+	var app appResource
+	EventuallyWithOffset(1, func(g Gomega) {
+		resp, err := adminClient.R().
+			SetResult(&app).
+			Get("/v3/apps/" + appGUID)
+
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+	}).Should(Succeed())
+
+	return app
 }
 
 func getProcess(appGUID, processType string) processResource {
