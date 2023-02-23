@@ -2,12 +2,14 @@ package payloads_test
 
 import (
 	"bytes"
-	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/tools"
 	"encoding/json"
-	"github.com/onsi/gomega/gstruct"
 	"net/http"
 	"net/url"
+
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
+
+	"github.com/onsi/gomega/gstruct"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	. "github.com/onsi/ginkgo/v2"

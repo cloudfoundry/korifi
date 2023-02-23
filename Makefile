@@ -37,7 +37,7 @@ generate-fakes:
 
 fmt: install-gofumpt install-shfmt
 	$(GOFUMPT) -w .
-	$(SHFMT) -f . | grep -v '^tests/vendor' | xargs $(SHFMT) -w -i 2 -ci
+	$(SHFMT) -f . | grep -v '^tests/vendor' | grep -v '^tests/e2e/assets/vendored' | xargs $(SHFMT) -w -i 2 -ci
 
 vet: ## Run go vet against code.
 	go vet ./...

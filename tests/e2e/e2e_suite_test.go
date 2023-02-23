@@ -251,12 +251,12 @@ func TestE2E(t *testing.T) {
 }
 
 type sharedSetupData struct {
-	CommonOrgName string `json:"commonOrgName"`
-	CommonOrgGUID string `json:"commonOrgGuid"`
-	NodeAppBitsFile string `json:"nodeAppBitsFile"`
-	DoraAppBitsFile string `json:"doraAppBitsFile"`
+	CommonOrgName           string `json:"commonOrgName"`
+	CommonOrgGUID           string `json:"commonOrgGuid"`
+	NodeAppBitsFile         string `json:"nodeAppBitsFile"`
+	DoraAppBitsFile         string `json:"doraAppBitsFile"`
 	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
-	ProcfileAppBitsFile string `json:"procfileAppBitsFile"`
+	ProcfileAppBitsFile     string `json:"procfileAppBitsFile"`
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -268,12 +268,12 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	prepareAssets()
 
 	bs, err := json.Marshal(sharedSetupData{
-		CommonOrgName: commonTestOrgName,
-		CommonOrgGUID: commonTestOrgGUID,
-		NodeAppBitsFile: nodeAppBitsFile,
-		DoraAppBitsFile: doraAppBitsFile,
+		CommonOrgName:           commonTestOrgName,
+		CommonOrgGUID:           commonTestOrgGUID,
+		NodeAppBitsFile:         nodeAppBitsFile,
+		DoraAppBitsFile:         doraAppBitsFile,
 		MultiProcessAppBitsFile: multiProcessAppBitsFile,
-		ProcfileAppBitsFile: procfileAppBitsFile,
+		ProcfileAppBitsFile:     procfileAppBitsFile,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	return bs
@@ -883,21 +883,21 @@ func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail
 }
 
 func getAppBitsFileFromPath(sharedSetup sharedSetupData) string {
-   val, ok := os.LookupEnv("APP_BITS_PATH")
-   if !ok {
-       return sharedSetup.ProcfileAppBitsFile
-   }
+	val, ok := os.LookupEnv("APP_BITS_PATH")
+	if !ok {
+		return sharedSetup.ProcfileAppBitsFile
+	}
 
-	 switch val {
-	 case "assets/vendored/node":
-		 return sharedSetup.NodeAppBitsFile
-	 case "assets/vendored/dora":
-		 return sharedSetup.DoraAppBitsFile
-	 case "assets/multi-process":
-		 return sharedSetup.MultiProcessAppBitsFile
-	 default:
-		 return sharedSetup.ProcfileAppBitsFile
-	 }
+	switch val {
+	case "assets/vendored/node":
+		return sharedSetup.NodeAppBitsFile
+	case "assets/vendored/dora":
+		return sharedSetup.DoraAppBitsFile
+	case "assets/multi-process":
+		return sharedSetup.MultiProcessAppBitsFile
+	default:
+		return sharedSetup.ProcfileAppBitsFile
+	}
 }
 
 func commonTestSetup() {
