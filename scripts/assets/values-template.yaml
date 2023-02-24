@@ -1,4 +1,4 @@
-adminUserName: cf-admin
+adminUserName: oidc:admin
 
 global:
   defaultAppDomainName: apps-127-0-0-1.nip.io
