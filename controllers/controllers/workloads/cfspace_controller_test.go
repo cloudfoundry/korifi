@@ -2,6 +2,7 @@ package workloads_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -11,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -78,6 +80,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdSpace corev1.Namespace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &createdSpace)).To(Succeed())
+
 				g.Expect(createdSpace.Labels).To(SatisfyAll(
 					HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, korifiv1alpha1.OrgSpaceDeprecatedName),
 					HaveKeyWithValue(korifiv1alpha1.SpaceGUIDKey, spaceGUID),
@@ -100,17 +103,56 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdSecret corev1.Secret
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Name, Name: imageRegistrySecret.Name}, &createdSecret)).To(Succeed())
-				g.Expect(createdSecret.Immutable).To(Equal(imageRegistrySecret.Immutable))
+
 				g.Expect(createdSecret.Data).To(Equal(imageRegistrySecret.Data))
+				g.Expect(createdSecret.Immutable).To(Equal(imageRegistrySecret.Immutable))
 				g.Expect(createdSecret.StringData).To(Equal(imageRegistrySecret.StringData))
 				g.Expect(createdSecret.Type).To(Equal(imageRegistrySecret.Type))
 			}).Should(Succeed())
+		})
+
+		When("the image-registry-credentials secret does not exist in the org namespace", Serial, func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, imageRegistrySecret)).To(Succeed())
+
+				var orgSecret v1.Secret
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &orgSecret)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, &orgSecret)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				imageRegistrySecret = createSecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
+
+				Eventually(func(g Gomega) {
+					var createdSecret v1.Secret
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &createdSecret)).To(Succeed())
+				}).Should(Succeed())
+			})
+
+			It("sets the CFSpace's Ready condition to 'False'", func() {
+				Eventually(func(g Gomega) {
+					var createdCFSpace korifiv1alpha1.CFSpace
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdCFSpace)).To(Succeed())
+
+					g.Expect(meta.IsStatusConditionTrue(createdCFSpace.Status.Conditions, "Ready")).To(BeFalse())
+
+					readyCondition := meta.FindStatusCondition(createdCFSpace.Status.Conditions, "Ready")
+					g.Expect(readyCondition).NotTo(BeNil())
+					g.Expect(readyCondition.Message).To(ContainSubstring(fmt.Sprintf(
+						"Error fetching secret %q from namespace %q",
+						imageRegistrySecret.Name,
+						cfOrg.Name,
+					)))
+					g.Expect(readyCondition.Reason).To(Equal("RegistrySecretPropagation"))
+				}, 5*time.Second).Should(Succeed())
+			})
 		})
 
 		It("propagates the role-bindings with annotation \"cloudfoundry.org/propagate-cf-role\" set to \"true\" to CFSpace", func() {
 			Eventually(func(g Gomega) {
 				var createdRoleBindings rbacv1.RoleBindingList
 				g.Expect(k8sClient.List(ctx, &createdRoleBindings, client.InNamespace(cfSpace.Name))).To(Succeed())
+
 				g.Expect(createdRoleBindings.Items).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -139,6 +181,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdServiceAccounts corev1.ServiceAccountList
 				g.Expect(k8sClient.List(ctx, &createdServiceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
+
 				g.Expect(createdServiceAccounts.Items).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -153,6 +196,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdServiceAccounts corev1.ServiceAccountList
 				g.Expect(k8sClient.List(ctx, &createdServiceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
+
 				g.Expect(createdServiceAccounts.Items).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -182,6 +226,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), &createdSpace)).To(Succeed())
+
 				g.Expect(createdSpace.Status.GUID).To(Equal(cfSpace.Name))
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}).Should(Succeed())
@@ -191,7 +236,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var ns corev1.Namespace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfSpace.Name}, &ns)).To(Succeed())
-				g.Expect(ns.Labels).To(HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)))
+
 				g.Expect(ns.Labels).To(HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)))
 			}).Should(Succeed())
 		})
@@ -224,6 +269,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdSpace corev1.Namespace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &createdSpace)).To(Succeed())
+
 				g.Expect(createdSpace.Annotations).To(HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, cfSpace.Spec.DisplayName))
 				g.Expect(createdSpace.Labels).To(HaveKeyWithValue("foo.com/bar", "42"))
 				g.Expect(createdSpace.Annotations).To(HaveKeyWithValue("foo.com/bar", "43"))
@@ -235,6 +281,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		var newlyCreatedRoleBinding *rbacv1.RoleBinding
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
@@ -252,6 +299,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdRoleBindings rbacv1.RoleBindingList
 				g.Expect(k8sClient.List(ctx, &createdRoleBindings, client.InNamespace(cfSpace.Name))).To(Succeed())
+
 				g.Expect(createdRoleBindings.Items).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -273,6 +321,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		var newlyCreatedServiceAccount *corev1.ServiceAccount
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
@@ -289,6 +338,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdServiceAccounts corev1.ServiceAccountList
 				g.Expect(k8sClient.List(ctx, &createdServiceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
+
 				g.Expect(createdServiceAccounts.Items).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -313,8 +363,10 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			tokenSecretName          string
 			dockercfgSecretName      string
 		)
+
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
@@ -368,8 +420,10 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			tokenSecretName          string
 			dockercfgSecretName      string
 		)
+
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
@@ -383,6 +437,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 					Annotations: map[string]string{"cloudfoundry.org/propagate-service-account": "true"},
 				},
 			}
+
 			Expect(k8sClient.Create(ctx, rootServiceAccount)).To(Succeed())
 
 			// Ensure that the service account is propagated into the CFSpace namespace
@@ -427,6 +482,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 	When("role bindings are deleted in the CFOrg namespace after CFSpace creation", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
@@ -447,6 +503,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 	When("service accounts are deleted in the root namespace after CFSpace creation", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+
 			Eventually(func(g Gomega) {
 				var createdSpace korifiv1alpha1.CFSpace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
@@ -467,6 +524,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 	When("the CFSpace is deleted", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+
 			Eventually(func(g Gomega) {
 				var spaceNamespace corev1.Namespace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &spaceNamespace)).To(Succeed())
@@ -487,6 +545,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) bool {
 				var spaceNamespace corev1.Namespace
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &spaceNamespace)).To(Succeed())
+
 				return spaceNamespace.GetDeletionTimestamp().IsZero()
 			}).Should(BeFalse(), "timed out waiting for deletion timestamps to be set on namespace")
 		})

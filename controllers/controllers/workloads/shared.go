@@ -2,20 +2,27 @@ package workloads
 
 import (
 	"context"
+	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
+const (
+	StatusConditionReady = "Ready"
+)
 
 func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string, annotations map[string]string) error {
 	log = log.WithName("createOrPatchNamespace")
@@ -62,8 +69,9 @@ func propagateSecret(ctx context.Context, client client.Client, log logr.Logger,
 	secret := new(corev1.Secret)
 	err := client.Get(ctx, types.NamespacedName{Namespace: orgOrSpace.GetNamespace(), Name: secretName}, secret)
 	if err != nil {
-		log.Error(err, "Error fetching secret from parent namespace")
-		return err
+		retErr := fmt.Errorf("Error fetching secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
+		log.Error(retErr, retErr.Error())
+		return retErr
 	}
 
 	newSecret := &corev1.Secret{
@@ -83,8 +91,9 @@ func propagateSecret(ctx context.Context, client client.Client, log logr.Logger,
 		return nil
 	})
 	if err != nil {
-		log.Error(err, "Error creating/patching secret")
-		return err
+		retErr := fmt.Errorf("Error propagating secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
+		log.Error(retErr, retErr.Error())
+		return retErr
 	}
 
 	log.Info("Secret propagated", "operation", result)
@@ -179,4 +188,17 @@ func getNamespace(ctx context.Context, log logr.Logger, client client.Client, na
 		return err
 	}
 	return nil
+}
+
+func logErrorAndSetReadyStatus(err error, log logr.Logger, conditions *[]metav1.Condition, reason string) (ctrl.Result, error) {
+	log.Error(err, err.Error())
+
+	meta.SetStatusCondition(conditions, metav1.Condition{
+		Type:    StatusConditionReady,
+		Status:  metav1.ConditionFalse,
+		Reason:  reason,
+		Message: err.Error(),
+	})
+
+	return ctrl.Result{}, err
 }

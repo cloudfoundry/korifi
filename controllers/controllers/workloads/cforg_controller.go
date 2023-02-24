@@ -18,6 +18,7 @@ package workloads
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -37,6 +38,10 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+)
+
+const (
+	orgFinalizerName     = "cfOrg.korifi.cloudfoundry.org"
 )
 
 // CFOrgReconciler reconciles a CFOrg object
@@ -63,11 +68,6 @@ func NewCFOrgReconciler(
 		labelCompiler:               labelCompiler,
 	})
 }
-
-const (
-	StatusConditionReady = "Ready"
-	orgFinalizerName     = "cfOrg.korifi.cloudfoundry.org"
-)
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs/status,verbs=get;update;patch
@@ -112,15 +112,14 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 		return r.finalize(ctx, log, cfOrg)
 	}
 
+	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
+
 	err := k8s.AddFinalizer(ctx, log, r.client, cfOrg, orgFinalizerName)
 	if err != nil {
-		log.Error(err, "Error adding finalizer")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error adding finalizer: %w", err), log, &cfOrg.Status.Conditions, "FinalizerAddition")
 	}
 
 	cfOrg.Status.GUID = cfOrg.Name
-
-	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
 	err = createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.OrgNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
@@ -129,8 +128,7 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 		korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName,
 	})
 	if err != nil {
-		log.Error(err, "Error creating namespace")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error creating namespace: %w", err), log, &cfOrg.Status.Conditions, "NamespaceCreation")
 	}
 
 	err = getNamespace(ctx, log, r.client, cfOrg.Name)
@@ -140,14 +138,12 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 
 	err = propagateSecret(ctx, r.client, log, cfOrg, r.containerRegistrySecretName)
 	if err != nil {
-		log.Error(err, "Error propagating secrets")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating secrets: %w", err), log, &cfOrg.Status.Conditions, "RegistrySecretPropagation")
 	}
 
 	err = reconcileRoleBindings(ctx, r.client, log, cfOrg)
 	if err != nil {
-		log.Error(err, "Error propagating role-bindings")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating role-bindings: %w", err), log, &cfOrg.Status.Conditions, "RoleBindingPropagation")
 	}
 
 	meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
