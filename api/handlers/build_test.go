@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -571,6 +572,29 @@ var _ = Describe("Build", func() {
 			It("returns an error", func() {
 				expectUnprocessableEntityError("oops")
 			})
+		})
+	})
+
+	Describe("the PATCH /v3/builds endpoint", func() {
+		BeforeEach(func() {
+			decoderValidator, err := NewDefaultDecoderValidator()
+			Expect(err).NotTo(HaveOccurred())
+
+			apiHandler := NewBuild(
+				*serverURL,
+				new(fake.CFBuildRepository),
+				new(fake.CFPackageRepository),
+				new(fake.CFAppRepository),
+				decoderValidator,
+			)
+			routerBuilder.LoadRoutes(apiHandler)
+
+			req, err = http.NewRequestWithContext(context.Background(), "PATCH", "/v3/builds/build-guid", strings.NewReader(`{}`))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns an unprocessable entity error", func() {
+			expectUnprocessableEntityError(`Labels and annotations are not supported for builds.`)
 		})
 	})
 })

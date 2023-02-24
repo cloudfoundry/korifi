@@ -37,6 +37,11 @@ func ParseArrayParam(arrayParam string) []string {
 	return elements
 }
 
+type BuildMetadata struct {
+	Annotations map[string]string `json:"annotations" validate:"buildmetadatavalidator"`
+	Labels      map[string]string `json:"labels" validate:"buildmetadatavalidator"`
+}
+
 type Metadata struct {
 	Annotations map[string]string `json:"annotations" yaml:"annotations" validate:"metadatavalidator"`
 	Labels      map[string]string `json:"labels"      yaml:"labels"      validate:"metadatavalidator"`

@@ -64,4 +64,25 @@ var _ = Describe("Builds", func() {
 			Expect(result.Package.GUID).To(Equal(pkgGUID))
 		})
 	})
+
+	Describe("update", func() {
+		var buildGUID string
+
+		BeforeEach(func() {
+			buildGUID = createBuild(pkgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().
+				SetResult(&result).
+				Patch("/v3/builds/" + buildGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("throws an unprocessable entity error", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+			Expect(resp).To(HaveRestyBody(ContainSubstring("Labels and annotations are not supported for builds")))
+		})
+	})
 })

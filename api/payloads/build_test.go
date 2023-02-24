@@ -63,5 +63,29 @@ var _ = Describe("BuildCreate", func() {
 				expectUnprocessableEntityError(validatorErr, "GUID is a required field")
 			})
 		})
+
+		When("the metadata annotations is not empty", func() {
+			BeforeEach(func() {
+				createPayload.Metadata.Annotations = map[string]string{
+					"foo": "bar",
+				}
+			})
+
+			It("says labels and annotations are not supported", func() {
+				expectUnprocessableEntityError(validatorErr, "Labels and annotations are not supported for builds")
+			})
+		})
+
+		When("the metadata labels is not empty", func() {
+			BeforeEach(func() {
+				createPayload.Metadata.Labels = map[string]string{
+					"foo": "bar",
+				}
+			})
+
+			It("says labels and annotations are not supported", func() {
+				expectUnprocessableEntityError(validatorErr, "Labels and annotations are not supported for builds")
+			})
+		})
 	})
 })

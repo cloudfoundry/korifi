@@ -61,11 +61,15 @@ This endpoint is fully supported.
 
 ### [Create a build](https://v3-apidocs.cloudfoundry.org/#create-a-build)
 
-All parameters are supported. `lifecycle` will be ignored and overridden with the default configured values.
+`Labels` and `Annotations` are not supported. `lifecycle` will be ignored and overridden with the default configured values.
 
 ### [Get a build](https://v3-apidocs.cloudfoundry.org/#get-a-build)
 
 This endpoint is fully supported.
+
+### [Update a build](https://v3-apidocs.cloudfoundry.org/#update-a-build)
+
+Always returns HTTP 422 error.
 
 ## [Buildpacks](https://v3-apidocs.cloudfoundry.org/#buildpacks)
 
@@ -101,6 +105,10 @@ No query parameters are supported.
 #### Supported query parameters:
 
 No query parameters are supported.
+
+### [Update a droplet](https://v3-apidocs.cloudfoundry.org/#update-a-droplet)
+
+Updating `image` is not supported.
 
 ## [Jobs](https://v3-apidocs.cloudfoundry.org/#jobs)
 

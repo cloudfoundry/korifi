@@ -140,6 +140,20 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 
+	err = v.RegisterValidation("buildmetadatavalidator", buildMetadataValidator)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = v.RegisterTranslation("buildmetadatavalidator", trans, func(ut ut.Translator) error {
+		return ut.Add("buildmetadatavalidator", `Labels and annotations are not supported for builds`, false)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("buildmetadatavalidator", fe.Field())
+		return t
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
 	v.RegisterStructValidation(validateManifest, payloads.ManifestApplication{})
 	v.RegisterStructValidation(checkDiskQuotaUnderscoreAndHyphenProc, payloads.ManifestApplicationProcess{})
 
@@ -341,6 +355,16 @@ func metadataValidator(fl validator.FieldLevel) bool {
 		return validateMetadataKeys(maps.Keys(metadataPatch))
 	}
 
+	return true
+}
+
+func buildMetadataValidator(fl validator.FieldLevel) bool {
+	metadata, isMeta := fl.Field().Interface().(map[string]string)
+	if isMeta {
+		if len(metadata) > 0 {
+			return false
+		}
+	}
 	return true
 }
 
