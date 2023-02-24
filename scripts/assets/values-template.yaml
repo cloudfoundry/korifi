@@ -9,6 +9,7 @@ global:
 api:
   apiServer:
     url: localhost
+  uaaURL: "https://uaa-127-0-0-1.nip.io"
   image: cloudfoundry/korifi-api:latest
 
 controllers:

@@ -246,6 +246,7 @@ func main() {
 		handlers.NewRootV3(cfg.ServerURL),
 		handlers.NewRoot(
 			cfg.ServerURL,
+			cfg.UaaURL,
 		),
 		handlers.NewResourceMatches(),
 		handlers.NewApp(
