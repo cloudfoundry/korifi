@@ -2,7 +2,6 @@ package authorization
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -43,7 +42,7 @@ func (r *TokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 	}
 
 	if !tokenReview.Status.Authenticated {
-		return Identity{}, apierrors.NewInvalidAuthError(errors.New("not authenticated"))
+		return Identity{}, apierrors.NewInvalidAuthError(fmt.Errorf("not authenticated; token review %#v", tokenReview))
 	}
 
 	idKind := rbacv1.UserKind
