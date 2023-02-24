@@ -59,13 +59,13 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 	var cfApp korifiv1alpha1.CFApp
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
 	if err != nil {
-		r.log.Error(err, "Error when fetching CFApp")
+		r.log.Info("error when fetching CFApp", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	err = controllerutil.SetControllerReference(&cfApp, cfPackage, r.scheme)
 	if err != nil {
-		r.log.Error(err, "unable to set owner reference on CFPackage")
+		r.log.Info("unable to set owner reference on CFPackage", "reason", err)
 		return ctrl.Result{}, err
 	}
 

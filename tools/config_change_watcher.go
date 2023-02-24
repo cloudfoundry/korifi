@@ -8,7 +8,7 @@ import (
 )
 
 func WatchForConfigChangeEvents(ctx context.Context, configFilePath string, logger logr.Logger, eventChan chan string) error {
-	logger.V(1).Info("Starting config watcher")
+	logger.V(1).Info("starting config watcher")
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -45,7 +45,7 @@ func WatchForConfigChangeEvents(ctx context.Context, configFilePath string, logg
 			logger.Error(err, "config watcher error")
 
 		case <-ctx.Done():
-			logger.V(1).Info("Stopping config watcher")
+			logger.V(1).Info("stopping config watcher")
 			return nil
 		}
 	}

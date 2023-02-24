@@ -25,12 +25,12 @@ func SyncLogLevel(ctx context.Context, logger logr.Logger, eventChan chan string
 			}
 
 			if atomicLevel.Level() != cfgLogLevel {
-				logger.Info("Updating logging level", "originalLevel", atomicLevel.Level(), "newLevel", cfgLogLevel)
+				logger.Info("updating logging level", "originalLevel", atomicLevel.Level(), "newLevel", cfgLogLevel)
 				atomicLevel.SetLevel(cfgLogLevel)
 			}
 
 		case <-ctx.Done():
-			logger.Info("Stopping change log level function")
+			logger.Info("stopping change log level function")
 			return
 		}
 	}

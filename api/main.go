@@ -73,7 +73,7 @@ func main() {
 
 	eventChan := make(chan string)
 	go func() {
-		ctrl.Log.Info("Starting to watch config file at "+configPath+" for logger level changes", "currentLevel", atomicLevel.Level())
+		ctrl.Log.Info("starting to watch config file at "+configPath+" for logger level changes", "currentLevel", atomicLevel.Level())
 		if err2 := tools.WatchForConfigChangeEvents(context.Background(), configPath, ctrl.Log, eventChan); err2 != nil {
 			ctrl.Log.Error(err2, "error watching logging config")
 			os.Exit(1)
@@ -382,7 +382,7 @@ func main() {
 	}
 
 	if tlsFound {
-		ctrl.Log.Info("Listening with TLS on " + portString)
+		ctrl.Log.Info("listening with TLS on " + portString)
 		certPath := filepath.Join(tlsPath, "tls.crt")
 		keyPath := filepath.Join(tlsPath, "tls.key")
 
@@ -411,7 +411,7 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		ctrl.Log.Info("Listening without TLS on " + portString)
+		ctrl.Log.Info("listening without TLS on " + portString)
 		err := srv.ListenAndServe()
 		if err != nil {
 			ctrl.Log.Error(err, "error serving HTTP")

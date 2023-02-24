@@ -37,7 +37,7 @@ var _ webhook.Defaulter = &CFBuild{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *CFBuild) Default() {
-	cfbuildlog.Info("Mutating Webhook for CFBuild", "name", r.Name)
+	cfbuildlog.V(1).Info("mutating Webhook for CFBuild", "name", r.Name)
 	buildLabels := r.GetLabels()
 	if buildLabels == nil {
 		buildLabels = make(map[string]string)

@@ -116,7 +116,7 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 
 	err := k8s.AddFinalizer(ctx, log, r.client, cfOrg, orgFinalizerName)
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error adding finalizer: %w", err), log, &cfOrg.Status.Conditions, "FinalizerAddition")
+		return logAndSetReadyStatus(fmt.Errorf("error adding finalizer: %w", err), log, &cfOrg.Status.Conditions, "FinalizerAddition")
 	}
 
 	cfOrg.Status.GUID = cfOrg.Name
@@ -128,7 +128,7 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 		korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName,
 	})
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error creating namespace: %w", err), log, &cfOrg.Status.Conditions, "NamespaceCreation")
+		return logAndSetReadyStatus(fmt.Errorf("error creating namespace: %w", err), log, &cfOrg.Status.Conditions, "NamespaceCreation")
 	}
 
 	err = getNamespace(ctx, log, r.client, cfOrg.Name)
@@ -138,12 +138,12 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 
 	err = propagateSecret(ctx, r.client, log, cfOrg, r.containerRegistrySecretName)
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating secrets: %w", err), log, &cfOrg.Status.Conditions, "RegistrySecretPropagation")
+		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfOrg.Status.Conditions, "RegistrySecretPropagation")
 	}
 
 	err = reconcileRoleBindings(ctx, r.client, log, cfOrg)
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating role-bindings: %w", err), log, &cfOrg.Status.Conditions, "RoleBindingPropagation")
+		return logAndSetReadyStatus(fmt.Errorf("error propagating role-bindings: %w", err), log, &cfOrg.Status.Conditions, "RoleBindingPropagation")
 	}
 
 	meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
@@ -192,12 +192,12 @@ func (r *CFOrgReconciler) finalize(ctx context.Context, log logr.Logger, org cli
 
 	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.GetName()}})
 	if err != nil {
-		log.Error(err, "Failed to delete namespace")
+		log.Info("failed to delete namespace", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	if controllerutil.RemoveFinalizer(org, orgFinalizerName) {
-		log.Info("finalizer removed")
+		log.V(1).Info("finalizer removed")
 	}
 
 	return ctrl.Result{}, nil

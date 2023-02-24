@@ -29,7 +29,7 @@ type ApiError interface {
 func LogAndReturn(logger logr.Logger, err error, msg string, keysAndValues ...interface{}) error {
 	var apiError ApiError
 	if errors.As(err, &apiError) {
-		keysAndValues = append(keysAndValues, "err", err)
+		keysAndValues = append(keysAndValues, "reason", err)
 		logger.Info(msg, keysAndValues...)
 	} else {
 		logger.Error(err, msg, keysAndValues...)

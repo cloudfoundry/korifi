@@ -76,7 +76,7 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 
 	err = controllerutil.SetOwnerReference(instance, cfServiceBinding, r.scheme)
 	if err != nil {
-		r.log.Error(err, "Error when making the service instance owner of the service binding")
+		r.log.Info("error when making the service instance owner of the service binding", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -98,12 +98,12 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 	cfApp := new(korifiv1alpha1.CFApp)
 	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
 	if err != nil {
-		r.log.Error(err, "Error when fetching CFApp")
+		r.log.Info("error when fetching CFApp", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	if cfApp.Status.VCAPServicesSecretName == "" {
-		r.log.Info("Did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
+		r.log.V(1).Info("did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
 		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 			Type:    VCAPServicesSecretAvailableCondition,
 			Status:  metav1.ConditionFalse,
@@ -132,7 +132,7 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualSBServiceBinding, sbServiceBindingMutateFn(&actualSBServiceBinding, desiredSBServiceBinding))
 	if err != nil {
-		r.log.Error(err, "Error calling Create on servicebinding.io ServiceBinding")
+		r.log.Info("error calling Create on servicebinding.io ServiceBinding", "reason", err)
 		return ctrl.Result{}, err
 	}
 

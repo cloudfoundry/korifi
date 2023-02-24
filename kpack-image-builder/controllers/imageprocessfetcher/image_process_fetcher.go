@@ -34,19 +34,19 @@ type process struct {
 func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error) {
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
-		f.Log.Info(fmt.Sprintf("Error fetching image config: %s\n", err))
+		f.Log.Info("error fetching image config", "reason", err)
 		return nil, nil, err
 	}
 
 	img, err := remote.Image(ref, credsOption)
 	if err != nil {
-		f.Log.Info(fmt.Sprintf("Error fetching image config: %s\n", err))
+		f.Log.Info("error fetching image config", "reason", err)
 		return nil, nil, err
 	}
 
 	cfgFile, err := img.ConfigFile()
 	if err != nil {
-		f.Log.Info(fmt.Sprintf("Error fetching image config: %s\n", err))
+		f.Log.Info("error fetching image config", "reason", err)
 		return nil, nil, err
 	}
 
@@ -54,7 +54,7 @@ func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option) 
 	var buildMd buildMetadata
 	err = json.Unmarshal([]byte(cfgFile.Config.Labels[buildpackBuildMetadataLabel]), &buildMd)
 	if err != nil {
-		f.Log.Info(fmt.Sprintf("Error unmarshalling image build metadata: %s\n", err))
+		f.Log.Info("error unmarshalling image build metadata", "reason", err)
 		return nil, nil, err
 	}
 
@@ -69,7 +69,7 @@ func (f *ImageProcessFetcher) Fetch(imageRef string, credsOption remote.Option) 
 
 	exposedPorts, err := extractExposedPorts(&cfgFile.Config)
 	if err != nil {
-		f.Log.Info(fmt.Sprintf("Cannot parse exposed ports from image config: %v \n", err))
+		f.Log.Info("cannot parse exposed ports from image config", "reason", err)
 		return nil, nil, err
 	}
 	return processTypes, exposedPorts, nil

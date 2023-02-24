@@ -20,7 +20,7 @@ func AddFinalizer[T any, PT ObjectWithDeepCopy[T]](
 		if err := k8sClient.Patch(ctx, obj, client.MergeFrom(origObj)); err != nil {
 			return err
 		}
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 	}
 
 	return nil

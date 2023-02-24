@@ -39,7 +39,7 @@ var _ webhook.Defaulter = &CFRoute{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *CFRoute) Default() {
-	cfroutelog.Info("Mutating CFRoute webhook handler", "name", r.Name)
+	cfroutelog.V(1).Info("mutating CFRoute webhook handler", "name", r.Name)
 	routeLabels := r.GetLabels()
 
 	if routeLabels == nil {

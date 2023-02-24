@@ -65,7 +65,7 @@ func (v *CFTaskValidator) ValidateCreate(ctx context.Context, obj runtime.Object
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
 	}
 
-	cftasklog.Info("validate task creation", "namespace", task.Namespace, "name", task.Name)
+	cftasklog.V(1).Info("validate task creation", "namespace", task.Namespace, "name", task.Name)
 
 	if len(task.Spec.Command) == 0 {
 		return webhooks.ValidationError{
@@ -94,7 +94,7 @@ func (v *CFTaskValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Obj
 		return nil
 	}
 
-	cftasklog.Info("validate task update", "namespace", newTask.Namespace, "name", newTask.Name)
+	cftasklog.V(1).Info("validate task update", "namespace", newTask.Namespace, "name", newTask.Name)
 
 	oldTask, ok := oldObj.(*v1alpha1.CFTask)
 	if !ok {

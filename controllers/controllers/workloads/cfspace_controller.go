@@ -103,7 +103,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 
 	err := k8s.AddFinalizer(ctx, log, r.client, cfSpace, spaceFinalizerName)
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error adding finalizer: %w", err), log, &cfSpace.Status.Conditions, "FinalizerAddition")
+		return logAndSetReadyStatus(fmt.Errorf("error adding finalizer: %w", err), log, &cfSpace.Status.Conditions, "FinalizerAddition")
 	}
 
 	cfSpace.Status.GUID = cfSpace.GetName()
@@ -115,7 +115,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName,
 	})
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error creating namespace: %w", err), log, &cfSpace.Status.Conditions, "NamespaceCreation")
+		return logAndSetReadyStatus(fmt.Errorf("error creating namespace: %w", err), log, &cfSpace.Status.Conditions, "NamespaceCreation")
 	}
 
 	err = getNamespace(ctx, log, r.client, cfSpace.Name)
@@ -125,17 +125,17 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 
 	err = propagateSecret(ctx, r.client, log, cfSpace, r.containerRegistrySecretName)
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating secrets: %w", err), log, &cfSpace.Status.Conditions, "RegistrySecretPropagation")
+		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfSpace.Status.Conditions, "RegistrySecretPropagation")
 	}
 
 	err = reconcileRoleBindings(ctx, r.client, log, cfSpace)
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating role-bindings: %w", err), log, &cfSpace.Status.Conditions, "RoleBindingPropagation")
+		return logAndSetReadyStatus(fmt.Errorf("error propagating role-bindings: %w", err), log, &cfSpace.Status.Conditions, "RoleBindingPropagation")
 	}
 
 	err = r.reconcileServiceAccounts(ctx, cfSpace, log)
 	if err != nil {
-		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating service accounts: %w", err), log, &cfSpace.Status.Conditions, "ServiceAccountPropagation")
+		return logAndSetReadyStatus(fmt.Errorf("error propagating service accounts: %w", err), log, &cfSpace.Status.Conditions, "ServiceAccountPropagation")
 	}
 
 	meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
@@ -159,7 +159,7 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 	serviceAccounts := new(corev1.ServiceAccountList)
 	err = r.client.List(ctx, serviceAccounts, client.InNamespace(r.rootNamespace))
 	if err != nil {
-		log.Error(err, "Error listing service accounts from root namespace")
+		log.Info("error listing service accounts from root namespace", "reason", err)
 		return err
 	}
 
@@ -214,11 +214,11 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 				return nil
 			})
 			if err != nil {
-				loopLog.Error(err, "Error creating/patching service account")
+				loopLog.Info("error creating/patching service account", "reason", err)
 				return err
 			}
 
-			loopLog.Info("Service Account propagated", "operation", result)
+			loopLog.V(1).Info("Service Account propagated", "operation", result)
 
 		}
 	}
@@ -228,12 +228,13 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 		korifiv1alpha1.PropagatedFromLabel: r.rootNamespace,
 	})
 	if err != nil {
+		log.Info("failed to create label selector", "reason", err)
 		return err
 	}
 
 	err = r.client.List(ctx, propagatedServiceAccounts, &client.ListOptions{Namespace: space.GetName(), LabelSelector: labelSelector})
 	if err != nil {
-		log.Error(err, "Error listing role-bindings from target namespace")
+		log.Info("error listing role-bindings from target namespace", "reason", err)
 		return err
 	}
 
@@ -242,7 +243,7 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 		if _, found := serviceAccountMap[propagatedServiceAccount.Name]; !found {
 			err = r.client.Delete(ctx, &propagatedServiceAccount)
 			if err != nil {
-				log.Error(err, "error deleting service account from the target namespace", "serviceAccount", propagatedServiceAccount.Name)
+				log.Info("error deleting service account from the target namespace", "serviceAccount", propagatedServiceAccount.Name, "reason", err)
 				return err
 			}
 		}
@@ -330,26 +331,26 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space
 	}
 
 	duration := time.Since(space.GetDeletionTimestamp().Time)
-	log.Info(fmt.Sprintf("finalizing CFSpace for %fs", duration.Seconds()))
+	log.V(1).Info(fmt.Sprintf("finalizing CFSpace for %fs", duration.Seconds()))
 	if duration < 60.0*time.Second {
 		err := r.finalizeCFApps(ctx, log, space.GetName())
 		if err != nil {
-			log.Info("failed to finalize CFApps while deleting CFSpace")
+			log.Info("failed to finalize CFApps while deleting CFSpace", "reason", err)
 			return ctrl.Result{RequeueAfter: 500 * time.Millisecond}, nil
 		}
 	} else {
 		log.Info("timed out finalizing CFApps while deleting CFSpace")
 	}
 
-	log.Info("deleting namespace while finalizing CFSpace")
+	log.V(1).Info("deleting namespace while finalizing CFSpace")
 	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space.GetName()}})
 	if err != nil {
-		log.Error(err, "failed to delete namespace")
+		log.Info("failed to delete namespace", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	if controllerutil.RemoveFinalizer(space, spaceFinalizerName) {
-		log.Info("finalizer removed")
+		log.V(1).Info("finalizer removed")
 	}
 
 	return ctrl.Result{}, nil
@@ -359,16 +360,15 @@ func (r *CFSpaceReconciler) finalizeCFApps(ctx context.Context, log logr.Logger,
 	appList := korifiv1alpha1.CFAppList{}
 	err := r.client.List(ctx, &appList, client.InNamespace(namespace))
 	if err != nil {
-		log.Error(err, "failed to list CFApps while finalizing CFSpace")
-		return err
+		return fmt.Errorf("failed to list CFApps while finalizing CFSpace: %w", err)
 	}
 
 	for i := range appList.Items {
 		if appList.Items[i].GetDeletionTimestamp().IsZero() {
-			log.Info(fmt.Sprintf("deleting CFApp %s", appList.Items[i].Name))
+			log.V(1).Info(fmt.Sprintf("deleting CFApp %s", appList.Items[i].Name))
 			err = r.client.Delete(ctx, &appList.Items[i], client.PropagationPolicy(metav1.DeletePropagationForeground))
 			if err != nil {
-				log.Error(err, "failed to delete CFApp", "AppName", appList.Items[i].Name)
+				log.Info("failed to delete CFApp", "AppName", appList.Items[i].Name, "reason", err)
 			}
 		}
 	}
@@ -376,14 +376,11 @@ func (r *CFSpaceReconciler) finalizeCFApps(ctx context.Context, log logr.Logger,
 	var cfAppList korifiv1alpha1.CFAppList
 	err = r.client.List(ctx, &cfAppList, client.InNamespace(namespace))
 	if err != nil {
-		log.Error(err, "failed to list CFApps while watching CFSpace")
 		return fmt.Errorf("failed to list CFApps while watching CFSpace")
 	}
 
 	if len(cfAppList.Items) > 0 {
-		err = fmt.Errorf("%d CFApps still found", len(cfAppList.Items))
-		log.Info(fmt.Sprintf("%d CFApps still found", len(cfAppList.Items)))
-		return err
+		return fmt.Errorf("%d CFApps still found", len(cfAppList.Items))
 	}
 
 	return nil

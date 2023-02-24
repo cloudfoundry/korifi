@@ -63,7 +63,7 @@ func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *ko
 
 	err := k8s.AddFinalizer(ctx, log, r.client, cfDomain, CFDomainFinalizerName)
 	if err != nil {
-		log.Error(err, "Error adding finalizer")
+		log.Info("error adding finalizer", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -84,20 +84,20 @@ func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logg
 
 	domainRoutes, err := r.listRoutesForDomain(ctx, cfDomain)
 	if err != nil {
-		log.Error(err, "failed to list CFRoutes")
+		log.Info("failed to list CFRoutes", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	for i := range domainRoutes {
 		err = r.client.Delete(ctx, &domainRoutes[i])
 		if err != nil {
-			log.Error(err, "failed to list CFRoutes")
+			log.Info("failed to list CFRoutes", "reason", err)
 			return ctrl.Result{}, err
 		}
 	}
 
 	if controllerutil.RemoveFinalizer(cfDomain, CFDomainFinalizerName) {
-		log.Info("finalizer removed")
+		log.V(1).Info("finalizer removed")
 	}
 
 	return ctrl.Result{}, nil

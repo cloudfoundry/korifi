@@ -10,7 +10,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,13 +18,11 @@ import (
 )
 
 type AppWorkloadToStatefulsetConverter struct {
-	log    logr.Logger
 	scheme *runtime.Scheme
 }
 
-func NewAppWorkloadToStatefulsetConverter(log logr.Logger, scheme *runtime.Scheme) *AppWorkloadToStatefulsetConverter {
+func NewAppWorkloadToStatefulsetConverter(scheme *runtime.Scheme) *AppWorkloadToStatefulsetConverter {
 	return &AppWorkloadToStatefulsetConverter{
-		log:    log,
 		scheme: scheme,
 	}
 }
@@ -157,8 +154,7 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 
 	err = controllerutil.SetOwnerReference(appWorkload, statefulSet, r.scheme)
 	if err != nil {
-		r.log.Error(err, "failed to set OwnerRef on StatefulSet")
-		return nil, err
+		return nil, fmt.Errorf("failed to set OwnerRef on StatefulSet :%w", err)
 	}
 
 	labels := map[string]string{

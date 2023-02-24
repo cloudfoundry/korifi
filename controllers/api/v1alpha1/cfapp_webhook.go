@@ -39,7 +39,7 @@ var _ webhook.Defaulter = &CFApp{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *CFApp) Default() {
-	cfapplog.Info("Mutating CFApp webhook handler", "name", r.Name)
+	cfapplog.V(1).Info("mutating CFApp webhook handler", "name", r.Name)
 	r.SetLabels(r.defaultLabels(r.GetLabels()))
 	r.SetAnnotations(r.defaultAnnotations(r.GetAnnotations()))
 }

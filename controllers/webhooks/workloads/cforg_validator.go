@@ -61,7 +61,7 @@ func (v *CFOrgValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 
 	err := v.placementValidator.ValidateOrgCreate(*org)
 	if err != nil {
-		cfOrgLog.Error(err, err.Error())
+		cfOrgLog.Info(err.Error())
 		return err.ExportJSONError()
 	}
 

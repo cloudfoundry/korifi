@@ -318,7 +318,7 @@ func main() {
 			if err = statefulsetcontrollers.NewAppWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
-				statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(logger, mgr.GetScheme()),
+				statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
 				statefulsetcontrollers.NewPDBUpdater(mgr.GetClient()),
 				logger,
 			).SetupWithManager(mgr); err != nil {
@@ -449,7 +449,7 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		setupLog.Info("Skipping webhook setup because ENABLE_WEBHOOKS set to false.")
+		setupLog.Info("skipping webhook setup because ENABLE_WEBHOOKS set to false.")
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -459,7 +459,7 @@ func main() {
 
 	eventChan := make(chan string)
 	go func() {
-		setupLog.Info("Starting to watch config file at "+configPath+" for logger level changes", "currentLevel", atomicLevel.Level())
+		setupLog.Info("starting to watch config file at "+configPath+" for logger level changes", "currentLevel", atomicLevel.Level())
 		if err2 := tools.WatchForConfigChangeEvents(context.Background(), configPath, setupLog, eventChan); err2 != nil {
 			setupLog.Error(err2, "error watching logging config")
 			os.Exit(1)

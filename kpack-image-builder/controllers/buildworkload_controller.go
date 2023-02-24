@@ -149,7 +149,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	if succeededStatus == nil {
 		err := r.ensureKpackImageRequirements(ctx, buildWorkload)
 		if err != nil {
-			r.log.Info("Kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
+			r.log.Info("kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
 			return ctrl.Result{}, err
 		}
 
@@ -159,9 +159,12 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	var kpackImage buildv1alpha2.Image
 	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), &kpackImage)
 	if err != nil {
-		r.log.Error(err, "Error when fetching Kpack Image")
-		// Ignore Image NotFound errors to account for eventual consistency
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		} else {
+			r.log.Info("error when fetching Kpack Image", "reason", err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	kpackReadyStatusCondition := kpackImage.Status.GetCondition(corev1alpha1.ConditionReady)
@@ -194,13 +197,13 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 			Name:      r.controllerConfig.BuilderServiceAccount,
 		}, &foundServiceAccount)
 		if err != nil {
-			r.log.Error(err, "Error when fetching kpack ServiceAccount")
+			r.log.Info("error when fetching kpack ServiceAccount", "reason", err)
 			return ctrl.Result{}, err
 		}
 
 		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
 		if err != nil {
-			r.log.Error(err, "Error when compiling the DropletStatus")
+			r.log.Info("error when compiling the DropletStatus", "reason", err)
 			return ctrl.Result{}, err
 		}
 	}
@@ -255,7 +258,7 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 
 	err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.scheme)
 	if err != nil {
-		r.log.Error(err, "failed to set OwnerRef on Kpack Image")
+		r.log.Info("failed to set OwnerRef on Kpack Image", "reason", err)
 		return err
 	}
 
@@ -280,17 +283,17 @@ func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Contex
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if err = r.imageRepoCreator.CreateRepository(ctx, r.repositoryRef(appGUID)); err != nil {
-				r.log.Error(err, "failed to create image repository")
+				r.log.Info("failed to create image repository", "reason", err)
 				return err
 			}
 
 			err = r.k8sClient.Create(ctx, &desiredKpackImage)
 			if err != nil {
-				r.log.Error(err, "Error when creating kpack image")
+				r.log.Info("error when creating kpack image", "reason", err)
 				return err
 			}
 		} else {
-			r.log.Error(err, "Error when checking if kpack image exists")
+			r.log.Info("error when checking if kpack image exists", "reason", err)
 			return err
 		}
 	}
@@ -302,15 +305,13 @@ func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpa
 
 	credentials, err := r.registryAuthFetcher(ctx, kpackImage.Namespace)
 	if err != nil {
-		r.log.Error(err, "Error when fetching registry credentials for Droplet image")
-		return nil, err
+		return nil, fmt.Errorf("error when fetching registry credentials for Droplet image: %w", err)
 	}
 
 	// Use the credentials to get the values of Ports and ProcessTypes
 	dropletProcessTypes, dropletPorts, err := r.imageProcessFetcher(imageRef, credentials)
 	if err != nil {
-		r.log.Error(err, "Error when compiling droplet image details")
-		return nil, err
+		return nil, fmt.Errorf("error when compiling droplet image details: %w", err)
 	}
 
 	return &korifiv1alpha1.BuildDropletStatus{

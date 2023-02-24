@@ -19,24 +19,23 @@ package controllers
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/types"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools/k8s"
-	"github.com/go-logr/logr"
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -119,7 +118,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 	statefulSet, err := r.workloadsToStSet.Convert(appWorkload)
 	// Not clear what errors this would produce, but we may use it later
 	if err != nil {
-		r.log.Error(err, "Error when converting AppWorkload")
+		r.log.Info("error when converting AppWorkload", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -138,20 +137,24 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		return nil
 	})
 	if err != nil {
-		r.log.Error(err, "Error when creating or updating StatefulSet")
+		r.log.Info("error when creating or updating StatefulSet", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	updatedStatefulSet := &appsv1.StatefulSet{}
 	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(statefulSet), updatedStatefulSet)
 	if err != nil {
-		r.log.Info("Error when fetching StatefulSet", "StatefulSet.Name", statefulSet.Name, "StatefulSet.Namespace", statefulSet.Namespace, "error", err.Error())
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		} else {
+			r.log.Info("error when fetching StatefulSet", "StatefulSet.Name", statefulSet.Name, "StatefulSet.Namespace", statefulSet.Namespace, "reason", err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	err = r.pdb.Update(ctx, updatedStatefulSet)
 	if err != nil {
-		r.log.Error(err, "Error when creating or patching pod disruption budget")
+		r.log.Info("error when creating or patching pod disruption budget", "reason", err)
 		return ctrl.Result{}, err
 	}
 
