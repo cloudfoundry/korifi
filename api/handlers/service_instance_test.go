@@ -374,8 +374,14 @@ var _ = Describe("ServiceInstance", func() {
 					SecretName: serviceInstanceGUID1,
 					Tags:       []string{"foo", "bar"},
 					Type:       serviceInstanceTypeUserProvided,
-					CreatedAt:  "1906-04-18T13:12:00Z",
-					UpdatedAt:  "1906-04-18T13:12:00Z",
+					Labels: map[string]string{
+						"a-label": "a-label-value",
+					},
+					Annotations: map[string]string{
+						"an-annotation": "an-annotation-value",
+					},
+					CreatedAt: "1906-04-18T13:12:00Z",
+					UpdatedAt: "1906-04-18T13:12:00Z",
 				},
 				{
 					Name:       serviceInstanceName2,
@@ -447,8 +453,12 @@ var _ = Describe("ServiceInstance", func() {
 							}
 						  },
 						  "metadata": {
-							"labels": {},
-							"annotations": {}
+							"labels": {
+							  "a-label": "a-label-value"
+							},
+							"annotations": {
+							  "an-annotation": "an-annotation-value"
+							}
 						  },
 						  "links": {
 							"self": {

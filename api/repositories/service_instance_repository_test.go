@@ -192,33 +192,27 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("query parameters are not provided and", func() {
-			BeforeEach(func() {
-				filters = repositories.ListServiceInstanceMessage{}
-			})
-
-			When("no service instances exist in spaces where the user has permission", func() {
-				It("returns an empty list of ServiceInstanceRecord", func() {
-					Expect(serviceInstanceList).To(BeEmpty())
-				})
-			})
-
-			When("multiple service instances exist in spaces where the user has permissions", func() {
-				BeforeEach(func() {
-					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
-					createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
-				})
-
-				It("returns ServiceInstance records from only the spaces where the user has permission", func() {
-					Expect(serviceInstanceList).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
-					))
-				})
+		When("no service instances exist in spaces where the user has permission", func() {
+			It("returns an empty list of ServiceInstanceRecord", func() {
+				Expect(serviceInstanceList).To(BeEmpty())
 			})
 		})
 
-		When("query parameters are provided", func() {
+		When("multiple service instances exist in spaces where the user has permissions", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+			})
+
+			It("returns ServiceInstance records from only the spaces where the user has permission", func() {
+				Expect(serviceInstanceList).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
+				))
+			})
+		})
+
+		When("user has permissions in all spaces", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
@@ -303,6 +297,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.SecretName).To(Equal(serviceInstance.Spec.SecretName))
 				Expect(record.Tags).To(Equal(serviceInstance.Spec.Tags))
 				Expect(record.Type).To(Equal(string(serviceInstance.Spec.Type)))
+				Expect(record.Labels).To(Equal(map[string]string{"a-label": "a-label-value"}))
+				Expect(record.Annotations).To(Equal(map[string]string{"an-annotation": "an-annotation-value"}))
 			})
 		})
 
