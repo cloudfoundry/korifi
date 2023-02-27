@@ -87,11 +87,11 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 	}
 
 	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)
-	succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+	// succeededStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 
-	if succeededStatus != metav1.ConditionUnknown {
-		return ctrl.Result{}, nil
-	}
+	// if succeededStatus != metav1.ConditionUnknown {
+	// 	return ctrl.Result{}, nil
+	// }
 
 	if stagingStatus == metav1.ConditionUnknown {
 		err = r.createBuildWorkload(ctx, cfBuild, cfApp, cfPackage)

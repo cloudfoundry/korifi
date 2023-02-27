@@ -21,6 +21,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -144,9 +146,9 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 
 	succeededStatus := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 
-	if succeededStatus != nil && succeededStatus.Status != metav1.ConditionUnknown {
-		return ctrl.Result{}, nil
-	}
+	// if succeededStatus != nil && succeededStatus.Status != metav1.ConditionUnknown {
+	// 	return ctrl.Result{}, nil
+	// }
 
 	if succeededStatus == nil {
 		err := r.ensureKpackImageRequirements(ctx, buildWorkload)
@@ -192,10 +194,26 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, err
 	}
 
-	if len(kpackBuildList.Items) != 1 {
-		r.log.Info("failed-to-get-matching-build", "items", kpackBuildList.Items)
+	if len(kpackBuildList.Items) == 0 {
+		r.log.Info("no-matching-build")
 		return ctrl.Result{}, nil
 	}
+
+	sort.Slice(kpackBuildList.Items, func(a, b int) bool {
+		itemA := kpackBuildList.Items[a]
+		itemB := kpackBuildList.Items[b]
+		buildA, convErr := strconv.Atoi(itemA.Labels[buildv1alpha2.BuildNumberLabel])
+		if convErr != nil {
+			r.log.Error(convErr, "invalid-build-label", "label", itemA.Labels[buildv1alpha2.BuildNumberLabel])
+			return false
+		}
+		buildB, convErr := strconv.Atoi(itemB.Labels[buildv1alpha2.BuildNumberLabel])
+		if convErr != nil {
+			r.log.Error(convErr, "invalid-build-label", "label", itemB.Labels[buildv1alpha2.BuildNumberLabel])
+			return false
+		}
+		return buildB < buildA
+	})
 
 	kpackBuild := kpackBuildList.Items[0]
 	kpackBuildReadyStatusCondition := kpackBuild.Status.GetCondition("Succeeded")
