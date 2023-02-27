@@ -65,14 +65,16 @@ type DeleteServiceInstanceMessage struct {
 }
 
 type ServiceInstanceRecord struct {
-	Name       string
-	GUID       string
-	SpaceGUID  string
-	SecretName string
-	Tags       []string
-	Type       string
-	CreatedAt  string
-	UpdatedAt  string
+	Name        string
+	GUID        string
+	SpaceGUID   string
+	SecretName  string
+	Tags        []string
+	Type        string
+	Labels      map[string]string
+	Annotations map[string]string
+	CreatedAt   string
+	UpdatedAt   string
 }
 
 func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateServiceInstanceMessage) (ServiceInstanceRecord, error) {
@@ -198,14 +200,16 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.C
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfServiceInstance.ObjectMeta)
 
 	return ServiceInstanceRecord{
-		Name:       cfServiceInstance.Spec.DisplayName,
-		GUID:       cfServiceInstance.Name,
-		SpaceGUID:  cfServiceInstance.Namespace,
-		SecretName: cfServiceInstance.Spec.SecretName,
-		Tags:       cfServiceInstance.Spec.Tags,
-		Type:       string(cfServiceInstance.Spec.Type),
-		CreatedAt:  cfServiceInstance.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:  updatedAtTime,
+		Name:        cfServiceInstance.Spec.DisplayName,
+		GUID:        cfServiceInstance.Name,
+		SpaceGUID:   cfServiceInstance.Namespace,
+		SecretName:  cfServiceInstance.Spec.SecretName,
+		Tags:        cfServiceInstance.Spec.Tags,
+		Type:        string(cfServiceInstance.Spec.Type),
+		Labels:      cfServiceInstance.Labels,
+		Annotations: cfServiceInstance.Annotations,
+		CreatedAt:   cfServiceInstance.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:   updatedAtTime,
 	}
 }
 

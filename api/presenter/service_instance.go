@@ -71,8 +71,8 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 			},
 		},
 		Metadata: Metadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
+			Labels:      emptyMapIfNil(serviceInstanceRecord.Labels),
+			Annotations: emptyMapIfNil(serviceInstanceRecord.Annotations),
 		},
 		Links: ServiceInstanceLinks{
 			Self: Link{
