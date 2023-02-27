@@ -21,6 +21,7 @@ type (
 	UserRelationshipData struct {
 		Username string `json:"username" validate:"required_without=GUID"`
 		GUID     string `json:"guid" validate:"required_without=Username"`
+		Origin   string `json:"origin"`
 	}
 
 	RoleRelationships struct {
@@ -55,6 +56,15 @@ func (p RoleCreate) ToMessage() repositories.CreateRoleMessage {
 	if p.Relationships.User != nil {
 		record.Kind = rbacv1.UserKind
 		record.User = p.Relationships.User.Data.Username
+
+		// For UAA Authenticated users, prefix the Origin as our Cluster uses the Orgin:User for
+		// Authentication verification (via OIDC prefixs)
+		// --kube-apiserver-arg oidc-username-prefix="<origin>:"
+		// --kube-apiserver-arg oidc-groups-prefix="<origin>:"
+		if p.Relationships.User.Data.Origin != "" {
+			record.User = p.Relationships.User.Data.Origin + ":" + record.User
+		}
+
 		if p.Relationships.User.Data.GUID != "" {
 			record.User = p.Relationships.User.Data.GUID
 		}
