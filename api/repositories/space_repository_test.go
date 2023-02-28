@@ -38,6 +38,8 @@ var _ = Describe("SpaceRepository", func() {
 			spaceName                   string
 			space                       repositories.SpaceRecord
 			doSpaceControllerSimulation bool
+			conditionStatus             metav1.ConditionStatus
+			conditionMessage            string
 		)
 
 		waitForCFSpace := func(anchorNamespace string, spaceName string, done chan bool) (*korifiv1alpha1.CFSpace, error) {
@@ -72,7 +74,7 @@ var _ = Describe("SpaceRepository", func() {
 			}
 		}
 
-		simulateSpaceController := func(anchorNamespace string, spaceName string, done chan bool) {
+		simulateSpaceController := func(anchorNamespace string, spaceName string, conditionStatus metav1.ConditionStatus, conditionMessage string, done chan bool) {
 			defer GinkgoRecover()
 
 			space, err := waitForCFSpace(anchorNamespace, spaceName, done)
@@ -84,9 +86,9 @@ var _ = Describe("SpaceRepository", func() {
 
 			meta.SetStatusCondition(&(space.Status.Conditions), metav1.Condition{
 				Type:    "Ready",
-				Status:  metav1.ConditionTrue,
+				Status:  conditionStatus,
 				Reason:  "blah",
-				Message: "blah",
+				Message: conditionMessage,
 			})
 			Expect(
 				k8sClient.Status().Update(ctx, space),
@@ -98,6 +100,8 @@ var _ = Describe("SpaceRepository", func() {
 			spaceName = prefixedGUID("space-name")
 			org := createOrgWithCleanup(ctx, prefixedGUID("org"))
 			orgGUID = org.Name
+			conditionStatus = metav1.ConditionTrue
+			conditionMessage = ""
 		})
 
 		JustBeforeEach(func() {
@@ -105,7 +109,7 @@ var _ = Describe("SpaceRepository", func() {
 				done := make(chan bool, 1)
 				defer func(done chan bool) { done <- true }(done)
 
-				go simulateSpaceController(orgGUID, spaceName, done)
+				go simulateSpaceController(orgGUID, spaceName, conditionStatus, conditionMessage, done)
 			}
 
 			space, createErr = spaceRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
@@ -166,8 +170,20 @@ var _ = Describe("SpaceRepository", func() {
 					doSpaceControllerSimulation = false
 				})
 
-				It("returns an error", func() {
+				It("and no message is provided it returns a generic error", func() {
 					Expect(createErr).To(MatchError(ContainSubstring("cf space did not get Condition `Ready`: 'True'")))
+				})
+
+				When("and a ready status message is provided", func() {
+					BeforeEach(func() {
+						doSpaceControllerSimulation = true
+						conditionStatus = metav1.ConditionFalse
+						conditionMessage = "a custom message to tell the api user what is going on"
+					})
+
+					It("the custom error message is returned", func() {
+						Expect(createErr).To(MatchError(ContainSubstring("a custom message to tell the api user what is going on")))
+					})
 				})
 			})
 		})

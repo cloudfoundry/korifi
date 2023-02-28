@@ -99,15 +99,14 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		return r.finalize(ctx, log, cfSpace)
 	}
 
+	getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
+
 	err := k8s.AddFinalizer(ctx, log, r.client, cfSpace, spaceFinalizerName)
 	if err != nil {
-		log.Error(err, "Error adding finalizer")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error adding finalizer: %w", err), log, &cfSpace.Status.Conditions, "FinalizerAddition")
 	}
 
 	cfSpace.Status.GUID = cfSpace.GetName()
-
-	getConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType)
 
 	err = createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.SpaceNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
@@ -116,8 +115,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName,
 	})
 	if err != nil {
-		log.Error(err, "Error creating namespace")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error creating namespace: %w", err), log, &cfSpace.Status.Conditions, "NamespaceCreation")
 	}
 
 	err = getNamespace(ctx, log, r.client, cfSpace.Name)
@@ -127,20 +125,17 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 
 	err = propagateSecret(ctx, r.client, log, cfSpace, r.containerRegistrySecretName)
 	if err != nil {
-		log.Error(err, "Error propagating secrets")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating secrets: %w", err), log, &cfSpace.Status.Conditions, "RegistrySecretPropagation")
 	}
 
 	err = reconcileRoleBindings(ctx, r.client, log, cfSpace)
 	if err != nil {
-		log.Error(err, "Error propagating role-bindings")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating role-bindings: %w", err), log, &cfSpace.Status.Conditions, "RoleBindingPropagation")
 	}
 
 	err = r.reconcileServiceAccounts(ctx, cfSpace, log)
 	if err != nil {
-		log.Error(err, "Error propagating service accounts")
-		return ctrl.Result{}, err
+		return logErrorAndSetReadyStatus(fmt.Errorf("Error propagating service accounts: %w", err), log, &cfSpace.Status.Conditions, "ServiceAccountPropagation")
 	}
 
 	meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{

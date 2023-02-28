@@ -298,6 +298,22 @@ func NewBlobstoreUnavailableError(cause error) BlobstoreUnavailableError {
 	}
 }
 
+type CFCreateError struct {
+	apiError
+}
+
+func NewCFCreateError(cause error) CFCreateError {
+	return CFCreateError{
+		apiError: apiError{
+			cause:      cause,
+			title:      "CF-Create",
+			detail:     cause.Error(),
+			code:       420000,
+			httpStatus: http.StatusInternalServerError,
+		},
+	}
+}
+
 func FromK8sError(err error, resourceType string) error {
 	if webhookValidationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
 		return NewUnprocessableEntityError(err, webhookValidationError.GetMessage())

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -134,6 +135,7 @@ func (r *SpaceRepo) createSpaceCR(ctx context.Context,
 
 	conditionReady := false
 	var createdSpace *korifiv1alpha1.CFSpace
+	var conditionNotReadyMessage string
 	for res := range watch.ResultChan() {
 		var ok bool
 		createdSpace, ok = res.Object.(*korifiv1alpha1.CFSpace)
@@ -146,10 +148,18 @@ func (r *SpaceRepo) createSpaceCR(ctx context.Context,
 			conditionReady = true
 			break
 		}
+		readyCondition := meta.FindStatusCondition(createdSpace.Status.Conditions, StatusConditionReady)
+		if readyCondition != nil {
+			conditionNotReadyMessage = readyCondition.Message
+		}
 	}
 
 	if !conditionReady {
-		return nil, fmt.Errorf("cf space did not get Condition `Ready`: 'True' within timeout period %d ms", r.timeout.Milliseconds())
+		err := fmt.Errorf("cf space did not get Condition `Ready`: 'True' within timeout period %d ms", r.timeout.Milliseconds())
+		if len(conditionNotReadyMessage) > 0 {
+			err = errors.New(conditionNotReadyMessage)
+		}
+		return nil, apierrors.NewCFCreateError(err)
 	}
 
 	return createdSpace, nil

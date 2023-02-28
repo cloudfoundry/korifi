@@ -1,7 +1,6 @@
 package repositories_test
 
 import (
-	"code.cloudfoundry.org/korifi/tools"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +8,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"code.cloudfoundry.org/korifi/tools"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
