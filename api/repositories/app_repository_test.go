@@ -18,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"

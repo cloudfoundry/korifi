@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: korifi-controllers-cfservicebindings-role
+  labels:
+    servicebinding.io/controller: "true"
+rules:
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - get
+  - list
+  - watch

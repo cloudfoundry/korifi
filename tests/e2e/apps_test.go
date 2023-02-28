@@ -504,6 +504,26 @@ var _ = Describe("Apps", func() {
 			})
 		})
 
+		When("the app is restarted after binding to a user-provided service instance", func() {
+			var result map[string]interface{}
+
+			BeforeEach(func() {
+				var err error
+				serviceInstanceGUID := createServiceInstance(space1GUID, generateGUID("service-instance"))
+				createServiceBinding(appGUID, serviceInstanceGUID)
+				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("sets the SERVICE_BINDING_ROOT env variable", func() {
+				body := curlApp(appGUID, "/env.json")
+
+				env := map[string]string{}
+				Expect(json.Unmarshal(body, &env)).To(Succeed())
+				Expect(env).To(HaveKeyWithValue("SERVICE_BINDING_ROOT", "/bindings"))
+			})
+		})
+
 		Describe("Scale a process", func() {
 			var result responseResource
 			var errResp cfErrs
@@ -591,7 +611,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Fetch app env", func() {
+	Describe("Fetching app environment variables", func() {
 		var (
 			result                      map[string]interface{}
 			instanceGUID, instanceGUID2 string
@@ -625,7 +645,7 @@ var _ = Describe("Apps", func() {
 			}).Should(Succeed())
 		})
 
-		It("returns the app environment", func() {
+		It("succeeds", func() {
 			Eventually(func(g Gomega) {
 				_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
 				g.Expect(err).NotTo(HaveOccurred())
@@ -680,7 +700,7 @@ var _ = Describe("Apps", func() {
 			}).Should(Succeed())
 		})
 
-		When("a deleted service binding changes the app env", func() {
+		When("the service binding is deleted", func() {
 			BeforeEach(func() {
 				_, err := certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID2)
 				Expect(err).To(Succeed())
