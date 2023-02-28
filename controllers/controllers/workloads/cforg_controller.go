@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	orgFinalizerName     = "cfOrg.korifi.cloudfoundry.org"
+	orgFinalizerName = "cfOrg.korifi.cloudfoundry.org"
 )
 
 // CFOrgReconciler reconciles a CFOrg object

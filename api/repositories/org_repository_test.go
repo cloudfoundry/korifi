@@ -35,6 +35,8 @@ var _ = Describe("OrgRepository", func() {
 			org                       repositories.OrgRecord
 			done                      chan bool
 			doOrgControllerSimulation bool
+			conditionStatus           metav1.ConditionStatus
+			conditionMessage          string
 		)
 
 		waitForCFOrg := func(anchorNamespace string, orgName string, done chan bool) (*korifiv1alpha1.CFOrg, error) {
@@ -68,7 +70,7 @@ var _ = Describe("OrgRepository", func() {
 			}
 		}
 
-		simulateOrgController := func(anchorNamespace string, orgName string, done chan bool) {
+		simulateOrgController := func(anchorNamespace string, orgName string, conditionStatus metav1.ConditionStatus, conditionMessage string, done chan bool) {
 			defer GinkgoRecover()
 
 			org, err := waitForCFOrg(anchorNamespace, orgName, done)
@@ -80,9 +82,9 @@ var _ = Describe("OrgRepository", func() {
 
 			meta.SetStatusCondition(&(org.Status.Conditions), metav1.Condition{
 				Type:    "Ready",
-				Status:  metav1.ConditionTrue,
+				Status:  conditionStatus,
 				Reason:  "blah",
-				Message: "blah",
+				Message: conditionMessage,
 			})
 			Expect(
 				k8sClient.Status().Update(ctx, org),
@@ -93,11 +95,13 @@ var _ = Describe("OrgRepository", func() {
 			doOrgControllerSimulation = true
 			done = make(chan bool, 1)
 			orgGUID = prefixedGUID("org")
+			conditionStatus = metav1.ConditionTrue
+			conditionMessage = ""
 		})
 
 		JustBeforeEach(func() {
 			if doOrgControllerSimulation {
-				go simulateOrgController(rootNamespace, orgGUID, done)
+				go simulateOrgController(rootNamespace, orgGUID, conditionStatus, conditionMessage, done)
 			}
 			org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 				Name: orgGUID,
@@ -156,8 +160,20 @@ var _ = Describe("OrgRepository", func() {
 					doOrgControllerSimulation = false
 				})
 
-				It("returns an error", func() {
+				It("and no message is provided it returns a generic error", func() {
 					Expect(createErr).To(MatchError(ContainSubstring("cf org did not get Condition `Ready`: 'True'")))
+				})
+
+				When("and a ready status message is provided", func() {
+					BeforeEach(func() {
+						doOrgControllerSimulation = true
+						conditionStatus = metav1.ConditionFalse
+						conditionMessage = "a custom message to tell the api user what is going on"
+					})
+
+					It("the custom error message is returned", func() {
+						Expect(createErr).To(MatchError(ContainSubstring("a custom message to tell the api user what is going on")))
+					})
 				})
 			})
 
