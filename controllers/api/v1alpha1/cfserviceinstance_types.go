@@ -44,7 +44,7 @@ type CFServiceInstanceSpec struct {
 }
 
 // InstanceType defines the type of the Service Instance
-// +kubebuilder:validation:Enum=user-provided
+// +kubebuilder:validation:Enum=user-provided;managed
 type InstanceType string
 
 // CFServiceInstanceStatus defines the observed state of CFServiceInstance

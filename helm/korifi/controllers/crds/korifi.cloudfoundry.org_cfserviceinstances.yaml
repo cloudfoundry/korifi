@@ -59,6 +59,7 @@ spec:
                 description: Type of the Service Instance. Must be `user-provided`
                 enum:
                 - user-provided
+                - managed
                 type: string
             required:
             - displayName

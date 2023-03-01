@@ -24,6 +24,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -108,5 +109,15 @@ func bindSecretUnavailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInst
 
 func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFServiceInstance{})
+		For(&korifiv1alpha1.CFServiceInstance{}).
+		WithEventFilter(predicate.NewPredicateFuncs(r.isUPSI))
+}
+
+func (r *CFServiceInstanceReconciler) isUPSI(object client.Object) bool {
+	serviceInstance, ok := object.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		return true
+	}
+
+	return serviceInstance.Spec.Type == "user-provided"
 }

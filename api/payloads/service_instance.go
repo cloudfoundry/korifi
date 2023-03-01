@@ -9,7 +9,7 @@ import (
 
 type ServiceInstanceCreate struct {
 	Name          string                       `json:"name" validate:"required"`
-	Type          string                       `json:"type" validate:"required,oneof=user-provided"`
+	Type          string                       `json:"type" validate:"required,oneof=user-provided managed"`
 	Tags          []string                     `json:"tags" validate:"serviceinstancetaglength"`
 	Credentials   map[string]string            `json:"credentials"`
 	Relationships ServiceInstanceRelationships `json:"relationships" validate:"required"`
