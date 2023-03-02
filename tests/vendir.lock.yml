@@ -2,8 +2,8 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - githubRelease:
-      tag: v0.9.2
-      url: https://api.github.com/repos/pivotal/kpack/releases/89601346
+      tag: v0.10.0
+      url: https://api.github.com/repos/pivotal/kpack/releases/93602165
     path: kpack
   - githubRelease:
       tag: v0.3.0
@@ -26,20 +26,18 @@ directories:
   path: vendor
 - contents:
   - git:
-      commitTitle: Backfill default and override functionality for buildpack_name
-        configuration
-      sha: 7858cd3ab122fff89d1ea01e8e822be2efce72e4
+      commitTitle: Bump code.cloudfoundry.org/archiver to latest
+      sha: 3e7edf8e49fee4fa13dc36a7b300db0c7c895c9e
       tags:
-      - v10.0.0
+      - v11.0.0
     path: .
   path: e2e/assets/vendored/node
 - contents:
   - git:
-      commitTitle: Backfill default and override functionality for buildpack_name
-        configuration
-      sha: 7858cd3ab122fff89d1ea01e8e822be2efce72e4
+      commitTitle: Bump code.cloudfoundry.org/archiver to latest
+      sha: 3e7edf8e49fee4fa13dc36a7b300db0c7c895c9e
       tags:
-      - v10.0.0
+      - v11.0.0
     path: .
   path: e2e/assets/vendored/dora
 kind: LockConfig
