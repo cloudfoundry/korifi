@@ -9,7 +9,7 @@ global:
 api:
   apiServer:
     url: localhost
-  uaaURL: "https://uaa.mel-c.korifi.cf-app.com"
+  uaaURL: "https://uaa.cf.eu10.hana.ondemand.com"
   image: cloudfoundry/korifi-api:latest
 
 controllers:
