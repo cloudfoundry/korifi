@@ -49,6 +49,7 @@ var (
 	procfileAppBitsFile     string
 	nodeAppBitsFile         string
 	doraAppBitsFile         string
+	golangAppBitsFile       string
 	multiProcessAppBitsFile string
 	assetsTmpDir            string
 	clusterVersionMinor     int
@@ -56,12 +57,13 @@ var (
 )
 
 type resource struct {
-	Name          string        `json:"name,omitempty"`
-	GUID          string        `json:"guid,omitempty"`
-	Relationships relationships `json:"relationships,omitempty"`
-	CreatedAt     string        `json:"created_at,omitempty"`
-	UpdatedAt     string        `json:"updated_at,omitempty"`
-	Metadata      *metadata     `json:"metadata,omitempty"`
+	Name          string            `json:"name,omitempty"`
+	GUID          string            `json:"guid,omitempty"`
+	Relationships relationships     `json:"relationships,omitempty"`
+	CreatedAt     string            `json:"created_at,omitempty"`
+	UpdatedAt     string            `json:"updated_at,omitempty"`
+	Metadata      *metadata         `json:"metadata,omitempty"`
+	Credentials   map[string]string `json:"credentials,omitempty"`
 }
 
 type relationships map[string]relationship
@@ -257,6 +259,7 @@ type sharedSetupData struct {
 	CommonOrgGUID           string `json:"commonOrgGuid"`
 	NodeAppBitsFile         string `json:"nodeAppBitsFile"`
 	DoraAppBitsFile         string `json:"doraAppBitsFile"`
+	GolangAppBitsFile       string `json:"golangAppBitsFile"`
 	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
 	ProcfileAppBitsFile     string `json:"procfileAppBitsFile"`
 }
@@ -274,6 +277,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		CommonOrgGUID:           commonTestOrgGUID,
 		NodeAppBitsFile:         nodeAppBitsFile,
 		DoraAppBitsFile:         doraAppBitsFile,
+		GolangAppBitsFile:       golangAppBitsFile,
 		MultiProcessAppBitsFile: multiProcessAppBitsFile,
 		ProcfileAppBitsFile:     procfileAppBitsFile,
 	})
@@ -289,6 +293,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	nodeAppBitsFile = sharedSetup.NodeAppBitsFile
 	doraAppBitsFile = sharedSetup.DoraAppBitsFile
+	golangAppBitsFile = sharedSetup.GolangAppBitsFile
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
 	procfileAppBitsFile = getAppBitsFileFromPath(sharedSetup)
 
@@ -359,6 +364,9 @@ func prepareAssets() {
 
 	doraAppBitsFile = filepath.Join(assetsTmpDir, "dora.zip")
 	Expect(zipAsset("assets/vendored/dora", doraAppBitsFile)).To(Succeed())
+
+	golangAppBitsFile = filepath.Join(assetsTmpDir, "golang.zip")
+	Expect(zipAsset("assets/golang", golangAppBitsFile)).To(Succeed())
 
 	multiProcessAppBitsFile = filepath.Join(assetsTmpDir, "multi-process.zip")
 	Expect(zipAsset("assets/multi-process", multiProcessAppBitsFile)).To(Succeed())
@@ -601,7 +609,7 @@ func getProcess(appGUID, processType string) processResource {
 	return process
 }
 
-func createServiceInstance(spaceGUID, name string) string {
+func createServiceInstance(spaceGUID, name string, credentials map[string]string) string {
 	var serviceInstance typedResource
 
 	resp, err := adminClient.R().
@@ -610,6 +618,7 @@ func createServiceInstance(spaceGUID, name string) string {
 			resource: resource{
 				Name:          name,
 				Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
+				Credentials:   credentials,
 			},
 		}).
 		SetResult(&serviceInstance).
@@ -911,6 +920,8 @@ func getAppBitsFileFromPath(sharedSetup sharedSetupData) string {
 		return sharedSetup.DoraAppBitsFile
 	case "assets/multi-process":
 		return sharedSetup.MultiProcessAppBitsFile
+	case "assets/golang":
+		return sharedSetup.GolangAppBitsFile
 	default:
 		return sharedSetup.ProcfileAppBitsFile
 	}

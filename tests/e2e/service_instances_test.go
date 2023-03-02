@@ -22,7 +22,7 @@ var _ = Describe("Service Instances", func() {
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 		existingInstanceName = generateGUID("service-instance")
-		existingInstanceGUID = createServiceInstance(spaceGUID, existingInstanceName)
+		existingInstanceGUID = createServiceInstance(spaceGUID, existingInstanceName, nil)
 	})
 
 	AfterEach(func() {
