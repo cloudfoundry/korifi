@@ -37,7 +37,7 @@ require (
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
 	k8s.io/client-go v0.26.2
-	k8s.io/metrics v0.26.1
+	k8s.io/metrics v0.26.2
 	k8s.io/pod-security-admission v0.26.1
 	k8s.io/utils v0.0.0-20230202215443-34013725500c
 	sigs.k8s.io/controller-runtime v0.14.4
