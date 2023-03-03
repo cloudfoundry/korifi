@@ -28,6 +28,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
 type CFServiceInstanceRepository interface {
 	CreateServiceInstance(context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
+	PatchServiceInstance(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
 	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
 	DeleteServiceInstance(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) error
@@ -37,20 +38,20 @@ type ServiceInstance struct {
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
 	spaceRepo           SpaceRepository
-	decoderValidator    *DecoderValidator
+	requestValidator    RequestJSONValidator
 }
 
 func NewServiceInstance(
 	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
 	spaceRepo SpaceRepository,
-	decoderValidator *DecoderValidator,
+	requestValidator RequestJSONValidator,
 ) *ServiceInstance {
 	return &ServiceInstance{
 		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
 		spaceRepo:           spaceRepo,
-		decoderValidator:    decoderValidator,
+		requestValidator:    requestValidator,
 	}
 }
 
@@ -60,7 +61,7 @@ func (h *ServiceInstance) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.create")
 
 	var payload payloads.ServiceInstanceCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -81,6 +82,31 @@ func (h *ServiceInstance) create(r *http.Request) (*routing.Response, error) {
 	}
 
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL)), nil
+}
+
+func (h *ServiceInstance) patch(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.patch")
+
+	var payload payloads.ServiceInstancePatch
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	serviceInstanceGUID := routing.URLParam(r, "guid")
+
+	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance")
+	}
+
+	patchMessage := payload.ToServiceInstancePatchMessage(serviceInstance.SpaceGUID, serviceInstance.GUID)
+	serviceInstance, err = h.serviceInstanceRepo.PatchServiceInstance(r.Context(), authInfo, patchMessage)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to patch service instance")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstance(serviceInstance, h.serverURL)), nil
 }
 
 func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
@@ -166,6 +192,7 @@ func (h *ServiceInstance) UnauthenticatedRoutes() []routing.Route {
 func (h *ServiceInstance) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "POST", Pattern: ServiceInstancesPath, Handler: h.create},
+		{Method: "PATCH", Pattern: ServiceInstancePath, Handler: h.patch},
 		{Method: "GET", Pattern: ServiceInstancesPath, Handler: h.list},
 		{Method: "DELETE", Pattern: ServiceInstancePath, Handler: h.delete},
 	}

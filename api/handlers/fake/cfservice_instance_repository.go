@@ -69,6 +69,21 @@ type CFServiceInstanceRepository struct {
 		result1 []repositories.ServiceInstanceRecord
 		result2 error
 	}
+	PatchServiceInstanceStub        func(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
+	patchServiceInstanceMutex       sync.RWMutex
+	patchServiceInstanceArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchServiceInstanceMessage
+	}
+	patchServiceInstanceReturns struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}
+	patchServiceInstanceReturnsOnCall map[int]struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -334,6 +349,72 @@ func (fake *CFServiceInstanceRepository) ListServiceInstancesReturnsOnCall(i int
 	}{result1, result2}
 }
 
+func (fake *CFServiceInstanceRepository) PatchServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error) {
+	fake.patchServiceInstanceMutex.Lock()
+	ret, specificReturn := fake.patchServiceInstanceReturnsOnCall[len(fake.patchServiceInstanceArgsForCall)]
+	fake.patchServiceInstanceArgsForCall = append(fake.patchServiceInstanceArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchServiceInstanceMessage
+	}{arg1, arg2, arg3})
+	stub := fake.PatchServiceInstanceStub
+	fakeReturns := fake.patchServiceInstanceReturns
+	fake.recordInvocation("PatchServiceInstance", []interface{}{arg1, arg2, arg3})
+	fake.patchServiceInstanceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServiceInstanceRepository) PatchServiceInstanceCallCount() int {
+	fake.patchServiceInstanceMutex.RLock()
+	defer fake.patchServiceInstanceMutex.RUnlock()
+	return len(fake.patchServiceInstanceArgsForCall)
+}
+
+func (fake *CFServiceInstanceRepository) PatchServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)) {
+	fake.patchServiceInstanceMutex.Lock()
+	defer fake.patchServiceInstanceMutex.Unlock()
+	fake.PatchServiceInstanceStub = stub
+}
+
+func (fake *CFServiceInstanceRepository) PatchServiceInstanceArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) {
+	fake.patchServiceInstanceMutex.RLock()
+	defer fake.patchServiceInstanceMutex.RUnlock()
+	argsForCall := fake.patchServiceInstanceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceInstanceRepository) PatchServiceInstanceReturns(result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.patchServiceInstanceMutex.Lock()
+	defer fake.patchServiceInstanceMutex.Unlock()
+	fake.PatchServiceInstanceStub = nil
+	fake.patchServiceInstanceReturns = struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceInstanceRepository) PatchServiceInstanceReturnsOnCall(i int, result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.patchServiceInstanceMutex.Lock()
+	defer fake.patchServiceInstanceMutex.Unlock()
+	fake.PatchServiceInstanceStub = nil
+	if fake.patchServiceInstanceReturnsOnCall == nil {
+		fake.patchServiceInstanceReturnsOnCall = make(map[int]struct {
+			result1 repositories.ServiceInstanceRecord
+			result2 error
+		})
+	}
+	fake.patchServiceInstanceReturnsOnCall[i] = struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFServiceInstanceRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -345,6 +426,8 @@ func (fake *CFServiceInstanceRepository) Invocations() map[string][][]interface{
 	defer fake.getServiceInstanceMutex.RUnlock()
 	fake.listServiceInstancesMutex.RLock()
 	defer fake.listServiceInstancesMutex.RUnlock()
+	fake.patchServiceInstanceMutex.RLock()
+	defer fake.patchServiceInstanceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -54,6 +55,25 @@ type CreateServiceInstanceMessage struct {
 	Annotations map[string]string
 }
 
+type PatchServiceInstanceMessage struct {
+	GUID        string
+	SpaceGUID   string
+	Name        *string
+	Credentials *map[string]string
+	Tags        *[]string
+	MetadataPatch
+}
+
+func (p PatchServiceInstanceMessage) Apply(cfServiceInstance *korifiv1alpha1.CFServiceInstance) {
+	if p.Name != nil {
+		cfServiceInstance.Spec.DisplayName = *p.Name
+	}
+	if p.Tags != nil {
+		cfServiceInstance.Spec.Tags = *p.Tags
+	}
+	p.MetadataPatch.Apply(cfServiceInstance)
+}
+
 type ListServiceInstanceMessage struct {
 	Names      []string
 	SpaceGuids []string
@@ -96,12 +116,67 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 		if secretObj.StringData == nil {
 			secretObj.StringData = map[string]string{}
 		}
-		updateSecretTypeFields(&secretObj)
+		createSecretTypeFields(&secretObj)
 
 		return nil
 	})
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
+	}
+
+	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
+}
+
+func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchServiceInstanceMessage) (ServiceInstanceRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	var cfServiceInstance korifiv1alpha1.CFServiceInstance
+	cfServiceInstance.Namespace = message.SpaceGUID
+	cfServiceInstance.Name = message.GUID
+	if err = userClient.Get(ctx, client.ObjectKeyFromObject(&cfServiceInstance), &cfServiceInstance); err != nil {
+		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
+	}
+
+	err = k8s.PatchResource(ctx, userClient, &cfServiceInstance, func() {
+		message.Apply(&cfServiceInstance)
+	})
+	if err != nil {
+		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
+	}
+
+	if message.Credentials != nil {
+		secretObj := new(corev1.Secret)
+		if err = userClient.Get(ctx, client.ObjectKey{Name: cfServiceInstance.Spec.SecretName, Namespace: cfServiceInstance.Namespace}, secretObj); err != nil {
+			return ServiceInstanceRecord{}, err
+		}
+
+		if _, ok := (*message.Credentials)["type"]; !ok {
+			(*message.Credentials)["type"] = string(secretObj.Data["type"])
+		}
+
+		newType := (*message.Credentials)["type"]
+		if string(secretObj.Data["type"]) != (*message.Credentials)["type"] {
+			return ServiceInstanceRecord{}, apierrors.NewInvalidRequestError(
+				fmt.Errorf("cannot modify credential type: currently '%s': updating to '%s'", string(secretObj.Data["type"]), newType),
+				"Cannot change credential type. Consider creating a new Service Instance.",
+			)
+		}
+
+		_, err = controllerutil.CreateOrPatch(ctx, userClient, secretObj, func() error {
+			data := map[string][]byte{}
+			for k, v := range *message.Credentials {
+				data[k] = []byte(v)
+			}
+			secretObj.Data = data
+
+			return nil
+		})
+		if err != nil {
+			return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
+		}
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
@@ -259,7 +334,7 @@ func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceIns
 	return serviceInstanceRecords
 }
 
-func updateSecretTypeFields(secret *corev1.Secret) {
+func createSecretTypeFields(secret *corev1.Secret) {
 	userSpecifiedType, typeSpecified := secret.StringData["type"]
 	if typeSpecified {
 		secret.Type = corev1.SecretType(serviceBindingSecretTypePrefix + userSpecifiedType)
