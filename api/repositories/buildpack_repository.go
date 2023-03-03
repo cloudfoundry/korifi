@@ -8,6 +8,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -56,9 +57,25 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 	)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("no BuilderInfo %q resource found in %q namespace", r.builderName, r.rootNamespace)
+			return nil, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not found in namespace %q", r.builderName, r.rootNamespace))
 		}
+
 		return nil, apierrors.FromK8sError(err, BuildpackResourceType)
+	}
+
+	if !meta.IsStatusConditionTrue(builderInfo.Status.Conditions, StatusConditionReady) {
+		var conditionNotReadyMessage string
+
+		readyCondition := meta.FindStatusCondition(builderInfo.Status.Conditions, StatusConditionReady)
+		if readyCondition != nil {
+			conditionNotReadyMessage = readyCondition.Message
+		}
+
+		if conditionNotReadyMessage == "" {
+			conditionNotReadyMessage = "resource not reconciled"
+		}
+
+		return nil, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not ready: %s", r.builderName, conditionNotReadyMessage))
 	}
 
 	return builderInfoToBuildpackRecords(builderInfo), nil

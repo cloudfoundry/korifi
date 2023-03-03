@@ -298,15 +298,15 @@ func NewBlobstoreUnavailableError(cause error) BlobstoreUnavailableError {
 	}
 }
 
-type CFCreateError struct {
+type ResourceNotReadyError struct {
 	apiError
 }
 
-func NewCFCreateError(cause error) CFCreateError {
-	return CFCreateError{
+func NewResourceNotReadyError(cause error) ResourceNotReadyError {
+	return ResourceNotReadyError{
 		apiError: apiError{
 			cause:      cause,
-			title:      "CF-Create",
+			title:      "CF-ResourceNotReady",
 			detail:     cause.Error(),
 			code:       420000,
 			httpStatus: http.StatusInternalServerError,

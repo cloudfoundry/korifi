@@ -62,7 +62,7 @@ var _ = Describe("BuildpackRepository", func() {
 		When("no build reconcilers exist", func() {
 			It("errors", func() {
 				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
-				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("no BuilderInfo %q resource found in %q namespace", builderName, rootNamespace))))
+				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not found in namespace %q", builderName, rootNamespace))))
 			})
 		})
 
@@ -78,7 +78,53 @@ var _ = Describe("BuildpackRepository", func() {
 
 			It("errors", func() {
 				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
-				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("no BuilderInfo %q resource found in %q namespace", builderName, rootNamespace))))
+				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not found in namespace %q", builderName, rootNamespace))))
+			})
+		})
+
+		When("the BuilderInfo resource with the configured BuilderName is not ready", func() {
+			var builderInfo *v1alpha1.BuilderInfo
+
+			BeforeEach(func() {
+				builderInfo = createBuilderInfoWithCleanup(ctx, builderName, "io.buildpacks.stacks.bionic", []buildpackInfo{
+					{name: "paketo-buildpacks/buildpack-1-1", version: "1.1"},
+					{name: "paketo-buildpacks/buildpack-2-1", version: "2.1"},
+					{name: "paketo-buildpacks/buildpack-3-1", version: "3.1"},
+				})
+			})
+
+			When("there is a ready condition with a message", func() {
+				BeforeEach(func() {
+					meta.SetStatusCondition(&builderInfo.Status.Conditions, metav1.Condition{
+						Type:    "Ready",
+						Status:  metav1.ConditionFalse,
+						Reason:  "testing",
+						Message: "this is a test",
+					})
+					Expect(k8sClient.Status().Update(ctx, builderInfo)).To(Succeed())
+				})
+
+				It("returns an error with the ready condition message", func() {
+					_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
+					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not ready: this is a test", builderName))))
+				})
+			})
+
+			When("there is a ready condition with an empty message", func() {
+				BeforeEach(func() {
+					meta.SetStatusCondition(&builderInfo.Status.Conditions, metav1.Condition{
+						Type:    "Ready",
+						Status:  metav1.ConditionFalse,
+						Reason:  "testing",
+						Message: "",
+					})
+					Expect(k8sClient.Status().Update(ctx, builderInfo)).To(Succeed())
+				})
+
+				It("returns an error with a generic message", func() {
+					_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo)
+					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not ready: resource not reconciled", builderName))))
+				})
 			})
 		})
 	})

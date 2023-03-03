@@ -87,8 +87,8 @@ func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *kor
 		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
 			Type:    ReadyConditionType,
 			Status:  metav1.ConditionFalse,
-			Reason:  "cluster_builder_missing",
-			Message: fmt.Sprintf("Error fetching ClusterBuilder %q: %q", r.clusterBuilderName, err),
+			Reason:  "ClusterBuilderMissing",
+			Message: fmt.Sprintf("Error fetching ClusterBuilder %q: %s", r.clusterBuilderName, err),
 		})
 		return ctrl.Result{}, err
 	}
@@ -106,11 +106,20 @@ func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *kor
 			Message: fmt.Sprintf("ClusterBuilder %q is ready", r.clusterBuilderName),
 		})
 	} else {
+		var msg string
+		if clusterBuilderReadyCondition != nil {
+			msg = clusterBuilderReadyCondition.Message
+		}
+
+		if msg == "" {
+			msg = "resource not reconciled"
+		}
+
 		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
 			Type:    ReadyConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "ClusterBuilderNotReady",
-			Message: fmt.Sprintf("ClusterBuilder %q is not ready", r.clusterBuilderName),
+			Message: fmt.Sprintf("ClusterBuilder %q is not ready: %s", r.clusterBuilderName, msg),
 		})
 	}
 

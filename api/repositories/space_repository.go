@@ -159,7 +159,8 @@ func (r *SpaceRepo) createSpaceCR(ctx context.Context,
 		if len(conditionNotReadyMessage) > 0 {
 			err = errors.New(conditionNotReadyMessage)
 		}
-		return nil, apierrors.NewCFCreateError(err)
+
+		return nil, apierrors.NewResourceNotReadyError(err)
 	}
 
 	return createdSpace, nil
