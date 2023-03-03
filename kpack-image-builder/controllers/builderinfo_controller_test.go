@@ -2,6 +2,7 @@ package controllers_test
 
 import (
 	"context"
+	"fmt"
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
@@ -112,12 +113,6 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					"Version": Equal(javaBuildpackVersion),
 					"Stack":   Equal(stack),
 				}))
-
-				readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
-				Expect(readyCondition).NotTo(BeNil())
-				Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
-				Expect(readyCondition.Reason).To(Equal("ClusterBuilderReady"))
-				Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
 			})
 
 			It("sets the stacks on the BuilderInfo", func() {
@@ -125,7 +120,21 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					g.Expect(info.Status.Stacks).To(HaveLen(1))
 				}).Should(Succeed())
+
 				Expect(info.Status.Stacks[0]).To(HaveField("Name", Equal(stack)))
+			})
+
+			It("marks the BuilderInfo as ready", func() {
+				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					return info.Status.Buildpacks
+				}).ShouldNot(BeEmpty())
+
+				readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
+				Expect(readyCondition).NotTo(BeNil())
+				Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
+				Expect(readyCondition.Reason).To(Equal("ClusterBuilderReady"))
+				Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is ready", clusterBuilderName)))
 			})
 
 			When("the cluster builder status is not ready", func() {
@@ -134,6 +143,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					for i, cond := range clusterBuilder.Status.Conditions {
 						if cond.Type == "Ready" {
 							clusterBuilder.Status.Conditions[i].Status = v1.ConditionFalse
+							clusterBuilder.Status.Conditions[i].Message = "something happened"
 							ok = true
 							break
 						}
@@ -142,14 +152,41 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 				})
 
-				It("marks the builder info as not ready", func() {
+				It("marks the BuilderInfo as not ready", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 						readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
 						g.Expect(readyCondition).NotTo(BeNil())
 						g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 						g.Expect(readyCondition.Reason).To(Equal("ClusterBuilderNotReady"))
-						g.Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
+						g.Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is not ready: something happened", clusterBuilderName)))
+					}).Should(Succeed())
+				})
+			})
+
+			When("the cluster builder status is missing a message", func() {
+				JustBeforeEach(func() {
+					ok := false
+					for i, cond := range clusterBuilder.Status.Conditions {
+						if cond.Type == "Ready" {
+							clusterBuilder.Status.Conditions[i].Status = v1.ConditionFalse
+							clusterBuilder.Status.Conditions[i].Message = ""
+							ok = true
+							break
+						}
+					}
+					Expect(ok).To(BeTrue())
+					Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
+				})
+
+				It("marks the BuilderInfo as not ready", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+						readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
+						g.Expect(readyCondition).NotTo(BeNil())
+						g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
+						g.Expect(readyCondition.Reason).To(Equal("ClusterBuilderNotReady"))
+						g.Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is not ready: resource not reconciled", clusterBuilderName)))
 					}).Should(Succeed())
 				})
 			})
@@ -335,8 +372,9 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
 			Expect(readyCondition).NotTo(BeNil())
 			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
-			Expect(readyCondition.Reason).To(Equal("cluster_builder_missing"))
+			Expect(readyCondition.Reason).To(Equal("ClusterBuilderMissing"))
 			Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
+			Expect(readyCondition.Message).To(Equal(fmt.Sprintf("Error fetching ClusterBuilder %q: ClusterBuilder.kpack.io %q not found", clusterBuilderName, clusterBuilderName)))
 		})
 
 		When("the ClusterBuilder is created", func() {
