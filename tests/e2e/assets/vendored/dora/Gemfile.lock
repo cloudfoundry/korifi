@@ -5,7 +5,7 @@ GEM
     json (2.6.3)
     mustermann (3.0.0)
       ruby2_keywords (~> 0.0.1)
-    rack (2.2.4)
+    rack (2.2.6.2)
     rack-protection (3.0.5)
       rack
     rack-test (2.0.2)
@@ -30,7 +30,7 @@ GEM
       rack-protection (= 3.0.5)
       tilt (~> 2.0)
     tilt (2.0.11)
-    webrick (1.7.0)
+    webrick (1.8.1)
 
 PLATFORMS
   ruby
