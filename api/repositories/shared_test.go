@@ -172,7 +172,7 @@ func createDropletCR(ctx context.Context, k8sClient client.Client, dropletGUID, 
 }
 
 func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *korifiv1alpha1.CFServiceInstance {
-	toReturn := &korifiv1alpha1.CFServiceInstance{
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        serviceInstanceGUID,
 			Namespace:   spaceGUID,
@@ -183,12 +183,12 @@ func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, servi
 			DisplayName: name,
 			SecretName:  secretName,
 			Type:        "user-provided",
+			Tags:        []string{"database", "mysql"},
 		},
 	}
-	Expect(
-		k8sClient.Create(ctx, toReturn),
-	).To(Succeed())
-	return toReturn
+	Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
+
+	return serviceInstance
 }
 
 func createServiceBindingCR(ctx context.Context, k8sClient client.Client, serviceBindingGUID, spaceGUID string, name *string, serviceInstanceName, appName string) *korifiv1alpha1.CFServiceBinding {

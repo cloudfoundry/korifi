@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -207,6 +208,7 @@ type destination struct {
 
 type serviceInstanceResource struct {
 	resource     `json:",inline"`
+	Tags         []string          `json:"tags"`
 	Credentials  map[string]string `json:"credentials"`
 	InstanceType string            `json:"type"`
 }
@@ -630,12 +632,16 @@ func createServiceInstance(spaceGUID, name string, credentials map[string]string
 	return serviceInstance.GUID
 }
 
-func listServiceInstances() resourceList[resource] {
-	var serviceInstances resourceList[resource]
+func listServiceInstances(names ...string) resourceList[serviceInstanceResource] {
+	var namesQuery string
+	if len(names) > 0 {
+		namesQuery = "?names=" + strings.Join(names, ",")
+	}
 
+	var serviceInstances resourceList[serviceInstanceResource]
 	resp, err := adminClient.R().
 		SetResult(&serviceInstances).
-		Get("/v3/service_instances")
+		Get("/v3/service_instances" + namesQuery)
 
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusOK))

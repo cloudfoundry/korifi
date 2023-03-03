@@ -9,6 +9,8 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -154,6 +156,203 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		When("user does not have permissions to create ServiceInstances", func() {
 			It("returns a Forbidden error", func() {
 				Expect(createErr).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("PatchServiceInstance", func() {
+		var (
+			cfServiceInstance     *korifiv1alpha1.CFServiceInstance
+			secret                *corev1.Secret
+			serviceInstanceRecord repositories.ServiceInstanceRecord
+			patchMessage          repositories.PatchServiceInstanceMessage
+			err                   error
+		)
+
+		BeforeEach(func() {
+			serviceInstanceGUID := generateGUID()
+			cfServiceInstance = createServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, serviceInstanceGUID)
+
+			secret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceInstanceGUID,
+					Namespace: space.Name,
+				},
+				StringData: map[string]string{
+					"foo":  "bar",
+					"type": "database",
+				},
+				Type: "servicebinding.io/user-provided",
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			patchMessage = repositories.PatchServiceInstanceMessage{
+				GUID:        cfServiceInstance.Name,
+				SpaceGUID:   space.Name,
+				Name:        tools.PtrTo("new-name"),
+				Credentials: nil,
+				Tags:        &[]string{"new"},
+				MetadataPatch: repositories.MetadataPatch{
+					Labels:      map[string]*string{"new-label": tools.PtrTo("new-label-value")},
+					Annotations: map[string]*string{"new-annotation": tools.PtrTo("new-annotation-value")},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			serviceInstanceRecord, err = serviceInstanceRepo.PatchServiceInstance(testCtx, authInfo, patchMessage)
+		})
+
+		When("authorized in the space", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, orgUserRole.Name, org.Name)
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("returns the updated record", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(serviceInstanceRecord.Name).To(Equal("new-name"))
+				Expect(serviceInstanceRecord.Tags).To(ConsistOf("new"))
+				Expect(serviceInstanceRecord.Labels).To(HaveLen(2))
+				Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+				Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
+				Expect(serviceInstanceRecord.Annotations).To(HaveLen(2))
+				Expect(serviceInstanceRecord.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+				Expect(serviceInstanceRecord.Annotations).To(HaveKeyWithValue("new-annotation", "new-annotation-value"))
+			})
+
+			It("updates the service instance", func() {
+				Expect(err).NotTo(HaveOccurred())
+				serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+					g.Expect(serviceInstance.Spec.DisplayName).To(Equal("new-name"))
+					g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("new"))
+					g.Expect(serviceInstance.Labels).To(HaveLen(2))
+					g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+					g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
+					g.Expect(serviceInstance.Annotations).To(HaveLen(2))
+					g.Expect(serviceInstance.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+					g.Expect(serviceInstance.Annotations).To(HaveKeyWithValue("new-annotation", "new-annotation-value"))
+				}).Should(Succeed())
+			})
+
+			When("tags is an empty list", func() {
+				BeforeEach(func() {
+					patchMessage.Tags = &[]string{}
+				})
+
+				It("clears the tags", func() {
+					Expect(err).NotTo(HaveOccurred())
+					serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+						g.Expect(serviceInstance.Spec.Tags).To(BeEmpty())
+					}).Should(Succeed())
+				})
+			})
+
+			When("tags is nil", func() {
+				BeforeEach(func() {
+					patchMessage.Tags = nil
+				})
+
+				It("preserves the tags", func() {
+					Expect(err).NotTo(HaveOccurred())
+					serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+
+					Consistently(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+						g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("database", "mysql"))
+					}).Should(Succeed())
+				})
+			})
+
+			It("does not change the credential secret", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
+					g.Expect(secret.Data).To(HaveKeyWithValue("foo", BeEquivalentTo("bar")))
+				}).Should(Succeed())
+			})
+
+			When("ServiceInstance credentials are provided", func() {
+				When("the instance credentials modify the type", func() {
+					BeforeEach(func() {
+						patchMessage.Credentials = &map[string]string{
+							"cred-one": "val-one",
+							"cred-two": "val-two",
+							"type":     "mysql",
+							"provider": "the-cloud",
+						}
+					})
+
+					It("disallows changing type", func() {
+						Expect(err).To(MatchError(ContainSubstring("cannot modify credential")))
+					})
+				})
+
+				When("the instance credentials don't specify a type", func() {
+					BeforeEach(func() {
+						patchMessage.Credentials = &map[string]string{
+							"cred-one": "val-one",
+							"cred-two": "val-two",
+						}
+					})
+
+					It("updates the creds and keeps the existing type", func() {
+						Expect(err).NotTo(HaveOccurred())
+						Eventually(func(g Gomega) {
+							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
+							g.Expect(secret.Data).To(MatchAllKeys(Keys{
+								"type":     BeEquivalentTo("database"),
+								"cred-one": BeEquivalentTo("val-one"),
+								"cred-two": BeEquivalentTo("val-two"),
+							}))
+							g.Expect(secret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
+						}).Should(Succeed())
+					})
+				})
+
+				When("the instance credentials pass the old type unchanged", func() {
+					BeforeEach(func() {
+						patchMessage.Credentials = &map[string]string{
+							"type":     "database",
+							"cred-one": "val-one",
+							"cred-two": "val-two",
+						}
+					})
+
+					It("updates the creds and keeps the existing type", func() {
+						Expect(err).NotTo(HaveOccurred())
+						Eventually(func(g Gomega) {
+							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
+							g.Expect(secret.Data).To(MatchAllKeys(Keys{
+								"type":     BeEquivalentTo("database"),
+								"cred-one": BeEquivalentTo("val-one"),
+								"cred-two": BeEquivalentTo("val-two"),
+							}))
+							g.Expect(secret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
+						}).Should(Succeed())
+					})
+				})
+			})
+
+			When("ServiceInstance credentials are cleared out", func() {
+				BeforeEach(func() {
+					patchMessage.Credentials = &map[string]string{}
+				})
+
+				It("clears out the credentials", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
+						g.Expect(secret.Data).To(MatchAllKeys(Keys{
+							"type": BeEquivalentTo("database"),
+						}))
+					}).Should(Succeed())
+				})
 			})
 		})
 	})

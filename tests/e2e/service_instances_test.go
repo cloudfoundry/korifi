@@ -56,6 +56,7 @@ var _ = Describe("Service Instances", func() {
 							"hello": "creds",
 						},
 						InstanceType: "user-provided",
+						Tags:         []string{"some", "tags"},
 					}).Post("/v3/service_instances")
 			})
 
@@ -63,11 +64,14 @@ var _ = Describe("Service Instances", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
 
-				Expect(listServiceInstances().Resources).To(ContainElement(
-					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal(instanceName),
-					})),
-				)
+				serviceInstances := listServiceInstances(instanceName)
+				Expect(serviceInstances.Resources).To(HaveLen(1))
+
+				serviceInstance := serviceInstances.Resources[0]
+				Expect(serviceInstance.Name).To(Equal(instanceName))
+				Expect(serviceInstance.Relationships["space"].Data.GUID).To(Equal(spaceGUID))
+				Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
+				Expect(serviceInstance.InstanceType).To(Equal("user-provided"))
 			})
 		})
 
@@ -88,9 +92,49 @@ var _ = Describe("Service Instances", func() {
 						InstanceType: "user-provided",
 					}).Post("/v3/service_instances")
 			})
+
 			It("fails", func() {
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 				Expect(httpResp).To(HaveRestyBody(ContainSubstring(fmt.Sprintf("The service instance name is taken: %s", existingInstanceName))))
+			})
+		})
+	})
+
+	Describe("Update", func() {
+		When("the user has permissions to update service instances", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", certUserName, spaceGUID)
+			})
+
+			JustBeforeEach(func() {
+				httpResp, httpError = certClient.R().
+					SetBody(serviceInstanceResource{
+						resource: resource{
+							Name: "new-instance-name",
+							Metadata: &metadata{
+								Labels:      map[string]string{"a-label": "a-label-value"},
+								Annotations: map[string]string{"an-annotation": "an-annotation-value"},
+							},
+						},
+						Credentials: map[string]string{
+							"bye": "new-creds",
+						},
+						Tags: []string{"some", "tags"},
+					}).Patch("/v3/service_instances/" + existingInstanceGUID)
+			})
+
+			It("succeeds", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+
+				serviceInstances := listServiceInstances("new-instance-name")
+				Expect(serviceInstances.Resources).To(HaveLen(1))
+
+				serviceInstance := serviceInstances.Resources[0]
+				Expect(serviceInstance.Name).To(Equal("new-instance-name"))
+				Expect(serviceInstance.Metadata.Labels).To(Equal(map[string]string{"a-label": "a-label-value"}))
+				Expect(serviceInstance.Metadata.Annotations).To(Equal(map[string]string{"an-annotation": "an-annotation-value"}))
+				Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
 			})
 		})
 	})

@@ -1,6 +1,7 @@
 package payloads
 
 import (
+	"encoding/json"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -29,6 +30,55 @@ func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.Cre
 		Labels:      p.Metadata.Labels,
 		Annotations: p.Metadata.Annotations,
 	}
+}
+
+type ServiceInstancePatch struct {
+	Name        *string            `json:"name,omitempty"`
+	Tags        *[]string          `json:"tags,omitempty"`
+	Credentials *map[string]string `json:"credentials,omitempty"`
+	Metadata    MetadataPatch      `json:"metadata"`
+}
+
+func (p ServiceInstancePatch) ToServiceInstancePatchMessage(spaceGUID, appGUID string) repositories.PatchServiceInstanceMessage {
+	return repositories.PatchServiceInstanceMessage{
+		SpaceGUID:   spaceGUID,
+		GUID:        appGUID,
+		Name:        p.Name,
+		Credentials: p.Credentials,
+		Tags:        p.Tags,
+		MetadataPatch: repositories.MetadataPatch{
+			Labels:      p.Metadata.Labels,
+			Annotations: p.Metadata.Annotations,
+		},
+	}
+}
+
+func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
+	type alias ServiceInstancePatch
+
+	var patch alias
+	err := json.Unmarshal(data, &patch)
+	if err != nil {
+		return err
+	}
+
+	var patchMap map[string]any
+	err = json.Unmarshal(data, &patchMap)
+	if err != nil {
+		return err
+	}
+
+	if v, ok := patchMap["tags"]; ok && v == nil {
+		patch.Tags = &[]string{}
+	}
+
+	if v, ok := patchMap["credentials"]; ok && v == nil {
+		patch.Credentials = &map[string]string{}
+	}
+
+	*p = ServiceInstancePatch(patch)
+
+	return nil
 }
 
 type ServiceInstanceList struct {

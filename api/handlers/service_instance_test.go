@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +11,9 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,13 +30,13 @@ var _ = Describe("ServiceInstance", func() {
 		req                 *http.Request
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
 		spaceRepo           *fake.SpaceRepository
+		decoderValidator    *fake.RequestJSONValidator
 	)
 
 	BeforeEach(func() {
 		serviceInstanceRepo = new(fake.CFServiceInstanceRepository)
 		spaceRepo = new(fake.SpaceRepository)
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		decoderValidator = new(fake.RequestJSONValidator)
 
 		apiHandler := NewServiceInstance(
 			*serverURL,
@@ -61,57 +62,67 @@ var _ = Describe("ServiceInstance", func() {
 			serviceInstanceName = "my-upsi"
 			createdAt           = "1906-04-18T13:12:00Z"
 			updatedAt           = "1906-04-18T13:12:00Z"
-			validBody           = `{
-				"name": "` + serviceInstanceName + `",
-				"tags": ["foo", "bar"],
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "` + serviceInstanceSpaceGUID + `"
-						}
-					}
-				},
-				"type": "` + serviceInstanceTypeUserProvided + `"
-			}`
 		)
 
-		When("on the happy path", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{
-					Name:       serviceInstanceName,
-					GUID:       serviceInstanceGUID,
-					SpaceGUID:  serviceInstanceSpaceGUID,
-					SecretName: serviceInstanceGUID,
-					Tags:       []string{"foo", "bar"},
-					Type:       serviceInstanceTypeUserProvided,
-					CreatedAt:  createdAt,
-					UpdatedAt:  updatedAt,
-				}, nil)
+		var payload *payloads.ServiceInstanceCreate
 
-				makePostRequest(validBody)
-			})
+		BeforeEach(func() {
+			payload = &payloads.ServiceInstanceCreate{
+				Name: serviceInstanceName,
+				Type: serviceInstanceTypeUserProvided,
+				Tags: []string{"foo", "bar"},
+				Relationships: payloads.ServiceInstanceRelationships{
+					Space: payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: serviceInstanceSpaceGUID,
+						},
+					},
+				},
+				Metadata: payloads.Metadata{},
+			}
 
-			It("returns status 201 CREATED", func() {
-				Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
-			})
+			decoderValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+				b, ok := i.(*payloads.ServiceInstanceCreate)
+				Expect(ok).To(BeTrue())
+				*b = *payload
+				return nil
+			}
 
-			It("creates a CFServiceInstance", func() {
-				Expect(serviceInstanceRepo.CreateServiceInstanceCallCount()).To(Equal(1))
-				_, actualAuthInfo, actualCreate := serviceInstanceRepo.CreateServiceInstanceArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-				Expect(actualCreate).To(Equal(repositories.CreateServiceInstanceMessage{
-					Name:      serviceInstanceName,
-					SpaceGUID: serviceInstanceSpaceGUID,
-					Type:      serviceInstanceTypeUserProvided,
-					Tags:      []string{"foo", "bar"},
-				}))
-			})
+			serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{
+				Name:       serviceInstanceName,
+				GUID:       serviceInstanceGUID,
+				SpaceGUID:  serviceInstanceSpaceGUID,
+				SecretName: serviceInstanceGUID,
+				Tags:       []string{"foo", "bar"},
+				Type:       serviceInstanceTypeUserProvided,
+				CreatedAt:  createdAt,
+				UpdatedAt:  updatedAt,
+			}, nil)
 
-			It("returns the ServiceInstance in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			makePostRequest("")
+		})
 
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+		It("returns status 201 CREATED", func() {
+			Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
+		})
+
+		It("creates a CFServiceInstance", func() {
+			Expect(serviceInstanceRepo.CreateServiceInstanceCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualCreate := serviceInstanceRepo.CreateServiceInstanceArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualCreate).To(Equal(repositories.CreateServiceInstanceMessage{
+				Name:      serviceInstanceName,
+				SpaceGUID: serviceInstanceSpaceGUID,
+				Type:      serviceInstanceTypeUserProvided,
+				Tags:      []string{"foo", "bar"},
+			}))
+		})
+
+		It("returns the ServiceInstance in the response", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+			Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
 				  "created_at": "%[4]s",
 				  "guid": "%[2]s",
 				  "last_operation": {
@@ -155,152 +166,16 @@ var _ = Describe("ServiceInstance", func() {
 				  "tags": ["foo", "bar"],
 				  "type": "user-provided",
 				  "updated_at": "%[5]s"
-				}`, defaultServerURL, serviceInstanceGUID, serviceInstanceSpaceGUID, createdAt, updatedAt, serviceInstanceName)), "Response body matches response:")
-			})
+				}`, defaultServerURL, serviceInstanceGUID, serviceInstanceSpaceGUID, createdAt, updatedAt, serviceInstanceName))))
 		})
 
 		When("the request body is not valid", func() {
 			BeforeEach(func() {
-				makePostRequest(`{"description" : "Invalid Request"}`)
+				decoderValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(`invalid request body: json: unknown field "description"`)
-			})
-		})
-
-		When("the request body has route_service_url set", func() {
-			BeforeEach(func() {
-				makePostRequest(`{"route_service_url" : "Invalid Request"}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(`invalid request body: json: unknown field "route_service_url"`)
-			})
-		})
-
-		When("the request body has syslog_drain_url set", func() {
-			BeforeEach(func() {
-				makePostRequest(`{"syslog_drain_url" : "Invalid Request"}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(`invalid request body: json: unknown field "syslog_drain_url"`)
-			})
-		})
-
-		When("the request body is invalid with missing required name field", func() {
-			BeforeEach(func() {
-				makePostRequest(`{
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "` + serviceInstanceSpaceGUID + `"
-						}
-					}
-				},
-				"type": "` + serviceInstanceTypeUserProvided + `"
-			}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Name is a required field")
-			})
-		})
-
-		When("the request body is invalid with invalid name", func() {
-			BeforeEach(func() {
-				makePostRequest(`{
-				"name": 12345,
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "` + serviceInstanceSpaceGUID + `"
-						}
-					}
-				},
-				"type": "` + serviceInstanceTypeUserProvided + `"
-			}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Name must be a string")
-			})
-		})
-
-		When("the request body is invalid with missing required type field", func() {
-			BeforeEach(func() {
-				makePostRequest(`{
-				"name": "` + serviceInstanceName + `",
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "` + serviceInstanceSpaceGUID + `"
-						}
-					}
-				}
-			}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Type is a required field")
-			})
-		})
-
-		When("the request body is invalid with invalid type", func() {
-			BeforeEach(func() {
-				makePostRequest(`{
-				"name": "` + serviceInstanceName + `",
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "` + serviceInstanceSpaceGUID + `"
-						}
-					}
-				},
-				"type": "managed"
-			}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Type must be one of [user-provided]")
-			})
-		})
-
-		When("the request body is invalid with missing relationship field", func() {
-			BeforeEach(func() {
-				makePostRequest(`{
-				"name": "` + serviceInstanceName + `",
-				"type": "` + serviceInstanceTypeUserProvided + `"
-			}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Data is a required field")
-			})
-		})
-
-		When("the request body is invalid with Tags that combine to exceed length 2048", func() {
-			BeforeEach(func() {
-				longString, err := randomString(2048)
-				Expect(err).NotTo(HaveOccurred())
-
-				makePostRequest(`{
-				"name": "` + serviceInstanceName + `",
-				"tags": ["` + longString + `"],
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "` + serviceInstanceSpaceGUID + `"
-						}
-					}
-				},
-				"type": "` + serviceInstanceTypeUserProvided + `"
-			}`)
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Key: 'ServiceInstanceCreate.Tags' Error:Field validation for 'Tags' failed on the 'serviceinstancetaglength' tag")
+				expectUnprocessableEntityError("nope")
 			})
 		})
 
@@ -311,7 +186,7 @@ var _ = Describe("ServiceInstance", func() {
 					apierrors.NewNotFoundError(errors.New("not found"), repositories.SpaceResourceType),
 				)
 
-				makePostRequest(validBody)
+				makePostRequest("")
 			})
 
 			It("returns an error", func() {
@@ -326,7 +201,7 @@ var _ = Describe("ServiceInstance", func() {
 					errors.New("unknown"),
 				)
 
-				makePostRequest(validBody)
+				makePostRequest("")
 			})
 
 			It("returns an error", func() {
@@ -337,7 +212,7 @@ var _ = Describe("ServiceInstance", func() {
 		When("creating the service instance fails", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("space-instance-creation-failed"))
-				makePostRequest(validBody)
+				makePostRequest("")
 			})
 
 			It("returns unknown error", func() {
@@ -396,26 +271,25 @@ var _ = Describe("ServiceInstance", func() {
 			}, nil)
 		})
 
-		When("on the happy path", func() {
-			BeforeEach(func() {
-				makeListRequest()
+		BeforeEach(func() {
+			makeListRequest()
+		})
+
+		It("invokes the repository with the provided auth info", func() {
+			Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+		})
+
+		When("no query parameters are provided", func() {
+			It("returns status 200 OK", func() {
+				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
 			})
 
-			It("invokes the repository with the provided auth info", func() {
-				Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
-
-			When("no query parameters are provided", func() {
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("returns the Paginated Service Instance resources in the response", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-					Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
+			It("returns the Paginated Service Instance resources in the response", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
 					  "pagination": {
 						"total_results": 2,
 						"total_pages": 1,
@@ -525,116 +399,115 @@ var _ = Describe("ServiceInstance", func() {
 						}
 					  ]
 					}`, defaultServerURL, serviceInstanceName1, serviceInstanceGUID1, serviceInstanceSpaceGUID, serviceInstanceTypeUserProvided, serviceInstanceName2, serviceInstanceGUID2)))
-				})
 			})
+		})
 
-			When("filtering query parameters are provided", func() {
-				BeforeEach(func() {
-					makeListRequest(
-						"names=sc1,sc2",
-						"space_guids=space1,space2",
-						"fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname",
-					)
-				})
-
-				It("passes them to the repository", func() {
-					Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
-					_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
-
-					Expect(message.Names).To(ConsistOf("sc1", "sc2"))
-					Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
-				})
-
-				It("correctly sets query parameters in response pagination links", func() {
-					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?names=sc1,sc2&space_guids=space1,space2&fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname"))
-				})
-			})
-
-			When("the order_by query parameter is provided", func() {
-				BeforeEach(func() {
-					makeListRequest("order_by=-name")
-				})
-
-				It("correctly sets the query parameter in response pagination links", func() {
-					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=-name"))
-				})
-			})
-
-			Describe("Order results", func() {
-				type res struct {
-					GUID string `json:"guid"`
-				}
-				type resList struct {
-					Resources []res `json:"resources"`
-				}
-
-				BeforeEach(func() {
-					serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-						{
-							GUID:      "1",
-							Name:      "first-test-si",
-							CreatedAt: "2023-01-17T14:58:32Z",
-							UpdatedAt: "2023-01-18T14:58:32Z",
-						},
-						{
-							GUID:      "2",
-							Name:      "second-test-si",
-							CreatedAt: "2023-01-17T14:57:32Z",
-							UpdatedAt: "2023-01-19T14:57:32Z",
-						},
-						{
-							GUID:      "3",
-							Name:      "third-test-si",
-							CreatedAt: "2023-01-16T14:57:32Z",
-							UpdatedAt: "2023-01-20:57:32Z",
-						},
-					}, nil)
-				})
-
-				DescribeTable("ordering results", func(orderBy string, expectedOrder ...string) {
-					req = createHttpRequest("GET", "/v3/service_instances?order_by="+orderBy, nil)
-					rr = httptest.NewRecorder()
-					routerBuilder.Build().ServeHTTP(rr, req)
-					var respList resList
-					err := json.Unmarshal(rr.Body.Bytes(), &respList)
-					Expect(err).NotTo(HaveOccurred())
-					expectedList := make([]res, len(expectedOrder))
-					for i := range expectedOrder {
-						expectedList[i] = res{GUID: expectedOrder[i]}
-					}
-					Expect(respList.Resources).To(Equal(expectedList))
-				},
-					Entry("created_at ASC", "created_at", "3", "2", "1"),
-					Entry("created_at DESC", "-created_at", "1", "2", "3"),
-					Entry("updated_at ASC", "updated_at", "1", "2", "3"),
-					Entry("updated_at DESC", "-updated_at", "3", "2", "1"),
-					Entry("name ASC", "name", "1", "2", "3"),
-					Entry("name DESC", "-name", "3", "2", "1"),
+		When("filtering query parameters are provided", func() {
+			BeforeEach(func() {
+				makeListRequest(
+					"names=sc1,sc2",
+					"space_guids=space1,space2",
+					"fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname",
 				)
-
-				When("order_by is not a valid field", func() {
-					BeforeEach(func() {
-						makeListRequest("order_by=foo")
-					})
-
-					It("returns an Unknown key error", func() {
-						expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at', 'name'")
-					})
-				})
 			})
 
-			When("the per_page query parameter is provided", func() {
+			It("passes them to the repository", func() {
+				Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+				_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+
+				Expect(message.Names).To(ConsistOf("sc1", "sc2"))
+				Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
+			})
+
+			It("correctly sets query parameters in response pagination links", func() {
+				Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?names=sc1,sc2&space_guids=space1,space2&fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname"))
+			})
+		})
+
+		When("the order_by query parameter is provided", func() {
+			BeforeEach(func() {
+				makeListRequest("order_by=-name")
+			})
+
+			It("correctly sets the query parameter in response pagination links", func() {
+				Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?order_by=-name"))
+			})
+		})
+
+		Describe("Order results", func() {
+			type res struct {
+				GUID string `json:"guid"`
+			}
+			type resList struct {
+				Resources []res `json:"resources"`
+			}
+
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
+					{
+						GUID:      "1",
+						Name:      "first-test-si",
+						CreatedAt: "2023-01-17T14:58:32Z",
+						UpdatedAt: "2023-01-18T14:58:32Z",
+					},
+					{
+						GUID:      "2",
+						Name:      "second-test-si",
+						CreatedAt: "2023-01-17T14:57:32Z",
+						UpdatedAt: "2023-01-19T14:57:32Z",
+					},
+					{
+						GUID:      "3",
+						Name:      "third-test-si",
+						CreatedAt: "2023-01-16T14:57:32Z",
+						UpdatedAt: "2023-01-20:57:32Z",
+					},
+				}, nil)
+			})
+
+			DescribeTable("ordering results", func(orderBy string, expectedOrder ...string) {
+				req = createHttpRequest("GET", "/v3/service_instances?order_by="+orderBy, nil)
+				rr = httptest.NewRecorder()
+				routerBuilder.Build().ServeHTTP(rr, req)
+				var respList resList
+				err := json.Unmarshal(rr.Body.Bytes(), &respList)
+				Expect(err).NotTo(HaveOccurred())
+				expectedList := make([]res, len(expectedOrder))
+				for i := range expectedOrder {
+					expectedList[i] = res{GUID: expectedOrder[i]}
+				}
+				Expect(respList.Resources).To(Equal(expectedList))
+			},
+				Entry("created_at ASC", "created_at", "3", "2", "1"),
+				Entry("created_at DESC", "-created_at", "1", "2", "3"),
+				Entry("updated_at ASC", "updated_at", "1", "2", "3"),
+				Entry("updated_at DESC", "-updated_at", "3", "2", "1"),
+				Entry("name ASC", "name", "1", "2", "3"),
+				Entry("name DESC", "-name", "3", "2", "1"),
+			)
+
+			When("order_by is not a valid field", func() {
 				BeforeEach(func() {
-					makeListRequest("per_page=10")
+					makeListRequest("order_by=foo")
 				})
 
-				It("handles the request", func() {
-					Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+				It("returns an Unknown key error", func() {
+					expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at', 'name'")
 				})
+			})
+		})
 
-				It("correctly sets the query parameter in response pagination links", func() {
-					Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?per_page=10"))
-				})
+		When("the per_page query parameter is provided", func() {
+			BeforeEach(func() {
+				makeListRequest("per_page=10")
+			})
+
+			It("handles the request", func() {
+				Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+			})
+
+			It("correctly sets the query parameter in response pagination links", func() {
+				Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?per_page=10"))
 			})
 		})
 
@@ -694,7 +567,156 @@ var _ = Describe("ServiceInstance", func() {
 		})
 	})
 
-	Describe("the DELETE /v3/service_instances endpoint", func() {
+	Describe("PATCH /v3/service_instances/:guid", func() {
+		var payload *payloads.ServiceInstancePatch
+
+		BeforeEach(func() {
+			payload = &payloads.ServiceInstancePatch{
+				Name:        tools.PtrTo("new-name"),
+				Tags:        &[]string{"alice", "bob"},
+				Credentials: &map[string]string{"foo": "bar"},
+				Metadata: payloads.MetadataPatch{
+					Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
+					Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
+				},
+			}
+
+			decoderValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+				b, ok := i.(*payloads.ServiceInstancePatch)
+				Expect(ok).To(BeTrue())
+				*b = *payload
+				return nil
+			}
+
+			serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{SpaceGUID: spaceGUID, GUID: serviceInstanceGUID}, nil)
+			serviceInstanceRepo.PatchServiceInstanceReturns(repositories.ServiceInstanceRecord{
+				Name:        "new-name",
+				GUID:        serviceInstanceGUID,
+				SpaceGUID:   spaceGUID,
+				Tags:        []string{"alice", "bob"},
+				Type:        serviceInstanceTypeUserProvided,
+				Labels:      map[string]string{"lab2": "lab_val2"},
+				Annotations: map[string]string{"ann2": "ann_val2"},
+				CreatedAt:   "1234-11-30T12:34:56Z",
+				UpdatedAt:   "1235-11-30T12:34:56Z",
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, http.MethodPatch, fmt.Sprintf("/v3/service_instances/%s", serviceInstanceGUID), nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
+				"name": "new-name",
+				"guid": "%[1]s",
+				"type": "user-provided",
+				"tags": ["alice", "bob"],
+				"last_operation": {
+					"created_at": "1234-11-30T12:34:56Z",
+					"updated_at": "1235-11-30T12:34:56Z",
+					"description": "Operation succeeded",
+					"state": "succeeded",
+					"type": "update"
+				},
+				"route_service_url": null,
+				"syslog_drain_url": null,
+				"created_at": "1234-11-30T12:34:56Z",
+				"updated_at": "1235-11-30T12:34:56Z",
+				"relationships": {
+					"space": {
+						"data": {
+							"guid": "%[2]s"
+						}
+					}
+				},
+				"metadata": {
+					"labels": {
+						"lab2": "lab_val2"
+					},
+					"annotations": {
+						"ann2": "ann_val2"
+					}
+				},
+				"links": {
+					"self": {
+						"href": "https://api.example.org/v3/service_instances/%[1]s"
+					},
+					"space": {
+						"href": "https://api.example.org/v3/spaces/%[2]s"
+					},
+					"credentials": {
+						"href": "https://api.example.org/v3/service_instances/%[1]s/credentials"
+					},
+					"service_credential_bindings": {
+						"href": "https://api.example.org/v3/service_credential_bindings?service_instance_guids=%[1]s"
+					},
+					"service_route_bindings": {
+						"href": "https://api.example.org/v3/service_route_bindings?service_instance_guids=%[1]s"
+					}
+				}
+			}`, serviceInstanceGUID, serviceInstanceSpaceGUID))))
+		})
+
+		When("decoding the payload fails", func() {
+			BeforeEach(func() {
+				decoderValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("nope")
+			})
+		})
+
+		It("gets the service instance", func() {
+			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+			_, _, actualGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
+			Expect(actualGUID).To(Equal(serviceInstanceGUID))
+		})
+
+		When("getting the service instance fails with forbidden", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(
+					repositories.ServiceInstanceRecord{},
+					apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				Expect(rr.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		It("patches the service instance correctly", func() {
+			Expect(serviceInstanceRepo.PatchServiceInstanceCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualPatch := serviceInstanceRepo.PatchServiceInstanceArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualPatch).To(Equal(repositories.PatchServiceInstanceMessage{
+				GUID:        serviceInstanceGUID,
+				SpaceGUID:   serviceInstanceSpaceGUID,
+				Name:        tools.PtrTo("new-name"),
+				Tags:        &[]string{"alice", "bob"},
+				Credentials: &map[string]string{"foo": "bar"},
+				MetadataPatch: repositories.MetadataPatch{
+					Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
+					Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
+				},
+			}))
+		})
+
+		When("patching the service instances fails", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.PatchServiceInstanceReturns(repositories.ServiceInstanceRecord{}, apierrors.NewForbiddenError(nil, "oops"))
+			})
+
+			It("returns the error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
+			})
+		})
+	})
+
+	Describe("DELETE /v3/service_instances/:guid", func() {
 		BeforeEach(func() {
 			serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{SpaceGUID: spaceGUID}, nil)
 
@@ -754,12 +776,3 @@ var _ = Describe("ServiceInstance", func() {
 		})
 	})
 })
-
-func randomString(length int) (string, error) {
-	b := make([]byte, length)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", b)[:length], nil
-}

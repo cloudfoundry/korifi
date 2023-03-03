@@ -84,6 +84,7 @@ rules:
   - get
   - list
   - create
+  - patch
   - delete
 
 - apiGroups:
