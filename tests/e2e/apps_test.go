@@ -591,7 +591,67 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Fetch app env", func() {
+	Describe("Bind an app", func() {
+		var (
+			bindingGUID string
+			result      map[string]interface{}
+			httpError   error
+		)
+
+		BeforeEach(func() {
+			appGUID, _ = pushTestApp(space1GUID, golangAppBitsFile)
+			credentials := map[string]string{
+				"foo": "bar",
+				"baz": "qux",
+			}
+			serviceInstanceGUID := createServiceInstance(space1GUID, generateGUID("service-instance"), credentials)
+			bindingGUID = createServiceBinding(appGUID, serviceInstanceGUID)
+			createSpaceRole("space_developer", certUserName, space1GUID)
+			_, httpError = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+			Expect(httpError).NotTo(HaveOccurred())
+		})
+
+		It("sets the SERVICE_BINDING_ROOT env variable", func() {
+			body := curlApp(appGUID, "/servicebindingroot")
+			Expect(body).To(ContainSubstring("/bindings"))
+		})
+
+		It("mounts the credentials into the container", func() {
+			body := curlApp(appGUID, "/servicebindings")
+
+			data := map[string]interface{}{}
+			Expect(json.Unmarshal(body, &data)).To(Succeed())
+			Expect(data).To(HaveLen(1))
+			for _, v := range data {
+				Expect(v).To(HaveKeyWithValue("foo", "bar"))
+				Expect(v).To(HaveKeyWithValue("baz", "qux"))
+			}
+		})
+
+		When("the binding is deleted and app is restarted", func() {
+			BeforeEach(func() {
+				_, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
+				Expect(httpError).NotTo(HaveOccurred())
+				_, httpError = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+				Expect(httpError).NotTo(HaveOccurred())
+			})
+
+			It("should unset the SERVICE_BINDING_ROOT env variable", func() {
+				body := curlApp(appGUID, "/servicebindingroot")
+				Expect(body).To(BeEmpty())
+			})
+
+			It("unmounts the credentials from the container", func() {
+				body := curlApp(appGUID, "/servicebindings")
+
+				data := map[string]interface{}{}
+				Expect(json.Unmarshal(body, &data)).To(Succeed())
+				Expect(data).To(BeEmpty())
+			})
+		})
+	})
+
+	Describe("Fetching app environment variables", func() {
 		var (
 			result                      map[string]interface{}
 			instanceGUID, instanceGUID2 string
@@ -608,10 +668,10 @@ var _ = Describe("Apps", func() {
 				"foo": "var",
 			})
 			instanceName = generateGUID("service-instance")
-			instanceGUID = createServiceInstance(space1GUID, instanceName)
+			instanceGUID = createServiceInstance(space1GUID, instanceName, nil)
 			bindingGUID = createServiceBinding(appGUID, instanceGUID)
 			instanceName2 = generateGUID("service-instance")
-			instanceGUID2 = createServiceInstance(space1GUID, instanceName2)
+			instanceGUID2 = createServiceInstance(space1GUID, instanceName2, nil)
 			bindingGUID2 = createServiceBinding(appGUID, instanceGUID2)
 		})
 
@@ -625,7 +685,7 @@ var _ = Describe("Apps", func() {
 			}).Should(Succeed())
 		})
 
-		It("returns the app environment", func() {
+		It("succeeds", func() {
 			Eventually(func(g Gomega) {
 				_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
 				g.Expect(err).NotTo(HaveOccurred())
@@ -680,7 +740,7 @@ var _ = Describe("Apps", func() {
 			}).Should(Succeed())
 		})
 
-		When("a deleted service binding changes the app env", func() {
+		When("the service binding is deleted", func() {
 			BeforeEach(func() {
 				_, err := certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID2)
 				Expect(err).To(Succeed())
