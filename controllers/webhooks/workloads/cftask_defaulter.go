@@ -52,7 +52,7 @@ func (d *CFTaskDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 func (d *CFTaskDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	cfTaskLog.Info("Mutating CFTask webhook handler")
+	cfTaskLog.V(1).Info("mutating CFTask webhook handler")
 
 	cfTask, ok := obj.(*korifiv1alpha1.CFTask)
 	if !ok {

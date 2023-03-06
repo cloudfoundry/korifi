@@ -118,7 +118,7 @@ func (h *Task) listForApp(r *http.Request) (*routing.Response, error) {
 	appGUID := routing.URLParam(r, "appGUID")
 
 	if err := r.ParseForm(); err != nil {
-		logger.Error(err, "Unable to parse request query parameters")
+		logger.Info("unable to parse request query parameters", "reason", err)
 		return nil, err
 	}
 
@@ -130,7 +130,7 @@ func (h *Task) listForApp(r *http.Request) (*routing.Response, error) {
 	taskListFilter := new(payloads.TaskList)
 	err = payloads.Decode(taskListFilter, r.Form)
 	if err != nil {
-		logger.Error(err, "Unable to decode request query parameters")
+		logger.Info("unable to decode request query parameters", "reason", err)
 		return nil, err
 	}
 

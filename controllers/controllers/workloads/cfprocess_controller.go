@@ -79,7 +79,7 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 	cfApp := new(korifiv1alpha1.CFApp)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFApp %s/%s", cfProcess.Namespace, cfProcess.Spec.AppRef.Name))
+		r.log.Info("error when trying to fetch CFApp", "namespace", cfProcess.Namespace, "name", cfProcess.Spec.AppRef.Name, "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -121,25 +121,25 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error when trying to fetch CFBuild %s/%s", cfProcess.Namespace, cfApp.Spec.CurrentDropletRef.Name))
+		r.log.Info("error when trying to fetch CFBuild", "namespace", cfProcess.Namespace, "name", cfApp.Spec.CurrentDropletRef.Name, "reason", err)
 		return err
 	}
 
 	if cfBuild.Status.Droplet == nil {
-		r.log.Error(err, fmt.Sprintf("No build droplet status on CFBuild %s/%s", cfProcess.Namespace, cfApp.Spec.CurrentDropletRef.Name))
+		r.log.Info("no build droplet status on CFBuild", "namespace", cfProcess.Namespace, "name", cfApp.Spec.CurrentDropletRef.Name, "reason", err)
 		return errors.New("no build droplet status on CFBuild")
 	}
 
 	var appPort int
 	appPort, err = r.getPort(ctx, cfProcess, cfApp)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error when trying to fetch routes for CFApp %s/%s", cfProcess.Namespace, cfApp.Spec.DisplayName))
+		r.log.Info("error when trying to fetch routes for CFApp", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
 		return err
 	}
 
 	envVars, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("error when trying build the process environment for app: %s/%s", cfProcess.Namespace, cfApp.Spec.DisplayName))
+		r.log.Info("error when trying build the process environment for app", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
 		return err
 	}
 
@@ -153,13 +153,13 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	var desiredAppWorkload *korifiv1alpha1.AppWorkload
 	desiredAppWorkload, err = r.generateAppWorkload(actualAppWorkload, cfApp, cfProcess, cfBuild, appPort, envVars)
 	if err != nil { // untested
-		r.log.Error(err, "Error when initializing AppWorkload")
+		r.log.Info("error when initializing AppWorkload", "reason", err)
 		return err
 	}
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, actualAppWorkload, appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload))
 	if err != nil {
-		r.log.Error(err, "Error calling CreateOrPatch on AppWorkload")
+		r.log.Info("error calling CreateOrPatch on AppWorkload", "reason", err)
 		return err
 	}
 	return nil
@@ -168,7 +168,7 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState, cfAppRev string) error {
 	appWorkloadsForProcess, err := r.fetchAppWorkloadsForProcess(ctx, cfProcess)
 	if err != nil {
-		r.log.Error(err, fmt.Sprintf("Error when trying to fetch AppWorkloads for Process %s/%s", cfProcess.Namespace, cfProcess.Name))
+		r.log.Info("error when trying to fetch AppWorkloads for process", "namespace", cfProcess.Namespace, "name", cfProcess.Name, "reason", err)
 		return err
 	}
 
@@ -176,7 +176,7 @@ func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess
 		if needsToDeleteAppWorkload(desiredState, cfProcess, currentAppWorkload, cfAppRev) {
 			err := r.k8sClient.Delete(ctx, &appWorkloadsForProcess[i])
 			if err != nil {
-				r.log.Info(fmt.Sprintf("Error occurred deleting AppWorkload: %s, %s", currentAppWorkload.Name, err))
+				r.log.Info("error occurred deleting AppWorkload", "name", currentAppWorkload.Name, "reason", err)
 				return err
 			}
 		}
@@ -395,7 +395,7 @@ func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builde
 			processList := &korifiv1alpha1.CFProcessList{}
 			err := mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{korifiv1alpha1.CFAppGUIDLabelKey: app.GetName()})
 			if err != nil {
-				r.log.Error(err, fmt.Sprintf("Error when trying to list CFProcesses in namespace %q", app.GetNamespace()))
+				r.log.Info("error when trying to list CFProcesses in namespace", "namespace", app.GetNamespace(), "reason", err)
 				return []reconcile.Request{}
 			}
 

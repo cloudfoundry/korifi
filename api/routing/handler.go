@@ -45,7 +45,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	handlerResponse, err := h(r)
 	if err != nil {
-		logger.Info("handler returned error", "error", err)
+		logger.Info("handler returned error", "reason", err)
 		PresentError(logger, w, err)
 		return
 	}

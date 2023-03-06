@@ -60,7 +60,7 @@ func (r *AppRevWebhook) Handle(ctx context.Context, req admission.Request) admis
 func bumpAppRev(currentRevValue string) string {
 	revValue, err := strconv.Atoi(currentRevValue)
 	if err != nil || revValue < 0 {
-		apprevlog.Info("setting-invalid-app-rev-to-zero", "app-rev", currentRevValue)
+		apprevlog.V(1).Info("setting-invalid-app-rev-to-zero", "app-rev", currentRevValue)
 		return korifiv1alpha1.CFAppRevisionKeyDefault
 	}
 

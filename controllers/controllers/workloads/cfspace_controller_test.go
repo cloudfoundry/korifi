@@ -139,7 +139,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 					readyCondition := meta.FindStatusCondition(createdCFSpace.Status.Conditions, "Ready")
 					g.Expect(readyCondition).NotTo(BeNil())
 					g.Expect(readyCondition.Message).To(ContainSubstring(fmt.Sprintf(
-						"Error fetching secret %q from namespace %q",
+						"error fetching secret %q from namespace %q",
 						imageRegistrySecret.Name,
 						cfOrg.Name,
 					)))

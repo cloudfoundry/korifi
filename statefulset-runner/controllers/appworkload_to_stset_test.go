@@ -6,6 +6,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -13,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var _ = Describe("AppWorkload to StatefulSet Converter", func() {
@@ -26,7 +26,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	BeforeEach(func() {
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		appWorkload = createAppWorkload("some-namespace", "guid_1234")
-		converter = controllers.NewAppWorkloadToStatefulsetConverter(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), scheme.Scheme)
+		converter = controllers.NewAppWorkloadToStatefulsetConverter(scheme.Scheme)
 	})
 
 	JustBeforeEach(func() {

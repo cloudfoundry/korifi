@@ -25,7 +25,6 @@ func NewStatusGetter(logger logr.Logger, k8sClient client.Client) *StatusGetter 
 }
 
 func (s *StatusGetter) GetStatusConditions(ctx context.Context, job *batchv1.Job) ([]metav1.Condition, error) {
-	logger := s.logger.WithName("get status conditions").WithValues("name", job.Name, "namespace", job.Namespace)
 	conditions := []metav1.Condition{
 		{
 			Type:    korifiv1alpha1.TaskInitializedConditionType,
@@ -61,8 +60,6 @@ func (s *StatusGetter) GetStatusConditions(ctx context.Context, job *batchv1.Job
 	if job.Status.Failed > 0 && lastFailureTimestamp != nil {
 		terminationState, err := s.getFailedContainerStatus(ctx, job)
 		if err != nil {
-			logger.Error(err, "failed to get container status")
-
 			return nil, fmt.Errorf("failed to get container status: %w", err)
 		}
 

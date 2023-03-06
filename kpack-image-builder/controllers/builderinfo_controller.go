@@ -80,7 +80,7 @@ func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *kor
 	clusterBuilder := new(buildv1alpha2.ClusterBuilder)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: r.clusterBuilderName}, clusterBuilder)
 	if err != nil {
-		r.log.Error(err, "Error when fetching ClusterBuilder")
+		r.log.Info("error when fetching ClusterBuilder", "reason", err)
 
 		info.Status.Stacks = []korifiv1alpha1.BuilderInfoStatusStack{}
 		info.Status.Buildpacks = []korifiv1alpha1.BuilderInfoStatusBuildpack{}

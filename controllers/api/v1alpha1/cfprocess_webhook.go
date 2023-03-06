@@ -55,7 +55,7 @@ func (d *CFProcessDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 func (d *CFProcessDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	process := obj.(*CFProcess)
-	cfprocesslog.Info("Mutating CFProcess webhook handler", "name", process.Name)
+	cfprocesslog.V(1).Info("mutating CFProcess webhook handler", "name", process.Name)
 
 	d.defaultLabels(process)
 	d.defaultResources(process)

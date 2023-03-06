@@ -94,8 +94,8 @@ func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWork
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.updateTaskWorkloadStatus(ctx, taskWorkload, job); err != nil {
-		logger.Error(err, "failed to update task workload status")
+	if err = r.updateTaskWorkloadStatus(ctx, taskWorkload, job); err != nil {
+		logger.Info("failed to update task workload status", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -118,23 +118,23 @@ func (r TaskWorkloadReconciler) getOrCreateJob(ctx context.Context, logger logr.
 		return r.createJob(ctx, logger, taskWorkload)
 	}
 
-	logger.Error(err, "getting job failed")
+	logger.Info("getting job failed", "reason", err)
 	return nil, err
 }
 
 func (r TaskWorkloadReconciler) createJob(ctx context.Context, logger logr.Logger, taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
 	job, err := r.workloadToJob(taskWorkload)
 	if err != nil {
-		logger.Error(err, "failed to convert task workload to job")
+		logger.Info("failed to convert task workload to job", "reason", err)
 		return nil, err
 	}
 
 	err = r.k8sClient.Create(ctx, job)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			logger.Info("job for TaskWorkload already exists")
+			logger.V(1).Info("job for TaskWorkload already exists")
 		} else {
-			logger.Error(err, "failed to create job for task workload")
+			logger.Info("failed to create job for task workload", "reason", err)
 		}
 		return nil, err
 	}

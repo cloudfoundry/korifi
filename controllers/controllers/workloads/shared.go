@@ -42,7 +42,7 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 		return err
 	}
 
-	log.Info("Namespace reconciled", "operation", result)
+	log.V(1).Info("Namespace reconciled", "operation", result)
 	return nil
 }
 
@@ -69,9 +69,7 @@ func propagateSecret(ctx context.Context, client client.Client, log logr.Logger,
 	secret := new(corev1.Secret)
 	err := client.Get(ctx, types.NamespacedName{Namespace: orgOrSpace.GetNamespace(), Name: secretName}, secret)
 	if err != nil {
-		retErr := fmt.Errorf("Error fetching secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
-		log.Error(retErr, retErr.Error())
-		return retErr
+		return fmt.Errorf("error fetching secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
 	}
 
 	newSecret := &corev1.Secret{
@@ -91,12 +89,10 @@ func propagateSecret(ctx context.Context, client client.Client, log logr.Logger,
 		return nil
 	})
 	if err != nil {
-		retErr := fmt.Errorf("Error propagating secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
-		log.Error(retErr, retErr.Error())
-		return retErr
+		return fmt.Errorf("error creating/patching secret: %w", err)
 	}
 
-	log.Info("Secret propagated", "operation", result)
+	log.V(1).Info("Secret propagated", "operation", result)
 
 	return nil
 }
@@ -113,7 +109,7 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 	roleBindings := new(rbacv1.RoleBindingList)
 	err = kClient.List(ctx, roleBindings, client.InNamespace(orgOrSpace.GetNamespace()))
 	if err != nil {
-		log.Error(err, "Error listing role-bindings from the parent namespace")
+		log.Info("error listing role-bindings from the parent namespace", "reason", err)
 		return err
 	}
 
@@ -143,11 +139,11 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 				return nil
 			})
 			if err != nil {
-				loopLog.Error(err, "Error propagting role-binding")
+				loopLog.Info("error propagating role-binding", "reason", err)
 				return err
 			}
 
-			loopLog.Info("Role Binding propagated", "operation", result)
+			loopLog.V(1).Info("Role Binding propagated", "operation", result)
 		}
 	}
 
@@ -156,12 +152,13 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		korifiv1alpha1.PropagatedFromLabel: orgOrSpace.GetNamespace(),
 	})
 	if err != nil {
+		log.Info("failed to create label selector", "reason", err)
 		return err
 	}
 
 	err = kClient.List(ctx, propagatedRoleBindings, &client.ListOptions{Namespace: orgOrSpace.GetName(), LabelSelector: labelSelector})
 	if err != nil {
-		log.Error(err, "Error listing role-bindings from parent namespace")
+		log.Info("error listing role-bindings from parent namespace", "reason", err)
 		return err
 	}
 
@@ -170,7 +167,7 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 		if _, found := parentRoleBindingMap[propagatedRoleBinding.Name]; !found {
 			err = kClient.Delete(ctx, &propagatedRoleBinding)
 			if err != nil {
-				log.Error(err, "deleting role binding from target namespace failed", "roleBindingName", propagatedRoleBinding.Name)
+				log.Info("deleting role binding from target namespace failed", "roleBindingName", propagatedRoleBinding.Name, "reason", err)
 				return err
 			}
 		}
@@ -184,14 +181,14 @@ func getNamespace(ctx context.Context, log logr.Logger, client client.Client, na
 	namespace := new(corev1.Namespace)
 	err := client.Get(ctx, types.NamespacedName{Name: namespaceName}, namespace)
 	if err != nil {
-		log.Error(err, "failed to get namespace")
+		log.Info("failed to get namespace", "reason", err)
 		return err
 	}
 	return nil
 }
 
-func logErrorAndSetReadyStatus(err error, log logr.Logger, conditions *[]metav1.Condition, reason string) (ctrl.Result, error) {
-	log.Error(err, err.Error())
+func logAndSetReadyStatus(err error, log logr.Logger, conditions *[]metav1.Condition, reason string) (ctrl.Result, error) {
+	log.Info(err.Error())
 
 	meta.SetStatusCondition(conditions, metav1.Condition{
 		Type:    StatusConditionReady,

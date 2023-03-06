@@ -3,6 +3,7 @@ package workloads
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -69,14 +70,14 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 
 	err := k8s.AddFinalizer(ctx, log, r.k8sClient, cfApp, cfAppFinalizerName)
 	if err != nil {
-		log.Error(err, "Error adding finalizer")
+		log.Info("error adding finalizer", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	secretName := cfApp.Name + "-vcap-application"
 	err = r.reconcileVCAPSecret(ctx, log, cfApp, secretName, r.vcapApplicationEnvBuilder)
 	if err != nil {
-		log.Error(err, "unable to create CFApp VCAP Application secret")
+		log.Info("unable to create CFApp VCAP Application secret", "reason", err)
 		return ctrl.Result{}, err
 	}
 	cfApp.Status.VCAPApplicationSecretName = secretName
@@ -84,7 +85,7 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 	secretName = cfApp.Name + "-vcap-services"
 	err = r.reconcileVCAPSecret(ctx, log, cfApp, secretName, r.vcapServicesEnvBuilder)
 	if err != nil {
-		log.Error(err, "unable to create CFApp VCAP Services secret")
+		log.Info("unable to create CFApp VCAP Services secret", "reason", err)
 		return ctrl.Result{}, err
 	}
 	cfApp.Status.VCAPServicesSecretName = secretName
@@ -137,13 +138,13 @@ func (r *CFAppReconciler) getDroplet(ctx context.Context, log logr.Logger, cfApp
 	var cfBuild korifiv1alpha1.CFBuild
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfApp.Namespace}, &cfBuild)
 	if err != nil {
-		log.Error(err, "Error when fetching CFBuild")
+		log.Info("error when fetching CFBuild", "reason", err)
 		return nil, err
 	}
 
 	if cfBuild.Status.Droplet == nil {
 		err = errors.New("status field CFBuildDropletStatus is nil on CFBuild")
-		log.Error(err, err.Error())
+		log.Info(err.Error())
 		return nil, err
 	}
 
@@ -158,20 +159,20 @@ func (r *CFAppReconciler) startApp(ctx context.Context, log logr.Logger, cfApp *
 
 		existingProcess, err := r.fetchProcessByType(ctx, log, cfApp.Name, cfApp.Namespace, dropletProcess.Type)
 		if err != nil {
-			loopLog.Error(err, "Error when fetching  cfprocess by type")
+			loopLog.Info("error when fetching  cfprocess by type", "reason", err)
 			return err
 		}
 
 		if existingProcess != nil {
 			err = r.updateCFProcessCommand(ctx, existingProcess, dropletProcess.Command)
 			if err != nil {
-				loopLog.Error(err, "Error updating CFProcess")
+				loopLog.Info("error updating CFProcess", "reason", err)
 				return err
 			}
 		} else {
 			err = r.createCFProcess(ctx, loopLog, dropletProcess, droplet.Ports, cfApp)
 			if err != nil {
-				loopLog.Error(err, "Error creating CFProcess")
+				loopLog.Info("error creating CFProcess", "reason", err)
 				return err
 			}
 		}
@@ -196,7 +197,6 @@ func (r *CFAppReconciler) updateCFProcessCommand(ctx context.Context, process *k
 }
 
 func (r *CFAppReconciler) createCFProcess(ctx context.Context, log logr.Logger, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
-	log = log.WithName("createCFProcess")
 	desiredCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfApp.Namespace,
@@ -215,7 +215,7 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, log logr.Logger, 
 	desiredCFProcess.SetStableName(cfApp.Name)
 
 	if err := controllerutil.SetControllerReference(cfApp, desiredCFProcess, r.scheme); err != nil {
-		log.Error(err, "failed to set OwnerRef on CFProcess")
+		err = fmt.Errorf("failed to set OwnerRef on CFProcess: %w", err)
 		return err
 	}
 
@@ -223,21 +223,19 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, log logr.Logger, 
 }
 
 func (r *CFAppReconciler) fetchProcessByType(ctx context.Context, log logr.Logger, appGUID, appNamespace, processType string) (*korifiv1alpha1.CFProcess, error) {
-	log = log.WithName("fetchProcessByType").WithValues("processType", processType)
-
 	selector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
 		korifiv1alpha1.CFProcessTypeLabelKey: processType,
 	})
 	if err != nil {
-		log.Error(err, "Error initializing label selector")
+		err = fmt.Errorf("error initializing label selector: %w", err)
 		return nil, err
 	}
 
 	cfProcessList := korifiv1alpha1.CFProcessList{}
 	err = r.k8sClient.List(ctx, &cfProcessList, &client.ListOptions{LabelSelector: selector, Namespace: appNamespace})
 	if err != nil {
-		log.Error(err, "Error listing app CFProcesses")
+		err = fmt.Errorf("error listing app CFProcesses: %w", err)
 		return nil, err
 	}
 
@@ -250,7 +248,6 @@ func (r *CFAppReconciler) fetchProcessByType(ctx context.Context, log logr.Logge
 
 func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, log logr.Logger, cfApp *korifiv1alpha1.CFApp) error {
 	log = log.WithName("finalize")
-	log.Info("Reconciling deletion")
 
 	if !controllerutil.ContainsFinalizer(cfApp, cfAppFinalizerName) {
 		return nil
@@ -267,7 +264,7 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, log logr.Logger, cf
 	}
 
 	if controllerutil.RemoveFinalizer(cfApp, cfAppFinalizerName) {
-		log.Info("finalizer removed")
+		log.V(1).Info("finalizer removed")
 	}
 
 	return nil
@@ -291,14 +288,14 @@ func (r *CFAppReconciler) finalizeCFServiceBindings(ctx context.Context, log log
 	sbList := korifiv1alpha1.CFServiceBindingList{}
 	err := r.k8sClient.List(ctx, &sbList, client.InNamespace(cfApp.Namespace), client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name})
 	if err != nil {
-		log.Error(err, "failed to list app service bindings")
+		log.Info("failed to list app service bindings", "reason", err)
 		return err
 	}
 
 	for i := range sbList.Items {
 		err = r.k8sClient.Delete(ctx, &sbList.Items[i])
 		if err != nil {
-			log.Error(err, "failed to delete service binding", "serviceBindingName", sbList.Items[i].Name)
+			log.Info("failed to delete service binding", "serviceBindingName", sbList.Items[i].Name, "reason", err)
 			return err
 		}
 	}
@@ -318,7 +315,7 @@ func (r *CFAppReconciler) updateRouteDestinations(ctx context.Context, log logr.
 				if destination.AppRef.Name != cfAppGUID {
 					updatedDestinations = append(updatedDestinations, destination)
 				} else {
-					loopLog.Info("Removing app destinations from cfroute")
+					loopLog.V(1).Info("removing app destinations from cfroute")
 				}
 			}
 		}
@@ -327,7 +324,7 @@ func (r *CFAppReconciler) updateRouteDestinations(ctx context.Context, log logr.
 			cfRoutes[i].Spec.Destinations = updatedDestinations
 		})
 		if err != nil {
-			loopLog.Error(err, "failed to patch cfRoute to update destinations")
+			loopLog.Info("failed to patch cfRoute to update destinations", "reason", err)
 			return err
 		}
 	}
@@ -339,7 +336,7 @@ func (r *CFAppReconciler) getCFRoutes(ctx context.Context, log logr.Logger, cfAp
 	matchingFields := client.MatchingFields{shared.IndexRouteDestinationAppName: cfAppGUID}
 	err := r.k8sClient.List(context.Background(), &foundRoutes, client.InNamespace(cfAppNamespace), matchingFields)
 	if err != nil {
-		log.Error(err, "failed to List CFRoutes")
+		log.Info("failed to List CFRoutes", "reason", err)
 		return []korifiv1alpha1.CFRoute{}, err
 	}
 
@@ -405,7 +402,7 @@ func (r *CFAppReconciler) reconcileVCAPSecret(
 
 	envValue, err := envBuilder.BuildEnvValue(ctx, cfApp)
 	if err != nil {
-		log.Error(err, "failed to build env value")
+		log.Info("failed to build env value", "reason", err)
 		return err
 	}
 
@@ -415,7 +412,7 @@ func (r *CFAppReconciler) reconcileVCAPSecret(
 		return controllerutil.SetOwnerReference(cfApp, secret, r.scheme)
 	})
 	if err != nil {
-		log.Error(err, "unable to create or patch Secret")
+		log.Info("unable to create or patch Secret", "reason", err)
 		return err
 	}
 

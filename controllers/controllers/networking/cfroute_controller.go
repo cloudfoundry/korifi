@@ -82,7 +82,7 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 
 	err := k8s.AddFinalizer(ctx, log, r.client, cfRoute, CFRouteFinalizerName)
 	if err != nil {
-		log.Error(err, "Error adding finalizer")
+		log.Info("error adding finalizer", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -189,7 +189,7 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger
 	}
 
 	if controllerutil.RemoveFinalizer(cfRoute, CFRouteFinalizerName) {
-		log.Info("finalizer removed")
+		log.V(1).Info("finalizer removed")
 	}
 
 	return ctrl.Result{}, nil
@@ -202,7 +202,7 @@ func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, log logr.Logg
 			if include.Name != cfRouteName {
 				retainedIncludes = append(retainedIncludes, include)
 			} else {
-				log.Info("Removing sub-HTTPProxy from FQDN HTTPProxy")
+				log.V(1).Info("removing sub-HTTPProxy from FQDN HTTPProxy")
 			}
 		}
 		fqdnProxy.Spec.Includes = retainedIncludes
@@ -231,7 +231,7 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, log logr.
 
 			err := controllerutil.SetOwnerReference(cfRoute, service, r.scheme)
 			if err != nil {
-				loopLog.Error(err, "failed to set OwnerRef on Service")
+				loopLog.Info("failed to set OwnerRef on Service", "reason", err)
 				return err
 			}
 
@@ -246,11 +246,11 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, log logr.
 			return nil
 		})
 		if err != nil {
-			log.Error(err, "failed to patch Service")
+			log.Info("failed to patch Service", "reason", err)
 			return fmt.Errorf("service reconciliation failed for CFRoute/%s destinations", cfRoute.Name)
 		}
 
-		log.Info("Service reconciled", "operation", result)
+		log.V(1).Info("Service reconciled", "operation", result)
 	}
 
 	return nil
@@ -292,18 +292,18 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, log log
 
 		err := controllerutil.SetOwnerReference(cfRoute, routeHTTPProxy, r.scheme)
 		if err != nil {
-			log.Error(err, "failed to set OwnerRef on route HTTPProxy")
+			log.Info("failed to set OwnerRef on route HTTPProxy", "reason", err)
 			return err
 		}
 
 		return nil
 	})
 	if err != nil {
-		log.Error(err, "failed to patch route HTTPProxy")
+		log.Info("failed to patch route HTTPProxy", "reason", err)
 		return err
 	}
 
-	log.Info("Route HTTPProxy reconciled", "operation", result)
+	log.V(1).Info("Route HTTPProxy reconciled", "operation", result)
 	return nil
 }
 
@@ -351,18 +351,18 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, log logr
 
 		err = controllerutil.SetOwnerReference(cfRoute, fqdnHTTPProxy, r.scheme)
 		if err != nil {
-			log.Error(err, "failed to set OwnerRef on FQDN HTTPProxy")
+			log.Info("failed to set OwnerRef on FQDN HTTPProxy", "reason", err)
 			return err
 		}
 
 		return nil
 	})
 	if err != nil {
-		log.Error(err, "failed to patch FQDN HTTPProxy")
+		log.Info("failed to patch FQDN HTTPProxy", "reason", err)
 		return err
 	}
 
-	log.Info("Reconciled FQDN HTTPProxy", "operation", result)
+	log.V(1).Info("reconciled FQDN HTTPProxy", "operation", result)
 	return nil
 }
 
@@ -379,7 +379,7 @@ func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, log logr.Logger, f
 
 	err := r.client.List(ctx, &proxies, &listOptions)
 	if err != nil {
-		log.Error(err, "failed to list HTTPProxies")
+		log.Info("failed to list HTTPProxies", "reason", err)
 		return nil, false, err
 	}
 
@@ -388,11 +388,11 @@ func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, log logr.Logger, f
 		if proxy.Spec.VirtualHost != nil && proxy.Spec.VirtualHost.Fqdn == fqdn {
 			if found {
 				err = errors.New("duplicate HTTPProxy for FQDN")
-				log.Error(err, err.Error())
+				log.Info(err.Error())
 				return nil, false, err
 			} else if proxy.Namespace != namespace {
 				err = errors.New("found existing HTTPProxy with same FQDN in another space")
-				log.Error(err, err.Error(), "otherNamespace", proxy.Namespace)
+				log.Info(err.Error(), "otherNamespace", proxy.Namespace)
 				return nil, false, err
 			}
 
@@ -413,7 +413,7 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr
 
 	serviceList, err := r.fetchServicesByMatchingLabels(ctx, log, matchingLabelSet, cfRoute.Namespace)
 	if err != nil {
-		log.Error(err, "Failed to fetch services using label", "label", korifiv1alpha1.CFRouteGUIDLabelKey, "value", cfRoute.Name)
+		log.Info("failed to fetch services using label", "label", korifiv1alpha1.CFRouteGUIDLabelKey, "value", cfRoute.Name, "reason", err)
 		return err
 	}
 
@@ -430,7 +430,7 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr
 		if isOrphan {
 			err = r.client.Delete(ctx, &serviceList.Items[i])
 			if err != nil {
-				loopLog.Error(err, "failed to delete service")
+				loopLog.Info("failed to delete service", "reason", err)
 				return err
 			}
 		}
@@ -442,14 +442,14 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr
 func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, log logr.Logger, labelSet map[string]string, namespace string) (*corev1.ServiceList, error) {
 	selector, err := labels.ValidatedSelectorFromSet(labelSet)
 	if err != nil {
-		log.Error(err, "Error initializing label selector")
+		log.Info("error initializing label selector", "reason", err)
 		return nil, err
 	}
 
 	serviceList := corev1.ServiceList{}
 	err = r.client.List(ctx, &serviceList, &client.ListOptions{LabelSelector: selector, Namespace: namespace})
 	if err != nil {
-		log.Error(err, "Failed to list services")
+		log.Info("failed to list services", "reason", err)
 		return nil, err
 	}
 

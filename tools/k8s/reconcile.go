@@ -39,7 +39,7 @@ func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Requ
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		log.Error(err, fmt.Sprintf("unable to fetch %T", obj))
+		log.Info(fmt.Sprintf("unable to fetch %T", obj), "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -52,7 +52,7 @@ func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Requ
 		result, delegateErr = r.objectReconciler.ReconcileResource(ctx, obj)
 	})
 	if err != nil {
-		log.Error(err, "patch object failed")
+		log.Info("patch object failed", "reason", err)
 		return ctrl.Result{}, err
 	}
 

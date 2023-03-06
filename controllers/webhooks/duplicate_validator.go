@@ -34,9 +34,9 @@ func (v DuplicateValidator) ValidateCreate(ctx context.Context, logger logr.Logg
 	err := v.nameRegistry.RegisterName(ctx, namespace, newName)
 	if err != nil {
 		logger.Info("failed to register name during create",
-			"error", err,
 			"name", newName,
 			"namespace", namespace,
+			"reason", err,
 		)
 
 		if k8serrors.IsAlreadyExists(err) {
@@ -64,9 +64,9 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 	err := v.nameRegistry.TryLockName(ctx, namespace, oldName)
 	if err != nil {
 		logger.Info("failed to acquire lock on old name",
-			"error", err,
 			"name", oldName,
 			"namespace", namespace,
+			"reason", err,
 		)
 
 		return &ValidationError{
@@ -81,16 +81,17 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 		unlockErr := v.nameRegistry.UnlockName(ctx, namespace, oldName)
 		if unlockErr != nil {
 			// A locked registry entry will remain, so future name updates will fail until operator intervenes
-			logger.Error(unlockErr, "failed to release lock on old name",
+			logger.Info("failed to release lock on old name",
 				"name", oldName,
 				"namespace", namespace,
+				"reason", unlockErr,
 			)
 		}
 
 		logger.Info("failed to register new name during update",
-			"error", err,
 			"name", newName,
 			"namespace", namespace,
+			"reason", err,
 		)
 
 		if k8serrors.IsAlreadyExists(err) {
@@ -109,9 +110,10 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 	err = v.nameRegistry.DeregisterName(ctx, namespace, oldName)
 	if err != nil {
 		// We cannot unclaim the old name. It will remain claimed until an operator intervenes.
-		logger.Error(err, "failed to deregister old name during update",
+		logger.Info("failed to deregister old name during update",
 			"name", oldName,
 			"namespace", namespace,
+			"reason", err,
 		)
 	}
 
@@ -123,9 +125,9 @@ func (v DuplicateValidator) ValidateDelete(ctx context.Context, logger logr.Logg
 	err := v.nameRegistry.DeregisterName(ctx, namespace, oldName)
 	if err != nil {
 		logger.Info("failed to deregister name during delete",
-			"error", err,
 			"namespace", namespace,
 			"name", oldName,
+			"reason", err,
 		)
 
 		if k8serrors.IsNotFound(err) {

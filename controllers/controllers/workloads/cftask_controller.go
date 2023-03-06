@@ -82,10 +82,10 @@ func NewCFTaskReconciler(
 
 func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifiv1alpha1.CFTask) (ctrl.Result, error) {
 	if r.alreadyExpired(cfTask) {
-		r.logger.Info("deleting-expired-task", "namespace", cfTask.Namespace, "name", cfTask.Name)
+		r.logger.V(1).Info("deleting-expired-task", "namespace", cfTask.Namespace, "name", cfTask.Name)
 		err := r.k8sClient.Delete(ctx, cfTask)
 		if err != nil {
-			r.logger.Error(err, "error-deleting-task")
+			r.logger.Info("error-deleting-task", "reason", err)
 		}
 		return ctrl.Result{}, err
 	}
@@ -114,13 +114,13 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 
 	webProcess, err := r.getWebProcess(ctx, cfApp)
 	if err != nil {
-		r.logger.Error(err, "failed to get web processes")
+		r.logger.Info("failed to get web processes", "reason", err)
 		return r.reconcileResult(cfTask, err)
 	}
 
 	env, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.logger.Error(err, "failed to build env")
+		r.logger.Info("failed to build env", "reason", err)
 		return r.reconcileResult(cfTask, err)
 	}
 
@@ -161,7 +161,7 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CF
 		Name:      cfTask.Spec.AppRef.Name,
 	}, cfApp)
 	if err != nil {
-		r.logger.Info("error-getting-cfapp", "error", err)
+		r.logger.Info("error-getting-cfapp", "reason", err)
 		if k8serrors.IsNotFound(err) {
 			r.recorder.Eventf(cfTask, "Warning", "appNotFound", "Did not find app with name %s in namespace %s", cfTask.Spec.AppRef.Name, cfTask.Namespace)
 		}
@@ -191,8 +191,10 @@ func (r *CFTaskReconciler) getDroplet(ctx context.Context, cfTask *korifiv1alpha
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			r.recorder.Eventf(cfTask, "Warning", "appCurrentDropletNotFound", "Current droplet %s for app %s does not exist", cfApp.Spec.CurrentDropletRef.Name, cfTask.Spec.AppRef.Name)
+		} else {
+			r.logger.Info("error-getting-cfdroplet", "reason", err)
 		}
-		r.logger.Info("error-getting-cfdroplet", "error", err)
+
 		return nil, err
 	}
 
@@ -211,15 +213,13 @@ func (r *CFTaskReconciler) getWebProcess(ctx context.Context, cfApp *korifiv1alp
 		korifiv1alpha1.CFProcessTypeLabelKey: korifiv1alpha1.ProcessTypeWeb,
 	})
 	if err != nil {
-		r.logger.Error(err, "failed to list app processes")
-		return korifiv1alpha1.CFProcess{}, err
+		return korifiv1alpha1.CFProcess{}, fmt.Errorf("failed to list app processes: %w", err)
 	}
 	if len(processList.Items) != 1 {
-		r.logger.Error(nil, "expected exactly one web process", "processes", processList)
 		return korifiv1alpha1.CFProcess{}, fmt.Errorf("expected exactly one web process, found %d", len(processList.Items))
 	}
 
-	return processList.Items[0], err
+	return processList.Items[0], nil
 }
 
 func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess, env []corev1.EnvVar) (*korifiv1alpha1.TaskWorkload, error) {
@@ -255,14 +255,14 @@ func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask
 		taskWorkload.Spec.Env = env
 
 		if err := ctrl.SetControllerReference(cfTask, taskWorkload, r.scheme); err != nil {
-			r.logger.Error(err, "failed to set owner ref")
+			r.logger.Info("failed to set owner ref", "reason", err)
 			return err
 		}
 
 		return nil
 	})
 	if err != nil {
-		r.logger.Info("error-creating-or-patching-task-workload", "error", err, "opResult", opResult)
+		r.logger.Info("error-creating-or-patching-task-workload", "opResult", opResult, "reason", err)
 		return nil, err
 	}
 
@@ -304,7 +304,7 @@ func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifi
 	}
 	err := r.k8sClient.Delete(ctx, taskWorkload)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.logger.Info("error-deleting-task-workload", "error", err)
+		r.logger.Info("error-deleting-task-workload", "reason", err)
 		return err
 	}
 

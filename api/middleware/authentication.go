@@ -45,7 +45,7 @@ func (a *authentication) middleware(next http.Handler) http.Handler {
 
 		authInfo, err := a.authInfoParser.Parse(r.Header.Get(headers.Authorization))
 		if err != nil {
-			logger.Info("failed to parse auth info", "err", err)
+			logger.Info("failed to parse auth info", "reason", err)
 			routing.PresentError(logger, w, err)
 			return
 		}

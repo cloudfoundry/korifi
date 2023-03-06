@@ -266,7 +266,7 @@ var _ = Describe("LogAndReturn", func() {
 		Expect(json.Unmarshal(logBuf.Bytes(), &logEntry)).To(Succeed())
 	})
 
-	When("the erorr is not an ApiError", func() {
+	When("the error is not an ApiError", func() {
 		BeforeEach(func() {
 			originalErr = errors.New("not-api-error")
 		})
@@ -288,7 +288,7 @@ var _ = Describe("LogAndReturn", func() {
 			Expect(logEntry["level"]).To(Equal("info"))
 			Expect(logEntry["msg"]).To(Equal("some message"))
 			Expect(logEntry["some-key"]).To(Equal("some-value"))
-			Expect(logEntry["err"]).To(Equal("cause-err"))
+			Expect(logEntry["reason"]).To(Equal("cause-err"))
 		})
 	})
 
@@ -301,7 +301,7 @@ var _ = Describe("LogAndReturn", func() {
 			Expect(logEntry["level"]).To(Equal("info"))
 			Expect(logEntry["msg"]).To(Equal("some message"))
 			Expect(logEntry["some-key"]).To(Equal("some-value"))
-			Expect(logEntry["err"]).To(Equal("wrapping: cause-err"))
+			Expect(logEntry["reason"]).To(Equal("wrapping: cause-err"))
 		})
 	})
 })

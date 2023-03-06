@@ -69,20 +69,20 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 	cfApp := new(korifiv1alpha1.CFApp)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
 	if err != nil {
-		r.log.Error(err, "Error when fetching CFApp")
+		r.log.Info("error when fetching CFApp", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	cfPackage := new(korifiv1alpha1.CFPackage)
 	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
 	if err != nil {
-		r.log.Error(err, "Error when fetching CFPackage")
+		r.log.Info("error when fetching CFPackage", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	err = controllerutil.SetControllerReference(cfPackage, cfBuild, r.scheme)
 	if err != nil {
-		r.log.Error(err, "unable to set owner reference on CFBuild")
+		r.log.Info("unable to set owner reference on CFBuild", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -95,15 +95,22 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 
 	if stagingStatus == metav1.ConditionUnknown {
 		err = r.createBuildWorkload(ctx, cfBuild, cfApp, cfPackage)
+		if err != nil {
+			r.log.Info("failed to create BuildWorkload", "reason", err)
+		}
+
 		return ctrl.Result{}, err
 	}
 
 	var buildWorkload korifiv1alpha1.BuildWorkload
 	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), &buildWorkload)
 	if err != nil {
-		r.log.Error(err, "Error when fetching BuildWorkload")
-		// Ignore NotFound errors to account for eventual consistency
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		} else {
+			r.log.Info("error when fetching BuildWorkload", "reason", err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	workloadSucceededStatus := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
@@ -183,14 +190,12 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 
 	imageEnvironment, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.log.Error(err, "failed building environment")
 		return fmt.Errorf("prepareEnvironment: %w", err)
 	}
 	desiredWorkload.Spec.Env = imageEnvironment
 
 	err = controllerutil.SetControllerReference(cfBuild, &desiredWorkload, r.scheme)
 	if err != nil {
-		r.log.Error(err, "failed to set OwnerRef on BuildWorkload")
 		return fmt.Errorf("failed to set OwnerRef on BuildWorkload: %w", err)
 	}
 
@@ -229,7 +234,6 @@ func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace,
 			}
 			buildServices = append(buildServices, objRef)
 		} else {
-			r.log.Info("binding secret name is empty")
 			return nil, errors.New("binding secret name is empty")
 		}
 	}
@@ -243,12 +247,10 @@ func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, 
 		if apierrors.IsNotFound(err) {
 			err = r.k8sClient.Create(ctx, &desiredWorkload)
 			if err != nil {
-				r.log.Error(err, "Error when creating BuildWorkload")
-				return err
+				return fmt.Errorf("error creating BuildWorkload: %w", err)
 			}
 		} else {
-			r.log.Error(err, "Error when checking if BuildWorkload exists")
-			return err
+			return fmt.Errorf("error checking if BuildWorkload exists: %w", err)
 		}
 	}
 	return nil

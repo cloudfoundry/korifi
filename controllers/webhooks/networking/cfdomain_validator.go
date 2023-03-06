@@ -81,7 +81,7 @@ func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Obje
 
 	isOverlapping, err := v.domainIsOverlapping(ctx, domain.Spec.Name)
 	if err != nil {
-		log.Error(err, "Error checking for overlapping domain")
+		log.Info("error checking for overlapping domain", "reason", err)
 		return webhooks.ValidationError{
 			Type:    webhooks.UnknownErrorType,
 			Message: webhooks.UnknownErrorMessage,

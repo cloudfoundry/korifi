@@ -87,6 +87,7 @@ func (h Package) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
 }
 
+//nolint:dupl
 func (h Package) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.list")
@@ -103,7 +104,7 @@ func (h Package) list(r *http.Request) (*routing.Response, error) {
 
 	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageListQueryParameters.ToMessage())
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository", "error")
+		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository")
 	}
 
 	if err := h.sortList(records, r.FormValue("order_by")); err != nil {

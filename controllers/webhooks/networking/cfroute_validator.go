@@ -181,7 +181,7 @@ func (v *CFRouteValidator) fetchDomain(ctx context.Context, route *korifiv1alpha
 	err := v.client.Get(ctx, types.NamespacedName{Name: route.Spec.DomainRef.Name, Namespace: route.Spec.DomainRef.Namespace}, domain)
 	if err != nil {
 		errMessage := "Error while retrieving CFDomain object"
-		logger.Error(err, errMessage)
+		logger.Info(errMessage, "reason", err)
 		return nil, webhooks.ValidationError{
 			Type:    webhooks.UnknownErrorType,
 			Message: errMessage,
@@ -206,7 +206,7 @@ func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *kori
 			validationErr.Message = webhooks.UnknownErrorMessage
 		}
 
-		logger.Error(err, validationErr.Message)
+		logger.Info(validationErr.Message, "reason", err)
 		return domain, validationErr.ExportJSONError()
 	}
 	return domain, nil
