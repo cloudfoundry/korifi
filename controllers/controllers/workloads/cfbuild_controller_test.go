@@ -196,6 +196,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					stagingCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, stagingConditionType)
 					g.Expect(stagingCondition).NotTo(BeNil())
 					g.Expect(stagingCondition.Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(stagingCondition.Reason).To(Equal("BuildRunning"))
 
 					succeededCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
 					g.Expect(succeededCondition).NotTo(BeNil())
@@ -430,6 +431,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					stagingCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, stagingConditionType)
 					g.Expect(stagingCondition).NotTo(BeNil())
 					g.Expect(stagingCondition.Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(stagingCondition.Reason).To(Equal("BuildRunning"))
 
 					succeededCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
 					g.Expect(succeededCondition).NotTo(BeNil())
@@ -468,7 +470,17 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				createdCFBuild := new(korifiv1alpha1.CFBuild)
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
-					g.Expect(meta.IsStatusConditionFalse(createdCFBuild.Status.Conditions, succeededConditionType)).To(BeTrue())
+
+					stagingStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, stagingConditionType)
+					g.Expect(stagingStatusCondition).NotTo(BeNil())
+					g.Expect(stagingStatusCondition.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(stagingStatusCondition.Reason).To(Equal("BuildNotRunning"))
+
+					succeededStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
+					g.Expect(succeededStatusCondition).NotTo(BeNil())
+					g.Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(succeededStatusCondition.Reason).To(Equal("BuildFailed"))
+
 				}).Should(Succeed())
 			})
 		})
@@ -521,9 +533,15 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
-					statusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
-					g.Expect(statusCondition).NotTo(BeNil())
-					g.Expect(statusCondition.Status).To(Equal(metav1.ConditionTrue))
+					stagingStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, stagingConditionType)
+					g.Expect(stagingStatusCondition).NotTo(BeNil())
+					g.Expect(stagingStatusCondition.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(stagingStatusCondition.Reason).To(Equal("BuildNotRunning"))
+
+					succeededStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
+					g.Expect(succeededStatusCondition).NotTo(BeNil())
+					g.Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(succeededStatusCondition.Reason).To(Equal("BuildSucceeded"))
 				}).Should(Succeed())
 			})
 

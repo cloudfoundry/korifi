@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	TaskCanceledReason    = "taskCanceled"
+	TaskCanceledReason    = "TaskCanceled"
 	LifecycleLauncherPath = "/cnb/lifecycle/launcher"
 )
 
@@ -168,7 +168,7 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CF
 		return nil, err
 	}
 
-	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, StatusConditionStaged) {
+	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, StatusConditionReady) {
 		r.logger.Info("cfapp not staged", "app-namespace", cfApp.Namespace, "app-name", cfApp.Name)
 		r.recorder.Eventf(cfTask, "Warning", "appNotStaged", "App %s:%s is not staged", cfApp.Namespace, cfApp.Name)
 		return nil, errors.New("app not staged")
@@ -288,10 +288,9 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 func (r *CFTaskReconciler) initializeStatus(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) {
 	cfTask.Status.DropletRef.Name = cfDroplet.Name
 	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-		Type:    korifiv1alpha1.TaskInitializedConditionType,
-		Status:  metav1.ConditionTrue,
-		Reason:  "taskInitialized",
-		Message: "taskInitialized",
+		Type:   korifiv1alpha1.TaskInitializedConditionType,
+		Status: metav1.ConditionTrue,
+		Reason: "TaskInitialized",
 	})
 }
 

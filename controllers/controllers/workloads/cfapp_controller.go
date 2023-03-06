@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,13 +23,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 const (
-	StatusConditionRestarting = "Restarting"
-	StatusConditionRunning    = "Running"
-	StatusConditionStaged     = "Staged"
-	cfAppFinalizerName        = "cfApp.korifi.cloudfoundry.org"
+	cfAppFinalizerName = "cfApp.korifi.cloudfoundry.org"
 )
 
 type EnvValueBuilder interface {
@@ -95,22 +94,20 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 	}
 
 	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:    StatusConditionStaged,
-		Status:  metav1.ConditionFalse,
-		Reason:  "appStaged",
-		Message: "",
-	})
-
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:    StatusConditionRunning,
-		Status:  metav1.ConditionFalse,
-		Reason:  "unimplemented",
-		Message: "",
+		Type:   StatusConditionReady,
+		Status: metav1.ConditionFalse,
+		Reason: "DropletNotAssigned",
 	})
 
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
 		return ctrl.Result{}, nil
 	}
+
+	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+		Type:   StatusConditionReady,
+		Status: metav1.ConditionFalse,
+		Reason: "CannotResolveCurrentDropletRef",
+	})
 
 	droplet, err := r.getDroplet(ctx, log, cfApp)
 	if err != nil {
@@ -118,10 +115,9 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 	}
 
 	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:    StatusConditionStaged,
-		Status:  metav1.ConditionTrue,
-		Reason:  "appStaged",
-		Message: "",
+		Type:   StatusConditionReady,
+		Status: metav1.ConditionTrue,
+		Reason: "DropletAssigned",
 	})
 
 	err = r.startApp(ctx, log, cfApp, droplet)

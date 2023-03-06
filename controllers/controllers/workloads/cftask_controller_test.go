@@ -148,7 +148,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			JustBeforeEach(func() {
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
-					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue(), "task did not become initialized")
+					initializedStatusCondition := meta.FindStatusCondition(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)
+					g.Expect(initializedStatusCondition).NotTo(BeNil())
+					g.Expect(initializedStatusCondition.Status).To(Equal(metav1.ConditionTrue), "task did not become initialized")
+					g.Expect(initializedStatusCondition.Reason).To(Equal("TaskInitialized"))
 				}).Should(Succeed())
 			})
 
@@ -290,7 +293,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			It("sets the canceled status condition", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
-					g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)).To(BeTrue())
+					canceledStatusCondition := meta.FindStatusCondition(cfTask.Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)
+					g.Expect(canceledStatusCondition).NotTo(BeNil())
+					g.Expect(canceledStatusCondition.Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(canceledStatusCondition.Reason).To(Equal("TaskCancelled"))
 				})
 			})
 		})

@@ -499,7 +499,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 		return CurrentDropletRecord{}, fmt.Errorf("failed to set app droplet: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	_, err = f.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, workloads.StatusConditionStaged)
+	_, err = f.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, workloads.StatusConditionReady)
 	if err != nil {
 		return CurrentDropletRecord{}, fmt.Errorf("failed to await the app staged condition: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
@@ -711,7 +711,7 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 		},
 		CreatedAt:             cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt:             updatedAtTime,
-		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, workloads.StatusConditionStaged),
+		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, workloads.StatusConditionReady),
 		envSecretName:         cfApp.Spec.EnvSecretName,
 		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,
 		vcapAppSecretName:     cfApp.Status.VCAPApplicationSecretName,

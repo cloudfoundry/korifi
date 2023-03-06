@@ -292,7 +292,7 @@ var _ = Describe("TaskRepository", func() {
 					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
 						Type:   korifiv1alpha1.TaskFailedConditionType,
 						Status: metav1.ConditionTrue,
-						Reason: "taskCanceled",
+						Reason: "TaskCanceled",
 					})
 					Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
 				})

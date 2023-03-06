@@ -152,13 +152,14 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			Expect(createdSecret.OwnerReferences[0].Name).To(Equal(cfApp.Name))
 		})
 
-		It("sets its status.conditions", func() {
+		It("sets its status conditions", func() {
 			Eventually(func(g Gomega) {
 				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
-
-				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
-				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionRunning)).To(BeFalse())
+				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+				g.Expect(readyStatusCondition).NotTo(BeNil())
+				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(readyStatusCondition.Reason).To(Equal("DropletNotAssigned"))
 			}).Should(Succeed())
 		})
 
@@ -195,12 +196,15 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			).To(Succeed())
 		})
 
-		It("sets the staged condition to false", func() {
-			Consistently(func(g Gomega) {
+		It("sets the ready condition to false", func() {
+			Eventually(func(g Gomega) {
 				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
-			}, "1s").Should(Succeed())
+				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+				g.Expect(readyStatusCondition).NotTo(BeNil())
+				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(readyStatusCondition.Reason).To(Equal("CannotResolveCurrentDropletRef"))
+			}).Should(Succeed())
 		})
 	})
 
@@ -495,11 +499,14 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			})
 		})
 
-		It("sets the staged condition to true", func() {
+		It("sets the ready condition to true", func() {
 			Eventually(func(g Gomega) {
 				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
+				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+				g.Expect(readyStatusCondition).NotTo(BeNil())
+				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(readyStatusCondition.Reason).To(Equal("DropletAssigned"))
 			}).Should(Succeed())
 		})
 
@@ -508,16 +515,21 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				Eventually(func(g Gomega) {
 					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
+					readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+					g.Expect(readyStatusCondition).NotTo(BeNil())
+					g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionTrue))
 				}).Should(Succeed())
 				Expect(k8sClient.Delete(context.Background(), cfBuild)).To(Succeed())
 			})
 
-			It("unsets the staged condition", func() {
+			It("sets the ready condition to false", func() {
 				Eventually(func(g Gomega) {
 					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(meta.IsStatusConditionTrue(createdCFApp.Status.Conditions, workloads.StatusConditionStaged)).To(BeFalse())
+					readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+					g.Expect(readyStatusCondition).NotTo(BeNil())
+					g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(readyStatusCondition.Reason).To(Equal("CannotResolveCurrentDropletRef"))
 				}).Should(Succeed())
 			})
 		})
