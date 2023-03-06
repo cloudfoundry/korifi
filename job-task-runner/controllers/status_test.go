@@ -42,7 +42,10 @@ var _ = Describe("StatusGetter", func() {
 	})
 
 	It("returns an initialized condition", func() {
-		Expect(meta.IsStatusConditionTrue(conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+		initializedStatusCondition := meta.FindStatusCondition(conditions, korifiv1alpha1.TaskInitializedConditionType)
+		Expect(initializedStatusCondition).NotTo(BeNil())
+		Expect(initializedStatusCondition.Status).To(Equal(metav1.ConditionTrue))
+		Expect(initializedStatusCondition.Reason).To(Equal("JobCreated"))
 	})
 
 	When("the job is running", func() {
@@ -58,8 +61,11 @@ var _ = Describe("StatusGetter", func() {
 		})
 
 		It("contains a started condition with a matching timestamp", func() {
-			Expect(meta.IsStatusConditionTrue(conditions, korifiv1alpha1.TaskStartedConditionType)).To(BeTrue())
-			Expect(meta.FindStatusCondition(conditions, korifiv1alpha1.TaskStartedConditionType).LastTransitionTime).To(Equal(now))
+			startedStatusCondition := meta.FindStatusCondition(conditions, korifiv1alpha1.TaskStartedConditionType)
+			Expect(startedStatusCondition).NotTo(BeNil())
+			Expect(startedStatusCondition.Status).To(Equal(metav1.ConditionTrue))
+			Expect(startedStatusCondition.Reason).To(Equal("JobStarted"))
+			Expect(startedStatusCondition.LastTransitionTime).To(Equal(now))
 		})
 	})
 
@@ -82,8 +88,11 @@ var _ = Describe("StatusGetter", func() {
 		})
 
 		It("contains a succeeded condition", func() {
-			Expect(meta.IsStatusConditionTrue(conditions, korifiv1alpha1.TaskSucceededConditionType)).To(BeTrue())
-			Expect(meta.FindStatusCondition(conditions, korifiv1alpha1.TaskSucceededConditionType).LastTransitionTime).To(Equal(later))
+			succeededStatusCondition := meta.FindStatusCondition(conditions, korifiv1alpha1.TaskSucceededConditionType)
+			Expect(succeededStatusCondition).NotTo(BeNil())
+			Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionTrue))
+			Expect(succeededStatusCondition.Reason).To(Equal("JobSucceeded"))
+			Expect(succeededStatusCondition.LastTransitionTime).To(Equal(later))
 		})
 	})
 
@@ -164,6 +173,7 @@ var _ = Describe("StatusGetter", func() {
 			Expect(meta.IsStatusConditionTrue(conditions, korifiv1alpha1.TaskFailedConditionType)).To(BeTrue())
 			failedCondition := meta.FindStatusCondition(conditions, korifiv1alpha1.TaskFailedConditionType)
 			Expect(failedCondition.LastTransitionTime).To(Equal(later))
+			Expect(failedCondition.Reason).To(Equal("Error"))
 
 			Expect(fakeClient.ListCallCount()).To(Equal(1))
 			_, listObj, opts := fakeClient.ListArgsForCall(0)

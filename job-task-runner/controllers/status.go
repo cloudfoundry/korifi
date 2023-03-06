@@ -27,10 +27,9 @@ func NewStatusGetter(logger logr.Logger, k8sClient client.Client) *StatusGetter 
 func (s *StatusGetter) GetStatusConditions(ctx context.Context, job *batchv1.Job) ([]metav1.Condition, error) {
 	conditions := []metav1.Condition{
 		{
-			Type:    korifiv1alpha1.TaskInitializedConditionType,
-			Status:  metav1.ConditionTrue,
-			Reason:  "job_created",
-			Message: "Job created",
+			Type:   korifiv1alpha1.TaskInitializedConditionType,
+			Status: metav1.ConditionTrue,
+			Reason: "JobCreated",
 		},
 	}
 
@@ -42,8 +41,7 @@ func (s *StatusGetter) GetStatusConditions(ctx context.Context, job *batchv1.Job
 		Type:               korifiv1alpha1.TaskStartedConditionType,
 		Status:             metav1.ConditionTrue,
 		LastTransitionTime: *job.Status.StartTime,
-		Reason:             "job_started",
-		Message:            "Job started",
+		Reason:             "JobStarted",
 	})
 
 	if job.Status.Succeeded > 0 && job.Status.CompletionTime != nil {
@@ -51,8 +49,7 @@ func (s *StatusGetter) GetStatusConditions(ctx context.Context, job *batchv1.Job
 			Type:               korifiv1alpha1.TaskSucceededConditionType,
 			Status:             metav1.ConditionTrue,
 			LastTransitionTime: *job.Status.CompletionTime,
-			Reason:             "job_succeeded",
-			Message:            "Job succeeded",
+			Reason:             "JobSucceeded",
 		})
 	}
 

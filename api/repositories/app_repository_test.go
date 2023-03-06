@@ -98,7 +98,7 @@ var _ = Describe("AppRepository", func() {
 			When("the app has staged condition true", func() {
 				BeforeEach(func() {
 					cfApp.Status.Conditions = []metav1.Condition{{
-						Type:               workloads.StatusConditionStaged,
+						Type:               workloads.StatusConditionReady,
 						Status:             metav1.ConditionTrue,
 						LastTransitionTime: metav1.Now(),
 						Reason:             "staged",
@@ -121,7 +121,7 @@ var _ = Describe("AppRepository", func() {
 			When("the app has staged condition false", func() {
 				BeforeEach(func() {
 					meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-						Type:    workloads.StatusConditionStaged,
+						Type:    workloads.StatusConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "appStaged",
 						Message: "",
@@ -130,7 +130,7 @@ var _ = Describe("AppRepository", func() {
 					Eventually(func(g Gomega) {
 						app := korifiv1alpha1.CFApp{}
 						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
-						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, workloads.StatusConditionStaged)).To(BeTrue())
+						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
 					}).Should(Succeed())
 				})
 
@@ -1131,7 +1131,7 @@ var _ = Describe("AppRepository", func() {
 					theAppCopy := theApp.DeepCopy()
 					theAppCopy.Status = korifiv1alpha1.CFAppStatus{
 						Conditions: []metav1.Condition{{
-							Type:               workloads.StatusConditionStaged,
+							Type:               workloads.StatusConditionReady,
 							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Now(),
 							Reason:             "staged",
@@ -1196,7 +1196,7 @@ var _ = Describe("AppRepository", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(setDropletErr).To(MatchError(ContainSubstring("did not get the Staged condition")))
+					Expect(setDropletErr).To(MatchError(ContainSubstring("did not get the Ready condition")))
 				})
 			})
 		})

@@ -99,6 +99,12 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 			r.log.Info("failed to create BuildWorkload", "reason", err)
 		}
 
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:   korifiv1alpha1.StagingConditionType,
+			Status: metav1.ConditionTrue,
+			Reason: "BuildRunning",
+		})
+
 		return ctrl.Result{}, err
 	}
 
@@ -121,31 +127,28 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 	switch workloadSucceededStatus.Status {
 	case metav1.ConditionFalse:
 		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.StagingConditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "BuildWorkload",
-			Message: "BuildWorkload",
+			Type:   korifiv1alpha1.StagingConditionType,
+			Status: metav1.ConditionFalse,
+			Reason: "BuildNotRunning",
 		})
 
 		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionFalse,
-			Reason:  "BuildWorkload",
+			Reason:  "BuildFailed",
 			Message: fmt.Sprintf("%s: %s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message),
 		})
 	case metav1.ConditionTrue:
 		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.StagingConditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "BuildWorkload",
-			Message: "BuildWorkload",
+			Type:   korifiv1alpha1.StagingConditionType,
+			Status: metav1.ConditionFalse,
+			Reason: "BuildNotRunning",
 		})
 
 		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.SucceededConditionType,
-			Status:  metav1.ConditionTrue,
-			Reason:  "BuildWorkload",
-			Message: "BuildWorkload",
+			Type:   korifiv1alpha1.SucceededConditionType,
+			Status: metav1.ConditionTrue,
+			Reason: "BuildSucceeded",
 		})
 
 		cfBuild.Status.Droplet = buildWorkload.Status.Droplet
@@ -203,13 +206,6 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 	if err != nil {
 		return fmt.Errorf("createBuildWorkloadIfNotExists: %w", err)
 	}
-
-	meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
-		Type:    korifiv1alpha1.StagingConditionType,
-		Status:  metav1.ConditionTrue,
-		Reason:  "BuildWorkload",
-		Message: "BuildWorkload",
-	})
 
 	return nil
 }

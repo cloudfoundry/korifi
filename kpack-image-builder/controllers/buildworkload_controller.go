@@ -49,7 +49,6 @@ import (
 )
 
 const (
-	kpackReadyConditionType  = "Ready"
 	clusterBuilderKind       = "ClusterBuilder"
 	clusterBuilderAPIVersion = "kpack.io/v1alpha2"
 	BuildWorkloadLabelKey    = "korifi.cloudfoundry.org/build-workload-name"
