@@ -98,6 +98,30 @@ rules:
   - delete
   - patch
 - apiGroups:
+  - extensions.korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions.korifi.cloudfoundry.org
+  resources:
+  - cfserviceplans
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - appworkloads

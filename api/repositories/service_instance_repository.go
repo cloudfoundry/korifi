@@ -46,13 +46,14 @@ func NewServiceInstanceRepo(
 }
 
 type CreateServiceInstanceMessage struct {
-	Name        string
-	SpaceGUID   string
-	Credentials map[string]string
-	Type        string
-	Tags        []string
-	Labels      map[string]string
-	Annotations map[string]string
+	Name            string
+	SpaceGUID       string
+	ServicePlanGUID string
+	Credentials     map[string]string
+	Type            string
+	Tags            []string
+	Labels          map[string]string
+	Annotations     map[string]string
 }
 
 type PatchServiceInstanceMessage struct {
@@ -263,10 +264,11 @@ func (m CreateServiceInstanceMessage) toCFServiceInstance() korifiv1alpha1.CFSer
 			Annotations: m.Annotations,
 		},
 		Spec: korifiv1alpha1.CFServiceInstanceSpec{
-			DisplayName: m.Name,
-			SecretName:  guid,
-			Type:        korifiv1alpha1.InstanceType(m.Type),
-			Tags:        m.Tags,
+			DisplayName:     m.Name,
+			SecretName:      guid,
+			Type:            korifiv1alpha1.InstanceType(m.Type),
+			Tags:            m.Tags,
+			ServicePlanGUID: m.ServicePlanGUID,
 		},
 	}
 }

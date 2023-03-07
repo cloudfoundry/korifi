@@ -26,6 +26,7 @@ import (
 
 const (
 	UserProvidedType = "user-provided"
+	ManagedType      = "managed"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
@@ -41,6 +42,9 @@ type CFServiceInstanceSpec struct {
 
 	// Tags are used by apps to identify service instances
 	Tags []string `json:"tags,omitempty"`
+
+	// Subscribed service plan GUID. Must be set if the type is `managed`
+	ServicePlanGUID string `json:"servicePlanGuid,omitempty"`
 }
 
 // InstanceType defines the type of the Service Instance

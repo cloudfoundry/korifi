@@ -25,6 +25,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
+	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -48,6 +49,7 @@ func init() {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(metricsv1beta1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(trinityv1alpha1.AddToScheme(scheme.Scheme))
 }
 
 func main() {
@@ -205,6 +207,7 @@ func main() {
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](createTimeout),
 	)
 	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
+	serviceCatalogRepo := repositories.NewServiceCatalogRepo(userClientFactory, cfg.RootNamespace)
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
@@ -360,6 +363,10 @@ func main() {
 		),
 		handlers.NewOAuth(
 			*serverURL,
+		),
+		handlers.NewServiceCatalog(
+			*serverURL,
+			serviceCatalogRepo,
 		),
 	}
 	for _, handler := range apiHandlers {

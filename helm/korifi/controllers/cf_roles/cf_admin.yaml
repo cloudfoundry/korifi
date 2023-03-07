@@ -185,3 +185,13 @@ rules:
   - get
   - list
   - watch
+
+- apiGroups:
+  - extensions.korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings
+  - cfserviceplans
+  verbs:
+  - get
+  - list
+  - watch

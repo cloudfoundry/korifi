@@ -50,6 +50,10 @@ spec:
                 description: Name of a secret containing the service credentials.
                   The Secret must be in the same namespace
                 type: string
+              servicePlanGuid:
+                description: Subscribed service plan GUID. Must be set if the type
+                  is `managed`
+                type: string
               tags:
                 description: Tags are used by apps to identify service instances
                 items:
