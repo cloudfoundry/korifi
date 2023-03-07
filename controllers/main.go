@@ -45,6 +45,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/registry"
+	btpv1 "github.com/SAP/sap-btp-service-operator/api/v1"
+	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
@@ -75,6 +77,8 @@ func init() {
 	utilruntime.Must(contourv1.AddToScheme(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
+	utilruntime.Must(btpv1.AddToScheme(scheme))
+	utilruntime.Must(trinityv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -183,6 +187,16 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
+			os.Exit(1)
+		}
+
+		if err = (servicescontrollers.NewManagedCFServiceInstanceReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceInstance"),
+			controllerConfig.CFRootNamespace,
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
 			os.Exit(1)

@@ -548,3 +548,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - services.cloud.sap.com
+  resources:
+  - serviceinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
