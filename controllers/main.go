@@ -198,7 +198,7 @@ func main() {
 			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceInstance"),
 			controllerConfig.CFRootNamespace,
 		)).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
+			setupLog.Error(err, "unable to create controller", "controller", "ManagedCFServiceInstance")
 			os.Exit(1)
 		}
 
@@ -208,6 +208,15 @@ func main() {
 			ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
+			os.Exit(1)
+		}
+
+		if err = (servicescontrollers.NewManagedCFServiceBindingReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceBinding"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ManagedCFServiceBinding")
 			os.Exit(1)
 		}
 

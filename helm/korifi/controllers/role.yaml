@@ -551,6 +551,17 @@ rules:
 - apiGroups:
   - services.cloud.sap.com
   resources:
+  - servicebindings
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - services.cloud.sap.com
+  resources:
   - serviceinstances
   verbs:
   - create
