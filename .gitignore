@@ -6,3 +6,4 @@
 *.test
 # Don't add zipped assets. Use the runtime zipping logic in the e2e suite instead.
 tests/e2e/assets/*.zip
+netrc

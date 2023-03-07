@@ -1,6 +1,9 @@
 # syntax = docker/dockerfile:experimental
 FROM golang:1.20.2 as builder
 
+COPY netrc /root/.netrc
+RUN chmod 600 /root/.netrc
+
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
