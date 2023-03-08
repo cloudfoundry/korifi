@@ -26,18 +26,18 @@ directories:
   path: vendor
 - contents:
   - git:
-      commitTitle: Bump code.cloudfoundry.org/archiver to latest
-      sha: 3e7edf8e49fee4fa13dc36a7b300db0c7c895c9e
+      commitTitle: Bump golang.org/x/crypto in /assets/credhub-service-broker...
+      sha: b55d8702eb507d5ba8c15f1058f76d2a076e8a1e
       tags:
-      - v11.0.0
+      - v11.1.0
     path: .
   path: e2e/assets/vendored/node
 - contents:
   - git:
-      commitTitle: Bump code.cloudfoundry.org/archiver to latest
-      sha: 3e7edf8e49fee4fa13dc36a7b300db0c7c895c9e
+      commitTitle: Bump golang.org/x/crypto in /assets/credhub-service-broker...
+      sha: b55d8702eb507d5ba8c15f1058f76d2a076e8a1e
       tags:
-      - v11.0.0
+      - v11.1.0
     path: .
   path: e2e/assets/vendored/dora
 kind: LockConfig
