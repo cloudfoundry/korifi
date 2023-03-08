@@ -78,7 +78,7 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 		},
 		Spec: btpv1.ServiceBindingSpec{
 			ServiceInstanceName: instance.Name,
-			SecretName:          instance.Name + "-secret",
+			SecretName:          instance.Spec.SecretName,
 		},
 	}
 
@@ -102,6 +102,33 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 
 		r.log.Error(err, "failed to get btp service binding secret")
 		return ctrl.Result{}, err
+	}
+
+	cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
+	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+		Type:    BindingSecretAvailableCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  "SecretFound",
+		Message: "",
+	})
+
+	cfApp := new(korifiv1alpha1.CFApp)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+	if err != nil {
+		r.log.Error(err, "Error when fetching CFApp")
+		return ctrl.Result{}, err
+	}
+
+	if cfApp.Status.VCAPServicesSecretName == "" {
+		r.log.Info("Did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
+		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+			Type:    VCAPServicesSecretAvailableCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "SecretNotFound",
+			Message: "VCAPServicesSecret name absent from status of CFApp",
+		})
+
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
 	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{

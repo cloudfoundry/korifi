@@ -111,18 +111,20 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
-	secretObj := cfServiceInstanceToSecret(cfServiceInstance)
-	_, err = controllerutil.CreateOrPatch(ctx, userClient, &secretObj, func() error {
-		secretObj.StringData = message.Credentials
-		if secretObj.StringData == nil {
-			secretObj.StringData = map[string]string{}
-		}
-		createSecretTypeFields(&secretObj)
+	if message.Type == korifiv1alpha1.UserProvidedType {
+		secretObj := cfServiceInstanceToSecret(cfServiceInstance)
+		_, err = controllerutil.CreateOrPatch(ctx, userClient, &secretObj, func() error {
+			secretObj.StringData = message.Credentials
+			if secretObj.StringData == nil {
+				secretObj.StringData = map[string]string{}
+			}
+			createSecretTypeFields(&secretObj)
 
-		return nil
-	})
-	if err != nil {
-		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
+			return nil
+		})
+		if err != nil {
+			return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
+		}
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil

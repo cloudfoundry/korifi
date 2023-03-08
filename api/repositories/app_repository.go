@@ -614,7 +614,7 @@ func getSystemEnv(ctx context.Context, userClient client.Client, app AppRecord) 
 					apierrors.FromK8sError(err, AppEnvResourceType))
 			}
 
-			if len(vcapServicesPresenter.UserProvided) > 0 {
+			if len(*vcapServicesPresenter) > 0 {
 				systemEnvMap["VCAP_SERVICES"] = vcapServicesPresenter
 			}
 		}

@@ -11,9 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type VCAPServices struct {
-	UserProvided []ServiceDetails `json:"user-provided,omitempty"`
-}
+type VCAPServices map[string][]ServiceDetails
 
 type ServiceDetails struct {
 	Label          string            `json:"label"`
@@ -26,6 +24,7 @@ type ServiceDetails struct {
 	Credentials    map[string]string `json:"credentials"`
 	SyslogDrainURL *string           `json:"syslog_drain_url"`
 	VolumeMounts   []string          `json:"volume_mounts"`
+	Plan           string            `json:"plan,omitempty"`
 }
 
 type WorkloadEnvBuilder struct {

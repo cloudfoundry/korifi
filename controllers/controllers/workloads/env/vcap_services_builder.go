@@ -7,6 +7,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +36,8 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 		return map[string]string{"VCAP_SERVICES": "{}"}, nil
 	}
 
-	serviceEnvs := []ServiceDetails{}
+	vcapServices := map[string][]ServiceDetails{}
+
 	for _, currentServiceBinding := range serviceBindings.Items {
 		// If finalizing do not append
 		if !currentServiceBinding.DeletionTimestamp.IsZero() {
@@ -43,15 +45,18 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 		}
 
 		var serviceEnv ServiceDetails
-		serviceEnv, err = buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
+		serviceEnv, err = b.buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
 		if err != nil {
 			return nil, err
 		}
 
-		serviceEnvs = append(serviceEnvs, serviceEnv)
+		if _, ok := vcapServices[serviceEnv.Label]; !ok {
+			vcapServices[serviceEnv.Label] = []ServiceDetails{}
+		}
+		vcapServices[serviceEnv.Label] = append(vcapServices[serviceEnv.Label], serviceEnv)
 	}
 
-	jsonVal, err := json.Marshal(VCAPServices{UserProvided: serviceEnvs})
+	jsonVal, err := json.Marshal(vcapServices)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +66,35 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 	}, nil
 }
 
-func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, error) {
+func (b *VCAPServicesEnvValueBuilder) getServicePlan(ctx context.Context, servicePlanGuid string) (trinityv1alpha1.CFServicePlan, error) {
+	servicePlans := trinityv1alpha1.CFServicePlanList{}
+	err := b.k8sClient.List(ctx, &servicePlans, client.MatchingFields{shared.IndexServicePlanGUID: servicePlanGuid})
+	if err != nil {
+		return trinityv1alpha1.CFServicePlan{}, err
+	}
+
+	if len(servicePlans.Items) != 1 {
+		return trinityv1alpha1.CFServicePlan{}, fmt.Errorf("found %d service plans for guid %q, expected one", len(servicePlans.Items), servicePlanGuid)
+	}
+
+	return servicePlans.Items[0], nil
+}
+
+func (b *VCAPServicesEnvValueBuilder) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (trinityv1alpha1.CFServiceOffering, error) {
+	serviceOfferings := trinityv1alpha1.CFServiceOfferingList{}
+	err := b.k8sClient.List(ctx, &serviceOfferings, client.MatchingFields{shared.IndexServiceOfferingGUID: serviceOfferingGuid})
+	if err != nil {
+		return trinityv1alpha1.CFServiceOffering{}, err
+	}
+
+	if len(serviceOfferings.Items) != 1 {
+		return trinityv1alpha1.CFServiceOffering{}, fmt.Errorf("found %d service offerings for guid %q, expected one", len(serviceOfferings.Items), serviceOfferingGuid)
+	}
+
+	return serviceOfferings.Items[0], nil
+}
+
+func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, error) {
 	if serviceBinding.Status.Binding.Name == "" {
 		return ServiceDetails{}, fmt.Errorf("service binding secret name is empty")
 	}
@@ -78,14 +111,33 @@ func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, service
 		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 	}
 
-	return fromServiceBinding(serviceBinding, serviceInstance, secret), nil
+	return b.fromServiceBinding(ctx, serviceBinding, serviceInstance, secret)
 }
 
-func fromServiceBinding(
+func (b *VCAPServicesEnvValueBuilder) getServiceLabel(ctx context.Context, cfServiceInstance korifiv1alpha1.CFServiceInstance) (string, error) {
+	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
+		return korifiv1alpha1.UserProvidedType, nil
+	}
+
+	servicePlan, err := b.getServicePlan(ctx, cfServiceInstance.Spec.ServicePlanGUID)
+	if err != nil {
+		return "", err
+	}
+
+	serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Spec.Relationships.ServiceOfferingGUID)
+	if err != nil {
+		return "", err
+	}
+
+	return serviceOffering.Spec.OfferingName, nil
+}
+
+func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
+	ctx context.Context,
 	serviceBinding korifiv1alpha1.CFServiceBinding,
 	serviceInstance korifiv1alpha1.CFServiceInstance,
 	serviceBindingSecret corev1.Secret,
-) ServiceDetails {
+) (ServiceDetails, error) {
 	var serviceName string
 	var bindingName *string
 
@@ -102,8 +154,13 @@ func fromServiceBinding(
 		tags = []string{}
 	}
 
+	label, err := b.getServiceLabel(ctx, serviceInstance)
+	if err != nil {
+		return ServiceDetails{}, err
+	}
+
 	return ServiceDetails{
-		Label:          "user-provided",
+		Label:          label,
 		Name:           serviceName,
 		Tags:           tags,
 		InstanceGUID:   serviceInstance.Name,
@@ -113,7 +170,7 @@ func fromServiceBinding(
 		Credentials:    mapFromSecret(serviceBindingSecret),
 		SyslogDrainURL: nil,
 		VolumeMounts:   []string{},
-	}
+	}, nil
 }
 
 func mapFromSecret(secret corev1.Secret) map[string]string {
