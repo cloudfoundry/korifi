@@ -1,6 +1,5 @@
 name: Chore
 description: Request a chore
-title: "[Chore]: "
 labels: [chore]
 body:
   - type: textarea
