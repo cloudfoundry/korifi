@@ -16,6 +16,7 @@ Here are all the values that can be set for the chart:
   - `defaultAppDomainName` (_String_): Base domain name for application URLs.
   - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
   - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
+  - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
   - `rootNamespace` (_String_): Root of the Cloud Foundry namespace hierarchy.
 - `adminUserName` (_String_): Name of the admin user that will be bound to the Cloud Foundry Admin role.
 - `api`:

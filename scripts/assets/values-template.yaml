@@ -4,6 +4,7 @@ global:
   defaultAppDomainName: apps-127-0-0-1.nip.io
   generateIngressCertificates: true
   containerRepositoryPrefix: localregistry-docker-registry.default.svc.cluster.local:30050/
+  logLevel: debug
 
 api:
   apiServer:

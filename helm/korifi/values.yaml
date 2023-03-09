@@ -1,7 +1,8 @@
 global:
   rootNamespace: cf
   debug: false
-  defaultAppDomainName: apps.my-cf-domain.com
+  logLevel: info
+  defaultAppDomainName:
   generateIngressCertificates: false
   containerRegistrySecret: image-registry-credentials
   eksContainerRegistryRoleARN: ""
