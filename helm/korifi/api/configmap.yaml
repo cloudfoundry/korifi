@@ -29,7 +29,7 @@ data:
     authProxyHost: {{ .Values.api.authProxy.host | quote }}
     authProxyCACert: {{ .Values.api.authProxy.caCert | quote }}
     {{- end }}
-    logLevel: {{ .Values.api.logLevel | default "info" }}
+    logLevel: {{ .Values.global.logLevel }}
     {{- if .Values.global.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}

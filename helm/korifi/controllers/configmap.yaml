@@ -31,7 +31,7 @@ data:
     {{- range $key, $value := merge .Values.controllers.extraVCAPApplicationValues $defaultDict }}
       {{ $key }}: {{ $value }}
     {{- end }}
-    logLevel: {{ .Values.api.logLevel | default "info" }}
+    logLevel: {{ .Values.global.logLevel }}
 {{- if .Values.kpackImageBuilder.include }}
   kpack_build_controllers_config.yaml: |
     cfRootNamespace: {{ .Values.global.rootNamespace }}

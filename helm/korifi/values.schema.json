@@ -16,6 +16,11 @@
           "description": "Enables remote debugging with [Delve](https://github.com/go-delve/delve).",
           "type": "boolean"
         },
+        "logLevel": {
+          "description": "Sets level of logging for api and controllers components. Can be 'info' or 'debug'.",
+          "type": "string",
+          "enum": ["info", "debug"]
+        },
         "defaultAppDomainName": {
           "description": "Base domain name for application URLs.",
           "type": "string"
@@ -40,7 +45,8 @@
       "required": [
         "rootNamespace",
         "containerRepositoryPrefix",
-        "defaultAppDomainName"
+        "defaultAppDomainName",
+        "logLevel"
       ],
       "type": "object"
     },
