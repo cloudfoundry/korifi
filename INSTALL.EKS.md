@@ -97,7 +97,9 @@ cat >ecr-policy.json <<EOF
         "ecr:InitiateLayerUpload",
         "ecr:PutImage",
         "ecr:UploadLayerPart",
-        "ecr:CreateRepository"
+        "ecr:CreateRepository",
+        "ecr:ListImages",
+        "ecr:BatchDeleteImage"
       ],
       "Resource": "*"
     }

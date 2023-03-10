@@ -81,7 +81,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 	When("CFBuild status conditions are missing or unknown", func() {
 		BeforeEach(func() {
 			ctx := context.Background()
-			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID)
+			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			Expect(k8sClient.Create(ctx, desiredCFPackage)).To(Succeed())
 
 			kpackSecret := BuildDockerRegistrySecret("source-registry-image-pull-secret", cfSpace.Status.GUID)
@@ -443,7 +443,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 
 	When("CFBuild status conditions Staging=True and others are unknown", func() {
 		BeforeEach(func() {
-			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID)
+			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			desiredCFPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: wellFormedRegistryCredentialsSecret}}
 			Expect(k8sClient.Create(context.Background(), desiredCFPackage)).To(Succeed())
 
@@ -480,7 +480,6 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					g.Expect(succeededStatusCondition).NotTo(BeNil())
 					g.Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(succeededStatusCondition.Reason).To(Equal("BuildFailed"))
-
 				}).Should(Succeed())
 			})
 		})

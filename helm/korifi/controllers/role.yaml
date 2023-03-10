@@ -277,6 +277,8 @@ rules:
   resources:
   - cfpackages/finalizers
   verbs:
+  - get
+  - patch
   - update
 - apiGroups:
   - korifi.cloudfoundry.org

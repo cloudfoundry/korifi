@@ -43,6 +43,7 @@ import (
 	statesetfulrunnerv1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
 	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/registry"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -159,6 +160,7 @@ func main() {
 
 		if err = (workloadscontrollers.NewCFPackageReconciler(
 			mgr.GetClient(),
+			image.NewClient(k8sClient, controllerConfig.CFRootNamespace, controllerConfig.ContainerRegistrySecretName),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 		)).SetupWithManager(mgr); err != nil {

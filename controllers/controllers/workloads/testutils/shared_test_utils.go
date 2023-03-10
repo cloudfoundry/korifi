@@ -98,7 +98,7 @@ func BuildCFAppEnvVarsSecret(appGUID, spaceGUID string, envVars map[string]strin
 	}
 }
 
-func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *korifiv1alpha1.CFPackage {
+func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID, imageRef string) *korifiv1alpha1.CFPackage {
 	return &korifiv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
@@ -111,7 +111,7 @@ func BuildCFPackageCRObject(packageGUID, namespaceGUID, appGUID string) *korifiv
 			},
 			Source: korifiv1alpha1.PackageSource{
 				Registry: korifiv1alpha1.Registry{
-					Image:            "PACKAGE_IMAGE",
+					Image:            imageRef,
 					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-registry-image-pull-secret"}},
 				},
 			},

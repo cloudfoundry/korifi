@@ -11,6 +11,7 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -42,6 +43,7 @@ var (
 	cfRootNamespace     string
 	cfOrg               *korifiv1alpha1.CFOrg
 	imageRegistrySecret *corev1.Secret
+	imageDeleter        *fake.ImageDeleter
 )
 
 const (
@@ -78,10 +80,6 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
-
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme.Scheme,
@@ -92,6 +90,8 @@ var _ = BeforeSuite(func() {
 		MetricsBindAddress: "0",
 	})
 	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient = k8sManager.GetClient()
 
 	cfRootNamespace = testutils.PrefixedGUID("root-namespace")
 
@@ -137,8 +137,10 @@ var _ = BeforeSuite(func() {
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	imageDeleter = new(fake.ImageDeleter)
 	err = (NewCFPackageReconciler(
 		k8sManager.GetClient(),
+		imageDeleter,
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFPackage"),
 	)).SetupWithManager(k8sManager)
