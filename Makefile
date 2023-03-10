@@ -47,7 +47,12 @@ lint: fmt vet
 
 test: lint
 	@for comp in $(COMPONENTS); do make -C $$comp test; done
+	make test-tools
 	make test-e2e
+
+
+test-tools: install-ginkgo
+	./scripts/run-tests.sh tools
 
 test-e2e: install-ginkgo
 	./scripts/run-tests.sh tests/e2e

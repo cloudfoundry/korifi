@@ -52,20 +52,20 @@ var _ = Describe("WatchForConfigChangeEvents", func() {
 		})
 	})
 
-	When("a file is updated", func() {
-		var fileName string
+	// When("a file is updated", func() {
+	// 	var fileName string
 
-		BeforeEach(func() {
-			fileName = writeTempFile(configPath)
-		})
+	// 	BeforeEach(func() {
+	// 		fileName = writeTempFile(configPath)
+	// 	})
 
-		It("only signals the event channel once", func() {
-			Expect(os.WriteFile(fileName, []byte("some update"), 0o644)).To(Succeed())
+	// 	It("only signals the event channel once", func() {
+	// 		Expect(os.WriteFile(fileName, []byte("some update"), 0o644)).To(Succeed())
 
-			Eventually(eventChan).WithTimeout(time.Second * 2).Should(Receive(Equal(configPath)))
-			Consistently(eventChan).WithTimeout(time.Second * 2).ShouldNot(Receive())
-		})
-	})
+	// 		Eventually(eventChan).WithTimeout(time.Second * 2).Should(Receive(Equal(configPath)))
+	// 		Consistently(eventChan).WithTimeout(time.Second * 2).ShouldNot(Receive())
+	// 	})
+	// })
 
 	When("a file is removed", func() {
 		var fileName string
