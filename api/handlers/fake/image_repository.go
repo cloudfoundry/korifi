@@ -11,7 +11,7 @@ import (
 )
 
 type ImageRepository struct {
-	UploadSourceImageStub        func(context.Context, authorization.Info, string, io.Reader, string) (string, error)
+	UploadSourceImageStub        func(context.Context, authorization.Info, string, io.Reader, string, ...string) (string, error)
 	uploadSourceImageMutex       sync.RWMutex
 	uploadSourceImageArgsForCall []struct {
 		arg1 context.Context
@@ -19,6 +19,7 @@ type ImageRepository struct {
 		arg3 string
 		arg4 io.Reader
 		arg5 string
+		arg6 []string
 	}
 	uploadSourceImageReturns struct {
 		result1 string
@@ -32,7 +33,7 @@ type ImageRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ImageRepository) UploadSourceImage(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 io.Reader, arg5 string) (string, error) {
+func (fake *ImageRepository) UploadSourceImage(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 io.Reader, arg5 string, arg6 ...string) (string, error) {
 	fake.uploadSourceImageMutex.Lock()
 	ret, specificReturn := fake.uploadSourceImageReturnsOnCall[len(fake.uploadSourceImageArgsForCall)]
 	fake.uploadSourceImageArgsForCall = append(fake.uploadSourceImageArgsForCall, struct {
@@ -41,13 +42,14 @@ func (fake *ImageRepository) UploadSourceImage(arg1 context.Context, arg2 author
 		arg3 string
 		arg4 io.Reader
 		arg5 string
-	}{arg1, arg2, arg3, arg4, arg5})
+		arg6 []string
+	}{arg1, arg2, arg3, arg4, arg5, arg6})
 	stub := fake.UploadSourceImageStub
 	fakeReturns := fake.uploadSourceImageReturns
-	fake.recordInvocation("UploadSourceImage", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.recordInvocation("UploadSourceImage", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
 	fake.uploadSourceImageMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5)
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6...)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -61,17 +63,17 @@ func (fake *ImageRepository) UploadSourceImageCallCount() int {
 	return len(fake.uploadSourceImageArgsForCall)
 }
 
-func (fake *ImageRepository) UploadSourceImageCalls(stub func(context.Context, authorization.Info, string, io.Reader, string) (string, error)) {
+func (fake *ImageRepository) UploadSourceImageCalls(stub func(context.Context, authorization.Info, string, io.Reader, string, ...string) (string, error)) {
 	fake.uploadSourceImageMutex.Lock()
 	defer fake.uploadSourceImageMutex.Unlock()
 	fake.UploadSourceImageStub = stub
 }
 
-func (fake *ImageRepository) UploadSourceImageArgsForCall(i int) (context.Context, authorization.Info, string, io.Reader, string) {
+func (fake *ImageRepository) UploadSourceImageArgsForCall(i int) (context.Context, authorization.Info, string, io.Reader, string, []string) {
 	fake.uploadSourceImageMutex.RLock()
 	defer fake.uploadSourceImageMutex.RUnlock()
 	argsForCall := fake.uploadSourceImageArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
 }
 
 func (fake *ImageRepository) UploadSourceImageReturns(result1 string, result2 error) {

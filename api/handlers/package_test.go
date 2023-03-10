@@ -868,13 +868,15 @@ var _ = Describe("Package", func() {
 
 		It("uploads the image source", func() {
 			Expect(imageRepo.UploadSourceImageCallCount()).To(Equal(1))
-			_, actualAuthInfo, repoRef, srcFile, actualSpaceGUID := imageRepo.UploadSourceImageArgsForCall(0)
+			_, actualAuthInfo, repoRef, srcFile, actualSpaceGUID, actualTags := imageRepo.UploadSourceImageArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(repoRef).To(Equal("registry.repo/foo"))
 			actualSrcContents, err := io.ReadAll(srcFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(actualSrcContents)).To(Equal("the-src-file-contents"))
 			Expect(actualSpaceGUID).To(Equal(spaceGUID))
+			Expect(actualTags).To(HaveLen(1))
+			Expect(actualTags[0]).To(Equal(packageGUID))
 		})
 
 		It("saves the uploaded image reference on the package", func() {

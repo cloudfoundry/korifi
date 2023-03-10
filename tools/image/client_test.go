@@ -37,7 +37,7 @@ var _ = Describe("Client", func() {
 
 	Describe("Push", func() {
 		JustBeforeEach(func() {
-			imgRef, testErr = imgClient.Push(ctx, pushRef, zipFile)
+			imgRef, testErr = imgClient.Push(ctx, pushRef, zipFile, "jim")
 		})
 
 		It("pushes a zip archive as an image to the registry", func() {
@@ -45,6 +45,10 @@ var _ = Describe("Client", func() {
 			Expect(imgRef).To(HavePrefix(pushRef))
 
 			labels, err := imgClient.Labels(ctx, imgRef)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(labels).To(BeEmpty())
+
+			labels, err = imgClient.Labels(ctx, pushRef+":jim")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(labels).To(BeEmpty())
 		})

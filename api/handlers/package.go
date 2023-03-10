@@ -37,7 +37,7 @@ type CFPackageRepository interface {
 }
 
 type ImageRepository interface {
-	UploadSourceImage(ctx context.Context, authInfo authorization.Info, imageRef string, srcReader io.Reader, spaceGUID string) (imageRefWithDigest string, err error)
+	UploadSourceImage(ctx context.Context, authInfo authorization.Info, imageRef string, srcReader io.Reader, spaceGUID string, tags ...string) (imageRefWithDigest string, err error)
 }
 
 type RequestJSONValidator interface {
@@ -206,7 +206,7 @@ func (h Package) upload(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewPackageBitsAlreadyUploadedError(err), "Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
 	}
 
-	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, record.ImageRef, bitsFile, record.SpaceGUID)
+	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, record.ImageRef, bitsFile, record.SpaceGUID, packageGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling uploadSourceImage")
 	}

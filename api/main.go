@@ -20,13 +20,12 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
-	"code.cloudfoundry.org/korifi/api/repositories/registry"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/image"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -193,13 +192,11 @@ func main() {
 		cfg.RoleMappings,
 		namespaceRetriever,
 	)
+	imageClient := image.NewClient(privilegedK8sClient, cfg.RootNamespace, cfg.PackageRegistrySecretName)
 	imageRepo := repositories.NewImageRepository(
 		privilegedK8sClient,
 		userClientFactory,
-		cfg.RootNamespace,
-		cfg.PackageRegistrySecretName,
-		registry.NewImageBuilder(),
-		registry.NewImagePusher(remote.Write),
+		imageClient,
 	)
 	taskRepo := repositories.NewTaskRepo(
 		userClientFactory,
