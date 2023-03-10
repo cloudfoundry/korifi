@@ -11,97 +11,48 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 )
 
 var _ = Describe("ImageRepository", func() {
 	var (
-		registrySecretName  string
-		imageBuilder        *fake.ImageBuilder
 		imagePusher         *fake.ImagePusher
-		image               v1.Image
 		privilegedK8sClient k8sclient.Interface
-
-		imageSource io.Reader
-
-		imageRepo *repositories.ImageRepository
-
-		imageRef  string
-		uploadErr error
-		org       *korifiv1alpha1.CFOrg
-		space     *korifiv1alpha1.CFSpace
+		imageSource         io.Reader
+		imageRepo           *repositories.ImageRepository
+		imageRef            string
+		tags                []string
+		uploadErr           error
+		org                 *korifiv1alpha1.CFOrg
+		space               *korifiv1alpha1.CFSpace
 	)
 
 	BeforeEach(func() {
-		var err error
-		imageBuilder = new(fake.ImageBuilder)
-		image, err = random.Image(0, 0)
-		Expect(err).NotTo(HaveOccurred())
-		imageBuilder.BuildReturns(image, nil)
-
 		imagePusher = new(fake.ImagePusher)
 		imagePusher.PushReturns("my-pushed-image", nil)
 
 		imageSource = bytes.NewBufferString("")
 
+		var err error
 		privilegedK8sClient, err = k8sclient.NewForConfig(k8sConfig)
 		Expect(err).NotTo(HaveOccurred())
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 
-		_, err = privilegedK8sClient.
-			CoreV1().
-			ServiceAccounts(rootNamespace).
-			Create(
-				context.Background(),
-				&corev1.ServiceAccount{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "default",
-						Namespace: rootNamespace,
-					},
-				},
-				metav1.CreateOptions{},
-			)
-		Expect(err).NotTo(HaveOccurred())
-
-		registrySecretName = prefixedGUID("registry-secret")
-		_, err = privilegedK8sClient.CoreV1().
-			Secrets(rootNamespace).
-			Create(
-				context.Background(),
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      registrySecretName,
-						Namespace: rootNamespace,
-					},
-					StringData: map[string]string{
-						corev1.DockerConfigJsonKey: "{}",
-					},
-					Type: corev1.SecretTypeDockerConfigJson,
-				},
-				metav1.CreateOptions{},
-			)
-		Expect(err).NotTo(HaveOccurred())
+		tags = []string{"foo", "bar"}
 
 		imageRepo = repositories.NewImageRepository(
 			privilegedK8sClient,
 			userClientFactory,
-			rootNamespace,
-			registrySecretName,
-			imageBuilder,
 			imagePusher,
 		)
 	})
 
 	JustBeforeEach(func() {
-		imageRef, uploadErr = imageRepo.UploadSourceImage(context.Background(), authInfo, "my-image", imageSource, space.Name)
+		imageRef, uploadErr = imageRepo.UploadSourceImage(context.Background(), authInfo, "my-image", imageSource, space.Name, tags...)
 	})
 
 	It("fails with unauthorized error without a valid role in the space", func() {
@@ -120,20 +71,10 @@ var _ = Describe("ImageRepository", func() {
 
 		It("uploads the image to the registry", func() {
 			Expect(imagePusher.PushCallCount()).To(Equal(1))
-			actualRef, actualImage, credentials := imagePusher.PushArgsForCall(0)
+			_, actualRef, zipReader, actualTags := imagePusher.PushArgsForCall(0)
 			Expect(actualRef).To(Equal("my-image"))
-			Expect(actualImage).To(Equal(image))
-			Expect(credentials).NotTo(BeNil())
-		})
-
-		When("building the image fails", func() {
-			BeforeEach(func() {
-				imageBuilder.BuildReturns(nil, errors.New("build-error"))
-			})
-
-			It("errors", func() {
-				Expect(uploadErr).To(MatchError(ContainSubstring("build-error")))
-			})
+			Expect(zipReader).To(Equal(imageSource))
+			Expect(actualTags).To(Equal(tags))
 		})
 
 		When("pushing the image fails", func() {
@@ -146,24 +87,6 @@ var _ = Describe("ImageRepository", func() {
 				var apiError apierrors.BlobstoreUnavailableError
 				Expect(errors.As(uploadErr, &apiError)).To(BeTrue())
 				Expect(apiError.Detail()).To(Equal("Error uploading source package to the container registry"))
-			})
-		})
-
-		When("there is no registry secret", func() {
-			BeforeEach(func() {
-				imageRepo = repositories.NewImageRepository(
-					privilegedK8sClient,
-					userClientFactory,
-					rootNamespace,
-					"",
-					imageBuilder,
-					imagePusher,
-				)
-			})
-
-			It("succeeds", func() {
-				Expect(uploadErr).NotTo(HaveOccurred())
-				Expect(imageRef).To(Equal("my-pushed-image"))
 			})
 		})
 	})
