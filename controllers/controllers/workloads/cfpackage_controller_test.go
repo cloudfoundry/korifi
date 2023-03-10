@@ -2,8 +2,10 @@ package workloads_test
 
 import (
 	"context"
+	"errors"
 
 	"code.cloudfoundry.org/korifi/tools"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,12 +32,13 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 		cfPackageGUID = GenerateGUID()
 
 		cfApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
+
 		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 	})
 
 	When("a new CFPackage resource is created", func() {
 		BeforeEach(func() {
-			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID)
+			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
 		})
 
@@ -55,6 +58,68 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 				Controller:         tools.PtrTo(true),
 				BlockOwnerDeletion: tools.PtrTo(true),
 			}))
+		})
+	})
+
+	When("a CFPackage is deleted", func() {
+		var (
+			deleteCount int
+			imageRef    string
+		)
+
+		BeforeEach(func() {
+			imageRef = GenerateGUID()
+			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, imageRef)
+			deleteCount = imageDeleter.DeleteCallCount()
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
+
+			// wait for package to have reconciled at least once
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
+				g.Expect(cfPackage.Finalizers).ToNot(BeEmpty())
+			}).Should(Succeed())
+
+			Expect(k8sClient.Delete(context.Background(), cfPackage)).To(Succeed())
+		})
+
+		It("deletes itself and the corresponding source image", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(imageDeleter.DeleteCallCount()).To(Equal(deleteCount + 1))
+			}).Should(Succeed())
+
+			_, ref := imageDeleter.DeleteArgsForCall(deleteCount)
+			Expect(ref).To(Equal(imageRef))
+
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
+			}).Should(Succeed())
+		})
+
+		When("the package doesn't have an image set", func() {
+			BeforeEach(func() {
+				cfPackage.Spec.Source.Registry.Image = ""
+			})
+
+			It("doesn't try to delete any image", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(imageDeleter.DeleteCallCount()).To(Equal(deleteCount))
+				}).Should(Succeed())
+			})
+		})
+
+		When("deletion fails", func() {
+			BeforeEach(func() {
+				imageDeleter.DeleteReturns(errors.New("oops"))
+			})
+
+			It("ignores the errors and finishes finalization", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
+				}).Should(Succeed())
+			})
 		})
 	})
 })

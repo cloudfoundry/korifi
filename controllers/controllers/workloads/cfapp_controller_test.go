@@ -238,7 +238,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				k8sClient.Create(context.Background(), cfApp),
 			).To(Succeed())
 
-			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID)
+			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			Expect(
 				k8sClient.Create(context.Background(), cfPackage),
 			).To(Succeed())

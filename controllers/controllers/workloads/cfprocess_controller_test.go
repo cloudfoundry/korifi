@@ -62,7 +62,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		// other resources.
 		cfProcess = BuildCFProcessCRObject(testProcessGUID, cfSpace.Status.GUID, testAppGUID, processTypeWeb, processTypeWebCommand, oldDetectedCommand)
 		cfApp = BuildCFAppCRObject(testAppGUID, cfSpace.Status.GUID)
-		cfPackage = BuildCFPackageCRObject(testPackageGUID, cfSpace.Status.GUID, testAppGUID)
+		cfPackage = BuildCFPackageCRObject(testPackageGUID, cfSpace.Status.GUID, testAppGUID, "ref")
 		cfBuild = BuildCFBuildObject(testBuildGUID, cfSpace.Status.GUID, testPackageGUID, testAppGUID)
 	})
 	JustBeforeEach(func() {

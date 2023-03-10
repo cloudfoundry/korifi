@@ -31,42 +31,86 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CFPackageReconciler reconciles a CFPackage object
-type CFPackageReconciler struct {
-	k8sClient client.Client
-	scheme    *runtime.Scheme
-	log       logr.Logger
+const cfPackageFinalizer string = "korifi.cloudfoundry.org/cfPackageController"
+
+//counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter
+
+type ImageDeleter interface {
+	Delete(ctx context.Context, imageRef string) error
 }
 
-func NewCFPackageReconciler(client client.Client, scheme *runtime.Scheme, log logr.Logger) *k8s.PatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage] {
-	pkgReconciler := CFPackageReconciler{k8sClient: client, scheme: scheme, log: log}
+// CFPackageReconciler reconciles a CFPackage object
+type CFPackageReconciler struct {
+	k8sClient    client.Client
+	imageDeleter ImageDeleter
+	scheme       *runtime.Scheme
+	log          logr.Logger
+}
+
+func NewCFPackageReconciler(
+	client client.Client,
+	imageDeleter ImageDeleter,
+	scheme *runtime.Scheme,
+	log logr.Logger,
+) *k8s.PatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage] {
+	pkgReconciler := CFPackageReconciler{
+		k8sClient:    client,
+		imageDeleter: imageDeleter,
+		scheme:       scheme,
+		log:          log,
+	}
+
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage](log, client, &pkgReconciler)
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/finalizers,verbs=get;update;patch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the CFPackage object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
-	var cfApp korifiv1alpha1.CFApp
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
+	log := r.log.WithValues("namespace", cfPackage.Namespace, "name", cfPackage.Name)
+
+	if !cfPackage.GetDeletionTimestamp().IsZero() {
+		return r.finalize(ctx, log, cfPackage)
+	}
+
+	err := k8s.AddFinalizer(ctx, log, r.k8sClient, cfPackage, cfPackageFinalizer)
 	if err != nil {
-		r.log.Info("error when fetching CFApp", "reason", err)
+		log.Error(err, "Error adding finalizer")
+		return ctrl.Result{}, err
+	}
+
+	var cfApp korifiv1alpha1.CFApp
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
+	if err != nil {
+		log.Info("error when fetching CFApp", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	err = controllerutil.SetControllerReference(&cfApp, cfPackage, r.scheme)
 	if err != nil {
-		r.log.Info("unable to set owner reference on CFPackage", "reason", err)
+		log.Info("unable to set owner reference on CFPackage", "reason", err)
 		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *CFPackageReconciler) finalize(ctx context.Context, log logr.Logger, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
+	log = log.WithName("finalize")
+
+	if !controllerutil.ContainsFinalizer(cfPackage, cfPackageFinalizer) {
+		return ctrl.Result{}, nil
+	}
+
+	if cfPackage.Spec.Source.Registry.Image != "" {
+		if err := r.imageDeleter.Delete(ctx, cfPackage.Spec.Source.Registry.Image); err != nil {
+			log.Info("failed to delete image", "reason", err)
+		}
+	}
+
+	if controllerutil.RemoveFinalizer(cfPackage, cfPackageFinalizer) {
+		log.Info("finalizer removed")
 	}
 
 	return ctrl.Result{}, nil

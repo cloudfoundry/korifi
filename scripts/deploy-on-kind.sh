@@ -110,6 +110,7 @@ function ensure_local_registry() {
   helm upgrade --install localregistry twuni/docker-registry \
     --set service.type=NodePort,service.nodePort=30050,service.port=30050 \
     --set persistence.enabled=true \
+    --set persistence.deleteEnabled=true \
     "${sethtpasswd[@]}"
 
 }
