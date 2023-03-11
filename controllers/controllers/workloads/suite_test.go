@@ -14,8 +14,8 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	controllerfake "code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	admission "k8s.io/pod-security-admission/api"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,12 +27,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	//+kubebuilder:scaffold:imports
 )
 
 var (
@@ -44,6 +44,7 @@ var (
 	cfOrg               *korifiv1alpha1.CFOrg
 	imageRegistrySecret *corev1.Secret
 	imageDeleter        *fake.ImageDeleter
+	eventRecorder       *controllerfake.EventRecorder
 )
 
 const (
@@ -106,6 +107,8 @@ var _ = BeforeSuite(func() {
 		WorkloadsTLSSecretNamespace: "korifi-controllers-system",
 	}
 
+	eventRecorder = new(controllerfake.EventRecorder)
+
 	err = (NewCFAppReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
@@ -160,16 +163,6 @@ var _ = BeforeSuite(func() {
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = NewCFTaskReconciler(
-		k8sManager.GetClient(),
-		k8sManager.GetScheme(),
-		k8sManager.GetEventRecorderFor("cftask-controller"),
-		ctrl.Log.WithName("controllers").WithName("CFTask"),
-		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
-		2*time.Second,
-	).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
 	err = NewCFSpaceReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
@@ -177,6 +170,16 @@ var _ = BeforeSuite(func() {
 		controllerConfig.ContainerRegistrySecretName,
 		controllerConfig.CFRootNamespace,
 		labelCompiler,
+	).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = NewCFTaskReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		eventRecorder,
+		ctrl.Log.WithName("controllers").WithName("CFTask"),
+		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
+		2*time.Second,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
