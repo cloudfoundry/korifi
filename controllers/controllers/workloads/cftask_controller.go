@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"time"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,9 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
 const (
@@ -163,19 +163,19 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CF
 	if err != nil {
 		r.logger.Info("error-getting-cfapp", "reason", err)
 		if k8serrors.IsNotFound(err) {
-			r.recorder.Eventf(cfTask, "Warning", "appNotFound", "Did not find app with name %s in namespace %s", cfTask.Spec.AppRef.Name, cfTask.Namespace)
+			r.recorder.Eventf(cfTask, "Warning", "AppNotFound", "Did not find app with name %s in namespace %s", cfTask.Spec.AppRef.Name, cfTask.Namespace)
 		}
 		return nil, err
 	}
 
 	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, StatusConditionReady) {
 		r.logger.Info("cfapp not staged", "app-namespace", cfApp.Namespace, "app-name", cfApp.Name)
-		r.recorder.Eventf(cfTask, "Warning", "appNotStaged", "App %s:%s is not staged", cfApp.Namespace, cfApp.Name)
+		r.recorder.Eventf(cfTask, "Warning", "AppNotStaged", "App %s:%s is not staged", cfApp.Namespace, cfApp.Name)
 		return nil, errors.New("app not staged")
 	}
 
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
-		r.recorder.Eventf(cfTask, "Warning", "appCurrentDropletRefNotSet", "App %s does not have a current droplet", cfTask.Spec.AppRef.Name)
+		r.recorder.Eventf(cfTask, "Warning", "AppCurrentDropletRefNotSet", "App %s does not have a current droplet", cfTask.Spec.AppRef.Name)
 		return nil, errors.New("app droplet ref not set")
 	}
 
@@ -190,7 +190,7 @@ func (r *CFTaskReconciler) getDroplet(ctx context.Context, cfTask *korifiv1alpha
 	}, cfDroplet)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			r.recorder.Eventf(cfTask, "Warning", "appCurrentDropletNotFound", "Current droplet %s for app %s does not exist", cfApp.Spec.CurrentDropletRef.Name, cfTask.Spec.AppRef.Name)
+			r.recorder.Eventf(cfTask, "Warning", "AppCurrentDropletNotFound", "Current droplet %s for app %s does not exist", cfApp.Spec.CurrentDropletRef.Name, cfTask.Spec.AppRef.Name)
 		} else {
 			r.logger.Info("error-getting-cfdroplet", "reason", err)
 		}
@@ -199,7 +199,7 @@ func (r *CFTaskReconciler) getDroplet(ctx context.Context, cfTask *korifiv1alpha
 	}
 
 	if cfDroplet.Status.Droplet == nil {
-		r.recorder.Eventf(cfTask, "Warning", "dropletBuildStatusNotSet", "Current droplet %s from app %s does not have a droplet image", cfApp.Spec.CurrentDropletRef.Name, cfTask.Spec.AppRef.Name)
+		r.recorder.Eventf(cfTask, "Warning", "DropletBuildStatusNotSet", "Current droplet %s from app %s does not have a droplet image", cfApp.Spec.CurrentDropletRef.Name, cfTask.Spec.AppRef.Name)
 		return nil, errors.New("droplet build status not set")
 	}
 
@@ -267,7 +267,7 @@ func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask
 	}
 
 	if opResult == controllerutil.OperationResultCreated {
-		r.recorder.Eventf(cfTask, "Normal", "taskCreated", "Created task workload %s", taskWorkload.Name)
+		r.recorder.Eventf(cfTask, "Normal", "TaskWorkloadCreated", "Created task workload %s", taskWorkload.Name)
 	}
 
 	return taskWorkload, nil
