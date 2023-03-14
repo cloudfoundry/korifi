@@ -18,6 +18,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/net"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -32,6 +33,11 @@ type Creds struct {
 	// If both unset, the fallback auth approach will be used.
 	SecretName         string
 	ServiceAccountName string
+}
+
+type Config struct {
+	Labels       map[string]string
+	ExposedPorts []int32
 }
 
 func NewClient(k8sClient kubernetes.Interface) Client {
@@ -98,28 +104,40 @@ func (c Client) Push(ctx context.Context, creds Creds, repoRef string, zipReader
 	return refWithDigest.Name(), nil
 }
 
-func (c Client) Labels(ctx context.Context, creds Creds, imageRef string) (map[string]string, error) {
+func (c Client) Config(ctx context.Context, creds Creds, imageRef string) (Config, error) {
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing repository reference %s: %w", imageRef, err)
+		return Config{}, fmt.Errorf("error parsing repository reference %s: %w", imageRef, err)
 	}
 
 	authOpt, err := c.authOpt(ctx, creds)
 	if err != nil {
-		return nil, fmt.Errorf("error creating keychain: %w", err)
+		return Config{}, fmt.Errorf("error creating keychain: %w", err)
 	}
 
 	img, err := remote.Image(ref, authOpt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image: %w", err)
+		return Config{}, fmt.Errorf("failed to get image: %w", err)
 	}
 
 	cfgFile, err := img.ConfigFile()
 	if err != nil {
-		return nil, fmt.Errorf("error getting image config file: %w", err)
+		return Config{}, fmt.Errorf("error getting image config file: %w", err)
 	}
 
-	return cfgFile.Config.Labels, nil
+	ports := []int32{}
+	for p := range cfgFile.Config.ExposedPorts {
+		parsed, err := net.ParsePort(p, false)
+		if err != nil {
+			return Config{}, fmt.Errorf("error getting exposed ports: %w", err)
+		}
+		ports = append(ports, int32(parsed))
+	}
+
+	return Config{
+		Labels:       cfgFile.Config.Labels,
+		ExposedPorts: ports,
+	}, nil
 }
 
 func (c Client) Delete(ctx context.Context, creds Creds, imageRef string) error {

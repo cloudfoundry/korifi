@@ -20,15 +20,15 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	k8sclient "k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,11 +48,18 @@ import (
 )
 
 const (
-	clusterBuilderKind       = "ClusterBuilder"
-	clusterBuilderAPIVersion = "kpack.io/v1alpha2"
-	BuildWorkloadLabelKey    = "korifi.cloudfoundry.org/build-workload-name"
-	kpackReconcilerName      = "kpack-image-builder"
+	clusterBuilderKind          = "ClusterBuilder"
+	clusterBuilderAPIVersion    = "kpack.io/v1alpha2"
+	BuildWorkloadLabelKey       = "korifi.cloudfoundry.org/build-workload-name"
+	kpackReconcilerName         = "kpack-image-builder"
+	buildpackBuildMetadataLabel = "io.buildpacks.build.metadata"
 )
+
+//counterfeiter:generate -o fake -fake-name ImageConfigGetter . ImageConfigGetter
+
+type ImageConfigGetter interface {
+	Config(ctx context.Context, creds image.Creds, imageRef string) (image.Config, error)
+}
 
 //counterfeiter:generate -o fake -fake-name RepositoryCreator . RepositoryCreator
 
@@ -61,60 +67,36 @@ type RepositoryCreator interface {
 	CreateRepository(ctx context.Context, name string) error
 }
 
-//counterfeiter:generate -o fake -fake-name RegistryAuthFetcher . RegistryAuthFetcher
-
-type RegistryAuthFetcher func(ctx context.Context, namespace string) (remote.Option, error)
-
-func NewRegistryAuthFetcher(privilegedK8sClient k8sclient.Interface, serviceAccount string) RegistryAuthFetcher {
-	return func(ctx context.Context, namespace string) (remote.Option, error) {
-		keychain, err := k8schain.New(ctx, privilegedK8sClient, k8schain.Options{
-			Namespace:          namespace,
-			ServiceAccountName: serviceAccount,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("error in keychainFactory.KeychainForSecretRef: %w", err)
-		}
-
-		return remote.WithAuthFromKeychain(keychain), nil
-	}
-}
-
-//counterfeiter:generate -o fake -fake-name ImageProcessFetcher . ImageProcessFetcher
-type ImageProcessFetcher func(imageRef string, credsOption remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error)
-
 func NewBuildWorkloadReconciler(
 	c client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	config *config.ControllerConfig,
-	registryAuthFetcher RegistryAuthFetcher,
-	imageProcessFetcher ImageProcessFetcher,
+	imageConfigGetter ImageConfigGetter,
 	imageRepoPrefix string,
 	imageRepoCreator RepositoryCreator,
 ) *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload] {
 	buildWorkloadReconciler := BuildWorkloadReconciler{
-		k8sClient:           c,
-		scheme:              scheme,
-		log:                 log,
-		controllerConfig:    config,
-		registryAuthFetcher: registryAuthFetcher,
-		imageProcessFetcher: imageProcessFetcher,
-		imageRepoPrefix:     imageRepoPrefix,
-		imageRepoCreator:    imageRepoCreator,
+		k8sClient:         c,
+		scheme:            scheme,
+		log:               log,
+		controllerConfig:  config,
+		imageConfigGetter: imageConfigGetter,
+		imageRepoPrefix:   imageRepoPrefix,
+		imageRepoCreator:  imageRepoCreator,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload](log, c, &buildWorkloadReconciler)
 }
 
 // BuildWorkloadReconciler reconciles a BuildWorkload object
 type BuildWorkloadReconciler struct {
-	k8sClient           client.Client
-	scheme              *runtime.Scheme
-	log                 logr.Logger
-	controllerConfig    *config.ControllerConfig
-	registryAuthFetcher RegistryAuthFetcher
-	imageProcessFetcher ImageProcessFetcher
-	imageRepoPrefix     string
-	imageRepoCreator    RepositoryCreator
+	k8sClient         client.Client
+	scheme            *runtime.Scheme
+	log               logr.Logger
+	controllerConfig  *config.ControllerConfig
+	imageConfigGetter ImageConfigGetter
+	imageRepoPrefix   string
+	imageRepoCreator  RepositoryCreator
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;patch;delete
@@ -302,15 +284,28 @@ func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Contex
 func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*korifiv1alpha1.BuildDropletStatus, error) {
 	imageRef := kpackImage.Status.LatestImage
 
-	credentials, err := r.registryAuthFetcher(ctx, kpackImage.Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("error when fetching registry credentials for Droplet image: %w", err)
+	creds := image.Creds{
+		Namespace:          kpackImage.Namespace,
+		ServiceAccountName: r.controllerConfig.BuilderServiceAccount,
 	}
 
-	// Use the credentials to get the values of Ports and ProcessTypes
-	dropletProcessTypes, dropletPorts, err := r.imageProcessFetcher(imageRef, credentials)
+	config, err := r.imageConfigGetter.Config(ctx, creds, imageRef)
 	if err != nil {
-		return nil, fmt.Errorf("error when compiling droplet image details: %w", err)
+		return nil, fmt.Errorf("failed getting image config: %w", err)
+	}
+
+	var buildMd buildMetadata
+	err = json.Unmarshal([]byte(config.Labels[buildpackBuildMetadataLabel]), &buildMd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to umarshal build metadata: %w", err)
+	}
+
+	processTypes := []korifiv1alpha1.ProcessType{}
+	for _, process := range buildMd.Processes {
+		processTypes = append(processTypes, korifiv1alpha1.ProcessType{
+			Type:    process.Type,
+			Command: extractFullCommand(process),
+		})
 	}
 
 	return &korifiv1alpha1.BuildDropletStatus{
@@ -321,9 +316,27 @@ func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpa
 
 		Stack: kpackImage.Status.LatestStack,
 
-		ProcessTypes: dropletProcessTypes,
-		Ports:        dropletPorts,
+		ProcessTypes: processTypes,
+		Ports:        config.ExposedPorts,
 	}, nil
+}
+
+type buildMetadata struct {
+	Processes []process `json:"processes"`
+}
+
+type process struct {
+	Type    string   `json:"type"`
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
+}
+
+func extractFullCommand(process process) string {
+	cmdString := process.Command
+	for _, a := range process.Args {
+		cmdString = fmt.Sprintf(`%s %q`, cmdString, a)
+	}
+	return cmdString
 }
 
 func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

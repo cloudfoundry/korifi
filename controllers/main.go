@@ -39,7 +39,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/imageprocessfetcher"
 	statesetfulrunnerv1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
 	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -265,17 +264,12 @@ func main() {
 		}
 
 		if controllerConfig.IncludeKpackImageBuilder {
-			cfBuildImageProcessFetcher := &imageprocessfetcher.ImageProcessFetcher{
-				Log: ctrl.Log.WithName("controllers").WithName("CFBuildImageProcessFetcher"),
-			}
-
 			if err = controllers.NewBuildWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
 				ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
 				controllerConfig,
-				controllers.NewRegistryAuthFetcher(k8sClient, controllerConfig.BuilderServiceAccount),
-				cfBuildImageProcessFetcher.Fetch,
+				image.NewClient(k8sClient),
 				controllerConfig.ContainerRepositoryPrefix,
 				registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
 			).SetupWithManager(mgr); err != nil {
