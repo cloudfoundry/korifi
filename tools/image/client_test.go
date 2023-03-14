@@ -49,13 +49,11 @@ var _ = Describe("Client", func() {
 			Expect(testErr).NotTo(HaveOccurred())
 			Expect(imgRef).To(HavePrefix(pushRef))
 
-			labels, err := imgClient.Labels(ctx, creds, imgRef)
+			_, err := imgClient.Config(ctx, creds, imgRef)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(labels).To(BeEmpty())
 
-			labels, err = imgClient.Labels(ctx, creds, pushRef+":jim")
+			_, err = imgClient.Config(ctx, creds, pushRef+":jim")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(labels).To(BeEmpty())
 		})
 
 		When("pushRef is invalid", func() {
@@ -100,9 +98,8 @@ var _ = Describe("Client", func() {
 				Expect(testErr).NotTo(HaveOccurred())
 				Expect(imgRef).To(HavePrefix(pushRef))
 
-				labels, err := imgClient.Labels(ctx, creds, imgRef)
+				_, err := imgClient.Config(ctx, creds, imgRef)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(labels).To(BeEmpty())
 			})
 		})
 
@@ -118,26 +115,28 @@ var _ = Describe("Client", func() {
 
 				It("succeeds", func() {
 					Expect(testErr).NotTo(HaveOccurred())
+
 					Expect(imgRef).To(HavePrefix(pushRef))
 				})
 			})
 		})
 	})
 
-	Describe("Labels", func() {
-		var labels map[string]string
+	Describe("Config", func() {
+		var config image.Config
 
 		BeforeEach(func() {
 			pushRef += "/with/labels"
-			pushImgWithLabels(pushRef, map[string]string{"foo": "bar"})
+			pushImgWithLabelsAndPorts(pushRef, map[string]string{"foo": "bar"}, []string{"123", "456"})
 		})
 
 		JustBeforeEach(func() {
-			labels, testErr = imgClient.Labels(ctx, creds, pushRef)
+			config, testErr = imgClient.Config(ctx, creds, pushRef)
 		})
 
-		It("fetches the image labels", func() {
-			Expect(labels).To(Equal(map[string]string{"foo": "bar"}))
+		It("fetches the image config", func() {
+			Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
+			Expect(config.ExposedPorts).To(Equal([]int32{123, 456}))
 		})
 
 		When("the ref is invalid", func() {
@@ -167,14 +166,15 @@ var _ = Describe("Client", func() {
 			})
 
 			It("fetches the image labels", func() {
-				Expect(labels).To(Equal(map[string]string{"foo": "bar"}))
+				Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
+				Expect(config.ExposedPorts).To(Equal([]int32{123, 456}))
 			})
 		})
 
 		When("simulating ECR", func() {
 			BeforeEach(func() {
 				pushRef = strings.Replace(noAuthRegistryServer.URL+"/foo/bar/with/labels", "http://", "", 1)
-				pushImgWithLabels(pushRef, map[string]string{"foo": "bar"})
+				pushImgWithLabelsAndPorts(pushRef, map[string]string{"foo": "bar"}, []string{"123", "456"})
 			})
 
 			When("the secret name is empty", func() {
@@ -184,7 +184,8 @@ var _ = Describe("Client", func() {
 
 				It("succeeds", func() {
 					Expect(testErr).NotTo(HaveOccurred())
-					Expect(labels).To(Equal(map[string]string{"foo": "bar"}))
+					Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
+					Expect(config.ExposedPorts).To(Equal([]int32{123, 456}))
 				})
 			})
 		})
@@ -204,7 +205,7 @@ var _ = Describe("Client", func() {
 		It("deletes an image", func() {
 			Expect(testErr).NotTo(HaveOccurred())
 
-			_, err := imgClient.Labels(ctx, creds, imgRef)
+			_, err := imgClient.Config(ctx, creds, imgRef)
 			Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 		})
 
@@ -227,7 +228,7 @@ var _ = Describe("Client", func() {
 			It("deletes an image", func() {
 				Expect(testErr).NotTo(HaveOccurred())
 
-				_, err := imgClient.Labels(ctx, creds, imgRef)
+				_, err := imgClient.Config(ctx, creds, imgRef)
 				Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 			})
 		})
@@ -251,7 +252,7 @@ var _ = Describe("Client", func() {
 				It("succeeds", func() {
 					Expect(testErr).NotTo(HaveOccurred())
 
-					_, err := imgClient.Labels(ctx, creds, imgRef)
+					_, err := imgClient.Config(ctx, creds, imgRef)
 					Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 				})
 			})
@@ -282,17 +283,23 @@ var _ = Describe("Client", func() {
 			It("deletes an image", func() {
 				Expect(testErr).NotTo(HaveOccurred())
 
-				_, err := imgClient.Labels(ctx, creds, imgRef)
+				_, err := imgClient.Config(ctx, creds, imgRef)
 				Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 			})
 		})
 	}
 })
 
-func pushImgWithLabels(repoRef string, labels map[string]string) {
+func pushImgWithLabelsAndPorts(repoRef string, labels map[string]string, ports []string) {
+	portsMap := map[string]struct{}{}
+	for _, port := range ports {
+		portsMap[port] = struct{}{}
+	}
+
 	image, err := mutate.ConfigFile(empty.Image, &v1.ConfigFile{
 		Config: v1.Config{
-			Labels: labels,
+			Labels:       labels,
+			ExposedPorts: portsMap,
 		},
 	})
 	Expect(err).NotTo(HaveOccurred())

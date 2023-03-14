@@ -7,6 +7,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
@@ -90,6 +91,18 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		reconcilerName = kpackReconcilerName
 		buildpacks = nil
+
+		fakeImageConfigGetter.ConfigReturns(image.Config{
+			Labels: map[string]string{
+				"io.buildpacks.build.metadata": `{
+					"processes": [
+						{"type": "web", "command": "my-command", "args": ["foo", "bar"]},
+						{"type": "db", "command": "my-command2"}
+					]
+				}`,
+			},
+			ExposedPorts: []int32{8080, 8443},
+		}, nil)
 	})
 
 	AfterEach(func() {
@@ -231,10 +244,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					image := buildKpackImageObject(cfBuildGUID, namespaceGUID, source, env, services)
 					Expect(k8sClient.Create(context.Background(), image)).To(Succeed())
 
-					returnedProcessTypes := []korifiv1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
-					returnedPorts := []int32{8080, 8443}
-					fakeImageProcessFetcher.Returns(returnedProcessTypes, returnedPorts, nil)
-
 					kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 					createdKpackImage := new(buildv1alpha2.Image)
 					Eventually(func() error {
@@ -271,7 +280,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, updatedBuildWorkload)
 						g.Expect(err).NotTo(HaveOccurred())
 						g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
-						g.Expect(fakeImageProcessFetcher.CallCount()).To(BeZero())
 					}).Should(Succeed())
 				})
 			})
@@ -332,21 +340,15 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		})
 
 		When("the image build succeeded", func() {
+			var configCallCount int
+
 			const (
 				kpackBuildImageRef    = "some-org/my-image@sha256:some-sha"
 				kpackImageLatestStack = "cflinuxfs3"
 			)
 
-			var (
-				returnedProcessTypes []korifiv1alpha1.ProcessType
-				returnedPorts        []int32
-			)
-
 			BeforeEach(func() {
-				// Fill out fake ImageProcessFetcher
-				returnedProcessTypes = []korifiv1alpha1.ProcessType{{Type: "web", Command: "my-command"}, {Type: "db", Command: "my-command2"}}
-				returnedPorts = []int32{8080, 8443}
-				fakeImageProcessFetcher.Returns(returnedProcessTypes, returnedPorts, nil)
+				configCallCount = fakeImageConfigGetter.ConfigCallCount()
 
 				Expect(k8s.Patch(context.Background(), k8sClient, createdKpackImage, func() {
 					setKpackImageStatus(createdKpackImage, "Ready", metav1.ConditionTrue)
@@ -373,12 +375,21 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(err).NotTo(HaveOccurred())
 					return updatedBuildWorkload.Status.Droplet
 				}).ShouldNot(BeNil())
-				Expect(fakeImageProcessFetcher.CallCount()).To(BeNumerically(">=", 1))
-				Expect(updatedBuildWorkload.Status.Droplet.Registry.Image).To(Equal(kpackBuildImageRef), "droplet registry image does not match kpack image latestImage")
-				Expect(updatedBuildWorkload.Status.Droplet.Stack).To(Equal(kpackImageLatestStack), "droplet stack does not match kpack image latestStack")
+
+				Expect(fakeImageConfigGetter.ConfigCallCount()).To(Equal(configCallCount + 1))
+				_, creds, ref := fakeImageConfigGetter.ConfigArgsForCall(configCallCount)
+				Expect(creds.Namespace).To(Equal(namespaceGUID))
+				Expect(creds.ServiceAccountName).To(Equal("builder-service-account"))
+				Expect(ref).To(Equal(kpackBuildImageRef))
+
+				Expect(updatedBuildWorkload.Status.Droplet.Registry.Image).To(Equal(kpackBuildImageRef))
+				Expect(updatedBuildWorkload.Status.Droplet.Stack).To(Equal(kpackImageLatestStack))
 				Expect(updatedBuildWorkload.Status.Droplet.Registry.ImagePullSecrets).To(Equal(source.Registry.ImagePullSecrets))
-				Expect(updatedBuildWorkload.Status.Droplet.ProcessTypes).To(Equal(returnedProcessTypes))
-				Expect(updatedBuildWorkload.Status.Droplet.Ports).To(Equal(returnedPorts))
+				Expect(updatedBuildWorkload.Status.Droplet.ProcessTypes).To(Equal([]korifiv1alpha1.ProcessType{
+					{Type: "web", Command: `my-command "foo" "bar"`},
+					{Type: "db", Command: "my-command2"},
+				}))
+				Expect(updatedBuildWorkload.Status.Droplet.Ports).To(Equal([]int32{8080, 8443}))
 			})
 		})
 	})
