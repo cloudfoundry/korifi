@@ -192,11 +192,13 @@ func main() {
 		cfg.RoleMappings,
 		namespaceRetriever,
 	)
-	imageClient := image.NewClient(privilegedK8sClient, cfg.RootNamespace, cfg.PackageRegistrySecretName)
+	imageClient := image.NewClient(privilegedK8sClient)
 	imageRepo := repositories.NewImageRepository(
 		privilegedK8sClient,
 		userClientFactory,
 		imageClient,
+		cfg.PackageRegistrySecretName,
+		cfg.RootNamespace,
 	)
 	taskRepo := repositories.NewTaskRepo(
 		userClientFactory,

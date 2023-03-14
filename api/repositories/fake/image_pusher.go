@@ -7,16 +7,18 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools/image"
 )
 
 type ImagePusher struct {
-	PushStub        func(context.Context, string, io.Reader, ...string) (string, error)
+	PushStub        func(context.Context, image.Creds, string, io.Reader, ...string) (string, error)
 	pushMutex       sync.RWMutex
 	pushArgsForCall []struct {
 		arg1 context.Context
-		arg2 string
-		arg3 io.Reader
-		arg4 []string
+		arg2 image.Creds
+		arg3 string
+		arg4 io.Reader
+		arg5 []string
 	}
 	pushReturns struct {
 		result1 string
@@ -30,21 +32,22 @@ type ImagePusher struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ImagePusher) Push(arg1 context.Context, arg2 string, arg3 io.Reader, arg4 ...string) (string, error) {
+func (fake *ImagePusher) Push(arg1 context.Context, arg2 image.Creds, arg3 string, arg4 io.Reader, arg5 ...string) (string, error) {
 	fake.pushMutex.Lock()
 	ret, specificReturn := fake.pushReturnsOnCall[len(fake.pushArgsForCall)]
 	fake.pushArgsForCall = append(fake.pushArgsForCall, struct {
 		arg1 context.Context
-		arg2 string
-		arg3 io.Reader
-		arg4 []string
-	}{arg1, arg2, arg3, arg4})
+		arg2 image.Creds
+		arg3 string
+		arg4 io.Reader
+		arg5 []string
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.PushStub
 	fakeReturns := fake.pushReturns
-	fake.recordInvocation("Push", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("Push", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.pushMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4...)
+		return stub(arg1, arg2, arg3, arg4, arg5...)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -58,17 +61,17 @@ func (fake *ImagePusher) PushCallCount() int {
 	return len(fake.pushArgsForCall)
 }
 
-func (fake *ImagePusher) PushCalls(stub func(context.Context, string, io.Reader, ...string) (string, error)) {
+func (fake *ImagePusher) PushCalls(stub func(context.Context, image.Creds, string, io.Reader, ...string) (string, error)) {
 	fake.pushMutex.Lock()
 	defer fake.pushMutex.Unlock()
 	fake.PushStub = stub
 }
 
-func (fake *ImagePusher) PushArgsForCall(i int) (context.Context, string, io.Reader, []string) {
+func (fake *ImagePusher) PushArgsForCall(i int) (context.Context, image.Creds, string, io.Reader, []string) {
 	fake.pushMutex.RLock()
 	defer fake.pushMutex.RUnlock()
 	argsForCall := fake.pushArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *ImagePusher) PushReturns(result1 string, result2 error) {

@@ -160,8 +160,9 @@ func main() {
 
 		if err = (workloadscontrollers.NewCFPackageReconciler(
 			mgr.GetClient(),
-			image.NewClient(k8sClient, controllerConfig.CFRootNamespace, controllerConfig.ContainerRegistrySecretName),
+			image.NewClient(k8sClient),
 			mgr.GetScheme(),
+			controllerConfig.ContainerRegistrySecretName,
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFPackage")

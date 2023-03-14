@@ -20,6 +20,7 @@ import (
 	"context"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,28 +37,31 @@ const cfPackageFinalizer string = "korifi.cloudfoundry.org/cfPackageController"
 //counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter
 
 type ImageDeleter interface {
-	Delete(ctx context.Context, imageRef string) error
+	Delete(ctx context.Context, creds image.Creds, imageRef string) error
 }
 
 // CFPackageReconciler reconciles a CFPackage object
 type CFPackageReconciler struct {
-	k8sClient    client.Client
-	imageDeleter ImageDeleter
-	scheme       *runtime.Scheme
-	log          logr.Logger
+	k8sClient             client.Client
+	imageDeleter          ImageDeleter
+	scheme                *runtime.Scheme
+	packageRepoSecretName string
+	log                   logr.Logger
 }
 
 func NewCFPackageReconciler(
 	client client.Client,
 	imageDeleter ImageDeleter,
 	scheme *runtime.Scheme,
+	packageRepoSecretName string,
 	log logr.Logger,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage] {
 	pkgReconciler := CFPackageReconciler{
-		k8sClient:    client,
-		imageDeleter: imageDeleter,
-		scheme:       scheme,
-		log:          log,
+		k8sClient:             client,
+		imageDeleter:          imageDeleter,
+		scheme:                scheme,
+		packageRepoSecretName: packageRepoSecretName,
+		log:                   log,
 	}
 
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage](log, client, &pkgReconciler)
@@ -104,7 +108,10 @@ func (r *CFPackageReconciler) finalize(ctx context.Context, log logr.Logger, cfP
 	}
 
 	if cfPackage.Spec.Source.Registry.Image != "" {
-		if err := r.imageDeleter.Delete(ctx, cfPackage.Spec.Source.Registry.Image); err != nil {
+		if err := r.imageDeleter.Delete(ctx, image.Creds{
+			Namespace:  cfPackage.Namespace,
+			SecretName: r.packageRepoSecretName,
+		}, cfPackage.Spec.Source.Registry.Image); err != nil {
 			log.Info("failed to delete image", "reason", err)
 		}
 	}

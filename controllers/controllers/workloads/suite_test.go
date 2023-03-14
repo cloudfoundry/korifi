@@ -145,6 +145,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		imageDeleter,
 		k8sManager.GetScheme(),
+		"package-repo-secret-name",
 		ctrl.Log.WithName("controllers").WithName("CFPackage"),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

@@ -6,14 +6,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/tools/image"
 )
 
 type ImageDeleter struct {
-	DeleteStub        func(context.Context, string) error
+	DeleteStub        func(context.Context, image.Creds, string) error
 	deleteMutex       sync.RWMutex
 	deleteArgsForCall []struct {
 		arg1 context.Context
-		arg2 string
+		arg2 image.Creds
+		arg3 string
 	}
 	deleteReturns struct {
 		result1 error
@@ -25,19 +27,20 @@ type ImageDeleter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ImageDeleter) Delete(arg1 context.Context, arg2 string) error {
+func (fake *ImageDeleter) Delete(arg1 context.Context, arg2 image.Creds, arg3 string) error {
 	fake.deleteMutex.Lock()
 	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
 	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
 		arg1 context.Context
-		arg2 string
-	}{arg1, arg2})
+		arg2 image.Creds
+		arg3 string
+	}{arg1, arg2, arg3})
 	stub := fake.DeleteStub
 	fakeReturns := fake.deleteReturns
-	fake.recordInvocation("Delete", []interface{}{arg1, arg2})
+	fake.recordInvocation("Delete", []interface{}{arg1, arg2, arg3})
 	fake.deleteMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
@@ -51,17 +54,17 @@ func (fake *ImageDeleter) DeleteCallCount() int {
 	return len(fake.deleteArgsForCall)
 }
 
-func (fake *ImageDeleter) DeleteCalls(stub func(context.Context, string) error) {
+func (fake *ImageDeleter) DeleteCalls(stub func(context.Context, image.Creds, string) error) {
 	fake.deleteMutex.Lock()
 	defer fake.deleteMutex.Unlock()
 	fake.DeleteStub = stub
 }
 
-func (fake *ImageDeleter) DeleteArgsForCall(i int) (context.Context, string) {
+func (fake *ImageDeleter) DeleteArgsForCall(i int) (context.Context, image.Creds, string) {
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
 	argsForCall := fake.deleteArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *ImageDeleter) DeleteReturns(result1 error) {
