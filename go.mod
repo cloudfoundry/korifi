@@ -28,7 +28,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1
 	github.com/mileusna/useragent v1.2.1
 	github.com/onsi/ginkgo/v2 v2.9.1
-	github.com/onsi/gomega v1.27.3
+	github.com/onsi/gomega v1.27.4
 	github.com/pivotal/kpack v0.10.1
 	github.com/projectcontour/contour v1.24.1
 	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
