@@ -90,7 +90,9 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 				g.Expect(imageDeleter.DeleteCallCount()).To(Equal(deleteCount + 1))
 			}).Should(Succeed())
 
-			_, ref := imageDeleter.DeleteArgsForCall(deleteCount)
+			_, creds, ref := imageDeleter.DeleteArgsForCall(deleteCount)
+			Expect(creds.Namespace).To(Equal(cfSpace.Status.GUID))
+			Expect(creds.SecretName).To(Equal("package-repo-secret-name"))
 			Expect(ref).To(Equal(imageRef))
 
 			Eventually(func(g Gomega) {

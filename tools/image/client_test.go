@@ -22,6 +22,7 @@ var _ = Describe("Client", func() {
 		testErr error
 		pushRef string
 		imgRef  string
+		creds   image.Creds
 	)
 
 	BeforeEach(func() {
@@ -32,23 +33,27 @@ var _ = Describe("Client", func() {
 
 		pushRef = strings.Replace(authRegistryServer.URL+"/foo/bar", "http://", "", 1)
 
-		imgClient = image.NewClient(k8sClientset, "default", secretName)
+		imgClient = image.NewClient(k8sClientset)
+		creds = image.Creds{
+			Namespace:  "default",
+			SecretName: secretName,
+		}
 	})
 
 	Describe("Push", func() {
 		JustBeforeEach(func() {
-			imgRef, testErr = imgClient.Push(ctx, pushRef, zipFile, "jim")
+			imgRef, testErr = imgClient.Push(ctx, creds, pushRef, zipFile, "jim")
 		})
 
 		It("pushes a zip archive as an image to the registry", func() {
 			Expect(testErr).NotTo(HaveOccurred())
 			Expect(imgRef).To(HavePrefix(pushRef))
 
-			labels, err := imgClient.Labels(ctx, imgRef)
+			labels, err := imgClient.Labels(ctx, creds, imgRef)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(labels).To(BeEmpty())
 
-			labels, err = imgClient.Labels(ctx, pushRef+":jim")
+			labels, err = imgClient.Labels(ctx, creds, pushRef+":jim")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(labels).To(BeEmpty())
 		})
@@ -77,11 +82,27 @@ var _ = Describe("Client", func() {
 
 		When("the secret doesn't exist", func() {
 			BeforeEach(func() {
-				imgClient = image.NewClient(k8sClientset, "default", "another-secret-name")
+				creds.SecretName = "not-a-secret"
 			})
 
 			It("fails to authenticate", func() {
 				Expect(testErr).To(MatchError(ContainSubstring("Unauthorized")))
+			})
+		})
+
+		When("using a service account for secrets", func() {
+			BeforeEach(func() {
+				creds.SecretName = ""
+				creds.ServiceAccountName = serviceAccountName
+			})
+
+			It("pushes a zip archive as an image to the registry", func() {
+				Expect(testErr).NotTo(HaveOccurred())
+				Expect(imgRef).To(HavePrefix(pushRef))
+
+				labels, err := imgClient.Labels(ctx, creds, imgRef)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(labels).To(BeEmpty())
 			})
 		})
 
@@ -92,7 +113,7 @@ var _ = Describe("Client", func() {
 
 			When("the secret name is empty", func() {
 				BeforeEach(func() {
-					imgClient = image.NewClient(k8sClientset, "default", "")
+					imgClient = image.NewClient(k8sClientset)
 				})
 
 				It("succeeds", func() {
@@ -112,7 +133,7 @@ var _ = Describe("Client", func() {
 		})
 
 		JustBeforeEach(func() {
-			labels, testErr = imgClient.Labels(ctx, pushRef)
+			labels, testErr = imgClient.Labels(ctx, creds, pushRef)
 		})
 
 		It("fetches the image labels", func() {
@@ -131,11 +152,22 @@ var _ = Describe("Client", func() {
 
 		When("the secret doesn't exist", func() {
 			BeforeEach(func() {
-				imgClient = image.NewClient(k8sClientset, "default", "another-secret-name")
+				creds.SecretName = "not-a-secret"
 			})
 
 			It("fails to authenticate", func() {
 				Expect(testErr).To(MatchError(ContainSubstring("UNAUTHORIZED")))
+			})
+		})
+
+		When("using a service account for secrets", func() {
+			BeforeEach(func() {
+				creds.SecretName = ""
+				creds.ServiceAccountName = serviceAccountName
+			})
+
+			It("fetches the image labels", func() {
+				Expect(labels).To(Equal(map[string]string{"foo": "bar"}))
 			})
 		})
 
@@ -147,7 +179,7 @@ var _ = Describe("Client", func() {
 
 			When("the secret name is empty", func() {
 				BeforeEach(func() {
-					imgClient = image.NewClient(k8sClientset, "default", "")
+					imgClient = image.NewClient(k8sClientset)
 				})
 
 				It("succeeds", func() {
@@ -161,28 +193,42 @@ var _ = Describe("Client", func() {
 	Describe("Delete", func() {
 		BeforeEach(func() {
 			var err error
-			imgRef, err = imgClient.Push(ctx, pushRef, zipFile, "jim", "bob")
+			imgRef, err = imgClient.Push(ctx, creds, pushRef, zipFile, "jim", "bob")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
-			testErr = imgClient.Delete(ctx, imgRef)
+			testErr = imgClient.Delete(ctx, creds, imgRef)
 		})
 
 		It("deletes an image", func() {
 			Expect(testErr).NotTo(HaveOccurred())
 
-			_, err := imgClient.Labels(ctx, imgRef)
+			_, err := imgClient.Labels(ctx, creds, imgRef)
 			Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 		})
 
 		When("the secret doesn't exist", func() {
 			BeforeEach(func() {
-				imgClient = image.NewClient(k8sClientset, "default", "another-secret-name")
+				creds.SecretName = "not-a-secret"
 			})
 
 			It("fails to authenticate", func() {
 				Expect(testErr).To(MatchError(ContainSubstring("UNAUTHORIZED")))
+			})
+		})
+
+		When("using a service account for secrets", func() {
+			BeforeEach(func() {
+				creds.SecretName = ""
+				creds.ServiceAccountName = serviceAccountName
+			})
+
+			It("deletes an image", func() {
+				Expect(testErr).NotTo(HaveOccurred())
+
+				_, err := imgClient.Labels(ctx, creds, imgRef)
+				Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 			})
 		})
 
@@ -192,19 +238,20 @@ var _ = Describe("Client", func() {
 				_, err := zipFile.Seek(0, 0)
 				Expect(err).NotTo(HaveOccurred())
 
-				imgRef, err = imgClient.Push(ctx, pushRef, zipFile)
+				creds.SecretName = ""
+				imgRef, err = imgClient.Push(ctx, creds, pushRef, zipFile)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			When("the secret name is empty", func() {
 				BeforeEach(func() {
-					imgClient = image.NewClient(k8sClientset, "default", "")
+					imgClient = image.NewClient(k8sClientset)
 				})
 
 				It("succeeds", func() {
 					Expect(testErr).NotTo(HaveOccurred())
 
-					_, err := imgClient.Labels(ctx, imgRef)
+					_, err := imgClient.Labels(ctx, creds, imgRef)
 					Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 				})
 			})
@@ -224,18 +271,18 @@ var _ = Describe("Client", func() {
 				}
 				var err error
 
-				imgRef, err = imgClient.Push(ctx, pushRef, zipFile, "jim", "bob")
+				imgRef, err = imgClient.Push(ctx, creds, pushRef, zipFile, "jim", "bob")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			JustBeforeEach(func() {
-				testErr = imgClient.Delete(ctx, imgRef)
+				testErr = imgClient.Delete(ctx, creds, imgRef)
 			})
 
 			It("deletes an image", func() {
 				Expect(testErr).NotTo(HaveOccurred())
 
-				_, err := imgClient.Labels(ctx, imgRef)
+				_, err := imgClient.Labels(ctx, creds, imgRef)
 				Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 			})
 		})

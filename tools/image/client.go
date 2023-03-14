@@ -22,22 +22,26 @@ import (
 )
 
 type Client struct {
-	k8sClient  kubernetes.Interface
-	namespace  string
-	secretName string
-	logger     logr.Logger
+	k8sClient kubernetes.Interface
+	logger    logr.Logger
 }
 
-func NewClient(k8sClient kubernetes.Interface, namespace, secretName string) Client {
+type Creds struct {
+	Namespace string
+	// At most one of SecretName and ServiceAccountName should be set.
+	// If both unset, the fallback auth approach will be used.
+	SecretName         string
+	ServiceAccountName string
+}
+
+func NewClient(k8sClient kubernetes.Interface) Client {
 	return Client{
-		k8sClient:  k8sClient,
-		namespace:  namespace,
-		secretName: secretName,
-		logger:     ctrl.Log.WithName("image.client"),
+		k8sClient: k8sClient,
+		logger:    ctrl.Log.WithName("image.client"),
 	}
 }
 
-func (c Client) Push(ctx context.Context, repoRef string, zipReader io.Reader, tags ...string) (string, error) {
+func (c Client) Push(ctx context.Context, creds Creds, repoRef string, zipReader io.Reader, tags ...string) (string, error) {
 	tmpFile, err := os.CreateTemp(os.TempDir(), "sourceimg-%s")
 	if err != nil {
 		return "", fmt.Errorf("failed to create a temp file for image: %w", err)
@@ -65,7 +69,7 @@ func (c Client) Push(ctx context.Context, repoRef string, zipReader io.Reader, t
 		return "", fmt.Errorf("error parsing repository reference %s: %w", repoRef, err)
 	}
 
-	authOpt, err := c.authOpt(ctx)
+	authOpt, err := c.authOpt(ctx, creds)
 	if err != nil {
 		return "", fmt.Errorf("error creating keychain: %w", err)
 	}
@@ -94,13 +98,13 @@ func (c Client) Push(ctx context.Context, repoRef string, zipReader io.Reader, t
 	return refWithDigest.Name(), nil
 }
 
-func (c Client) Labels(ctx context.Context, imageRef string) (map[string]string, error) {
+func (c Client) Labels(ctx context.Context, creds Creds, imageRef string) (map[string]string, error) {
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing repository reference %s: %w", imageRef, err)
 	}
 
-	authOpt, err := c.authOpt(ctx)
+	authOpt, err := c.authOpt(ctx, creds)
 	if err != nil {
 		return nil, fmt.Errorf("error creating keychain: %w", err)
 	}
@@ -118,14 +122,14 @@ func (c Client) Labels(ctx context.Context, imageRef string) (map[string]string,
 	return cfgFile.Config.Labels, nil
 }
 
-func (c Client) Delete(ctx context.Context, imageRef string) error {
+func (c Client) Delete(ctx context.Context, creds Creds, imageRef string) error {
 	c.logger.V(1).Info("deleting", "ref", imageRef)
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return err
 	}
 
-	authOpt, err := c.authOpt(ctx)
+	authOpt, err := c.authOpt(ctx, creds)
 	if err != nil {
 		return fmt.Errorf("error creating keychain: %w", err)
 	}
@@ -168,17 +172,22 @@ func (c Client) Delete(ctx context.Context, imageRef string) error {
 	return err
 }
 
-func (c Client) authOpt(ctx context.Context) (remote.Option, error) {
+func (c Client) authOpt(ctx context.Context, creds Creds) (remote.Option, error) {
 	var keychain authn.Keychain
 	var err error
 
-	if c.secretName == "" {
-		keychain, err = k8schain.NewNoClient(ctx)
-	} else {
+	if creds.SecretName != "" {
 		keychain, err = k8schain.New(ctx, c.k8sClient, k8schain.Options{
-			Namespace:        c.namespace,
-			ImagePullSecrets: []string{c.secretName},
+			Namespace:        creds.Namespace,
+			ImagePullSecrets: []string{creds.SecretName},
 		})
+	} else if creds.ServiceAccountName != "" {
+		keychain, err = k8schain.New(ctx, c.k8sClient, k8schain.Options{
+			Namespace:          creds.Namespace,
+			ServiceAccountName: creds.ServiceAccountName,
+		})
+	} else {
+		keychain, err = k8schain.NewNoClient(ctx)
 	}
 	if err != nil {
 		return nil, err
