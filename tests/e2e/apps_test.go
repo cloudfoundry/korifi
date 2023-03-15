@@ -591,11 +591,15 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Bind an app", func() {
+	Describe("Binding services to an app", func() {
 		var (
-			bindingGUID string
-			result      map[string]interface{}
-			httpError   error
+			bindingGUID               string
+			namedBindingGUID          string
+			serviceInstanceGUID       string
+			secondServiceInstanceGUID string
+			bindingName               string
+			result                    map[string]interface{}
+			httpError                 error
 		)
 
 		BeforeEach(func() {
@@ -604,49 +608,64 @@ var _ = Describe("Apps", func() {
 				"foo": "bar",
 				"baz": "qux",
 			}
-			serviceInstanceGUID := createServiceInstance(space1GUID, generateGUID("service-instance"), credentials)
-			bindingGUID = createServiceBinding(appGUID, serviceInstanceGUID)
+			serviceInstanceGUID = createServiceInstance(space1GUID, generateGUID("service-instance"), credentials)
+			bindingGUID = createServiceBinding(appGUID, serviceInstanceGUID, "")
+
+			moreCredentials := map[string]string{
+				"hello":  "there",
+				"secret": "stuff",
+			}
+			secondServiceInstanceGUID = createServiceInstance(space1GUID, generateGUID("service-instance"), moreCredentials)
+			bindingName = "custom-named-binding"
+			namedBindingGUID = createServiceBinding(appGUID, secondServiceInstanceGUID, bindingName)
 			createSpaceRole("space_developer", certUserName, space1GUID)
 			_, httpError = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
 			Expect(httpError).NotTo(HaveOccurred())
 		})
 
-		It("sets the SERVICE_BINDING_ROOT env variable", func() {
-			body := curlApp(appGUID, "/servicebindingroot")
+		It("sets the $SERVICE_BINDING_ROOT env variable", func() {
+			body := string(curlApp(appGUID, "/servicebindingroot"))
 			Expect(body).To(ContainSubstring("/bindings"))
 		})
 
-		It("mounts the credentials into the container", func() {
+		It("mounts the credentials as files into the container", func() {
 			body := curlApp(appGUID, "/servicebindings")
 
 			data := map[string]interface{}{}
 			Expect(json.Unmarshal(body, &data)).To(Succeed())
-			Expect(data).To(HaveLen(1))
-			for _, v := range data {
-				Expect(v).To(HaveKeyWithValue("foo", "bar"))
-				Expect(v).To(HaveKeyWithValue("baz", "qux"))
-			}
+			Expect(data).To(HaveLen(2))
+
+			Expect(data[serviceInstanceGUID]).To(HaveKeyWithValue("foo", "bar"), string(body))
+			Expect(data[serviceInstanceGUID]).To(HaveKeyWithValue("baz", "qux"), string(body))
+			Expect(data[bindingName]).To(HaveKeyWithValue("hello", "there"), string(body))
+			Expect(data[bindingName]).To(HaveKeyWithValue("secret", "stuff"), string(body))
 		})
 
-		When("the binding is deleted and app is restarted", func() {
+		When("the bindings are deleted and the app is restarted", func() {
 			BeforeEach(func() {
 				_, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
+				Expect(httpError).NotTo(HaveOccurred())
+				_, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + namedBindingGUID)
 				Expect(httpError).NotTo(HaveOccurred())
 				_, httpError = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
 				Expect(httpError).NotTo(HaveOccurred())
 			})
 
-			It("should unset the SERVICE_BINDING_ROOT env variable", func() {
-				body := curlApp(appGUID, "/servicebindingroot")
-				Expect(body).To(BeEmpty())
+			It("should unset the $SERVICE_BINDING_ROOT env variable", func() {
+				Eventually(func(g Gomega) {
+					body := string(curlApp(appGUID, "/servicebindingroot"))
+					g.Expect(body).To(ContainSubstring("$SERVICE_BINDING_ROOT is empty"))
+				}).Should(Succeed())
 			})
 
 			It("unmounts the credentials from the container", func() {
-				body := curlApp(appGUID, "/servicebindings")
+				Eventually(func(g Gomega) {
+					body := curlApp(appGUID, "/servicebindings")
 
-				data := map[string]interface{}{}
-				Expect(json.Unmarshal(body, &data)).To(Succeed())
-				Expect(data).To(BeEmpty())
+					data := map[string]interface{}{}
+					g.Expect(json.Unmarshal(body, &data)).To(Succeed())
+					g.Expect(data).To(BeEmpty())
+				}).Should(Succeed())
 			})
 		})
 	})
@@ -669,10 +688,10 @@ var _ = Describe("Apps", func() {
 			})
 			instanceName = generateGUID("service-instance")
 			instanceGUID = createServiceInstance(space1GUID, instanceName, nil)
-			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 			instanceName2 = generateGUID("service-instance")
 			instanceGUID2 = createServiceInstance(space1GUID, instanceName2, nil)
-			bindingGUID2 = createServiceBinding(appGUID, instanceGUID2)
+			bindingGUID2 = createServiceBinding(appGUID, instanceGUID2, "")
 		})
 
 		JustBeforeEach(func() {

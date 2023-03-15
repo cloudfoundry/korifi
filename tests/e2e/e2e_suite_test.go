@@ -649,22 +649,24 @@ func listServiceInstances(names ...string) resourceList[serviceInstanceResource]
 	return serviceInstances
 }
 
-func createServiceBinding(appGUID, instanceGUID string) string {
-	var pkg resource
+func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
+	var serviceCredentialBinding resource
+
 	resp, err := adminClient.R().
 		SetBody(typedResource{
 			Type: "app",
 			resource: resource{
+				Name:          bindingName,
 				Relationships: relationships{"app": {Data: resource{GUID: appGUID}}, "service_instance": {Data: resource{GUID: instanceGUID}}},
 			},
 		}).
-		SetResult(&pkg).
+		SetResult(&serviceCredentialBinding).
 		Post("/v3/service_credential_bindings")
 
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusCreated))
+	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusCreated), string(resp.Body()))
 
-	return pkg.GUID
+	return serviceCredentialBinding.GUID
 }
 
 func createPackage(appGUID string) string {

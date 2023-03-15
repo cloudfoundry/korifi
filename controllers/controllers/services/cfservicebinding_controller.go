@@ -185,8 +185,14 @@ func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.S
 			UID:        cfServiceBinding.UID,
 		},
 	}
+
+	bindingName := secret.Name
+	if cfServiceBinding.Spec.DisplayName != nil {
+		bindingName = *cfServiceBinding.Spec.DisplayName
+	}
+
 	desiredServiceBinding.Spec = servicebindingv1beta1.ServiceBindingSpec{
-		Name: secret.Name,
+		Name: bindingName,
 		Type: "user-provided",
 		Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
 			APIVersion: "apps/v1",
