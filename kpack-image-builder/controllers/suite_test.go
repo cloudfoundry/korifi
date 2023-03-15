@@ -50,11 +50,13 @@ const (
 )
 
 var (
+	ctx                     context.Context
 	cancel                  context.CancelFunc
 	cfg                     *rest.Config
 	k8sClient               client.Client
 	testEnv                 *envtest.Environment
 	fakeImageConfigGetter   *fake.ImageConfigGetter
+	fakeImageDeleter        *fake.ImageDeleter
 	buildWorkloadReconciler *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload]
 	rootNamespace           *v1.Namespace
 	imageRepoCreator        *fake.RepositoryCreator
@@ -74,8 +76,7 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	ctx, cancelFunc := context.WithCancel(context.TODO())
-	cancel = cancelFunc
+	ctx, cancel = context.WithCancel(context.Background())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -126,7 +127,7 @@ var _ = BeforeSuite(func() {
 		"my.repository/my-prefix/",
 		imageRepoCreator,
 	)
-	err = (buildWorkloadReconciler).SetupWithManager(k8sManager)
+	err = buildWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(
@@ -138,6 +139,16 @@ var _ = BeforeSuite(func() {
 			controllerConfig.CFRootNamespace,
 		).SetupWithManager(k8sManager),
 	).To(Succeed())
+
+	fakeImageDeleter = new(fake.ImageDeleter)
+	kpackBuildReconciler := controllers.NewKpackBuildController(
+		k8sManager.GetClient(),
+		ctrl.Log.WithName("kpack-image-builder").WithName("KpackBuild"),
+		fakeImageDeleter,
+		"builder-service-account",
+	)
+	err = kpackBuildReconciler.SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 
