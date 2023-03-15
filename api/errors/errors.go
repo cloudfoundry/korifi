@@ -314,6 +314,22 @@ func NewResourceNotReadyError(cause error) ResourceNotReadyError {
 	}
 }
 
+type MissingRoleError struct {
+	apiError
+}
+
+func NewMissingRoleError(cause error) MissingRoleError {
+	return MissingRoleError{
+		apiError: apiError{
+			cause:      cause,
+			title:      "CF-MissingRole",
+			detail:     cause.Error(),
+			code:       420000,
+			httpStatus: http.StatusForbidden,
+		},
+	}
+}
+
 func FromK8sError(err error, resourceType string) error {
 	if webhookValidationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
 		return NewUnprocessableEntityError(err, webhookValidationError.GetMessage())

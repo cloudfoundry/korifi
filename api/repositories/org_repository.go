@@ -78,6 +78,14 @@ func NewOrgRepo(
 }
 
 func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, message CreateOrgMessage) (OrgRecord, error) {
+	canCreate, err := r.nsPerms.AuthorizedCreateOrg(ctx, info)
+	if err != nil {
+		return OrgRecord{}, err
+	}
+	if !canCreate {
+		return OrgRecord{}, apierrors.NewMissingRoleError(errors.New("No provided roles allow creation of Orgs"))
+	}
+
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
