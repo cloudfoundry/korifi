@@ -31,7 +31,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 	var (
 		namespaceGUID  string
 		cfBuildGUID    string
-		namespace      *corev1.Namespace
 		buildWorkload  *korifiv1alpha1.BuildWorkload
 		source         korifiv1alpha1.PackageSource
 		env            []corev1.EnvVar
@@ -54,8 +53,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		beforeCtx := context.Background()
 
 		namespaceGUID = PrefixedGUID("namespace")
-		namespace = buildNamespaceObject(namespaceGUID)
-		Expect(k8sClient.Create(beforeCtx, namespace)).To(Succeed())
+		Expect(k8sClient.Create(beforeCtx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespaceGUID,
+			},
+		})).To(Succeed())
 
 		dockerRegistrySecret := buildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, namespaceGUID)
 		Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
@@ -103,10 +105,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			},
 			ExposedPorts: []int32{8080, 8443},
 		}, nil)
-	})
-
-	AfterEach(func() {
-		Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
 	})
 
 	When("BuildWorkload is first created", func() {
@@ -400,14 +398,6 @@ func setKpackImageStatus(kpackImage *buildv1alpha2.Image, conditionType string, 
 		Type:   corev1alpha1.ConditionType(conditionType),
 		Status: corev1.ConditionStatus(conditionStatus),
 	})
-}
-
-func buildNamespaceObject(name string) *corev1.Namespace {
-	return &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
 }
 
 func buildDockerRegistrySecret(name, namespace string) *corev1.Secret {

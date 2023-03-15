@@ -287,6 +287,16 @@ func main() {
 				setupLog.Error(err, "unable to create controller", "controller", "BuilderInfo")
 				os.Exit(1)
 			}
+
+			if err = controllers.NewKpackBuildController(
+				mgr.GetClient(),
+				ctrl.Log.WithName("kpack-image-builder").WithName("KpackBuild"),
+				image.NewClient(k8sClient),
+				controllerConfig.BuilderServiceAccount,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "KpackBuild")
+				os.Exit(1)
+			}
 		}
 
 		if controllerConfig.IncludeJobTaskRunner {
