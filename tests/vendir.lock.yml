@@ -26,18 +26,18 @@ directories:
   path: vendor
 - contents:
   - git:
-      commitTitle: Bump golang.org/x/crypto in /assets/credhub-service-broker...
-      sha: b55d8702eb507d5ba8c15f1058f76d2a076e8a1e
+      commitTitle: Fix logs.RecentEnvelopes...
+      sha: af5ab9b193db43c330ac52fb69cca51b802b8037
       tags:
-      - v11.1.0
+      - v12.0.0
     path: .
   path: e2e/assets/vendored/node
 - contents:
   - git:
-      commitTitle: Bump golang.org/x/crypto in /assets/credhub-service-broker...
-      sha: b55d8702eb507d5ba8c15f1058f76d2a076e8a1e
+      commitTitle: Fix logs.RecentEnvelopes...
+      sha: af5ab9b193db43c330ac52fb69cca51b802b8037
       tags:
-      - v11.1.0
+      - v12.0.0
     path: .
   path: e2e/assets/vendored/dora
 kind: LockConfig
