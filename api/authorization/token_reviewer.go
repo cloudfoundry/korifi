@@ -55,8 +55,6 @@ func (r *TokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 		if !strings.HasPrefix(idName, serviceAccountNamePrefix) {
 			return Identity{}, fmt.Errorf("invalid serviceaccount name: %q", idName)
 		}
-		nameSegments := strings.Split(idName, ":")
-		idName = nameSegments[len(nameSegments)-1]
 	}
 
 	return Identity{

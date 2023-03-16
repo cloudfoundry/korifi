@@ -938,7 +938,7 @@ func getAppBitsFileFromPath(sharedSetup sharedSetupData) string {
 func commonTestSetup() {
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
-	serviceAccountName = mustHaveEnv("E2E_SERVICE_ACCOUNT")
+	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, mustHaveEnv("E2E_SERVICE_ACCOUNT"))
 	serviceAccountToken = mustHaveEnv("E2E_SERVICE_ACCOUNT_TOKEN")
 
 	certUserName = mustHaveEnv("E2E_USER_NAME")
