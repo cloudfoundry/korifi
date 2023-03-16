@@ -24,10 +24,9 @@ type (
 	}
 
 	RoleRelationships struct {
-		User                     *UserRelationship `json:"user" validate:"required_without=KubernetesServiceAccount"`
-		KubernetesServiceAccount *Relationship     `json:"kubernetesServiceAccount" validate:"required_without=User"`
-		Space                    *Relationship     `json:"space"`
-		Organization             *Relationship     `json:"organization"`
+		User         *UserRelationship `json:"user" validate:"required"`
+		Space        *Relationship     `json:"space"`
+		Organization *Relationship     `json:"organization"`
 	}
 
 	RoleListFilter struct {
@@ -52,15 +51,20 @@ func (p RoleCreate) ToMessage() repositories.CreateRoleMessage {
 		record.Org = p.Relationships.Organization.Data.GUID
 	}
 
-	if p.Relationships.User != nil {
-		record.Kind = rbacv1.UserKind
-		record.User = p.Relationships.User.Data.Username
-		if p.Relationships.User.Data.GUID != "" {
-			record.User = p.Relationships.User.Data.GUID
-		}
-	} else {
+	record.Kind = rbacv1.UserKind
+	record.User = p.Relationships.User.Data.Username
+	if p.Relationships.User.Data.GUID != "" {
+		record.User = p.Relationships.User.Data.GUID
+	}
+
+	if isServiceAccount(record.User) {
+		nameSegments := strings.Split(record.User, ":")
+		user := nameSegments[len(nameSegments)-1]
+		namespace := nameSegments[len(nameSegments)-2]
+
 		record.Kind = rbacv1.ServiceAccountKind
-		record.User = p.Relationships.KubernetesServiceAccount.Data.GUID
+		record.User = user
+		record.ServiceAccountNamespace = namespace
 	}
 
 	return record
@@ -90,4 +94,8 @@ func commaSepToSet(in string) map[string]bool {
 	}
 
 	return out
+}
+
+func isServiceAccount(username string) bool {
+	return strings.HasPrefix(username, "system:serviceaccount:")
 }

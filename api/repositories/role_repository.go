@@ -32,12 +32,13 @@ type AuthorizedInChecker interface {
 }
 
 type CreateRoleMessage struct {
-	GUID  string
-	Type  string
-	Space string
-	Org   string
-	User  string
-	Kind  string
+	GUID                    string
+	Type                    string
+	Space                   string
+	Org                     string
+	User                    string
+	Kind                    string
+	ServiceAccountNamespace string
 }
 
 type DeleteRoleMessage struct {
@@ -121,7 +122,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 		ns = role.Org
 	}
 
-	roleBinding := createRoleBinding(ns, role.Type, role.Kind, role.User, role.GUID, k8sRoleConfig.Name, k8sRoleConfig.Propagate)
+	roleBinding := createRoleBinding(ns, role.Type, role.Kind, role.User, role.ServiceAccountNamespace, role.GUID, k8sRoleConfig.Name, k8sRoleConfig.Propagate)
 
 	err = userClient.Create(ctx, &roleBinding)
 	if err != nil {
@@ -140,7 +141,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", cfUserRoleType)
 	}
 
-	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, uuid.NewString(), cfUserk8sRoleConfig.Name, false)
+	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, role.ServiceAccountNamespace, uuid.NewString(), cfUserk8sRoleConfig.Name, false)
 	err = userClient.Create(ctx, &cfUserRoleBinding)
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
@@ -189,7 +190,7 @@ func calculateRoleBindingName(roleType, roleUser string) string {
 	return fmt.Sprintf("%s-%x", roleBindingNamePrefix, sum)
 }
 
-func createRoleBinding(namespace, roleType, roleKind, roleUser, roleGUID, roleConfigName string, propagateLabelValue bool) rbacv1.RoleBinding {
+func createRoleBinding(namespace, roleType, roleKind, roleUser, roleServiceAccountNamespace, roleGUID, roleConfigName string, propagateLabelValue bool) rbacv1.RoleBinding {
 	return rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -203,8 +204,9 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleGUID, roleCo
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind: roleKind,
-				Name: roleUser,
+				Kind:      roleKind,
+				Name:      roleUser,
+				Namespace: roleServiceAccountNamespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -333,6 +335,10 @@ func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName strin
 		Type:      cfRoleName,
 		User:      roleBinding.Subjects[0].Name,
 		Kind:      roleBinding.Subjects[0].Kind,
+	}
+
+	if record.Kind == rbacv1.ServiceAccountKind {
+		record.User = fmt.Sprintf("system:serviceaccount:%s:%s", roleBinding.Subjects[0].Namespace, roleBinding.Subjects[0].Name)
 	}
 
 	switch r.roleMappings[cfRoleName].Level {

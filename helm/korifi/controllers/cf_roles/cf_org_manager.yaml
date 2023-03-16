@@ -12,16 +12,23 @@ rules:
   - get
   - list
   - watch
-
 - apiGroups:
-    - korifi.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
-    - builderinfos
+  - cfspaces
   verbs:
-    - get
-    - list
-    - watch
-
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - builderinfos
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
