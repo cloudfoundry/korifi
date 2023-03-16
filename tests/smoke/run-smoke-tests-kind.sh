@@ -11,4 +11,4 @@ export SMOKE_TEST_API_ENDPOINT=https://localhost
 export SMOKE_TEST_SKIP_SSL=true
 
 cd "${SCRIPT_DIR}"
-ginkgo
+go run github.com/onsi/ginkgo/v2/ginkgo
