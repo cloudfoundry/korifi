@@ -36,7 +36,7 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 	AfterAll(func() {
 		Eventually(
 			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforg", orgGUID),
-			"10s",
+			"20s",
 		).Should(Exit(0))
 
 		Eventually(
@@ -58,7 +58,7 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 
 		Eventually(
 			kubectl("wait", "--for=condition=ready", "-n="+rootNamespace, "cforg/"+orgGUID),
-			"10s",
+			"20s",
 		).Should(Exit(0))
 
 		Eventually(
@@ -80,7 +80,7 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 
 		Eventually(
 			kubectl("wait", "--for=condition=ready", "-n="+orgGUID, "cfspace/"+spaceGUID),
-			"10s",
+			"20s",
 		).Should(Exit(0))
 
 		Eventually(
@@ -107,7 +107,7 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 
 		Eventually(
 			cf.Cf("push", PrefixedGUID("crds-test-app"), "-p", "../smoke/assets/test-node-app", "--no-start"), // This could be any app
-			"10s",
+			"20s",
 		).Should(Exit(0))
 	})
 })

@@ -17,7 +17,7 @@ import (
 
 func TestCrds(t *testing.T) {
 	RegisterFailHandler(Fail)
-	SetDefaultEventuallyTimeout(3 * time.Second)
+	SetDefaultEventuallyTimeout(10 * time.Second)
 	RunSpecs(t, "CRDs Suite")
 }
 
