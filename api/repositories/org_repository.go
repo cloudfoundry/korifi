@@ -78,7 +78,7 @@ func NewOrgRepo(
 }
 
 func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, message CreateOrgMessage) (OrgRecord, error) {
-	canCreate, err := r.nsPerms.AuthorizedCreateOrg(ctx, info)
+	canCreate, err := r.nsPerms.AuthorizedCreateOrg(ctx, info, r.rootNamespace)
 	if err != nil {
 		return OrgRecord{}, err
 	}

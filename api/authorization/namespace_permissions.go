@@ -119,15 +119,15 @@ func (o *NamespacePermissions) hasRole(ctx context.Context, info Info, namespace
 	return false, nil
 }
 
-func (o *NamespacePermissions) AuthorizedCreateOrg(ctx context.Context, info Info) (bool, error) {
-	hasRole, err := o.hasRole(ctx, info, types.NamespacedName{Namespace: "cf", Name: "default-admin-binding"})
+func (o *NamespacePermissions) AuthorizedCreateOrg(ctx context.Context, info Info, namespace string) (bool, error) {
+	hasRole, err := o.hasRole(ctx, info, types.NamespacedName{Namespace: namespace, Name: "default-admin-binding"})
 	if hasRole {
 		return true, err
 	}
 	if k8serrors.IsNotFound(err) {
 		return false, nil
 	}
-	hasRole, err = o.hasRole(ctx, info, types.NamespacedName{Namespace: "cf", Name: "korifi-controllers-organization-manager"})
+	hasRole, err = o.hasRole(ctx, info, types.NamespacedName{Namespace: namespace, Name: "korifi-controllers-organization-manager"})
 	if hasRole {
 		return true, err
 	}
