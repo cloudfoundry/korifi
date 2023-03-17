@@ -126,7 +126,7 @@ var _ = Describe("CfUserMiddleware", func() {
 		})
 
 		It("delegates to the next middleware", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+			Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
 		})
 
 		It("sets the X-Cf-Warning header", func() {
@@ -143,7 +143,7 @@ var _ = Describe("CfUserMiddleware", func() {
 		})
 
 		It("delegates to the next middleware", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+			Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
 		})
 
 		It("sets the X-Cf-Warning header", func() {
@@ -162,7 +162,7 @@ var _ = Describe("CfUserMiddleware", func() {
 			}
 		})
 		It("delegates to the next middleware", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+			Expect(rr).To(HaveHTTPStatus(http.StatusForbidden))
 		})
 
 		It("sets the X-Cf-Warning header", func() {

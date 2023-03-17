@@ -59,6 +59,9 @@ func (m *cfUser) middleware(next http.Handler) http.Handler {
 
 		if !isCFUser {
 			w.Header().Add("X-Cf-Warnings", fmt.Sprintf("Warning: subject '%s/%s' has no CF roles assigned. This is not supported and may cause unexpected behaviour.", identity.Kind, identity.Name))
+			w.WriteHeader(http.StatusForbidden)
+			next.ServeHTTP(w, r)
+			return
 		}
 
 		next.ServeHTTP(w, r)
