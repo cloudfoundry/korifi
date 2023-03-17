@@ -135,6 +135,21 @@ func (h *Space) delete(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteOperation, h.apiBaseURL)), nil
 }
 
+func (h *Space) get(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.get")
+
+	spaceGUID := routing.URLParam(r, "guid")
+
+	space, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch space from Kubernetes", "GUID", spaceGUID)
+	}
+
+	spaceResult := presenter.ForSpace(space, h.apiBaseURL)
+	return routing.NewResponse(http.StatusOK).WithBody(spaceResult), nil
+}
+
 func (h *Space) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -145,6 +160,7 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "POST", Pattern: SpacesPath, Handler: h.create},
 		{Method: "PATCH", Pattern: SpacePath, Handler: h.update},
 		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
+		{Method: "GET", Pattern: SpacePath, Handler: h.get},
 	}
 }
 
