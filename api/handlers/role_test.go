@@ -314,9 +314,9 @@ var _ = Describe("Role", func() {
 				createRoleRequestBody = `{
 					"type": "organization_manager",
 					"relationships": {
-						"kubernetesServiceAccount": {
+						"User": {
 							"data": {
-								"guid": "my-user"
+								"guid": "system:serviceaccount:cf:my-user"
 							}
 						},
 						"organization": {
@@ -335,11 +335,12 @@ var _ = Describe("Role", func() {
 				Expect(roleRecord.Type).To(Equal("organization_manager"))
 				Expect(roleRecord.Org).To(Equal("my-org"))
 				Expect(roleRecord.User).To(Equal("my-user"))
+				Expect(roleRecord.ServiceAccountNamespace).To(Equal("cf"))
 				Expect(roleRecord.Kind).To(Equal(rbacv1.ServiceAccountKind))
 			})
 		})
 
-		When("the role does not contain a user or service account", func() {
+		When("the role does not contain a user", func() {
 			BeforeEach(func() {
 				createRoleRequestBody = `{
 					"type": "organization_manager",
@@ -357,8 +358,7 @@ var _ = Describe("Role", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					ContainSubstring("Field validation for 'User' failed on the 'required_without' tag"),
-					ContainSubstring("Field validation for 'KubernetesServiceAccount' failed on the 'required_without' tag"),
+					ContainSubstring("User is a required field"),
 				)))
 			})
 		})
