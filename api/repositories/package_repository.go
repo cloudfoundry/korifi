@@ -309,8 +309,8 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage *korifiv1alpha1.CFPacka
 func (r *PackageRepo) convertToPackageRecords(packages []korifiv1alpha1.CFPackage) []PackageRecord {
 	packageRecords := make([]PackageRecord, 0, len(packages))
 
-	for _, currentPackage := range packages {
-		packageRecords = append(packageRecords, r.cfPackageToPackageRecord(&currentPackage))
+	for i := range packages {
+		packageRecords = append(packageRecords, r.cfPackageToPackageRecord(&packages[i]))
 	}
 	return packageRecords
 }
