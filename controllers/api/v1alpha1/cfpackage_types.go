@@ -72,3 +72,7 @@ type CFPackageList struct {
 func init() {
 	SchemeBuilder.Register(&CFPackage{}, &CFPackageList{})
 }
+
+func (p CFPackage) StatusConditions() []metav1.Condition {
+	return p.Status.Conditions
+}

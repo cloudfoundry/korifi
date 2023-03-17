@@ -89,6 +89,7 @@ rules:
   - list
   - create
   - patch
+  - watch
 
 - apiGroups:
   - korifi.cloudfoundry.org

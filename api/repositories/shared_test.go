@@ -5,11 +5,13 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -50,7 +52,7 @@ func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID,
 	return toReturn
 }
 
-func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, appGUID, spaceGUID, srcRegistryImage string) *korifiv1alpha1.CFPackage {
+func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, appGUID, spaceGUID string, srcRegistryImage string) *korifiv1alpha1.CFPackage {
 	toReturn := &korifiv1alpha1.CFPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
@@ -74,9 +76,16 @@ func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, 
 		toReturn.Spec.Source.Registry.Image = srcRegistryImage
 	}
 
-	Expect(
-		k8sClient.Create(ctx, toReturn),
-	).To(Succeed())
+	Expect(k8sClient.Create(ctx, toReturn)).To(Succeed())
+
+	if srcRegistryImage != "" {
+		Eventually(func(g Gomega) {
+			var pkg korifiv1alpha1.CFPackage
+			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(toReturn), &pkg)).To(Succeed())
+			g.Expect(meta.IsStatusConditionTrue(pkg.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
+		}, "10s", "100ms").Should(Succeed())
+	}
+
 	return toReturn
 }
 
