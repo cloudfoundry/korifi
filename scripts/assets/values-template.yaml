@@ -15,8 +15,6 @@ api:
 controllers:
   taskTTL: 5s
   image: cloudfoundry/korifi-controllers:latest
-  extraVCAPApplicationValues:
-    cf_api: https://korifi-api-svc.korifi.svc.cluster.local
 
 jobTaskRunner:
   jobTTL: 5s
