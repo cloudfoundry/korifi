@@ -51,10 +51,10 @@ test: lint
 	make test-e2e
 
 
-test-tools: install-ginkgo
+test-tools:
 	./scripts/run-tests.sh tools
 
-test-e2e: install-ginkgo
+test-e2e:
 	./scripts/run-tests.sh tests/e2e
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
@@ -64,9 +64,6 @@ install-gofumpt:
 SHFMT = $(shell go env GOPATH)/bin/shfmt
 install-shfmt:
 	go install mvdan.cc/sh/v3/cmd/shfmt@latest
-
-install-ginkgo:
-	go install github.com/onsi/ginkgo/v2/ginkgo
 
 VENDIR = $(shell go env GOPATH)/bin/vendir
 install-vendir:
