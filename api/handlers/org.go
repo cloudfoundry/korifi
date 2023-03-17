@@ -160,6 +160,21 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.apiBaseURL, *r.URL)), nil
 }
 
+func (h *Org) get(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.get")
+
+	orgGUID := routing.URLParam(r, "guid")
+
+	org, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch org from Kubernetes", "OrgGUID", orgGUID)
+	}
+
+	orgResult := presenter.ForOrg(org, h.apiBaseURL)
+	return routing.NewResponse(http.StatusOK).WithBody(orgResult), nil
+}
+
 func (h *Org) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -171,6 +186,7 @@ func (h *Org) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: OrgPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: OrgPath, Handler: h.update},
 		{Method: "GET", Pattern: OrgDomainsPath, Handler: h.listDomains},
+		{Method: "GET", Pattern: OrgPath, Handler: h.get},
 	}
 }
 
