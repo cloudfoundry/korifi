@@ -107,6 +107,35 @@ var _ = Describe("SpaceManifest", func() {
 			})
 		})
 
+		When("the manifest is invalid", func() {
+			BeforeEach(func() {
+				requestBody = strings.NewReader(`---
+                version: 1
+                applications:
+                - name: app1
+                  default-route: true
+                  memory: "128"
+                  disk_quota: 256M
+                  processes:
+                  - type: web
+                    command: start-web.sh
+                    disk_quota: 512M
+                    health-check-http-endpoint: /healthcheck
+                    health-check-invocation-timeout: 5
+                    health-check-type: httpppp
+                    instances: 1
+                    memory: 256M
+                    timeout: 1
+                  routes:
+                  - route: "ssh://1.2.3.4"
+                `)
+			})
+
+			It("response with an unprocessable entity error listing all the errors", func() {
+				expectUnprocessableEntityError("applications[0].memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB), applications[0].processes[0].health-check-type must be a valid value, applications[0].routes[0].route is not a valid route")
+			})
+		})
+
 		When("the manifest contains unsupported fields", func() {
 			BeforeEach(func() {
 				requestBody = strings.NewReader(`---
@@ -128,295 +157,7 @@ var _ = Describe("SpaceManifest", func() {
 			})
 		})
 
-		When("the application name is missing", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - {}
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Name is a required field")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the application memory does not have a unit", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: test-app
-                  memory: 1024
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Memory must use a supported unit: B, K, KB, M, MB, G, GB, T, or TB")
-			})
-		})
-
-		When("the application memory is not a positive integer", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: test-app
-                  memory: 0M
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Memory must be greater than 0MB")
-			})
-		})
-
-		When("the application route is invalid", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: my-app
-                  routes:
-                  - route: not-a-uri?
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError(`"not-a-uri?" is not a valid route URI`)
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the application process instance count is negative", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: test-app
-                  processes:
-                  - type: web
-                    instances: -1
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Instances must be 0 or greater")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the application process disk doesn't supply a unit", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: test-app
-                  processes:
-                  - type: web
-                    disk_quota: 1024
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("DiskQuota must use a supported unit: B, K, KB, M, MB, G, GB, T, or TB")
-			})
-		})
-
-		When("the application process disk is not a positive integer", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: test-app
-                  processes:
-                  - type: web
-                    disk_quota: 0M
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("DiskQuota must be greater than 0MB")
-			})
-		})
-
-		When("the application process memory doesn't supply a unit", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: test-app
-                  processes:
-                  - type: web
-                    memory: 1024
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Memory must use a supported unit: B, K, KB, M, MB, G, GB, T, or TB")
-			})
-		})
-
-		When("the application process memory is not a positive integer", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: test-app
-                  processes:
-                  - type: web
-                    memory: 0GB
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Memory must be greater than 0MB")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("a process's health-check-type is invalid", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: test-app
-                  processes:
-                  - type: web
-                    health-check-type: bogus-type
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("HealthCheckType must be one of [none process port http]")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("a process's healthcheck timeout is not a positive integer", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                applications:
-                - name: test-app
-                  processes:
-                  - type: web
-                    timeout: 0
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Timeout must be 1 or greater")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("a process's healthcheck invocation timeout is not a positive integer", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                applications:
-                - name: test-app
-                  processes:
-                  - type: web
-                    health-check-invocation-timeout: 0
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("HealthCheckInvocationTimeout must be 1 or greater")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("app healthcheck timeout is not a positive integer", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                applications:
-                - name: test-app
-                  timeout: 0
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Timeout must be 1 or greater")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("app healthcheck invocation timeout is not a positive integer", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                applications:
-                - name: test-app
-                  health-check-invocation-timeout: 0
-                `)
-			})
-
-			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("HealthCheckInvocationTimeout must be 1 or greater")
-			})
-
-			It("doesn't call applyManifestAction", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(0))
-			})
-		})
-
-		When("applying the manifest errors", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: app1
-                `)
-				manifestApplier.ApplyReturns(errors.New("boom"))
-			})
-
-			It("respond with Unknown Error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("applying the manifest errors with NotFoundErr", func() {
-			BeforeEach(func() {
-				requestBody = strings.NewReader(`---
-                version: 1
-                applications:
-                - name: app1
-                `)
-				manifestApplier.ApplyReturns(apierrors.NewNotFoundError(errors.New("can't find"), repositories.DomainResourceType))
-			})
-
-			It("respond with NotFoundErr", func() {
-				expectNotFoundError("Domain")
-			})
-		})
-
-		When("The random-route and default-route flags are both set", func() {
+		When("random-route and default-route flags are both set", func() {
 			BeforeEach(func() {
 				requestBody = strings.NewReader(`---
                 version: 1
@@ -428,7 +169,7 @@ var _ = Describe("SpaceManifest", func() {
 			})
 
 			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Key: 'Manifest.Applications[0].defaultRoute' Error:Field validation for 'defaultRoute' failed on the 'Random-route and Default-route may not be used together' tag")
+				expectUnprocessableEntityError("applications[0].default-route and random-route may not be used together")
 			})
 		})
 
@@ -444,7 +185,7 @@ var _ = Describe("SpaceManifest", func() {
 			})
 
 			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Cannot set both 'disk-quota' and 'disk_quota' in manifest")
+				expectUnprocessableEntityError("applications[0].disk_quota and disk-quota may not be used together")
 			})
 		})
 
@@ -462,7 +203,7 @@ var _ = Describe("SpaceManifest", func() {
 			})
 
 			It("response with an unprocessable entity error", func() {
-				expectUnprocessableEntityError("Cannot set both 'disk-quota' and 'disk_quota' in manifest")
+				expectUnprocessableEntityError("applications[0].processes[0].disk_quota and disk-quota may not be used together")
 			})
 		})
 	})
