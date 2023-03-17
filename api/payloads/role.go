@@ -77,7 +77,7 @@ func (p RoleCreate) ToMessage() repositories.CreateRoleMessage {
 }
 
 func (r *RoleListFilter) SupportedKeys() []string {
-	return []string{"guids", "types", "space_guids", "organization_guids", "user_guids", "order_by", "include"}
+	return []string{"guids", "types", "space_guids", "organization_guids", "user_guids", "order_by", "include", "page"}
 }
 
 func (r *RoleListFilter) DecodeFromURLValues(values url.Values) error {
