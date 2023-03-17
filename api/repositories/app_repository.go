@@ -166,9 +166,10 @@ type SetAppDesiredStateMessage struct {
 }
 
 type ListAppsMessage struct {
-	Names      []string
-	Guids      []string
-	SpaceGuids []string
+	Names          []string
+	Guids          []string
+	SpaceGuids     []string
+	LabelSelectors []string
 }
 
 type byName []AppRecord
@@ -333,6 +334,7 @@ func applyAppListFilter(appList []korifiv1alpha1.CFApp, message ListAppsMessage)
 	nameFilterSpecified := len(message.Names) > 0
 	guidsFilterSpecified := len(message.Guids) > 0
 	spaceGUIDFilterSpecified := len(message.SpaceGuids) > 0
+	labelSelectorsSpecified := len(message.LabelSelectors) > 0
 
 	var filtered []korifiv1alpha1.CFApp
 
@@ -383,7 +385,27 @@ func applyAppListFilter(appList []korifiv1alpha1.CFApp, message ListAppsMessage)
 		}
 	}
 
+	if labelSelectorsSpecified {
+		for index := len(filtered) - 1; index >= 0; index-- {
+			if !appMatchesAllLabels(filtered[index].Labels, message.LabelSelectors) {
+				filtered = append(filtered[:index], filtered[index+1:]...)
+				if len(filtered) == 0 {
+					return filtered
+				}
+			}
+		}
+	}
+
 	return filtered
+}
+
+func appMatchesAllLabels(labels map[string]string, queries []string) bool {
+	for _, query := range queries {
+		if !labelsFilter(labels, query) {
+			return false
+		}
+	}
+	return true
 }
 
 func appBelongsToSpace(app korifiv1alpha1.CFApp, spaceGUID string) bool {
