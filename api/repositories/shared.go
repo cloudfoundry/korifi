@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"regexp"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,5 +86,55 @@ func matchesFilter(field string, filter []string) bool {
 		}
 	}
 
+	return false
+}
+
+func labelsFilters(labels map[string]string, query []string) bool {
+	if len(query) == 0 {
+		return true
+	}
+
+	for _, value := range query {
+		if !labelsFilter(labels, value) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func labelsFilter(labels map[string]string, query string) bool {
+	// TODO: This is a simple query tool and needs to be enhanced
+	re := regexp.MustCompile(`(^[a-zA-Z0-9./-_]+)(!{0,1}={1,2})([a-zA-Z0-9./-_]+)$`)
+
+	matches := re.FindStringSubmatch(query)
+	if matches != nil {
+		k := matches[1]
+		op := matches[2]
+		v := matches[3]
+
+		if value, present := labels[k]; present {
+			switch op {
+			case "=":
+				fallthrough
+			case "==":
+				return value == v
+			case "!=":
+				return value != v
+			}
+		}
+
+		return false
+	}
+
+	if query[0] == '!' {
+		if _, present := labels[query[1:]]; !present {
+			return true
+		}
+	} else {
+		if _, present := labels[query]; present {
+			return true
+		}
+	}
 	return false
 }

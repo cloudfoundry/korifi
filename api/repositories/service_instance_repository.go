@@ -76,8 +76,9 @@ func (p PatchServiceInstanceMessage) Apply(cfServiceInstance *korifiv1alpha1.CFS
 }
 
 type ListServiceInstanceMessage struct {
-	Names      []string
-	SpaceGuids []string
+	Names          []string
+	SpaceGuids     []string
+	LabelSelectors []string
 }
 
 type DeleteServiceInstanceMessage struct {
@@ -321,7 +322,8 @@ func applyServiceInstanceListFilter(serviceInstanceList []korifiv1alpha1.CFServi
 	var filtered []korifiv1alpha1.CFServiceInstance
 	for _, serviceInstance := range serviceInstanceList {
 		if matchesFilter(serviceInstance.Spec.DisplayName, message.Names) &&
-			matchesFilter(serviceInstance.Namespace, message.SpaceGuids) {
+			matchesFilter(serviceInstance.Namespace, message.SpaceGuids) &&
+			labelsFilters(serviceInstance.Labels, message.LabelSelectors) {
 			filtered = append(filtered, serviceInstance)
 		}
 	}

@@ -89,25 +89,28 @@ func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
 }
 
 type ServiceInstanceList struct {
-	Names      string
-	SpaceGuids string
-	OrderBy    string
+	Names         string
+	SpaceGuids    string
+	OrderBy       string
+	LabelSelector string
 }
 
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
-		Names:      ParseArrayParam(l.Names),
-		SpaceGuids: ParseArrayParam(l.SpaceGuids),
+		Names:          ParseArrayParam(l.Names),
+		SpaceGuids:     ParseArrayParam(l.SpaceGuids),
+		LabelSelectors: ParseArrayParam(l.LabelSelector),
 	}
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "fields", "order_by", "per_page"}
+	return []string{"names", "space_guids", "fields", "order_by", "per_page", "label_selector", "page"}
 }
 
 func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
 	l.SpaceGuids = values.Get("space_guids")
 	l.OrderBy = values.Get("order_by")
+	l.LabelSelector = values.Get("label_selector")
 	return nil
 }
