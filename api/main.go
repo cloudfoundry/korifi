@@ -167,6 +167,7 @@ func main() {
 		nsPermissions,
 		toolsregistry.NewRepositoryCreator(cfg.ContainerRegistryType),
 		cfg.ContainerRepositoryPrefix,
+		createTimeout,
 	)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
 		namespaceRetriever,

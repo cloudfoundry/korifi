@@ -5,12 +5,14 @@ import (
 	"errors"
 
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,18 +41,23 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 	When("a new CFPackage resource is created", func() {
 		BeforeEach(func() {
 			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
+			cfPackage.Spec.Source = korifiv1alpha1.PackageSource{}
 			Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
 		})
 
-		It("eventually reconciles to set the owner reference on the CFPackage", func() {
-			Eventually(func() []metav1.OwnerReference {
-				var createdCFPackage korifiv1alpha1.CFPackage
-				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfPackageGUID, Namespace: cfSpace.Status.GUID}, &createdCFPackage)
-				if err != nil {
-					return nil
-				}
-				return createdCFPackage.GetOwnerReferences()
-			}).Should(ConsistOf(metav1.OwnerReference{
+		It("initializes it", func() {
+			var createdCFPackage korifiv1alpha1.CFPackage
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, workloads.InitializedConditionType)).To(BeTrue())
+			}).Should(Succeed())
+
+			Expect(meta.FindStatusCondition(createdCFPackage.Status.Conditions, workloads.InitializedConditionType).ObservedGeneration).To(Equal(createdCFPackage.Generation))
+
+			Expect(meta.IsStatusConditionFalse(createdCFPackage.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
+			Expect(meta.FindStatusCondition(createdCFPackage.Status.Conditions, workloads.StatusConditionReady).ObservedGeneration).To(Equal(createdCFPackage.Generation))
+
+			Expect(createdCFPackage.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
 				APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
 				Kind:               "CFApp",
 				Name:               cfApp.Name,
@@ -58,6 +65,30 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 				Controller:         tools.PtrTo(true),
 				BlockOwnerDeletion: tools.PtrTo(true),
 			}))
+		})
+
+		When("the package is updated with its source image", func() {
+			var createdCFPackage korifiv1alpha1.CFPackage
+
+			BeforeEach(func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, workloads.InitializedConditionType)).To(BeTrue())
+				}).Should(Succeed())
+			})
+
+			JustBeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, &createdCFPackage, func() {
+					createdCFPackage.Spec.Source.Registry.Image = "hello"
+				})).To(Succeed())
+			})
+
+			It("sets the ready condition to true", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
+				}).Should(Succeed())
+			})
 		})
 	})
 
@@ -76,10 +107,9 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
 
-			// wait for package to have reconciled at least once
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
-				g.Expect(cfPackage.Finalizers).ToNot(BeEmpty())
+				g.Expect(meta.IsStatusConditionTrue(cfPackage.Status.Conditions, workloads.InitializedConditionType)).To(BeTrue())
 			}).Should(Succeed())
 
 			Expect(k8sClient.Delete(context.Background(), cfPackage)).To(Succeed())

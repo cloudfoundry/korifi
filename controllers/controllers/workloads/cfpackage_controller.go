@@ -23,6 +23,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -32,7 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const cfPackageFinalizer string = "korifi.cloudfoundry.org/cfPackageController"
+const (
+	cfPackageFinalizer       string = "korifi.cloudfoundry.org/cfPackageController"
+	InitializedConditionType string = "Initialized"
+)
 
 //counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter
 
@@ -96,6 +101,24 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 		log.Info("unable to set owner reference on CFPackage", "reason", err)
 		return ctrl.Result{}, err
 	}
+
+	meta.SetStatusCondition(&cfPackage.Status.Conditions, metav1.Condition{
+		Type:               InitializedConditionType,
+		Status:             metav1.ConditionTrue,
+		Reason:             "Initialized",
+		ObservedGeneration: cfPackage.Generation,
+	})
+
+	readyCondition := metav1.ConditionFalse
+	if cfPackage.Spec.Source.Registry.Image != "" {
+		readyCondition = metav1.ConditionTrue
+	}
+	meta.SetStatusCondition(&cfPackage.Status.Conditions, metav1.Condition{
+		Type:               StatusConditionReady,
+		Status:             readyCondition,
+		Reason:             "Initialized",
+		ObservedGeneration: cfPackage.Generation,
+	})
 
 	return ctrl.Result{}, nil
 }
