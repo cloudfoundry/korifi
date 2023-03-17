@@ -7,16 +7,17 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 
-	"code.cloudfoundry.org/bytefmt"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	en_translations "github.com/go-playground/validator/v10/translations/en"
+	"github.com/jellydator/validation"
 	"golang.org/x/exp/maps"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -77,6 +78,17 @@ func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object
 }
 
 func (dv *DecoderValidator) validatePayload(object interface{}) error {
+	// New validation library for which we have implemented manifest payload validation
+	t, ok := object.(validation.Validatable)
+	if ok {
+		err := t.Validate()
+		if err != nil {
+			return apierrors.NewUnprocessableEntityError(err, strings.Join(errorMessages(err), ", "))
+		}
+		return nil
+	}
+
+	// Existing validation library for payloads that have not yet implemented validation.Validatable
 	err := dv.validator.Struct(object)
 	if err != nil {
 		errorMessage := err.Error()
@@ -99,6 +111,44 @@ func (dv *DecoderValidator) validatePayload(object interface{}) error {
 	return nil
 }
 
+func errorMessages(err error) []string {
+	errs := prefixedErrorMessages("", err)
+	sort.Strings(errs)
+	return errs
+}
+
+var arrayIndexRegexp = regexp.MustCompile(`^\d+$`)
+
+func prefixedErrorMessages(field string, err error) []string {
+	errors, ok := err.(validation.Errors)
+	if !ok {
+		return []string{field + " " + err.Error()}
+	}
+
+	prefix := ""
+	if field != "" {
+		if arrayIndexRegexp.MatchString(field) {
+			prefix = "[" + field + "]."
+		} else {
+			prefix = field + "."
+		}
+	}
+
+	var messages []string
+	for f, err := range errors {
+		if arrayIndexRegexp.MatchString(f) {
+			prefix = strings.TrimSuffix(prefix, ".")
+		}
+
+		ems := prefixedErrorMessages(f, err)
+		for _, e := range ems {
+			messages = append(messages, prefix+e)
+		}
+	}
+
+	return messages
+}
+
 func wireValidator() (*validator.Validate, ut.Translator, error) {
 	v := validator.New()
 
@@ -107,20 +157,6 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 	// Register custom validators
-	err = v.RegisterValidation("amountWithUnit", amountWithUnit, true)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = v.RegisterValidation("positiveAmountWithUnit", positiveAmountWithUnit, true)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = v.RegisterValidation("route", routeString)
-	if err != nil {
-		return nil, nil, err
-	}
 	err = v.RegisterValidation("serviceinstancetaglength", serviceInstanceTagLength)
 	if err != nil {
 		return nil, nil, err
@@ -154,30 +190,7 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 
-	v.RegisterStructValidation(validateManifest, payloads.ManifestApplication{})
-	v.RegisterStructValidation(checkDiskQuotaUnderscoreAndHyphenProc, payloads.ManifestApplicationProcess{})
-
 	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
-
-	err = v.RegisterTranslation("amountWithUnit", trans, func(ut ut.Translator) error {
-		return ut.Add("amountWithUnit", "{0} must use a supported unit: B, K, KB, M, MB, G, GB, T, or TB", false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("amountWithUnit", fe.Field())
-		return t
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = v.RegisterTranslation("positiveAmountWithUnit", trans, func(ut ut.Translator) error {
-		return ut.Add("positiveAmountWithUnit", "{0} must be greater than 0MB", false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("positiveAmountWithUnit", fe.Field())
-		return t
-	})
-	if err != nil {
-		return nil, nil, err
-	}
 
 	err = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
 		return ut.Add("cannot_have_both_org_and_space_set", "Cannot pass both 'organization' and 'space' in a create role request", false)
@@ -199,26 +212,6 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 
-	err = v.RegisterTranslation("route", trans, func(ut ut.Translator) error {
-		return ut.Add("invalid_route", `"{0}" is not a valid route URI`, false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("invalid_route", fmt.Sprintf("%v", fe.Value()))
-		return t
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = v.RegisterTranslation("both-disk-quotas-set", trans, func(ut ut.Translator) error {
-		return ut.Add("both-disk-quotas-set", "Cannot set both 'disk-quota' and 'disk_quota' in manifest", false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("both-disk-quotas-set", fe.Field())
-		return t
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return v, trans, nil
 }
 
@@ -233,35 +226,6 @@ func registerDefaultTranslator(v *validator.Validate) (ut.Translator, error) {
 	}
 
 	return trans, nil
-}
-
-func validateManifest(sl validator.StructLevel) {
-	manifestApplication := sl.Current().Interface().(payloads.ManifestApplication)
-	checkRandomRouteAndDefaultRouteConflict(manifestApplication, sl)
-	checkDiskQuotaUnderscoreAndHyphenApp(manifestApplication, sl)
-}
-
-func checkRandomRouteAndDefaultRouteConflict(manifestApplication payloads.ManifestApplication, sl validator.StructLevel) {
-	if manifestApplication.DefaultRoute && manifestApplication.RandomRoute {
-		sl.ReportError(manifestApplication.DefaultRoute, "defaultRoute", "DefaultRoute", "Random-route and Default-route may not be used together", "")
-	}
-}
-
-func checkDiskQuotaUnderscoreAndHyphenApp(manifestApplication payloads.ManifestApplication, sl validator.StructLevel) {
-	//nolint:staticcheck
-	if manifestApplication.DiskQuota != nil && manifestApplication.AltDiskQuota != nil {
-		//nolint:staticcheck
-		sl.ReportError(manifestApplication.AltDiskQuota, "disk-quota", "AltDiskQuota", "both-disk-quotas-set", "")
-	}
-}
-
-func checkDiskQuotaUnderscoreAndHyphenProc(sl validator.StructLevel) {
-	manifestProcess := sl.Current().Interface().(payloads.ManifestApplicationProcess)
-
-	//nolint:staticcheck
-	if manifestProcess.DiskQuota != nil && manifestProcess.AltDiskQuota != nil {
-		sl.ReportError(manifestProcess.AltDiskQuota, "disk-quota", "AltDiskQuota", "both-disk-quotas-set", "")
-	}
 }
 
 func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
@@ -299,35 +263,6 @@ func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
 	default:
 		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
 	}
-}
-
-var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|MB|G|GB|T|TB)$`)
-
-func amountWithUnit(fl validator.FieldLevel) bool {
-	val, ok := fl.Field().Interface().(string)
-	if !ok {
-		return true // the value is optional, and is set to nil
-	}
-
-	return unitAmount.MatchString(val)
-}
-
-func positiveAmountWithUnit(fl validator.FieldLevel) bool {
-	val, ok := fl.Field().Interface().(string)
-	if !ok {
-		return true // the value is optional, and is set to nil
-	}
-
-	mbs, err := bytefmt.ToMegabytes(val)
-	return err == nil && mbs > 0
-}
-
-func routeString(fl validator.FieldLevel) bool {
-	val := fl.Field().String()
-	routeRegex := regexp.MustCompile(
-		`^(?:https?://|tcp://)?(?:(?:[\w-]+\.)|(?:[*]\.))+\w+(?:\:\d+)?(?:/.*)*(?:\.\w+)?$`,
-	)
-	return routeRegex.MatchString(val)
 }
 
 func serviceInstanceTagLength(fl validator.FieldLevel) bool {
