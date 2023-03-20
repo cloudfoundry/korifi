@@ -162,7 +162,7 @@ var _ = Describe("ReadAppLogs", func() {
 
 		It("returns an empty list", func() {
 			Expect(returnedErr).NotTo(HaveOccurred())
-			Expect(returnedRecords).To(HaveLen(0))
+			Expect(returnedRecords).To(BeEmpty())
 		})
 	})
 

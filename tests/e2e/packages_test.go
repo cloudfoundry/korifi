@@ -72,7 +72,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(resultErr.Errors).To(HaveLen(0))
+				Expect(resultErr.Errors).To(BeEmpty())
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 				Expect(result.GUID).ToNot(BeEmpty())
 			})
@@ -156,7 +156,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(resultErr.Errors).To(HaveLen(0))
+				Expect(resultErr.Errors).To(BeEmpty())
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.GUID).To(Equal(packageGUID))
 			})
