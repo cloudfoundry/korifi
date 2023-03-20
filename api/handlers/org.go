@@ -21,9 +21,10 @@ import (
 )
 
 const (
-	OrgsPath       = "/v3/organizations"
-	OrgPath        = "/v3/organizations/{guid}"
-	OrgDomainsPath = "/v3/organizations/{guid}/domains"
+	OrgsPath              = "/v3/organizations"
+	OrgPath               = "/v3/organizations/{guid}"
+	OrgDomainsPath        = "/v3/organizations/{guid}/domains"
+	OrgDefaultDomainsPath = "/v3/organizations/{guid}/domains/default"
 )
 
 //counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
@@ -176,6 +177,38 @@ func (h *Org) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(orgResult), nil
 }
 
+func (h *Org) getDefaultDomain(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.get-default-domain")
+
+	orgGUID := routing.URLParam(r, "guid")
+
+	if _, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID); err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
+	}
+
+	if err := r.ParseForm(); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
+	}
+
+	domainListFilter := new(payloads.DomainList)
+	err := payloads.Decode(domainListFilter, r.Form)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	domainList, err := h.domainRepo.ListDomains(r.Context(), authInfo, domainListFilter.ToMessage())
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch domain(s) from Kubernetes")
+	}
+
+	if len(domainList) == 0 {
+		return nil, apierrors.LogAndReturn(logger, errors.New("no domains found"), "failed to get the default domain")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomain(domainList[0], h.apiBaseURL)), nil
+}
+
 func (h *Org) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -188,6 +221,7 @@ func (h *Org) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: OrgPath, Handler: h.update},
 		{Method: "GET", Pattern: OrgDomainsPath, Handler: h.listDomains},
 		{Method: "GET", Pattern: OrgPath, Handler: h.get},
+		{Method: "GET", Pattern: OrgDefaultDomainsPath, Handler: h.getDefaultDomain},
 	}
 }
 
