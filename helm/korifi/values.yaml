@@ -73,6 +73,7 @@ controllers:
 
   namespaceLabels: {}
   extraVCAPApplicationValues: {}
+  maxRetainedPackagesPerApp: 5
 
 kpackImageBuilder:
   include: true

@@ -39,7 +39,11 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 	})
 
 	When("a new CFPackage resource is created", func() {
+		var cleanCallCount int
+
 		BeforeEach(func() {
+			cleanCallCount = packageCleaner.CleanCallCount()
+
 			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			cfPackage.Spec.Source = korifiv1alpha1.PackageSource{}
 			Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
@@ -65,6 +69,16 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 				Controller:         tools.PtrTo(true),
 				BlockOwnerDeletion: tools.PtrTo(true),
 			}))
+		})
+
+		It("deletes the older packages for the same app", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(packageCleaner.CleanCallCount()).To(BeNumerically(">", cleanCallCount))
+			}).Should(Succeed())
+
+			_, app := packageCleaner.CleanArgsForCall(cleanCallCount)
+			Expect(app.Name).To(Equal(cfAppGUID))
+			Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
 		})
 
 		When("the package is updated with its source image", func() {

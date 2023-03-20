@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -64,6 +65,7 @@ var _ = Describe("PackageRepository", func() {
 		err = (workloads.NewCFPackageReconciler(
 			k8sManager.GetClient(),
 			image.NewClient(k8sInterface),
+			cleanup.NewPackageCleaner(k8sClient, 5),
 			k8sManager.GetScheme(),
 			"package-repo-secret-name",
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),

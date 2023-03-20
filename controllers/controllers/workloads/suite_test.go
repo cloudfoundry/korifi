@@ -44,6 +44,7 @@ var (
 	cfOrg               *korifiv1alpha1.CFOrg
 	imageRegistrySecret *corev1.Secret
 	imageDeleter        *fake.ImageDeleter
+	packageCleaner      *fake.PackageCleaner
 	eventRecorder       *controllerfake.EventRecorder
 )
 
@@ -141,9 +142,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	imageDeleter = new(fake.ImageDeleter)
+	packageCleaner = new(fake.PackageCleaner)
 	err = (NewCFPackageReconciler(
 		k8sManager.GetClient(),
 		imageDeleter,
+		packageCleaner,
 		k8sManager.GetScheme(),
 		"package-repo-secret-name",
 		ctrl.Log.WithName("controllers").WithName("CFPackage"),
