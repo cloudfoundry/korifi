@@ -3,8 +3,9 @@ package payloads_test
 import (
 	"bytes"
 	"encoding/json"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"net/http"
+
+	rbacv1 "k8s.io/api/rbac/v1"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 
@@ -84,6 +85,5 @@ var _ = Describe("RoleCreate", func() {
 				Expect(msg.ServiceAccountNamespace).To(Equal("cf-space-guid"))
 			})
 		})
-
 	})
 })

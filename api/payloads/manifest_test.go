@@ -19,13 +19,14 @@ var _ = Describe("Manifest payload", func() {
 				validateErr       error
 			)
 			BeforeEach(func() {
-				testSpaceManifest = Manifest{Applications: []ManifestApplication{{
-					Name:         "test-app",
-					DefaultRoute: true,
-					Memory:       nil,
-					DiskQuota:    nil,
-					Metadata:     MetadataPatch{},
-				}},
+				testSpaceManifest = Manifest{
+					Applications: []ManifestApplication{{
+						Name:         "test-app",
+						DefaultRoute: true,
+						Memory:       nil,
+						DiskQuota:    nil,
+						Metadata:     MetadataPatch{},
+					}},
 				}
 			})
 			JustBeforeEach(func() {

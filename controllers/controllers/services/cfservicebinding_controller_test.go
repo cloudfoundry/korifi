@@ -185,9 +185,7 @@ var _ = Describe("CFServiceBinding", func() {
 	})
 
 	When("the CFServiceBinding has a displayName set", func() {
-		var (
-			bindingName string
-		)
+		var bindingName string
 
 		BeforeEach(func() {
 			cfServiceBindingGUID = GenerateGUID()
