@@ -64,6 +64,14 @@ if [[ -z "${CF_ADMIN_CERT:=}" ]]; then
   export CF_ADMIN_PEM CF_ADMIN_KEY CF_ADMIN_CERT
 fi
 
+if [[ -z "${CRDS_TEST_CLI_USER:=}" ]]; then
+  CRDS_TEST_CLI_USER=crds-test-cli-user
+  createCert "$CRDS_TEST_CLI_USER" "$tmp/crd-tests-cli-user-key.pem" "$tmp/crd-tests-cli-user-cert.pem"
+  CRDS_TEST_CLI_CERT="$("${base64}" -w0 "$tmp/crd-tests-cli-user-cert.pem")"
+  CRDS_TEST_CLI_KEY="$("${base64}" -w0 "$tmp/crd-tests-cli-user-key.pem")"
+  export CRDS_TEST_CLI_USER CRDS_TEST_CLI_CERT CRDS_TEST_CLI_KEY
+fi
+
 CLUSTER_VERSION_MINOR="$(kubectl version -ojson | jq -r .serverVersion.minor)"
 export CLUSTER_VERSION_MINOR
 CLUSTER_VERSION_MAJOR="$(kubectl version -ojson | jq -r .serverVersion.major)"
