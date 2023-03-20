@@ -13,16 +13,19 @@ import (
 )
 
 type StateCollector struct {
-	appRepo     shared.CFAppRepository
-	domainRepo  shared.CFDomainRepository
-	processRepo shared.CFProcessRepository
-	routeRepo   shared.CFRouteRepository
+	appRepo             shared.CFAppRepository
+	domainRepo          shared.CFDomainRepository
+	processRepo         shared.CFProcessRepository
+	routeRepo           shared.CFRouteRepository
+	serviceInstanceRepo shared.CFServiceInstanceRepository
+	serviceBindingRepo  shared.CFServiceBindingRepository
 }
 
 type AppState struct {
-	App       repositories.AppRecord
-	Processes map[string]repositories.ProcessRecord
-	Routes    map[string]repositories.RouteRecord
+	App             repositories.AppRecord
+	Processes       map[string]repositories.ProcessRecord
+	Routes          map[string]repositories.RouteRecord
+	ServiceBindings map[string]repositories.ServiceBindingRecord
 }
 
 func NewStateCollector(
@@ -30,12 +33,16 @@ func NewStateCollector(
 	domainRepo shared.CFDomainRepository,
 	processRepo shared.CFProcessRepository,
 	routeRepo shared.CFRouteRepository,
+	serviceInstanceRepo shared.CFServiceInstanceRepository,
+	serviceBindingRepo shared.CFServiceBindingRepository,
 ) StateCollector {
 	return StateCollector{
-		appRepo:     appRepo,
-		domainRepo:  domainRepo,
-		processRepo: processRepo,
-		routeRepo:   routeRepo,
+		appRepo:             appRepo,
+		domainRepo:          domainRepo,
+		processRepo:         processRepo,
+		routeRepo:           routeRepo,
+		serviceInstanceRepo: serviceInstanceRepo,
+		serviceBindingRepo:  serviceBindingRepo,
 	}
 }
 
@@ -47,6 +54,7 @@ func (s StateCollector) CollectState(ctx context.Context, authInfo authorization
 
 	existingProcesses := map[string]repositories.ProcessRecord{}
 	existingAppRoutes := map[string]repositories.RouteRecord{}
+	existingServiceBindings := map[string]repositories.ServiceBindingRecord{}
 	if appRecord.GUID != "" {
 		procs, err := s.processRepo.ListProcesses(ctx, authInfo, repositories.ListProcessesMessage{
 			AppGUIDs:  []string{appRecord.GUID},
@@ -67,12 +75,28 @@ func (s StateCollector) CollectState(ctx context.Context, authInfo authorization
 		for _, r := range routes {
 			existingAppRoutes[unsplitRoute(r)] = r
 		}
+
+		bindings, err := s.serviceBindingRepo.ListServiceBindings(ctx, authInfo, repositories.ListServiceBindingsMessage{
+			Type:     "app",
+			AppGUIDs: []string{appRecord.GUID},
+		})
+		if err != nil {
+			return AppState{}, err
+		}
+		for _, b := range bindings {
+			instance, err := s.serviceInstanceRepo.GetServiceInstance(ctx, authInfo, b.ServiceInstanceGUID)
+			if err != nil {
+				return AppState{}, err
+			}
+			existingServiceBindings[instance.Name] = b
+		}
 	}
 
 	return AppState{
-		App:       appRecord,
-		Processes: existingProcesses,
-		Routes:    existingAppRoutes,
+		App:             appRecord,
+		Processes:       existingProcesses,
+		Routes:          existingAppRoutes,
+		ServiceBindings: existingServiceBindings,
 	}, nil
 }
 

@@ -35,6 +35,8 @@ type ManifestApplication struct {
 	Processes                    []ManifestApplicationProcess `yaml:"processes" validate:"dive"`
 	Routes                       []ManifestRoute              `yaml:"routes" validate:"dive"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
+	Services                     []string                     `yaml:"services"`
+
 	// Deprecated: Use Buildpacks instead
 	Buildpack string        `yaml:"buildpack"`
 	Metadata  MetadataPatch `yaml:"metadata"`

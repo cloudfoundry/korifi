@@ -213,9 +213,9 @@ func main() {
 	manifest := actions.NewManifest(
 		domainRepo,
 		cfg.DefaultDomainName,
-		manifest.NewStateCollector(appRepo, domainRepo, processRepo, routeRepo),
+		manifest.NewStateCollector(appRepo, domainRepo, processRepo, routeRepo, serviceInstanceRepo, serviceBindingRepo),
 		manifest.NewNormalizer(cfg.DefaultDomainName),
-		manifest.NewApplier(appRepo, domainRepo, processRepo, routeRepo),
+		manifest.NewApplier(appRepo, domainRepo, processRepo, routeRepo, serviceInstanceRepo, serviceBindingRepo),
 	)
 	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 

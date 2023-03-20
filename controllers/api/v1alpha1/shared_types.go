@@ -16,6 +16,8 @@ const (
 	CFRouteGUIDLabelKey     = "korifi.cloudfoundry.org/route-guid"
 	CFTaskGUIDLabelKey      = "korifi.cloudfoundry.org/task-guid"
 
+	CFBindingTypeLabelKey = "korifi.cloudfoundry.org/binding-type"
+
 	StagingConditionType   = "Staging"
 	ReadyConditionType     = "Ready"
 	SucceededConditionType = "Succeeded"

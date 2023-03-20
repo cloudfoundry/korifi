@@ -70,6 +70,7 @@ type ServiceBindingLastOperation struct {
 }
 
 type CreateServiceBindingMessage struct {
+	Type                string
 	Name                *string
 	ServiceInstanceGUID string
 	AppGUID             string
@@ -81,8 +82,10 @@ type DeleteServiceBindingMessage struct {
 }
 
 type ListServiceBindingsMessage struct {
+	Type                 string
 	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
+	LabelSelectors       []string
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
@@ -91,7 +94,10 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServ
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: m.SpaceGUID,
-			Labels:    map[string]string{LabelServiceBindingProvisionedService: "true"},
+			Labels: map[string]string{
+				LabelServiceBindingProvisionedService: "true",
+				korifiv1alpha1.CFBindingTypeLabelKey:  m.Type,
+			},
 		},
 		Spec: korifiv1alpha1.CFServiceBindingSpec{
 			DisplayName: m.Name,
@@ -232,7 +238,7 @@ func cfServiceBindingToRecord(binding *korifiv1alpha1.CFServiceBinding) ServiceB
 	updatedAt, _ := getTimeLastUpdatedTimestamp(&binding.ObjectMeta)
 	return ServiceBindingRecord{
 		GUID:                binding.Name,
-		Type:                ServiceBindingTypeApp,
+		Type:                binding.Labels[korifiv1alpha1.CFBindingTypeLabelKey],
 		Name:                binding.Spec.DisplayName,
 		AppGUID:             binding.Spec.AppRef.Name,
 		ServiceInstanceGUID: binding.Spec.Service.Name,
@@ -285,8 +291,10 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 func applyServiceBindingListFilter(serviceBindingList []korifiv1alpha1.CFServiceBinding, message ListServiceBindingsMessage) []korifiv1alpha1.CFServiceBinding {
 	var filtered []korifiv1alpha1.CFServiceBinding
 	for _, serviceBinding := range serviceBindingList {
-		if matchesFilter(serviceBinding.Spec.Service.Name, message.ServiceInstanceGUIDs) &&
-			matchesFilter(serviceBinding.Spec.AppRef.Name, message.AppGUIDs) {
+		if serviceBinding.Labels[korifiv1alpha1.CFBindingTypeLabelKey] == message.Type &&
+			matchesFilter(serviceBinding.Spec.Service.Name, message.ServiceInstanceGUIDs) &&
+			matchesFilter(serviceBinding.Spec.AppRef.Name, message.AppGUIDs) &&
+			labelsFilters(serviceBinding.Labels, message.LabelSelectors) {
 			filtered = append(filtered, serviceBinding)
 		}
 	}

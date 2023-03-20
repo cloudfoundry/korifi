@@ -55,3 +55,20 @@ type CFRouteRepository interface {
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
 	RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error)
 }
+
+//counterfeiter:generate -o fake -fake-name CFServiceBindingRepository . CFServiceBindingRepository
+
+type CFServiceBindingRepository interface {
+	CreateServiceBinding(context.Context, authorization.Info, repositories.CreateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
+	DeleteServiceBinding(context.Context, authorization.Info, string) error
+	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
+}
+
+//counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
+
+type CFServiceInstanceRepository interface {
+	CreateServiceInstance(context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
+	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
+	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
+	DeleteServiceInstance(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) error
+}
