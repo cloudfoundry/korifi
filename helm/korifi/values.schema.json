@@ -296,6 +296,10 @@
           "description": "Key-value pairs that are going to be set in the VCAP_APPLICATION env var on apps. Nested values are not supported.",
           "type": "object",
           "properties": {}
+        },
+        "maxRetainedPackagesPerApp": {
+          "description": "How many 'ready' packages to keep, excluding the package associated with the app's current droplet. Older 'ready' packages will be deleted, along with their corresponding container images.",
+          "type": "integer"
         }
       },
       "required": ["image", "reconcilers", "taskTTL", "workloadsTLSSecret"],

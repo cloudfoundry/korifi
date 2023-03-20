@@ -25,6 +25,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	networkingcontrollers "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 	servicescontrollers "code.cloudfoundry.org/korifi/controllers/controllers/services"
@@ -160,6 +161,7 @@ func main() {
 		if err = (workloadscontrollers.NewCFPackageReconciler(
 			mgr.GetClient(),
 			image.NewClient(k8sClient),
+			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
 			mgr.GetScheme(),
 			controllerConfig.ContainerRegistrySecretName,
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),
