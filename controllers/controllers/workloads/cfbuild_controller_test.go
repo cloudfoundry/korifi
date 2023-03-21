@@ -102,12 +102,10 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
 				g.Expect(createdCFBuild.GetOwnerReferences()).To(ConsistOf(
 					metav1.OwnerReference{
-						APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
-						Kind:               "CFPackage",
-						Name:               desiredCFPackage.Name,
-						UID:                desiredCFPackage.UID,
-						Controller:         tools.PtrTo(true),
-						BlockOwnerDeletion: tools.PtrTo(true),
+						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						Kind:       "CFApp",
+						Name:       desiredCFApp.Name,
+						UID:        desiredCFApp.UID,
 					},
 				))
 			}).Should(Succeed())
