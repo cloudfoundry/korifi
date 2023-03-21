@@ -19,10 +19,6 @@ func (c *DomainCreate) ToMessage() (repositories.CreateDomainMessage, error) {
 		return repositories.CreateDomainMessage{}, errors.New("internal domains are not supported")
 	}
 
-	if len(c.Relationships) > 0 {
-		return repositories.CreateDomainMessage{}, errors.New("private domains are not supported")
-	}
-
 	return repositories.CreateDomainMessage{
 		Name: c.Name,
 		Metadata: repositories.Metadata{
