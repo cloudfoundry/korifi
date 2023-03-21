@@ -10,14 +10,10 @@ import (
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gcustom"
-	gtypes "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("PackageCleaner", func() {
@@ -141,18 +137,4 @@ func createReadyPackage(namespace, appGUID, name string) *korifiv1alpha1.CFPacka
 	})
 	Expect(k8sClient.Status().Update(ctx, pkg)).To(Succeed())
 	return pkg
-}
-
-func BeNotFound() gtypes.GomegaMatcher {
-	return gcustom.MakeMatcher(func(obj client.Object) (bool, error) {
-		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
-		return k8serrors.IsNotFound(err), nil
-	}).WithTemplate("Expected:\n{{.Actual.Namespace}}/{{.Actual.Name}}\n{{.To}} be not found")
-}
-
-func BeFound() gtypes.GomegaMatcher {
-	return gcustom.MakeMatcher(func(obj client.Object) (bool, error) {
-		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
-		return err == nil, nil
-	}).WithTemplate("Expected:\n{{.Actual.Namespace}}/{{.Actual.Name}}\n{{.To}} be found")
 }

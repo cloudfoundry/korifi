@@ -149,6 +149,7 @@ func main() {
 
 		if err = (workloadscontrollers.NewCFBuildReconciler(
 			mgr.GetClient(),
+			cleanup.NewBuildCleaner(mgr.GetClient(), controllerConfig.MaxRetainedBuildsPerApp),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFBuild"),
 			controllerConfig,

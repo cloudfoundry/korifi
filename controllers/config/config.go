@@ -28,6 +28,7 @@ type ControllerConfig struct {
 	NamespaceLabels             map[string]string `yaml:"namespaceLabels"`
 	ExtraVCAPApplicationValues  map[string]any    `yaml:"extraVCAPApplicationValues"`
 	MaxRetainedPackagesPerApp   int               `yaml:"maxRetainedPackagesPerApp"`
+	MaxRetainedBuildsPerApp     int               `yaml:"maxRetainedBuildsPerApp"`
 	LogLevel                    zapcore.Level     `yaml:"logLevel"`
 
 	// job-task-runner

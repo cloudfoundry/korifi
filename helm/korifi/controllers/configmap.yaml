@@ -32,6 +32,7 @@ data:
       {{ $key }}: {{ $value }}
     {{- end }}
     maxRetainedPackagesPerApp: {{ .Values.controllers.maxRetainedPackagesPerApp }}
+    maxRetainedBuildsPerApp: {{ .Values.controllers.maxRetainedBuildsPerApp }}
     logLevel: {{ .Values.global.logLevel }}
 {{- if .Values.kpackImageBuilder.include }}
   kpack_build_controllers_config.yaml: |

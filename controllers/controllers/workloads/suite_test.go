@@ -46,6 +46,7 @@ var (
 	imageDeleter        *fake.ImageDeleter
 	packageCleaner      *fake.PackageCleaner
 	eventRecorder       *controllerfake.EventRecorder
+	buildCleaner        *fake.BuildCleaner
 )
 
 const (
@@ -122,8 +123,11 @@ var _ = BeforeSuite(func() {
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(registryAuthFetcherClient).NotTo(BeNil())
+
+	buildCleaner = new(fake.BuildCleaner)
 	cfBuildReconciler := NewCFBuildReconciler(
 		k8sManager.GetClient(),
+		buildCleaner,
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFBuild"),
 		controllerConfig,

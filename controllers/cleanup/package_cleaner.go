@@ -2,7 +2,6 @@ package cleanup
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -69,7 +68,6 @@ func (c PackageCleaner) Clean(ctx context.Context, app types.NamespacedName) err
 	})
 
 	for i := c.retainedPackages; i < len(deletablePackages); i++ {
-		fmt.Printf("deletablePackages[i] = %+v\n", deletablePackages[i].Name)
 		err = c.k8sClient.Delete(ctx, &deletablePackages[i])
 		if err != nil {
 			return err
