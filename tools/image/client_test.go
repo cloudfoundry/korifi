@@ -18,17 +18,21 @@ import (
 
 var _ = Describe("Client", func() {
 	var (
-		zipFile *os.File
-		testErr error
-		pushRef string
-		imgRef  string
-		creds   image.Creds
+		zipFile      *os.File
+		otherZipFile *os.File
+		testErr      error
+		pushRef      string
+		imgRef       string
+		creds        image.Creds
 	)
 
 	BeforeEach(func() {
 		testErr = nil
 		var err error
 		zipFile, err = os.Open("fixtures/layer.zip")
+		Expect(err).NotTo(HaveOccurred())
+
+		otherZipFile, err = os.Open("fixtures/anotherLayer.zip")
 		Expect(err).NotTo(HaveOccurred())
 
 		pushRef = strings.Replace(authRegistryServer.URL+"/foo/bar", "http://", "", 1)
@@ -136,7 +140,7 @@ var _ = Describe("Client", func() {
 
 		It("fetches the image config", func() {
 			Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
-			Expect(config.ExposedPorts).To(Equal([]int32{123, 456}))
+			Expect(config.ExposedPorts).To(ConsistOf(int32(123), int32(456)))
 		})
 
 		When("the ref is invalid", func() {
@@ -167,7 +171,7 @@ var _ = Describe("Client", func() {
 
 			It("fetches the image labels", func() {
 				Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
-				Expect(config.ExposedPorts).To(Equal([]int32{123, 456}))
+				Expect(config.ExposedPorts).To(ConsistOf(int32(123), int32(456)))
 			})
 		})
 
@@ -185,21 +189,24 @@ var _ = Describe("Client", func() {
 				It("succeeds", func() {
 					Expect(testErr).NotTo(HaveOccurred())
 					Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
-					Expect(config.ExposedPorts).To(Equal([]int32{123, 456}))
+					Expect(config.ExposedPorts).To(ConsistOf(int32(123), int32(456)))
 				})
 			})
 		})
 	})
 
 	Describe("Delete", func() {
+		var tagsToDelete []string
+
 		BeforeEach(func() {
+			tagsToDelete = []string{"jim", "bob"}
 			var err error
 			imgRef, err = imgClient.Push(ctx, creds, pushRef, zipFile, "jim", "bob")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
-			testErr = imgClient.Delete(ctx, creds, imgRef)
+			testErr = imgClient.Delete(ctx, creds, imgRef, tagsToDelete...)
 		})
 
 		It("deletes an image", func() {
@@ -207,6 +214,34 @@ var _ = Describe("Client", func() {
 
 			_, err := imgClient.Config(ctx, creds, imgRef)
 			Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
+		})
+
+		When("a tag is omitted", func() {
+			BeforeEach(func() {
+				tagsToDelete = []string{"bob"}
+			})
+
+			It("deletes the tag but not the image", func() {
+				Expect(testErr).NotTo(HaveOccurred())
+
+				_, err := imgClient.Config(ctx, creds, pushRef+":bob")
+				Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
+
+				_, err = imgClient.Config(ctx, creds, imgRef)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		When("another digest exists in the repo with another tag", func() {
+			BeforeEach(func() {
+				_, err := imgClient.Push(ctx, creds, pushRef, otherZipFile, "alice")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("still deletes the image when all _its_ tags are removed", func() {
+				_, err := imgClient.Config(ctx, creds, imgRef)
+				Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
+			})
 		})
 
 		When("the secret doesn't exist", func() {
@@ -260,11 +295,17 @@ var _ = Describe("Client", func() {
 	})
 
 	for _, reg := range registries {
-		Describe("Delete from cloud registries", func() {
+		// 'Serial` because we use the same image for ECR in this test and above
+		// and otherwise they interfere
+		Describe("Delete from cloud registries", Serial, func() {
 			reg := reg // capture reg so we don't just use the last one!
-			var repoName string
+			var (
+				repoName     string
+				tagsToDelete []string
+			)
 
 			BeforeEach(func() {
+				tagsToDelete = []string{"jim", "bob"}
 				pushRef = reg.RepoName
 				if pushRef == "" {
 					repoName = testutils.GenerateGUID()
@@ -277,14 +318,39 @@ var _ = Describe("Client", func() {
 			})
 
 			JustBeforeEach(func() {
-				testErr = imgClient.Delete(ctx, creds, imgRef)
+				testErr = imgClient.Delete(ctx, creds, imgRef, tagsToDelete...)
 			})
 
-			It("deletes an image", func() {
+			It("deletes the image", func() {
 				Expect(testErr).NotTo(HaveOccurred())
 
 				_, err := imgClient.Config(ctx, creds, imgRef)
 				Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
+			})
+
+			When("a tag is omitted", func() {
+				BeforeEach(func() {
+					tagsToDelete = []string{"bob"}
+				})
+
+				It("does not delete the image", func() {
+					Expect(testErr).NotTo(HaveOccurred())
+
+					_, err := imgClient.Config(ctx, creds, imgRef)
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("another digest exists in the repo with another tag", func() {
+				BeforeEach(func() {
+					_, err := imgClient.Push(ctx, creds, pushRef, otherZipFile, "alice")
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("still deletes the image when all _its_ tags are removed", func() {
+					_, err := imgClient.Config(ctx, creds, imgRef)
+					Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
+				})
 			})
 		})
 	}
