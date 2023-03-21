@@ -127,18 +127,6 @@ type BuildWorkloadReconciler struct {
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (ctrl.Result, error) {
-	if len(buildWorkload.Spec.Buildpacks) > 0 {
-		// Specifying buildpacks is not supported
-		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.SucceededConditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "InvalidBuildpacks",
-			Message: `Only buildpack auto-detection is supported. Specifying buildpacks is not allowed.`,
-		})
-
-		return ctrl.Result{}, nil
-	}
-
 	succeededStatus := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 
 	if succeededStatus != nil && succeededStatus.Status != metav1.ConditionUnknown {
