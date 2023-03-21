@@ -15,7 +15,17 @@ spec:
     singular: cfbuild
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.appRef.name
+      name: AppGUID
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Succeeded')].status
+      name: Staged
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CFBuild is the Schema for the cfbuilds API
