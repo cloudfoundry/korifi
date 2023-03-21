@@ -151,6 +151,7 @@ type PatchAppMetadataMessage struct {
 	MetadataPatch
 	AppGUID   string
 	SpaceGUID string
+	Lifecycle Lifecycle
 }
 
 type SetCurrentDropletMessage struct {
@@ -493,6 +494,17 @@ func (f *AppRepo) PatchAppMetadata(ctx context.Context, authInfo authorization.I
 
 	err = k8s.PatchResource(ctx, userClient, app, func() {
 		message.Apply(app)
+
+		if message.Lifecycle.Type != "" {
+			app.Spec.Lifecycle.Type = korifiv1alpha1.LifecycleType(message.Lifecycle.Type)
+
+			if app.Spec.Lifecycle.Type == "buildpack" {
+				app.Spec.Lifecycle.Data.Stack = message.Lifecycle.Data.Stack
+				app.Spec.Lifecycle.Data.Buildpacks = message.Lifecycle.Data.Buildpacks
+			} else {
+				app.Spec.Lifecycle.Data = korifiv1alpha1.LifecycleData{}
+			}
+		}
 	})
 	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)

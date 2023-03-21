@@ -115,11 +115,12 @@ func (a *AppPatchEnvVars) ToMessage(appGUID, spaceGUID string) repositories.Patc
 }
 
 type AppPatch struct {
-	Metadata MetadataPatch `json:"metadata"`
+	Metadata  MetadataPatch `json:"metadata"`
+	Lifecycle *Lifecycle    `json:"lifecycle"`
 }
 
 func (a *AppPatch) ToMessage(appGUID, spaceGUID string) repositories.PatchAppMetadataMessage {
-	return repositories.PatchAppMetadataMessage{
+	m := repositories.PatchAppMetadataMessage{
 		AppGUID:   appGUID,
 		SpaceGUID: spaceGUID,
 		MetadataPatch: repositories.MetadataPatch{
@@ -127,4 +128,16 @@ func (a *AppPatch) ToMessage(appGUID, spaceGUID string) repositories.PatchAppMet
 			Labels:      a.Metadata.Labels,
 		},
 	}
+
+	if a.Lifecycle != nil {
+		m.Lifecycle = repositories.Lifecycle{
+			Type: a.Lifecycle.Type,
+			Data: repositories.LifecycleData{
+				Buildpacks: a.Lifecycle.Data.Buildpacks,
+				Stack:      a.Lifecycle.Data.Stack,
+			},
+		}
+	}
+
+	return m
 }
