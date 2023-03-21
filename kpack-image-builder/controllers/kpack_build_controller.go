@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"strings"
 
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -20,7 +21,7 @@ const kpackBuildFinalizer string = "korifi.cloudfoundry.org/kpackBuild"
 //counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter
 
 type ImageDeleter interface {
-	Delete(context.Context, image.Creds, string) error
+	Delete(context.Context, image.Creds, string, ...string) error
 }
 
 type KpackBuildController struct {
@@ -57,10 +58,18 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 		}
 
 		if kpackBuild.Status.LatestImage != "" {
+			tagsToDelete := []string{}
+			for _, t := range kpackBuild.Spec.Tags {
+				parts := strings.Split(t, ":")
+				if len(parts) == 2 {
+					tagsToDelete = append(tagsToDelete, parts[1])
+				}
+			}
+
 			err := c.imageDeleter.Delete(ctx, image.Creds{
 				Namespace:          kpackBuild.Namespace,
 				ServiceAccountName: c.registryServiceAccount,
-			}, kpackBuild.Status.LatestImage)
+			}, kpackBuild.Status.LatestImage, tagsToDelete...)
 			if err != nil {
 				log.Info("failed to delete droplet image", "reason", err)
 			}

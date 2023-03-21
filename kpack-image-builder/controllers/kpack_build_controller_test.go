@@ -42,6 +42,12 @@ var _ = Describe("KpackBuildReconciler", func() {
 						"korifi.cloudfoundry.org/build-workload-name": "anything",
 					},
 				},
+				Spec: kpackv1alpha2.BuildSpec{
+					Tags: []string{
+						"foo.reg/latest-image",
+						"foo.reg/latest-image:bob",
+					},
+				},
 			}
 			Expect(k8sClient.Create(ctx, &build)).To(Succeed())
 		})
@@ -49,7 +55,7 @@ var _ = Describe("KpackBuildReconciler", func() {
 		JustBeforeEach(func() {
 			if setImage {
 				buildOrig := build.DeepCopy()
-				build.Status.LatestImage = "foo.reg/latest-image:bob"
+				build.Status.LatestImage = "foo.reg/latest-image@sha256:abcdef123"
 				Expect(k8sClient.Status().Patch(ctx, &build, client.MergeFrom(buildOrig))).To(Succeed())
 			}
 
@@ -65,10 +71,12 @@ var _ = Describe("KpackBuildReconciler", func() {
 		It("works", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(fakeImageDeleter.DeleteCallCount()).To(Equal(deleteCallCount + 1))
-				_, creds, imageRef := fakeImageDeleter.DeleteArgsForCall(deleteCallCount)
+				_, creds, imageRef, tagsToDelete := fakeImageDeleter.DeleteArgsForCall(deleteCallCount)
 				g.Expect(creds.Namespace).To(Equal(namespaceGUID))
 				g.Expect(creds.ServiceAccountName).To(Equal("builder-service-account"))
 				g.Expect(imageRef).To(Equal(build.Status.LatestImage))
+				g.Expect(tagsToDelete).To(ConsistOf("bob"))
+
 				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)
 				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())

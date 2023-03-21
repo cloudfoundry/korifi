@@ -43,7 +43,7 @@ const (
 //counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter
 
 type ImageDeleter interface {
-	Delete(ctx context.Context, creds image.Creds, imageRef string) error
+	Delete(ctx context.Context, creds image.Creds, imageRef string, tagsToDelete ...string) error
 }
 
 //counterfeiter:generate -o fake -fake-name PackageCleaner . PackageCleaner
@@ -177,7 +177,7 @@ func (r *CFPackageReconciler) finalize(ctx context.Context, log logr.Logger, cfP
 		if err := r.imageDeleter.Delete(ctx, image.Creds{
 			Namespace:  cfPackage.Namespace,
 			SecretName: r.packageRepoSecretName,
-		}, cfPackage.Spec.Source.Registry.Image); err != nil {
+		}, cfPackage.Spec.Source.Registry.Image, cfPackage.Name); err != nil {
 			log.Info("failed to delete image", "reason", err)
 		}
 	}

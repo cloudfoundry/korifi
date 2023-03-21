@@ -140,7 +140,7 @@ func (c Client) Config(ctx context.Context, creds Creds, imageRef string) (Confi
 	}, nil
 }
 
-func (c Client) Delete(ctx context.Context, creds Creds, imageRef string) error {
+func (c Client) Delete(ctx context.Context, creds Creds, imageRef string, tagsToDelete ...string) error {
 	c.logger.V(1).Info("deleting", "ref", imageRef)
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
@@ -152,42 +152,98 @@ func (c Client) Delete(ctx context.Context, creds Creds, imageRef string) error 
 		return fmt.Errorf("error creating keychain: %w", err)
 	}
 
-	tags, err := remote.List(ref.Context(), authOpt)
+	allTagSet, err := c.getTagSet(ref, authOpt)
 	if err != nil {
-		c.logger.V(1).Info("failed to list tags - skipping tag deletion", "reason", err)
+		return fmt.Errorf("failed to list tags: %w", err)
 	}
 
-	for _, tag := range tags {
-		var tagRef name.Reference
-		tagRef, err = name.ParseReference(ref.Context().String() + ":" + tag)
-		if err != nil {
-			return fmt.Errorf("couldn't create a tag ref: %w", err)
-		}
-		var descriptor *remote.Descriptor
-		descriptor, err = remote.Get(tagRef, authOpt)
-		if err != nil {
-			c.logger.V(1).Info("failed get tag - continuing", "reason", err)
+	for _, tag := range tagsToDelete {
+		if !allTagSet[tag] {
+			c.logger.Info("tag not found for this ref", "tag", tag, "ref", imageRef)
 			continue
 		}
 
-		if descriptor.Digest.String() == ref.Identifier() {
-			c.logger.V(1).Info("deleting tag", "tag", tag)
-			err = remote.Delete(descriptor.Ref, authOpt)
-			if err != nil {
-				c.logger.V(1).Info("failed to delete tag", "reason", err)
+		if err = c.deleteTag(ref, tag, authOpt); err != nil {
+			c.logger.Info("failed to delete tag", "reason", err)
+			continue
+		}
+		delete(allTagSet, tag)
+	}
+
+	// The latest tag is set automatically by registries. If it is the only
+	// remaining tag, remove it to prevent digest deletion errors
+	latestTag := "latest"
+	if len(allTagSet) == 1 && allTagSet[latestTag] {
+		if err = c.deleteTag(ref, latestTag, authOpt); err != nil {
+			c.logger.Info("failed to delete tag", "reason", err)
+		} else {
+			delete(allTagSet, latestTag)
+		}
+	}
+
+	if len(allTagSet) == 0 {
+		err = remote.Delete(ref, authOpt)
+		if err != nil {
+			if structuredErr, ok := err.(*transport.Error); ok && structuredErr.StatusCode == http.StatusNotFound {
+				c.logger.V(1).Info("manifest disappeared - continuing", "reason", err)
+				return nil
 			}
 		}
 	}
 
-	err = remote.Delete(ref, authOpt)
+	return err
+}
+
+func (c Client) getTagSet(ref name.Reference, authOpt remote.Option) (map[string]bool, error) {
+	allTags, err := remote.List(ref.Context(), authOpt)
 	if err != nil {
-		if structuredErr, ok := err.(*transport.Error); ok && structuredErr.StatusCode == http.StatusNotFound {
-			c.logger.V(1).Info("manifest disappeared - continuing", "reason", err)
-			return nil
+		c.logger.V(1).Info("failed to list tags - skipping tag deletion", "reason", err)
+		return nil, err
+	}
+
+	allTagSet := map[string]bool{}
+	for _, t := range allTags {
+		var tagRef name.Reference
+		tagRef, err = name.ParseReference(ref.Context().String() + ":" + t)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't create a tag ref: %w", err)
+		}
+
+		var descriptor *remote.Descriptor
+		descriptor, err = remote.Get(tagRef, authOpt)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't get tag: %w", err)
+		}
+
+		if descriptor.Digest.String() == ref.Identifier() {
+			allTagSet[t] = true
 		}
 	}
 
-	return err
+	return allTagSet, nil
+}
+
+func (c Client) deleteTag(ref name.Reference, tag string, authOpt remote.Option) error {
+	tagRef, err := name.ParseReference(ref.Context().String() + ":" + tag)
+	if err != nil {
+		return fmt.Errorf("couldn't create a tag ref: %w", err)
+	}
+	var descriptor *remote.Descriptor
+	descriptor, err = remote.Get(tagRef, authOpt)
+	if err != nil {
+		c.logger.V(1).Info("failed get tag - continuing", "reason", err)
+		return nil
+	}
+
+	if descriptor.Digest.String() == ref.Identifier() {
+		c.logger.V(1).Info("deleting tag", "tag", tag)
+		err = remote.Delete(descriptor.Ref, authOpt)
+		if err != nil {
+			c.logger.V(1).Info("failed to delete tag", "reason", err)
+		}
+	}
+
+	return nil
 }
 
 func (c Client) authOpt(ctx context.Context, creds Creds) (remote.Option, error) {

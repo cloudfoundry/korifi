@@ -134,10 +134,11 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 				g.Expect(imageDeleter.DeleteCallCount()).To(Equal(deleteCount + 1))
 			}).Should(Succeed())
 
-			_, creds, ref := imageDeleter.DeleteArgsForCall(deleteCount)
+			_, creds, ref, tagsToDelete := imageDeleter.DeleteArgsForCall(deleteCount)
 			Expect(creds.Namespace).To(Equal(cfSpace.Status.GUID))
 			Expect(creds.SecretName).To(Equal("package-repo-secret-name"))
 			Expect(ref).To(Equal(imageRef))
+			Expect(tagsToDelete).To(ConsistOf(cfPackage.Name))
 
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
