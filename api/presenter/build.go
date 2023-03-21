@@ -11,29 +11,39 @@ const (
 	dropletsBase = "/v3/droplets"
 )
 
+type BuildCreatedBy struct {
+	GUID  string `json:"guid"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
 type BuildResponse struct {
-	GUID            string                 `json:"guid"`
-	CreatedAt       string                 `json:"created_at"`
-	UpdatedAt       string                 `json:"updated_at"`
-	CreatedBy       map[string]interface{} `json:"created_by"`
-	State           string                 `json:"state"`
-	StagingMemoryMB int                    `json:"staging_memory_in_mb"`
-	StagingDiskMB   int                    `json:"staging_disk_in_mb"`
-	Error           *string                `json:"error"`
-	Lifecycle       Lifecycle              `json:"lifecycle"`
-	Package         RelationshipData       `json:"package"`
-	Droplet         *RelationshipData      `json:"droplet"`
-	Relationships   Relationships          `json:"relationships"`
-	Metadata        Metadata               `json:"metadata"`
-	Links           map[string]Link        `json:"links"`
+	GUID            string            `json:"guid"`
+	CreatedAt       string            `json:"created_at"`
+	UpdatedAt       string            `json:"updated_at"`
+	CreatedBy       BuildCreatedBy    `json:"created_by"`
+	State           string            `json:"state"`
+	StagingMemoryMB int               `json:"staging_memory_in_mb"`
+	StagingDiskMB   int               `json:"staging_disk_in_mb"`
+	Error           *string           `json:"error"`
+	Lifecycle       Lifecycle         `json:"lifecycle"`
+	Package         RelationshipData  `json:"package"`
+	Droplet         *RelationshipData `json:"droplet"`
+	Relationships   Relationships     `json:"relationships"`
+	Metadata        Metadata          `json:"metadata"`
+	Links           map[string]Link   `json:"links"`
 }
 
 func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildResponse {
 	toReturn := BuildResponse{
-		GUID:            buildRecord.GUID,
-		CreatedAt:       buildRecord.CreatedAt,
-		UpdatedAt:       buildRecord.UpdatedAt,
-		CreatedBy:       make(map[string]interface{}),
+		GUID:      buildRecord.GUID,
+		CreatedAt: buildRecord.CreatedAt,
+		UpdatedAt: buildRecord.UpdatedAt,
+		CreatedBy: BuildCreatedBy{
+			GUID:  buildRecord.CreatedBy.GUID,
+			Name:  buildRecord.CreatedBy.Name,
+			Email: buildRecord.CreatedBy.Email,
+		},
 		State:           buildRecord.State,
 		StagingMemoryMB: buildRecord.StagingMemoryMB,
 		StagingDiskMB:   buildRecord.StagingDiskMB,
