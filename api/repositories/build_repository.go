@@ -33,11 +33,18 @@ const (
 	stagingLogSourceType = "STG"
 )
 
+type BuildCreatedBy struct {
+	GUID  string
+	Name  string
+	Email string
+}
+
 type BuildRecord struct {
 	GUID            string
 	State           string
 	CreatedAt       string
 	UpdatedAt       string
+	CreatedBy       BuildCreatedBy
 	StagingErrorMsg string
 	StagingMemoryMB int
 	StagingDiskMB   int
@@ -88,7 +95,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 		return BuildRecord{}, fmt.Errorf("failed to get build: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
 
-	return b.cfBuildToBuildRecord(build), nil
+	return b.cfBuildToBuildRecord(authInfo, build), nil
 }
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
@@ -117,7 +124,7 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 
 	sortedBuilds := orderBuilds(buildList.Items)
 
-	return b.cfBuildToBuildRecord(sortedBuilds[0]), nil
+	return b.cfBuildToBuildRecord(authInfo, sortedBuilds[0]), nil
 }
 
 func orderBuilds(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
@@ -155,14 +162,19 @@ func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Inf
 	return toReturn, nil
 }
 
-func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRecord {
+func (b *BuildRepo) cfBuildToBuildRecord(authInfo authorization.Info, cfBuild korifiv1alpha1.CFBuild) BuildRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 
 	toReturn := BuildRecord{
-		GUID:            cfBuild.Name,
-		State:           BuildStateStaging,
-		CreatedAt:       cfBuild.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:       updatedAtTime,
+		GUID:      cfBuild.Name,
+		State:     BuildStateStaging,
+		CreatedAt: cfBuild.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt: updatedAtTime,
+		CreatedBy: BuildCreatedBy{
+			GUID:  authInfo.UserId(),
+			Name:  authInfo.UserName(),
+			Email: authInfo.Email(),
+		},
 		StagingErrorMsg: "",
 		StagingMemoryMB: cfBuild.Spec.StagingMemoryMB,
 		StagingDiskMB:   cfBuild.Spec.StagingDiskMB,
@@ -213,7 +225,7 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 
-	return b.cfBuildToBuildRecord(cfBuild), nil
+	return b.cfBuildToBuildRecord(authInfo, cfBuild), nil
 }
 
 type CreateBuildMessage struct {
