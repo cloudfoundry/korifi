@@ -21,5 +21,5 @@ jobTaskRunner:
 
 kpackImageBuilder:
   builderRepository: localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder
-  clusterStackBuildImage: paketobuildpacks/build:base-cnb
-  clusterStackRunImage: paketobuildpacks/run:base-cnb
+  clusterStackBuildImage: paketobuildpacks/build:full-cnb
+  clusterStackRunImage: paketobuildpacks/run:full-cnb
