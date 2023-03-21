@@ -34,6 +34,7 @@ const (
 	AppEnvVarsPath                    = "/v3/apps/{guid}/environment_variables"
 	AppEnvPath                        = "/v3/apps/{guid}/env"
 	AppSSHEnabledPath                 = "/v3/apps/{guid}/ssh_enabled"
+	AppFeaturePath                    = "/v3/apps/{guid}/features/{name}"
 
 	invalidDropletMsg = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
@@ -580,6 +581,15 @@ func (h *App) getSshEnabled(r *http.Request) (*routing.Response, error) {
 	}), nil
 }
 
+func (h *App) updateAppFeature(r *http.Request) (*routing.Response, error) {
+	featureName := routing.URLParam(r, "name")
+	return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+		"name":        featureName,
+		"description": "Description of " + featureName,
+		"enabled":     false,
+	}), nil
+}
+
 func (h *App) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -603,5 +613,6 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
 		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSshEnabled},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
+		{Method: "PATCH", Pattern: AppFeaturePath, Handler: h.updateAppFeature},
 	}
 }
