@@ -35,6 +35,7 @@ const (
 	AppEnvPath                        = "/v3/apps/{guid}/env"
 	AppSSHEnabledPath                 = "/v3/apps/{guid}/ssh_enabled"
 	AppFeaturePath                    = "/v3/apps/{guid}/features/{name}"
+	AppBuildsPath                     = "/v3/apps/{guid}/builds"
 
 	invalidDropletMsg = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
@@ -66,6 +67,7 @@ type App struct {
 	domainRepo       CFDomainRepository
 	spaceRepo        SpaceRepository
 	decoderValidator *DecoderValidator
+	buildRepo        CFBuildRepository
 }
 
 func NewApp(
@@ -77,6 +79,7 @@ func NewApp(
 	domainRepo CFDomainRepository,
 	spaceRepo SpaceRepository,
 	decoderValidator *DecoderValidator,
+	buildRepo CFBuildRepository,
 ) *App {
 	return &App{
 		serverURL:        serverURL,
@@ -87,6 +90,7 @@ func NewApp(
 		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
 		spaceRepo:        spaceRepo,
+		buildRepo:        buildRepo,
 	}
 }
 
@@ -604,6 +608,20 @@ func (h *App) getEnvVars(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForAppEnvVars(appEnvVarsRecord, h.serverURL)), nil
 }
 
+func (h *App) getAppBuilds(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get.builds")
+
+	appGUID := routing.URLParam(r, "guid")
+
+	builds, err := h.buildRepo.ListAppBuilds(r.Context(), authInfo, repositories.ListAppBuildsMessage{AppGUID: appGUID})
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get build from Kubernetes", "AppGUID", appGUID)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForBuildList(builds, h.serverURL, *r.URL)), nil
+}
+
 func (h *App) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -629,5 +647,6 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSshEnabled},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 		{Method: "PATCH", Pattern: AppFeaturePath, Handler: h.updateAppFeature},
+		{Method: "GET", Pattern: AppBuildsPath, Handler: h.getAppBuilds},
 	}
 }

@@ -26,6 +26,7 @@ const (
 type CFBuildRepository interface {
 	GetBuild(context.Context, authorization.Info, string) (repositories.BuildRecord, error)
 	CreateBuild(context.Context, authorization.Info, repositories.CreateBuildMessage) (repositories.BuildRecord, error)
+	ListAppBuilds(context.Context, authorization.Info, repositories.ListAppBuildsMessage) ([]repositories.BuildRecord, error)
 }
 
 type Build struct {

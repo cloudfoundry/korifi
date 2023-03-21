@@ -162,6 +162,7 @@ func main() {
 	buildRepo := repositories.NewBuildRepo(
 		namespaceRetriever,
 		userClientFactory,
+		nsPermissions,
 	)
 	packageRepo := repositories.NewPackageRepo(
 		userClientFactory,
@@ -261,6 +262,7 @@ func main() {
 			domainRepo,
 			spaceRepo,
 			decoderValidator,
+			buildRepo,
 		),
 		handlers.NewRoute(
 			*serverURL,
