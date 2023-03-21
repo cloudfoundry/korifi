@@ -33,7 +33,9 @@ const (
 	AppRestartPath                    = "/v3/apps/{guid}/actions/restart"
 	AppEnvVarsPath                    = "/v3/apps/{guid}/environment_variables"
 	AppEnvPath                        = "/v3/apps/{guid}/env"
-	invalidDropletMsg                 = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
+	AppSSHEnabledPath                 = "/v3/apps/{guid}/ssh_enabled"
+
+	invalidDropletMsg = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
 	AppStoppedState = "STOPPED"
@@ -571,6 +573,13 @@ func (h *App) update(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }
 
+func (h *App) getSshEnabled(r *http.Request) (*routing.Response, error) {
+	return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+		"enabled": false,
+		"reason":  "Disabled globally",
+	}), nil
+}
+
 func (h *App) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -592,6 +601,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: AppPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: AppEnvVarsPath, Handler: h.updateEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
+		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSshEnabled},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 	}
 }
