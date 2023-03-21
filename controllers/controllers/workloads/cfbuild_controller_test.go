@@ -79,8 +79,11 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 	})
 
 	When("CFBuild status conditions are missing or unknown", func() {
+		var cleanCallCount int
+
 		BeforeEach(func() {
 			ctx := context.Background()
+			cleanCallCount = buildCleaner.CleanCallCount()
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			Expect(k8sClient.Create(ctx, desiredCFPackage)).To(Succeed())
 
@@ -93,6 +96,15 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
 			desiredCFBuild.Spec.Lifecycle.Data.Buildpacks = desiredBuildpacks
 			Expect(k8sClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
+		})
+
+		It("cleans up older builds and droplets", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(buildCleaner.CleanCallCount()).To(BeNumerically(">", cleanCallCount))
+			}).Should(Succeed())
+			_, app := buildCleaner.CleanArgsForCall(cleanCallCount)
+			Expect(app.Name).To(Equal(cfAppGUID))
+			Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
 		})
 
 		It("reconciles to set the owner reference on the CFBuild", func() {
