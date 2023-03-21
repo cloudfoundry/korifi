@@ -18,7 +18,7 @@ import (
 
 const (
 	RouteResourceType = "Route"
-	RoutePrefix       = "cf-route-"
+	RoutePrefix       = ""
 )
 
 type RouteRepo struct {
