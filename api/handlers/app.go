@@ -26,6 +26,7 @@ const (
 	AppCurrentDropletPath             = "/v3/apps/{guid}/droplets/current"
 	AppProcessesPath                  = "/v3/apps/{guid}/processes"
 	AppProcessByTypePath              = "/v3/apps/{guid}/processes/{type}"
+	AppProcessStatsByTypePath         = "/v3/apps/{guid}/processes/{type}/stats"
 	AppProcessScalePath               = "/v3/apps/{guid}/processes/{processType}/actions/scale"
 	AppRoutesPath                     = "/v3/apps/{guid}/routes"
 	AppStartPath                      = "/v3/apps/{guid}/actions/start"
@@ -68,6 +69,7 @@ type App struct {
 	spaceRepo        SpaceRepository
 	decoderValidator *DecoderValidator
 	buildRepo        CFBuildRepository
+	processStats     ProcessStats
 }
 
 func NewApp(
@@ -80,6 +82,7 @@ func NewApp(
 	spaceRepo SpaceRepository,
 	decoderValidator *DecoderValidator,
 	buildRepo CFBuildRepository,
+	processStats ProcessStats,
 ) *App {
 	return &App{
 		serverURL:        serverURL,
@@ -91,6 +94,7 @@ func NewApp(
 		decoderValidator: decoderValidator,
 		spaceRepo:        spaceRepo,
 		buildRepo:        buildRepo,
+		processStats:     processStats,
 	}
 }
 
@@ -622,6 +626,32 @@ func (h *App) getAppBuilds(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForBuildList(builds, h.serverURL, *r.URL)), nil
 }
 
+func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-process-stats")
+	appGUID := routing.URLParam(r, "guid")
+	processType := routing.URLParam(r, "type")
+
+	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+	}
+
+	process, err := h.processRepo.GetProcessByAppTypeAndSpace(r.Context(), authInfo, appGUID, processType, app.SpaceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch process from Kubernetes", "AppGUID", appGUID)
+	}
+
+	processGUID := process.GUID
+
+	records, err := h.processStats.FetchStats(r.Context(), authInfo, processGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
+}
+
 func (h *App) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -648,5 +678,6 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 		{Method: "PATCH", Pattern: AppFeaturePath, Handler: h.updateAppFeature},
 		{Method: "GET", Pattern: AppBuildsPath, Handler: h.getAppBuilds},
+		{Method: "GET", Pattern: AppProcessStatsByTypePath, Handler: h.getProcessStats},
 	}
 }

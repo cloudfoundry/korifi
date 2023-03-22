@@ -263,6 +263,7 @@ func main() {
 			spaceRepo,
 			decoderValidator,
 			buildRepo,
+			processStats,
 		),
 		handlers.NewRoute(
 			*serverURL,

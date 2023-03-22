@@ -48,6 +48,8 @@ type (
 		Usage     Usage
 		MemQuota  *int64
 		DiskQuota *int64
+		FDSQuota  int
+		Host      string
 	}
 
 	ProcessStats struct {
@@ -150,6 +152,9 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 
 		records[index].MemQuota = tools.PtrTo(megabytesToBytes(processRecord.MemoryMB))
 		records[index].DiskQuota = tools.PtrTo(megabytesToBytes(processRecord.DiskQuotaMB))
+		records[index].Host = m.Pod.Status.HostIP
+		// TODO: This should probably not be hardcoded
+		records[index].FDSQuota = 1024
 	}
 	return records, nil
 }
