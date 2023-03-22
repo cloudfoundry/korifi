@@ -93,6 +93,7 @@ type ServiceInstanceRecord struct {
 	SecretName  string
 	Tags        []string
 	Type        string
+	PlanGUID    string
 	Labels      map[string]string
 	Annotations map[string]string
 	CreatedAt   string
@@ -286,6 +287,7 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.C
 		SecretName:  cfServiceInstance.Spec.SecretName,
 		Tags:        cfServiceInstance.Spec.Tags,
 		Type:        string(cfServiceInstance.Spec.Type),
+		PlanGUID:    cfServiceInstance.Spec.ServicePlanGUID,
 		Labels:      cfServiceInstance.Labels,
 		Annotations: cfServiceInstance.Annotations,
 		CreatedAt:   cfServiceInstance.CreationTimestamp.UTC().Format(TimestampFormat),

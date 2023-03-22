@@ -69,6 +69,11 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 					GUID: serviceInstanceRecord.SpaceGUID,
 				},
 			},
+			"service_plan": Relationship{
+				Data: &RelationshipData{
+					GUID: serviceInstanceRecord.PlanGUID,
+				},
+			},
 		},
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(serviceInstanceRecord.Labels),
