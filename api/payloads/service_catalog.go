@@ -28,17 +28,19 @@ func (l *ServiceOfferingList) DecodeFromURLValues(values url.Values) error {
 type ServicePlanList struct {
 	Names                string
 	ServiceOfferingNames string
+	ServiceOfferingGUIDs string
 }
 
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 	return repositories.ListServicePlanMessage{
 		Names:                ParseArrayParam(l.Names),
 		ServiceOfferingNames: ParseArrayParam(l.ServiceOfferingNames),
+		ServiceOfferingGUIDs: ParseArrayParam(l.ServiceOfferingGUIDs),
 	}
 }
 
 func (l *ServicePlanList) SupportedKeys() []string {
-	return []string{"names", "service_offering_names"}
+	return []string{"names", "service_offering_names", "page", "service_offering_guids"}
 }
 
 func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {

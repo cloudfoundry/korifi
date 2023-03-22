@@ -33,6 +33,7 @@ type ListServiceOfferingMessage struct {
 type ListServicePlanMessage struct {
 	Names                []string
 	ServiceOfferingNames []string
+	ServiceOfferingGUIDs []string
 }
 
 type ServiceOfferingRecord struct {
@@ -160,6 +161,7 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 	if err != nil {
 		return []ServicePlanRecord{}, fmt.Errorf("failed to list service offerings: %w", err)
 	}
+	offeringGuids = append(offeringGuids, message.ServiceOfferingGUIDs...)
 
 	for _, p := range allServicePlans.Items {
 		if !filterAppliesTo(p.Spec.PlanName, message.Names) {
