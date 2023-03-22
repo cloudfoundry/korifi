@@ -11,6 +11,7 @@ type ServiceInstanceCreate struct {
 	Name          string                       `json:"name" validate:"required"`
 	Type          string                       `json:"type" validate:"required,oneof=user-provided managed"`
 	Tags          []string                     `json:"tags" validate:"serviceinstancetaglength"`
+	Parameters    map[string]any               `json:"parameters"`
 	Credentials   map[string]string            `json:"credentials"`
 	Relationships ServiceInstanceRelationships `json:"relationships" validate:"required"`
 	Metadata      Metadata                     `json:"metadata"`
