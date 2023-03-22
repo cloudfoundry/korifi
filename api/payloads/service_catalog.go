@@ -17,7 +17,7 @@ func (l *ServiceOfferingList) ToMessage() repositories.ListServiceOfferingMessag
 }
 
 func (l *ServiceOfferingList) SupportedKeys() []string {
-	return []string{"names"}
+	return []string{"names", "page", "space_guids"}
 }
 
 func (l *ServiceOfferingList) DecodeFromURLValues(values url.Values) error {

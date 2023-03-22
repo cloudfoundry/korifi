@@ -35,18 +35,23 @@ type ListServicePlanMessage struct {
 }
 
 type ServiceOfferingRecord struct {
-	GUID             string
-	Name             string
-	Description      string
-	Available        bool
-	Tags             []string
-	Requires         []string
-	CreatedAt        string
-	UpdatedAt        string
-	Shareable        bool
-	DocumentationUrl string
-	BrokerCatalog    struct{}
-	BrokerId         string
+	GUID                 string
+	Name                 string
+	Description          string
+	Available            bool
+	Tags                 []string
+	Requires             []string
+	CreatedAt            string
+	UpdatedAt            string
+	Shareable            bool
+	DocumentationUrl     string
+	BrokerId             string
+	Bindable             bool
+	PlanUpdateable       bool
+	InstancesRetrievable bool
+	BindingsRetrievable  bool
+	AllowContextUpdates  bool
+	CatalogId            string
 }
 
 type ServicePlanRecord struct {
@@ -84,17 +89,23 @@ func (r *ServiceCatalogRepo) ListServiceOfferings(ctx context.Context, authInfo 
 		}
 
 		result = append(result, ServiceOfferingRecord{
-			GUID:             o.Spec.GUID,
-			Name:             o.Spec.GUID,
-			Description:      o.Spec.Description,
-			Available:        o.Spec.Available,
-			Tags:             o.Spec.Tags,
-			Requires:         o.Spec.Requires,
-			CreatedAt:        o.Spec.CreationTimestamp.UTC().Format(TimestampFormat),
-			UpdatedAt:        o.Spec.UpdatedTimestamp.UTC().Format(TimestampFormat),
-			Shareable:        o.Spec.Shareable,
-			DocumentationUrl: o.Spec.DocumentationUrl,
-			BrokerId:         o.OwnerReferences[0].Name,
+			GUID:                 o.Spec.GUID,
+			Name:                 o.Spec.GUID,
+			Description:          o.Spec.Description,
+			Available:            o.Spec.Available,
+			Tags:                 o.Spec.Tags,
+			Requires:             o.Spec.Requires,
+			CreatedAt:            o.Spec.CreationTimestamp.UTC().Format(TimestampFormat),
+			UpdatedAt:            o.Spec.UpdatedTimestamp.UTC().Format(TimestampFormat),
+			Shareable:            o.Spec.Shareable,
+			DocumentationUrl:     o.Spec.DocumentationUrl,
+			BrokerId:             o.OwnerReferences[0].Name,
+			Bindable:             o.Spec.Bindable,
+			PlanUpdateable:       o.Spec.PlanUpdateable,
+			InstancesRetrievable: o.Spec.InstancesRetrievable,
+			BindingsRetrievable:  o.Spec.BindingsRetrievable,
+			AllowContextUpdates:  o.Spec.AllowContextUpdates,
+			CatalogId:            o.Spec.CatalogId,
 		})
 
 	}

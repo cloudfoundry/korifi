@@ -21,7 +21,7 @@ type ServiceOfferingResponse struct {
 	Requires         []string             `json:"requires"`
 	Shareable        bool                 `json:"shareable"`
 	DocumentationUrl string               `json:"documentation_url"`
-	BrokerCatalog    struct{}             `json:"broker_catalog"`
+	BrokerCatalog    BrokerCatalog        `json:"broker_catalog"`
 	CreatedAt        string               `json:"created_at"`
 	UpdatedAt        string               `json:"updated_at"`
 	Relationships    Relationships        `json:"relationships"`
@@ -35,6 +35,24 @@ type ServiceOfferingLinks struct {
 	Visibility   Link `json:"visibility"`
 }
 
+type BrokerCatalog struct {
+	Id       string                `json:"id"`
+	Metadata BrokerCatalogMetadata `json:"metadata"`
+	Features BrokerCatalogFeatures `json:"features"`
+}
+
+type BrokerCatalogMetadata struct {
+	Shareable bool `json:"shareable"`
+}
+
+type BrokerCatalogFeatures struct {
+	PlanUpdateable       bool `json:"plan_updateable"`
+	Bindable             bool `json:"bindable"`
+	InstancesRetrievable bool `json:"instances_retrievable"`
+	BindingsRetrievable  bool `json:"bindings_retrievable"`
+	AllowContextUpdates  bool `json:"allow_context_updates"`
+}
+
 func ForServiceOffering(serviceOfferingRecord repositories.ServiceOfferingRecord, baseURL url.URL) ServiceOfferingResponse {
 	return ServiceOfferingResponse{
 		Name:             serviceOfferingRecord.Name,
@@ -45,9 +63,21 @@ func ForServiceOffering(serviceOfferingRecord repositories.ServiceOfferingRecord
 		Requires:         serviceOfferingRecord.Requires,
 		Shareable:        serviceOfferingRecord.Shareable,
 		DocumentationUrl: serviceOfferingRecord.DocumentationUrl,
-		BrokerCatalog:    struct{}{},
-		CreatedAt:        serviceOfferingRecord.CreatedAt,
-		UpdatedAt:        serviceOfferingRecord.UpdatedAt,
+		BrokerCatalog: BrokerCatalog{
+			Id: serviceOfferingRecord.CatalogId,
+			Metadata: BrokerCatalogMetadata{
+				Shareable: serviceOfferingRecord.Shareable,
+			},
+			Features: BrokerCatalogFeatures{
+				PlanUpdateable:       serviceOfferingRecord.PlanUpdateable,
+				Bindable:             serviceOfferingRecord.Bindable,
+				InstancesRetrievable: serviceOfferingRecord.InstancesRetrievable,
+				BindingsRetrievable:  serviceOfferingRecord.BindingsRetrievable,
+				AllowContextUpdates:  serviceOfferingRecord.AllowContextUpdates,
+			},
+		},
+		CreatedAt: serviceOfferingRecord.CreatedAt,
+		UpdatedAt: serviceOfferingRecord.UpdatedAt,
 		Relationships: Relationships{
 			"service_broker": Relationship{
 				Data: &RelationshipData{
