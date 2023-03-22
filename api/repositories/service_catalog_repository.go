@@ -118,29 +118,31 @@ func (r *ServiceCatalogRepo) ListServiceOfferings(ctx context.Context, authInfo 
 			continue
 		}
 
-		result = append(result, ServiceOfferingRecord{
-			GUID:                 o.Spec.GUID,
-			Name:                 o.Spec.GUID,
-			Description:          o.Spec.Description,
-			Available:            o.Spec.Available,
-			Tags:                 o.Spec.Tags,
-			Requires:             o.Spec.Requires,
-			CreatedAt:            o.Spec.CreationTimestamp.UTC().Format(TimestampFormat),
-			UpdatedAt:            o.Spec.UpdatedTimestamp.UTC().Format(TimestampFormat),
-			Shareable:            o.Spec.Shareable,
-			DocumentationUrl:     o.Spec.DocumentationUrl,
-			BrokerId:             o.OwnerReferences[0].Name,
-			Bindable:             o.Spec.Bindable,
-			PlanUpdateable:       o.Spec.PlanUpdateable,
-			InstancesRetrievable: o.Spec.InstancesRetrievable,
-			BindingsRetrievable:  o.Spec.BindingsRetrievable,
-			AllowContextUpdates:  o.Spec.AllowContextUpdates,
-			CatalogId:            o.Spec.CatalogId,
-		})
+		result = append(result, serviceOfferingToRecord(&o))
 
 	}
 
 	return result, nil
+}
+
+func (r *ServiceCatalogRepo) GetServiceOffering(ctx context.Context, authInfo authorization.Info, guid string) (ServiceOfferingRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	serviceOffering := &trinityv1alpha1.CFServiceOffering{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      guid,
+		},
+	}
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(serviceOffering), serviceOffering)
+	if err != nil {
+		return ServiceOfferingRecord{}, fmt.Errorf("failed to get service offering: %w", err)
+	}
+
+	return serviceOfferingToRecord(serviceOffering), nil
 }
 
 func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
@@ -172,21 +174,31 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 			continue
 		}
 
-		result = append(result, ServicePlanRecord{
-			GUID:                p.Spec.GUID,
-			Name:                p.Spec.PlanName,
-			Description:         p.Spec.Description,
-			Available:           p.Spec.Available,
-			CreatedAt:           p.Spec.CreationTimestamp.UTC().Format(TimestampFormat),
-			UpdatedAt:           p.Spec.UpdatedTimestamp.UTC().Format(TimestampFormat),
-			VisibilityType:      string(p.Spec.Visibility),
-			Free:                p.Spec.Free,
-			ServiceOfferingGUID: p.Spec.Relationships.ServiceOfferingGUID,
-		})
+		result = append(result, servicePlanToRecord(&p))
 
 	}
 
 	return result, nil
+}
+
+func (r *ServiceCatalogRepo) GetServicePlan(ctx context.Context, authInfo authorization.Info, guid string) (ServicePlanRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ServicePlanRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	servicePlan := &trinityv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      guid,
+		},
+	}
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)
+	if err != nil {
+		return ServicePlanRecord{}, fmt.Errorf("failed to get service plan: %w", err)
+	}
+
+	return servicePlanToRecord(servicePlan), nil
 }
 
 func (r *ServiceCatalogRepo) getOfferingGuids(ctx context.Context, userClient client.Client, names []string) ([]string, error) {
@@ -220,4 +232,58 @@ func filterAppliesTo(s string, filter []string) bool {
 	}
 
 	return false
+}
+
+func servicePlanToRecord(servicePlan *trinityv1alpha1.CFServicePlan) ServicePlanRecord {
+	return ServicePlanRecord{
+		GUID:                servicePlan.Spec.GUID,
+		Name:                servicePlan.Spec.PlanName,
+		Description:         servicePlan.Spec.Description,
+		Available:           servicePlan.Spec.Available,
+		CreatedAt:           servicePlan.Spec.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:           servicePlan.Spec.UpdatedTimestamp.UTC().Format(TimestampFormat),
+		VisibilityType:      "public",
+		Free:                servicePlan.Spec.Free,
+		ServiceOfferingGUID: servicePlan.Spec.Relationships.ServiceOfferingGUID,
+		Bindable:            servicePlan.Spec.Bindable,
+		PlanUpdateable:      servicePlan.Spec.PlanUpdateable,
+		CatalogId:           servicePlan.Spec.CatalogId,
+		Schemas: map[string]any{
+			"service_instance": ServiceInstanceSchema{
+				Create: ServiceInstanceSchemaCreate{
+					Parameters: map[string]any{},
+				},
+				Update: ServiceInstanceSchemaUpdate{
+					Parameters: map[string]any{},
+				},
+			},
+			"service_binding": ServiceBindingSchema{
+				Create: ServiceBindingSchemaCreate{
+					Parameters: map[string]any{},
+				},
+			},
+		},
+	}
+}
+
+func serviceOfferingToRecord(offering *trinityv1alpha1.CFServiceOffering) ServiceOfferingRecord {
+	return ServiceOfferingRecord{
+		GUID:                 offering.Spec.GUID,
+		Name:                 offering.Spec.GUID,
+		Description:          offering.Spec.Description,
+		Available:            offering.Spec.Available,
+		Tags:                 offering.Spec.Tags,
+		Requires:             offering.Spec.Requires,
+		CreatedAt:            offering.Spec.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:            offering.Spec.UpdatedTimestamp.UTC().Format(TimestampFormat),
+		Shareable:            offering.Spec.Shareable,
+		DocumentationUrl:     offering.Spec.DocumentationUrl,
+		BrokerId:             offering.OwnerReferences[0].Name,
+		Bindable:             offering.Spec.Bindable,
+		PlanUpdateable:       offering.Spec.PlanUpdateable,
+		InstancesRetrievable: offering.Spec.InstancesRetrievable,
+		BindingsRetrievable:  offering.Spec.BindingsRetrievable,
+		AllowContextUpdates:  offering.Spec.AllowContextUpdates,
+		CatalogId:            offering.Spec.CatalogId,
+	}
 }
