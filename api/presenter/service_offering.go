@@ -126,8 +126,8 @@ type ServicePlanResponse struct {
 	Free           bool             `json:"free"`
 	Costs          []struct{}       `json:"costs"`
 	MaitenanceInfo struct{}         `json:"maitenance_info"`
-	BrokerCatalog  struct{}         `json:"broker_catalog"`
-	Schemas        struct{}         `json:""`
+	BrokerCatalog  BrokerCatalog    `json:"broker_catalog"`
+	Schemas        map[string]any   `json:"schemas"`
 }
 
 type ServicePlanLinks struct {
@@ -138,15 +138,22 @@ type ServicePlanLinks struct {
 
 func ForServicePlan(servicePlanRecord repositories.ServicePlanRecord, baseURL url.URL) ServicePlanResponse {
 	return ServicePlanResponse{
-		Name:           servicePlanRecord.Name,
-		GUID:           servicePlanRecord.GUID,
-		Description:    servicePlanRecord.Description,
-		Available:      servicePlanRecord.Available,
-		BrokerCatalog:  struct{}{},
+		Name:        servicePlanRecord.Name,
+		GUID:        servicePlanRecord.GUID,
+		Description: servicePlanRecord.Description,
+		Available:   servicePlanRecord.Available,
+		BrokerCatalog: BrokerCatalog{
+			Id: servicePlanRecord.CatalogId,
+			Features: BrokerCatalogFeatures{
+				PlanUpdateable: servicePlanRecord.PlanUpdateable,
+				Bindable:       servicePlanRecord.Bindable,
+			},
+		},
 		CreatedAt:      servicePlanRecord.CreatedAt,
 		UpdatedAt:      servicePlanRecord.UpdatedAt,
 		VisibilityType: servicePlanRecord.VisibilityType,
 		Free:           servicePlanRecord.Free,
+		Schemas:        servicePlanRecord.Schemas,
 		Relationships: Relationships{
 			"service_offering": Relationship{
 				Data: &RelationshipData{

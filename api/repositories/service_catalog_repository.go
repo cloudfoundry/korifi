@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -67,7 +68,35 @@ type ServicePlanRecord struct {
 	MaintenanceInfo     struct{}
 	BrokerCatalog       struct{}
 	ServiceOfferingGUID string
+	BrokerId            string
+	Bindable            bool
+	PlanUpdateable      bool
+	CatalogId           string
+	Schemas             map[string]any
 }
+
+type ServiceInstanceSchema struct {
+	Create ServiceInstanceSchemaCreate `json:"create"`
+	Update ServiceInstanceSchemaUpdate `json:"update"`
+}
+
+type ServiceInstanceSchemaCreate struct {
+	Parameters SchemaParameters `json:"parameters"`
+}
+
+type ServiceInstanceSchemaUpdate struct {
+	Parameters SchemaParameters `json:"parameters"`
+}
+
+type ServiceBindingSchema struct {
+	Create ServiceBindingSchemaCreate `json:"create"`
+}
+
+type ServiceBindingSchemaCreate struct {
+	Parameters SchemaParameters `json:"parameters"`
+}
+
+type SchemaParameters map[string]any
 
 func (r *ServiceCatalogRepo) ListServiceOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
