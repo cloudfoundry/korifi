@@ -66,6 +66,16 @@ var _ = Describe("Router", func() {
 		Expect(res).To(HaveHTTPStatus(http.StatusTeapot))
 	})
 
+	It("returns the appropriate 4xx error if the request is not handled", func() {
+		res, err := mkReq(router, http.MethodGet, "/does-not-exist")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).To(HaveHTTPStatus(http.StatusNotFound))
+
+		res, err = mkReq(router, http.MethodPost, "/hello/world")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).To(HaveHTTPStatus(http.StatusMethodNotAllowed))
+	})
+
 	When("a common middleware is used", func() {
 		BeforeEach(func() {
 			routerBuilder.UseMiddleware(
@@ -122,6 +132,36 @@ var _ = Describe("Router", func() {
 			res, err := mkReq(router, http.MethodGet, "/auth")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).NotTo(HaveHTTPHeaderWithValue("X-Test", "bar"))
+		})
+	})
+
+	When("a 404 Not Found handler is specified", func() {
+		BeforeEach(func() {
+			routerBuilder.SetNotFoundHandler(func(_ *http.Request) (*routing.Response, error) {
+				return routing.NewResponse(http.StatusNotFound).WithBody(map[string]string{"not": "found"}), nil
+			})
+		})
+
+		It("uses it for 404 errors", func() {
+			res, err := mkReq(router, http.MethodGet, "/does-not-exist")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).To(HaveHTTPStatus(http.StatusNotFound))
+			Expect(res).To(HaveHTTPBody(MatchJSON(`{"not":"found"}`)))
+		})
+	})
+
+	When("a 405 Method Not Allowed handler is specified", func() {
+		BeforeEach(func() {
+			routerBuilder.SetMethodNotAllowedHandler(func(_ *http.Request) (*routing.Response, error) {
+				return routing.NewResponse(http.StatusMethodNotAllowed).WithBody(map[string]string{"not": "allowed"}), nil
+			})
+		})
+
+		It("uses it for 405 errors", func() {
+			res, err := mkReq(router, http.MethodPost, "/hello/world")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).To(HaveHTTPStatus(http.StatusMethodNotAllowed))
+			Expect(res).To(HaveHTTPBody(MatchJSON(`{"not":"allowed"}`)))
 		})
 	})
 })
