@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -59,7 +58,7 @@ func (h *Build) get(r *http.Request) (*routing.Response, error) {
 
 	build, err := h.buildRepo.GetBuild(r.Context(), authInfo, buildGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), fmt.Sprintf("Failed to fetch %s from Kubernetes", repositories.BuildResourceType), "guid", buildGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to fetch "+repositories.BuildResourceType, "guid", buildGUID)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForBuild(build, h.serverURL)), nil

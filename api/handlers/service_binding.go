@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -59,12 +58,12 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to get %s", repositories.AppResourceType))
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get "+repositories.AppResourceType)
 	}
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to get %s", repositories.ServiceInstanceResourceType))
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get "+repositories.ServiceInstanceResourceType)
 	}
 
 	if app.SpaceGUID != serviceInstance.SpaceGUID {
@@ -114,7 +113,7 @@ func (h *ServiceBinding) list(r *http.Request) (*routing.Response, error) {
 
 	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(r.Context(), authInfo, listFilter.ToMessage())
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to list %s", repositories.ServiceBindingResourceType))
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list "+repositories.ServiceBindingResourceType)
 	}
 
 	var appRecords []repositories.AppRecord
@@ -127,7 +126,7 @@ func (h *ServiceBinding) list(r *http.Request) (*routing.Response, error) {
 
 		appRecords, err = h.appRepo.ListApps(r.Context(), authInfo, listAppsMessage)
 		if err != nil {
-			return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to list %s", repositories.AppResourceType))
+			return nil, apierrors.LogAndReturn(logger, err, "failed to list "+repositories.AppResourceType)
 		}
 	}
 

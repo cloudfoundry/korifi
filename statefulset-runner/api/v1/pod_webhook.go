@@ -72,7 +72,7 @@ func (r *STSPodDefaulter) Default(ctx context.Context, obj runtime.Object) error
 			cfInstanceVar := corev1.EnvVar{Name: controllers.EnvCFInstanceIndex, Value: index}
 			container.Env = append(container.Env, cfInstanceVar)
 
-			podlog.V(1).Info(fmt.Sprintf("patching-instance-index env-var - %s: %s", controllers.EnvCFInstanceIndex, index))
+			podlog.V(1).Info("patching instance index env var", controllers.EnvCFInstanceIndex, index)
 
 			return nil
 		}

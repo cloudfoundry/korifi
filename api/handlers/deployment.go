@@ -75,7 +75,7 @@ func (h *Deployment) create(r *http.Request) (*routing.Response, error) {
 
 	if !runnerInfo.Capabilities.RollingDeploy {
 		err = fmt.Errorf("The configured runner '%s' does not support rolling deploys", h.runnerName)
-		return nil, apierrors.LogAndReturn(logger, apierrors.NewRollingDeployNotSupportedError(err), fmt.Sprintf("Runner '%s' does not support rolling deploys", h.runnerName))
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewRollingDeployNotSupportedError(err), "runner does not support rolling deploys", "name", h.runnerName)
 	}
 
 	deploymentCreateMessage := payload.ToMessage()
