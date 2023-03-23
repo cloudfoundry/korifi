@@ -4,13 +4,16 @@ kind: ClusterStore
 metadata:
   name: cf-default-buildpacks
 spec:
+  serviceAccountRef:
+    name: kpack-service-account
+    namespace: {{ .Values.global.rootNamespace }}
   sources:
   - image: gcr.io/paketo-buildpacks/java
   - image: gcr.io/paketo-buildpacks/nodejs
   - image: gcr.io/paketo-buildpacks/ruby
   - image: gcr.io/paketo-buildpacks/procfile
   - image: gcr.io/paketo-buildpacks/go
-  - image: eirini/legacy-buildpack
+  - image: localregistry-docker-registry.default.svc.cluster.local:30050/legacy-buildpack
 
 ---
 apiVersion: kpack.io/v1alpha2
