@@ -317,6 +317,10 @@ var _ = Describe("Client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
+			AfterEach(func() {
+				_ = imgClient.Delete(ctx, creds, imgRef, "jim", "bob")
+			})
+
 			JustBeforeEach(func() {
 				testErr = imgClient.Delete(ctx, creds, imgRef, tagsToDelete...)
 			})
@@ -342,9 +346,16 @@ var _ = Describe("Client", func() {
 			})
 
 			When("another digest exists in the repo with another tag", func() {
+				var otherImg string
+
 				BeforeEach(func() {
-					_, err := imgClient.Push(ctx, creds, pushRef, otherZipFile, "alice")
+					var err error
+					otherImg, err = imgClient.Push(ctx, creds, pushRef, otherZipFile, "alice")
 					Expect(err).NotTo(HaveOccurred())
+				})
+
+				AfterEach(func() {
+					Expect(imgClient.Delete(ctx, creds, otherImg, "alice")).To(Succeed())
 				})
 
 				It("still deletes the image when all _its_ tags are removed", func() {

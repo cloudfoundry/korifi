@@ -31,14 +31,7 @@ import (
 )
 
 func TestImage(t *testing.T) {
-	registries = []registry{
-		// {
-		// 	Username:   "user",
-		// 	Password:   "password",
-		// 	Server:     authRegistryServer.URL,
-		// 	PathPrefix: strings.Replace(authRegistryServer.URL, "http://", "", 1),
-		// },
-	}
+	registries = []registry{}
 	registriesEnv, ok := os.LookupEnv("REGISTRY_DETAILS")
 	if ok {
 		err := yaml.Unmarshal([]byte(registriesEnv), &registries)
