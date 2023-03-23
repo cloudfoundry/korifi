@@ -368,6 +368,9 @@ func main() {
 		routerBuilder.LoadRoutes(handler)
 	}
 
+	routerBuilder.SetNotFoundHandler(handlers.NotFound)
+	routerBuilder.SetMethodNotAllowedHandler(handlers.NotFound)
+
 	portString := fmt.Sprintf(":%v", cfg.InternalPort)
 	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
 
