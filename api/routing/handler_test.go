@@ -48,15 +48,15 @@ var _ = Describe("Handler", func() {
 
 	When("the response body is not nil", func() {
 		BeforeEach(func() {
-			response = response.WithBody("some-response-content")
+			response = response.WithBody(map[string]string{"hello": "world"})
 		})
 
 		It("sets the application/json content type in the response", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
 		})
 
-		It("sets the body into the response", func() {
-			Expect(rr).To(HaveHTTPBody(ContainSubstring("some-response-content")))
+		It("encodes the body into JSON", func() {
+			Expect(rr).To(HaveHTTPBody(MatchJSON(`{"hello":"world"}`)))
 		})
 	})
 
