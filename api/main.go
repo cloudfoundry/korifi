@@ -238,7 +238,7 @@ func main() {
 			cachingIdentityProvider,
 		),
 		middleware.CFUser(
-			privilegedCRClient,
+			nsPermissions,
 			cachingIdentityProvider,
 			cfg.RootNamespace,
 			cache.NewExpiring(),

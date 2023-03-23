@@ -50,11 +50,11 @@ func (r *TokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 	idName := tokenReview.Status.User.Username
 
 	if isServiceAccount(tokenReview.Status.User) {
-		idKind = rbacv1.ServiceAccountKind
-
-		if !strings.HasPrefix(idName, serviceAccountNamePrefix) {
+		if !HasServiceAccountPrefix(idName) {
 			return Identity{}, fmt.Errorf("invalid serviceaccount name: %q", idName)
 		}
+
+		idKind = rbacv1.ServiceAccountKind
 	}
 
 	return Identity{
@@ -65,6 +65,10 @@ func (r *TokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 
 func isServiceAccount(subject authv1.UserInfo) bool {
 	return contains(subject.Groups, serviceAccountsGroup)
+}
+
+func HasServiceAccountPrefix(idName string) bool {
+	return strings.HasPrefix(idName, serviceAccountNamePrefix)
 }
 
 func contains(groups []string, soughtGroup string) bool {

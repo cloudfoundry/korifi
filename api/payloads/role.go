@@ -1,6 +1,7 @@
 package payloads
 
 import (
+	"code.cloudfoundry.org/korifi/api/authorization"
 	"net/url"
 	"strings"
 
@@ -57,10 +58,8 @@ func (p RoleCreate) ToMessage() repositories.CreateRoleMessage {
 		record.User = p.Relationships.User.Data.GUID
 	}
 
-	if isServiceAccount(record.User) {
-		nameSegments := strings.Split(record.User, ":")
-		user := nameSegments[len(nameSegments)-1]
-		namespace := nameSegments[len(nameSegments)-2]
+	if authorization.HasServiceAccountPrefix(record.User) {
+		namespace, user := authorization.ServiceAccountNSAndName(record.User)
 
 		record.Kind = rbacv1.ServiceAccountKind
 		record.User = user
@@ -94,8 +93,4 @@ func commaSepToSet(in string) map[string]bool {
 	}
 
 	return out
-}
-
-func isServiceAccount(username string) bool {
-	return strings.HasPrefix(username, "system:serviceaccount:")
 }
