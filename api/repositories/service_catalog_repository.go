@@ -202,6 +202,10 @@ func (r *ServiceCatalogRepo) GetServicePlan(ctx context.Context, authInfo author
 }
 
 func (r *ServiceCatalogRepo) getOfferingGuids(ctx context.Context, userClient client.Client, names []string) ([]string, error) {
+	if len(names) == 0 {
+		return []string{}, nil
+	}
+
 	offerings := &trinityv1alpha1.CFServiceOfferingList{}
 	err := userClient.List(ctx, offerings, client.InNamespace(r.rootNamespace))
 	if err != nil {

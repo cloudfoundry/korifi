@@ -73,8 +73,8 @@ func (h *ServiceCatalog) listPlans(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
-	listFilter := new(payloads.ServicePlanList)
-	err := payloads.Decode(listFilter, r.Form)
+	listFilter := payloads.ServicePlanList{}
+	err := payloads.Decode(&listFilter, r.Form)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}

@@ -46,5 +46,6 @@ func (l *ServicePlanList) SupportedKeys() []string {
 func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
 	l.ServiceOfferingNames = values.Get("service_offering_names")
+	l.ServiceOfferingGUIDs = values.Get("service_offering_guids")
 	return nil
 }
