@@ -294,12 +294,13 @@ var _ = Describe("RoleRepository", func() {
 			BeforeEach(func() {
 				roleCreateMessage.Kind = rbacv1.ServiceAccountKind
 				roleCreateMessage.User = "my-service-account"
+				roleCreateMessage.ServiceAccountNamespace = "my-namespace"
 			})
 
 			It("sends the service account kind to the authorized in checker", func() {
 				_, identity, _ := authorizedInChecker.AuthorizedInArgsForCall(0)
 				Expect(identity.Kind).To(Equal(rbacv1.ServiceAccountKind))
-				Expect(identity.Name).To(Equal("my-service-account"))
+				Expect(identity.Name).To(Equal("system:serviceaccount:my-namespace:my-service-account"))
 			})
 		})
 

@@ -111,6 +111,10 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 		Kind: role.Kind,
 	}
 
+	if role.Kind == rbacv1.ServiceAccountKind {
+		userIdentity.Name = fmt.Sprintf("system:serviceaccount:%s:%s", role.ServiceAccountNamespace, role.User)
+	}
+
 	if role.Space != "" {
 		if err = r.validateOrgRequirements(ctx, role, userIdentity, authInfo); err != nil {
 			return RoleRecord{}, err
