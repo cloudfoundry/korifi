@@ -325,7 +325,7 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, space client.Object) (
 	}
 
 	duration := time.Since(space.GetDeletionTimestamp().Time)
-	log.V(1).Info(fmt.Sprintf("finalizing CFSpace for %fs", duration.Seconds()))
+	log.V(1).Info("finalizing CFSpace", "duration", duration.Seconds())
 
 	spaceNamespace := new(corev1.Namespace)
 	err := r.client.Get(ctx, types.NamespacedName{Name: space.GetName()}, spaceNamespace)
