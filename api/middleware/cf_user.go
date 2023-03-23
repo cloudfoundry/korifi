@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -17,23 +15,29 @@ const (
 )
 
 type cfUser struct {
-	privilegedClient client.Client
-	identityProvider IdentityProvider
-	cfRootNamespace  string
-	cfUserCache      *cache.Expiring
+	nsPermissionChecker NamespacePermissionChecker
+	identityProvider    IdentityProvider
+	cfRootNamespace     string
+	cfUserCache         *cache.Expiring
+}
+
+//counterfeiter:generate -o fake -fake-name NamespacePermissionChecker . NamespacePermissionChecker
+
+type NamespacePermissionChecker interface {
+	AuthorizedIn(context.Context, authorization.Identity, string) (bool, error)
 }
 
 func CFUser(
-	privilegedClient client.Client,
+	nsPermissionChecker NamespacePermissionChecker,
 	identityProvider IdentityProvider,
 	cfRootNamespace string,
 	cfUserCache *cache.Expiring,
 ) func(http.Handler) http.Handler {
 	return (&cfUser{
-		privilegedClient: privilegedClient,
-		identityProvider: identityProvider,
-		cfRootNamespace:  cfRootNamespace,
-		cfUserCache:      cfUserCache,
+		nsPermissionChecker: nsPermissionChecker,
+		identityProvider:    identityProvider,
+		cfRootNamespace:     cfRootNamespace,
+		cfUserCache:         cfUserCache,
 	}).middleware
 }
 
@@ -71,20 +75,13 @@ func (m *cfUser) isCFUser(ctx context.Context, identity authorization.Identity) 
 		return true, nil
 	}
 
-	roleBindings := &rbacv1.RoleBindingList{}
-	err := m.privilegedClient.List(ctx, roleBindings, client.InNamespace(m.cfRootNamespace))
+	authorized, err := m.nsPermissionChecker.AuthorizedIn(ctx, identity, m.cfRootNamespace)
 	if err != nil {
 		return false, err
 	}
-
-	for _, rb := range roleBindings.Items {
-		for _, subj := range rb.Subjects {
-			if subj.Name == identity.Name && subj.Kind == identity.Kind {
-				m.cfUserCache.Set(identity.Hash(), struct{}{}, cacheTTL)
-				return true, nil
-			}
-		}
+	if authorized {
+		m.cfUserCache.Set(identity.Hash(), struct{}{}, cacheTTL)
+		return true, nil
 	}
-
 	return false, nil
 }

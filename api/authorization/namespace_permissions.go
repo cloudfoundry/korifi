@@ -3,6 +3,7 @@ package authorization
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -66,7 +67,11 @@ func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info
 
 	for _, roleBinding := range rolebindings.Items {
 		for _, subject := range roleBinding.Subjects {
-			if subject.Kind == identity.Kind && subject.Name == identity.Name {
+			isMatch, err := SameSubject(subject, identity)
+			if err != nil {
+				return nil, err
+			}
+			if isMatch {
 				if cfNamespaces[roleBinding.Namespace] {
 					authorizedNamespaces[roleBinding.Namespace] = true
 				}
@@ -86,11 +91,39 @@ func (o *NamespacePermissions) AuthorizedIn(ctx context.Context, identity Identi
 
 	for _, roleBinding := range rolebindings.Items {
 		for _, subject := range roleBinding.Subjects {
-			if subject.Kind == identity.Kind && subject.Name == identity.Name {
+			isMatch, err := SameSubject(subject, identity)
+			if err != nil {
+				return false, err
+			}
+			if isMatch {
 				return true, nil
 			}
 		}
 	}
 
 	return false, nil
+}
+
+func SameSubject(subject rbacv1.Subject, identity Identity) (bool, error) {
+	if identity.Kind != subject.Kind {
+		return false, nil
+	}
+
+	if identity.Kind == "ServiceAccount" {
+		if !HasServiceAccountPrefix(identity.Name) {
+			return false, fmt.Errorf("expected user identifier %q to have prefix %q", identity.Name, serviceAccountNamePrefix)
+		}
+		_, identitySAName := ServiceAccountNSAndName(identity.Name)
+		return identitySAName == subject.Name, nil
+	} else {
+		return identity.Name == subject.Name, nil
+	}
+}
+
+func ServiceAccountNSAndName(serviceAccountSubjectName string) (string, string) {
+	nameSegments := strings.Split(serviceAccountSubjectName, ":")
+
+	serviceAccountNS := nameSegments[len(nameSegments)-2]
+	serviceAccountName := nameSegments[len(nameSegments)-1]
+	return serviceAccountNS, serviceAccountName
 }
