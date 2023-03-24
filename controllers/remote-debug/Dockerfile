@@ -11,6 +11,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY controllers/api controllers/api
 COPY controllers/config/config.go controllers/config/config.go
 COPY controllers/controllers controllers/controllers
+COPY controllers/cleanup controllers/cleanup
 COPY controllers/coordination controllers/coordination
 COPY controllers/main.go controllers/main.go
 COPY controllers/webhooks controllers/webhooks

@@ -9,15 +9,16 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY api/actions api/actions
-COPY api/apierrors api/apierrors
+COPY api/errors api/errors
 COPY api/authorization api/authorization
 COPY api/config/config.go api/config/config.go
-COPY api/correlation api/correlation
 COPY api/handlers api/handlers
 COPY api/main.go api/main.go
+COPY api/middleware api/middleware
 COPY api/payloads api/payloads
 COPY api/presenter api/presenter
 COPY api/repositories api/repositories
+COPY api/routing api/routing
 COPY controllers/api controllers/api
 COPY controllers/config controllers/config
 COPY controllers/controllers/shared controllers/controllers/shared
@@ -40,4 +41,4 @@ COPY --from=builder /workspace/cfapi .
 COPY --from=builder /go/bin/dlv .
 USER 1000:1000
 
-CMD ["/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "exec", "/manager", "--continue", "--accept-multiclient"]
+CMD ["/dlv", "--listen=:40000", "--headless=true", "--api-version=2", "exec", "/cfapi", "--continue", "--accept-multiclient"]
