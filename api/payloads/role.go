@@ -1,9 +1,10 @@
 package payloads
 
 import (
-	"code.cloudfoundry.org/korifi/api/authorization"
 	"net/url"
 	"strings"
+
+	"code.cloudfoundry.org/korifi/api/authorization"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	rbacv1 "k8s.io/api/rbac/v1"

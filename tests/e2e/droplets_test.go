@@ -20,7 +20,7 @@ var _ = Describe("Droplets", func() {
 		createSpaceRole("space_developer", certUserName, spaceGUID)
 		appGUID := createApp(spaceGUID, generateGUID("app"))
 		pkgGUID := createPackage(appGUID)
-		uploadTestApp(pkgGUID, procfileAppBitsFile)
+		uploadTestApp(pkgGUID, procfileAppBitsFile())
 		buildGUID = createBuild(pkgGUID)
 	})
 
