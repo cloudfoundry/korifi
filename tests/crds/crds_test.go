@@ -110,4 +110,69 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 			"20s",
 		).Should(Exit(0))
 	})
+
+	It("can create cf-admin rolebinding which propagates to child namespaces", func() {
+		applyCFAdminRoleBinding := kubectlApply(`---
+            apiVersion: rbac.authorization.k8s.io/v1
+            kind: RoleBinding
+            metadata:
+                annotations:
+                   cloudfoundry.org/propagate-cf-role: "true"
+                namespace: %s
+                name: cf-admin-test-cli-role-binding
+            roleRef:
+              apiGroup: rbac.authorization.k8s.io
+              kind: ClusterRole
+              name: korifi-controllers-admin
+            subjects:
+              - kind: User
+                name: %s
+            `, rootNamespace, testCLIUser)
+		Eventually(applyCFAdminRoleBinding).Should(Exit(0))
+
+		// In case of gexec.Exit(), eventually doesn't block for "n" seconds
+		// but will return (and fail) as soon as the mismatched exit code arrives,
+		// To get around it, we wrapped it in an outer eventually block
+		// See: https://onsi.github.io/gomega/#aborting-eventuallyconsistently
+
+		Eventually(func(g Gomega) {
+			Eventually(kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", rootNamespace)).Should(Exit(0))
+		}, "20s").Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			Eventually(kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", orgGUID)).Should(Exit(0))
+		}, "20s").Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			Eventually(kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", spaceGUID)).Should(Exit(0))
+		}, "20s").Should(Succeed())
+	})
+
+	It("can delete the cf-admin rolebinding", func() {
+		Eventually(
+			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "rolebinding/cf-admin-test-cli-role-binding"),
+			"20s",
+		).Should(Exit(0))
+
+		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", rootNamespace, "--timeout=60s"), "60s").Should(Exit(0))
+
+		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", orgGUID, "--timeout=60s"), "60s").Should(Exit(0))
+
+		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
+
+	})
+
+	It("can delete the org", func() {
+		Eventually(
+			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforgs/"+orgGUID),
+			"20s",
+		).Should(Exit(0))
+
+		Eventually(kubectl("wait", "--for=delete", "cforg/"+orgGUID, "-n", rootNamespace, "--timeout=20s"), "20s").Should(Exit(0))
+
+		Eventually(kubectl("wait", "--for=delete", "namespace/"+orgGUID, "--timeout=60s"), "60s").Should(Exit(0))
+
+		Eventually(kubectl("wait", "--for=delete", "namespace/"+spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
+
+	})
 })
