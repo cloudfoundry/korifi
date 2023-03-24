@@ -87,6 +87,7 @@ func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Conte
 		Spec: btpv1.ServiceInstanceSpec{
 			ServiceOfferingName: serviceOffering.Spec.OfferingName,
 			ServicePlanName:     servicePlan.Spec.PlanName,
+			Parameters:          cfServiceInstance.Spec.Parameters,
 		},
 	}
 

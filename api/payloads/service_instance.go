@@ -31,6 +31,7 @@ func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.Cre
 		Tags:        p.Tags,
 		Labels:      p.Metadata.Labels,
 		Annotations: p.Metadata.Annotations,
+		Parameters:  p.Parameters,
 	}
 
 	if p.Relationships.ServicePlan != nil {

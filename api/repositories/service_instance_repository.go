@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -13,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -54,6 +56,7 @@ type CreateServiceInstanceMessage struct {
 	Tags            []string
 	Labels          map[string]string
 	Annotations     map[string]string
+	Parameters      map[string]any
 }
 
 type PatchServiceInstanceMessage struct {
@@ -107,7 +110,10 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	cfServiceInstance := message.toCFServiceInstance()
+	cfServiceInstance, err := message.toCFServiceInstance()
+	if err != nil {
+		return ServiceInstanceRecord{}, err
+	}
 	err = userClient.Create(ctx, &cfServiceInstance)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
@@ -258,9 +264,10 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 	return nil
 }
 
-func (m CreateServiceInstanceMessage) toCFServiceInstance() korifiv1alpha1.CFServiceInstance {
+func (m CreateServiceInstanceMessage) toCFServiceInstance() (korifiv1alpha1.CFServiceInstance, error) {
 	guid := uuid.NewString()
-	return korifiv1alpha1.CFServiceInstance{
+
+	instance := korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        guid,
 			Namespace:   m.SpaceGUID,
@@ -275,6 +282,16 @@ func (m CreateServiceInstanceMessage) toCFServiceInstance() korifiv1alpha1.CFSer
 			ServicePlanGUID: m.ServicePlanGUID,
 		},
 	}
+
+	if len(m.Parameters) > 0 {
+		rawParams, err := json.Marshal(m.Parameters)
+		if err != nil {
+			return korifiv1alpha1.CFServiceInstance{}, fmt.Errorf("failed to marshal parameters: %w", err)
+		}
+		instance.Spec.Parameters = &runtime.RawExtension{Raw: rawParams}
+	}
+
+	return instance, nil
 }
 
 func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
