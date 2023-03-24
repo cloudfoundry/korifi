@@ -36,8 +36,12 @@ func (p AppCreate) ToAppCreateMessage() repositories.CreateAppMessage {
 		},
 	}
 	if p.Lifecycle != nil {
-		lifecycleBlock.Data.Stack = p.Lifecycle.Data.Stack
-		lifecycleBlock.Data.Buildpacks = p.Lifecycle.Data.Buildpacks
+		if p.Lifecycle.Data.Stack != "" {
+			lifecycleBlock.Data.Stack = p.Lifecycle.Data.Stack
+		}
+		if len(p.Lifecycle.Data.Buildpacks) > 0 {
+			lifecycleBlock.Data.Buildpacks = p.Lifecycle.Data.Buildpacks
+		}
 	}
 
 	return repositories.CreateAppMessage{

@@ -12,8 +12,8 @@ type Lifecycle struct {
 }
 
 type LifecycleData struct {
-	Buildpacks []string `json:"buildpacks" validate:"required"`
-	Stack      string   `json:"stack" validate:"required"`
+	Buildpacks []string `json:"buildpacks"`
+	Stack      string   `json:"stack"`
 }
 
 type Relationship struct {
