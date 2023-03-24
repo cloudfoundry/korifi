@@ -231,9 +231,8 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 				},
 			},
 			Build: &buildv1alpha2.ImageBuild{
-				Services:     buildWorkload.Spec.Services,
-				Env:          buildWorkload.Spec.Env,
-				CreationTime: "now",
+				Services: buildWorkload.Spec.Services,
+				Env:      buildWorkload.Spec.Env,
 			},
 		},
 	}
