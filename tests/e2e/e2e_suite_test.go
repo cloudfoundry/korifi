@@ -958,7 +958,16 @@ func zipAsset(src string) (string, error) {
 }
 
 func procfileAppBitsFile() string {
-	z, err := zipAsset("assets/procfile")
+	// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
+	// The APP_BITS_PATH and APP_BITS_OUTPUT environment variables are a workaround to allow e2e tests to run
+	// with a different app in these environments.
+	// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
+	app_bits_path, ok := os.LookupEnv("APP_BITS_PATH")
+	if !ok {
+		app_bits_path = "assets/procfile"
+	}
+
+	z, err := zipAsset(app_bits_path)
 	Expect(err).NotTo(HaveOccurred())
 	return z
 }
