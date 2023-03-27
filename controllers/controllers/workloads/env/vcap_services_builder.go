@@ -153,6 +153,15 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 	if tags == nil {
 		tags = []string{}
 	}
+	bindingTagBytes, ok := serviceBindingSecret.Data["tags"]
+	if ok {
+		var bindingTags []string
+		if err := json.Unmarshal(bindingTagBytes, &bindingTags); err != nil {
+			return ServiceDetails{}, fmt.Errorf("failed to unmarshal binding secret tags: %w", err)
+		}
+
+		tags = append(tags, bindingTags...)
+	}
 
 	label, err := b.getServiceLabel(ctx, serviceInstance)
 	if err != nil {
