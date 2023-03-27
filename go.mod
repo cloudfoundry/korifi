@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.18.19
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.18.7
 	github.com/blendle/zapdriver v1.3.1
-	github.com/buildpacks/pack v0.28.0
+	github.com/buildpacks/pack v0.29.0
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
 	github.com/distribution/distribution/v3 v3.0.0-20230223072852-e5d5810851d1
 	github.com/go-chi/chi v4.1.2+incompatible
