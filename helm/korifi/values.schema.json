@@ -139,6 +139,17 @@
           },
           "required": ["url", "port", "internalPort", "timeouts"]
         },
+        "logcache": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "description": "Logcache URL.",
+              "type": "string"
+            }
+          },
+          "required": ["url"]
+        },
+
         "image": {
           "description": "Reference to the API container image.",
           "type": "string"

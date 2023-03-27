@@ -9,6 +9,8 @@ global:
 api:
   apiServer:
     url: localhost
+  logcache:
+    url: localhost
   uaaURL: "https://uaa.cf.eu10.hana.ondemand.com"
   image: cloudfoundry/korifi-api:latest
 

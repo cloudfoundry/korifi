@@ -42,6 +42,8 @@ Here are all the values that can be set for the chart:
       - `diskMB` (_Integer_): Disk in MB for staging.
       - `memoryMB` (_Integer_): Memory in MB for staging.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).
+  - `logcache`:
+    - `url` (_String_): Logcache URL.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
     - `limits`: Resource limits.

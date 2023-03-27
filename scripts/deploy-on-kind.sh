@@ -157,13 +157,16 @@ function deploy_korifi() {
       doDebug="true"
     fi
 
-    apiServerUrl="api.$(docker network inspect -f '{{json .IPAM.Config}}' bridge | jq -r ".[0].Gateway").nip.io"
+    clusterDomain="$(docker network inspect -f '{{json .IPAM.Config}}' bridge | jq -r ".[0].Gateway").nip.io"
+    apiServerUrl="api.$clusterDomain"
+    logcacheUrl="logcache.$clusterDomain"
     if [[ -n "$use_custom_registry" ]]; then
       helm upgrade --install korifi helm/korifi \
         --namespace korifi \
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
         --set=api.apiServer.url="$apiServerUrl" \
+        --set=api.logcache.url="$logcacheUrl" \
         --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
         --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
         --wait
@@ -180,6 +183,7 @@ function deploy_korifi() {
         --values=scripts/assets/values.yaml \
         --set=global.debug="$doDebug" \
         --set=api.apiServer.url="$apiServerUrl" \
+        --set=api.logcache.url="$logcacheUrl" \
         ${registry_configuration[@]-} \
         --wait
     fi

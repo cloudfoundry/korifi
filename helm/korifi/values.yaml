@@ -37,6 +37,9 @@ api:
       idle: 900
       readHeader: 10
 
+  logcache:
+    url: ""
+
   lifecycle:
     type: buildpack
     stack: cflinuxfs3
