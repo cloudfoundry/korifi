@@ -43,7 +43,15 @@ type ServiceInstanceLinks struct {
 	ServiceRouteBindings      Link `json:"service_route_bindings"`
 }
 
-func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL) ServiceInstanceResponse {
+type ServiceInstancePresenter struct {
+	baseURL url.URL
+}
+
+func NewServiceInstancePresenter(baseURL url.URL) ServiceInstancePresenter {
+	return ServiceInstancePresenter{baseURL: baseURL}
+}
+
+func (p ServiceInstancePresenter) Present(serviceInstanceRecord repositories.ServiceInstanceRecord) ServiceInstanceResponse {
 	lastOperationType := "update"
 	if serviceInstanceRecord.CreatedAt == serviceInstanceRecord.UpdatedAt {
 		lastOperationType = "create"
@@ -76,29 +84,20 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 		},
 		Links: ServiceInstanceLinks{
 			Self: Link{
-				HRef: buildURL(baseURL).appendPath(serviceInstancesBase, serviceInstanceRecord.GUID).build(),
+				HRef: buildURL(p.baseURL).appendPath(serviceInstancesBase, serviceInstanceRecord.GUID).build(),
 			},
 			Space: Link{
-				HRef: buildURL(baseURL).appendPath(spacesBase, serviceInstanceRecord.SpaceGUID).build(),
+				HRef: buildURL(p.baseURL).appendPath(spacesBase, serviceInstanceRecord.SpaceGUID).build(),
 			},
 			Credentials: Link{
-				HRef: buildURL(baseURL).appendPath(serviceInstancesBase, serviceInstanceRecord.GUID, "credentials").build(),
+				HRef: buildURL(p.baseURL).appendPath(serviceInstancesBase, serviceInstanceRecord.GUID, "credentials").build(),
 			},
 			ServiceCredentialBindings: Link{
-				HRef: buildURL(baseURL).appendPath(serviceCredentialBindingsBase).setQuery("service_instance_guids=" + serviceInstanceRecord.GUID).build(),
+				HRef: buildURL(p.baseURL).appendPath(serviceCredentialBindingsBase).setQuery("service_instance_guids=" + serviceInstanceRecord.GUID).build(),
 			},
 			ServiceRouteBindings: Link{
-				HRef: buildURL(baseURL).appendPath(serviceRouteBindingsBase).setQuery("service_instance_guids=" + serviceInstanceRecord.GUID).build(),
+				HRef: buildURL(p.baseURL).appendPath(serviceRouteBindingsBase).setQuery("service_instance_guids=" + serviceInstanceRecord.GUID).build(),
 			},
 		},
 	}
-}
-
-func ForServiceInstanceList(serviceInstanceRecord []repositories.ServiceInstanceRecord, baseURL, requestURL url.URL) ListResponse {
-	serviceInstanceResponses := make([]interface{}, 0, len(serviceInstanceRecord))
-	for _, serviceInstance := range serviceInstanceRecord {
-		serviceInstanceResponses = append(serviceInstanceResponses, ForServiceInstance(serviceInstance, baseURL))
-	}
-
-	return ForList(serviceInstanceResponses, baseURL, requestURL)
 }

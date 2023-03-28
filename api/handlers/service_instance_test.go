@@ -12,6 +12,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ var _ = Describe("ServiceInstance", func() {
 		req                 *http.Request
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
 		spaceRepo           *fake.SpaceRepository
+		pres                fakePresenter[repositories.ServiceInstanceRecord, presenter.ServiceInstanceResponse]
 	)
 
 	BeforeEach(func() {
@@ -37,11 +39,13 @@ var _ = Describe("ServiceInstance", func() {
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
+		pres = fakePresenter[repositories.ServiceInstanceRecord, presenter.ServiceInstanceResponse]{}
+
 		apiHandler := NewServiceInstance(
-			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
 			decoderValidator,
+			&pres,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -76,8 +80,10 @@ var _ = Describe("ServiceInstance", func() {
 		)
 
 		When("on the happy path", func() {
+			var record repositories.ServiceInstanceRecord
+
 			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{
+				record = repositories.ServiceInstanceRecord{
 					Name:       serviceInstanceName,
 					GUID:       serviceInstanceGUID,
 					SpaceGUID:  serviceInstanceSpaceGUID,
@@ -86,7 +92,8 @@ var _ = Describe("ServiceInstance", func() {
 					Type:       serviceInstanceTypeUserProvided,
 					CreatedAt:  createdAt,
 					UpdatedAt:  updatedAt,
-				}, nil)
+				}
+				serviceInstanceRepo.CreateServiceInstanceReturns(record, nil)
 
 				makePostRequest(validBody)
 			})
@@ -111,51 +118,10 @@ var _ = Describe("ServiceInstance", func() {
 				contentTypeHeader := rr.Header().Get("Content-Type")
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-				  "created_at": "%[4]s",
-				  "guid": "%[2]s",
-				  "last_operation": {
-					"created_at": "%[4]s",
-					"description": "Operation succeeded",
-					"state": "succeeded",
-					"type": "create",
-					"updated_at": "%[5]s"
-				  },
-				  "links": {
-					"credentials": {
-					  "href": "%[1]s/v3/service_instances/%[2]s/credentials"
-					},
-					"self": {
-					  "href": "%[1]s/v3/service_instances/%[2]s"
-					},
-					"service_credential_bindings": {
-					  "href": "%[1]s/v3/service_credential_bindings?service_instance_guids=%[2]s"
-					},
-					"service_route_bindings": {
-					  "href": "%[1]s/v3/service_route_bindings?service_instance_guids=%[2]s"
-					},
-					"space": {
-					  "href": "%[1]s/v3/spaces/%[3]s"
-					}
-				  },
-				  "metadata": {
-					"annotations": {},
-					"labels": {}
-				  },
-				  "name": "%[6]s",
-				  "relationships": {
-					"space": {
-					  "data": {
-						"guid": "%[3]s"
-					  }
-					}
-				  },
-				  "route_service_url": null,
-				  "syslog_drain_url": null,
-				  "tags": ["foo", "bar"],
-				  "type": "user-provided",
-				  "updated_at": "%[5]s"
-				}`, defaultServerURL, serviceInstanceGUID, serviceInstanceSpaceGUID, createdAt, updatedAt, serviceInstanceName)), "Response body matches response:")
+				var response presenter.ServiceInstanceResponse
+				Expect(json.Unmarshal(rr.Body.Bytes(), &response)).To(Succeed())
+				Expect(response.Name).To(Equal("foo"))
+				Expect(pres.lastResource).To(Equal(record))
 			})
 		})
 

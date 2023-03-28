@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 
@@ -34,23 +33,23 @@ type CFServiceInstanceRepository interface {
 }
 
 type ServiceInstance struct {
-	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
 	spaceRepo           SpaceRepository
 	decoderValidator    *DecoderValidator
+	presenter           Presenter[repositories.ServiceInstanceRecord, presenter.ServiceInstanceResponse]
 }
 
 func NewServiceInstance(
-	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
 	spaceRepo SpaceRepository,
 	decoderValidator *DecoderValidator,
+	presenter Presenter[repositories.ServiceInstanceRecord, presenter.ServiceInstanceResponse],
 ) *ServiceInstance {
 	return &ServiceInstance{
-		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
 		spaceRepo:           spaceRepo,
 		decoderValidator:    decoderValidator,
+		presenter:           presenter,
 	}
 }
 
@@ -80,7 +79,7 @@ func (h *ServiceInstance) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
 	}
 
-	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL)), nil
+	return routing.NewResponse(http.StatusCreated).WithBody(h.presenter.PresentResource(serviceInstanceRecord)), nil
 }
 
 func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
@@ -112,7 +111,7 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(h.presenter.PresentList(serviceInstanceList, *r.URL)), nil
 }
 
 // nolint:dupl

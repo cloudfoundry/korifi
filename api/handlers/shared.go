@@ -11,6 +11,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/presenter"
 
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/go-playground/locales/en"
@@ -381,4 +382,9 @@ func validateMetadataKeys(metaKeys []string) bool {
 	}
 
 	return true
+}
+
+type Presenter[T, S any] interface {
+	PresentResource(T) S
+	PresentList([]T, url.URL) presenter.ResourcesResponse[S]
 }

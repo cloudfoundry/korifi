@@ -18,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/middleware"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/repositories/registry"
@@ -342,10 +343,10 @@ func main() {
 			buildpackRepo,
 		),
 		handlers.NewServiceInstance(
-			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
 			decoderValidator,
+			presenter.New[repositories.ServiceInstanceRecord, presenter.ServiceInstanceResponse](*serverURL, presenter.NewServiceInstancePresenter(*serverURL)),
 		),
 		handlers.NewServiceBinding(
 			*serverURL,

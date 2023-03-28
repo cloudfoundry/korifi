@@ -157,3 +157,28 @@ func generateGUID(prefix string) string {
 
 	return fmt.Sprintf("%s-%s", prefix, guid[:13])
 }
+
+type fakePresenter[T, S any] struct {
+	PresentResourceItemInputs   []T
+	PresentResourceOutputs      []S
+	PresentListItemsInputs      [][]T
+	PresentListRequestURLInputs []url.URL
+	PresentListOutputs          [][]S
+}
+
+func (p *fakePresenter[T, S]) PresentResource(item T) S {
+	p.PresentResourceItemInputs = append(p.PresentResourceItemInputs, item)
+	return pop(&p.PresentResourceOutputs)
+}
+
+func (p *fakePresenter[T, S]) PresentList(items []T, requestURL url.URL) ResourcesResponse[S] {
+	p.PresentListItemsInputs = append(p.PresentListItemsInputs, items)
+	p.PresentListRequestURLInputs = append(p.PresentListRequestURLInputs, requestURL)
+	return ResourcesResponse[S]{Resources: pop(&p.PresentListOutputs)}
+}
+
+func pop[T any](xs *[]T) T {
+	x := (*xs)[0]
+	*xs = (*xs)[1:]
+	return x
+}
