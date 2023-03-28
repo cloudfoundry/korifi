@@ -129,7 +129,7 @@ func (h *Domain) list(r *http.Request) (*routing.Response, error) { //nolint:dup
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch domain(s) from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomainList(domainList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDomain, domainList, h.serverURL, *r.URL)), nil
 }
 
 func (h *Domain) delete(r *http.Request) (*routing.Response, error) {

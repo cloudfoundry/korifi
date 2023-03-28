@@ -1,5 +1,7 @@
 package presenter
 
+import "net/url"
+
 const usersBase = "/v3/users"
 
 type UserResponse struct {
@@ -7,6 +9,6 @@ type UserResponse struct {
 	GUID string `json:"guid"`
 }
 
-func ForUser(name string) UserResponse {
+func ForUser(name string, _ url.URL) UserResponse {
 	return UserResponse{Name: name, GUID: name}
 }

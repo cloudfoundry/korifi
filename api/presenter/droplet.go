@@ -86,13 +86,3 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) Dropl
 	}
 	return toReturn
 }
-
-func ForDropletList(dropletRecordList []repositories.DropletRecord, baseURL, requestURL url.URL) ListResponse {
-	dropletResponses := make([]interface{}, 0, len(dropletRecordList))
-	for _, droplet := range dropletRecordList {
-		dropletResponses = append(dropletResponses, ForDroplet(droplet, baseURL))
-	}
-	// https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#list-droplets-for-a-package
-	// https://api.example.org/v3/packages/7b34f1cf-7e73-428a-bb5a-8a17a8058396/droplets
-	return ForList(dropletResponses, baseURL, requestURL)
-}

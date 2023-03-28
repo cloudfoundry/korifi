@@ -30,15 +30,6 @@ type OrgLinks struct {
 	Quota         *Link `json:"quota,omitempty"`
 }
 
-func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL, requestURL url.URL) ListResponse {
-	orgResponses := make([]interface{}, 0, len(orgs))
-	for _, org := range orgs {
-		orgResponses = append(orgResponses, ForOrg(org, apiBaseURL))
-	}
-
-	return ForList(orgResponses, apiBaseURL, requestURL)
-}
-
 func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 	return OrgResponse{
 		Name:      org.Name,

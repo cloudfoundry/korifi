@@ -110,15 +110,6 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 	}
 }
 
-func ForAppList(appRecordList []repositories.AppRecord, baseURL, requestURL url.URL) ListResponse {
-	appResponses := make([]interface{}, 0, len(appRecordList))
-	for _, app := range appRecordList {
-		appResponses = append(appResponses, ForApp(app, baseURL))
-	}
-
-	return ForList(appResponses, baseURL, requestURL)
-}
-
 type CurrentDropletResponse struct {
 	Relationship `json:",inline"`
 	Links        CurrentDropletLinks `json:"links"`

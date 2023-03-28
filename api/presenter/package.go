@@ -73,12 +73,3 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageRespo
 		},
 	}
 }
-
-func ForPackageList(packageRecordList []repositories.PackageRecord, baseURL, requestURL url.URL) ListResponse {
-	packageResponses := make([]interface{}, 0, len(packageRecordList))
-	for _, currentPackage := range packageRecordList {
-		packageResponses = append(packageResponses, ForPackage(currentPackage, baseURL))
-	}
-
-	return ForList(packageResponses, baseURL, requestURL)
-}

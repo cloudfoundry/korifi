@@ -144,13 +144,10 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 	}
 }
 
-func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL) ListResponse {
-	processResponses := make([]interface{}, 0, len(processRecordList))
-	for _, process := range processRecordList {
+func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL) ListResponse[ProcessResponse] {
+	return ForList(func(process repositories.ProcessRecord, baseURL url.URL) ProcessResponse {
 		processResponse := ForProcess(process, baseURL)
 		processResponse.Command = "[PRIVATE DATA HIDDEN IN LISTS]"
-		processResponses = append(processResponses, processResponse)
-	}
-
-	return ForList(processResponses, baseURL, requestURL)
+		return processResponse
+	}, processRecordList, baseURL, requestURL)
 }

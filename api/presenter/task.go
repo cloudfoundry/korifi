@@ -87,12 +87,3 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse
 		},
 	}
 }
-
-func ForTaskList(tasks []repositories.TaskRecord, baseURL, requestURL url.URL) ListResponse {
-	taskResponses := make([]interface{}, len(tasks))
-	for i, task := range tasks {
-		taskResponses[i] = ForTask(task, baseURL)
-	}
-
-	return ForList(taskResponses, baseURL, requestURL)
-}
