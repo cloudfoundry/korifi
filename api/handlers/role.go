@@ -77,7 +77,7 @@ func (h *Role) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create role", "Role Type", role.Type, "Space", role.Space, "User", role.User)
 	}
 
-	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForCreateRole(record, h.apiBaseURL)), nil
+	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForRole(record, h.apiBaseURL)), nil
 }
 
 func (h *Role) list(r *http.Request) (*routing.Response, error) {
@@ -105,7 +105,7 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRoleList(filteredRoles, h.apiBaseURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRole, filteredRoles, h.apiBaseURL, *r.URL)), nil
 }
 
 func filterRoles(roleListFilter *payloads.RoleListFilter, roles []repositories.RoleRecord) []repositories.RoleRecord {

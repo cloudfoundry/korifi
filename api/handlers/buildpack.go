@@ -63,7 +63,7 @@ func (h *Buildpack) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForBuildpackList(buildpacks, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForBuildpack, buildpacks, h.serverURL, *r.URL)), nil
 }
 
 // nolint:dupl

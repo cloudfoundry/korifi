@@ -27,15 +27,6 @@ type SpaceLinks struct {
 	Organization *Link `json:"organization"`
 }
 
-func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL, requestURL url.URL) ListResponse {
-	spaceResponses := make([]interface{}, 0, len(spaces))
-	for _, space := range spaces {
-		spaceResponses = append(spaceResponses, ForSpace(space, apiBaseURL))
-	}
-
-	return ForList(spaceResponses, apiBaseURL, requestURL)
-}
-
 func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
 	return SpaceResponse{
 		Name:      space.Name,

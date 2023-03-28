@@ -83,12 +83,3 @@ func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL) Domain
 		},
 	}
 }
-
-func ForDomainList(domainListRecords []repositories.DomainRecord, baseURL, requestURL url.URL) ListResponse {
-	domainResponses := make([]interface{}, 0, len(domainListRecords))
-	for _, domain := range domainListRecords {
-		domainResponses = append(domainResponses, ForDomain(domain, baseURL))
-	}
-
-	return ForList(domainResponses, baseURL, requestURL)
-}
