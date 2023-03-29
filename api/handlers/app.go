@@ -557,6 +557,11 @@ func (h *App) getPackages(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-packages")
 	appGUID := routing.URLParam(r, "guid")
 
+	_, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+	}
+
 	fetchPackagesForAppMessage := repositories.ListPackagesMessage{
 		AppGUIDs: []string{appGUID},
 		States:   []string{},
