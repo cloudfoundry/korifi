@@ -26,18 +26,18 @@ directories:
   path: vendor
 - contents:
   - git:
-      commitTitle: Fix logs.RecentEnvelopes...
-      sha: af5ab9b193db43c330ac52fb69cca51b802b8037
+      commitTitle: Fix CatsConfig and config...
+      sha: eeadb781ea7dd0a84474c83fb5c72258821ab44c
       tags:
-      - v12.0.0
+      - v12.1.0
     path: .
   path: e2e/assets/vendored/node
 - contents:
   - git:
-      commitTitle: Fix logs.RecentEnvelopes...
-      sha: af5ab9b193db43c330ac52fb69cca51b802b8037
+      commitTitle: Fix CatsConfig and config...
+      sha: eeadb781ea7dd0a84474c83fb5c72258821ab44c
       tags:
-      - v12.0.0
+      - v12.1.0
     path: .
   path: e2e/assets/vendored/dora
 kind: LockConfig
