@@ -1841,6 +1841,171 @@ var _ = Describe("App", func() {
 			})
 		})
 	})
+
+	Describe("GET /v3/apps/:guid/packages", func() {
+		var (
+			package1Record repositories.PackageRecord
+			package2Record repositories.PackageRecord
+		)
+
+		BeforeEach(func() {
+			packageRecord := repositories.PackageRecord{
+				GUID:        "package-1-guid",
+				UID:         "package-1-uid",
+				Type:        "bits",
+				AppGUID:     appGUID,
+				SpaceGUID:   spaceGUID,
+				State:       "AWAITING_UPLOAD",
+				CreatedAt:   "2017-04-21T18:48:22Z",
+				UpdatedAt:   "2017-04-21T18:48:42Z",
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+				ImageRef:    "registry.repo/foo",
+			}
+
+			package1Record = packageRecord
+
+			package2Record = packageRecord
+			package2Record.GUID = "package-2-guid"
+			package2Record.UID = "package-2-guid"
+			package2Record.State = "READY"
+
+			packageRepo.ListPackagesReturns([]repositories.PackageRecord{
+				package1Record,
+				package2Record,
+			}, nil)
+
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/packages", nil)
+		})
+
+		It("returns status 200 OK", func() {
+			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+		})
+
+		It("returns the packages", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+
+			Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(
+				` {
+							"pagination": {
+								"total_results": 2,
+								"total_pages": 1,
+								"first": {
+									"href": "%[1]s/v3/apps/%[5]s/packages"
+								},
+								"last": {
+									"href": "%[1]s/v3/apps/%[5]s/packages"
+								},
+								"next": null,
+								"previous": null
+							},
+							"resources": [
+								{
+									"guid": "%[2]s",
+									"type": "bits",
+									"data": {},
+									"state": "AWAITING_UPLOAD",
+									"created_at": "%[3]s",
+									"updated_at": "%[4]s",
+									"relationships": {
+										"app": {
+											"data": {
+												"guid": "%[5]s"
+											}
+										}
+									},
+									"links": {
+										"self": {
+											"href": "%[1]s/v3/packages/%[2]s"
+										},
+										"upload": {
+											"href": "%[1]s/v3/packages/%[2]s/upload",
+											"method": "POST"
+										},
+										"download": {
+											"href": "%[1]s/v3/packages/%[2]s/download",
+											"method": "GET"
+										},
+										"app": {
+											"href": "%[1]s/v3/apps/%[5]s"
+										}
+									},
+									"metadata": {
+										"labels": {},
+										"annotations": {}
+									}
+								},
+								{
+									"guid": "%[6]s",
+									"type": "bits",
+									"data": {},
+									"state": "READY",
+									"created_at": "%[7]s",
+									"updated_at": "%[8]s",
+									"relationships": {
+										"app": {
+											"data": {
+												"guid": "%[5]s"
+											}
+										}
+									},
+									"links": {
+										"self": {
+											"href": "%[1]s/v3/packages/%[6]s"
+										},
+										"upload": {
+											"href": "%[1]s/v3/packages/%[6]s/upload",
+											"method": "POST"
+										},
+										"download": {
+											"href": "%[1]s/v3/packages/%[6]s/download",
+											"method": "GET"
+										},
+										"app": {
+											"href": "%[1]s/v3/apps/%[5]s"
+										}
+									},
+									"metadata": {
+										"labels": {},
+										"annotations": {}
+									}
+								}
+							]
+						}`, defaultServerURL, package1Record.GUID, package1Record.CreatedAt, package1Record.UpdatedAt, appGUID, package2Record.GUID, package2Record.CreatedAt, package1Record.UpdatedAt,
+			)))
+		})
+
+		When("the app cannot be accessed", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App not found")
+			})
+		})
+
+		When("there is some other error fetching the app", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is some error fetching the app's packages", func() {
+			BeforeEach(func() {
+				packageRepo.ListPackagesReturns([]repositories.PackageRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
 })
 
 func createHttpRequest(method string, url string, body io.Reader) *http.Request {
