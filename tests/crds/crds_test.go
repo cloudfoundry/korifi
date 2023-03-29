@@ -154,7 +154,6 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", orgGUID, "--timeout=60s"), "60s").Should(Exit(0))
 
 		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
-
 	})
 
 	It("can delete the org", func() {
@@ -168,6 +167,5 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(kubectl("wait", "--for=delete", "namespace/"+orgGUID, "--timeout=60s"), "60s").Should(Exit(0))
 
 		Eventually(kubectl("wait", "--for=delete", "namespace/"+spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
-
 	})
 })

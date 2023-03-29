@@ -13,6 +13,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/go-http-utils/headers"
@@ -109,79 +110,9 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-                    "guid": "%[2]s",
-                    "created_at": "",
-                    "updated_at": "",
-                    "name": "test-app",
-                    "state": "STOPPED",
-                    "lifecycle": {
-                      "type": "buildpack",
-                      "data": {
-                        "buildpacks": [],
-                        "stack": ""
-                      }
-                    },
-                    "relationships": {
-                      "space": {
-                        "data": {
-                          "guid": "%[3]s"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "labels": {
-                        "label-key": "label-value"
-                      },
-                      "annotations": {
-						"korifi.cloudfoundry.org/app-rev": "0",
-                        "annotation-key": "annotation-value"
-                      }
-                    },
-                    "links": {
-                      "self": {
-                        "href": "https://api.example.org/v3/apps/%[2]s"
-                      },
-                      "environment_variables": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-                      },
-                      "space": {
-                        "href": "https://api.example.org/v3/spaces/%[3]s"
-                      },
-                      "processes": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/processes"
-                      },
-                      "packages": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/packages"
-                      },
-                      "current_droplet": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-                      },
-                      "droplets": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets"
-                      },
-                      "tasks": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/tasks"
-                      },
-                      "start": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-                        "method": "POST"
-                      },
-                      "stop": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-                        "method": "POST"
-                      },
-                      "revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions"
-                      },
-                      "deployed_revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-                      },
-                      "features": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/features"
-                      }
-                    }
-                }`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-app-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		When("the app is not accessible", func() {
@@ -238,79 +169,9 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader))
 
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-                    "guid": "%[2]s",
-                    "created_at": "",
-                    "updated_at": "",
-                    "name": "test-app",
-                    "state": "STOPPED",
-                    "lifecycle": {
-                      "type": "buildpack",
-                      "data": {
-                        "buildpacks": [],
-                        "stack": ""
-                      }
-                    },
-                    "relationships": {
-                      "space": {
-                        "data": {
-                          "guid": "%[3]s"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "labels": {
-                        "label-key": "label-value"
-                      },
-                      "annotations": {
-						"korifi.cloudfoundry.org/app-rev": "0",
-                        "annotation-key": "annotation-value"
-                      }
-                    },
-                    "links": {
-                      "self": {
-                        "href": "https://api.example.org/v3/apps/%[2]s"
-                      },
-                      "environment_variables": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-                      },
-                      "space": {
-                        "href": "https://api.example.org/v3/spaces/%[3]s"
-                      },
-                      "processes": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/processes"
-                      },
-                      "packages": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/packages"
-                      },
-                      "current_droplet": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-                      },
-                      "droplets": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets"
-                      },
-                      "tasks": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/tasks"
-                      },
-                      "start": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-                        "method": "POST"
-                      },
-                      "stop": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-                        "method": "POST"
-                      },
-                      "revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions"
-                      },
-                      "deployed_revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-                      },
-                      "features": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/features"
-                      }
-                    }
-                }`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		It("creates the `web` process", func() {
@@ -529,163 +390,12 @@ var _ = Describe("App", func() {
 			Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
-		It("returns the Pagination Data and App Resources in the response", func() {
-			Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
-				"pagination": {
-				  "total_results": 2,
-				  "total_pages": 1,
-				  "first": {
-					"href": "%[1]s/v3/apps"
-				  },
-				  "last": {
-					"href": "%[1]s/v3/apps"
-				  },
-				  "next": null,
-				  "previous": null
-				},
-				"resources": [
-					{
-						"guid": "first-test-app-guid",
-						"created_at": "",
-						"updated_at": "",
-						"name": "first-test-app",
-						"state": "STOPPED",
-						"lifecycle": {
-						  "type": "buildpack",
-						  "data": {
-							"buildpacks": [],
-							"stack": ""
-						  }
-						},
-						"relationships": {
-						  "space": {
-							"data": {
-							  "guid": "test-space-guid"
-							}
-						  }
-						},
-						"metadata": {
-						  "labels": {},
-						  "annotations": {
-						    "korifi.cloudfoundry.org/app-rev": "0"
-						  }
-						},
-						"links": {
-						  "self": {
-							"href": "%[1]s/v3/apps/first-test-app-guid"
-						  },
-						  "environment_variables": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/environment_variables"
-						  },
-						  "space": {
-							"href": "%[1]s/v3/spaces/test-space-guid"
-						  },
-						  "processes": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/processes"
-						  },
-						  "packages": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/packages"
-						  },
-						  "current_droplet": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/droplets/current"
-						  },
-						  "droplets": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/droplets"
-						  },
-						  "tasks": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/tasks"
-						  },
-						  "start": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/actions/start",
-							"method": "POST"
-						  },
-						  "stop": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/actions/stop",
-							"method": "POST"
-						  },
-						  "revisions": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/revisions"
-						  },
-						  "deployed_revisions": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/revisions/deployed"
-						  },
-						  "features": {
-							"href": "%[1]s/v3/apps/first-test-app-guid/features"
-						  }
-						}
-					},
-					{
-						"guid": "second-test-app-guid",
-						"created_at": "",
-						"updated_at": "",
-						"name": "second-test-app",
-						"state": "STOPPED",
-						"lifecycle": {
-						  "type": "buildpack",
-						  "data": {
-							"buildpacks": [],
-							"stack": ""
-						  }
-						},
-						"relationships": {
-						  "space": {
-							"data": {
-							  "guid": "test-space-guid"
-							}
-						  }
-						},
-						"metadata": {
-						  "labels": {},
-						  "annotations": {
-						    "korifi.cloudfoundry.org/app-rev": "0"
-						  }
-						},
-						"links": {
-						  "self": {
-							"href": "%[1]s/v3/apps/second-test-app-guid"
-						  },
-						  "environment_variables": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/environment_variables"
-						  },
-						  "space": {
-							"href": "%[1]s/v3/spaces/test-space-guid"
-						  },
-						  "processes": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/processes"
-						  },
-						  "packages": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/packages"
-						  },
-						  "current_droplet": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/droplets/current"
-						  },
-						  "droplets": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/droplets"
-						  },
-						  "tasks": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/tasks"
-						  },
-						  "start": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/actions/start",
-							"method": "POST"
-						  },
-						  "stop": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/actions/stop",
-							"method": "POST"
-						  },
-						  "revisions": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/revisions"
-						  },
-						  "deployed_revisions": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/revisions/deployed"
-						  },
-						  "features": {
-							"href": "%[1]s/v3/apps/second-test-app-guid/features"
-						  }
-						}
-					}
-				]
-			}`, defaultServerURL)), "Response body matches response:")
+		It("returns App Resources in the response", func() {
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "first-test-app-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].state", Equal("STOPPED")))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].guid", "second-test-app-guid"))
 		})
 
 		It("invokes the repository with the provided auth info", func() {
@@ -708,18 +418,11 @@ var _ = Describe("App", func() {
 			})
 
 			It("correctly sets query parameters in response pagination links", func() {
-				Expect(rr.Body.String()).To(ContainSubstring("https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2"))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2"))
 			})
 		})
 
 		Describe("Order results", func() {
-			type res struct {
-				GUID string `json:"guid"`
-			}
-			type resList struct {
-				Resources []res `json:"resources"`
-			}
-
 			BeforeEach(func() {
 				appRepo.ListAppsReturns([]repositories.AppRecord{
 					{
@@ -753,18 +456,11 @@ var _ = Describe("App", func() {
 				}, nil)
 			})
 
-			DescribeTable("ordering results", func(orderBy string, expectedOrder ...string) {
+			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
 				req = createHttpRequest("GET", "/v3/apps?order_by="+orderBy, nil)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
-				var respList resList
-				err := json.Unmarshal(rr.Body.Bytes(), &respList)
-				Expect(err).NotTo(HaveOccurred())
-				expectedList := make([]res, len(expectedOrder))
-				for i := range expectedOrder {
-					expectedList[i] = res{GUID: expectedOrder[i]}
-				}
-				Expect(respList.Resources).To(Equal(expectedList))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[*].guid", expectedOrder))
 			},
 				Entry("created_at ASC", "created_at", "3", "4", "2", "1"),
 				Entry("created_at DESC", "-created_at", "1", "2", "4", "3"),
@@ -801,22 +497,9 @@ var _ = Describe("App", func() {
 				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			It("returns a CF API formatted Error response", func() {
-				Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
-				"pagination": {
-				  "total_results": 0,
-				  "total_pages": 1,
-				  "first": {
-					"href": "%[1]s/v3/apps"
-				  },
-				  "last": {
-					"href": "%[1]s/v3/apps"
-				  },
-				  "next": null,
-				  "previous": null
-				},
-				"resources": []
-			}`, defaultServerURL)), "Response body matches response:")
+			It("returns an empty response", func() {
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(0)))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", BeEmpty()))
 			})
 		})
 
@@ -843,6 +526,7 @@ var _ = Describe("App", func() {
 
 	Describe("PATCH /v3/apps/:guid", func() {
 		BeforeEach(func() {
+			appRecord.GUID = "patched-app-guid"
 			appRepo.PatchAppMetadataReturns(appRecord, nil)
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
 				  "metadata": {
@@ -876,80 +560,9 @@ var _ = Describe("App", func() {
 		It("returns the App in the response", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-                    "guid": "%[2]s",
-                    "created_at": "",
-                    "updated_at": "",
-                    "name": "test-app",
-                    "state": "STOPPED",
-                    "lifecycle": {
-                      "type": "buildpack",
-                      "data": {
-                        "buildpacks": [],
-                        "stack": ""
-                      }
-                    },
-                    "relationships": {
-                      "space": {
-                        "data": {
-                          "guid": "%[3]s"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "labels": {
-                        "label-key": "label-value"
-                      },
-                      "annotations": {
-						"korifi.cloudfoundry.org/app-rev": "0",
-                        "annotation-key": "annotation-value"
-                      }
-                    },
-                    "links": {
-                      "self": {
-                        "href": "https://api.example.org/v3/apps/%[2]s"
-                      },
-                      "environment_variables": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-                      },
-                      "space": {
-                        "href": "https://api.example.org/v3/spaces/%[3]s"
-                      },
-                      "processes": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/processes"
-                      },
-                      "packages": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/packages"
-                      },
-                      "current_droplet": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-                      },
-                      "droplets": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets"
-                      },
-                      "tasks": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/tasks"
-                      },
-                      "start": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-                        "method": "POST"
-                      },
-                      "stop": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-                        "method": "POST"
-                      },
-                      "revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions"
-                      },
-                      "deployed_revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-                      },
-                      "features": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/features"
-                      }
-                    }
-                }`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "patched-app-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		When("the user doesn't have permission to get the App", func() {
@@ -1097,20 +710,8 @@ var _ = Describe("App", func() {
 		It("responds with JSON", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-			Expect(rr.Body.String()).To(MatchJSON(`{
-                	"data": {
-                		"guid": "` + dropletGUID + `"
-                	},
-                	"links": {
-                		"self": {
-                			"href": "https://api.example.org/v3/apps/` + appGUID + `/relationships/current_droplet"
-                		},
-                		"related": {
-                			"href": "https://api.example.org/v3/apps/` + appGUID + `/droplets/current"
-                		}
-                	}
-                }`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.data.guid", dropletGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		It("fetches the right App", func() {
@@ -1245,79 +846,9 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-                    "guid": "%[2]s",
-                    "created_at": "",
-                    "updated_at": "",
-                    "name": "%[4]s",
-                    "state": "STARTED",
-                    "lifecycle": {
-                      "type": "buildpack",
-                      "data": {
-                        "buildpacks": [],
-                        "stack": ""
-                      }
-                    },
-                    "relationships": {
-                      "space": {
-                        "data": {
-                          "guid": "%[3]s"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "labels": {
-					    "label-key": "label-value"
-					  },
-                      "annotations": {
-					    "annotation-key": "annotation-value",
-					    "korifi.cloudfoundry.org/app-rev": "0"
-					  }
-                    },
-                    "links": {
-                      "self": {
-                        "href": "https://api.example.org/v3/apps/%[2]s"
-                      },
-                      "environment_variables": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-                      },
-                      "space": {
-                        "href": "https://api.example.org/v3/spaces/%[3]s"
-                      },
-                      "processes": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/processes"
-                      },
-                      "packages": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/packages"
-                      },
-                      "current_droplet": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-                      },
-                      "droplets": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/droplets"
-                      },
-                      "tasks": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/tasks"
-                      },
-                      "start": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-                        "method": "POST"
-                      },
-                      "stop": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-                        "method": "POST"
-                      },
-                      "revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions"
-                      },
-                      "deployed_revisions": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-                      },
-                      "features": {
-                        "href": "https://api.example.org/v3/apps/%[2]s/features"
-                      }
-                    }
-                }`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STARTED"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		When("getting the app is forbidden", func() {
@@ -1380,79 +911,9 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-					"guid": "%[2]s",
-					"created_at": "",
-					"updated_at": "",
-					"name": "%[4]s",
-					"state": "STOPPED",
-					"lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					"relationships": {
-						"space": {
-							"data": {
-								"guid": "%[3]s"
-							}
-						}
-					},
-					"metadata": {
-						"labels": {
-						  "label-key": "label-value"
-						},
-						"annotations": {
-					      "annotation-key": "annotation-value",
-						  "korifi.cloudfoundry.org/app-rev": "0"
-						}
-					},
-					"links": {
-						"self": {
-							"href": "https://api.example.org/v3/apps/%[2]s"
-						},
-						"environment_variables": {
-							"href": "https://api.example.org/v3/apps/%[2]s/environment_variables"
-						},
-						"space": {
-							"href": "https://api.example.org/v3/spaces/%[3]s"
-						},
-						"processes": {
-							"href": "https://api.example.org/v3/apps/%[2]s/processes"
-						},
-						"packages": {
-							"href": "https://api.example.org/v3/apps/%[2]s/packages"
-						},
-						"current_droplet": {
-							"href": "https://api.example.org/v3/apps/%[2]s/droplets/current"
-						},
-						"droplets": {
-							"href": "https://api.example.org/v3/apps/%[2]s/droplets"
-						},
-						"tasks": {
-							"href": "https://api.example.org/v3/apps/%[2]s/tasks"
-						},
-						"start": {
-							"href": "https://api.example.org/v3/apps/%[2]s/actions/start",
-							"method": "POST"
-						},
-						"stop": {
-							"href": "https://api.example.org/v3/apps/%[2]s/actions/stop",
-							"method": "POST"
-						},
-						"revisions": {
-							"href": "https://api.example.org/v3/apps/%[2]s/revisions"
-						},
-						"deployed_revisions": {
-							"href": "https://api.example.org/v3/apps/%[2]s/revisions/deployed"
-						},
-						"features": {
-							"href": "https://api.example.org/v3/apps/%[2]s/features"
-						}
-					}
-				}`, defaultServerURL, appGUID, spaceGUID, appName)), "Response body matches response:")
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		When("fetching the app is forbidden", func() {
@@ -1536,113 +997,12 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
-						"pagination": {
-						  "total_results": 2,
-						  "total_pages": 1,
-						  "first": {
-							"href": "%[1]s/v3/apps/%[2]s/processes"
-						  },
-						  "last": {
-							"href": "%[1]s/v3/apps/%[2]s/processes"
-						  },
-						  "next": null,
-						  "previous": null
-						},
-						"resources": [
-							{
-								"guid": "%[4]s",
-								"type": "web",
-								"command": "[PRIVATE DATA HIDDEN IN LISTS]",
-								"instances": 5,
-								"memory_in_mb": 256,
-								"disk_in_mb": 1024,
-								"health_check": {
-									"type": "port",
-									"data": {
-										"timeout": null,
-										"invocation_timeout": null
-									}
-								},
-								"relationships": {
-									"app": {
-										"data": {
-											"guid": "%[2]s"
-										}
-									}
-								},
-								"metadata": {
-									"labels": {},
-									"annotations": {}
-								},
-								"created_at": "2016-03-23T18:48:22Z",
-								"updated_at": "2016-03-23T18:48:42Z",
-								"links": {
-									"self": {
-										"href": "%[1]s/v3/processes/%[4]s"
-									},
-									"scale": {
-										"href": "%[1]s/v3/processes/%[4]s/actions/scale",
-										"method": "POST"
-									},
-									"app": {
-										"href": "%[1]s/v3/apps/%[2]s"
-									},
-									"space": {
-										"href": "%[1]s/v3/spaces/%[3]s"
-									},
-									"stats": {
-										"href": "%[1]s/v3/processes/%[4]s/stats"
-									}
-								}
-							},
-							{
-								"guid": "%[5]s",
-								"type": "worker",
-								"command": "[PRIVATE DATA HIDDEN IN LISTS]",
-								"instances": 1,
-								"memory_in_mb": 256,
-								"disk_in_mb": 1024,
-								"health_check": {
-									"type": "process",
-									"data": {
-										"timeout": null
-									}
-								},
-								"relationships": {
-									"app": {
-										"data": {
-											"guid": "%[2]s"
-										}
-									}
-								},
-								"metadata": {
-									"labels": {},
-									"annotations": {}
-								},
-								"created_at": "2016-03-23T18:48:22Z",
-								"updated_at": "2016-03-23T18:48:42Z",
-								"links": {
-									"self": {
-										"href": "%[1]s/v3/processes/%[5]s"
-									},
-									"scale": {
-										"href": "%[1]s/v3/processes/%[5]s/actions/scale",
-										"method": "POST"
-									},
-									"app": {
-										"href": "%[1]s/v3/apps/%[2]s"
-									},
-									"space": {
-										"href": "%[1]s/v3/spaces/%[3]s"
-									},
-									"stats": {
-										"href": "%[1]s/v3/processes/%[5]s/stats"
-									}
-								}
-							}
-						]
-					}`, defaultServerURL, appGUID, spaceGUID, process1Record.GUID, process2Record.GUID)), "Response body matches response:")
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/processes"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "process-1-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].command", "[PRIVATE DATA HIDDEN IN LISTS]"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].guid", "process-2-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].command", "[PRIVATE DATA HIDDEN IN LISTS]"))
 		})
 
 		When("the app cannot be accessed", func() {
@@ -1714,52 +1074,9 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "process-1-guid",
-					"created_at": "1906-04-18T13:12:00Z",
-					"updated_at": "1906-04-18T13:12:01Z",
-					"type": "web",
-					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": 1,
-					"memory_in_mb": 256,
-					"disk_in_mb": 1024,
-					"health_check": {
-					   "type": "port",
-					   "data": {
-						  "timeout": null,
-						  "invocation_timeout": null
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "` + appGUID + `"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "https://api.example.org/v3/processes/process-1-guid"
-					   },
-					   "scale": {
-						  "href": "https://api.example.org/v3/processes/process-1-guid/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "https://api.example.org/v3/apps/` + appGUID + `"
-					   },
-					   "space": {
-						  "href": "https://api.example.org/v3/spaces/` + spaceGUID + `"
-					   },
-					   "stats": {
-						  "href": "https://api.example.org/v3/processes/process-1-guid/stats"
-					   }
-					}
-				 }`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "process-1-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		When("the user lacks access in the app namespace", func() {
@@ -1870,52 +1187,10 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).To(MatchJSON(`{
-						"guid": "process-1-guid",
-						"created_at": "1906-04-18T13:12:00Z",
-						"updated_at": "1906-04-18T13:12:01Z",
-						"type": "web",
-						"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-						"instances": 5,
-						"memory_in_mb": 256,
-						"disk_in_mb": 1024,
-						"health_check": {
-						   "type": "port",
-						   "data": {
-							  "timeout": null,
-							  "invocation_timeout": null
-						   }
-						},
-						"relationships": {
-						   "app": {
-							  "data": {
-								 "guid": "` + appGUID + `"
-							  }
-						   }
-						},
-						"metadata": {
-						   "labels": {},
-						   "annotations": {}
-						},
-						"links": {
-						   "self": {
-							  "href": "https://api.example.org/v3/processes/process-1-guid"
-						   },
-						   "scale": {
-							  "href": "https://api.example.org/v3/processes/process-1-guid/actions/scale",
-							  "method": "POST"
-						   },
-						   "app": {
-							  "href": "https://api.example.org/v3/apps/` + appGUID + `"
-						   },
-						   "space": {
-							  "href": "https://api.example.org/v3/spaces/` + spaceGUID + `"
-						   },
-						   "stats": {
-							  "href": "https://api.example.org/v3/processes/process-1-guid/stats"
-						   }
-						}
-				 }`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "process-1-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.instances", BeEquivalentTo(5)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		When("the request JSON is invalid", func() {
@@ -2061,64 +1336,12 @@ var _ = Describe("App", func() {
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
-		It("returns the Pagination Data and App Resources in the response", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`{
-						"pagination": {
-							"total_results": 1,
-							"total_pages": 1,
-							"first": {
-								"href": "https://api.example.org/v3/apps/test-app-guid/routes"
-							},
-							"last": {
-								"href": "https://api.example.org/v3/apps/test-app-guid/routes"
-							},
-							"next": null,
-							"previous": null
-						},
-						"resources": [
-							{
-								"guid": "test-route-guid",
-								"port": null,
-								"path": "/some_path",
-								"protocol": "http",
-								"host": "test-route-host",
-								"url": "test-route-host.example.org/some_path",
-								"created_at": "2019-05-10T17:17:48Z",
-								"updated_at": "2019-05-10T17:17:48Z",
-								"destinations": [],
-								"relationships": {
-									"space": {
-										"data": {
-											"guid": "test-space-guid"
-										}
-									},
-									"domain": {
-										"data": {
-											"guid": "test-domain-guid"
-										}
-									}
-								},
-								"metadata": {
-									"labels": {},
-									"annotations": {}
-								},
-								"links": {
-									"self":{
-										"href": "https://api.example.org/v3/routes/test-route-guid"
-									},
-									"space":{
-										"href": "https://api.example.org/v3/spaces/test-space-guid"
-									},
-									"domain":{
-										"href": "https://api.example.org/v3/domains/test-domain-guid"
-									},
-									"destinations":{
-										"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
-									}
-								}
-							}
-						]
-					}`))
+		It("returns the list of routes", func() {
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/routes"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(1)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "test-route-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"))
 		})
 
 		When("the app cannot be accessed", func() {
@@ -2195,57 +1418,9 @@ var _ = Describe("App", func() {
 		It("responds with the current droplet encoded as JSON", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-			Expect(rr.Body.String()).To(MatchJSON(`{
-					  "guid": "` + dropletGUID + `",
-					  "state": "STAGED",
-					  "error": null,
-					  "lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					  "execution_metadata": "",
-					  "process_types": {
-						"rake": "bundle exec rake",
-						"web": "bundle exec rackup config.ru -p $PORT"
-					  },
-					  "checksum": null,
-					  "buildpacks": [],
-					  "stack": "cflinuxfs3",
-					  "image": null,
-					  "created_at": "2019-05-10T17:17:48Z",
-					  "updated_at": "2019-05-10T17:17:48Z",
-					  "relationships": {
-						"app": {
-						  "data": {
-							"guid": "` + appGUID + `"
-						  }
-						}
-					  },
-					  "links": {
-						"self": {
-						  "href": "` + defaultServerURI("/v3/droplets/", dropletGUID) + `"
-						},
-						"package": {
-						  "href": "` + defaultServerURI("/v3/packages/", "test-package-guid") + `"
-						},
-						"app": {
-						  "href": "` + defaultServerURI("/v3/apps/", appGUID) + `"
-						},
-						"assign_current_droplet": {
-						  "href": "` + defaultServerURI("/v3/apps/", appGUID, "/relationships/current_droplet") + `",
-						  "method": "PATCH"
-						  },
-						"download": null
-					  },
-					  "metadata": {
-						"labels": {},
-						"annotations": {}
-					  }
-					}`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGED"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		It("fetches the correct app", func() {
@@ -2378,79 +1553,9 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).To(MatchJSON(`{
-                    "guid": "test-app-guid",
-                    "created_at": "",
-                    "updated_at": "",
-                    "name": "test-app",
-                    "state": "STARTED",
-                    "lifecycle": {
-                      "type": "buildpack",
-                      "data": {
-                        "buildpacks": [],
-                        "stack": ""
-                      }
-                    },
-                    "relationships": {
-                      "space": {
-                        "data": {
-                          "guid": "test-space-guid"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "labels": {
-                        "label-key": "label-value"
-                      },
-                      "annotations": {
-						"korifi.cloudfoundry.org/app-rev": "0",
-                        "annotation-key": "annotation-value"
-                      }
-                    },
-                    "links": {
-                      "self": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid"
-                      },
-                      "environment_variables": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/environment_variables"
-                      },
-                      "space": {
-                        "href": "https://api.example.org/v3/spaces/test-space-guid"
-                      },
-                      "processes": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/processes"
-                      },
-                      "packages": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/packages"
-                      },
-                      "current_droplet": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/droplets/current"
-                      },
-                      "droplets": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/droplets"
-                      },
-                      "tasks": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/tasks"
-                      },
-                      "start": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/actions/start",
-                        "method": "POST"
-                      },
-                      "stop": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/actions/stop",
-                        "method": "POST"
-                      },
-                      "revisions": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/revisions"
-                      },
-                      "deployed_revisions": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/revisions/deployed"
-                      },
-                      "features": {
-                        "href": "https://api.example.org/v3/apps/test-app-guid/features"
-                      }
-                    }
-                }`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-app-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STARTED"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		When("no permissions to get the app", func() {
@@ -2592,11 +1697,7 @@ var _ = Describe("App", func() {
 	Describe("GET /v3/apps/:guid/env", func() {
 		BeforeEach(func() {
 			appRepo.GetAppEnvReturns(repositories.AppEnvRecord{
-				AppGUID:              appGUID,
-				SpaceGUID:            spaceGUID,
 				EnvironmentVariables: map[string]string{"VAR": "VAL"},
-				SystemEnv:            map[string]interface{}{},
-				AppEnv:               map[string]interface{}{},
 			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/env", nil)
@@ -2616,13 +1717,7 @@ var _ = Describe("App", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).To(MatchJSON(`{
-                  "staging_env_json": {},
-                  "running_env_json": {},
-                  "environment_variables": { "VAR": "VAL" },
-                  "system_env_json": {},
-                  "application_env_json": {}
-                }`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.environment_variables.VAR", "VAL"))
 		})
 
 		When("there is an error fetching the app env", func() {
@@ -2657,21 +1752,9 @@ var _ = Describe("App", func() {
 		It("responds with JSON", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-					"var": {
-						"KEY0": "VAL0",
-						"KEY2": "VAL2"
-					},
-					"links": {
-						"self": {
-							"href": "%[1]s/v3/apps/%[2]s/environment_variables"
-						},
-						"app": {
-							"href": "%[1]s/v3/apps/%[2]s"
-						}
-					}
-				}`, defaultServerURL, appGUID)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.var.KEY0", "VAL0"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.var.KEY2", "VAL2"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		It("fetches the right app", func() {
@@ -2696,7 +1779,7 @@ var _ = Describe("App", func() {
 				tableTestRecorder := httptest.NewRecorder()
 				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(requestBody))
 				routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
-				Expect(tableTestRecorder.Code).To(Equal(status))
+				Expect(tableTestRecorder).To(HaveHTTPStatus(status))
 			},
 			Entry("contains a null value", `{ "var": { "key": null } }`, http.StatusOK),
 			Entry("contains an int value", `{ "var": { "key": 9999 } }`, http.StatusOK),
