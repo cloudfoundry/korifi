@@ -37,6 +37,7 @@ var _ = Describe("App", func() {
 		routeRepo   *fake.CFRouteRepository
 		domainRepo  *fake.CFDomainRepository
 		spaceRepo   *fake.SpaceRepository
+		packageRepo *fake.CFPackageRepository
 		req         *http.Request
 
 		appRecord repositories.AppRecord
@@ -49,6 +50,7 @@ var _ = Describe("App", func() {
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		spaceRepo = new(fake.SpaceRepository)
+		packageRepo = new(fake.CFPackageRepository)
 		decoderValidator, err := NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -60,6 +62,7 @@ var _ = Describe("App", func() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
+			packageRepo,
 			decoderValidator,
 		)
 

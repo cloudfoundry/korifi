@@ -259,6 +259,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
+			packageRepo,
 			decoderValidator,
 		),
 		handlers.NewRoute(
