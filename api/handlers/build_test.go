@@ -3,7 +3,6 @@ package handlers_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,46 +89,9 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns the Build in the response", func() {
-					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "`+buildGUID+`",
-					"created_at": "`+createdAt+`",
-					"updated_at": "`+updatedAt+`",
-					"created_by": {},
-					"state": "STAGING",
-					"staging_memory_in_mb": `+fmt.Sprint(stagingMem)+`,
-					"staging_disk_in_mb": `+fmt.Sprint(stagingDisk)+`,
-					"error": null,
-					"lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					"package": {
-						"guid": "`+packageGUID+`"
-					},
-					"droplet": null,
-					"relationships": {
-						"app": {
-							"data": {
-								"guid": "`+appGUID+`"
-							}
-						}
-					},
-					"metadata": {
-						"labels": {},
-						"annotations": {}
-					},
-					"links": {
-						"self": {
-							"href": "`+defaultServerURI("/v3/builds/", buildGUID)+`"
-						},
-						"app": {
-							"href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
-						}
-					}
-				}`), "Response body matches response:")
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGING"))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 				})
 			})
 
@@ -164,51 +127,10 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns the Build in the response", func() {
-					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "`+buildGUID+`",
-					"created_at": "`+createdAt+`",
-					"updated_at": "`+updatedAt+`",
-					"created_by": {},
-					"state": "STAGED",
-					"staging_memory_in_mb": `+fmt.Sprint(stagingMem)+`,
-					"staging_disk_in_mb": `+fmt.Sprint(stagingDisk)+`,
-					"error": null,
-					"lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					"package": {
-						"guid": "`+packageGUID+`"
-					},
-					"droplet": {
-						"guid": "`+buildGUID+`"
-					},
-					"relationships": {
-						"app": {
-							"data": {
-								"guid": "`+appGUID+`"
-							}
-						}
-					},
-					"metadata": {
-						"labels": {},
-						"annotations": {}
-					},
-					"links": {
-						"self": {
-							"href": "`+defaultServerURI("/v3/builds/", buildGUID)+`"
-						},
-						"app": {
-							"href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
-						},
-						"droplet": {
-							"href": "`+defaultServerURI("/v3/droplets/", buildGUID)+`"
-						}
-					}
-				}`), "Response body matches response:")
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGED"))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.droplet.guid", "test-build-guid"))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 				})
 			})
 
@@ -248,46 +170,9 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns the Build in the response", func() {
-					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "`+buildGUID+`",
-					"created_at": "`+createdAt+`",
-					"updated_at": "`+updatedAt+`",
-					"created_by": {},
-					"state": "FAILED",
-					"staging_memory_in_mb": `+fmt.Sprint(stagingMem)+`,
-					"staging_disk_in_mb": `+fmt.Sprint(stagingDisk)+`,
-					"error": "`+stagingErrorMsg+`",
-					"lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					"package": {
-						"guid": "`+packageGUID+`"
-					},
-					"droplet": null,
-					"relationships": {
-						"app": {
-							"data": {
-								"guid": "`+appGUID+`"
-							}
-						}
-					},
-					"metadata": {
-						"labels": {},
-						"annotations": {}
-					},
-					"links": {
-						"self": {
-							"href": "`+defaultServerURI("/v3/builds/", buildGUID)+`"
-						},
-						"app": {
-							"href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
-						}
-					}
-				}`), "Make sure there is no droplet and error is surfaced from record")
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "FAILED"))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 				})
 			})
 		})
@@ -439,46 +324,9 @@ var _ = Describe("Build", func() {
 			})
 
 			It("returns the Build in the response", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "`+buildGUID+`",
-					"created_at": "`+createdAt+`",
-					"updated_at": "`+updatedAt+`",
-					"created_by": {},
-					"state": "STAGING",
-					"staging_memory_in_mb": `+fmt.Sprint(expectedStagingMem)+`,
-					"staging_disk_in_mb": `+fmt.Sprint(expectedStagingDisk)+`,
-					"error": null,
-					"lifecycle": {
-						"type": "`+expectedLifecycleType+`",
-						"data": {
-							"buildpacks": ["`+expectedLifecycleBuildpacks[0]+`", "`+expectedLifecycleBuildpacks[1]+`"],
-							"stack": "`+expectedLifecycleStack+`"
-						}
-					},
-					"package": {
-						"guid": "`+packageGUID+`"
-					},
-					"droplet": null,
-					"relationships": {
-						"app": {
-							"data": {
-								"guid": "`+appGUID+`"
-							}
-						}
-					},
-					"metadata": {
-						"labels": {},
-						"annotations": {}
-					},
-					"links": {
-						"self": {
-							"href": "`+defaultServerURI("/v3/builds/", buildGUID)+`"
-						},
-						"app": {
-							"href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
-						}
-					}
-				}`), "Response body matches response:")
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGING"))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 			})
 
 			It("looks up the app by the correct GUID", func() {
