@@ -45,7 +45,7 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) Dropl
 		Lifecycle: Lifecycle{
 			Type: dropletRecord.Lifecycle.Type,
 			Data: LifecycleData{
-				Buildpacks: dropletRecord.Lifecycle.Data.Buildpacks,
+				Buildpacks: emptySliceIfNil(dropletRecord.Lifecycle.Data.Buildpacks),
 				Stack:      dropletRecord.Lifecycle.Data.Stack,
 			},
 		},

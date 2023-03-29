@@ -56,7 +56,7 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 		Lifecycle: Lifecycle{
 			Type: responseApp.Lifecycle.Type,
 			Data: LifecycleData{
-				Buildpacks: responseApp.Lifecycle.Data.Buildpacks,
+				Buildpacks: emptySliceIfNil(responseApp.Lifecycle.Data.Buildpacks),
 				Stack:      responseApp.Lifecycle.Data.Stack,
 			},
 		},
@@ -175,7 +175,15 @@ func ForAppEnv(envVarRecord repositories.AppEnvRecord) AppEnvResponse {
 		EnvironmentVariables: envVarRecord.EnvironmentVariables,
 		StagingEnvJSON:       map[string]string{},
 		RunningEnvJSON:       map[string]string{},
-		SystemEnvJSON:        envVarRecord.SystemEnv,
-		ApplicationEnvJSON:   envVarRecord.AppEnv,
+		SystemEnvJSON:        emptyMapToAnyIfEmpty(envVarRecord.SystemEnv),
+		ApplicationEnvJSON:   emptyMapToAnyIfEmpty(envVarRecord.AppEnv),
 	}
+}
+
+func emptyMapToAnyIfEmpty(m map[string]any) map[string]any {
+	if m == nil {
+		return map[string]any{}
+	}
+
+	return m
 }
