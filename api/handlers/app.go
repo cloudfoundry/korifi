@@ -33,6 +33,7 @@ const (
 	AppRestartPath                    = "/v3/apps/{guid}/actions/restart"
 	AppEnvVarsPath                    = "/v3/apps/{guid}/environment_variables"
 	AppEnvPath                        = "/v3/apps/{guid}/env"
+	AppPackagesPath                   = "/v3/apps/{guid}/packages"
 	invalidDropletMsg                 = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
@@ -61,6 +62,7 @@ type App struct {
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
 	spaceRepo        SpaceRepository
+	packageRepo      CFPackageRepository
 	decoderValidator *DecoderValidator
 }
 
@@ -72,6 +74,7 @@ func NewApp(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	spaceRepo SpaceRepository,
+	packageRepo CFPackageRepository,
 	decoderValidator *DecoderValidator,
 ) *App {
 	return &App{
@@ -82,6 +85,7 @@ func NewApp(
 		routeRepo:        routeRepo,
 		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
+		packageRepo:      packageRepo,
 		spaceRepo:        spaceRepo,
 	}
 }
@@ -548,6 +552,24 @@ func (h *App) getProcess(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
 }
 
+func (h *App) getPackages(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-packages")
+	appGUID := routing.URLParam(r, "guid")
+
+	fetchPackagesForAppMessage := repositories.ListPackagesMessage{
+		AppGUIDs: []string{appGUID},
+		States:   []string{},
+	}
+
+	packageList, err := h.packageRepo.ListPackages(r.Context(), authInfo, fetchPackagesForAppMessage)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app Package(s) from Kubernetes")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForPackageList(packageList, h.serverURL, *r.URL)), nil
+}
+
 //nolint:dupl
 func (h *App) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
@@ -592,6 +614,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: AppPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: AppEnvVarsPath, Handler: h.updateEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
+		{Method: "GET", Pattern: AppPackagesPath, Handler: h.getPackages},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 	}
 }
