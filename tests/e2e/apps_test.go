@@ -290,6 +290,32 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
+	Describe("List app packages", func() {
+		var (
+			result  resourceList[typedResource]
+			pkgGUID string
+		)
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, space1GUID)
+			appGUID = createApp(space1GUID, generateGUID("app"))
+			pkgGUID = createPackage(appGUID)
+			uploadTestApp(pkgGUID, procfileAppBitsFile())
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/packages")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("successfully lists the packages", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Resources).To(HaveLen(1))
+			Expect(result.Resources[0].Type).To(Equal("bits"))
+		})
+	})
+
 	Describe("List app routes", func() {
 		var result resourceList[resource]
 
