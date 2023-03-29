@@ -14,17 +14,17 @@ import (
 type VCAPServices map[string][]ServiceDetails
 
 type ServiceDetails struct {
-	Label          string            `json:"label"`
-	Name           string            `json:"name"`
-	Tags           []string          `json:"tags"`
-	InstanceGUID   string            `json:"instance_guid"`
-	InstanceName   string            `json:"instance_name"`
-	BindingGUID    string            `json:"binding_guid"`
-	BindingName    *string           `json:"binding_name"`
-	Credentials    map[string]string `json:"credentials"`
-	SyslogDrainURL *string           `json:"syslog_drain_url"`
-	VolumeMounts   []string          `json:"volume_mounts"`
-	Plan           string            `json:"plan,omitempty"`
+	Label          string         `json:"label"`
+	Name           string         `json:"name"`
+	Tags           []string       `json:"tags"`
+	InstanceGUID   string         `json:"instance_guid"`
+	InstanceName   string         `json:"instance_name"`
+	BindingGUID    string         `json:"binding_guid"`
+	BindingName    *string        `json:"binding_name"`
+	Credentials    map[string]any `json:"credentials"`
+	SyslogDrainURL *string        `json:"syslog_drain_url"`
+	VolumeMounts   []string       `json:"volume_mounts"`
+	Plan           string         `json:"plan,omitempty"`
 }
 
 type WorkloadEnvBuilder struct {

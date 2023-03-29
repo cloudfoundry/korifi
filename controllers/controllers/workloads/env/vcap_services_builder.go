@@ -168,6 +168,11 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		return ServiceDetails{}, err
 	}
 
+	credentials, err := mapFromSecret(serviceBindingSecret)
+	if err != nil {
+		return ServiceDetails{}, err
+	}
+
 	return ServiceDetails{
 		Label:          label,
 		Name:           serviceName,
@@ -176,16 +181,74 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		InstanceName:   serviceInstance.Spec.DisplayName,
 		BindingGUID:    serviceBinding.Name,
 		BindingName:    bindingName,
-		Credentials:    mapFromSecret(serviceBindingSecret),
+		Credentials:    credentials,
 		SyslogDrainURL: nil,
 		VolumeMounts:   []string{},
 	}, nil
 }
 
-func mapFromSecret(secret corev1.Secret) map[string]string {
-	convertedMap := make(map[string]string)
-	for k, v := range secret.Data {
-		convertedMap[k] = string(v)
+func mapFromSecret(secret corev1.Secret) (map[string]any, error) {
+	convertedMap := make(map[string]any)
+	for k := range secret.Data {
+		var err error
+		convertedMap[k], err = parseValue(secret, k)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return convertedMap
+
+	return convertedMap, nil
+}
+
+type propertyMetadata struct {
+	Name   string `json:"name"`
+	Format string `json:"format"`
+}
+
+func parseValue(bindingSecret corev1.Secret, key string) (any, error) {
+	valueFormat, err := getValueFormat(bindingSecret, key)
+	if err != nil {
+		return nil, err
+	}
+
+	switch valueFormat {
+	case "text":
+		return string(bindingSecret.Data[key]), nil
+	case "json":
+		var value any
+		json.Unmarshal(bindingSecret.Data[key], &value)
+		return value, nil
+
+	}
+
+	return nil, fmt.Errorf("unsupported value format %q for key %q in secret %s/%s", valueFormat, key, bindingSecret.Namespace, bindingSecret.Name)
+}
+
+func getValueFormat(bindingSecret corev1.Secret, key string) (string, error) {
+	secretMetadata, ok := bindingSecret.Data[".metadata"]
+	if !ok {
+		return "text", nil
+	}
+
+	var metadata map[string][]propertyMetadata
+	if err := json.Unmarshal(secretMetadata, &metadata); err != nil {
+		return "", fmt.Errorf("failed to unmarshal metadata from secret %s/%s: %w", bindingSecret.Namespace, bindingSecret.Name, err)
+	}
+
+	for _, properties := range metadata {
+		if valueFormat := getPropertyFormat(properties, key); valueFormat != "" {
+			return valueFormat, nil
+		}
+	}
+
+	return "text", nil
+}
+
+func getPropertyFormat(credentialProperties []propertyMetadata, propertyName string) string {
+	for _, property := range credentialProperties {
+		if property.Name == propertyName {
+			return property.Format
+		}
+	}
+	return ""
 }
