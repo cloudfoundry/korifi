@@ -113,8 +113,8 @@ func SameSubject(subject rbacv1.Subject, identity Identity) (bool, error) {
 		if !HasServiceAccountPrefix(identity.Name) {
 			return false, fmt.Errorf("expected user identifier %q to have prefix %q", identity.Name, serviceAccountNamePrefix)
 		}
-		_, identitySAName := ServiceAccountNSAndName(identity.Name)
-		return identitySAName == subject.Name, nil
+		identitySANS, identitySAName := ServiceAccountNSAndName(identity.Name)
+		return identitySAName == subject.Name && identitySANS == subject.Namespace, nil
 	} else {
 		return identity.Name == subject.Name, nil
 	}
