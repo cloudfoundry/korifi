@@ -300,7 +300,7 @@ var _ = Describe("Apps", func() {
 			createSpaceRole("space_developer", certUserName, space1GUID)
 			appGUID = createApp(space1GUID, generateGUID("app"))
 			pkgGUID = createPackage(appGUID)
-			uploadTestApp(pkgGUID, procfileAppBitsFile())
+			uploadTestApp(pkgGUID, procfileAppBitsFile)
 		})
 
 		JustBeforeEach(func() {
