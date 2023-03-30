@@ -572,7 +572,7 @@ func (h *App) getPackages(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app Package(s) from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForPackageList(packageList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForPackage, packageList, h.serverURL, *r.URL)), nil
 }
 
 //nolint:dupl
