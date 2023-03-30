@@ -85,8 +85,8 @@ var _ = Describe("Namespace Permissions", func() {
 		return createRoleBindingForSubject(rbacv1.Subject{Name: user, Kind: "User"}, roleName, namespace)
 	}
 
-	createRoleBindingForServiceAccount := func(serviceAccountName, roleName, namespace string) *rbacv1.RoleBinding {
-		return createRoleBindingForSubject(rbacv1.Subject{Name: serviceAccountName, Kind: "ServiceAccount"}, roleName, namespace)
+	createRoleBindingForServiceAccount := func(serviceAccountName, serviceAccountNS, roleName, namespace string) *rbacv1.RoleBinding {
+		return createRoleBindingForSubject(rbacv1.Subject{Name: serviceAccountName, Namespace: serviceAccountNS, Kind: "ServiceAccount"}, roleName, namespace)
 	}
 
 	BeforeEach(func() {
@@ -118,7 +118,7 @@ var _ = Describe("Namespace Permissions", func() {
 		createClusterRole(roleName1)
 		createClusterRole(roleName2)
 		createRoleBindingForUser(userName, roleName2, nonCFNS)
-		createRoleBindingForServiceAccount(serviceAccountName, roleName2, nonCFNS)
+		createRoleBindingForServiceAccount(serviceAccountName, serviceAccountNS, roleName2, nonCFNS)
 	})
 
 	AfterEach(func() {
@@ -191,9 +191,10 @@ var _ = Describe("Namespace Permissions", func() {
 		When("a service account is authenticated", func() {
 			BeforeEach(func() {
 				identityProvider.GetIdentityReturns(serviceAccountIdentity, nil)
-				createRoleBindingForServiceAccount(serviceAccountName, roleName1, org1NS)
-				createRoleBindingForServiceAccount(serviceAccountName, roleName2, org1NS)
-				createRoleBindingForServiceAccount("some-other-service-account", roleName1, org2NS)
+				createRoleBindingForServiceAccount(serviceAccountName, serviceAccountNS, roleName1, org1NS)
+				createRoleBindingForServiceAccount(serviceAccountName, serviceAccountNS, roleName2, org1NS)
+				createRoleBindingForServiceAccount("some-other-service-account", "some-other-namespace", roleName1, org2NS)
+				createRoleBindingForServiceAccount(serviceAccountName, "some-other-namespace", roleName2, org2NS)
 			})
 
 			It("lists the namespaces with bindings for current service account", func() {
@@ -299,8 +300,9 @@ var _ = Describe("Namespace Permissions", func() {
 		When("a service account is authenticated", func() {
 			BeforeEach(func() {
 				identityProvider.GetIdentityReturns(serviceAccountIdentity, nil)
-				createRoleBindingForServiceAccount(serviceAccountName, roleName1, space1NS)
-				createRoleBindingForServiceAccount("some-other-service-account", roleName1, space2NS)
+				createRoleBindingForServiceAccount(serviceAccountName, serviceAccountNS, roleName1, space1NS)
+				createRoleBindingForServiceAccount("some-other-service-account", serviceAccountNS, roleName1, space2NS)
+				createRoleBindingForServiceAccount(serviceAccountName, "another-ns", roleName2, space2NS)
 			})
 
 			It("lists the namespaces with bindings for current service account", func() {
@@ -371,8 +373,9 @@ var _ = Describe("Namespace Permissions", func() {
 
 		When("a service account is authenticated", func() {
 			BeforeEach(func() {
-				createRoleBindingForServiceAccount(serviceAccountName, roleName1, org1NS)
-				createRoleBindingForServiceAccount("some-other-service-account", roleName1, org2NS)
+				createRoleBindingForServiceAccount(serviceAccountName, serviceAccountNS, roleName1, org1NS)
+				createRoleBindingForServiceAccount("some-other-service-account", serviceAccountNS, roleName1, org2NS)
+				createRoleBindingForServiceAccount(serviceAccountName, "other-ns", roleName2, org2NS)
 			})
 
 			When("the service account has a rolebinding in the namespace", func() {
