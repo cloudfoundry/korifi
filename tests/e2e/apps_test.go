@@ -263,7 +263,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID, _ = pushTestApp(space1GUID, procfileAppBitsFile())
+			appGUID, _ = pushTestApp(space1GUID, procfileAppBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
 
@@ -320,7 +320,7 @@ var _ = Describe("Apps", func() {
 		BeforeEach(func() {
 			appGUID = createApp(space1GUID, generateGUID("app"))
 			pkgGUID = createPackage(appGUID)
-			uploadTestApp(pkgGUID, procfileAppBitsFile())
+			uploadTestApp(pkgGUID, procfileAppBitsFile)
 			buildGUID = createBuild(pkgGUID)
 			waitForDroplet(buildGUID)
 
@@ -479,7 +479,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID, appName = pushTestApp(space1GUID, doraAppBitsFile())
+			appGUID, appName = pushTestApp(space1GUID, doraAppBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
 
@@ -496,7 +496,7 @@ var _ = Describe("Apps", func() {
 			BeforeEach(func() {
 				body := curlApp(appGUID, "")
 				Expect(body).To(ContainSubstring("Hi, I'm Dora!"))
-				Expect(pushTestAppWithName(space1GUID, nodeAppBitsFile(), appName)).To(Equal(appGUID))
+				Expect(pushTestAppWithName(space1GUID, nodeAppBitsFile, appName)).To(Equal(appGUID))
 			})
 
 			It("returns a different endpoint result", func() {
@@ -603,7 +603,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID, _ = pushTestApp(space1GUID, golangAppBitsFile())
+			appGUID, _ = pushTestApp(space1GUID, golangAppBitsFile)
 			credentials := map[string]string{
 				"foo": "bar",
 				"baz": "qux",
