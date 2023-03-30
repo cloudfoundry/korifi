@@ -273,7 +273,7 @@ func servicePlanToRecord(servicePlan *trinityv1alpha1.CFServicePlan) ServicePlan
 func serviceOfferingToRecord(offering *trinityv1alpha1.CFServiceOffering) ServiceOfferingRecord {
 	return ServiceOfferingRecord{
 		GUID:                 offering.Spec.GUID,
-		Name:                 offering.Spec.GUID,
+		Name:                 offering.Spec.OfferingName,
 		Description:          offering.Spec.Description,
 		Available:            offering.Spec.Available,
 		Tags:                 offering.Spec.Tags,
