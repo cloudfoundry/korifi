@@ -71,5 +71,3 @@ install-vendir:
 
 vendir-update-dependencies: install-vendir
 	$(VENDIR) sync --chdir tests
-	echo 'foo = "UNIQUENESS_TAG"' > tests/e2e/assets/vendored/dora/unique.rb
-	echo 'var foo = "UNIQUENESS_TAG"' > tests/e2e/assets/vendored/node/unique.js

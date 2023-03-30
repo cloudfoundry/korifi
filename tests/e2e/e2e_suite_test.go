@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"archive/zip"
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -33,24 +32,29 @@ import (
 var (
 	correlationId string
 
-	adminClient         *helpers.CorrelatedRestyClient
-	certClient          *helpers.CorrelatedRestyClient
-	tokenClient         *helpers.CorrelatedRestyClient
-	longCertClient      *helpers.CorrelatedRestyClient
-	apiServerRoot       string
-	serviceAccountName  string
-	serviceAccountToken string
-	certUserName        string
-	certPEM             string
-	longCertUserName    string
-	longCertPEM         string
-	rootNamespace       string
-	appFQDN             string
-	commonTestOrgGUID   string
-	commonTestOrgName   string
-	assetsTmpDir        string
-	clusterVersionMinor int
-	clusterVersionMajor int
+	adminClient             *helpers.CorrelatedRestyClient
+	certClient              *helpers.CorrelatedRestyClient
+	tokenClient             *helpers.CorrelatedRestyClient
+	longCertClient          *helpers.CorrelatedRestyClient
+	apiServerRoot           string
+	serviceAccountName      string
+	serviceAccountToken     string
+	certUserName            string
+	certPEM                 string
+	longCertUserName        string
+	longCertPEM             string
+	rootNamespace           string
+	appFQDN                 string
+	commonTestOrgGUID       string
+	commonTestOrgName       string
+	assetsTmpDir            string
+	clusterVersionMinor     int
+	clusterVersionMajor     int
+	nodeAppBitsFile         string
+	doraAppBitsFile         string
+	golangAppBitsFile       string
+	multiProcessAppBitsFile string
+	procfileAppBitsFile     string
 )
 
 type resource struct {
@@ -253,8 +257,13 @@ func TestE2E(t *testing.T) {
 }
 
 type sharedSetupData struct {
-	CommonOrgName string `json:"commonOrgName"`
-	CommonOrgGUID string `json:"commonOrgGuid"`
+	CommonOrgName           string `json:"commonOrgName"`
+	CommonOrgGUID           string `json:"commonOrgGuid"`
+	NodeAppBitsFile         string `json:"nodeAppBitsFile"`
+	DoraAppBitsFile         string `json:"doraAppBitsFile"`
+	GolangAppBitsFile       string `json:"golangAppBitsFile"`
+	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
+	ProcfileAppBitsFile     string `json:"procfileAppBitsFile"`
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -263,13 +272,56 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgGUID = createOrg(commonTestOrgName)
 	createOrgRole("organization_user", certUserName, commonTestOrgGUID)
 
-	prepareAssets()
-
-	bs, err := json.Marshal(sharedSetupData{
-		CommonOrgName: commonTestOrgName,
-		CommonOrgGUID: commonTestOrgGUID,
-	})
+	var err error
+	assetsTmpDir, err = os.MkdirTemp("", "e2e-test-assets")
 	Expect(err).NotTo(HaveOccurred())
+
+	// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
+	// The APP_BITS_PATH and APP_BITS_OUTPUT environment variables are a workaround to allow e2e tests to run
+	// with a different app in these environments.
+	// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
+	appBitsPath, ok := os.LookupEnv("APP_BITS_PATH")
+	if !ok {
+		appBitsPath = "assets/procfile"
+	}
+
+	sharedData := sharedSetupData{
+		CommonOrgName:           commonTestOrgName,
+		CommonOrgGUID:           commonTestOrgGUID,
+		NodeAppBitsFile:         zipAsset("assets/vendored/node"),
+		DoraAppBitsFile:         zipAsset("assets/vendored/dora"),
+		GolangAppBitsFile:       zipAsset("assets/golang"),
+		MultiProcessAppBitsFile: zipAsset("assets/multi-process"),
+		ProcfileAppBitsFile:     zipAsset(appBitsPath),
+	}
+
+	bs, err := json.Marshal(sharedData)
+	Expect(err).NotTo(HaveOccurred())
+
+	SetDefaultEventuallyTimeout(240 * time.Second)
+	SetDefaultEventuallyPollingInterval(2 * time.Second)
+
+	fmt.Print("Pushing apps to prevent BLOB_UNKNOWN error on GAR...")
+	t1 := time.Now()
+	blobsFlakeMitigationSpaceGUID := createSpace("blob-flake-mitigation", commonTestOrgGUID)
+	var wg sync.WaitGroup
+	wg.Add(5)
+	for _, f := range []string{
+		sharedData.ProcfileAppBitsFile,
+		sharedData.NodeAppBitsFile,
+		sharedData.DoraAppBitsFile,
+		sharedData.GolangAppBitsFile,
+		sharedData.MultiProcessAppBitsFile,
+	} {
+		go func(app string) {
+			defer GinkgoRecover()
+			pushTestApp(blobsFlakeMitigationSpaceGUID, app)
+			wg.Done()
+		}(f)
+	}
+	wg.Wait()
+	fmt.Printf(" done in %v\n", time.Since(t1))
+
 	return bs
 }, func(bs []byte) {
 	var sharedSetup sharedSetupData
@@ -278,6 +330,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	commonTestOrgGUID = sharedSetup.CommonOrgGUID
 	commonTestOrgName = sharedSetup.CommonOrgName
+	procfileAppBitsFile = sharedSetup.ProcfileAppBitsFile
+	nodeAppBitsFile = sharedSetup.NodeAppBitsFile
+	doraAppBitsFile = sharedSetup.DoraAppBitsFile
+	golangAppBitsFile = sharedSetup.GolangAppBitsFile
+	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
 
 	SetDefaultEventuallyTimeout(240 * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
@@ -331,12 +388,6 @@ func ensureServerIsUp() {
 
 		return resp.StatusCode, nil
 	}, "5m").Should(Equal(http.StatusOK), "API Server at %s was not running after 5 minutes", apiServerRoot)
-}
-
-func prepareAssets() {
-	var err error
-	assetsTmpDir, err = os.MkdirTemp("", "e2e-test-assets")
-	Expect(err).NotTo(HaveOccurred())
 }
 
 func generateGUID(prefix string) string {
@@ -905,7 +956,7 @@ func commonTestSetup() {
 	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }
 
-func zipAsset(src string) (string, error) {
+func zipAsset(src string) string {
 	file, err := os.CreateTemp("", "*.zip")
 	if err != nil {
 		Expect(err).NotTo(HaveOccurred())
@@ -938,13 +989,7 @@ func zipAsset(src string) (string, error) {
 			return err
 		}
 
-		bs, err := io.ReadAll(fp)
-		if err != nil {
-			return err
-		}
-		bs = bytes.ReplaceAll(bs, []byte("UNIQUENESS_TAG"), []byte(uuid.NewString()))
-
-		_, err = io.Copy(f, bytes.NewReader(bs))
+		_, err = io.Copy(f, fp)
 		if err != nil {
 			return err
 		}
@@ -954,44 +999,5 @@ func zipAsset(src string) (string, error) {
 	err = filepath.Walk(src, walker)
 	Expect(err).NotTo(HaveOccurred())
 
-	return file.Name(), err
-}
-
-func procfileAppBitsFile() string {
-	// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
-	// The APP_BITS_PATH and APP_BITS_OUTPUT environment variables are a workaround to allow e2e tests to run
-	// with a different app in these environments.
-	// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-	app_bits_path, ok := os.LookupEnv("APP_BITS_PATH")
-	if !ok {
-		app_bits_path = "assets/procfile"
-	}
-
-	z, err := zipAsset(app_bits_path)
-	Expect(err).NotTo(HaveOccurred())
-	return z
-}
-
-func nodeAppBitsFile() string {
-	z, err := zipAsset("assets/vendored/node")
-	Expect(err).NotTo(HaveOccurred())
-	return z
-}
-
-func doraAppBitsFile() string {
-	z, err := zipAsset("assets/vendored/dora")
-	Expect(err).NotTo(HaveOccurred())
-	return z
-}
-
-func golangAppBitsFile() string {
-	z, err := zipAsset("assets/golang")
-	Expect(err).NotTo(HaveOccurred())
-	return z
-}
-
-func multiProcessAppBitsFile() string {
-	z, err := zipAsset("assets/multi-process")
-	Expect(err).NotTo(HaveOccurred())
-	return z
+	return file.Name()
 }
