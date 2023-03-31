@@ -76,6 +76,10 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 		if strings.Contains(message, "Droplet not found") {
 			printDropletNotFoundDebugInfo(clientset, message)
 		}
+
+		if strings.Contains(message, "404") {
+			printAllRoleBindings(clientset)
+		}
 	}
 }
 
@@ -238,4 +242,22 @@ func getDropletGUID(message string) (string, error) {
 	}
 
 	return matches[1], nil
+}
+
+func printAllRoleBindings(clientset kubernetes.Interface) {
+	list, err := clientset.RbacV1().RoleBindings("").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("failed getting rolebindings: %v", err)
+		return
+	}
+
+	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Expected 404 debug log ==========\n\n")
+	for _, b := range list.Items {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "Name: %s, Namespace: %s, RoleKind: %s, RoleName: %s, Subjects: \n",
+			b.Name, b.Namespace, b.RoleRef.Kind, b.RoleRef.Name)
+		for _, s := range b.Subjects {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "\tKind: %s, Name: %s, Namespace: %s\n", s.Kind, s.Name, s.Namespace)
+		}
+	}
+	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Expected 404 debug log (end) ==========\n\n")
 }
