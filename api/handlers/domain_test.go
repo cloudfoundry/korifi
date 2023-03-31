@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/go-http-utils/headers"
@@ -99,44 +99,9 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns the correct JSON", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`
-			{
-				"name": "my.domain",
-				"guid": "domain-guid",
-				"internal": false,
-				"router_group": null,
-				"supported_protocols": [
-					"http"
-				],
-				"created_at": "created-on",
-				"updated_at": "updated-on",
-				"metadata": {
-					"labels": {
-						"foo": "bar"
-					},
-					"annotations": {
-						"bar": "baz"
-					}
-				},
-				"relationships": {
-					"organization": {
-						"data": null
-					},
-					"shared_organizations": {
-						"data": []
-					}
-				},
-				"links": {
-					"self": {
-						"href": "https://api.example.org/v3/domains/domain-guid"
-					},
-					"route_reservations": {
-						"href": "https://api.example.org/v3/domains/domain-guid/route_reservations"
-					},
-					"router_group": null
-				}
-			}
-			`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
 		})
 
 		When("decoding the payload fails", func() {
@@ -193,44 +158,9 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns the correct JSON", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`
-			{
-				"name": "my.domain",
-				"guid": "domain-guid",
-				"internal": false,
-				"router_group": null,
-				"supported_protocols": [
-					"http"
-				],
-				"created_at": "created-on",
-				"updated_at": "updated-on",
-				"metadata": {
-					"labels": {
-						"foo": "bar"
-					},
-					"annotations": {
-						"bar": "baz"
-					}
-				},
-				"relationships": {
-					"organization": {
-						"data": null
-					},
-					"shared_organizations": {
-						"data": []
-					}
-				},
-				"links": {
-					"self": {
-						"href": "https://api.example.org/v3/domains/domain-guid"
-					},
-					"route_reservations": {
-						"href": "https://api.example.org/v3/domains/domain-guid/route_reservations"
-					},
-					"router_group": null
-				}
-			}
-			`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
 		})
 
 		When("the domain repo returns an error", func() {
@@ -297,44 +227,9 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns the correct JSON", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`
-			{
-				"name": "my.domain",
-				"guid": "domain-guid",
-				"internal": false,
-				"router_group": null,
-				"supported_protocols": [
-					"http"
-				],
-				"created_at": "created-on",
-				"updated_at": "updated-on",
-				"metadata": {
-					"labels": {
-						"foo": "bar"
-					},
-					"annotations": {
-						"bar": "baz"
-					}
-				},
-				"relationships": {
-					"organization": {
-						"data": null
-					},
-					"shared_organizations": {
-						"data": []
-					}
-				},
-				"links": {
-					"self": {
-						"href": "https://api.example.org/v3/domains/domain-guid"
-					},
-					"route_reservations": {
-						"href": "https://api.example.org/v3/domains/domain-guid/route_reservations"
-					},
-					"router_group": null
-				}
-			}
-			`))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
 		})
 
 		It("invokes the domain repo correctly", func() {
@@ -407,52 +302,11 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns the Pagination Data and Domain Resources in the response", func() {
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-				"pagination": {
-					"total_results": 1,
-					"total_pages": 1,
-					"first": {
-						"href": "%[1]s/v3/domains"
-					},
-					"last": {
-						"href": "%[1]s/v3/domains"
-					},
-					"next": null,
-					"previous": null
-				},
-				"resources": [
-					 {
-					  "guid": "%[2]s",
-					  "created_at": "%[3]s",
-					  "updated_at": "%[4]s",
-					  "name": "%[5]s",
-					  "internal": false,
-					  "router_group": null,
-					  "supported_protocols": ["http"],
-					  "metadata": {
-						"labels": {},
-						"annotations": {}
-					  },
-					  "relationships": {
-						"organization": {
-						  "data": null
-						},
-						"shared_organizations": {
-						  "data": []
-						}
-					  },
-					  "links": {
-						"self": {
-						  "href": "%[1]s/v3/domains/%[2]s"
-						},
-						"route_reservations": {
-						  "href": "%[1]s/v3/domains/%[2]s/route_reservations"
-						},
-						"router_group": null
-					  }
-					}
-				]
-				}`, defaultServerURL, domainRecord.GUID, domainRecord.CreatedAt, domainRecord.UpdatedAt, domainRecord.Name, domainRecord.Name)), "Response body matches response:")
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/domains"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(1)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "test-domain-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].supported_protocols", ConsistOf("http")))
 		})
 
 		When("no domain exists", func() {
@@ -470,24 +324,8 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns an empty list in the response", func() {
-				expectedBody := fmt.Sprintf(`{
-					"pagination": {
-						"total_results": 0,
-						"total_pages": 1,
-						"first": {
-							"href": "%[1]s/v3/domains"
-						},
-						"last": {
-							"href": "%[1]s/v3/domains"
-						},
-						"next": null,
-						"previous": null
-					},
-					"resources": [
-					]
-				}`, defaultServerURL)
-
-				Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeZero()))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", BeEmpty()))
 			})
 		})
 

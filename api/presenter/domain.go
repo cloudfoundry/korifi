@@ -44,13 +44,6 @@ type SharedOrganizations struct {
 }
 
 func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL) DomainResponse {
-	if responseDomain.Labels == nil {
-		responseDomain.Labels = map[string]string{}
-	}
-	if responseDomain.Annotations == nil {
-		responseDomain.Annotations = map[string]string{}
-	}
-
 	return DomainResponse{
 		Name:               responseDomain.Name,
 		GUID:               responseDomain.GUID,
@@ -61,8 +54,8 @@ func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL) Domain
 		UpdatedAt:          responseDomain.UpdatedAt,
 
 		Metadata: Metadata{
-			Labels:      responseDomain.Labels,
-			Annotations: responseDomain.Annotations,
+			Labels:      emptyMapIfNil(responseDomain.Labels),
+			Annotations: emptyMapIfNil(responseDomain.Annotations),
 		},
 		Relationships: DomainRelationships{
 			Organization: Organization{
