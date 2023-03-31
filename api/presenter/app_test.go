@@ -56,77 +56,97 @@ var _ = Describe("App", func() {
 
 		It("produces expected app json", func() {
 			Expect(output).To(MatchJSON(`{
-			"guid": "app-guid",
-			"created_at": "2023-03-28T15:00:00Z",
-			"updated_at": "2023-03-28T15:00:01Z",
-			"name": "test-app",
-			"state": "STOPPED",
-			"lifecycle": {
-				"type": "buildpack",
-				"data": {
-					"buildpacks": ["foo", "bar"],
-					"stack": "cflinuxfs2"
-				}
-			},
-			"relationships": {
-				"space": {
+				"guid": "app-guid",
+				"created_at": "2023-03-28T15:00:00Z",
+				"updated_at": "2023-03-28T15:00:01Z",
+				"name": "test-app",
+				"state": "STOPPED",
+				"lifecycle": {
+					"type": "buildpack",
 					"data": {
-						"guid": "space-guid"
+						"buildpacks": ["foo", "bar"],
+						"stack": "cflinuxfs2"
+					}
+				},
+				"relationships": {
+					"space": {
+						"data": {
+							"guid": "space-guid"
+						}
+					}
+				},
+				"metadata": {
+					"labels": {
+						"label-key": "label-value"
+					},
+					"annotations": {
+						"annotation-key": "annotation-value"
+					}
+				},
+				"links": {
+					"self": {
+						"href": "https://api.example.org/v3/apps/app-guid"
+					},
+					"environment_variables": {
+						"href": "https://api.example.org/v3/apps/app-guid/environment_variables"
+					},
+					"space": {
+						"href": "https://api.example.org/v3/spaces/space-guid"
+					},
+					"processes": {
+						"href": "https://api.example.org/v3/apps/app-guid/processes"
+					},
+					"packages": {
+						"href": "https://api.example.org/v3/apps/app-guid/packages"
+					},
+					"current_droplet": {
+						"href": "https://api.example.org/v3/apps/app-guid/droplets/current"
+					},
+					"droplets": {
+						"href": "https://api.example.org/v3/apps/app-guid/droplets"
+					},
+					"tasks": {
+						"href": "https://api.example.org/v3/apps/app-guid/tasks"
+					},
+					"start": {
+						"href": "https://api.example.org/v3/apps/app-guid/actions/start",
+						"method": "POST"
+					},
+					"stop": {
+						"href": "https://api.example.org/v3/apps/app-guid/actions/stop",
+						"method": "POST"
+					},
+					"revisions": {
+						"href": "https://api.example.org/v3/apps/app-guid/revisions"
+					},
+					"deployed_revisions": {
+						"href": "https://api.example.org/v3/apps/app-guid/revisions/deployed"
+					},
+					"features": {
+						"href": "https://api.example.org/v3/apps/app-guid/features"
 					}
 				}
-			},
-			"metadata": {
-				"labels": {
-					"label-key": "label-value"
-				},
-				"annotations": {
-					"annotation-key": "annotation-value"
-				}
-			},
-			"links": {
-				"self": {
-					"href": "https://api.example.org/v3/apps/app-guid"
-				},
-				"environment_variables": {
-					"href": "https://api.example.org/v3/apps/app-guid/environment_variables"
-				},
-				"space": {
-					"href": "https://api.example.org/v3/spaces/space-guid"
-				},
-				"processes": {
-					"href": "https://api.example.org/v3/apps/app-guid/processes"
-				},
-				"packages": {
-					"href": "https://api.example.org/v3/apps/app-guid/packages"
-				},
-				"current_droplet": {
-					"href": "https://api.example.org/v3/apps/app-guid/droplets/current"
-				},
-				"droplets": {
-					"href": "https://api.example.org/v3/apps/app-guid/droplets"
-				},
-				"tasks": {
-					"href": "https://api.example.org/v3/apps/app-guid/tasks"
-				},
-				"start": {
-					"href": "https://api.example.org/v3/apps/app-guid/actions/start",
-					"method": "POST"
-				},
-				"stop": {
-					"href": "https://api.example.org/v3/apps/app-guid/actions/stop",
-					"method": "POST"
-				},
-				"revisions": {
-					"href": "https://api.example.org/v3/apps/app-guid/revisions"
-				},
-				"deployed_revisions": {
-					"href": "https://api.example.org/v3/apps/app-guid/revisions/deployed"
-				},
-				"features": {
-					"href": "https://api.example.org/v3/apps/app-guid/features"
-				}
-			}
-		} `))
+			} `))
+		})
+
+		When("labels is nil", func() {
+			BeforeEach(func() {
+				record.Labels = nil
+			})
+
+			It("returns an empty slice of labels", func() {
+				Expect(output).To(MatchJSONPath("$.metadata.labels", Not(BeNil())))
+			})
+		})
+
+		When("annotations is nil", func() {
+			BeforeEach(func() {
+				record.Annotations = nil
+			})
+
+			It("returns an empty slice of annotations", func() {
+				Expect(output).To(MatchJSONPath("$.metadata.annotations", Not(BeNil())))
+			})
 		})
 
 		When("buildpacks is not set", func() {

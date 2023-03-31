@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -110,48 +110,10 @@ var _ = Describe("Package", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
-		It("returns a JSON body", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`
-				{
-				  "guid": "` + packageGUID + `",
-				  "type": "bits",
-				  "data": {},
-				  "state": "AWAITING_UPLOAD",
-				  "created_at": "` + createdAt + `",
-				  "updated_at": "` + updatedAt + `",
-				  "relationships": {
-					"app": {
-					  "data": {
-						"guid": "` + appGUID + `"
-					  }
-					}
-				  },
-				  "links": {
-					"self": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID) + `"
-					},
-					"upload": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/upload") + `",
-					  "method": "POST"
-					},
-					"download": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/download") + `",
-					  "method": "GET"
-					},
-					"app": {
-					  "href": "` + defaultServerURI("/v3/apps/", appGUID) + `"
-					}
-				  },
-				  "metadata": {
-					"labels": {
-					  "foo": "bar"
-					},
-					"annotations": {
-					  "baz": "fof"
-					}
-				  }
-				}
-            `))
+		It("returns the package", func() {
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", packageGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "AWAITING_UPLOAD"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		When("getting the package returns a forbidden error", func() {
@@ -227,95 +189,12 @@ var _ = Describe("Package", func() {
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 		})
 
-		It("returns a JSON body", func() {
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(
-				` {
-							"pagination": {
-								"total_results":2,
-								"total_pages": 1,
-								"first": {
-									"href": "%[1]s/v3/packages"
-								},
-								"last": {
-									"href": "%[1]s/v3/packages"
-								},
-								"next": null,
-								"previous": null
-							},
-							"resources": [
-								{
-									"guid": "%[2]s",
-									"type": "bits",
-									"data": {},
-									"state": "AWAITING_UPLOAD",
-									"created_at": "%[3]s",
-									"updated_at": "%[4]s",
-									"relationships": {
-										"app": {
-											"data": {
-												"guid": "%[5]s"
-											}
-										}
-									},
-									"links": {
-										"self": {
-											"href": "%[1]s/v3/packages/%[2]s"
-										},
-										"upload": {
-											"href": "%[1]s/v3/packages/%[2]s/upload",
-											"method": "POST"
-										},
-										"download": {
-											"href": "%[1]s/v3/packages/%[2]s/download",
-											"method": "GET"
-										},
-										"app": {
-											"href": "%[1]s/v3/apps/%[5]s"
-										}
-									},
-									"metadata": {
-										"labels": {},
-										"annotations": {}
-									}
-								},
-								{
-									"guid": "%[6]s",
-									"type": "bits",
-									"data": {},
-									"state": "READY",
-									"created_at": "%[7]s",
-									"updated_at": "%[8]s",
-									"relationships": {
-										"app": {
-											"data": {
-												"guid": "%[5]s"
-											}
-										}
-									},
-									"links": {
-										"self": {
-											"href": "%[1]s/v3/packages/%[6]s"
-										},
-										"upload": {
-											"href": "%[1]s/v3/packages/%[6]s/upload",
-											"method": "POST"
-										},
-										"download": {
-											"href": "%[1]s/v3/packages/%[6]s/download",
-											"method": "GET"
-										},
-										"app": {
-											"href": "%[1]s/v3/apps/%[5]s"
-										}
-									},
-									"metadata": {
-										"labels": {},
-										"annotations": {}
-									}
-								}
-							]
-						}`, defaultServerURL, packageGUID, createdAt, updatedAt, appGUID, anotherPackageGUID, createdAt, updatedAt,
-			)))
+		It("returns the list of packages", func() {
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/packages"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", packageGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].state", Equal("AWAITING_UPLOAD")))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].guid", anotherPackageGUID))
 		})
 
 		When("the 'app_guids' query parameter is provided", func() {
@@ -337,13 +216,6 @@ var _ = Describe("Package", func() {
 		})
 
 		Describe("Order results", func() {
-			type res struct {
-				GUID string `json:"guid"`
-			}
-			type resList struct {
-				Resources []res `json:"resources"`
-			}
-
 			BeforeEach(func() {
 				packageRepo.ListPackagesReturns([]repositories.PackageRecord{
 					{
@@ -364,18 +236,11 @@ var _ = Describe("Package", func() {
 				}, nil)
 			})
 
-			DescribeTable("ordering results", func(orderBy string, expectedOrder ...string) {
+			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
 				req = createHttpRequest("GET", "/v3/packages?order_by="+orderBy, nil)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
-				var respList resList
-				err := json.Unmarshal(rr.Body.Bytes(), &respList)
-				Expect(err).NotTo(HaveOccurred())
-				expectedList := make([]res, len(expectedOrder))
-				for i := range expectedOrder {
-					expectedList[i] = res{GUID: expectedOrder[i]}
-				}
-				Expect(respList.Resources).To(Equal(expectedList))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[*].guid", expectedOrder))
 			},
 				Entry("created_at ASC", "created_at", "3", "2", "1"),
 				Entry("created_at DESC", "-created_at", "1", "2", "3"),
@@ -446,24 +311,9 @@ var _ = Describe("Package", func() {
 				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
-			It("returns a JSON body", func() {
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(
-					` {
-							"pagination": {
-								"total_results": 0,
-								"total_pages": 1,
-								"first": {
-									"href": "%[1]s/v3/packages"
-								},
-								"last": {
-									"href": "%[1]s/v3/packages"
-								},
-								"next": null,
-								"previous": null
-							},
-							"resources": []
-						}`, defaultServerURL,
-				)))
+			It("returns an empty list", func() {
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(0)))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", BeEmpty()))
 			})
 		})
 
@@ -562,44 +412,10 @@ var _ = Describe("Package", func() {
 			}))
 		})
 
-		It("returns a JSON body", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`
-				{
-				  "guid": "` + packageGUID + `",
-				  "type": "bits",
-				  "data": {},
-				  "state": "AWAITING_UPLOAD",
-				  "created_at": "` + createdAt + `",
-				  "updated_at": "` + updatedAt + `",
-				  "relationships": {
-					"app": {
-					  "data": {
-						"guid": "` + appGUID + `"
-					  }
-					}
-				  },
-				  "links": {
-					"self": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID) + `"
-					},
-					"upload": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/upload") + `",
-					  "method": "POST"
-					},
-					"download": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/download") + `",
-					  "method": "GET"
-					},
-					"app": {
-					  "href": "` + defaultServerURI("/v3/apps/", appGUID) + `"
-					}
-				  },
-				  "metadata": {
-				    "labels": {"bob": "foo"},
-				    "annotations": {"jim": "foo"}
-				  }
-				}
-            `))
+		It("returns the package", func() {
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", packageGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "AWAITING_UPLOAD"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		itDoesntCreateAPackage := func() {
@@ -756,44 +572,10 @@ var _ = Describe("Package", func() {
 			})
 		})
 
-		It("returns a JSON body", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`
-				{
-				  "guid": "` + packageGUID + `",
-				  "type": "bits",
-				  "data": {},
-				  "state": "AWAITING_UPLOAD",
-				  "created_at": "` + createdAt + `",
-				  "updated_at": "` + updatedAt + `",
-				  "relationships": {
-					"app": {
-					  "data": {
-						"guid": "` + appGUID + `"
-					  }
-					}
-				  },
-				  "links": {
-					"self": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID) + `"
-					},
-					"upload": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/upload") + `",
-					  "method": "POST"
-					},
-					"download": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/download") + `",
-					  "method": "GET"
-					},
-					"app": {
-					  "href": "` + defaultServerURI("/v3/apps/", appGUID) + `"
-					}
-				  },
-				  "metadata": {
-				    "labels": {"bob": "foo"},
-				    "annotations": {"jim": "foo"}
-				  }
-				}
-            `))
+		It("returns the package", func() {
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", packageGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "AWAITING_UPLOAD"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 	})
 
@@ -888,44 +670,10 @@ var _ = Describe("Package", func() {
 			Expect(message.RegistrySecretName).To(Equal(packageImagePullSecretName))
 		})
 
-		It("returns a JSON body", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`
-				{
-				  "guid": "` + packageGUID + `",
-				  "type": "bits",
-				  "data": {},
-				  "state": "READY",
-				  "created_at": "` + createdAt + `",
-				  "updated_at": "` + updatedAt + `",
-				  "relationships": {
-					"app": {
-					  "data": {
-						"guid": "` + appGUID + `"
-					  }
-					}
-				  },
-				  "links": {
-					"self": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID) + `"
-					},
-					"upload": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/upload") + `",
-					  "method": "POST"
-					},
-					"download": {
-					  "href": "` + defaultServerURI("/v3/packages/", packageGUID, "/download") + `",
-					  "method": "GET"
-					},
-					"app": {
-					  "href": "` + defaultServerURI("/v3/apps/", appGUID) + `"
-					}
-				  },
-				  "metadata": {
-					"labels": { },
-					"annotations": { }
-				  }
-				}
-            `))
+		It("returns the package", func() {
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", packageGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "READY"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
 
 		itDoesntUploadSourceImage := func() {

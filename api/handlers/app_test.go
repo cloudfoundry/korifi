@@ -1883,97 +1883,13 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the packages", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader))
 
-			Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(
-				` {
-							"pagination": {
-								"total_results": 2,
-								"total_pages": 1,
-								"first": {
-									"href": "%[1]s/v3/apps/%[5]s/packages"
-								},
-								"last": {
-									"href": "%[1]s/v3/apps/%[5]s/packages"
-								},
-								"next": null,
-								"previous": null
-							},
-							"resources": [
-								{
-									"guid": "%[2]s",
-									"type": "bits",
-									"data": {},
-									"state": "AWAITING_UPLOAD",
-									"created_at": "%[3]s",
-									"updated_at": "%[4]s",
-									"relationships": {
-										"app": {
-											"data": {
-												"guid": "%[5]s"
-											}
-										}
-									},
-									"links": {
-										"self": {
-											"href": "%[1]s/v3/packages/%[2]s"
-										},
-										"upload": {
-											"href": "%[1]s/v3/packages/%[2]s/upload",
-											"method": "POST"
-										},
-										"download": {
-											"href": "%[1]s/v3/packages/%[2]s/download",
-											"method": "GET"
-										},
-										"app": {
-											"href": "%[1]s/v3/apps/%[5]s"
-										}
-									},
-									"metadata": {
-										"labels": {},
-										"annotations": {}
-									}
-								},
-								{
-									"guid": "%[6]s",
-									"type": "bits",
-									"data": {},
-									"state": "READY",
-									"created_at": "%[7]s",
-									"updated_at": "%[8]s",
-									"relationships": {
-										"app": {
-											"data": {
-												"guid": "%[5]s"
-											}
-										}
-									},
-									"links": {
-										"self": {
-											"href": "%[1]s/v3/packages/%[6]s"
-										},
-										"upload": {
-											"href": "%[1]s/v3/packages/%[6]s/upload",
-											"method": "POST"
-										},
-										"download": {
-											"href": "%[1]s/v3/packages/%[6]s/download",
-											"method": "GET"
-										},
-										"app": {
-											"href": "%[1]s/v3/apps/%[5]s"
-										}
-									},
-									"metadata": {
-										"labels": {},
-										"annotations": {}
-									}
-								}
-							]
-						}`, defaultServerURL, package1Record.GUID, package1Record.CreatedAt, package1Record.UpdatedAt, appGUID, package2Record.GUID, package2Record.CreatedAt, package1Record.UpdatedAt,
-			)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/packages"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "package-1-guid"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].state", Equal("AWAITING_UPLOAD")))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].guid", "package-2-guid"))
 		})
 
 		When("the app cannot be accessed", func() {
