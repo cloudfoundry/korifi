@@ -32,12 +32,6 @@ type PackageLinks struct {
 }
 
 func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageResponse {
-	if record.Labels == nil {
-		record.Labels = map[string]string{}
-	}
-	if record.Annotations == nil {
-		record.Annotations = map[string]string{}
-	}
 	return PackageResponse{
 		GUID:      record.GUID,
 		Type:      record.Type,
@@ -68,8 +62,8 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageRespo
 			},
 		},
 		Metadata: Metadata{
-			Labels:      record.Labels,
-			Annotations: record.Annotations,
+			Labels:      emptyMapIfNil(record.Labels),
+			Annotations: emptyMapIfNil(record.Annotations),
 		},
 	}
 }
