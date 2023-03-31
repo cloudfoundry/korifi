@@ -147,6 +147,10 @@ function deploy_korifi() {
       awk '/image:/ {print $2}' scripts/assets/values.yaml | while read -r img; do
         kind load docker-image --name "$cluster" "$img"
       done
+
+      host_ip="$(curl -s ipecho.net/plain)"
+      sed -i "s/defaultAppDomainName:.*$/defaultAppDomainName: apps-${host_ip//./-}.nip.io/g" scripts/assets/values.yaml
+
     fi
 
     echo "Deploying korifi..."
