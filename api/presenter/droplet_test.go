@@ -6,6 +6,8 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -36,6 +38,8 @@ var _ = Describe("Droplet", func() {
 			},
 			AppGUID:     "the-app-guid",
 			PackageGUID: "the-package-guid",
+			Labels:      map[string]string{"label-key": "label-val"},
+			Annotations: map[string]string{"annotation-key": "annotation-val"},
 		}
 	})
 
@@ -93,9 +97,33 @@ var _ = Describe("Droplet", func() {
 				"download": null
 			},
 			"metadata": {
-				"labels": {},
-				"annotations": {}
+				"labels": {
+					"label-key": "label-val"
+				},
+				"annotations": {
+					"annotation-key": "annotation-val"
+				}
 			}
 		}`))
+	})
+
+	When("labels is nil", func() {
+		BeforeEach(func() {
+			record.Labels = nil
+		})
+
+		It("returns an empty slice of labels", func() {
+			Expect(output).To(MatchJSONPath("$.metadata.labels", Not(BeNil())))
+		})
+	})
+
+	When("annotations is nil", func() {
+		BeforeEach(func() {
+			record.Annotations = nil
+		})
+
+		It("returns an empty slice of annotations", func() {
+			Expect(output).To(MatchJSONPath("$.metadata.annotations", Not(BeNil())))
+		})
 	})
 })

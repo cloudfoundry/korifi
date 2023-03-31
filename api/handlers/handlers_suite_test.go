@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -53,10 +52,6 @@ var _ = BeforeEach(func() {
 	serverURL, err = url.Parse(defaultServerURL)
 	Expect(err).NotTo(HaveOccurred())
 })
-
-func defaultServerURI(paths ...string) string {
-	return fmt.Sprintf("%s%s", defaultServerURL, strings.Join(paths, ""))
-}
 
 func expectJSONResponse(status int, body string) {
 	ExpectWithOffset(2, rr).To(HaveHTTPStatus(status))
