@@ -25,6 +25,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	btpv1 "github.com/SAP/sap-btp-service-operator/api/v1"
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,6 +72,7 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
+	bindingSecretName := uuid.NewString()
 	btpServiceBinding := &btpv1.ServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfServiceBinding.Namespace,
@@ -78,7 +80,7 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 		},
 		Spec: btpv1.ServiceBindingSpec{
 			ServiceInstanceName: instance.Name,
-			SecretName:          instance.Spec.SecretName,
+			SecretName:          bindingSecretName,
 		},
 	}
 
@@ -104,7 +106,7 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 		return ctrl.Result{}, err
 	}
 
-	cfServiceBinding.Status.Binding.Name = instance.Spec.SecretName
+	cfServiceBinding.Status.Binding.Name = btpServiceBinding.Spec.SecretName
 	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 		Type:    BindingSecretAvailableCondition,
 		Status:  metav1.ConditionTrue,
