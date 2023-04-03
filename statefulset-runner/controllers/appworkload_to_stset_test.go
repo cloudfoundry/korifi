@@ -260,7 +260,29 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		})
 	})
 
-	It("should produce a stable statefulset", func() {
+	When("env vars are unsorted", func() {
+		BeforeEach(func() {
+			appWorkload.Spec.Env = []corev1.EnvVar{
+				{Name: "b-second", Value: "second"},
+				{Name: "c-third", Value: "third"},
+				{Name: "a-first", Value: "first"},
+			}
+		})
+		It("produces a statefulset with sorted env vars", func() {
+			Expect(statefulSet.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
+				{Name: "CF_INSTANCE_GUID", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.uid"}}},
+				{Name: "CF_INSTANCE_INTERNAL_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
+				{Name: "CF_INSTANCE_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}}},
+				{Name: "POD_NAME", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}},
+				{Name: "a-first", Value: "first"},
+				{Name: "b-second", Value: "second"},
+				{Name: "c-third", Value: "third"},
+			}))
+		})
+
+	})
+
+	It("should produce a stable statefulset regardless of labels iteration order", func() {
 		for i := 0; i < 100; i++ {
 			ss, err := converter.Convert(appWorkload)
 			Expect(err).NotTo(HaveOccurred())

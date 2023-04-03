@@ -41,6 +41,7 @@ func getStatefulSetName(appWorkload *korifiv1alpha1.AppWorkload) (string, error)
 
 func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.AppWorkload) (*appsv1.StatefulSet, error) {
 	envs := appWorkload.Spec.Env
+
 	fieldEnvs := []corev1.EnvVar{
 		{
 			Name: EnvPodName,
@@ -77,6 +78,11 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 	}
 
 	envs = append(envs, fieldEnvs...)
+
+	// Sort env vars to guarantee idempotency
+	sort.SliceStable(envs, func(i, j int) bool {
+		return envs[i].Name < envs[j].Name
+	})
 
 	ports := []corev1.ContainerPort{}
 
