@@ -319,12 +319,18 @@ func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *korifiv1al
 func generateEnvVars(port int, commonEnv []corev1.EnvVar) []corev1.EnvVar {
 	var result []corev1.EnvVar
 	result = append(result, commonEnv...)
+
 	portString := strconv.Itoa(port)
 	result = append(result,
 		corev1.EnvVar{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 		corev1.EnvVar{Name: "VCAP_APP_PORT", Value: portString},
 		corev1.EnvVar{Name: "PORT", Value: portString},
 	)
+
+	// Sort env vars to guarantee idempotency
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
 
 	return result
 }
