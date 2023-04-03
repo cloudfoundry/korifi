@@ -60,6 +60,7 @@ func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log log
 func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfApp.Namespace, "name", cfApp.Name)
 
+	log.Info("Hey I'm reconciling!!!")
 	if err := k8s.AddFinalizer(ctx, log, r.k8sClient, cfApp, cfAppFinalizerName); err != nil {
 		log.Error(err, "Error adding finalizer")
 		return ctrl.Result{}, err

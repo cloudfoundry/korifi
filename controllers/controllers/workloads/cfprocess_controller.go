@@ -326,6 +326,10 @@ func generateEnvVars(port int, commonEnv []corev1.EnvVar) []corev1.EnvVar {
 		corev1.EnvVar{Name: "PORT", Value: portString},
 	)
 
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+
 	return result
 }
 
