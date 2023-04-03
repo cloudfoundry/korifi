@@ -174,9 +174,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+			orig := cfTask.DeepCopy()
 			cfTask.Status.MemoryMB = 123
 			cfTask.Status.DiskQuotaMB = 432
-			Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+			Expect(k8sClient.Status().Patch(ctx, cfTask, client.MergeFrom(orig))).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, &task)).To(Succeed())
