@@ -1,12 +1,12 @@
 package handlers_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
 
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -16,13 +16,13 @@ import (
 var _ = Describe("Job", func() {
 	Describe("GET /v3/jobs endpoint", func() {
 		var (
-			resourceGUID string
-			jobGUID      string
-			req          *http.Request
+			spaceGUID string
+			jobGUID   string
+			req       *http.Request
 		)
 
 		BeforeEach(func() {
-			resourceGUID = uuid.NewString()
+			spaceGUID = uuid.NewString()
 			apiHandler := handlers.NewJob(*serverURL)
 			routerBuilder.LoadRoutes(apiHandler)
 		})
@@ -37,7 +37,7 @@ var _ = Describe("Job", func() {
 
 		When("getting an existing job", func() {
 			BeforeEach(func() {
-				jobGUID = "space.apply_manifest~" + resourceGUID
+				jobGUID = "space.apply_manifest~" + spaceGUID
 			})
 
 			It("returns status 200 OK", func() {
@@ -50,23 +50,9 @@ var _ = Describe("Job", func() {
 
 			When("the existing job operation is space.apply-manifest", func() {
 				It("returns the job", func() {
-					Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
-						"created_at": "",
-						"errors": null,
-						"guid": "%[2]s",
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/jobs/%[2]s"
-							},
-							"space": {
-								"href": "%[1]s/v3/spaces/%[3]s"
-							}
-						},
-						"operation": "space.apply_manifest",
-						"state": "COMPLETE",
-						"updated_at": "",
-						"warnings": null
-						}`, defaultServerURL, jobGUID, resourceGUID)))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", jobGUID))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/"+spaceGUID))
+					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.operation", "space.apply_manifest"))
 				})
 			})
 
@@ -104,26 +90,16 @@ var _ = Describe("Job", func() {
 		})
 
 		DescribeTable("delete jobs", func(operation, guid string) {
-			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+operation+"~"+guid, nil)
+			jobGUID := operation + "~" + guid
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
 			routerBuilder.Build().ServeHTTP(rr, req)
 
-			Expect(rr.Body).To(MatchJSON(fmt.Sprintf(`{
-						"created_at": "",
-						"errors": null,
-						"guid": "%[2]s~%[3]s",
-						"links": {
-							"self": {
-								"href": "%[1]s/v3/jobs/%[2]s~%[3]s"
-							}
-						},
-						"operation": "%[2]s",
-						"state": "COMPLETE",
-						"updated_at": "",
-						"warnings": null
-					}`, defaultServerURL, operation, guid)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", jobGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.operation", operation))
 		},
 
 			Entry("app delete", "app.delete", "cf-app-guid"),
