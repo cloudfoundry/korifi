@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	ServiceInstancesPath = "/v3/service_instances"
-	ServiceInstancePath  = "/v3/service_instances/{guid}"
+	ServiceInstancesPath          = "/v3/service_instances"
+	ServiceInstancePath           = "/v3/service_instances/{guid}"
+	ServiceInstanceParametersPath = ServiceInstancePath + "/parameters"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
@@ -185,6 +186,20 @@ func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusNoContent), nil
 }
 
+func (h *ServiceInstance) getParameters(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.get-paramaters")
+
+	serviceInstanceGUID := routing.URLParam(r, "guid")
+
+	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceParameters(serviceInstance)), nil
+}
+
 func (h *ServiceInstance) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -195,5 +210,6 @@ func (h *ServiceInstance) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: ServiceInstancePath, Handler: h.patch},
 		{Method: "GET", Pattern: ServiceInstancesPath, Handler: h.list},
 		{Method: "DELETE", Pattern: ServiceInstancePath, Handler: h.delete},
+		{Method: "GET", Pattern: ServiceInstanceParametersPath, Handler: h.getParameters},
 	}
 }

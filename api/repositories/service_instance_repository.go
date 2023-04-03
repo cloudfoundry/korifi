@@ -101,6 +101,7 @@ type ServiceInstanceRecord struct {
 	Annotations map[string]string
 	CreatedAt   string
 	UpdatedAt   string
+	Parameters  map[string]any
 }
 
 func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateServiceInstanceMessage) (ServiceInstanceRecord, error) {
@@ -135,7 +136,7 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 		}
 	}
 
-	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
+	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance)
 }
 
 func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchServiceInstanceMessage) (ServiceInstanceRecord, error) {
@@ -190,7 +191,7 @@ func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo
 		}
 	}
 
-	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
+	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance)
 }
 
 // nolint:dupl
@@ -222,7 +223,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		filteredServiceInstances = append(filteredServiceInstances, applyServiceInstanceListFilter(serviceInstanceList.Items, message)...)
 	}
 
-	return returnServiceInstanceList(filteredServiceInstances), nil
+	return returnServiceInstanceList(filteredServiceInstances)
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
@@ -241,7 +242,7 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
-	return cfServiceInstanceToServiceInstanceRecord(serviceInstance), nil
+	return cfServiceInstanceToServiceInstanceRecord(serviceInstance)
 }
 
 func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) error {
@@ -294,8 +295,16 @@ func (m CreateServiceInstanceMessage) toCFServiceInstance() (korifiv1alpha1.CFSe
 	return instance, nil
 }
 
-func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
+func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) (ServiceInstanceRecord, error) {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfServiceInstance.ObjectMeta)
+
+	parameters := map[string]any{}
+	if cfServiceInstance.Spec.Parameters != nil {
+		err := json.Unmarshal(cfServiceInstance.Spec.Parameters.Raw, &parameters)
+		if err != nil {
+			return ServiceInstanceRecord{}, fmt.Errorf("failed to unmarshal service parameters: %w", err)
+		}
+	}
 
 	return ServiceInstanceRecord{
 		Name:        cfServiceInstance.Spec.DisplayName,
@@ -309,7 +318,8 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.C
 		Annotations: cfServiceInstance.Annotations,
 		CreatedAt:   cfServiceInstance.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt:   updatedAtTime,
-	}
+		Parameters:  parameters,
+	}, nil
 }
 
 func cfServiceInstanceToSecret(cfServiceInstance korifiv1alpha1.CFServiceInstance) corev1.Secret {
@@ -350,13 +360,17 @@ func applyServiceInstanceListFilter(serviceInstanceList []korifiv1alpha1.CFServi
 	return filtered
 }
 
-func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceInstance) []ServiceInstanceRecord {
+func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceInstance) ([]ServiceInstanceRecord, error) {
 	serviceInstanceRecords := make([]ServiceInstanceRecord, 0, len(serviceInstanceList))
 
 	for _, serviceInstance := range serviceInstanceList {
-		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceInstanceToServiceInstanceRecord(serviceInstance))
+		record, err := cfServiceInstanceToServiceInstanceRecord(serviceInstance)
+		if err != nil {
+			return nil, err
+		}
+		serviceInstanceRecords = append(serviceInstanceRecords, record)
 	}
-	return serviceInstanceRecords
+	return serviceInstanceRecords, nil
 }
 
 func createSecretTypeFields(secret *corev1.Secret) {

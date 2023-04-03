@@ -27,6 +27,8 @@ type ServiceInstanceResponse struct {
 	Links         ServiceInstanceLinks `json:"links"`
 }
 
+type ServiceInstanceParametersResponse map[string]any
+
 type lastOperation struct {
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
@@ -106,4 +108,8 @@ func ForServiceInstanceList(serviceInstanceRecord []repositories.ServiceInstance
 	}
 
 	return ForList(serviceInstanceResponses, baseURL, requestURL)
+}
+
+func ForServiceInstanceParameters(serviceInstanceRecord repositories.ServiceInstanceRecord) ServiceInstanceParametersResponse {
+	return serviceInstanceRecord.Parameters
 }
