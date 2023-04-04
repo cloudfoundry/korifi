@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
-
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -34,73 +33,33 @@ var _ = Describe("Job", func() {
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
-		When("getting an existing job", func() {
+		Describe("apply manifest jobs", func() {
 			BeforeEach(func() {
 				jobGUID = "space.apply_manifest~" + spaceGUID
 			})
 
-			It("returns status 200 OK", func() {
+			It("returns the job", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
-
-			It("returns Content-Type as JSON in header", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			})
-
-			When("the existing job operation is space.apply-manifest", func() {
-				It("returns the job", func() {
-					Expect(rr).To(HaveHTTPBody(SatisfyAll(
-						MatchJSONPath("$.guid", jobGUID),
-						MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/"+spaceGUID),
-						MatchJSONPath("$.operation", "space.apply_manifest"),
-					)))
-				})
-			})
-
-			Describe("job guid validation", func() {
-				When("the job guid provided does not have the expected delimiter", func() {
-					BeforeEach(func() {
-						jobGUID = "job.operation;some-resource-guid"
-					})
-
-					It("returns an error", func() {
-						expectNotFoundError("Job")
-					})
-				})
-
-				When("the resource identifier portion has a prefixed guid", func() {
-					BeforeEach(func() {
-						jobGUID = "space.delete~cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649"
-					})
-
-					It("returns status 200 OK", func() {
-						Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-					})
-				})
-			})
-
-			When("the resource identifier portion does not include a guid", func() {
-				BeforeEach(func() {
-					jobGUID = "space.apply_manifest~cf-space-staging-space"
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", jobGUID),
+					MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/"+spaceGUID),
+					MatchJSONPath("$.operation", "space.apply_manifest"),
+				)))
 			})
 		})
 
-		DescribeTable("delete jobs", func(operation, guid string) {
-			jobGUID := operation + "~" + guid
-			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
+		DescribeTable("delete jobs", func(operation, resourceGUID string) {
+			guid := operation + "~" + resourceGUID
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+guid, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
 			routerBuilder.Build().ServeHTTP(rr, req)
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", jobGUID),
-				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+				MatchJSONPath("$.guid", guid),
+				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+guid),
 				MatchJSONPath("$.operation", operation),
 			)))
 		},
@@ -112,5 +71,15 @@ var _ = Describe("Job", func() {
 			Entry("domain delete", "domain.delete", "cf-domain-guid"),
 			Entry("role delete", "role.delete", "cf-role-guid"),
 		)
+
+		When("the job guid provided does not have the expected delimiter", func() {
+			BeforeEach(func() {
+				jobGUID = "job.operation;some-resource-guid"
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Job")
+			})
+		})
 	})
 })

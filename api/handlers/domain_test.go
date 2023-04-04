@@ -79,12 +79,7 @@ var _ = Describe("Domain", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("has the correct response type", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-		})
-
-		It("invokes create domain correctly", func() {
+		It("creates a domain", func() {
 			Expect(domainRepo.CreateDomainCallCount()).To(Equal(1))
 			_, actualAuthInfo, createMessage := domainRepo.CreateDomainArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -95,9 +90,9 @@ var _ = Describe("Domain", func() {
 			Expect(createMessage.Metadata.Annotations).To(Equal(map[string]string{
 				"bar": "baz",
 			}))
-		})
 
-		It("returns the correct JSON", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", "domain-guid"),
 				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
@@ -153,12 +148,14 @@ var _ = Describe("Domain", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("has the correct response type", func() {
+		It("returns the domain", func() {
+			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualDomainGUID := domainRepo.GetDomainArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualDomainGUID).To(Equal("domain-guid"))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-		})
-
-		It("returns the correct JSON", func() {
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", "domain-guid"),
 				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
@@ -224,20 +221,7 @@ var _ = Describe("Domain", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("has the correct response type", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-		})
-
-		It("returns the correct JSON", func() {
-			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", "domain-guid"),
-				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
-				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"),
-			)))
-		})
-
-		It("invokes the domain repo correctly", func() {
+		It("updates the domain", func() {
 			Expect(domainRepo.UpdateDomainCallCount()).To(Equal(1))
 			_, _, updateMessage := domainRepo.UpdateDomainArgsForCall(0)
 			Expect(updateMessage).To(Equal(repositories.UpdateDomainMessage{
@@ -247,6 +231,14 @@ var _ = Describe("Domain", func() {
 					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
 				},
 			}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "domain-guid"),
+				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"),
+			)))
 		})
 
 		When("decoding the payload fails", func() {
@@ -298,15 +290,9 @@ var _ = Describe("Domain", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns status 200 OK", func() {
+		It("returns the list of domains", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("returns Content-Type as JSON in header", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-		})
-
-		It("returns the Pagination Data and Domain Resources in the response", func() {
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
 				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/domains"),
@@ -323,13 +309,7 @@ var _ = Describe("Domain", func() {
 
 			It("returns status 200 OK", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
-
-			It("returns Content-Type as JSON in header", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			})
-
-			It("returns an empty list in the response", func() {
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.pagination.total_results", BeZero()),
 					MatchJSONPath("$.resources", BeEmpty()),
@@ -355,17 +335,12 @@ var _ = Describe("Domain", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("deletes the domain with the repository", func() {
+		It("deletes the domain", func() {
 			Expect(domainRepo.DeleteDomainCallCount()).To(Equal(1))
 			_, _, deletedDomainGUID := domainRepo.DeleteDomainArgsForCall(0)
 			Expect(deletedDomainGUID).To(Equal("my-domain"))
-		})
 
-		It("responds with a 202 accepted response", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-		})
-
-		It("responds with a job URL in a location header", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/domain.delete~my-domain"))
 		})
 
