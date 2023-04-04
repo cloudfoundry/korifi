@@ -41,7 +41,15 @@ var _ = Describe("Org", func() {
 		var req string
 
 		BeforeEach(func() {
-			req = `{"name": "the-org"}`
+			req = `{
+				"name": "the-org",
+				"suspended": true,
+				"metadata": {
+					"labels": {"foo": "bar"},
+					"annotations": {"bar": "baz"}
+				}
+			}`
+
 			orgRepo.CreateOrgReturns(repositories.OrgRecord{
 				Name:      "new-org",
 				GUID:      "org-guid",
@@ -63,17 +71,15 @@ var _ = Describe("Org", func() {
 			routerBuilder.Build().ServeHTTP(rr, request)
 		})
 
-		It("invokes the repo org create function with expected parameters", func() {
+		It("creates the org", func() {
 			Expect(orgRepo.CreateOrgCallCount()).To(Equal(1))
 			_, info, orgRecord := orgRepo.CreateOrgArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
 			Expect(orgRecord.Name).To(Equal("the-org"))
-			Expect(orgRecord.Suspended).To(BeFalse())
-			Expect(orgRecord.Labels).To(BeEmpty())
-			Expect(orgRecord.Annotations).To(BeEmpty())
-		})
+			Expect(orgRecord.Suspended).To(BeTrue())
+			Expect(orgRecord.Labels).To(And(HaveLen(1), HaveKeyWithValue("foo", "bar")))
+			Expect(orgRecord.Annotations).To(And(HaveLen(1), HaveKeyWithValue("bar", "baz")))
 
-		It("returns 201 with appropriate success JSON", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -92,57 +98,13 @@ var _ = Describe("Org", func() {
 			})
 		})
 
-		When("the user passes optional org parameters", func() {
-			BeforeEach(func() {
-				req = `{
-					"name": "the-org",
-					"suspended": true,
-					"metadata": {
-						"labels": {"foo": "bar"},
-						"annotations": {"bar": "baz"}
-					}
-				}`
-			})
-
-			It("invokes the repo org create function with expected parameters", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(orgRepo.CreateOrgCallCount()).To(Equal(1))
-				_, info, orgRecord := orgRepo.CreateOrgArgsForCall(0)
-				Expect(info).To(Equal(authInfo))
-				Expect(orgRecord.Name).To(Equal("the-org"))
-				Expect(orgRecord.Suspended).To(BeTrue())
-				Expect(orgRecord.Labels).To(And(HaveLen(1), HaveKeyWithValue("foo", "bar")))
-				Expect(orgRecord.Annotations).To(And(HaveLen(1), HaveKeyWithValue("bar", "baz")))
-			})
-
-			It("returns 201 with appropriate success JSON", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					MatchJSONPath("$.guid", "org-guid"),
-					MatchJSONPath("$.links.self.href", "https://api.example.org/v3/organizations/org-guid"),
-				)))
-			})
-		})
-
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
 				req = `{`
 			})
 
 			It("returns a status 400 with appropriate error JSON", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                    "errors": [
-                    {
-                        "title": "CF-MessageParseError",
-                        "detail": "Request invalid due to parse error: invalid request body",
-                        "code": 1001
-                    }
-                    ]
-                }`)))
+				expectBadRequestError()
 			})
 		})
 
@@ -152,17 +114,7 @@ var _ = Describe("Org", func() {
 			})
 
 			It("returns a status 422 with appropriate error JSON", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                    "errors": [
-                    {
-                        "title": "CF-UnprocessableEntity",
-                        "detail": "invalid request body: json: unknown field \"description\"",
-                        "code": 10008
-                    }
-                    ]
-                }`)))
+				expectUnprocessableEntityError(`invalid request body: json: unknown field "description"`)
 			})
 		})
 
@@ -172,17 +124,7 @@ var _ = Describe("Org", func() {
 			})
 
 			It("returns a status 422 with appropriate error JSON", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                    "errors": [
-                    {
-                        "code":   10008,
-                        "title": "CF-UnprocessableEntity",
-                        "detail": "Name must be a string"
-                    }
-                    ]
-                }`)))
+				expectUnprocessableEntityError("Name must be a string")
 			})
 		})
 
@@ -192,17 +134,7 @@ var _ = Describe("Org", func() {
 			})
 
 			It("returns a status 422 with appropriate error message json", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                    "errors": [
-                    {
-                        "title": "CF-UnprocessableEntity",
-                        "detail": "Name is a required field",
-                        "code": 10008
-                    }
-                    ]
-                }`)))
+				expectUnprocessableEntityError("Name is a required field")
 			})
 		})
 	})

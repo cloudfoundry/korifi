@@ -97,17 +97,12 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID, nil)
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("passes authInfo from context to GetApp", func() {
+		It("returns the App", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-		})
 
-		It("returns the App in the response", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -157,17 +152,12 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("POST", "/v3/apps", requestBody(spaceGUID))
 		})
 
-		It("returns status 201 Created", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-		})
-
-		It("passes authInfo from context to CreateApp", func() {
+		It("returns the App", func() {
 			Expect(appRepo.CreateAppCallCount()).To(Equal(1))
 			_, actualAuthInfo, _ := appRepo.CreateAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-		})
 
-		It("returns the App in the response", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -213,21 +203,8 @@ var _ = Describe("App", func() {
 				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{`))
 			})
 
-			It("returns a status 400 Bad Request ", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-					"errors": [
-						{
-							"title": "CF-MessageParseError",
-							"detail": "Request invalid due to parse error: invalid request body",
-							"code": 1001
-						}
-					]
-				}`)))
+			It("has the expected error", func() {
+				expectBadRequestError()
 			})
 		})
 
@@ -289,11 +266,8 @@ var _ = Describe("App", func() {
 				}`))
 			})
 
-			It("returns a status 422 Unprocessable Entity", func() {
+			It("returns an unprocessable entity error", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
-			})
-
-			It("has the expected error response body", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.errors", HaveLen(1)),
@@ -368,15 +342,13 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("GET", "/v3/apps", nil)
 		})
 
-		It("returns status 200 OK", func() {
+		It("returns the list of apps", func() {
+			Expect(appRepo.ListAppsCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.ListAppsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("returns Content-Type as JSON in header", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-		})
-
-		It("returns App Resources in the response", func() {
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps"),
 				MatchJSONPath("$.resources", HaveLen(2)),
@@ -384,12 +356,6 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.resources[0].state", Equal("STOPPED")),
 				MatchJSONPath("$.resources[1].guid", "second-test-app-guid"),
 			)))
-		})
-
-		It("invokes the repository with the provided auth info", func() {
-			Expect(appRepo.ListAppsCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := appRepo.ListAppsArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
 		When("filtering query params are provided", func() {
@@ -476,15 +442,9 @@ var _ = Describe("App", func() {
 				appRepo.ListAppsReturns([]repositories.AppRecord{}, nil)
 			})
 
-			It("returns status 200 OK", func() {
-				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			})
-
 			It("returns an empty response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.pagination.total_results", BeEquivalentTo(0)),
 					MatchJSONPath("$.resources", BeEmpty()),
@@ -531,10 +491,6 @@ var _ = Describe("App", func() {
 				}`))
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
 		It("patches the app with the new labels and annotations", func() {
 			Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
 			_, _, msg := appRepo.PatchAppMetadataArgsForCall(0)
@@ -547,6 +503,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the App in the response", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", "patched-app-guid"),
@@ -685,11 +642,15 @@ var _ = Describe("App", func() {
 			})
 		}
 
-		It("responds with a 200 code", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
+		It("sets the current droplet on the app", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAppGUID).To(Equal(appGUID))
 
-		It("updates the k8s record via the repository", func() {
+			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+			_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
+			Expect(actualDropletGUID).To(Equal(dropletGUID))
+
 			Expect(appRepo.SetCurrentDropletCallCount()).To(Equal(1))
 			_, _, message := appRepo.SetCurrentDropletArgsForCall(0)
 			Expect(message.AppGUID).To(Equal(appGUID))
@@ -697,24 +658,13 @@ var _ = Describe("App", func() {
 			Expect(message.SpaceGUID).To(Equal(spaceGUID))
 		})
 
-		It("responds with JSON", func() {
+		It("returns the droplet", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.data.guid", dropletGUID),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
-		})
-
-		It("fetches the right App", func() {
-			Expect(appRepo.GetAppCallCount()).To(Equal(1))
-			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-			Expect(actualAppGUID).To(Equal(appGUID))
-		})
-
-		It("fetches the right Droplet", func() {
-			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
-			_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
-			Expect(actualDropletGUID).To(Equal(dropletGUID))
 		})
 
 		When("setting the current droplet fails", func() {
@@ -735,6 +685,7 @@ var _ = Describe("App", func() {
 			It("returns an error", func() {
 				expectUnknownError()
 			})
+
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -746,6 +697,7 @@ var _ = Describe("App", func() {
 			It("returns an error", func() {
 				expectNotFoundError("App")
 			})
+
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -757,6 +709,7 @@ var _ = Describe("App", func() {
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
 			})
+
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -768,6 +721,7 @@ var _ = Describe("App", func() {
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
 			})
+
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -779,6 +733,7 @@ var _ = Describe("App", func() {
 			It("returns an error", func() {
 				expectUnknownError()
 			})
+
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -794,6 +749,7 @@ var _ = Describe("App", func() {
 			It("returns an error", func() {
 				expectUnprocessableEntityError("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
 			})
+
 			itDoesntSetTheCurrentDroplet()
 		})
 
@@ -829,13 +785,9 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/start", nil)
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
 		It("returns the App in the response with a state of STARTED", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", appGUID),
 				MatchJSONPath("$.state", "STARTED"),
@@ -895,13 +847,9 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
 		It("returns the App in the response with a state of STOPPED", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", appGUID),
 				MatchJSONPath("$.state", "STOPPED"),
@@ -982,13 +930,9 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes", nil)
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
 		It("returns the processes", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/processes"),
 				MatchJSONPath("$.resources", HaveLen(2)),
@@ -1054,19 +998,13 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes/web", nil)
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("passes the authorization.Info to the process repository", func() {
+		It("returns a process", func() {
 			Expect(processRepo.GetProcessByAppTypeAndSpaceCallCount()).To(Equal(1))
 			_, actualAuthInfo, _, _, _ := processRepo.GetProcessByAppTypeAndSpaceArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-		})
 
-		It("returns a process", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", "process-1-guid"),
 				MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"),
@@ -1174,13 +1112,9 @@ var _ = Describe("App", func() {
 			}))
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
 		It("returns the scaled process", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", "process-1-guid"),
 				MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"),
@@ -1194,19 +1128,8 @@ var _ = Describe("App", func() {
 				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(`}`))
 			})
 
-			It("returns a status 400 Bad Request ", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-					"errors": [{
-						"title": "CF-MessageParseError",
-						"detail": "Request invalid due to parse error: invalid request body",
-						"code": 1001
-					}]
-				}`)))
+			It("returns an error", func() {
+				expectBadRequestError()
 			})
 		})
 
@@ -1265,7 +1188,7 @@ var _ = Describe("App", func() {
 				tableTestRecorder := httptest.NewRecorder()
 				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(requestBody))
 				routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
-				Expect(tableTestRecorder.Code).To(Equal(status))
+				Expect(tableTestRecorder).To(HaveHTTPStatus(status))
 			},
 			Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),
 			Entry("memory is not a positive integer", `{"memory_in_mb":0}`, http.StatusUnprocessableEntity),
@@ -1319,15 +1242,9 @@ var _ = Describe("App", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("returns Content-Type as JSON in header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-		})
-
 		It("returns the list of routes", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
 				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/routes"),
@@ -1394,39 +1311,24 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
 		})
 
-		It("responds with a 200 code", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("sends the authInfo from the context to the repo methods", func() {
+		It("returns the current droplet", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
+			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualAppGUID).To(Equal(appGUID))
 
 			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ = dropletRepo.GetDropletArgsForCall(0)
+			_, actualAuthInfo, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-		})
+			Expect(actualDropletGUID).To(Equal(dropletGUID))
 
-		It("responds with the current droplet encoded as JSON", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", dropletGUID),
 				MatchJSONPath("$.state", "STAGED"),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
-		})
-
-		It("fetches the correct app", func() {
-			Expect(appRepo.GetAppCallCount()).To(Equal(1))
-			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-			Expect(actualAppGUID).To(Equal(appGUID))
-		})
-
-		It("fetches the correct droplet", func() {
-			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
-			_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
-			Expect(actualDropletGUID).To(Equal(dropletGUID))
 		})
 
 		When("the app is not accessible", func() {
@@ -1493,35 +1395,22 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
 		})
 
-		It("responds with a 200 code", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("sends the authInfo from the context to the repo methods", func() {
+		It("restarts the app", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
+			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualAppGUID).To(Equal(appGUID))
 
 			Expect(appRepo.SetAppDesiredStateCallCount()).To(Equal(2))
-			_, actualAuthInfo, _ = appRepo.SetAppDesiredStateArgsForCall(0)
+			_, actualAuthInfo, appDesiredStateMessage := appRepo.SetAppDesiredStateArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			_, actualAuthInfo, _ = appRepo.SetAppDesiredStateArgsForCall(1)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-		})
-
-		It("calls setDesiredState to STOP and START the app", func() {
-			Expect(appRepo.SetAppDesiredStateCallCount()).To(Equal(2))
-
-			_, _, appDesiredStateMessage := appRepo.SetAppDesiredStateArgsForCall(0)
 			Expect(appDesiredStateMessage.DesiredState).To(Equal("STOPPED"))
-
-			_, _, appDesiredStateMessage = appRepo.SetAppDesiredStateArgsForCall(1)
+			_, actualAuthInfo, appDesiredStateMessage = appRepo.SetAppDesiredStateArgsForCall(1)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(appDesiredStateMessage.DesiredState).To(Equal("STARTED"))
-		})
 
-		It("returns the App in the response with a state of STARTED", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.guid", "test-app-guid"),
 				MatchJSONPath("$.state", "STARTED"),
@@ -1622,26 +1511,18 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("DELETE", "/v3/apps/"+appGUID, nil)
 		})
 
-		It("responds with a 202 accepted response", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-		})
-
-		It("responds with a job URL in a location header", func() {
-			locationHeader := rr.Header().Get("Location")
-			Expect(locationHeader).To(Equal("https://api.example.org/v3/jobs/app.delete~"+appGUID), "Matching Location header")
-		})
-
-		It("fetches the right app", func() {
+		It("deletes the app", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAppGUID).To(Equal(appGUID))
-		})
 
-		It("deletes the K8s record via the repository", func() {
 			Expect(appRepo.DeleteAppCallCount()).To(Equal(1))
 			_, _, message := appRepo.DeleteAppArgsForCall(0)
 			Expect(message.AppGUID).To(Equal(appGUID))
 			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/app.delete~"+appGUID))
 		})
 
 		When("fetching the app errors", func() {
@@ -1674,19 +1555,13 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/env", nil)
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("passes authInfo from context to GetAppEnv", func() {
+		It("returns the app environment", func() {
 			Expect(appRepo.GetAppEnvCallCount()).To(Equal(1))
 			_, actualAuthInfo, _ := appRepo.GetAppEnvArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-		})
 
-		It("returns the env vars in the response", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
 			Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.environment_variables.VAR", "VAL")))
 		})
 
@@ -1715,26 +1590,11 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(`{ "var": { "KEY1": null, "KEY2": "VAL2" } }`))
 		})
 
-		It("responds with a 200 code", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("responds with JSON", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.var.KEY0", "VAL0"),
-				MatchJSONPath("$.var.KEY2", "VAL2"),
-				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
-			)))
-		})
-
-		It("fetches the right app", func() {
+		It("updates the app environemnt", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAppGUID).To(Equal(appGUID))
-		})
 
-		It("updates the k8s record via the repository", func() {
 			Expect(appRepo.PatchAppEnvVarsCallCount()).To(Equal(1))
 			_, _, message := appRepo.PatchAppEnvVarsArgsForCall(0)
 			Expect(message.AppGUID).To(Equal(appGUID))
@@ -1743,6 +1603,14 @@ var _ = Describe("App", func() {
 				"KEY1": nil,
 				"KEY2": tools.PtrTo("VAL2"),
 			}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.var.KEY0", "VAL0"),
+				MatchJSONPath("$.var.KEY2", "VAL2"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		DescribeTable("env var validation",
@@ -1769,22 +1637,8 @@ var _ = Describe("App", func() {
 				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(`{`))
 			})
 
-			It("returns a status 400 Bad Request ", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
-			})
-
-			It("has the expected error response body", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-						"errors": [
-							{
-								"title": "CF-MessageParseError",
-								"detail": "Request invalid due to parse error: invalid request body",
-								"code": 1001
-							}
-						]
-					}`)))
+			It("returns a message parse error", func() {
+				expectBadRequestError()
 			})
 		})
 
@@ -1845,13 +1699,9 @@ var _ = Describe("App", func() {
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/packages", nil)
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
 		It("returns the packages", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/packages"),
 				MatchJSONPath("$.resources", HaveLen(2)),

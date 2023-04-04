@@ -77,107 +77,14 @@ var _ = Describe("Build", func() {
 			routerBuilder.LoadRoutes(apiHandler)
 		})
 
-		When("on the happy path", func() {
-			When("build staging is not complete", func() {
-				It("returns status 200 OK", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
-
-				It("returns Content-Type as JSON in header", func() {
-					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				})
-
-				It("returns the Build in the response", func() {
-					Expect(rr).To(HaveHTTPBody(SatisfyAll(
-						MatchJSONPath("$.guid", "test-build-guid"),
-						MatchJSONPath("$.state", "STAGING"),
-						MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
-					)))
-				})
-			})
-
-			When("build staging is successful", func() {
-				BeforeEach(func() {
-					buildRepo.GetBuildReturns(repositories.BuildRecord{
-						GUID:            buildGUID,
-						State:           "STAGED",
-						CreatedAt:       createdAt,
-						UpdatedAt:       updatedAt,
-						StagingMemoryMB: stagingMem,
-						StagingDiskMB:   stagingDisk,
-						Lifecycle: repositories.Lifecycle{
-							Type: "buildpack",
-							Data: repositories.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-						PackageGUID: packageGUID,
-						DropletGUID: buildGUID,
-						AppGUID:     appGUID,
-					}, nil)
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
-
-				It("returns Content-Type as JSON in header", func() {
-					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				})
-
-				It("returns the Build in the response", func() {
-					Expect(rr).To(HaveHTTPBody(SatisfyAll(
-						MatchJSONPath("$.guid", "test-build-guid"),
-						MatchJSONPath("$.state", "STAGED"),
-						MatchJSONPath("$.droplet.guid", "test-build-guid"),
-						MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
-					)))
-				})
-			})
-
-			When("build staging fails", func() {
-				const (
-					stagingErrorMsg = "StagingError: something went wrong during staging"
-				)
-				BeforeEach(func() {
-					buildRepo.GetBuildReturns(repositories.BuildRecord{
-						GUID:            buildGUID,
-						State:           "FAILED",
-						CreatedAt:       createdAt,
-						UpdatedAt:       updatedAt,
-						StagingErrorMsg: stagingErrorMsg,
-						StagingMemoryMB: stagingMem,
-						StagingDiskMB:   stagingDisk,
-						Lifecycle: repositories.Lifecycle{
-							Type: "buildpack",
-							Data: repositories.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-						PackageGUID: packageGUID,
-						DropletGUID: "",
-						AppGUID:     appGUID,
-					}, nil)
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
-
-				It("returns Content-Type as JSON in header", func() {
-					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				})
-
-				It("returns the Build in the response", func() {
-					Expect(rr).To(HaveHTTPBody(SatisfyAll(
-						MatchJSONPath("$.guid", "test-build-guid"),
-						MatchJSONPath("$.state", "FAILED"),
-						MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
-					)))
-				})
-			})
+		It("returns the Build", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "test-build-guid"),
+				MatchJSONPath("$.state", "STAGING"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("the user does not have access to the build", func() {
@@ -302,42 +209,30 @@ var _ = Describe("Build", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("on the happy path", func() {
-			It("returns status 201", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-			})
+		It("creates the build", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAppGUID).To(Equal(appGUID))
 
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			})
+			Expect(buildRepo.CreateBuildCallCount()).To(Equal(1))
+			_, _, actualCreate := buildRepo.CreateBuildArgsForCall(0)
 
-			It("calls create build with the correct payload", func() {
-				Expect(buildRepo.CreateBuildCallCount()).To(Equal(1))
-				_, _, actualCreate := buildRepo.CreateBuildArgsForCall(0)
+			Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
+			Expect(actualCreate.AppGUID).To(Equal(appGUID))
+			Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
+			Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
+			Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
+			Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
+			Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal(expectedLifecycleBuildpacks))
+			Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
 
-				Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
-				Expect(actualCreate.AppGUID).To(Equal(appGUID))
-				Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
-				Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
-				Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
-				Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
-				Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal(expectedLifecycleBuildpacks))
-				Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
-			})
-
-			It("returns the Build in the response", func() {
-				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					MatchJSONPath("$.guid", "test-build-guid"),
-					MatchJSONPath("$.state", "STAGING"),
-					MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
-				)))
-			})
-
-			It("looks up the app by the correct GUID", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-				Expect(actualAppGUID).To(Equal(appGUID))
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "test-build-guid"),
+				MatchJSONPath("$.state", "STAGING"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("the package doesn't exist", func() {

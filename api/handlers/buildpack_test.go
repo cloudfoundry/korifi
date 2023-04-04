@@ -48,19 +48,13 @@ var _ = Describe("Buildpack", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("passes authInfo from context to GetApp", func() {
+		It("returns the buildpacks for the default builder", func() {
 			Expect(buildpackRepo.ListBuildpacksCallCount()).To(Equal(1))
 			_, actualAuthInfo := buildpackRepo.ListBuildpacksArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-		})
 
-		It("returns the buildpacks for the default builder", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
 				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/buildpacks"),

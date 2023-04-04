@@ -81,22 +81,13 @@ var _ = Describe("Droplet", func() {
 				}, nil)
 			})
 
-			It("returns status 200 OK", func() {
+			It("returns the droplet", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
-
-			It("returns Content-Type as JSON in header", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			})
-
-			It("fetches the right droplet", func() {
 				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
-
 				_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
 				Expect(actualDropletGUID).To(Equal(dropletGUID))
-			})
 
-			It("returns the droplet in the response", func() {
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.guid", dropletGUID),
 					MatchJSONPath("$.process_types.rake", "bundle exec rake"),
@@ -191,32 +182,21 @@ var _ = Describe("Droplet", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("on the happy path", func() {
-			It("has the correct response type", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
+		It("updates the droplet", func() {
+			Expect(dropletRepo.UpdateDropletCallCount()).To(Equal(1))
+			_, _, actualUpdate := dropletRepo.UpdateDropletArgsForCall(0)
+			Expect(actualUpdate.GUID).To(Equal(dropletGUID))
+			Expect(actualUpdate.MetadataPatch).To(Equal(repositories.MetadataPatch{
+				Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+				Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+			}))
 
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			})
-
-			It("calls update droplet with the correct payload", func() {
-				Expect(dropletRepo.UpdateDropletCallCount()).To(Equal(1))
-				_, _, actualUpdate := dropletRepo.UpdateDropletArgsForCall(0)
-
-				Expect(actualUpdate.GUID).To(Equal(dropletGUID))
-				Expect(actualUpdate.MetadataPatch).To(Equal(repositories.MetadataPatch{
-					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
-					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
-				}))
-			})
-
-			It("returns the droplet in the response", func() {
-				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					MatchJSONPath("$.guid", dropletGUID),
-					MatchJSONPath("$.process_types.rake", "bundle exec rake"),
-				)))
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", dropletGUID),
+				MatchJSONPath("$.process_types.rake", "bundle exec rake"),
+			)))
 		})
 
 		When("the payload cannot be decoded", func() {
