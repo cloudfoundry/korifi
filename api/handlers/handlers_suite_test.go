@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -51,98 +49,44 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-func expectJSONResponse(status int, body string) {
+func expectErrorResponse(status int, title, detail string, code int) {
 	ExpectWithOffset(2, rr).To(HaveHTTPStatus(status))
 	ExpectWithOffset(2, rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-	ExpectWithOffset(2, rr).To(HaveHTTPBody(MatchJSON(body)))
+	ExpectWithOffset(2, rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
+		"errors": [{
+			"title": %q,
+			"detail": %q,
+			"code": %d
+		}]
+	}`, title, detail, code))))
 }
 
 func expectUnknownError() {
-	expectJSONResponse(http.StatusInternalServerError, `{
-			"errors": [
-				{
-					"title": "UnknownError",
-					"detail": "An unknown error occurred.",
-					"code": 10001
-				}
-			]
-		}`)
+	expectErrorResponse(http.StatusInternalServerError, "UnknownError", "An unknown error occurred.", 10001)
 }
 
 func expectNotAuthorizedError() {
-	expectJSONResponse(http.StatusForbidden, `{
-			"errors": [
-				{
-					"code": 10003,
-					"title": "CF-NotAuthorized",
-					"detail": "You are not authorized to perform the requested action"
-				}
-			]
-		}`)
+	expectErrorResponse(http.StatusForbidden, "CF-NotAuthorized", "You are not authorized to perform the requested action", 10003)
 }
 
-func expectNotFoundError(detail string) {
-	ExpectWithOffset(1, rr).To(HaveHTTPStatus(http.StatusNotFound))
-	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-	var bodyJSON map[string]interface{}
-	Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
-	Expect(bodyJSON).To(HaveKey("errors"))
-	Expect(bodyJSON["errors"]).To(HaveLen(1))
-	Expect(bodyJSON["errors"]).To(ConsistOf(
-		gstruct.MatchAllKeys(gstruct.Keys{
-			"code":   BeEquivalentTo(10010),
-			"title":  Equal("CF-ResourceNotFound"),
-			"detail": HavePrefix(detail),
-		}),
-	))
+func expectNotFoundError(resourceType string) {
+	expectErrorResponse(http.StatusNotFound, "CF-ResourceNotFound", resourceType+" not found. Ensure it exists and you have access to it.", 10010)
 }
 
 func expectUnprocessableEntityError(detail string) {
-	expectJSONResponse(http.StatusUnprocessableEntity, fmt.Sprintf(`{
-			"errors": [
-				{
-					"detail": %q,
-					"title": "CF-UnprocessableEntity",
-					"code": 10008
-				}
-			]
-		}`, detail))
+	expectErrorResponse(http.StatusUnprocessableEntity, "CF-UnprocessableEntity", detail, 10008)
 }
 
 func expectBadRequestError() {
-	expectJSONResponse(http.StatusBadRequest, `{
-        "errors": [
-            {
-                "title": "CF-MessageParseError",
-                "detail": "Request invalid due to parse error: invalid request body",
-                "code": 1001
-            }
-        ]
-    }`)
+	expectErrorResponse(http.StatusBadRequest, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
 }
 
 func expectBlobstoreUnavailableError() {
-	expectJSONResponse(http.StatusBadGateway, `{
-        "errors": [
-            {
-                "title": "CF-BlobstoreUnavailable",
-                "detail": "Error uploading source package to the container registry",
-                "code": 150006
-            }
-        ]
-    }`)
+	expectErrorResponse(http.StatusBadGateway, "CF-BlobstoreUnavailable", "Error uploading source package to the container registry", 150006)
 }
 
 func expectUnknownKeyError(detail string) {
-	expectJSONResponse(http.StatusBadRequest, fmt.Sprintf(`{
-		"errors": [
-			{
-				"code": 10005,
-				"title": "CF-BadQueryParameter",
-				"detail": %q
-			}
-		]
-	}`, detail))
+	expectErrorResponse(http.StatusBadRequest, "CF-BadQueryParameter", detail, 10005)
 }
 
 func generateGUID(prefix string) string {

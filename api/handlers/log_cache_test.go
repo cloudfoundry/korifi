@@ -145,7 +145,7 @@ var _ = Describe("LogCache", func() {
 				appLogsReader.ReadReturns(nil, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
 			})
 			It("elevates the error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 

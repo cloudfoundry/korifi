@@ -28,7 +28,7 @@ var _ = Describe("RootV3", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns Content-Type as JSON in header", func() {
@@ -37,7 +37,7 @@ var _ = Describe("RootV3", func() {
 
 		It("matches the expected response body format", func() {
 			expectedBody := `{"links":{"self":{"href":"` + defaultServerURL + `/v3"}}}`
-			Expect(rr.Body).To(MatchJSON(expectedBody))
+			Expect(rr).To(HaveHTTPBody(MatchJSON(expectedBody)))
 		})
 	})
 })

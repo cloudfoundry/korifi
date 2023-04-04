@@ -348,7 +348,7 @@ var _ = Describe("ServiceBinding", func() {
 			})
 
 			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFServiceBinding not found")
+				expectNotFoundError("CFServiceBinding")
 			})
 		})
 	})
@@ -372,7 +372,7 @@ var _ = Describe("ServiceBinding", func() {
 		})
 
 		It("returns the ServiceBindings available to the user", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr.Body.String()).To(ContainSubstring(serviceBindingGUID))
 		})
 
@@ -382,7 +382,7 @@ var _ = Describe("ServiceBinding", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -492,7 +492,7 @@ var _ = Describe("ServiceBinding", func() {
 			})
 
 			It("returns success", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 		})
 
@@ -517,7 +517,7 @@ var _ = Describe("ServiceBinding", func() {
 		})
 
 		It("returns a NoContent status", func() {
-			Expect(rr.Code).To(Equal(http.StatusNoContent))
+			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
 			Expect(rr.Body.String()).To(BeEmpty())
 		})
 
@@ -748,7 +748,7 @@ var _ = Describe("ServiceBinding", func() {
 			})
 
 			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFServiceBinding not found")
+				expectNotFoundError("CFServiceBinding")
 			})
 		})
 	})

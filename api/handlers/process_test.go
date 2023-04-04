@@ -97,7 +97,7 @@ var _ = Describe("Process", func() {
 
 		When("on the happy path", func() {
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("passes the authorization.Info to the process repository", func() {
@@ -165,7 +165,7 @@ var _ = Describe("Process", func() {
 				})
 
 				It("returns a not-found error", func() {
-					expectNotFoundError("Process not found")
+					expectNotFoundError("Process")
 				})
 			})
 
@@ -192,7 +192,7 @@ var _ = Describe("Process", func() {
 
 		When("on the happy path", func() {
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("passes the authorization.Info to the process repository", func() {
@@ -228,7 +228,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Process not found")
+				expectNotFoundError("Process")
 			})
 		})
 
@@ -327,7 +327,7 @@ var _ = Describe("Process", func() {
 
 		When("all scale fields are set", func() {
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns the scaled process", func() {
@@ -398,7 +398,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns the scaled process", func() {
@@ -459,7 +459,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns a status 400 Bad Request ", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 			})
 
 			It("has the expected error response body", func() {
@@ -483,7 +483,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns a NotFound error", func() {
-				expectNotFoundError("Process not found")
+				expectNotFoundError("Process")
 			})
 		})
 
@@ -577,7 +577,7 @@ var _ = Describe("Process", func() {
 
 		When("on the happy path", func() {
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP reponse code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("passes the authorization.Info to the fetch process stats func", func() {
@@ -672,7 +672,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -740,7 +740,7 @@ var _ = Describe("Process", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -820,7 +820,7 @@ var _ = Describe("Process", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("invokes process repository with correct args", func() {
@@ -947,7 +947,7 @@ var _ = Describe("Process", func() {
 					makePatchRequest(processGUID, validBody)
 				})
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("passes the authorization.Info to the process repository", func() {
@@ -1014,7 +1014,7 @@ var _ = Describe("Process", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("passes the metadata to the patch method on the repository", func() {
@@ -1056,7 +1056,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("Process not found")
+				expectNotFoundError("Process")
 			})
 		})
 
