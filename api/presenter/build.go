@@ -96,11 +96,8 @@ func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildRespon
 	return toReturn
 }
 
-func ForBuildList(buildRecordList []repositories.BuildRecord, baseURL, requestURL url.URL) ListResponse {
-	buildResponses := make([]interface{}, 0, len(buildRecordList))
-	for _, build := range buildRecordList {
-		buildResponses = append(buildResponses, ForBuild(build, baseURL))
-	}
-
-	return ForList(buildResponses, baseURL, requestURL)
+func ForBuildList(buildRecordList []repositories.BuildRecord, baseURL, requestURL url.URL) ListResponse[BuildResponse] {
+	return ForList(func(buildRecord repositories.BuildRecord, baseURL url.URL) BuildResponse {
+		return ForBuild(buildRecord, baseURL)
+	}, buildRecordList, baseURL, requestURL)
 }

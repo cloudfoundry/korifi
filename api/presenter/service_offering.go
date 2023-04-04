@@ -103,13 +103,10 @@ func ForServiceOffering(serviceOfferingRecord repositories.ServiceOfferingRecord
 	}
 }
 
-func ForServiceOfferingList(serviceInstanceRecord []repositories.ServiceOfferingRecord, baseURL, requestURL url.URL) ListResponse {
-	serviceInstanceResponses := make([]interface{}, 0, len(serviceInstanceRecord))
-	for _, serviceInstance := range serviceInstanceRecord {
-		serviceInstanceResponses = append(serviceInstanceResponses, ForServiceOffering(serviceInstance, baseURL))
-	}
-
-	return ForList(serviceInstanceResponses, baseURL, requestURL)
+func ForServiceOfferingList(serviceOfferingRecordList []repositories.ServiceOfferingRecord, baseURL, requestURL url.URL) ListResponse[ServiceOfferingResponse] {
+	return ForList(func(serviceOfferingRecord repositories.ServiceOfferingRecord, baseURL url.URL) ServiceOfferingResponse {
+		return ForServiceOffering(serviceOfferingRecord, baseURL)
+	}, serviceOfferingRecordList, baseURL, requestURL)
 }
 
 type ServicePlanResponse struct {
@@ -179,11 +176,8 @@ func ForServicePlan(servicePlanRecord repositories.ServicePlanRecord, baseURL ur
 	}
 }
 
-func ForServicePlanList(serviceInstanceRecord []repositories.ServicePlanRecord, baseURL, requestURL url.URL) ListResponse {
-	serviceInstanceResponses := make([]interface{}, 0, len(serviceInstanceRecord))
-	for _, serviceInstance := range serviceInstanceRecord {
-		serviceInstanceResponses = append(serviceInstanceResponses, ForServicePlan(serviceInstance, baseURL))
-	}
-
-	return ForList(serviceInstanceResponses, baseURL, requestURL)
+func ForServicePlanList(servicePlanRecordList []repositories.ServicePlanRecord, baseURL, requestURL url.URL) ListResponse[ServicePlanResponse] {
+	return ForList(func(servicePlanRecord repositories.ServicePlanRecord, baseURL url.URL) ServicePlanResponse {
+		return ForServicePlan(servicePlanRecord, baseURL)
+	}, servicePlanRecordList, baseURL, requestURL)
 }

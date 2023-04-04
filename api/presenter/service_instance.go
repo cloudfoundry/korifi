@@ -101,13 +101,10 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 	}
 }
 
-func ForServiceInstanceList(serviceInstanceRecord []repositories.ServiceInstanceRecord, baseURL, requestURL url.URL) ListResponse {
-	serviceInstanceResponses := make([]interface{}, 0, len(serviceInstanceRecord))
-	for _, serviceInstance := range serviceInstanceRecord {
-		serviceInstanceResponses = append(serviceInstanceResponses, ForServiceInstance(serviceInstance, baseURL))
-	}
-
-	return ForList(serviceInstanceResponses, baseURL, requestURL)
+func ForServiceInstanceList(serviceInstanceRecordList []repositories.ServiceInstanceRecord, baseURL, requestURL url.URL) ListResponse[ServiceInstanceResponse] {
+	return ForList(func(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL) ServiceInstanceResponse {
+		return ForServiceInstance(serviceInstanceRecord, baseURL)
+	}, serviceInstanceRecordList, baseURL, requestURL)
 }
 
 func ForServiceInstanceParameters(serviceInstanceRecord repositories.ServiceInstanceRecord) ServiceInstanceParametersResponse {
