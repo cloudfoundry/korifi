@@ -25,6 +25,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	networkingcontrollers "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 	servicescontrollers "code.cloudfoundry.org/korifi/controllers/controllers/services"
@@ -39,7 +40,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/imageprocessfetcher"
 	statesetfulrunnerv1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
 	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -153,6 +153,7 @@ func main() {
 
 		if err = (workloadscontrollers.NewCFBuildReconciler(
 			mgr.GetClient(),
+			cleanup.NewBuildCleaner(mgr.GetClient(), controllerConfig.MaxRetainedBuildsPerApp),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFBuild"),
 			controllerConfig,
@@ -164,8 +165,10 @@ func main() {
 
 		if err = (workloadscontrollers.NewCFPackageReconciler(
 			mgr.GetClient(),
-			image.NewClient(k8sClient, controllerConfig.CFRootNamespace, controllerConfig.ContainerRegistrySecretName),
+			image.NewClient(k8sClient),
+			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
 			mgr.GetScheme(),
+			controllerConfig.ContainerRegistrySecretName,
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
@@ -287,17 +290,12 @@ func main() {
 		}
 
 		if controllerConfig.IncludeKpackImageBuilder {
-			cfBuildImageProcessFetcher := &imageprocessfetcher.ImageProcessFetcher{
-				Log: ctrl.Log.WithName("controllers").WithName("CFBuildImageProcessFetcher"),
-			}
-
 			if err = controllers.NewBuildWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
 				ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
 				controllerConfig,
-				controllers.NewRegistryAuthFetcher(k8sClient, controllerConfig.BuilderServiceAccount),
-				cfBuildImageProcessFetcher.Fetch,
+				image.NewClient(k8sClient),
 				controllerConfig.ContainerRepositoryPrefix,
 				registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
 			).SetupWithManager(mgr); err != nil {
@@ -313,6 +311,16 @@ func main() {
 				controllerConfig.CFRootNamespace,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "BuilderInfo")
+				os.Exit(1)
+			}
+
+			if err = controllers.NewKpackBuildController(
+				mgr.GetClient(),
+				ctrl.Log.WithName("kpack-image-builder").WithName("KpackBuild"),
+				image.NewClient(k8sClient),
+				controllerConfig.BuilderServiceAccount,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "KpackBuild")
 				os.Exit(1)
 			}
 		}

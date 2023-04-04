@@ -367,7 +367,7 @@ var _ = Describe("Route", func() {
 				It("calls route with expected parameters", func() {
 					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 					_, _, message := routeRepo.ListRoutesArgsForCall(0)
-					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.AppGUIDs).To(BeEmpty())
 					Expect(message.SpaceGUIDs).To(HaveLen(1))
 					Expect(message.SpaceGUIDs[0]).To(Equal("my-space-guid"))
 				})
@@ -389,7 +389,7 @@ var _ = Describe("Route", func() {
 				It("calls route with expected parameters", func() {
 					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 					_, _, message := routeRepo.ListRoutesArgsForCall(0)
-					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.AppGUIDs).To(BeEmpty())
 					Expect(message.DomainGUIDs).To(HaveLen(1))
 					Expect(message.DomainGUIDs[0]).To(Equal("my-domain-guid"))
 				})
@@ -411,7 +411,7 @@ var _ = Describe("Route", func() {
 				It("calls route with expected parameters", func() {
 					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 					_, _, message := routeRepo.ListRoutesArgsForCall(0)
-					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.AppGUIDs).To(BeEmpty())
 					Expect(message.Hosts).To(HaveLen(1))
 					Expect(message.Hosts[0]).To(Equal("my-host"))
 				})
@@ -461,7 +461,7 @@ var _ = Describe("Route", func() {
 				It("calls route with expected parameters", func() {
 					Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 					_, _, message := routeRepo.ListRoutesArgsForCall(0)
-					Expect(message.AppGUIDs).To(HaveLen(0))
+					Expect(message.AppGUIDs).To(BeEmpty())
 					Expect(message.Paths).To(HaveLen(1))
 					Expect(message.Paths[0]).To(Equal("/some/path"))
 				})

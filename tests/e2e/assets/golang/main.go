@@ -25,9 +25,34 @@ func helloWorldHandler(res http.ResponseWriter, req *http.Request) {
 
 func serviceBindingRootHandler(res http.ResponseWriter, req *http.Request) {
 	serviceBindingRoot := os.Getenv(ServiceBindingRootEnv)
-	if serviceBindingRoot != "" {
-		fmt.Fprintln(res, serviceBindingRoot)
+	if serviceBindingRoot == "" {
+		fmt.Fprintln(res, "$SERVICE_BINDING_ROOT is empty")
+		return
 	}
+
+	fmt.Fprintln(res, serviceBindingRoot)
+	dirs, err := os.ReadDir(serviceBindingRoot)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	for _, dir := range dirs {
+		dirPath := filepath.Join(serviceBindingRoot, dir.Name())
+		fmt.Fprintln(res, dirPath)
+
+		files, err := os.ReadDir(dirPath)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		for _, file := range files {
+			filePath := filepath.Join(dirPath, file.Name())
+			fmt.Fprintln(res, filePath)
+		}
+	}
+
 	return
 }
 

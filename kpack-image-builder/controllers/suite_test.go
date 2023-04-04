@@ -22,12 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	v1 "k8s.io/api/core/v1"
-	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,11 +50,13 @@ const (
 )
 
 var (
+	ctx                     context.Context
 	cancel                  context.CancelFunc
 	cfg                     *rest.Config
 	k8sClient               client.Client
 	testEnv                 *envtest.Environment
-	fakeImageProcessFetcher *fake.ImageProcessFetcher
+	fakeImageConfigGetter   *fake.ImageConfigGetter
+	fakeImageDeleter        *fake.ImageDeleter
 	buildWorkloadReconciler *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload]
 	rootNamespace           *v1.Namespace
 	imageRepoCreator        *fake.RepositoryCreator
@@ -76,8 +76,7 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	ctx, cancelFunc := context.WithCancel(context.TODO())
-	cancel = cancelFunc
+	ctx, cancel = context.WithCancel(context.Background())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -117,21 +116,18 @@ var _ = BeforeSuite(func() {
 		BuilderServiceAccount:     "builder-service-account",
 	}
 
-	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
-	Expect(err).NotTo(HaveOccurred())
-
 	imageRepoCreator = new(fake.RepositoryCreator)
+	fakeImageConfigGetter = new(fake.ImageConfigGetter)
 	buildWorkloadReconciler = controllers.NewBuildWorkloadReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("kpack-image-builder").WithName("BuildWorkload"),
 		controllerConfig,
-		controllers.NewRegistryAuthFetcher(registryAuthFetcherClient, controllerConfig.BuilderServiceAccount),
-		fakeImageProcessFetcherInfocation,
+		fakeImageConfigGetter,
 		"my.repository/my-prefix/",
 		imageRepoCreator,
 	)
-	err = (buildWorkloadReconciler).SetupWithManager(k8sManager)
+	err = buildWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(
@@ -143,6 +139,16 @@ var _ = BeforeSuite(func() {
 			controllerConfig.CFRootNamespace,
 		).SetupWithManager(k8sManager),
 	).To(Succeed())
+
+	fakeImageDeleter = new(fake.ImageDeleter)
+	kpackBuildReconciler := controllers.NewKpackBuildController(
+		k8sManager.GetClient(),
+		ctrl.Log.WithName("kpack-image-builder").WithName("KpackBuild"),
+		fakeImageDeleter,
+		"builder-service-account",
+	)
+	err = kpackBuildReconciler.SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 
@@ -169,11 +175,3 @@ var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	Expect(testEnv.Stop()).To(Succeed())
 })
-
-var _ = BeforeEach(func() {
-	fakeImageProcessFetcher = new(fake.ImageProcessFetcher)
-})
-
-func fakeImageProcessFetcherInfocation(imageRef string, credsOption remote.Option) ([]korifiv1alpha1.ProcessType, []int32, error) {
-	return fakeImageProcessFetcher.Spy(imageRef, credsOption)
-}

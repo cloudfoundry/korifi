@@ -44,7 +44,9 @@ var (
 	cfOrg               *korifiv1alpha1.CFOrg
 	imageRegistrySecret *corev1.Secret
 	imageDeleter        *fake.ImageDeleter
+	packageCleaner      *fake.PackageCleaner
 	eventRecorder       *controllerfake.EventRecorder
+	buildCleaner        *fake.BuildCleaner
 )
 
 const (
@@ -121,8 +123,11 @@ var _ = BeforeSuite(func() {
 	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(registryAuthFetcherClient).NotTo(BeNil())
+
+	buildCleaner = new(fake.BuildCleaner)
 	cfBuildReconciler := NewCFBuildReconciler(
 		k8sManager.GetClient(),
+		buildCleaner,
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFBuild"),
 		controllerConfig,
@@ -141,10 +146,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	imageDeleter = new(fake.ImageDeleter)
+	packageCleaner = new(fake.PackageCleaner)
 	err = (NewCFPackageReconciler(
 		k8sManager.GetClient(),
 		imageDeleter,
+		packageCleaner,
 		k8sManager.GetScheme(),
+		"package-repo-secret-name",
 		ctrl.Log.WithName("controllers").WithName("CFPackage"),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

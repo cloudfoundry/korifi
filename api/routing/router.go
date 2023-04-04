@@ -19,10 +19,12 @@ type Routable interface {
 }
 
 type RouterBuilder struct {
-	unauthRoutes    []Route
-	authRoutes      []Route
-	middlewares     []func(http.Handler) http.Handler
-	authMiddlewares []func(http.Handler) http.Handler
+	unauthRoutes     []Route
+	authRoutes       []Route
+	notFound         Handler
+	methodNotAllowed Handler
+	middlewares      []func(http.Handler) http.Handler
+	authMiddlewares  []func(http.Handler) http.Handler
 }
 
 func NewRouterBuilder() *RouterBuilder {
@@ -34,12 +36,26 @@ func (b *RouterBuilder) LoadRoutes(routable Routable) {
 	b.authRoutes = append(b.authRoutes, routable.AuthenticatedRoutes()...)
 }
 
+func (b *RouterBuilder) SetNotFoundHandler(handler Handler) {
+	b.notFound = handler
+}
+
+func (b *RouterBuilder) SetMethodNotAllowedHandler(handler Handler) {
+	b.methodNotAllowed = handler
+}
+
 func (b *RouterBuilder) Build() *chi.Mux {
 	router := chi.NewRouter()
 	setupRouter(router, b.middlewares, b.unauthRoutes)
 	router.Group(func(r chi.Router) {
 		setupRouter(r, b.authMiddlewares, b.authRoutes)
 	})
+	if b.notFound != nil {
+		router.NotFound(b.notFound.ServeHTTP)
+	}
+	if b.methodNotAllowed != nil {
+		router.MethodNotAllowed(b.methodNotAllowed.ServeHTTP)
+	}
 	return router
 }
 

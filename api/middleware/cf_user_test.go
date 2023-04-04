@@ -10,58 +10,46 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/middleware"
 	"code.cloudfoundry.org/korifi/api/middleware/fake"
-	controllersfake "code.cloudfoundry.org/korifi/controllers/fake"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/utils/clock/testing"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CfUserMiddleware", func() {
 	var (
-		cfUserMiddleware func(http.Handler) http.Handler
-		k8sClient        *controllersfake.Client
-		identityProvider *fake.IdentityProvider
-		teapotHandler    http.Handler
-		cfUserCache      *cache.Expiring
-		authInfo         authorization.Info
-		ctx              context.Context
+		cfUserMiddleware    func(http.Handler) http.Handler
+		identityProvider    *fake.IdentityProvider
+		nsPermissionChecker *fake.NamespacePermissionChecker
+		teapotHandler       http.Handler
+		cfUserCache         *cache.Expiring
+		authInfo            authorization.Info
+		ctx                 context.Context
+		identity            authorization.Identity
 	)
 
 	BeforeEach(func() {
 		authInfo = authorization.Info{Token: "a-token"}
 		ctx = authorization.NewContext(context.Background(), &authInfo)
 
-		k8sClient = new(controllersfake.Client)
-		k8sClient.ListStub = func(_ context.Context, objectsList client.ObjectList, _ ...client.ListOption) error {
-			rbList, ok := objectsList.(*rbacv1.RoleBindingList)
-			Expect(ok).To(BeTrue())
-			*rbList = rbacv1.RoleBindingList{
-				Items: []rbacv1.RoleBinding{{
-					Subjects: []rbacv1.Subject{{
-						Kind: rbacv1.UserKind,
-						Name: "bob",
-					}},
-				}},
-			}
-
-			return nil
-		}
+		nsPermissionChecker = new(fake.NamespacePermissionChecker)
+		nsPermissionChecker.AuthorizedInReturns(true, nil)
 
 		teapotHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusTeapot)
 		})
 
-		identityProvider = new(fake.IdentityProvider)
-		identityProvider.GetIdentityReturns(authorization.Identity{
+		identity = authorization.Identity{
 			Name: "bob",
 			Kind: rbacv1.UserKind,
-		}, nil)
+		}
+
+		identityProvider = new(fake.IdentityProvider)
+		identityProvider.GetIdentityReturns(identity, nil)
 
 		cfUserCache = cache.NewExpiringWithClock(testing.NewFakeClock(time.Now()))
-		cfUserMiddleware = middleware.CFUser(k8sClient, identityProvider, "cfroot", cfUserCache)
+		cfUserMiddleware = middleware.CFUser(nsPermissionChecker, identityProvider, "cfroot", cfUserCache)
 	})
 
 	JustBeforeEach(func() {
@@ -89,6 +77,10 @@ var _ = Describe("CfUserMiddleware", func() {
 		It("delegates to the next middleware", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 		})
+
+		It("doesn't add a warning", func() {
+			Expect(rr).NotTo(HaveHTTPHeaderWithValue("X-Cf-Warnings", ContainSubstring("has no CF roles assigned")))
+		})
 	})
 
 	When("there is no authInfo in the context", func() {
@@ -99,68 +91,39 @@ var _ = Describe("CfUserMiddleware", func() {
 		It("delegates to the next middleware", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 		})
-	})
 
-	It("lists the rolebindings in the cf root namespace", func() {
-		Expect(k8sClient.ListCallCount()).To(Equal(1))
-		_, _, listOpts := k8sClient.ListArgsForCall(0)
-		Expect(listOpts).To(ConsistOf(client.InNamespace("cfroot")))
-	})
-
-	When("listing rolebindings fails", func() {
-		BeforeEach(func() {
-			k8sClient.ListReturns(errors.New("list-err"))
-		})
-
-		It("delegates to the next middleware", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+		It("doesn't add a warning", func() {
+			Expect(rr).NotTo(HaveHTTPHeaderWithValue("X-Cf-Warnings", ContainSubstring("has no CF roles assigned")))
 		})
 	})
 
-	When("the user has no rolebindings in the root namespace", func() {
+	It("checks if the user has permissions to the root namespace", func() {
+		Expect(nsPermissionChecker.AuthorizedInCallCount()).To(Equal(1))
+		c, i, ns := nsPermissionChecker.AuthorizedInArgsForCall(0)
+		Expect(c).To(Equal(ctx))
+		Expect(i).To(Equal(identity))
+		Expect(ns).To(Equal("cfroot"))
+	})
+
+	When("checking the user's namespace permissions fails", func() {
 		BeforeEach(func() {
-			identityProvider.GetIdentityReturns(authorization.Identity{
-				Name: "jim",
-				Kind: rbacv1.UserKind,
-			}, nil)
+			nsPermissionChecker.AuthorizedInReturns(false, errors.New("list-err"))
 		})
 
 		It("delegates to the next middleware", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 		})
 
-		It("sets the X-Cf-Warning header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue("X-Cf-Warnings", ContainSubstring("has no CF roles assigned")))
+		It("doesn't add a warning", func() {
+			Expect(rr).NotTo(HaveHTTPHeaderWithValue("X-Cf-Warnings", ContainSubstring("has no CF roles assigned")))
 		})
 	})
 
-	When("the subject kind does not match", func() {
+	When("the user is not authorized in the root namespace", func() {
 		BeforeEach(func() {
-			identityProvider.GetIdentityReturns(authorization.Identity{
-				Name: "bob",
-				Kind: rbacv1.ServiceAccountKind,
-			}, nil)
+			nsPermissionChecker.AuthorizedInReturns(false, nil)
 		})
 
-		It("delegates to the next middleware", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
-		})
-
-		It("sets the X-Cf-Warning header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue("X-Cf-Warnings", ContainSubstring("has no CF roles assigned")))
-		})
-	})
-
-	When("there are no rolebindings in the root namespace", func() {
-		BeforeEach(func() {
-			k8sClient.ListStub = func(_ context.Context, objectsList client.ObjectList, _ ...client.ListOption) error {
-				rbList, ok := objectsList.(*rbacv1.RoleBindingList)
-				Expect(ok).To(BeTrue())
-				*rbList = rbacv1.RoleBindingList{}
-
-				return nil
-			}
-		})
 		It("delegates to the next middleware", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 		})
@@ -192,8 +155,8 @@ var _ = Describe("CfUserMiddleware", func() {
 			cfUserMiddleware(teapotHandler).ServeHTTP(rr, request)
 		})
 
-		It("lists the role bindings again (does not cache previous result)", func() {
-			Expect(k8sClient.ListCallCount()).To(Equal(2))
+		It("checks if the user has permissions to the root namespace (does not cache previous result)", func() {
+			Expect(nsPermissionChecker.AuthorizedInCallCount()).To(Equal(2))
 		})
 	})
 
@@ -211,8 +174,8 @@ var _ = Describe("CfUserMiddleware", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 		})
 
-		It("does not check identity again (caches the previous result)", func() {
-			Expect(k8sClient.ListCallCount()).To(Equal(1))
+		It("does not check the user's permissions in the root namespace (caches the previous result)", func() {
+			Expect(nsPermissionChecker.AuthorizedInCallCount()).To(Equal(1))
 		})
 	})
 })

@@ -51,10 +51,10 @@ test: lint
 	make test-e2e
 
 
-test-tools: install-ginkgo
+test-tools:
 	./scripts/run-tests.sh tools
 
-test-e2e: install-ginkgo
+test-e2e:
 	./scripts/run-tests.sh tests/e2e
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
@@ -65,12 +65,11 @@ SHFMT = $(shell go env GOPATH)/bin/shfmt
 install-shfmt:
 	go install mvdan.cc/sh/v3/cmd/shfmt@latest
 
-install-ginkgo:
-	go install github.com/onsi/ginkgo/v2/ginkgo
-
 VENDIR = $(shell go env GOPATH)/bin/vendir
 install-vendir:
 	go install github.com/vmware-tanzu/carvel-vendir/cmd/vendir@latest
 
 vendir-update-dependencies: install-vendir
 	$(VENDIR) sync --chdir tests
+	echo 'foo = "UNIQUENESS_TAG"' > tests/e2e/assets/vendored/dora/unique.rb
+	echo 'var foo = "UNIQUENESS_TAG"' > tests/e2e/assets/vendored/node/unique.js

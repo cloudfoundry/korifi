@@ -79,8 +79,11 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 	})
 
 	When("CFBuild status conditions are missing or unknown", func() {
+		var cleanCallCount int
+
 		BeforeEach(func() {
 			ctx := context.Background()
+			cleanCallCount = buildCleaner.CleanCallCount()
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			Expect(k8sClient.Create(ctx, desiredCFPackage)).To(Succeed())
 
@@ -95,6 +98,15 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			Expect(k8sClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
 		})
 
+		It("cleans up older builds and droplets", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(buildCleaner.CleanCallCount()).To(BeNumerically(">", cleanCallCount))
+			}).Should(Succeed())
+			_, app := buildCleaner.CleanArgsForCall(cleanCallCount)
+			Expect(app.Name).To(Equal(cfAppGUID))
+			Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
+		})
+
 		It("reconciles to set the owner reference on the CFBuild", func() {
 			Eventually(func(g Gomega) {
 				var createdCFBuild korifiv1alpha1.CFBuild
@@ -102,12 +114,10 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
 				g.Expect(createdCFBuild.GetOwnerReferences()).To(ConsistOf(
 					metav1.OwnerReference{
-						APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
-						Kind:               "CFPackage",
-						Name:               desiredCFPackage.Name,
-						UID:                desiredCFPackage.UID,
-						Controller:         tools.PtrTo(true),
-						BlockOwnerDeletion: tools.PtrTo(true),
+						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						Kind:       "CFApp",
+						Name:       desiredCFApp.Name,
+						UID:        desiredCFApp.UID,
 					},
 				))
 			}).Should(Succeed())

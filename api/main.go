@@ -170,6 +170,7 @@ func main() {
 		nsPermissions,
 		toolsregistry.NewRepositoryCreator(cfg.ContainerRegistryType),
 		cfg.ContainerRepositoryPrefix,
+		createTimeout,
 	)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
 		namespaceRetriever,
@@ -195,11 +196,13 @@ func main() {
 		cfg.RoleMappings,
 		namespaceRetriever,
 	)
-	imageClient := image.NewClient(privilegedK8sClient, cfg.RootNamespace, cfg.PackageRegistrySecretName)
+	imageClient := image.NewClient(privilegedK8sClient)
 	imageRepo := repositories.NewImageRepository(
 		privilegedK8sClient,
 		userClientFactory,
 		imageClient,
+		cfg.PackageRegistrySecretName,
+		cfg.RootNamespace,
 	)
 	taskRepo := repositories.NewTaskRepo(
 		userClientFactory,
@@ -239,7 +242,7 @@ func main() {
 			cachingIdentityProvider,
 		),
 		middleware.CFUser(
-			privilegedCRClient,
+			nsPermissions,
 			cachingIdentityProvider,
 			cfg.RootNamespace,
 			cache.NewExpiring(),
@@ -375,6 +378,9 @@ func main() {
 	for _, handler := range apiHandlers {
 		routerBuilder.LoadRoutes(handler)
 	}
+
+	routerBuilder.SetNotFoundHandler(handlers.NotFound)
+	routerBuilder.SetMethodNotAllowedHandler(handlers.NotFound)
 
 	portString := fmt.Sprintf(":%v", cfg.InternalPort)
 	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")

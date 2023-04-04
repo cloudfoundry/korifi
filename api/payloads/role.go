@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
+
 	"code.cloudfoundry.org/korifi/api/repositories"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
@@ -25,10 +27,9 @@ type (
 	}
 
 	RoleRelationships struct {
-		User                     *UserRelationship `json:"user" validate:"required_without=KubernetesServiceAccount"`
-		KubernetesServiceAccount *Relationship     `json:"kubernetesServiceAccount" validate:"required_without=User"`
-		Space                    *Relationship     `json:"space"`
-		Organization             *Relationship     `json:"organization"`
+		User         *UserRelationship `json:"user" validate:"required"`
+		Space        *Relationship     `json:"space"`
+		Organization *Relationship     `json:"organization"`
 	}
 
 	RoleListFilter struct {
@@ -53,24 +54,27 @@ func (p RoleCreate) ToMessage() repositories.CreateRoleMessage {
 		record.Org = p.Relationships.Organization.Data.GUID
 	}
 
-	if p.Relationships.User != nil {
-		record.Kind = rbacv1.UserKind
-		record.User = p.Relationships.User.Data.Username
+	record.Kind = rbacv1.UserKind
+	record.User = p.Relationships.User.Data.Username
 
-		// For UAA Authenticated users, prefix the Origin as our Cluster uses the Orgin:User for
-		// Authentication verification (via OIDC prefixs)
-		// --kube-apiserver-arg oidc-username-prefix="<origin>:"
-		// --kube-apiserver-arg oidc-groups-prefix="<origin>:"
-		if p.Relationships.User.Data.Origin != "" {
-			record.User = p.Relationships.User.Data.Origin + ":" + record.User
-		}
+	// For UAA Authenticated users, prefix the Origin as our Cluster uses the Orgin:User for
+	// Authentication verification (via OIDC prefixs)
+	// --kube-apiserver-arg oidc-username-prefix="<origin>:"
+	// --kube-apiserver-arg oidc-groups-prefix="<origin>:"
+	if p.Relationships.User.Data.Origin != "" {
+		record.User = p.Relationships.User.Data.Origin + ":" + record.User
+	}
 
-		if p.Relationships.User.Data.GUID != "" {
-			record.User = p.Relationships.User.Data.GUID
-		}
-	} else {
+	if p.Relationships.User.Data.GUID != "" {
+		record.User = p.Relationships.User.Data.GUID
+	}
+
+	if authorization.HasServiceAccountPrefix(record.User) {
+		namespace, user := authorization.ServiceAccountNSAndName(record.User)
+
 		record.Kind = rbacv1.ServiceAccountKind
-		record.User = p.Relationships.KubernetesServiceAccount.Data.GUID
+		record.User = user
+		record.ServiceAccountNamespace = namespace
 	}
 
 	return record

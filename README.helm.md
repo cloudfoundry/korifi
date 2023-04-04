@@ -58,6 +58,8 @@ Here are all the values that can be set for the chart:
 - `controllers`:
   - `extraVCAPApplicationValues`: Key-value pairs that are going to be set in the VCAP_APPLICATION env var on apps. Nested values are not supported.
   - `image` (_String_): Reference to the controllers container image.
+  - `maxRetainedBuildsPerApp` (_Integer_): How many staged builds to keep, excluding the app's current droplet. Older staged builds will be deleted, along with their corresponding container images.
+  - `maxRetainedPackagesPerApp` (_Integer_): How many 'ready' packages to keep, excluding the package associated with the app's current droplet. Older 'ready' packages will be deleted, along with their corresponding container images.
   - `namespaceLabels`: Key-value pairs that are going to be set as labels on the namespaces created by Korifi.
   - `processDefaults`:
     - `diskQuotaMB` (_Integer_): Default disk quota for the `web` process.

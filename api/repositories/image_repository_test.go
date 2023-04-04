@@ -48,6 +48,8 @@ var _ = Describe("ImageRepository", func() {
 			privilegedK8sClient,
 			userClientFactory,
 			imagePusher,
+			"push-secret-name",
+			rootNamespace,
 		)
 	})
 
@@ -71,7 +73,9 @@ var _ = Describe("ImageRepository", func() {
 
 		It("uploads the image to the registry", func() {
 			Expect(imagePusher.PushCallCount()).To(Equal(1))
-			_, actualRef, zipReader, actualTags := imagePusher.PushArgsForCall(0)
+			_, creds, actualRef, zipReader, actualTags := imagePusher.PushArgsForCall(0)
+			Expect(creds.Namespace).To(Equal(rootNamespace))
+			Expect(creds.SecretName).To(Equal("push-secret-name"))
 			Expect(actualRef).To(Equal("my-image"))
 			Expect(zipReader).To(Equal(imageSource))
 			Expect(actualTags).To(Equal(tags))

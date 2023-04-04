@@ -42,10 +42,11 @@ var _ = Describe("TokenReviewer", func() {
 
 	When("the token is issued for a serviceaccount", func() {
 		BeforeEach(func() {
-			restartEnvTest(authProvider.APIServerExtraArgs("system:serviceaccount:"))
+			restartEnvTest(authProvider.APIServerExtraArgs("system:serviceaccount:cf:"))
 			token = authProvider.GenerateJWTToken(
 				"my-serviceaccount",
 				"system:serviceaccounts",
+				"system:serviceaccounts:cf",
 			)
 			tokenReviewer = authorization.NewTokenReviewer(k8sClient)
 		})
@@ -56,7 +57,7 @@ var _ = Describe("TokenReviewer", func() {
 
 		It("extracts the identity of the serviceaccount", func() {
 			Expect(id.Kind).To(Equal(rbacv1.ServiceAccountKind))
-			Expect(id.Name).To(Equal("my-serviceaccount"))
+			Expect(id.Name).To(Equal("system:serviceaccount:cf:my-serviceaccount"))
 		})
 	})
 

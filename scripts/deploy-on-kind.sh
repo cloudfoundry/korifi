@@ -196,8 +196,18 @@ function deploy_korifi() {
 }
 
 function create_namespaces() {
-  for ns in cf korifi; do
-    cat <<EOF | kubectl apply -f -
+  if [[ -n "${debug}" ]]; then
+    for ns in cf korifi; do
+      cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $ns
+EOF
+    done
+  else
+    for ns in cf korifi; do
+      cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -206,7 +216,8 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
   name: $ns
 EOF
-  done
+    done
+  fi
 
   if [[ -z "${use_custom_registry}" ]]; then
     DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"

@@ -18,26 +18,36 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/net"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type Client struct {
-	k8sClient  kubernetes.Interface
-	namespace  string
-	secretName string
-	logger     logr.Logger
+	k8sClient kubernetes.Interface
+	logger    logr.Logger
 }
 
-func NewClient(k8sClient kubernetes.Interface, namespace, secretName string) Client {
+type Creds struct {
+	Namespace string
+	// At most one of SecretName and ServiceAccountName should be set.
+	// If both unset, the fallback auth approach will be used.
+	SecretName         string
+	ServiceAccountName string
+}
+
+type Config struct {
+	Labels       map[string]string
+	ExposedPorts []int32
+}
+
+func NewClient(k8sClient kubernetes.Interface) Client {
 	return Client{
-		k8sClient:  k8sClient,
-		namespace:  namespace,
-		secretName: secretName,
-		logger:     ctrl.Log.WithName("image.client"),
+		k8sClient: k8sClient,
+		logger:    ctrl.Log.WithName("image.client"),
 	}
 }
 
-func (c Client) Push(ctx context.Context, repoRef string, zipReader io.Reader, tags ...string) (string, error) {
+func (c Client) Push(ctx context.Context, creds Creds, repoRef string, zipReader io.Reader, tags ...string) (string, error) {
 	tmpFile, err := os.CreateTemp(os.TempDir(), "sourceimg-%s")
 	if err != nil {
 		return "", fmt.Errorf("failed to create a temp file for image: %w", err)
@@ -65,7 +75,7 @@ func (c Client) Push(ctx context.Context, repoRef string, zipReader io.Reader, t
 		return "", fmt.Errorf("error parsing repository reference %s: %w", repoRef, err)
 	}
 
-	authOpt, err := c.authOpt(ctx)
+	authOpt, err := c.authOpt(ctx, creds)
 	if err != nil {
 		return "", fmt.Errorf("error creating keychain: %w", err)
 	}
@@ -94,91 +104,164 @@ func (c Client) Push(ctx context.Context, repoRef string, zipReader io.Reader, t
 	return refWithDigest.Name(), nil
 }
 
-func (c Client) Labels(ctx context.Context, imageRef string) (map[string]string, error) {
+func (c Client) Config(ctx context.Context, creds Creds, imageRef string) (Config, error) {
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing repository reference %s: %w", imageRef, err)
+		return Config{}, fmt.Errorf("error parsing repository reference %s: %w", imageRef, err)
 	}
 
-	authOpt, err := c.authOpt(ctx)
+	authOpt, err := c.authOpt(ctx, creds)
 	if err != nil {
-		return nil, fmt.Errorf("error creating keychain: %w", err)
+		return Config{}, fmt.Errorf("error creating keychain: %w", err)
 	}
 
 	img, err := remote.Image(ref, authOpt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image: %w", err)
+		return Config{}, fmt.Errorf("failed to get image: %w", err)
 	}
 
 	cfgFile, err := img.ConfigFile()
 	if err != nil {
-		return nil, fmt.Errorf("error getting image config file: %w", err)
+		return Config{}, fmt.Errorf("error getting image config file: %w", err)
 	}
 
-	return cfgFile.Config.Labels, nil
+	ports := []int32{}
+	for p := range cfgFile.Config.ExposedPorts {
+		parsed, err := net.ParsePort(p, false)
+		if err != nil {
+			return Config{}, fmt.Errorf("error getting exposed ports: %w", err)
+		}
+		ports = append(ports, int32(parsed))
+	}
+
+	return Config{
+		Labels:       cfgFile.Config.Labels,
+		ExposedPorts: ports,
+	}, nil
 }
 
-func (c Client) Delete(ctx context.Context, imageRef string) error {
+func (c Client) Delete(ctx context.Context, creds Creds, imageRef string, tagsToDelete ...string) error {
 	c.logger.V(1).Info("deleting", "ref", imageRef)
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return err
 	}
 
-	authOpt, err := c.authOpt(ctx)
+	authOpt, err := c.authOpt(ctx, creds)
 	if err != nil {
 		return fmt.Errorf("error creating keychain: %w", err)
 	}
 
-	tags, err := remote.List(ref.Context(), authOpt)
+	allTagSet, err := c.getTagSet(ref, authOpt)
 	if err != nil {
-		c.logger.V(1).Info("failed to list tags - skipping tag deletion", "reason", err)
+		return fmt.Errorf("failed to list tags: %w", err)
 	}
 
-	for _, tag := range tags {
-		var tagRef name.Reference
-		tagRef, err = name.ParseReference(ref.Context().String() + ":" + tag)
-		if err != nil {
-			return fmt.Errorf("couldn't create a tag ref: %w", err)
-		}
-		var descriptor *remote.Descriptor
-		descriptor, err = remote.Get(tagRef, authOpt)
-		if err != nil {
-			c.logger.V(1).Info("failed get tag - continuing", "reason", err)
+	for _, tag := range tagsToDelete {
+		if !allTagSet[tag] {
+			c.logger.Info("tag not found for this ref", "tag", tag, "ref", imageRef)
 			continue
 		}
 
-		if descriptor.Digest.String() == ref.Identifier() {
-			c.logger.V(1).Info("deleting tag", "tag", tag)
-			err = remote.Delete(descriptor.Ref, authOpt)
-			if err != nil {
-				c.logger.V(1).Info("failed to delete tag", "reason", err)
-			}
+		if err = c.deleteTag(ref, tag, authOpt); err != nil {
+			c.logger.Info("failed to delete tag", "reason", err)
+			continue
+		}
+		delete(allTagSet, tag)
+	}
+
+	// The latest tag is set automatically by registries. If it is the only
+	// remaining tag, remove it to prevent digest deletion errors
+	latestTag := "latest"
+	if len(allTagSet) == 1 && allTagSet[latestTag] {
+		if err = c.deleteTag(ref, latestTag, authOpt); err != nil {
+			c.logger.Info("failed to delete tag", "reason", err)
+		} else {
+			delete(allTagSet, latestTag)
 		}
 	}
 
-	err = remote.Delete(ref, authOpt)
-	if err != nil {
-		if structuredErr, ok := err.(*transport.Error); ok && structuredErr.StatusCode == http.StatusNotFound {
-			c.logger.V(1).Info("manifest disappeared - continuing", "reason", err)
-			return nil
+	if len(allTagSet) == 0 {
+		err = remote.Delete(ref, authOpt)
+		if err != nil {
+			if structuredErr, ok := err.(*transport.Error); ok && structuredErr.StatusCode == http.StatusNotFound {
+				c.logger.V(1).Info("manifest disappeared - continuing", "reason", err)
+				return nil
+			}
 		}
 	}
 
 	return err
 }
 
-func (c Client) authOpt(ctx context.Context) (remote.Option, error) {
+func (c Client) getTagSet(ref name.Reference, authOpt remote.Option) (map[string]bool, error) {
+	allTags, err := remote.List(ref.Context(), authOpt)
+	if err != nil {
+		c.logger.V(1).Info("failed to list tags - skipping tag deletion", "reason", err)
+		return nil, err
+	}
+
+	allTagSet := map[string]bool{}
+	for _, t := range allTags {
+		var tagRef name.Reference
+		tagRef, err = name.ParseReference(ref.Context().String() + ":" + t)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't create a tag ref: %w", err)
+		}
+
+		var descriptor *remote.Descriptor
+		descriptor, err = remote.Get(tagRef, authOpt)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't get tag: %w", err)
+		}
+
+		if descriptor.Digest.String() == ref.Identifier() {
+			allTagSet[t] = true
+		}
+	}
+
+	return allTagSet, nil
+}
+
+func (c Client) deleteTag(ref name.Reference, tag string, authOpt remote.Option) error {
+	tagRef, err := name.ParseReference(ref.Context().String() + ":" + tag)
+	if err != nil {
+		return fmt.Errorf("couldn't create a tag ref: %w", err)
+	}
+	var descriptor *remote.Descriptor
+	descriptor, err = remote.Get(tagRef, authOpt)
+	if err != nil {
+		c.logger.V(1).Info("failed get tag - continuing", "reason", err)
+		return nil
+	}
+
+	if descriptor.Digest.String() == ref.Identifier() {
+		c.logger.V(1).Info("deleting tag", "tag", tag)
+		err = remote.Delete(descriptor.Ref, authOpt)
+		if err != nil {
+			c.logger.V(1).Info("failed to delete tag", "reason", err)
+		}
+	}
+
+	return nil
+}
+
+func (c Client) authOpt(ctx context.Context, creds Creds) (remote.Option, error) {
 	var keychain authn.Keychain
 	var err error
 
-	if c.secretName == "" {
-		keychain, err = k8schain.NewNoClient(ctx)
-	} else {
+	if creds.SecretName != "" {
 		keychain, err = k8schain.New(ctx, c.k8sClient, k8schain.Options{
-			Namespace:        c.namespace,
-			ImagePullSecrets: []string{c.secretName},
+			Namespace:        creds.Namespace,
+			ImagePullSecrets: []string{creds.SecretName},
 		})
+	} else if creds.ServiceAccountName != "" {
+		keychain, err = k8schain.New(ctx, c.k8sClient, k8schain.Options{
+			Namespace:          creds.Namespace,
+			ServiceAccountName: creds.ServiceAccountName,
+		})
+	} else {
+		keychain, err = k8schain.NewNoClient(ctx)
 	}
 	if err != nil {
 		return nil, err

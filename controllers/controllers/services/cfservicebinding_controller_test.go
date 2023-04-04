@@ -184,6 +184,44 @@ var _ = Describe("CFServiceBinding", func() {
 		}).Should(Succeed())
 	})
 
+	When("the CFServiceBinding has a displayName set", func() {
+		var bindingName string
+
+		BeforeEach(func() {
+			cfServiceBindingGUID = GenerateGUID()
+			bindingName = "a-custom-binding-name"
+			cfServiceBinding = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cfServiceBindingGUID,
+					Namespace: namespace.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					DisplayName: &bindingName,
+					Service: corev1.ObjectReference{
+						Kind:       "ServiceInstance",
+						Name:       cfServiceInstance.Name,
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfAppGUID,
+					},
+				},
+			}
+		})
+
+		It("sets the displayName as the name on the servicebinding.io ServiceBinding", func() {
+			Eventually(func(g Gomega) {
+				sbServiceBinding := servicebindingv1beta1.ServiceBinding{}
+				g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: fmt.Sprintf("cf-binding-%s", cfServiceBindingGUID), Namespace: namespace.Name}, &sbServiceBinding)).To(Succeed())
+				g.Expect(sbServiceBinding).To(MatchFields(IgnoreExtras, Fields{
+					"Spec": MatchFields(IgnoreExtras, Fields{
+						"Name": Equal(bindingName),
+					}),
+				}))
+			}).Should(Succeed())
+		})
+	})
+
 	When("the referenced secret does not exist", func() {
 		var otherSecret *corev1.Secret
 

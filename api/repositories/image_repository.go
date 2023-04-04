@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/tools/image"
 
 	authv1 "k8s.io/api/authorization/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -21,24 +22,30 @@ const SourceImageResourceType = "SourceImage"
 //counterfeiter:generate -o fake -fake-name ImagePusher . ImagePusher
 
 type ImagePusher interface {
-	Push(ctx context.Context, repoRef string, zipReader io.Reader, tags ...string) (string, error)
+	Push(ctx context.Context, creds image.Creds, repoRef string, zipReader io.Reader, tags ...string) (string, error)
 }
 
 type ImageRepository struct {
 	privilegedK8sClient k8sclient.Interface
 	userClientFactory   authorization.UserK8sClientFactory
 	pusher              ImagePusher
+	pushSecretName      string
+	pushSecretNamespace string
 }
 
 func NewImageRepository(
 	privilegedK8sClient k8sclient.Interface,
 	userClientFactory authorization.UserK8sClientFactory,
 	pusher ImagePusher,
+	pushSecretName string,
+	pushSecretNamespace string,
 ) *ImageRepository {
 	return &ImageRepository{
 		privilegedK8sClient: privilegedK8sClient,
 		userClientFactory:   userClientFactory,
 		pusher:              pusher,
+		pushSecretName:      pushSecretName,
+		pushSecretNamespace: pushSecretNamespace,
 	}
 }
 
@@ -52,7 +59,10 @@ func (r *ImageRepository) UploadSourceImage(ctx context.Context, authInfo author
 		return "", apierrors.NewForbiddenError(errors.New("not authorized to patch cfpackage"), PackageResourceType)
 	}
 
-	pushedRef, err := r.pusher.Push(ctx, imageRef, srcReader, tags...)
+	pushedRef, err := r.pusher.Push(ctx, image.Creds{
+		Namespace:  r.pushSecretNamespace,
+		SecretName: r.pushSecretName,
+	}, imageRef, srcReader, tags...)
 	if err != nil {
 		return "", apierrors.NewBlobstoreUnavailableError(fmt.Errorf("pushing image ref '%s' failed: %w", imageRef, err))
 	}

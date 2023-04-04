@@ -31,14 +31,7 @@ import (
 )
 
 func TestImage(t *testing.T) {
-	registries = []registry{
-		// {
-		// 	Username:   "user",
-		// 	Password:   "password",
-		// 	Server:     authRegistryServer.URL,
-		// 	PathPrefix: strings.Replace(authRegistryServer.URL, "http://", "", 1),
-		// },
-	}
+	registries = []registry{}
 	registriesEnv, ok := os.LookupEnv("REGISTRY_DETAILS")
 	if ok {
 		err := yaml.Unmarshal([]byte(registriesEnv), &registries)
@@ -60,6 +53,7 @@ var (
 	ctx                  context.Context
 	registries           []registry
 	secretName           string
+	serviceAccountName   string
 )
 
 type registry struct {
@@ -146,6 +140,15 @@ var _ = BeforeSuite(func() {
 		_, getErr := k8sClientset.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
 		g.Expect(getErr).NotTo(HaveOccurred())
 	}).Should(Succeed())
+
+	serviceAccountName = testutils.GenerateGUID()
+	Expect(k8sClient.Create(ctx, &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      serviceAccountName,
+		},
+		ImagePullSecrets: []corev1.LocalObjectReference{{Name: secretName}},
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {

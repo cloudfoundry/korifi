@@ -61,6 +61,29 @@ rules:
 - apiGroups:
   - kpack.io
   resources:
+  - builds
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - builds/finalizers
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - kpack.io
+  resources:
+  - builds/status
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - kpack.io
+  resources:
   - clusterbuilders
   verbs:
   - get

@@ -72,7 +72,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(resultErr.Errors).To(HaveLen(0))
+				Expect(resultErr.Errors).To(BeEmpty())
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 				Expect(result.GUID).ToNot(BeEmpty())
 			})
@@ -156,7 +156,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("succeeds", func() {
-				Expect(resultErr.Errors).To(HaveLen(0))
+				Expect(resultErr.Errors).To(BeEmpty())
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result.GUID).To(Equal(packageGUID))
 			})
@@ -186,7 +186,7 @@ var _ = Describe("Package", func() {
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().
-				SetFile("bits", procfileAppBitsFile).
+				SetFile("bits", procfileAppBitsFile()).
 				SetError(&resultErr).
 				SetResult(&result).
 				Post("/v3/packages/" + packageGUID + "/upload")
@@ -258,7 +258,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			resultList = resourceList[resource]{}
 			packageGUID = createPackage(appGUID)
-			uploadTestApp(packageGUID, procfileAppBitsFile)
+			uploadTestApp(packageGUID, procfileAppBitsFile())
 			buildGUID = createBuild(packageGUID)
 
 			Eventually(func() (*resty.Response, error) {

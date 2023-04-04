@@ -67,6 +67,9 @@ type ProcessType struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="AppGUID",type=string,JSONPath=`.spec.appRef.name`
+//+kubebuilder:printcolumn:name="Staged",type=string,JSONPath=`.status.conditions[?(@.type=='Succeeded')].status`
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
 // CFBuild is the Schema for the cfbuilds API
 type CFBuild struct {

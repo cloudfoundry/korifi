@@ -73,4 +73,4 @@ if [[ -z "${NO_RACE:-}" ]]; then
   extra_args+=("--race")
 fi
 
-ginkgo -p --randomize-all --randomize-suites "${extra_args[@]}" $@
+go run github.com/onsi/ginkgo/v2/ginkgo -p --randomize-all --randomize-suites "${extra_args[@]}" $@

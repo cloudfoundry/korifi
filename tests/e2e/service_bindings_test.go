@@ -69,7 +69,7 @@ var _ = Describe("Service Bindings", func() {
 
 			When("the user attempts to create a duplicate service binding", func() {
 				BeforeEach(func() {
-					_ = createServiceBinding(appGUID, instanceGUID)
+					_ = createServiceBinding(appGUID, instanceGUID, "")
 				})
 
 				It("returns an error", func() {
@@ -85,7 +85,7 @@ var _ = Describe("Service Bindings", func() {
 
 		BeforeEach(func() {
 			createSpaceRole("space_developer", certUserName, spaceGUID)
-			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 		})
 
 		JustBeforeEach(func() {
@@ -102,7 +102,7 @@ var _ = Describe("Service Bindings", func() {
 
 	Describe("DELETE /v3/service_credential_bindings/{guid}", func() {
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 		})
 
 		JustBeforeEach(func() {
@@ -144,7 +144,7 @@ var _ = Describe("Service Bindings", func() {
 		)
 
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 
 			queryString = ""
 			result = resourceListWithInclusion{}
@@ -213,7 +213,7 @@ var _ = Describe("Service Bindings", func() {
 		var respResource responseResource
 
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, instanceGUID)
+			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 

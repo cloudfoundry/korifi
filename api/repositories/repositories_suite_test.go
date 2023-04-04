@@ -77,7 +77,6 @@ var _ = BeforeSuite(func() {
 	var err error
 	k8sConfig, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sConfig).NotTo(BeNil())
 
 	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())

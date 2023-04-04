@@ -146,6 +146,21 @@ func NewNotFoundError(cause error, resourceType string) NotFoundError {
 	}
 }
 
+type EndpointNotFoundError struct {
+	apiError
+}
+
+func NewEndpointNotFoundError() EndpointNotFoundError {
+	return EndpointNotFoundError{
+		apiError{
+			title:      "CF-NotFound",
+			detail:     "Unknown request",
+			code:       10000,
+			httpStatus: http.StatusNotFound,
+		},
+	}
+}
+
 type InvalidAuthError struct {
 	apiError
 }

@@ -10,26 +10,33 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/cleanup"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/image"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var _ = Describe("PackageRepository", func() {
-	const appGUID = "the-app-guid"
-
 	var (
 		repoCreator *fake.RepositoryCreator
 		packageRepo *repositories.PackageRepo
 		org         *korifiv1alpha1.CFOrg
 		space       *korifiv1alpha1.CFSpace
+		app         *korifiv1alpha1.CFApp
+		mgrCancel   context.CancelFunc
 	)
 
 	BeforeEach(func() {
@@ -40,9 +47,42 @@ var _ = Describe("PackageRepository", func() {
 			nsPerms,
 			repoCreator,
 			"container.registry/foo/my/prefix-",
+			time.Second*4,
 		)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
+		app = createApp(space.Name)
+
+		k8sManager, err := ctrl.NewManager(k8sConfig, ctrl.Options{
+			Scheme:             scheme.Scheme,
+			MetricsBindAddress: "0",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		k8sInterface, err := kubernetes.NewForConfig(k8sConfig)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = (workloads.NewCFPackageReconciler(
+			k8sManager.GetClient(),
+			image.NewClient(k8sInterface),
+			cleanup.NewPackageCleaner(k8sClient, 5),
+			k8sManager.GetScheme(),
+			"package-repo-secret-name",
+			ctrl.Log.WithName("controllers").WithName("CFPackage"),
+		)).SetupWithManager(k8sManager)
+		Expect(err).NotTo(HaveOccurred())
+
+		var mgrCtx context.Context
+		mgrCtx, mgrCancel = context.WithCancel(ctx)
+		go func() {
+			defer GinkgoRecover()
+			err = k8sManager.Start(mgrCtx)
+			Expect(err).NotTo(HaveOccurred())
+		}()
+	})
+
+	AfterEach(func() {
+		mgrCancel()
 	})
 
 	Describe("CreatePackage", func() {
@@ -55,7 +95,7 @@ var _ = Describe("PackageRepository", func() {
 		BeforeEach(func() {
 			packageCreate = repositories.CreatePackageMessage{
 				Type:      "bits",
-				AppGUID:   appGUID,
+				AppGUID:   app.Name,
 				SpaceGUID: space.Name,
 				Metadata: repositories.Metadata{
 					Labels: map[string]string{
@@ -87,11 +127,11 @@ var _ = Describe("PackageRepository", func() {
 				packageGUID := createdPackage.GUID
 				Expect(packageGUID).NotTo(BeEmpty())
 				Expect(createdPackage.Type).To(Equal("bits"))
-				Expect(createdPackage.AppGUID).To(Equal(appGUID))
+				Expect(createdPackage.AppGUID).To(Equal(app.Name))
 				Expect(createdPackage.State).To(Equal("AWAITING_UPLOAD"))
 				Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
 				Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
-				Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", appGUID)))
+				Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
 
 				createdAt, err := time.Parse(time.RFC3339, createdPackage.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
@@ -108,16 +148,18 @@ var _ = Describe("PackageRepository", func() {
 				Expect(createdCFPackage.Name).To(Equal(packageGUID))
 				Expect(createdCFPackage.Namespace).To(Equal(space.Name))
 				Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("bits")))
-				Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(appGUID))
+				Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(app.Name))
 
 				Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
 				Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+
+				Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, "Initialized")).To(BeTrue())
 			})
 
 			It("creates a package repository", func() {
 				Expect(repoCreator.CreateRepositoryCallCount()).To(Equal(1))
 				_, repoName := repoCreator.CreateRepositoryArgsForCall(0)
-				Expect(repoName).To(Equal("container.registry/foo/my/prefix-" + appGUID + "-packages"))
+				Expect(repoName).To(Equal("container.registry/foo/my/prefix-" + app.Name + "-packages"))
 			})
 
 			When("repo creation errors", func() {
@@ -141,7 +183,7 @@ var _ = Describe("PackageRepository", func() {
 
 		BeforeEach(func() {
 			packageGUID = generateGUID()
-			createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "")
+			createPackageCR(ctx, k8sClient, packageGUID, app.Name, space.Name, "")
 		})
 
 		JustBeforeEach(func() {
@@ -157,11 +199,11 @@ var _ = Describe("PackageRepository", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 				Expect(packageRecord.GUID).To(Equal(packageGUID))
 				Expect(packageRecord.Type).To(Equal("bits"))
-				Expect(packageRecord.AppGUID).To(Equal(appGUID))
+				Expect(packageRecord.AppGUID).To(Equal(app.Name))
 				Expect(packageRecord.State).To(Equal("AWAITING_UPLOAD"))
 				Expect(packageRecord.Labels).To(HaveKeyWithValue("foo", "the-original-value"))
 				Expect(packageRecord.Annotations).To(HaveKeyWithValue("bar", "the-original-value"))
-				Expect(packageRecord.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", appGUID)))
+				Expect(packageRecord.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
 
 				createdAt, err := time.Parse(time.RFC3339, packageRecord.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
@@ -177,10 +219,10 @@ var _ = Describe("PackageRepository", func() {
 					Expect(packageRecord.State).To(Equal("AWAITING_UPLOAD"))
 				})
 
-				When("an source image is set", func() {
+				When("the package is ready", func() {
 					BeforeEach(func() {
 						packageGUID = generateGUID()
-						createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "some-org/some-repo")
+						createPackageCR(ctx, k8sClient, packageGUID, app.Name, space.Name, "some-org/some-repo")
 					})
 
 					It("equals READY", func() {
@@ -199,7 +241,7 @@ var _ = Describe("PackageRepository", func() {
 		When("duplicate Packages exist across namespaces with the same GUID", func() {
 			BeforeEach(func() {
 				anotherSpace := createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
-				createPackageCR(ctx, k8sClient, packageGUID, appGUID, anotherSpace.Name, "")
+				createPackageCR(ctx, k8sClient, packageGUID, app.Name, anotherSpace.Name, "")
 			})
 
 			It("returns an error", func() {
@@ -219,11 +261,8 @@ var _ = Describe("PackageRepository", func() {
 	})
 
 	Describe("ListPackages", func() {
-		const (
-			appGUID2 = "the-app-guid-2"
-		)
-
 		var (
+			app2        *korifiv1alpha1.CFApp
 			space2      *korifiv1alpha1.CFSpace
 			packageList []repositories.PackageRecord
 			listMessage repositories.ListPackagesMessage
@@ -231,6 +270,7 @@ var _ = Describe("PackageRepository", func() {
 
 		BeforeEach(func() {
 			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
+			app2 = createApp(space2.Name)
 			listMessage = repositories.ListPackagesMessage{}
 		})
 
@@ -248,14 +288,14 @@ var _ = Describe("PackageRepository", func() {
 
 			BeforeEach(func() {
 				package1GUID = generateGUID()
-				createPackageCR(ctx, k8sClient, package1GUID, appGUID, space.Name, "")
+				createPackageCR(ctx, k8sClient, package1GUID, app.Name, space.Name, "")
 
 				package2GUID = generateGUID()
-				createPackageCR(ctx, k8sClient, package2GUID, appGUID2, space2.Name, "my-image-url")
+				createPackageCR(ctx, k8sClient, package2GUID, app2.Name, space2.Name, "my-image-url")
 
 				noPermissionsSpace = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("no-permissions-space"))
 				noPermissionsPackageGUID = prefixedGUID("no-permissions-package")
-				createPackageCR(ctx, k8sClient, noPermissionsPackageGUID, appGUID2, noPermissionsSpace.Name, "")
+				createPackageCR(ctx, k8sClient, noPermissionsPackageGUID, app2.Name, noPermissionsSpace.Name, "")
 			})
 
 			When("the user is allowed to list packages in some namespaces", func() {
@@ -268,11 +308,11 @@ var _ = Describe("PackageRepository", func() {
 					Expect(packageList).To(ContainElements(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":    Equal(package1GUID),
-							"AppGUID": Equal(appGUID),
+							"AppGUID": Equal(app.Name),
 						}),
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":    Equal(package2GUID),
-							"AppGUID": Equal(appGUID2),
+							"AppGUID": Equal(app2.Name),
 						}),
 					))
 					Expect(packageList).ToNot(ContainElement(
@@ -284,14 +324,14 @@ var _ = Describe("PackageRepository", func() {
 
 				When("app_guids filter is provided", func() {
 					BeforeEach(func() {
-						listMessage = repositories.ListPackagesMessage{AppGUIDs: []string{appGUID}}
+						listMessage = repositories.ListPackagesMessage{AppGUIDs: []string{app.Name}}
 					})
 
 					It("fetches all PackageRecords for that app", func() {
 						for _, packageRecord := range packageList {
 							Expect(packageRecord).To(
 								MatchFields(IgnoreExtras, Fields{
-									"AppGUID": Equal(appGUID),
+									"AppGUID": Equal(app.Name),
 								}),
 							)
 						}
@@ -340,12 +380,12 @@ var _ = Describe("PackageRepository", func() {
 							Expect(packageList).To(ContainElements(
 								MatchFields(IgnoreExtras, Fields{
 									"GUID":    Equal(package1GUID),
-									"AppGUID": Equal(appGUID),
+									"AppGUID": Equal(app.Name),
 									"State":   Equal("AWAITING_UPLOAD"),
 								}),
 								MatchFields(IgnoreExtras, Fields{
 									"GUID":    Equal(package2GUID),
-									"AppGUID": Equal(appGUID2),
+									"AppGUID": Equal(app2.Name),
 									"State":   Equal("READY"),
 								}),
 							))
@@ -376,6 +416,7 @@ var _ = Describe("PackageRepository", func() {
 	Describe("UpdatePackageSource", func() {
 		var (
 			existingCFPackage     *korifiv1alpha1.CFPackage
+			updatedCFPackage      *korifiv1alpha1.CFPackage
 			returnedPackageRecord repositories.PackageRecord
 			updateMessage         repositories.UpdatePackageSourceMessage
 			updateErr             error
@@ -398,7 +439,7 @@ var _ = Describe("PackageRepository", func() {
 				},
 				Spec: korifiv1alpha1.CFPackageSpec{
 					Type:   "bits",
-					AppRef: corev1.LocalObjectReference{Name: appGUID},
+					AppRef: corev1.LocalObjectReference{Name: app.Name},
 				},
 			}
 
@@ -414,23 +455,18 @@ var _ = Describe("PackageRepository", func() {
 			Expect(k8sClient.Create(ctx, existingCFPackage)).To(Succeed())
 
 			returnedPackageRecord, updateErr = packageRepo.UpdatePackageSource(ctx, authInfo, updateMessage)
+			updatedCFPackage = &korifiv1alpha1.CFPackage{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(existingCFPackage), updatedCFPackage)).To(Succeed())
 		})
 
 		When("the user is authorized", func() {
-			var updatedCFPackage *korifiv1alpha1.CFPackage
-
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			JustBeforeEach(func() {
+			It("updates the CFPackage and returns an updated record", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 
-				updatedCFPackage = &korifiv1alpha1.CFPackage{}
-				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(existingCFPackage), updatedCFPackage)).To(Succeed())
-			})
-
-			It("returns an updated record", func() {
 				Expect(returnedPackageRecord.GUID).To(Equal(existingCFPackage.Name))
 				Expect(returnedPackageRecord.Type).To(Equal(string(existingCFPackage.Spec.Type)))
 				Expect(returnedPackageRecord.AppGUID).To(Equal(existingCFPackage.Spec.AppRef.Name))
@@ -444,9 +480,7 @@ var _ = Describe("PackageRepository", func() {
 				updatedAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-			})
 
-			It("updates only the Registry field of the existing CFPackage", func() {
 				Expect(updatedCFPackage.Name).To(Equal(existingCFPackage.Name))
 				Expect(updatedCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))
 				Expect(updatedCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
@@ -509,7 +543,7 @@ var _ = Describe("PackageRepository", func() {
 					},
 				},
 			}
-			cfPackage = createPackageCR(ctx, k8sClient, packageGUID, appGUID, space.Name, "")
+			cfPackage = createPackageCR(ctx, k8sClient, packageGUID, app.Name, space.Name, "")
 		})
 
 		JustBeforeEach(func() {

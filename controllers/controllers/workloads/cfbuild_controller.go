@@ -42,17 +42,38 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+//counterfeiter:generate -o fake -fake-name BuildCleaner . BuildCleaner
+
+type BuildCleaner interface {
+	Clean(ctx context.Context, app types.NamespacedName) error
+}
+
 // CFBuildReconciler reconciles a CFBuild object
 type CFBuildReconciler struct {
 	k8sClient        client.Client
+	buildCleaner     BuildCleaner
 	scheme           *runtime.Scheme
 	log              logr.Logger
 	controllerConfig *config.ControllerConfig
 	envBuilder       EnvBuilder
 }
 
-func NewCFBuildReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, controllerConfig *config.ControllerConfig, envBuilder EnvBuilder) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild] {
-	buildReconciler := CFBuildReconciler{k8sClient: k8sClient, scheme: scheme, log: log, controllerConfig: controllerConfig, envBuilder: envBuilder}
+func NewCFBuildReconciler(
+	k8sClient client.Client,
+	buildCleaner BuildCleaner,
+	scheme *runtime.Scheme,
+	log logr.Logger,
+	controllerConfig *config.ControllerConfig,
+	envBuilder EnvBuilder,
+) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild] {
+	buildReconciler := CFBuildReconciler{
+		k8sClient:        k8sClient,
+		buildCleaner:     buildCleaner,
+		scheme:           scheme,
+		log:              log,
+		controllerConfig: controllerConfig,
+		envBuilder:       envBuilder,
+	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](log, k8sClient, &buildReconciler)
 }
 
@@ -80,10 +101,15 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		return ctrl.Result{}, err
 	}
 
-	err = controllerutil.SetControllerReference(cfPackage, cfBuild, r.scheme)
+	err = controllerutil.SetOwnerReference(cfApp, cfBuild, r.scheme)
 	if err != nil {
 		r.log.Info("unable to set owner reference on CFBuild", "reason", err)
 		return ctrl.Result{}, err
+	}
+
+	err = r.buildCleaner.Clean(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfBuild.Namespace})
+	if err != nil {
+		r.log.Info("unable to clean old builds", "reason", err)
 	}
 
 	stagingStatus := getConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)

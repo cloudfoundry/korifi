@@ -50,6 +50,9 @@ type CFPackageStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="AppGUID",type=string,JSONPath=`.spec.appRef.name`
+//+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
 // CFPackage is the Schema for the cfpackages API
 type CFPackage struct {
@@ -71,4 +74,8 @@ type CFPackageList struct {
 
 func init() {
 	SchemeBuilder.Register(&CFPackage{}, &CFPackageList{})
+}
+
+func (p CFPackage) StatusConditions() []metav1.Condition {
+	return p.Status.Conditions
 }

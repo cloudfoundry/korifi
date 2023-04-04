@@ -3,15 +3,19 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +36,7 @@ type PackageRepo struct {
 	namespacePermissions *authorization.NamespacePermissions
 	repositoryCreator    RepositoryCreator
 	repositoryPrefix     string
+	awaiter              *conditions.Awaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList, *korifiv1alpha1.CFPackageList]
 }
 
 func NewPackageRepo(
@@ -40,6 +45,7 @@ func NewPackageRepo(
 	authPerms *authorization.NamespacePermissions,
 	repositoryCreator RepositoryCreator,
 	repositoryPrefix string,
+	createTimeout time.Duration,
 ) *PackageRepo {
 	return &PackageRepo{
 		userClientFactory:    userClientFactory,
@@ -47,6 +53,7 @@ func NewPackageRepo(
 		namespacePermissions: authPerms,
 		repositoryCreator:    repositoryCreator,
 		repositoryPrefix:     repositoryPrefix,
+		awaiter:              conditions.NewConditionAwaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList](createTimeout),
 	}
 }
 
@@ -76,9 +83,9 @@ type CreatePackageMessage struct {
 	Metadata  Metadata
 }
 
-func (message CreatePackageMessage) toCFPackage() korifiv1alpha1.CFPackage {
+func (message CreatePackageMessage) toCFPackage() *korifiv1alpha1.CFPackage {
 	guid := uuid.NewString()
-	pkg := korifiv1alpha1.CFPackage{
+	pkg := &korifiv1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       kind,
 			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
@@ -119,7 +126,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 	}
 
 	cfPackage := message.toCFPackage()
-	err = userClient.Create(ctx, &cfPackage)
+	err = userClient.Create(ctx, cfPackage)
 	if err != nil {
 		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
 	}
@@ -127,6 +134,11 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 	err = r.repositoryCreator.CreateRepository(ctx, r.repositoryRef(message.AppGUID))
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to create package repository: %w", err)
+	}
+
+	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, workloads.InitializedConditionType)
+	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed waiting for Initialized condition: %w", err)
 	}
 
 	return r.cfPackageToPackageRecord(cfPackage), nil
@@ -157,7 +169,7 @@ func (r *PackageRepo) UpdatePackage(ctx context.Context, authInfo authorization.
 		return PackageRecord{}, fmt.Errorf("failed to patch package metadata: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	return r.cfPackageToPackageRecord(*cfPackage), nil
+	return r.cfPackageToPackageRecord(cfPackage), nil
 }
 
 func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
@@ -171,8 +183,8 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
 	}
 
-	cfPackage := korifiv1alpha1.CFPackage{}
-	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, &cfPackage); err != nil {
+	cfPackage := new(korifiv1alpha1.CFPackage)
+	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, cfPackage); err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to get package %q: %w", guid, apierrors.FromK8sError(err, PackageResourceType))
 	}
 
@@ -264,14 +276,19 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	record := r.cfPackageToPackageRecord(*cfPackage)
+	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, workloads.StatusConditionReady)
+	if err != nil {
+		return PackageRecord{}, fmt.Errorf("failed awaiting Ready status condition: %w", err)
+	}
+
+	record := r.cfPackageToPackageRecord(cfPackage)
 	return record, nil
 }
 
-func (r *PackageRepo) cfPackageToPackageRecord(cfPackage korifiv1alpha1.CFPackage) PackageRecord {
+func (r *PackageRepo) cfPackageToPackageRecord(cfPackage *korifiv1alpha1.CFPackage) PackageRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfPackage.ObjectMeta)
 	state := PackageStateAwaitingUpload
-	if cfPackage.Spec.Source.Registry.Image != "" {
+	if meta.IsStatusConditionTrue(cfPackage.Status.Conditions, workloads.StatusConditionReady) {
 		state = PackageStateReady
 	}
 	return PackageRecord{
@@ -292,8 +309,8 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage korifiv1alpha1.CFPackag
 func (r *PackageRepo) convertToPackageRecords(packages []korifiv1alpha1.CFPackage) []PackageRecord {
 	packageRecords := make([]PackageRecord, 0, len(packages))
 
-	for _, currentPackage := range packages {
-		packageRecords = append(packageRecords, r.cfPackageToPackageRecord(currentPackage))
+	for i := range packages {
+		packageRecords = append(packageRecords, r.cfPackageToPackageRecord(&packages[i]))
 	}
 	return packageRecords
 }
