@@ -32,7 +32,7 @@ var _ = Describe("RootV3", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("matches the expected response body format", func() {

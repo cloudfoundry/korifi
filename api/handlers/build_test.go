@@ -84,8 +84,7 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				})
 
 				It("returns the Build in the response", func() {
@@ -122,8 +121,7 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				})
 
 				It("returns the Build in the response", func() {
@@ -165,8 +163,7 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				})
 
 				It("returns the Build in the response", func() {
@@ -305,8 +302,7 @@ var _ = Describe("Build", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("calls create build with the correct payload", func() {

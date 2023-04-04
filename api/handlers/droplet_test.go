@@ -86,8 +86,7 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("fetches the right droplet", func() {
@@ -193,12 +192,10 @@ var _ = Describe("Droplet", func() {
 		When("on the happy path", func() {
 			It("has the correct response type", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("calls update droplet with the correct payload", func() {

@@ -109,8 +109,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the App in the response", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-app-guid"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
@@ -168,8 +167,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the App in the response", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
@@ -217,8 +215,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("has the expected error response body", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [
@@ -295,8 +292,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("has the expected error response body", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				decoder := json.NewDecoder(rr.Body)
 				decoder.DisallowUnknownFields()
@@ -388,8 +384,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("returns App Resources in the response", func() {
@@ -495,8 +490,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("returns an empty response", func() {
@@ -560,8 +554,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the App in the response", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "patched-app-guid"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
@@ -710,8 +703,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("responds with JSON", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.data.guid", dropletGUID))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
 		})
@@ -845,8 +837,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the App in the response with a state of STARTED", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STARTED"))
@@ -910,8 +901,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the App in the response with a state of STOPPED", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
@@ -996,8 +986,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the processes", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/processes"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))
@@ -1073,8 +1062,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns a process", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "process-1-guid"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"))
@@ -1186,8 +1174,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the scaled process", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "process-1-guid"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"))
@@ -1205,8 +1192,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("has the expected error response body", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(`{
 						"errors": [
@@ -1334,8 +1320,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("returns the list of routes", func() {
@@ -1418,8 +1403,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("responds with the current droplet encoded as JSON", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGED"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
@@ -1468,7 +1452,7 @@ var _ = Describe("App", func() {
 
 			It("returns a NotFound error with code 10010 (that is ignored by the cf cli)", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				var bodyJSON map[string]interface{}
 				Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
 				Expect(bodyJSON).To(HaveKey("errors"))
@@ -1490,7 +1474,7 @@ var _ = Describe("App", func() {
 
 			It("returns a NotFound error with code 10010 (that is ignored by the cf cli)", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				var bodyJSON map[string]interface{}
 				Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
 				Expect(bodyJSON).To(HaveKey("errors"))
@@ -1552,8 +1536,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the App in the response with a state of STARTED", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-app-guid"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STARTED"))
@@ -1716,8 +1699,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the env vars in the response", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.environment_variables.VAR", "VAL"))
 		})
@@ -1752,8 +1734,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("responds with JSON", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.var.KEY0", "VAL0"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.var.KEY2", "VAL2"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
@@ -1805,8 +1786,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("has the expected error response body", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(`{
 						"errors": [
@@ -1882,7 +1862,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the packages", func() {
-			Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/packages"))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))

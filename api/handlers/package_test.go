@@ -505,7 +505,7 @@ var _ = Describe("Package", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("Updates a CFPackage", func() {
@@ -744,8 +744,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("returns a CF API formatted Error response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(`{
 					"errors": [

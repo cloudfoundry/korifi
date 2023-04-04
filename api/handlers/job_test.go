@@ -44,7 +44,7 @@ var _ = Describe("Job", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			When("the existing job operation is space.apply-manifest", func() {

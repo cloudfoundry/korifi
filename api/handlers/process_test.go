@@ -107,8 +107,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns a process", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "` + processGUID + `",
@@ -203,8 +202,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns a canned response with the processGUID in it", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"pagination": {
@@ -333,8 +331,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns the scaled process", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "` + processGUID + `",
@@ -405,8 +402,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns the scaled process", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "` + processGUID + `",
@@ -467,8 +463,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("has the expected error response body", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(`{
 						"errors": [
@@ -592,8 +587,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns a canned response with the processGUID in it", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"resources": [
@@ -651,8 +645,7 @@ var _ = Describe("Process", func() {
 				}, nil)
 			})
 			It("returns a canned response with the processGUID in it", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr.Body.String()).To(MatchJSON(`{
 					"resources": [
 						{
@@ -751,8 +744,7 @@ var _ = Describe("Process", func() {
 				})
 
 				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				})
 				It("returns the Pagination Data and Process Resources in the response", func() {
 					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
@@ -965,8 +957,7 @@ var _ = Describe("Process", func() {
 				})
 
 				It("returns a process", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 					Expect(rr.Body.String()).To(MatchJSON(`{
 					"guid": "` + processGUID + `",

@@ -81,7 +81,7 @@ var _ = Describe("Domain", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("invokes create domain correctly", func() {
@@ -153,7 +153,7 @@ var _ = Describe("Domain", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("returns the correct JSON", func() {
@@ -222,7 +222,7 @@ var _ = Describe("Domain", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("returns the correct JSON", func() {
@@ -297,7 +297,7 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("returns the Pagination Data and Domain Resources in the response", func() {
@@ -318,8 +318,7 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("returns an empty list in the response", func() {

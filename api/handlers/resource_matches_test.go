@@ -34,8 +34,7 @@ var _ = Describe("ResourceMatches", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("returns a CF API formatted Error response", func() {

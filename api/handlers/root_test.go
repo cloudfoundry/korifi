@@ -38,8 +38,7 @@ var _ = Describe("Root", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("has a non-empty body", func() {
