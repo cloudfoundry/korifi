@@ -444,8 +444,7 @@ var _ = Describe("Space", func() {
 			})
 
 			It("includes the labels and annotations in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				var jsonBody struct {
 					Metadata struct {

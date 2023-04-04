@@ -277,7 +277,7 @@ var _ = Describe("ServiceBinding", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("returns the correct JSON", func() {
@@ -386,8 +386,7 @@ var _ = Describe("ServiceBinding", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("returns a CF API formatted empty resource list", func() {
@@ -579,7 +578,7 @@ var _ = Describe("ServiceBinding", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("returns the correct JSON", func() {

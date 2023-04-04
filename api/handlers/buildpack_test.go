@@ -59,8 +59,7 @@ var _ = Describe("Buildpack", func() {
 		})
 
 		It("returns the buildpacks for the default builder", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
 			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/buildpacks"))

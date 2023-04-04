@@ -818,8 +818,7 @@ var _ = Describe("Task", func() {
 		})
 
 		It("returns the task in the response", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
               "name": "my-task",

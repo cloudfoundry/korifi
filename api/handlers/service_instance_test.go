@@ -119,8 +119,7 @@ var _ = Describe("ServiceInstance", func() {
 		})
 
 		It("returns the ServiceInstance in the response", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
 				  "created_at": "%[4]s",
@@ -287,8 +286,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns the Paginated Service Instance resources in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
 					  "pagination": {
 						"total_results": 2,
@@ -522,8 +520,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("returns a CF API formatted empty resource list", func() {

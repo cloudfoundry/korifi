@@ -21,7 +21,6 @@ import (
 
 const (
 	defaultServerURL = "https://api.example.org"
-	jsonHeader       = "application/json"
 )
 
 var (
@@ -54,7 +53,7 @@ var _ = BeforeEach(func() {
 
 func expectJSONResponse(status int, body string) {
 	ExpectWithOffset(2, rr).To(HaveHTTPStatus(status))
-	ExpectWithOffset(2, rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+	ExpectWithOffset(2, rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 	ExpectWithOffset(2, rr).To(HaveHTTPBody(MatchJSON(body)))
 }
 
@@ -84,7 +83,7 @@ func expectNotAuthorizedError() {
 
 func expectNotFoundError(detail string) {
 	ExpectWithOffset(1, rr).To(HaveHTTPStatus(http.StatusNotFound))
-	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 	var bodyJSON map[string]interface{}
 	Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
 	Expect(bodyJSON).To(HaveKey("errors"))

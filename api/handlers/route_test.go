@@ -100,8 +100,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("returns the Route in the response", func() {
@@ -255,8 +254,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			When("query parameters are not provided", func() {
@@ -265,8 +263,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				})
 
 				It("returns the Pagination Data and App Resources in the response", func() {
@@ -478,8 +475,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("returns an empty list in the response", func() {
@@ -596,7 +592,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns Content-Type as JSON in header", func() {
-					Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				})
 
 				It("returns the created route in the response", func() {
@@ -686,7 +682,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			})
 
 			It("has the expected error response body", func() {
@@ -898,8 +894,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("includes the labels and annotations in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 				var jsonBody struct {
 					Metadata struct {
@@ -1103,8 +1098,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				})
 
 				It("returns the Destinations in the response", func() {
@@ -1173,8 +1167,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				})
 
 				It("returns no Destinations in the response", func() {
@@ -1516,7 +1509,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("has the expected error response body", func() {
-					Expect(rr.Header().Get("Content-Type")).To(Equal(jsonHeader), "Matching Content-Type header:")
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 					Expect(rr.Body.String()).To(MatchJSON(`{
 							"errors": [
