@@ -61,10 +61,12 @@ var _ = Describe("Buildpack", func() {
 		It("returns the buildpacks for the default builder", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/buildpacks"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].filename", "paketo-foopacks/bar@1.0.0"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/buildpacks"),
+				MatchJSONPath("$.resources", HaveLen(1)),
+				MatchJSONPath("$.resources[0].filename", "paketo-foopacks/bar@1.0.0"),
+			)))
 		})
 
 		Describe("Order results", func() {
@@ -92,7 +94,7 @@ var _ = Describe("Buildpack", func() {
 				req = createHttpRequest("GET", "/v3/buildpacks?order_by="+orderBy, nil)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[*].position", expectedOrder))
+				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].position", expectedOrder)))
 			},
 				Entry("created_at ASC", "created_at", 1.0, 3.0, 2.0),
 				Entry("created_at DESC", "-created_at", 2.0, 3.0, 1.0),

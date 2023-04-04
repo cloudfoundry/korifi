@@ -111,9 +111,11 @@ var _ = Describe("App", func() {
 		It("returns the App in the response", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-app-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "test-app-guid"),
+				MatchJSONPath("$.state", "STOPPED"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("the app is not accessible", func() {
@@ -169,9 +171,11 @@ var _ = Describe("App", func() {
 		It("returns the App in the response", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", appGUID),
+				MatchJSONPath("$.state", "STOPPED"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		It("creates the `web` process", func() {
@@ -388,11 +392,13 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns App Resources in the response", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "first-test-app-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].state", Equal("STOPPED")))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].guid", "second-test-app-guid"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps"),
+				MatchJSONPath("$.resources", HaveLen(2)),
+				MatchJSONPath("$.resources[0].guid", "first-test-app-guid"),
+				MatchJSONPath("$.resources[0].state", Equal("STOPPED")),
+				MatchJSONPath("$.resources[1].guid", "second-test-app-guid"),
+			)))
 		})
 
 		It("invokes the repository with the provided auth info", func() {
@@ -415,7 +421,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("correctly sets query parameters in response pagination links", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2"))
+				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2")))
 			})
 		})
 
@@ -457,7 +463,7 @@ var _ = Describe("App", func() {
 				req = createHttpRequest("GET", "/v3/apps?order_by="+orderBy, nil)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[*].guid", expectedOrder))
+				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedOrder)))
 			},
 				Entry("created_at ASC", "created_at", "3", "4", "2", "1"),
 				Entry("created_at DESC", "-created_at", "1", "2", "4", "3"),
@@ -494,8 +500,10 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an empty response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(0)))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", BeEmpty()))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.pagination.total_results", BeEquivalentTo(0)),
+					MatchJSONPath("$.resources", BeEmpty()),
+				)))
 			})
 		})
 
@@ -555,9 +563,11 @@ var _ = Describe("App", func() {
 
 		It("returns the App in the response", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "patched-app-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "patched-app-guid"),
+				MatchJSONPath("$.state", "STOPPED"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("the user doesn't have permission to get the App", func() {
@@ -704,8 +714,10 @@ var _ = Describe("App", func() {
 
 		It("responds with JSON", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.data.guid", dropletGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.data.guid", dropletGUID),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		It("fetches the right App", func() {
@@ -839,9 +851,11 @@ var _ = Describe("App", func() {
 		It("returns the App in the response with a state of STARTED", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STARTED"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", appGUID),
+				MatchJSONPath("$.state", "STARTED"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("getting the app is forbidden", func() {
@@ -903,9 +917,11 @@ var _ = Describe("App", func() {
 		It("returns the App in the response with a state of STOPPED", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", appGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STOPPED"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", appGUID),
+				MatchJSONPath("$.state", "STOPPED"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("fetching the app is forbidden", func() {
@@ -988,12 +1004,14 @@ var _ = Describe("App", func() {
 		It("returns the processes", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/processes"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "process-1-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].command", "[PRIVATE DATA HIDDEN IN LISTS]"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].guid", "process-2-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].command", "[PRIVATE DATA HIDDEN IN LISTS]"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/processes"),
+				MatchJSONPath("$.resources", HaveLen(2)),
+				MatchJSONPath("$.resources[0].guid", "process-1-guid"),
+				MatchJSONPath("$.resources[0].command", "[PRIVATE DATA HIDDEN IN LISTS]"),
+				MatchJSONPath("$.resources[1].guid", "process-2-guid"),
+				MatchJSONPath("$.resources[1].command", "[PRIVATE DATA HIDDEN IN LISTS]"),
+			)))
 		})
 
 		When("the app cannot be accessed", func() {
@@ -1064,9 +1082,11 @@ var _ = Describe("App", func() {
 		It("returns a process", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "process-1-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "process-1-guid"),
+				MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("the user lacks access in the app namespace", func() {
@@ -1176,10 +1196,12 @@ var _ = Describe("App", func() {
 		It("returns the scaled process", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "process-1-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.instances", BeEquivalentTo(5)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "process-1-guid"),
+				MatchJSONPath("$.command", "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"),
+				MatchJSONPath("$.instances", BeEquivalentTo(5)),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("the request JSON is invalid", func() {
@@ -1324,11 +1346,13 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the list of routes", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/routes"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "test-route-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/routes"),
+				MatchJSONPath("$.resources", HaveLen(1)),
+				MatchJSONPath("$.resources[0].guid", "test-route-guid"),
+				MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"),
+			)))
 		})
 
 		When("the app cannot be accessed", func() {
@@ -1404,9 +1428,11 @@ var _ = Describe("App", func() {
 
 		It("responds with the current droplet encoded as JSON", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGED"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", dropletGUID),
+				MatchJSONPath("$.state", "STAGED"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		It("fetches the correct app", func() {
@@ -1538,9 +1564,11 @@ var _ = Describe("App", func() {
 		It("returns the App in the response with a state of STARTED", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-app-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STARTED"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "test-app-guid"),
+				MatchJSONPath("$.state", "STARTED"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("no permissions to get the app", func() {
@@ -1701,7 +1729,7 @@ var _ = Describe("App", func() {
 		It("returns the env vars in the response", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.environment_variables.VAR", "VAL"))
+			Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.environment_variables.VAR", "VAL")))
 		})
 
 		When("there is an error fetching the app env", func() {
@@ -1735,9 +1763,11 @@ var _ = Describe("App", func() {
 
 		It("responds with JSON", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.var.KEY0", "VAL0"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.var.KEY2", "VAL2"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.var.KEY0", "VAL0"),
+				MatchJSONPath("$.var.KEY2", "VAL2"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		It("fetches the right app", func() {
@@ -1864,11 +1894,13 @@ var _ = Describe("App", func() {
 		It("returns the packages", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/packages"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(2)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "package-1-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].state", Equal("AWAITING_UPLOAD")))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[1].guid", "package-2-guid"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/packages"),
+				MatchJSONPath("$.resources", HaveLen(2)),
+				MatchJSONPath("$.resources[0].guid", "package-1-guid"),
+				MatchJSONPath("$.resources[0].state", Equal("AWAITING_UPLOAD")),
+				MatchJSONPath("$.resources[1].guid", "package-2-guid"),
+			)))
 		})
 
 		When("the app cannot be accessed", func() {

@@ -98,9 +98,11 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns the correct JSON", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "domain-guid"),
+				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"),
+			)))
 		})
 
 		When("decoding the payload fails", func() {
@@ -157,9 +159,11 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns the correct JSON", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "domain-guid"),
+				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"),
+			)))
 		})
 
 		When("the domain repo returns an error", func() {
@@ -226,9 +230,11 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns the correct JSON", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "domain-guid"),
+				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"),
+			)))
 		})
 
 		It("invokes the domain repo correctly", func() {
@@ -301,11 +307,13 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns the Pagination Data and Domain Resources in the response", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/domains"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "test-domain-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].supported_protocols", ConsistOf("http")))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/domains"),
+				MatchJSONPath("$.resources", HaveLen(1)),
+				MatchJSONPath("$.resources[0].guid", "test-domain-guid"),
+				MatchJSONPath("$.resources[0].supported_protocols", ConsistOf("http")),
+			)))
 		})
 
 		When("no domain exists", func() {
@@ -322,8 +330,10 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns an empty list in the response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeZero()))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", BeEmpty()))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.pagination.total_results", BeZero()),
+					MatchJSONPath("$.resources", BeEmpty()),
+				)))
 			})
 		})
 

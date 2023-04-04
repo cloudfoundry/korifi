@@ -97,8 +97,10 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns the droplet in the response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.process_types.rake", "bundle exec rake"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", dropletGUID),
+					MatchJSONPath("$.process_types.rake", "bundle exec rake"),
+				)))
 			})
 		})
 
@@ -210,8 +212,10 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns the droplet in the response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.process_types.rake", "bundle exec rake"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", dropletGUID),
+					MatchJSONPath("$.process_types.rake", "bundle exec rake"),
+				)))
 			})
 		})
 
