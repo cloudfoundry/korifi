@@ -88,9 +88,11 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns the Build in the response", func() {
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGING"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", "test-build-guid"),
+						MatchJSONPath("$.state", "STAGING"),
+						MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+					)))
 				})
 			})
 
@@ -125,10 +127,12 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns the Build in the response", func() {
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGED"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.droplet.guid", "test-build-guid"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", "test-build-guid"),
+						MatchJSONPath("$.state", "STAGED"),
+						MatchJSONPath("$.droplet.guid", "test-build-guid"),
+						MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+					)))
 				})
 			})
 
@@ -167,9 +171,11 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns the Build in the response", func() {
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "FAILED"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", "test-build-guid"),
+						MatchJSONPath("$.state", "FAILED"),
+						MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+					)))
 				})
 			})
 		})
@@ -320,9 +326,11 @@ var _ = Describe("Build", func() {
 			})
 
 			It("returns the Build in the response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGING"))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", "test-build-guid"),
+					MatchJSONPath("$.state", "STAGING"),
+					MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+				)))
 			})
 
 			It("looks up the app by the correct GUID", func() {

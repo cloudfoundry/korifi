@@ -49,9 +49,11 @@ var _ = Describe("Job", func() {
 
 			When("the existing job operation is space.apply-manifest", func() {
 				It("returns the job", func() {
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", jobGUID))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/"+spaceGUID))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.operation", "space.apply_manifest"))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", jobGUID),
+						MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/"+spaceGUID),
+						MatchJSONPath("$.operation", "space.apply_manifest"),
+					)))
 				})
 			})
 
@@ -96,9 +98,11 @@ var _ = Describe("Job", func() {
 			rr = httptest.NewRecorder()
 			routerBuilder.Build().ServeHTTP(rr, req)
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", jobGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.operation", operation))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", jobGUID),
+				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+				MatchJSONPath("$.operation", operation),
+			)))
 		},
 
 			Entry("app delete", "app.delete", "cf-app-guid"),
