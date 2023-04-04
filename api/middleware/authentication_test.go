@@ -9,7 +9,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/middleware"
 	"code.cloudfoundry.org/korifi/api/middleware/fake"
 
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -49,7 +48,7 @@ var _ = Describe("Authentication Middleware", func() {
 	JustBeforeEach(func() {
 		request, err := http.NewRequest(http.MethodGet, "http://localhost"+requestPath, nil)
 		Expect(err).NotTo(HaveOccurred())
-		request.Header.Add(headers.Authorization, authHeader)
+		request.Header.Add("Authorization", authHeader)
 		authMiddleware(nextHandler).ServeHTTP(rr, request)
 	})
 

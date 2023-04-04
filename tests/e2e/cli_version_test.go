@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"net/http"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,7 +21,7 @@ var _ = Describe("Min CF CLI Version", func() {
 
 	JustBeforeEach(func() {
 		var err error
-		httpResp, err = client.SetHeader(headers.UserAgent, "cf/0.0.1").R().Get("/v3")
+		httpResp, err = client.SetHeader("User-Agent", "cf/0.0.1").R().Get("/v3")
 		Expect(err).NotTo(HaveOccurred())
 	})
 

@@ -13,7 +13,6 @@ import (
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -82,7 +81,7 @@ var _ = Describe("Domain", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 		})
 
 		It("invokes create domain correctly", func() {
@@ -154,7 +153,7 @@ var _ = Describe("Domain", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 		})
 
 		It("returns the correct JSON", func() {
@@ -223,7 +222,7 @@ var _ = Describe("Domain", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 		})
 
 		It("returns the correct JSON", func() {
@@ -298,7 +297,7 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 		})
 
 		It("returns the Pagination Data and Domain Resources in the response", func() {

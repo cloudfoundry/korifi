@@ -9,7 +9,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 )
 
@@ -92,7 +91,7 @@ func (response *Response) writeTo(w http.ResponseWriter) error {
 		return nil
 	}
 
-	w.Header().Set(headers.ContentType, "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(response.httpStatus)
 
 	encoder := json.NewEncoder(w)

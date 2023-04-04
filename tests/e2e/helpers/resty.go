@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -50,7 +49,7 @@ func headersString(headers http.Header) string {
 }
 
 func formatHeader(key, value string) string {
-	if key == headers.Authorization {
+	if key == "Authorization" {
 		return fmt.Sprintf("%s: %s", key, formatAuthorizationValue(value))
 	}
 
