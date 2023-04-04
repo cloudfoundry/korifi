@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -82,7 +81,7 @@ func (h *SpaceManifest) apply(r *http.Request) (*routing.Response, error) {
 	}
 
 	return routing.NewResponse(http.StatusAccepted).
-		WithHeader(headers.Location, presenter.JobURLForRedirects(spaceGUID, presenter.SpaceApplyManifestOperation, h.serverURL)), nil
+		WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceApplyManifestOperation, h.serverURL)), nil
 }
 
 func (h *SpaceManifest) diff(r *http.Request) (*routing.Response, error) {

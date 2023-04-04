@@ -11,7 +11,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/routing"
-	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -85,7 +84,7 @@ func expectNotAuthorizedError() {
 
 func expectNotFoundError(detail string) {
 	ExpectWithOffset(1, rr).To(HaveHTTPStatus(http.StatusNotFound))
-	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 	var bodyJSON map[string]interface{}
 	Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
 	Expect(bodyJSON).To(HaveKey("errors"))

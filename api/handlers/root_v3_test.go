@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -33,7 +32,7 @@ var _ = Describe("RootV3", func() {
 		})
 
 		It("returns Content-Type as JSON in header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 		})
 
 		It("matches the expected response body format", func() {

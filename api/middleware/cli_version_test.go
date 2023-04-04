@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/middleware"
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -35,7 +34,7 @@ var _ = Describe("CliVersionMiddleware", func() {
 
 	When("the user agent is not formatted properly", func() {
 		BeforeEach(func() {
-			requestHeaders[headers.UserAgent] = []string{"i-am-not-formatted-properly"}
+			requestHeaders["User-Agent"] = []string{"i-am-not-formatted-properly"}
 		})
 
 		It("delegates to the next handler", func() {
@@ -45,7 +44,7 @@ var _ = Describe("CliVersionMiddleware", func() {
 
 	When("the user agent is not cf cli", func() {
 		BeforeEach(func() {
-			requestHeaders[headers.UserAgent] = []string{"curl/7.81.0"}
+			requestHeaders["User-Agent"] = []string{"curl/7.81.0"}
 		})
 
 		It("delegates to the next handler", func() {
@@ -55,7 +54,7 @@ var _ = Describe("CliVersionMiddleware", func() {
 
 	When("the user agent is cf cli", func() {
 		BeforeEach(func() {
-			requestHeaders[headers.UserAgent] = []string{"cf/8.5.0+73aa161.2022-09-12 (go1.18.5; amd64 linux)"}
+			requestHeaders["User-Agent"] = []string{"cf/8.5.0+73aa161.2022-09-12 (go1.18.5; amd64 linux)"}
 		})
 
 		It("delegates to the next handler", func() {
@@ -64,7 +63,7 @@ var _ = Describe("CliVersionMiddleware", func() {
 
 		When("the cf cli version is too old", func() {
 			BeforeEach(func() {
-				requestHeaders[headers.UserAgent] = []string{"cf/8.4.0+73aa161.2022-09-12 (go1.18.5; amd64 linux)"}
+				requestHeaders["User-Agent"] = []string{"cf/8.4.0+73aa161.2022-09-12 (go1.18.5; amd64 linux)"}
 			})
 
 			It("returns an informative error", func() {
@@ -75,7 +74,7 @@ var _ = Describe("CliVersionMiddleware", func() {
 
 		When("there are  multiple UserAgent header values", func() {
 			BeforeEach(func() {
-				requestHeaders[headers.UserAgent] = []string{
+				requestHeaders["User-Agent"] = []string{
 					"cf/8.5.0+73aa161.2022-09-12 (go1.18.5; amd64 linux)",
 					"cf/8.4.0+73aa161.2022-09-12 (go1.18.5; amd64 linux)",
 				}
@@ -88,7 +87,7 @@ var _ = Describe("CliVersionMiddleware", func() {
 
 		When("the cf cli version cannot be parsed", func() {
 			BeforeEach(func() {
-				requestHeaders[headers.UserAgent] = []string{"cf/unknown"}
+				requestHeaders["User-Agent"] = []string{"cf/unknown"}
 			})
 
 			It("returns an informative error", func() {

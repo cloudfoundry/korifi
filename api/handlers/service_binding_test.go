@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -278,7 +277,7 @@ var _ = Describe("ServiceBinding", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 		})
 
 		It("returns the correct JSON", func() {
@@ -580,7 +579,7 @@ var _ = Describe("ServiceBinding", func() {
 
 		It("has the correct response type", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 		})
 
 		It("returns the correct JSON", func() {

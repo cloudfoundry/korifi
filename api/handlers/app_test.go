@@ -16,7 +16,6 @@ import (
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -1469,7 +1468,7 @@ var _ = Describe("App", func() {
 
 			It("returns a NotFound error with code 10010 (that is ignored by the cf cli)", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 				var bodyJSON map[string]interface{}
 				Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
 				Expect(bodyJSON).To(HaveKey("errors"))
@@ -1491,7 +1490,7 @@ var _ = Describe("App", func() {
 
 			It("returns a NotFound error with code 10010 (that is ignored by the cf cli)", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 				var bodyJSON map[string]interface{}
 				Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
 				Expect(bodyJSON).To(HaveKey("errors"))

@@ -7,7 +7,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 
 	. "code.cloudfoundry.org/korifi/tests/matchers"
-	"github.com/go-http-utils/headers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,7 +44,7 @@ var _ = Describe("Job", func() {
 			})
 
 			It("returns Content-Type as JSON in header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
 			})
 
 			When("the existing job operation is space.apply-manifest", func() {

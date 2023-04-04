@@ -8,7 +8,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/routing"
 
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 )
 
@@ -43,7 +42,7 @@ func (a *authentication) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := logr.FromContextOrDiscard(r.Context()).WithName("authentication-middleware")
 
-		authInfo, err := a.authInfoParser.Parse(r.Header.Get(headers.Authorization))
+		authInfo, err := a.authInfoParser.Parse(r.Header.Get("Authorization"))
 		if err != nil {
 			logger.Info("failed to parse auth info", "reason", err)
 			routing.PresentError(logger, w, err)

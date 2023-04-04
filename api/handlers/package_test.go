@@ -504,6 +504,10 @@ var _ = Describe("Package", func() {
 			})
 		})
 
+		It("returns Content-Type as JSON in header", func() {
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
+		})
+
 		It("Updates a CFPackage", func() {
 			Expect(packageRepo.UpdatePackageCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualUpdate := packageRepo.UpdatePackageArgsForCall(0)
