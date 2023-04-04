@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -99,7 +98,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("passes authInfo from context to GetApp", func() {
@@ -124,7 +123,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -159,7 +158,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 201 Created", func() {
-			Expect(rr.Code).To(Equal(http.StatusCreated))
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 		})
 
 		It("passes authInfo from context to CreateApp", func() {
@@ -215,13 +214,12 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns a status 400 Bad Request ", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 			})
 
 			It("has the expected error response body", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
 					"errors": [
 						{
 							"title": "CF-MessageParseError",
@@ -229,7 +227,7 @@ var _ = Describe("App", func() {
 							"code": 1001
 						}
 					]
-				}`), "Response body matches response:")
+				}`)))
 			})
 		})
 
@@ -292,34 +290,21 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns a status 422 Unprocessable Entity", func() {
-				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 			})
 
 			It("has the expected error response body", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				decoder := json.NewDecoder(rr.Body)
-				decoder.DisallowUnknownFields()
-
-				body := struct {
-					Errors []struct {
-						Title  string `json:"title"`
-						Code   int    `json:"code"`
-						Detail string `json:"detail"`
-					} `json:"errors"`
-				}{}
-				Expect(decoder.Decode(&body)).To(Succeed())
-
-				Expect(body.Errors).To(HaveLen(1))
-				Expect(body.Errors[0].Title).To(Equal("CF-UnprocessableEntity"))
-				Expect(body.Errors[0].Code).To(Equal(10008))
-				Expect(body.Errors[0].Detail).NotTo(BeEmpty())
-				subDetails := strings.Split(body.Errors[0].Detail, ",")
-				Expect(subDetails).To(ConsistOf(
-					"Type is a required field",
-					"Buildpacks is a required field",
-					"Stack is a required field",
-				))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.errors", HaveLen(1)),
+					MatchJSONPath("$.errors[0].title", "CF-UnprocessableEntity"),
+					MatchJSONPath("$.errors[0].code", BeEquivalentTo(10008)),
+					MatchJSONPath("$.errors[0].detail", SatisfyAll(
+						ContainSubstring("Type is a required field"),
+						ContainSubstring("Buildpacks is a required field"),
+						ContainSubstring("Stack is a required field"),
+					)),
+				)))
 			})
 		})
 
@@ -384,7 +369,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns Content-Type as JSON in header", func() {
@@ -492,7 +477,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -547,7 +532,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("patches the app with the new labels and annotations", func() {
@@ -576,7 +561,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 
 			It("does not call patch", func() {
@@ -701,7 +686,7 @@ var _ = Describe("App", func() {
 		}
 
 		It("responds with a 200 code", func() {
-			Expect(rr.Code).To(Equal(200))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("updates the k8s record via the repository", func() {
@@ -759,7 +744,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 			itDoesntSetTheCurrentDroplet()
 		})
@@ -845,7 +830,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns the App in the response with a state of STARTED", func() {
@@ -864,7 +849,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -911,7 +896,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns the App in the response with a state of STOPPED", func() {
@@ -930,7 +915,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -998,7 +983,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns the processes", func() {
@@ -1020,7 +1005,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -1070,7 +1055,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("passes the authorization.Info to the process repository", func() {
@@ -1095,7 +1080,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an not found error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -1190,7 +1175,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns the scaled process", func() {
@@ -1210,21 +1195,18 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns a status 400 Bad Request ", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 			})
 
 			It("has the expected error response body", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
-						"errors": [
-							{
-								"title": "CF-MessageParseError",
-								"detail": "Request invalid due to parse error: invalid request body",
-								"code": 1001
-							}
-						]
-					}`), "Response body matches response:")
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
+					"errors": [{
+						"title": "CF-MessageParseError",
+						"detail": "Request invalid due to parse error: invalid request body",
+						"code": 1001
+					}]
+				}`)))
 			})
 		})
 
@@ -1234,7 +1216,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("return a NotFound error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -1264,7 +1246,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("return a NotFound error", func() {
-				expectNotFoundError("Process not found")
+				expectNotFoundError("Process")
 			})
 		})
 
@@ -1338,7 +1320,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns Content-Type as JSON in header", func() {
@@ -1361,7 +1343,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -1413,7 +1395,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("responds with a 200 code", func() {
-			Expect(rr.Code).To(Equal(200))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("sends the authInfo from the context to the repo methods", func() {
@@ -1453,7 +1435,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -1477,19 +1459,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns a NotFound error with code 10010 (that is ignored by the cf cli)", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				var bodyJSON map[string]interface{}
-				Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
-				Expect(bodyJSON).To(HaveKey("errors"))
-				Expect(bodyJSON["errors"]).To(HaveLen(1))
-				Expect(bodyJSON["errors"]).To(ConsistOf(
-					MatchAllKeys(Keys{
-						"code":   BeEquivalentTo(10010),
-						"title":  Equal("CF-ResourceNotFound"),
-						"detail": Equal("Droplet not found"),
-					}),
-				))
+				expectErrorResponse(http.StatusNotFound, "CF-ResourceNotFound", "Droplet not found", 10010)
 			})
 		})
 
@@ -1499,19 +1469,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns a NotFound error with code 10010 (that is ignored by the cf cli)", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				var bodyJSON map[string]interface{}
-				Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
-				Expect(bodyJSON).To(HaveKey("errors"))
-				Expect(bodyJSON["errors"]).To(HaveLen(1))
-				Expect(bodyJSON["errors"]).To(ConsistOf(
-					MatchAllKeys(Keys{
-						"code":   BeEquivalentTo(10010),
-						"title":  Equal("CF-ResourceNotFound"),
-						"detail": Equal("Droplet not found"),
-					}),
-				))
+				expectErrorResponse(http.StatusNotFound, "CF-ResourceNotFound", "Droplet not found", 10010)
 			})
 		})
 
@@ -1536,7 +1494,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("responds with a 200 code", func() {
-			Expect(rr.Code).To(Equal(200))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("sends the authInfo from the context to the repo methods", func() {
@@ -1577,7 +1535,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -1630,11 +1588,11 @@ var _ = Describe("App", func() {
 			})
 
 			It("responds with a 200 code", func() {
-				Expect(rr.Code).To(Equal(200))
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns the app in the response with a state of STARTED", func() {
-				Expect(rr.Body.String()).To(ContainSubstring(`"state":"STARTED"`))
+				Expect(rr).To(HaveHTTPBody(ContainSubstring(`"state":"STARTED"`)))
 			})
 		})
 
@@ -1665,7 +1623,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("responds with a 202 accepted response", func() {
-			Expect(rr.Code).To(Equal(http.StatusAccepted))
+			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
 		})
 
 		It("responds with a job URL in a location header", func() {
@@ -1717,7 +1675,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("passes authInfo from context to GetAppEnv", func() {
@@ -1758,7 +1716,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("responds with a 200 code", func() {
-			Expect(rr.Code).To(Equal(200))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("responds with JSON", func() {
@@ -1812,13 +1770,13 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns a status 400 Bad Request ", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 			})
 
 			It("has the expected error response body", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-				Expect(rr.Body.String()).To(MatchJSON(`{
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
 						"errors": [
 							{
 								"title": "CF-MessageParseError",
@@ -1826,7 +1784,7 @@ var _ = Describe("App", func() {
 								"code": 1001
 							}
 						]
-					}`), "Response body matches response:")
+					}`)))
 			})
 		})
 
@@ -1888,7 +1846,7 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns the packages", func() {
@@ -1909,7 +1867,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 

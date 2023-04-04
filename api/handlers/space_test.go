@@ -200,7 +200,7 @@ var _ = Describe("Space", func() {
 		})
 
 		It("returns a list of spaces", func() {
-			Expect(rr.Header().Get("Content-Type")).To(Equal("application/json"))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
                 "pagination": {
@@ -429,7 +429,7 @@ var _ = Describe("Space", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("patches the space with the new labels and annotations", func() {

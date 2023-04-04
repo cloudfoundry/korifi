@@ -34,7 +34,7 @@ var _ = Describe("Root", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("returns Content-Type as JSON in header", func() {

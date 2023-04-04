@@ -30,7 +30,7 @@ var _ = Describe("ResourceMatches", func() {
 		})
 
 		It("returns status 201 Created", func() {
-			Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 		})
 
 		It("returns Content-Type as JSON in header", func() {

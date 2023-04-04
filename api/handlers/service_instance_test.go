@@ -103,7 +103,7 @@ var _ = Describe("ServiceInstance", func() {
 		})
 
 		It("returns status 201 CREATED", func() {
-			Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 		})
 
 		It("creates a CFServiceInstance", func() {
@@ -282,7 +282,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("no query parameters are provided", func() {
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns the Paginated Service Instance resources in the response", func() {
@@ -516,7 +516,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -681,7 +681,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns 404 Not Found", func() {
-				Expect(rr.Code).To(Equal(http.StatusNotFound))
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
 			})
 		})
 
@@ -723,7 +723,7 @@ var _ = Describe("ServiceInstance", func() {
 		})
 
 		It("returns status 204 No Content", func() {
-			Expect(rr.Code).To(Equal(http.StatusNoContent))
+			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
 		})
 
 		It("gets the service instance", func() {
@@ -748,7 +748,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns 404 Not Found", func() {
-				Expect(rr.Code).To(Equal(http.StatusNotFound))
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
 			})
 		})
 
@@ -758,7 +758,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns 500 Internal Server Error", func() {
-				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+				Expect(rr).To(HaveHTTPStatus(http.StatusInternalServerError))
 			})
 		})
 
@@ -768,7 +768,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns 500 Internal Server Error", func() {
-				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+				Expect(rr).To(HaveHTTPStatus(http.StatusInternalServerError))
 			})
 		})
 	})

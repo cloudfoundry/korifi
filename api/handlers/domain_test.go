@@ -182,7 +182,7 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFDomain not found")
+				expectNotFoundError("CFDomain")
 			})
 		})
 	})
@@ -274,7 +274,7 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFDomain not found")
+				expectNotFoundError("CFDomain")
 			})
 		})
 	})
@@ -322,7 +322,7 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -385,7 +385,7 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("CFDomain not found")
+				expectNotFoundError("CFDomain")
 			})
 		})
 	})

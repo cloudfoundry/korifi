@@ -90,7 +90,7 @@ var _ = Describe("Route", func() {
 
 		When("on the happy path", func() {
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("provides the apierrors.Info from the context to the domain repository", func() {
@@ -168,7 +168,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found")
+				expectNotFoundError("Route")
 			})
 		})
 
@@ -259,7 +259,7 @@ var _ = Describe("Route", func() {
 
 			When("query parameters are not provided", func() {
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -333,7 +333,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns the Pagination Data with the app_guids filter", func() {
@@ -354,7 +354,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns the Pagination Data with the space_guids filter", func() {
@@ -376,7 +376,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns the Pagination Data with the domain_guids filter", func() {
@@ -398,7 +398,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns the Pagination Data with the hosts filter", func() {
@@ -421,7 +421,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns the Pagination Data with the hosts filter", func() {
@@ -448,7 +448,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns the Pagination Data with the paths filter", func() {
@@ -471,7 +471,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -588,7 +588,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns status 201 Created", func() {
-					Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -678,7 +678,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns a status 400 Bad Request ", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -879,7 +879,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("patches the route with the new labels and annotations", func() {
@@ -927,7 +927,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("Route not found")
+				expectNotFoundError("Route")
 			})
 
 			It("does not call patch", func() {
@@ -1088,7 +1088,7 @@ var _ = Describe("Route", func() {
 		When("On the happy path and", func() {
 			When("the Route has destinations", func() {
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("provides the apierrors.Info from the context to the routes repository", func() {
@@ -1163,7 +1163,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -1194,7 +1194,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found")
+				expectNotFoundError("Route")
 			})
 		})
 
@@ -1214,7 +1214,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Route not found")
+				expectNotFoundError("Route")
 			})
 		})
 
@@ -1327,7 +1327,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns a success and a valid response", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 
 				var parsedBody map[string]interface{}
 				Expect(
@@ -1400,7 +1400,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("responds with 404 and an error", func() {
-					expectNotFoundError("Route not found")
+					expectNotFoundError("Route")
 				})
 
 				It("doesn't add any destinations to a route", func() {
@@ -1414,7 +1414,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("responds with 404 and an error", func() {
-					expectNotFoundError("Route not found")
+					expectNotFoundError("Route")
 				})
 
 				It("doesn't add any destinations to a route", func() {
@@ -1445,7 +1445,7 @@ var _ = Describe("Route", func() {
 					}`, destination1AppGUID, destination2AppGUID, destination2ProcessType, destination2Port)
 				})
 				It("defaults the protocol to `http1`", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 
 					var parsedBody map[string]interface{}
 					Expect(
@@ -1505,7 +1505,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("returns a status 400 Bad Request ", func() {
-					Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 				})
 
 				It("has the expected error response body", func() {
@@ -1680,7 +1680,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns a success and a valid response", func() {
-				Expect(rr.Code).To(Equal(http.StatusNoContent), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
 
 				Expect(rr.Body.String()).To(BeEmpty())
 			})
@@ -1699,7 +1699,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("responds with 404 and an error", func() {
-					expectNotFoundError("Route not found")
+					expectNotFoundError("Route")
 				})
 
 				It("doesn't add any destinations to a route", func() {
@@ -1713,7 +1713,7 @@ var _ = Describe("Route", func() {
 				})
 
 				It("responds with 404 and an error", func() {
-					expectNotFoundError("Route not found")
+					expectNotFoundError("Route")
 				})
 
 				It("doesn't add any destinations to a route", func() {

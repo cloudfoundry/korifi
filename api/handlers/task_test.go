@@ -95,7 +95,7 @@ var _ = Describe("Task", func() {
 		})
 
 		It("returns a 201 Created response", func() {
-			Expect(rr.Code).To(Equal(http.StatusCreated))
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 		})
 
 		It("creates a task", func() {
@@ -160,7 +160,7 @@ var _ = Describe("Task", func() {
 			})
 
 			It("returns a Not Found Error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -170,7 +170,7 @@ var _ = Describe("Task", func() {
 			})
 
 			It("returns a Not Found error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 
@@ -361,8 +361,8 @@ var _ = Describe("Task", func() {
 			})
 
 			It("returns the tasks", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
-				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPBody(MatchJSON(expectedBody)))
 			})
 
 			It("provides an empty list task message to the repository", func() {
@@ -391,8 +391,8 @@ var _ = Describe("Task", func() {
 			})
 
 			It("returns the tasks", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
-				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPBody(MatchJSON(expectedBody)))
 			})
 
 			It("provides a list task message with the app guid to the repository", func() {
@@ -407,7 +407,7 @@ var _ = Describe("Task", func() {
 				})
 
 				It("returns a Not Found Error", func() {
-					expectNotFoundError("App not found")
+					expectNotFoundError("App")
 				})
 			})
 
@@ -417,7 +417,7 @@ var _ = Describe("Task", func() {
 				})
 
 				It("returns a Not Found error", func() {
-					expectNotFoundError("App not found")
+					expectNotFoundError("App")
 				})
 			})
 
@@ -515,7 +515,7 @@ var _ = Describe("Task", func() {
 		})
 
 		It("returns the task", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr.Body).To(MatchJSON(`{
               "name": "task-name",
               "guid": "task-guid",
@@ -623,7 +623,7 @@ var _ = Describe("Task", func() {
 			})
 
 			It("returns a Not Found Error", func() {
-				expectNotFoundError("Task not found")
+				expectNotFoundError("Task")
 			})
 		})
 
@@ -645,7 +645,7 @@ var _ = Describe("Task", func() {
 		})
 
 		It("returns the cancelled task", func() {
-			Expect(rr.Code).To(Equal(http.StatusAccepted))
+			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
 			Expect(rr.Body).To(MatchJSON(`{
               "name": "task-name",
               "guid": "task-guid",
@@ -803,7 +803,7 @@ var _ = Describe("Task", func() {
 		})
 
 		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		It("patches the task with the new labels and annotations", func() {
@@ -875,7 +875,7 @@ var _ = Describe("Task", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("Task not found")
+				expectNotFoundError("Task")
 			})
 
 			It("does not call patch", func() {

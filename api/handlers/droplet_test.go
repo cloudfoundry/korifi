@@ -82,7 +82,7 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -110,7 +110,7 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns a Not Found error", func() {
-				expectNotFoundError("Droplet not found")
+				expectNotFoundError("Droplet")
 			})
 		})
 
@@ -322,7 +322,7 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFDroplet not found")
+				expectNotFoundError("CFDroplet")
 			})
 		})
 	})

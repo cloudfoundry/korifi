@@ -782,7 +782,7 @@ var _ = Describe("Role", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("Role not found")
+				expectNotFoundError("Role")
 			})
 		})
 

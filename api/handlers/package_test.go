@@ -114,7 +114,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Package not found")
+				expectNotFoundError("Package")
 			})
 		})
 
@@ -650,7 +650,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Package not found")
+				expectNotFoundError("Package")
 			})
 			itDoesntUploadSourceImage()
 			itDoesntUpdateAnyPackages()
@@ -740,13 +740,12 @@ var _ = Describe("Package", func() {
 			})
 
 			It("returns status 400 BadRequest", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 			})
 
 			It("returns a CF API formatted Error response", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
 					"errors": [
 						{
 							"title": "CF-PackageBitsAlreadyUploaded",
@@ -754,7 +753,7 @@ var _ = Describe("Package", func() {
 							"code": 150004
 						}
 					]
-				}`), "Response body matches response:")
+				}`)))
 			})
 		})
 	})
@@ -830,7 +829,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("ignores it and returns status 200", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 		})
 
@@ -840,7 +839,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("ignores it and returns status 200", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 		})
 

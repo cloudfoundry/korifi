@@ -40,7 +40,7 @@ var _ = Describe("Job", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
@@ -64,7 +64,7 @@ var _ = Describe("Job", func() {
 					})
 
 					It("returns an error", func() {
-						expectNotFoundError("Job not found")
+						expectNotFoundError("Job")
 					})
 				})
 
@@ -74,7 +74,7 @@ var _ = Describe("Job", func() {
 					})
 
 					It("returns status 200 OK", func() {
-						Expect(rr.Code).To(Equal(http.StatusOK))
+						Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 					})
 				})
 			})
@@ -85,7 +85,7 @@ var _ = Describe("Job", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK))
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 			})
 		})

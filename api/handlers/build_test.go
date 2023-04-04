@@ -80,7 +80,7 @@ var _ = Describe("Build", func() {
 		When("on the happy path", func() {
 			When("build staging is not complete", func() {
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -119,7 +119,7 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -163,7 +163,7 @@ var _ = Describe("Build", func() {
 				})
 
 				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
+					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				})
 
 				It("returns Content-Type as JSON in header", func() {
@@ -186,7 +186,7 @@ var _ = Describe("Build", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Build not found")
+				expectNotFoundError("Build")
 			})
 		})
 
@@ -304,7 +304,7 @@ var _ = Describe("Build", func() {
 
 		When("on the happy path", func() {
 			It("returns status 201", func() {
-				Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 			})
 
 			It("returns Content-Type as JSON in header", func() {
