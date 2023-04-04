@@ -66,8 +66,8 @@ func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildRespon
 			},
 		},
 		Metadata: Metadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
+			Labels:      emptyMapIfNil(buildRecord.Labels),
+			Annotations: emptyMapIfNil(buildRecord.Annotations),
 		},
 		Links: map[string]Link{
 			"self": {

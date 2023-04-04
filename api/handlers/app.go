@@ -39,6 +39,7 @@ const (
 	AppBuildsPath                     = "/v3/apps/{guid}/builds"
 
 	invalidDropletMsg = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
+	AppPackagesPath   = "/v3/apps/{guid}/packages"
 
 	AppStartedState = "STARTED"
 	AppStoppedState = "STOPPED"
@@ -67,6 +68,7 @@ type App struct {
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
 	spaceRepo        SpaceRepository
+	packageRepo      CFPackageRepository
 	decoderValidator *DecoderValidator
 	buildRepo        CFBuildRepository
 	processStats     ProcessStats
@@ -80,6 +82,7 @@ func NewApp(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	spaceRepo SpaceRepository,
+	packageRepo CFPackageRepository,
 	decoderValidator *DecoderValidator,
 	buildRepo CFBuildRepository,
 	processStats ProcessStats,
@@ -92,6 +95,7 @@ func NewApp(
 		routeRepo:        routeRepo,
 		domainRepo:       domainRepo,
 		decoderValidator: decoderValidator,
+		packageRepo:      packageRepo,
 		spaceRepo:        spaceRepo,
 		buildRepo:        buildRepo,
 		processStats:     processStats,
@@ -169,7 +173,7 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForAppList(appList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForApp, appList, h.serverURL, *r.URL)), nil
 }
 
 func (h *App) sortList(appList []repositories.AppRecord, order string) error {
@@ -373,7 +377,7 @@ func (h *App) getRoutes(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch route or domains from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRouteList(routes, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRoute, routes, h.serverURL, *r.URL)), nil
 }
 
 func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
@@ -560,6 +564,29 @@ func (h *App) getProcess(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
 }
 
+func (h *App) getPackages(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-packages")
+	appGUID := routing.URLParam(r, "guid")
+
+	_, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+	}
+
+	fetchPackagesForAppMessage := repositories.ListPackagesMessage{
+		AppGUIDs: []string{appGUID},
+		States:   []string{},
+	}
+
+	packageList, err := h.packageRepo.ListPackages(r.Context(), authInfo, fetchPackagesForAppMessage)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app Package(s) from Kubernetes")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForPackage, packageList, h.serverURL, *r.URL)), nil
+}
+
 //nolint:dupl
 func (h *App) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
@@ -675,6 +702,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: AppEnvVarsPath, Handler: h.getEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
 		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSshEnabled},
+		{Method: "GET", Pattern: AppPackagesPath, Handler: h.getPackages},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 		{Method: "PATCH", Pattern: AppFeaturePath, Handler: h.updateAppFeature},
 		{Method: "GET", Pattern: AppBuildsPath, Handler: h.getAppBuilds},

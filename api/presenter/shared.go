@@ -35,9 +35,9 @@ type Link struct {
 	Method string `json:"method,omitempty"`
 }
 
-type ListResponse struct {
+type ListResponse[T any] struct {
 	PaginationData PaginationData `json:"pagination"`
-	Resources      []interface{}  `json:"resources"`
+	Resources      []T            `json:"resources"`
 	Included       *IncludedData  `json:"included,omitempty"`
 }
 
@@ -58,8 +58,14 @@ type PageRef struct {
 	HREF string `json:"href"`
 }
 
-func ForList(resources []interface{}, baseURL, requestURL url.URL) ListResponse {
-	return ListResponse{
+type itemPresenter[T, S any] func(T, url.URL) S
+
+func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL) ListResponse[S] {
+	presenters := []S{}
+	for _, resource := range resources {
+		presenters = append(presenters, itemPresenter(resource, baseURL))
+	}
+	return ListResponse[S]{
 		PaginationData: PaginationData{
 			TotalResults: len(resources),
 			TotalPages:   1,
@@ -70,7 +76,7 @@ func ForList(resources []interface{}, baseURL, requestURL url.URL) ListResponse 
 				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
 			},
 		},
-		Resources: resources,
+		Resources: presenters,
 	}
 }
 

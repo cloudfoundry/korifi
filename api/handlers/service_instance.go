@@ -139,7 +139,7 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceList(serviceInstanceList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstanceList, h.serverURL, *r.URL)), nil
 }
 
 // nolint:dupl

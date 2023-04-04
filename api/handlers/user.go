@@ -25,13 +25,11 @@ func NewUser(apiBaseURL url.URL) User {
 
 func (h User) list(req *http.Request) (*routing.Response, error) {
 	usernames := req.URL.Query().Get("usernames")
-	users := []interface{}{}
+	users := []string{}
 	if len(usernames) > 0 {
-		for _, username := range strings.Split(usernames, ",") {
-			users = append(users, presenter.ForUser(username))
-		}
+		users = strings.Split(usernames, ",")
 	}
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(users, h.apiBaseURL, *req.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForUser, users, h.apiBaseURL, *req.URL)), nil
 }
 
 func (h User) UnauthenticatedRoutes() []routing.Route {

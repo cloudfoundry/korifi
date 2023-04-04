@@ -20,7 +20,7 @@ var _ = Describe("Multi Process", func() {
 	BeforeEach(func() {
 		errResp = cfErrs{}
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
-		appGUID, _ = pushTestApp(spaceGUID, multiProcessAppBitsFile())
+		appGUID, _ = pushTestApp(spaceGUID, multiProcessAppBitsFile)
 		workerProcessGUID = getProcess(appGUID, "worker").GUID
 		body := curlApp(appGUID, "")
 		Expect(body).To(ContainSubstring("Hello from a multi-process app!"))

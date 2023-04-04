@@ -83,7 +83,7 @@ func (h *Space) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch spaces")
 	}
 
-	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL, *r.URL)
+	spaceList := presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL)
 	return routing.NewResponse(http.StatusOK).WithBody(spaceList), nil
 }
 

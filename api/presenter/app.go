@@ -56,7 +56,7 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 		Lifecycle: Lifecycle{
 			Type: responseApp.Lifecycle.Type,
 			Data: LifecycleData{
-				Buildpacks: responseApp.Lifecycle.Data.Buildpacks,
+				Buildpacks: emptySliceIfNil(responseApp.Lifecycle.Data.Buildpacks),
 				Stack:      responseApp.Lifecycle.Data.Stack,
 			},
 		},
@@ -108,15 +108,6 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 			},
 		},
 	}
-}
-
-func ForAppList(appRecordList []repositories.AppRecord, baseURL, requestURL url.URL) ListResponse {
-	appResponses := make([]interface{}, 0, len(appRecordList))
-	for _, app := range appRecordList {
-		appResponses = append(appResponses, ForApp(app, baseURL))
-	}
-
-	return ForList(appResponses, baseURL, requestURL)
 }
 
 type CurrentDropletResponse struct {
@@ -184,7 +175,15 @@ func ForAppEnv(envVarRecord repositories.AppEnvRecord) AppEnvResponse {
 		EnvironmentVariables: envVarRecord.EnvironmentVariables,
 		StagingEnvJSON:       map[string]string{},
 		RunningEnvJSON:       map[string]string{},
-		SystemEnvJSON:        envVarRecord.SystemEnv,
-		ApplicationEnvJSON:   envVarRecord.AppEnv,
+		SystemEnvJSON:        emptyMapToAnyIfEmpty(envVarRecord.SystemEnv),
+		ApplicationEnvJSON:   emptyMapToAnyIfEmpty(envVarRecord.AppEnv),
 	}
+}
+
+func emptyMapToAnyIfEmpty(m map[string]any) map[string]any {
+	if m == nil {
+		return map[string]any{}
+	}
+
+	return m
 }

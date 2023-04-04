@@ -27,20 +27,7 @@ type RoleLinks struct {
 	Organization *Link `json:"organization,omitempty"`
 }
 
-func ForCreateRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
-	return toRoleResponse(role, apiBaseURL)
-}
-
-func ForRoleList(roles []repositories.RoleRecord, apiBaseURL, requestURL url.URL) ListResponse {
-	items := make([]any, len(roles))
-	for i := range items {
-		items[i] = toRoleResponse(roles[i], apiBaseURL)
-	}
-
-	return ForList(items, apiBaseURL, requestURL)
-}
-
-func toRoleResponse(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
+func ForRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
 	resp := RoleResponse{
 		GUID:      role.GUID,
 		CreatedAt: role.CreatedAt,

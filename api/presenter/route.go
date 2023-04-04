@@ -108,15 +108,6 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 	}
 }
 
-func ForRouteList(routeRecordList []repositories.RouteRecord, baseURL, requestURL url.URL) ListResponse {
-	routeResponses := make([]interface{}, 0, len(routeRecordList))
-	for _, routeRecord := range routeRecordList {
-		routeResponses = append(routeResponses, ForRoute(routeRecord, baseURL))
-	}
-
-	return ForList(routeResponses, baseURL, requestURL)
-}
-
 func forDestination(destination repositories.DestinationRecord) routeDestination {
 	return routeDestination{
 		GUID: destination.GUID,

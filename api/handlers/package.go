@@ -22,7 +22,6 @@ const (
 	PackagesPath        = "/v3/packages"
 	PackageUploadPath   = "/v3/packages/{guid}/upload"
 	PackageDropletsPath = "/v3/packages/{guid}/droplets"
-	AppPackgesPath      = "/v3/apps/{guid}/packages"
 )
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
@@ -112,7 +111,7 @@ func (h Package) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForPackageList(records, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForPackage, records, h.serverURL, *r.URL)), nil
 }
 
 func (h Package) sortList(records []repositories.PackageRecord, order string) error {
@@ -252,23 +251,7 @@ func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching droplet list with repository")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDropletList(dropletList, h.serverURL, *r.URL)), nil
-}
-
-func (h *Package) getAppPackages(r *http.Request) (*routing.Response, error) {
-	authInfo, _ := authorization.InfoFromContext(r.Context())
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.get")
-
-	appGUID := routing.URLParam(r, "guid")
-
-	listPackagesMessage := repositories.ListPackagesMessage{AppGUIDs: []string{appGUID}}
-
-	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, listPackagesMessage)
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
-	}
-
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForPackageList(records, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDroplet, dropletList, h.serverURL, *r.URL)), nil
 }
 
 func (h *Package) UnauthenticatedRoutes() []routing.Route {
@@ -283,6 +266,5 @@ func (h *Package) AuthenticatedRoutes() []routing.Route {
 		{Method: "POST", Pattern: PackagesPath, Handler: h.create},
 		{Method: "POST", Pattern: PackageUploadPath, Handler: h.upload},
 		{Method: "GET", Pattern: PackageDropletsPath, Handler: h.listDroplets},
-		{Method: "GET", Pattern: AppPackgesPath, Handler: h.getAppPackages},
 	}
 }

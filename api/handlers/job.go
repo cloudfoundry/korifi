@@ -57,7 +57,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	case syncSpacePrefix:
 		jobResponse = presenter.ForManifestApplyJob(jobGUID, resourceGUID, h.serverURL)
 	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
-		jobResponse = presenter.ForDeleteJob(jobGUID, jobType, h.serverURL)
+		jobResponse = presenter.ForJob(jobGUID, jobType, h.serverURL)
 	default:
 		return nil, apierrors.LogAndReturn(
 			logger,

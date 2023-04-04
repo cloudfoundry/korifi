@@ -264,6 +264,7 @@ func main() {
 			routeRepo,
 			domainRepo,
 			spaceRepo,
+			packageRepo,
 			decoderValidator,
 			buildRepo,
 			processStats,

@@ -34,26 +34,14 @@ type JobLinks struct {
 }
 
 func ForManifestApplyJob(jobGUID string, spaceGUID string, baseURL url.URL) JobResponse {
-	return JobResponse{
-		GUID:      jobGUID,
-		Errors:    nil,
-		Warnings:  nil,
-		Operation: SpaceApplyManifestOperation,
-		State:     "COMPLETE",
-		CreatedAt: "",
-		UpdatedAt: "",
-		Links: JobLinks{
-			Self: Link{
-				HRef: buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build(),
-			},
-			Space: &Link{
-				HRef: buildURL(baseURL).appendPath("/v3/spaces", spaceGUID).build(),
-			},
-		},
+	response := ForJob(jobGUID, SpaceApplyManifestOperation, baseURL)
+	response.Links.Space = &Link{
+		HRef: buildURL(baseURL).appendPath("/v3/spaces", spaceGUID).build(),
 	}
+	return response
 }
 
-func ForDeleteJob(jobGUID string, operation string, baseURL url.URL) JobResponse {
+func ForJob(jobGUID string, operation string, baseURL url.URL) JobResponse {
 	return JobResponse{
 		GUID:      jobGUID,
 		Errors:    nil,
@@ -70,7 +58,7 @@ func ForDeleteJob(jobGUID string, operation string, baseURL url.URL) JobResponse
 	}
 }
 
-func JobURLForRedirects(resourceName string, operation string, baseURL url.URL) string {
-	jobGUID := fmt.Sprintf("%s%s%s", operation, JobGUIDDelimiter, resourceName)
+func JobURLForRedirects(resourceGUID string, operation string, baseURL url.URL) string {
+	jobGUID := fmt.Sprintf("%s%s%s", operation, JobGUIDDelimiter, resourceGUID)
 	return buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build()
 }

@@ -40,12 +40,3 @@ func ForBuildpack(buildpackRecord repositories.BuildpackRecord, baseURL url.URL)
 
 	return toReturn
 }
-
-func ForBuildpackList(buildpackRecordList []repositories.BuildpackRecord, baseURL, requestURL url.URL) ListResponse {
-	buildpackResponses := make([]interface{}, 0, len(buildpackRecordList))
-	for _, buildpack := range buildpackRecordList {
-		buildpackResponses = append(buildpackResponses, ForBuildpack(buildpack, baseURL))
-	}
-
-	return ForList(buildpackResponses, baseURL, requestURL)
-}

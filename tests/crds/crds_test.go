@@ -130,22 +130,17 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
             `, rootNamespace, testCLIUser)
 		Eventually(applyCFAdminRoleBinding).Should(Exit(0))
 
-		// In case of gexec.Exit(), eventually doesn't block for "n" seconds
-		// but will return (and fail) as soon as the mismatched exit code arrives,
-		// To get around it, we wrapped it in an outer eventually block
-		// See: https://onsi.github.io/gomega/#aborting-eventuallyconsistently
+		Eventually(func() int {
+			return kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", rootNamespace).Wait().ExitCode()
+		}, "20s").Should(BeNumerically("==", 0))
 
-		Eventually(func(g Gomega) {
-			Eventually(kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", rootNamespace)).Should(Exit(0))
-		}, "20s").Should(Succeed())
+		Eventually(func() int {
+			return kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", orgGUID).Wait().ExitCode()
+		}, "20s").Should(BeNumerically("==", 0))
 
-		Eventually(func(g Gomega) {
-			Eventually(kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", orgGUID)).Should(Exit(0))
-		}, "20s").Should(Succeed())
-
-		Eventually(func(g Gomega) {
-			Eventually(kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", spaceGUID)).Should(Exit(0))
-		}, "20s").Should(Succeed())
+		Eventually(func() int {
+			return kubectl("get", "rolebinding/cf-admin-test-cli-role-binding", "-n", spaceGUID).Wait().ExitCode()
+		}, "20s").Should(BeNumerically("==", 0))
 	})
 
 	It("can delete the cf-admin rolebinding", func() {
@@ -159,7 +154,6 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", orgGUID, "--timeout=60s"), "60s").Should(Exit(0))
 
 		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
-
 	})
 
 	It("can delete the org", func() {
@@ -173,6 +167,5 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(kubectl("wait", "--for=delete", "namespace/"+orgGUID, "--timeout=60s"), "60s").Should(Exit(0))
 
 		Eventually(kubectl("wait", "--for=delete", "namespace/"+spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
-
 	})
 })

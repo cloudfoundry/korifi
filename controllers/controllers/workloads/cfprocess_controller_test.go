@@ -71,7 +71,11 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		UpdateCFAppWithCurrentDropletRef(cfApp, testBuildGUID)
 		cfApp.Spec.EnvSecretName = testAppGUID + "-env"
 
-		appEnvSecret := BuildCFAppEnvVarsSecret(testAppGUID, cfSpace.Status.GUID, map[string]string{"test-env-key": "test-env-val"})
+		appEnvSecret := BuildCFAppEnvVarsSecret(testAppGUID, cfSpace.Status.GUID, map[string]string{
+			"b-test-env-key-second": "b-test-env-val-second",
+			"c-test-env-key-third":  "c-test-env-val-third",
+			"a-test-env-key-first":  "a-test-env-val-first",
+		})
 		Expect(k8sClient.Create(ctx, appEnvSecret)).To(Succeed())
 
 		Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
@@ -147,29 +151,11 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.Spec.Resources.Requests.Memory()).To(matchers.RepresentResourceQuantity(cfProcess.Spec.MemoryMB, "Mi"))
 				g.Expect(appWorkload.Spec.Resources.Requests.Cpu()).To(matchers.RepresentResourceQuantity(100, "m"), "expected cpu request to be 100m (Based on 1024MiB memory)")
 
-				g.Expect(appWorkload.Spec.Env).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("test-env-key"),
-						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-							"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: cfApp.Spec.EnvSecretName,
-								},
-								Key: "test-env-key",
-							})),
-						})),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("VCAP_SERVICES"),
-						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
-							"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: updatedCFApp.Status.VCAPServicesSecretName,
-								},
-								Key: "VCAP_SERVICES",
-							})),
-						})),
-					}),
+				// TODO: Write new test for env var ordering to better catch map iterator ordering instability
+				// We expect this test will still continue to pass and failures will not be considered flakes, but may
+				// exhibit false positives should the required sort code be removed.
+				g.Expect(appWorkload.Spec.Env).To(HaveExactElements(
+					Equal(corev1.EnvVar{Name: "PORT", Value: "8080"}),
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal("VCAP_APPLICATION"),
 						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
@@ -183,7 +169,50 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					}),
 					Equal(corev1.EnvVar{Name: "VCAP_APP_HOST", Value: "0.0.0.0"}),
 					Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: "8080"}),
-					Equal(corev1.EnvVar{Name: "PORT", Value: "8080"}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("VCAP_SERVICES"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: updatedCFApp.Status.VCAPServicesSecretName,
+								},
+								Key: "VCAP_SERVICES",
+							})),
+						})),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("a-test-env-key-first"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: cfApp.Spec.EnvSecretName,
+								},
+								Key: "a-test-env-key-first",
+							})),
+						})),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("b-test-env-key-second"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: cfApp.Spec.EnvSecretName,
+								},
+								Key: "b-test-env-key-second",
+							})),
+						})),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("c-test-env-key-third"),
+						"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
+							"SecretKeyRef": PointTo(Equal(corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: cfApp.Spec.EnvSecretName,
+								},
+								Key: "c-test-env-key-third",
+							})),
+						})),
+					}),
 				))
 				g.Expect(appWorkload.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", processTypeWebCommand))
 			})

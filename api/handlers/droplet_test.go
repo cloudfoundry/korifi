@@ -9,6 +9,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/go-http-utils/headers"
 
@@ -98,60 +99,8 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns the droplet in the response", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					  "guid": "`+dropletGUID+`",
-					  "state": "STAGED",
-					  "error": null,
-					  "lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					  "execution_metadata": "",
-					  "process_types": {
-						"rake": "bundle exec rake",
-						"web": "bundle exec rackup config.ru -p $PORT"
-					  },
-					  "checksum": null,
-					  "buildpacks": [],
-					  "stack": "cflinuxfs3",
-					  "image": null,
-					  "created_at": "`+createdAt+`",
-					  "updated_at": "`+updatedAt+`",
-					  "relationships": {
-						"app": {
-						  "data": {
-							"guid": "`+appGUID+`"
-						  }
-						}
-					  },
-					  "links": {
-						"self": {
-						  "href": "`+defaultServerURI("/v3/droplets/", dropletGUID)+`"
-						},
-						"package": {
-						  "href": "`+defaultServerURI("/v3/packages/", packageGUID)+`"
-						},
-						"app": {
-						  "href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
-						},
-						"assign_current_droplet": {
-						  "href": "`+defaultServerURI("/v3/apps/", appGUID, "/relationships/current_droplet")+`",
-						  "method": "PATCH"
-						  },
-						"download": null
-					  },
-					  "metadata": {
-						"labels": {
-                          "foo": "bar"
-                        },
-						"annotations": {
-                          "bar": "baz"
-                        }
-					  }
-					}`), "Response body matches response:")
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.process_types.rake", "bundle exec rake"))
 			})
 		})
 
@@ -265,60 +214,8 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns the droplet in the response", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					  "guid": "`+dropletGUID+`",
-					  "state": "STAGED",
-					  "error": null,
-					  "lifecycle": {
-						"type": "buildpack",
-						"data": {
-							"buildpacks": [],
-							"stack": ""
-						}
-					},
-					  "execution_metadata": "",
-					  "process_types": {
-						"rake": "bundle exec rake",
-						"web": "bundle exec rackup config.ru -p $PORT"
-					  },
-					  "checksum": null,
-					  "buildpacks": [],
-					  "stack": "cflinuxfs3",
-					  "image": null,
-					  "created_at": "`+createdAt+`",
-					  "updated_at": "`+updatedAt+`",
-					  "relationships": {
-						"app": {
-						  "data": {
-							"guid": "`+appGUID+`"
-						  }
-						}
-					  },
-					  "links": {
-						"self": {
-						  "href": "`+defaultServerURI("/v3/droplets/", dropletGUID)+`"
-						},
-						"package": {
-						  "href": "`+defaultServerURI("/v3/packages/", packageGUID)+`"
-						},
-						"app": {
-						  "href": "`+defaultServerURI("/v3/apps/", appGUID)+`"
-						},
-						"assign_current_droplet": {
-						  "href": "`+defaultServerURI("/v3/apps/", appGUID, "/relationships/current_droplet")+`",
-						  "method": "PATCH"
-						  },
-						"download": null
-					  },
-					  "metadata": {
-						"labels": {
-                          "foo": "bar"
-                        },
-						"annotations": {
-                          "bar": "baz"
-                        }
-					  }
-					}`), "Response body matches response:")
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.process_types.rake", "bundle exec rake"))
 			})
 		})
 

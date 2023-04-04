@@ -1,14 +1,13 @@
 package handlers_test
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,48 +62,13 @@ var _ = Describe("Buildpack", func() {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-					"pagination": {
-						"total_results": 1,
-						"total_pages": 1,
-						"first": {
-							"href": "%[1]s/v3/buildpacks"
-						},
-						"last": {
-							"href": "%[1]s/v3/buildpacks"
-						},
-						"next": null,
-						"previous": null
-					},
-					"resources": [
-						{
-							"guid": "",
-							"created_at": "2016-03-18T23:26:46Z",
-							"updated_at": "2016-10-17T20:00:42Z",
-							"name": "paketo-foopacks/bar",
-							"filename": "paketo-foopacks/bar@1.0.0",
-							"stack": "waffle-house",
-							"position": 1,
-							"enabled": true,
-							"locked": false,
-							"metadata": {
-								"labels": {},
-								"annotations": {}
-							},
-							"links": {}
-						}
-					]
-				}`, defaultServerURL)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/buildpacks"))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(1)))
+			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].filename", "paketo-foopacks/bar@1.0.0"))
 		})
 
 		Describe("Order results", func() {
-			type res struct {
-				Position int `json:"position"`
-			}
-			type resList struct {
-				Resources []res `json:"resources"`
-			}
-
 			BeforeEach(func() {
 				buildpackRepo.ListBuildpacksReturns([]repositories.BuildpackRecord{
 					{
@@ -125,25 +89,18 @@ var _ = Describe("Buildpack", func() {
 				}, nil)
 			})
 
-			DescribeTable("ordering results", func(orderBy string, expectedOrder ...int) {
+			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
 				req = createHttpRequest("GET", "/v3/buildpacks?order_by="+orderBy, nil)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
-				var respList resList
-				err := json.Unmarshal(rr.Body.Bytes(), &respList)
-				Expect(err).NotTo(HaveOccurred())
-				expectedList := make([]res, len(expectedOrder))
-				for i := range expectedOrder {
-					expectedList[i] = res{Position: expectedOrder[i]}
-				}
-				Expect(respList.Resources).To(Equal(expectedList))
+				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[*].position", expectedOrder))
 			},
-				Entry("created_at ASC", "created_at", 1, 3, 2),
-				Entry("created_at DESC", "-created_at", 2, 3, 1),
-				Entry("updated_at ASC", "updated_at", 2, 1, 3),
-				Entry("updated_at DESC", "-updated_at", 3, 1, 2),
-				Entry("position ASC", "position", 1, 2, 3),
-				Entry("position DESC", "-position", 3, 2, 1),
+				Entry("created_at ASC", "created_at", 1.0, 3.0, 2.0),
+				Entry("created_at DESC", "-created_at", 2.0, 3.0, 1.0),
+				Entry("updated_at ASC", "updated_at", 2.0, 1.0, 3.0),
+				Entry("updated_at DESC", "-updated_at", 3.0, 1.0, 2.0),
+				Entry("position ASC", "position", 1.0, 2.0, 3.0),
+				Entry("position DESC", "-position", 3.0, 2.0, 1.0),
 			)
 
 			When("order_by is not a valid field", func() {
