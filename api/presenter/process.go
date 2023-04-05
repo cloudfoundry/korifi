@@ -47,6 +47,9 @@ type ProcessResponseHealthCheckData struct {
 	HTTPEndpoint      string `json:"endpoint"`
 }
 
+// alias to avoid infinite recursive in default case of switch below
+type respAlias ProcessResponseHealthCheckData
+
 func (h ProcessResponseHealthCheckData) MarshalJSON() ([]byte, error) {
 	timeout := &(h.Timeout)
 	if *timeout == 0 {
@@ -74,7 +77,7 @@ func (h ProcessResponseHealthCheckData) MarshalJSON() ([]byte, error) {
 			Timeout: timeout,
 		})
 	default:
-		return json.Marshal(h)
+		return json.Marshal(respAlias(h))
 	}
 }
 

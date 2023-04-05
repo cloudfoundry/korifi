@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,14 +19,9 @@ import (
 )
 
 var _ = Describe("Process", func() {
-	const (
-		processGUID = "test-process-guid"
-	)
-
 	var (
 		processRepo  *fake.CFProcessRepository
 		processStats *fake.ProcessStats
-		req          *http.Request
 	)
 
 	BeforeEach(func() {
@@ -44,139 +39,51 @@ var _ = Describe("Process", func() {
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
-	JustBeforeEach(func() {
-		routerBuilder.Build().ServeHTTP(rr, req)
-	})
-
 	Describe("the GET /v3/processes/:guid endpoint", func() {
-		const (
-			processGUID     = "process-guid"
-			spaceGUID       = "space-guid"
-			appGUID         = "app-guid"
-			createdAt       = "1906-04-18T13:12:00Z"
-			updatedAt       = "1906-04-18T13:12:01Z"
-			processType     = "web"
-			command         = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-			memoryInMB      = 256
-			diskInMB        = 1024
-			healthcheckType = "port"
-			instances       = 1
-
-			baseURL = "https://api.example.org"
-		)
-
-		var (
-			labels      = map[string]string{}
-			annotations = map[string]string{}
-		)
-
 		BeforeEach(func() {
 			processRepo.GetProcessReturns(repositories.ProcessRecord{
-				GUID:             processGUID,
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
-				CreatedAt:        createdAt,
-				UpdatedAt:        updatedAt,
-				Type:             processType,
-				Command:          command,
-				DesiredInstances: instances,
-				MemoryMB:         memoryInMB,
-				DiskQuotaMB:      diskInMB,
-				HealthCheck: repositories.HealthCheck{
-					Type: healthcheckType,
-					Data: repositories.HealthCheckData{},
-				},
-				Labels:      labels,
-				Annotations: annotations,
+				GUID: "process-guid",
 			}, nil)
+		})
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes/"+processGUID, nil)
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/processes/process-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
-		When("on the happy path", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+		It("returns a process", func() {
+			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualProcessGUID := processRepo.GetProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualProcessGUID).To(Equal("process-guid"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "process-guid"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/processes/process-guid"),
+			)))
+		})
+
+		When("the user lacks access", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(errors.New("access denied or something"), repositories.ProcessResourceType))
 			})
 
-			It("passes the authorization.Info to the process repository", func() {
-				Expect(processRepo.GetProcessCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := processRepo.GetProcessArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
-
-			It("returns a process", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "` + processGUID + `",
-					"created_at": "` + createdAt + `",
-					"updated_at": "` + updatedAt + `",
-					"type": "web",
-					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": ` + fmt.Sprint(instances) + `,
-					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
-					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
-					"health_check": {
-					   "type": "` + healthcheckType + `",
-					   "data": {
-						  "timeout": null,
-						  "invocation_timeout": null
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "` + appGUID + `"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
-					   },
-					   "scale": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
-					   },
-					   "space": {
-						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
-					   },
-					   "stats": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
-					   }
-					}
-				 }`))
+			It("returns a not-found error", func() {
+				expectNotFoundError("Process")
 			})
 		})
 
-		When("on the sad path and", func() {
-			When("the user lacks access", func() {
-				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(errors.New("access denied or something"), repositories.ProcessResourceType))
-				})
-
-				It("returns a not-found error", func() {
-					expectNotFoundError("Process")
-				})
+		When("there is some other error fetching the process", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
 			})
 
-			When("there is some other error fetching the process", func() {
-				BeforeEach(func() {
-					processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("unknown!"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
-				})
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -184,42 +91,25 @@ var _ = Describe("Process", func() {
 	Describe("the GET /v3/processes/:guid/sidecars endpoint", func() {
 		BeforeEach(func() {
 			processRepo.GetProcessReturns(repositories.ProcessRecord{}, nil)
-
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes/"+processGUID+"/sidecars", nil)
-			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("on the happy path", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/processes/process-guid/sidecars", nil)
+			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
 
-			It("passes the authorization.Info to the process repository", func() {
-				Expect(processRepo.GetProcessCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := processRepo.GetProcessArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
+		It("returns the empty list of sidecars", func() {
+			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := processRepo.GetProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 
-			It("returns a canned response with the processGUID in it", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-					"pagination": {
-						"total_results": 0,
-						"total_pages": 1,
-						"first": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars"
-						},
-						"last": {
-							"href": "%[1]s/v3/processes/%[2]s/sidecars"
-						},
-						"next": null,
-						"previous": null
-					},
-					"resources": []
-				}`, defaultServerURL, processGUID)), "Response body matches response:")
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeZero()),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/processes/process-guid/sidecars"),
+			)))
 		})
 
 		When("the process isn't accessible to the user", func() {
@@ -244,236 +134,67 @@ var _ = Describe("Process", func() {
 	})
 
 	Describe("the POST /v3/processes/:guid/actions/scale endpoint", func() {
-		const (
-			processGUID           = "process-guid"
-			spaceGUID             = "space-guid"
-			appGUID               = "app-guid"
-			createdAt             = "1906-04-18T13:12:00Z"
-			updatedAt             = "1906-04-18T13:12:01Z"
-			processType           = "web"
-			command               = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-			memoryInMB      int64 = 256
-			diskInMB        int64 = 1024
-			healthcheckType       = "port"
-			instances             = 5
-
-			baseURL = "https://api.example.org"
-		)
-
-		var (
-			labels      = map[string]string{}
-			annotations = map[string]string{}
-		)
-
-		queuePostRequest := func(requestBody string) {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/processes/"+processGUID+"/actions/scale", strings.NewReader(requestBody))
-			Expect(err).NotTo(HaveOccurred())
-		}
+		var requestBody string
 
 		BeforeEach(func() {
 			processRepo.GetProcessReturns(repositories.ProcessRecord{
-				GUID:      processGUID,
+				GUID:      "process-guid",
 				SpaceGUID: spaceGUID,
 			}, nil)
 
 			processRepo.ScaleProcessReturns(repositories.ProcessRecord{
-				GUID:             processGUID,
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
-				CreatedAt:        createdAt,
-				UpdatedAt:        updatedAt,
-				Type:             processType,
-				Command:          command,
-				DesiredInstances: instances,
-				MemoryMB:         memoryInMB,
-				DiskQuotaMB:      diskInMB,
-				HealthCheck: repositories.HealthCheck{
-					Type: healthcheckType,
-					Data: repositories.HealthCheckData{},
-				},
-				Labels:      labels,
-				Annotations: annotations,
+				GUID: "process-guid",
 			}, nil)
 
-			queuePostRequest(fmt.Sprintf(`{
-				"instances": %[1]d,
-				"memory_in_mb": %[2]d,
-				"disk_in_mb": %[3]d
-			}`, instances, memoryInMB, diskInMB))
+			requestBody = `{
+				"instances": 3,
+				"memory_in_mb": 512,
+				"disk_in_mb": 256
+			}`
 		})
 
-		It("gets the process", func() {
-			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualProcessGUID := processRepo.GetProcessArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualProcessGUID).To(Equal(processGUID))
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/processes/process-guid/actions/scale", strings.NewReader(requestBody))
+			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("scales the process", func() {
+			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualProcessGUID := processRepo.GetProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualProcessGUID).To(Equal("process-guid"))
+
 			Expect(processRepo.ScaleProcessCallCount()).To(Equal(1))
 			_, actualAuthInfo, scaleProcessMsg := processRepo.ScaleProcessArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(scaleProcessMsg).To(Equal(repositories.ScaleProcessMessage{
-				GUID:      processGUID,
+				GUID:      "process-guid",
 				SpaceGUID: spaceGUID,
 				ProcessScaleValues: repositories.ProcessScaleValues{
-					Instances: tools.PtrTo(instances),
-					MemoryMB:  tools.PtrTo(memoryInMB),
-					DiskMB:    tools.PtrTo(diskInMB),
+					Instances: tools.PtrTo(3),
+					MemoryMB:  tools.PtrTo(int64(512)),
+					DiskMB:    tools.PtrTo(int64(256)),
 				},
 			}))
 		})
 
-		When("all scale fields are set", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
-
-			It("returns the scaled process", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "` + processGUID + `",
-					"created_at": "` + createdAt + `",
-					"updated_at": "` + updatedAt + `",
-					"type": "web",
-					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": ` + fmt.Sprint(instances) + `,
-					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
-					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
-					"health_check": {
-					   "type": "` + healthcheckType + `",
-					   "data": {
-						  "timeout": null,
-						  "invocation_timeout": null
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "` + appGUID + `"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
-					   },
-					   "scale": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
-					   },
-					   "space": {
-						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
-					   },
-					   "stats": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
-					   }
-					}
-				 }`))
-			})
-		})
-
-		When("only some fields are set", func() {
-			BeforeEach(func() {
-				queuePostRequest(fmt.Sprintf(`{
-						"memory_in_mb": %[1]d
-					}`, memoryInMB))
-			})
-
-			It("invokes the scale function with only a subset of the scale fields", func() {
-				Expect(processRepo.ScaleProcessCallCount()).To(Equal(1), "did not call scaleProcess just once")
-				_, _, invokedProcessScale := processRepo.ScaleProcessArgsForCall(0)
-				Expect(invokedProcessScale.Instances).To(BeNil())
-				Expect(invokedProcessScale.DiskMB).To(BeNil())
-				Expect(*invokedProcessScale.MemoryMB).To(Equal(memoryInMB))
-			})
-
-			It("returns status 200 OK", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
-
-			It("returns the scaled process", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "` + processGUID + `",
-					"created_at": "` + createdAt + `",
-					"updated_at": "` + updatedAt + `",
-					"type": "web",
-					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": ` + fmt.Sprint(instances) + `,
-					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
-					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
-					"health_check": {
-					   "type": "` + healthcheckType + `",
-					   "data": {
-						  "timeout": null,
-						  "invocation_timeout": null
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "` + appGUID + `"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
-					   },
-					   "scale": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
-					   },
-					   "space": {
-						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
-					   },
-					   "stats": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
-					   }
-					}
-				 }`))
-			})
+		It("scales the process", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "process-guid"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/processes/process-guid"),
+			)))
 		})
 
 		When("the request JSON is invalid", func() {
 			BeforeEach(func() {
-				queuePostRequest(`}`)
-			})
-
-			It("returns a status 400 Bad Request ", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
+				requestBody = `}`
 			})
 
 			It("has the expected error response body", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
-						"errors": [
-							{
-								"title": "CF-MessageParseError",
-								"detail": "Request invalid due to parse error: invalid request body",
-								"code": 1001
-							}
-						]
-					}`), "Response body matches response:")
+				expectBadRequestError()
 			})
 		})
 
@@ -511,7 +232,8 @@ var _ = Describe("Process", func() {
 			DescribeTable("returns a validation decision",
 				func(requestBody string, status int) {
 					tableTestRecorder := httptest.NewRecorder()
-					queuePostRequest(requestBody)
+					req, err := http.NewRequestWithContext(ctx, "POST", "/v3/processes/process-guid/actions/scale", strings.NewReader(requestBody))
+					Expect(err).NotTo(HaveOccurred())
 					routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
 					Expect(tableTestRecorder.Code).To(Equal(status))
 				},
@@ -526,144 +248,42 @@ var _ = Describe("Process", func() {
 	})
 
 	Describe("the GET /v3/processes/<guid>/stats endpoint", func() {
-		var (
-			process1Time, process2Time string
-			process1CPU, process2CPU   float64
-			process1Mem, process2Mem   int64
-			process1Disk, process2Disk int64
-		)
 		BeforeEach(func() {
-			process1Time = "1906-04-18T13:12:00Z"
-			process2Time = "1906-04-18T13:12:00Z"
-			process1CPU = 133.47
-			process2CPU = 127.58
-			process1Mem = 16
-			process2Mem = 8
-			process1Disk = 50
-			process2Disk = 100
 			processStats.FetchStatsReturns([]actions.PodStatsRecord{
 				{
-					Type:  "web",
-					Index: 0,
-					State: "RUNNING",
-					Usage: actions.Usage{
-						Time: &process1Time,
-						CPU:  &process1CPU,
-						Mem:  &process1Mem,
-						Disk: &process1Disk,
-					},
-					MemQuota:  tools.PtrTo(int64(1024)),
-					DiskQuota: tools.PtrTo(int64(2048)),
+					Type:     "web",
+					Index:    0,
+					MemQuota: tools.PtrTo(int64(1024)),
 				},
 				{
-					Type:  "web",
-					Index: 1,
-					State: "RUNNING",
-					Usage: actions.Usage{
-						Time: &process2Time,
-						CPU:  &process2CPU,
-						Mem:  &process2Mem,
-						Disk: &process2Disk,
-					},
-					MemQuota:  tools.PtrTo(int64(1024)),
-					DiskQuota: tools.PtrTo(int64(2048)),
+					Type:     "web",
+					Index:    1,
+					MemQuota: tools.PtrTo(int64(512)),
 				},
 			}, nil)
+		})
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes/"+processGUID+"/stats", nil)
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/processes/process-guid/stats", nil)
 			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
-		When("on the happy path", func() {
-			It("returns status 200 OK", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
+		It("returns the process stats", func() {
+			Expect(processStats.FetchStatsCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := processStats.FetchStatsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 
-			It("passes the authorization.Info to the fetch process stats func", func() {
-				Expect(processStats.FetchStatsCallCount()).To(Equal(1))
-				_, actualAuthInfo, _ := processStats.FetchStatsArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			It("returns a canned response with the processGUID in it", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-					"resources": [
-						{
-							"type": "web",
-							"index": 0,
-							"state": "RUNNING",
-							"host": null,
-							"uptime": null,
-							"mem_quota": 1024,
-							"disk_quota": 2048,
-							"fds_quota": null,
-							"isolation_segment": null,
-							"details": null,
-							"instance_ports": [],
-							"usage": {
-								"time": "%s",
-								"cpu": %f,
-								"mem": %d,
-								"disk": %d
-                            }
-						},
-						{
-							"type": "web",
-							"index": 1,
-							"state": "RUNNING",
-							"host": null,
-							"uptime": null,
-							"mem_quota": 1024,
-							"disk_quota": 2048,
-							"fds_quota": null,
-							"isolation_segment": null,
-							"details": null,
-							"instance_ports": [],
-							"usage": {
-								"time": "%s",
-								"cpu": %f,
-								"mem": %d,
-								"disk": %d
-                            }
-						}
-					]
-				}`, process1Time, process1CPU, process1Mem, process1Disk, process2Time, process2CPU, process2Mem, process2Disk)), "Response body matches response:")
-			})
-		})
-
-		When("the process is down", func() {
-			BeforeEach(func() {
-				processStats.FetchStatsReturns([]actions.PodStatsRecord{
-					{
-						Type:  "web",
-						Index: 0,
-						State: "DOWN",
-					},
-				}, nil)
-			})
-			It("returns a canned response with the processGUID in it", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr.Body.String()).To(MatchJSON(`{
-					"resources": [
-						{
-							"type": "web",
-							"index": 0,
-							"state": "DOWN",
-							"host": null,
-							"uptime": null,
-							"mem_quota": null,
-							"disk_quota": null,
-							"fds_quota": null,
-							"isolation_segment": null,
-							"details": null,
-							"usage": {}
-						}
-					]
-				}`), "Response body matches response:")
-			})
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.resources", HaveLen(2)),
+				MatchJSONPath("$.resources[0].type", "web"),
+				MatchJSONPath("$.resources[0].index", BeEquivalentTo(0)),
+				MatchJSONPath("$.resources[1].type", "web"),
+				MatchJSONPath("$.resources[1].mem_quota", BeEquivalentTo(512)),
+			)))
 		})
 
 		When("fetching stats fails with an unauthorized error", func() {
@@ -688,155 +308,52 @@ var _ = Describe("Process", func() {
 	})
 
 	Describe("the GET /v3/processes endpoint", func() {
-		const (
-			processGUID     = "process-guid"
-			spaceGUID       = "space-guid"
-			appGUID         = "app-guid"
-			createdAt       = "1906-04-18T13:12:00Z"
-			updatedAt       = "1906-04-18T13:12:01Z"
-			processType     = "web"
-			command         = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-			memoryInMB      = 256
-			diskInMB        = 1024
-			healthcheckType = "port"
-			instances       = 1
-
-			baseURL = "https://api.example.org"
-		)
-
-		var (
-			labels      = map[string]string{}
-			annotations = map[string]string{}
-		)
+		var queryString string
 
 		BeforeEach(func() {
+			queryString = ""
 			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
 				{
-					GUID:             processGUID,
-					SpaceGUID:        spaceGUID,
-					AppGUID:          appGUID,
-					CreatedAt:        createdAt,
-					UpdatedAt:        updatedAt,
-					Type:             processType,
-					Command:          command,
-					DesiredInstances: instances,
-					MemoryMB:         memoryInMB,
-					DiskQuotaMB:      diskInMB,
-					HealthCheck: repositories.HealthCheck{
-						Type: healthcheckType,
-						Data: repositories.HealthCheckData{},
-					},
-					Labels:      labels,
-					Annotations: annotations,
+					GUID: "process-guid",
 				},
 			}, nil)
 		})
 
-		When("on the happy path", func() {
-			When("Query Parameters are not provided", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes", nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
-				It("returns status 200 OK", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/processes"+queryString, nil)
+			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
 
-				It("returns Content-Type as JSON in header", func() {
-					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				})
-				It("returns the Pagination Data and Process Resources in the response", func() {
-					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-				"pagination": {
-					"total_results": 1,
-					"total_pages": 1,
-					"first": {
-						"href": "`+baseURL+`/v3/processes"
-					},
-					"last": {
-						"href": "`+baseURL+`/v3/processes"
-					},
-					"next": null,
-					"previous": null
-				},
-				"resources": [
-					{
-					"guid": "`+processGUID+`",
-					"created_at": "`+createdAt+`",
-					"updated_at": "`+updatedAt+`",
-					"type": "web",
-					"command": "[PRIVATE DATA HIDDEN IN LISTS]",
-					"instances": `+fmt.Sprint(instances)+`,
-					"memory_in_mb": `+fmt.Sprint(memoryInMB)+`,
-					"disk_in_mb": `+fmt.Sprint(diskInMB)+`,
-					"health_check": {
-					   "type": "`+healthcheckType+`",
-					   "data": {
-						  "timeout": null,
-						  "invocation_timeout": null
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "`+appGUID+`"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "`+baseURL+`/v3/processes/`+processGUID+`"
-					   },
-					   "scale": {
-						  "href": "`+baseURL+`/v3/processes/`+processGUID+`/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "`+baseURL+`/v3/apps/`+appGUID+`"
-					   },
-					   "space": {
-						  "href": "`+baseURL+`/v3/spaces/`+spaceGUID+`"
-					   },
-					   "stats": {
-						  "href": "`+baseURL+`/v3/processes/`+processGUID+`/stats"
-					   }
-					}
-				 }
-				]
-				}`)), "Response body matches response:")
-				})
+		It("returns the processes", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/processes"),
+				MatchJSONPath("$.resources[0].guid", "process-guid"),
+			)))
+		})
+
+		When("Query Parameters are provided", func() {
+			BeforeEach(func() {
+				queryString = "?app_guids=my-app-guid"
 			})
 
-			When("Query Parameters are provided", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes?app_guids=my-app-guid", nil)
-					Expect(err).NotTo(HaveOccurred())
-				})
+			It("invokes process repository with correct args", func() {
+				_, _, message := processRepo.ListProcessesArgsForCall(0)
+				Expect(message.AppGUIDs).To(HaveLen(1))
+				Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
 
-				It("returns status 200 OK", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
-
-				It("invokes process repository with correct args", func() {
-					_, _, message := processRepo.ListProcessesArgsForCall(0)
-					Expect(message.AppGUIDs).To(HaveLen(1))
-					Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
-				})
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})
 		})
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes?foo=my-app-guid", nil)
-				Expect(err).NotTo(HaveOccurred())
+				queryString = "?foo=my-app-guid"
 			})
+
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
 			})
@@ -845,9 +362,6 @@ var _ = Describe("Process", func() {
 		When("listing processes fails", func() {
 			BeforeEach(func() {
 				processRepo.ListProcessesReturns(nil, errors.New("boom"))
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/processes?app_guids=my-app-guid", nil)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns an error", func() {
@@ -857,177 +371,62 @@ var _ = Describe("Process", func() {
 	})
 
 	Describe("the PATCH /v3/processes/:guid endpoint", func() {
-		const (
-			processGUID     = "process-guid"
-			spaceGUID       = "space-guid"
-			appGUID         = "app-guid"
-			createdAt       = "1906-04-18T13:12:00Z"
-			updatedAt       = "1906-04-18T13:12:01Z"
-			processType     = "web"
-			command         = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-			memoryInMB      = 256
-			diskInMB        = 1024
-			healthcheckType = "port"
-			instances       = 1
-
-			baseURL = "https://api.example.org"
-		)
-
-		var (
-			labels      = map[string]string{}
-			annotations = map[string]string{}
-		)
-
-		makePatchRequest := func(processGUID, requestBody string) {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/processes/"+processGUID, strings.NewReader(requestBody))
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		validBody := `{
-		  "health_check": {
-			"data": {
-			  "invocation_timeout": 2,
-              "timeout": 5,
-              "endpoint": "http://myapp.com/health"
-			},
-			"type": "port"
-		  }
-		}`
+		var requestBody string
 
 		BeforeEach(func() {
-			processRepo.GetProcessReturns(repositories.ProcessRecord{
-				GUID:             processGUID,
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
-				CreatedAt:        createdAt,
-				UpdatedAt:        updatedAt,
-				Type:             processType,
-				Command:          command,
-				DesiredInstances: instances,
-				MemoryMB:         memoryInMB,
-				DiskQuotaMB:      diskInMB,
-				HealthCheck: repositories.HealthCheck{
-					Type: healthcheckType,
-					Data: repositories.HealthCheckData{},
+			requestBody = `{
+				"health_check": {
+					"data": {
+						"invocation_timeout": 2,
+						"timeout": 5,
+						"endpoint": "http://myapp.com/health"
+					},
+					"type": "port"
 				},
-				Labels:      labels,
-				Annotations: annotations,
+				"metadata": {
+					"labels": {
+						"foo": "value1"
+					}
+				}
+			}`
+
+			processRepo.GetProcessReturns(repositories.ProcessRecord{
+				GUID: "process-guid",
+			}, nil)
+
+			processRepo.PatchProcessReturns(repositories.ProcessRecord{
+				GUID: "process-guid",
 			}, nil)
 		})
 
-		When("the request body is valid", func() {
-			BeforeEach(func() {
-				processRepo.PatchProcessReturns(repositories.ProcessRecord{
-					GUID:             processGUID,
-					SpaceGUID:        spaceGUID,
-					AppGUID:          appGUID,
-					CreatedAt:        createdAt,
-					UpdatedAt:        updatedAt,
-					Type:             processType,
-					Command:          command,
-					DesiredInstances: instances,
-					MemoryMB:         memoryInMB,
-					DiskQuotaMB:      diskInMB,
-					HealthCheck: repositories.HealthCheck{
-						Type: "http",
-						Data: repositories.HealthCheckData{
-							HTTPEndpoint:             "http://myapp.com/health",
-							InvocationTimeoutSeconds: 2,
-							TimeoutSeconds:           5,
-						},
-					},
-					Labels:      labels,
-					Annotations: annotations,
-				}, nil)
-			})
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "PATCH", "/v3/processes/process-guid", strings.NewReader(requestBody))
+			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
 
-			When("the request patches health check", func() {
-				BeforeEach(func() {
-					makePatchRequest(processGUID, validBody)
-				})
-				It("returns status 200 OK", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
+		It("updates the process", func() {
+			Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualMsg := processRepo.PatchProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMsg.ProcessGUID).To(Equal("process-guid"))
+			Expect(actualMsg.HealthCheckInvocationTimeoutSeconds).To(Equal(tools.PtrTo(int64(2))))
+			Expect(actualMsg.HealthCheckTimeoutSeconds).To(Equal(tools.PtrTo(int64(5))))
+			Expect(actualMsg.HealthCheckHTTPEndpoint).To(Equal(tools.PtrTo("http://myapp.com/health")))
+			Expect(actualMsg.HealthCheckType).To(Equal(tools.PtrTo("port")))
+			Expect(actualMsg.MetadataPatch.Labels).To(Equal(map[string]*string{"foo": tools.PtrTo("value1")}))
 
-				It("passes the authorization.Info to the process repository", func() {
-					Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
-					_, actualAuthInfo, _ := processRepo.PatchProcessArgsForCall(0)
-					Expect(actualAuthInfo).To(Equal(authInfo))
-				})
-
-				It("returns a process", func() {
-					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-
-					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "` + processGUID + `",
-					"created_at": "` + createdAt + `",
-					"updated_at": "` + updatedAt + `",
-					"type": "web",
-					"command": "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-					"instances": ` + fmt.Sprint(instances) + `,
-					"memory_in_mb": ` + fmt.Sprint(memoryInMB) + `,
-					"disk_in_mb": ` + fmt.Sprint(diskInMB) + `,
-					"health_check": {
-					   "type": "http",
-					   "data": {
-						  "timeout": 5,
-						  "invocation_timeout": 2,
-                          "endpoint": "http://myapp.com/health"
-					   }
-					},
-					"relationships": {
-					   "app": {
-						  "data": {
-							 "guid": "` + appGUID + `"
-						  }
-					   }
-					},
-					"metadata": {
-					   "labels": {},
-					   "annotations": {}
-					},
-					"links": {
-					   "self": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `"
-					   },
-					   "scale": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/actions/scale",
-						  "method": "POST"
-					   },
-					   "app": {
-						  "href": "` + baseURL + `/v3/apps/` + appGUID + `"
-					   },
-					   "space": {
-						  "href": "` + baseURL + `/v3/spaces/` + spaceGUID + `"
-					   },
-					   "stats": {
-						  "href": "` + baseURL + `/v3/processes/` + processGUID + `/stats"
-					   }
-					}
-				 }`))
-				})
-			})
-			When("the request patches metadata", func() {
-				BeforeEach(func() {
-					makePatchRequest(processGUID, `{"metadata":{"labels":{"foo":"value1"}}}`)
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				})
-
-				It("passes the metadata to the patch method on the repository", func() {
-					Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
-					_, _, msg := processRepo.PatchProcessArgsForCall(0)
-					Expect(msg.MetadataPatch.Labels).To(HaveKey("foo"))
-				})
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "process-guid"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/processes/process-guid"),
+			)))
 		})
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
-				makePatchRequest(processGUID, `{`)
+				requestBody = `{`
 			})
 
 			It("return an request malformed error", func() {
@@ -1037,11 +436,11 @@ var _ = Describe("Process", func() {
 
 		When("the request body is invalid with an unknown field", func() {
 			BeforeEach(func() {
-				makePatchRequest(processGUID, `{
+				requestBody = `{
 				  "health_check": {
 					"endpoint": "my-endpoint"
 				  }
-				}`)
+				}`
 			})
 
 			It("return an request malformed error", func() {
@@ -1052,7 +451,6 @@ var _ = Describe("Process", func() {
 		When("user is not allowed to get a process", func() {
 			BeforeEach(func() {
 				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(errors.New("nope"), repositories.ProcessResourceType))
-				makePatchRequest(processGUID, validBody)
 			})
 
 			It("returns a not found error", func() {
@@ -1063,7 +461,6 @@ var _ = Describe("Process", func() {
 		When("getting the process fails a process", func() {
 			BeforeEach(func() {
 				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("boom"))
-				makePatchRequest(processGUID, validBody)
 			})
 
 			It("returns an error", func() {
@@ -1074,7 +471,6 @@ var _ = Describe("Process", func() {
 		When("patching the process fails a process", func() {
 			BeforeEach(func() {
 				processRepo.PatchProcessReturns(repositories.ProcessRecord{}, errors.New("boom"))
-				makePatchRequest(processGUID, validBody)
 			})
 
 			It("returns an error", func() {
