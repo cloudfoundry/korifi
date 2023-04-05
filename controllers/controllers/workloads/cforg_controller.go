@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -191,7 +192,7 @@ func (r *CFOrgReconciler) finalize(ctx context.Context, log logr.Logger, org cli
 	}
 
 	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.GetName()}})
-	if err != nil {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		log.Info("failed to delete namespace", "reason", err)
 		return ctrl.Result{}, err
 	}

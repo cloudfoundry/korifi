@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -115,7 +114,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			BeforeEach(func() {
 				Expect(k8sClient.Delete(ctx, imageRegistrySecret)).To(Succeed())
 
-				var orgSecret v1.Secret
+				var orgSecret corev1.Secret
 				Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &orgSecret)).To(Succeed())
 				Expect(k8sClient.Delete(ctx, &orgSecret)).To(Succeed())
 			})
@@ -124,7 +123,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				imageRegistrySecret = createSecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
 
 				Eventually(func(g Gomega) {
-					var createdSecret v1.Secret
+					var createdSecret corev1.Secret
 					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &createdSecret)).To(Succeed())
 				}).Should(Succeed())
 			})
