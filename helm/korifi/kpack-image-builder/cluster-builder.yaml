@@ -13,7 +13,6 @@ spec:
   - image: gcr.io/paketo-buildpacks/ruby
   - image: gcr.io/paketo-buildpacks/procfile
   - image: gcr.io/paketo-buildpacks/go
-  - image: localregistry-docker-registry.default.svc.cluster.local:30050/legacy-buildpack
 
 ---
 apiVersion: kpack.io/v1alpha2
@@ -54,6 +53,4 @@ spec:
     - id: paketo-buildpacks/ruby
   - group:
     - id: paketo-buildpacks/procfile
-  - group:
-    - id: org.cloudfoundry.buildpacks.legacy
 {{- end }}
