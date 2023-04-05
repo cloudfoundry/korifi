@@ -29,18 +29,12 @@ var _ = Describe("ResourceMatches", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns status 201 Created", func() {
+		It("returns an empty list", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-		})
-
-		It("returns Content-Type as JSON in header", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-		})
-
-		It("returns a CF API formatted Error response", func() {
-			Expect(rr.Body.String()).To(MatchJSON(`{
+			Expect(rr).To(HaveHTTPBody(MatchJSON(`{
 				"resources": []
-			  }`), "Response body matches response:")
+			  }`)))
 		})
 	})
 })

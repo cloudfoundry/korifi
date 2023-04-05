@@ -11,8 +11,7 @@ const (
 )
 
 type RoleResponse struct {
-	GUID string `json:"guid"`
-
+	GUID          string        `json:"guid"`
 	CreatedAt     string        `json:"created_at"`
 	UpdatedAt     string        `json:"updated_at"`
 	Type          string        `json:"type"`
