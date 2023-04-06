@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
@@ -12,17 +13,17 @@ const (
 )
 
 type Root struct {
-	serverURL string
+	baseURL url.URL
 }
 
-func NewRoot(serverURL string) *Root {
+func NewRoot(baseURL url.URL) *Root {
 	return &Root{
-		serverURL: serverURL,
+		baseURL: baseURL,
 	}
 }
 
 func (h *Root) get(r *http.Request) (*routing.Response, error) {
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.GetRootResponse(h.serverURL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRoot(h.baseURL)), nil
 }
 
 func (h *Root) UnauthenticatedRoutes() []routing.Route {
