@@ -491,7 +491,7 @@ func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, aut
 			}
 			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
 		}
-		routeRecords[i] = routeRecord.UpdateDomainRef(domainRecord)
+		routeRecords[i].Domain = domainRecord
 	}
 
 	return routeRecords, nil

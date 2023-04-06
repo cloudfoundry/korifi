@@ -247,12 +247,6 @@ func (f *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization
 	return returnRouteList(filteredRouteList), nil
 }
 
-func (r RouteRecord) UpdateDomainRef(d DomainRecord) RouteRecord {
-	r.Domain = d
-
-	return r
-}
-
 func filterByAppDestination(routeList []korifiv1alpha1.CFRoute, appGUID string) []korifiv1alpha1.CFRoute {
 	var filtered []korifiv1alpha1.CFRoute
 

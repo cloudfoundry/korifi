@@ -157,7 +157,7 @@ func (h *Route) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create route", "Route Host", payload.Host)
 	}
 
-	responseRouteRecord = responseRouteRecord.UpdateDomainRef(domain)
+	responseRouteRecord.Domain = domain
 
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForRoute(responseRouteRecord, h.serverURL)), nil
 }
@@ -265,7 +265,7 @@ func (h *Route) lookupRouteAndDomain(ctx context.Context, logger logr.Logger, au
 		return repositories.RouteRecord{}, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch domain from Kubernetes", "DomainGUID", route.Domain.GUID)
 	}
 
-	route = route.UpdateDomainRef(domain)
+	route.Domain = domain
 
 	return route, nil
 }
@@ -276,19 +276,17 @@ func (h *Route) lookupRouteAndDomainList(ctx context.Context, authInfo authoriza
 		return []repositories.RouteRecord{}, err
 	}
 
-	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
-
+	domainRecords := make(map[string]repositories.DomainRecord)
 	for i, routeRecord := range routeRecords {
-		currentDomainGUID := routeRecord.Domain.GUID
-		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
-		if !has {
-			domainRecord, err = h.domainRepo.GetDomain(ctx, authInfo, currentDomainGUID)
+		domainRecord, ok := domainRecords[routeRecord.Domain.GUID]
+		if !ok {
+			domainRecord, err = h.domainRepo.GetDomain(ctx, authInfo, routeRecord.Domain.GUID)
 			if err != nil {
 				return []repositories.RouteRecord{}, err
 			}
-			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
+			domainRecords[routeRecord.Domain.GUID] = domainRecord
 		}
-		routeRecords[i] = routeRecord.UpdateDomainRef(domainRecord)
+		routeRecords[i].Domain = domainRecord
 	}
 
 	return routeRecords, nil
