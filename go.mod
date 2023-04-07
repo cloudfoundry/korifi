@@ -33,7 +33,7 @@ require (
 	github.com/pivotal/kpack v0.10.1
 	github.com/projectcontour/contour v1.24.3
 	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
-	golang.org/x/text v0.8.0
+	golang.org/x/text v0.9.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.3
