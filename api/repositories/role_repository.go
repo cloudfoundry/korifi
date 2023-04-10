@@ -187,8 +187,13 @@ func (r *RoleRepo) validateOrgRequirements(ctx context.Context, role CreateRoleM
 	return nil
 }
 
-func calculateRoleBindingName(roleType, roleUser string) string {
-	plain := []byte(roleType + "::" + roleUser)
+func calculateRoleBindingName(roleType, roleServiceAccountNamespace, roleUser string) string {
+	roleBindingName := roleType + "::"
+	if roleServiceAccountNamespace != "" {
+		roleBindingName = roleBindingName + roleServiceAccountNamespace + "/"
+	}
+	roleBindingName = roleBindingName + roleUser
+	plain := []byte(roleBindingName)
 	sum := sha256.Sum256(plain)
 
 	return fmt.Sprintf("%s-%x", roleBindingNamePrefix, sum)
@@ -198,7 +203,7 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleServiceAccou
 	return rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      calculateRoleBindingName(roleType, roleUser),
+			Name:      calculateRoleBindingName(roleType, roleServiceAccountNamespace, roleUser),
 			Labels: map[string]string{
 				RoleGuidLabel: roleGUID,
 			},

@@ -279,7 +279,6 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				{Name: "c-third", Value: "third"},
 			}))
 		})
-
 	})
 
 	It("should produce a stable statefulset regardless of labels iteration order", func() {
