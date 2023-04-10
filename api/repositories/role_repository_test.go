@@ -162,8 +162,9 @@ var _ = Describe("RoleRepository", func() {
 				BeforeEach(func() {
 					roleCreateMessage.Kind = rbacv1.ServiceAccountKind
 					roleCreateMessage.User = "my-service-account"
-					// Sha256 sum of "organization_manager::my-service-account"
-					expectedName = "cf-6af123f3cf60cbba6c34bfa5f13314151ba309a9d7a9a19464aa052c773542e0"
+					roleCreateMessage.ServiceAccountNamespace = "my-namespace"
+					// Sha256 sum of "organization_manager::my-namespace/my-service-account"
+					expectedName = "cf-aff6351a3949461e600a128524e2849af0afb4d3d5bd94e36e2189df3e4130b8"
 				})
 
 				It("succeeds and uses a service account subject kind", func() {
@@ -173,6 +174,7 @@ var _ = Describe("RoleRepository", func() {
 					Expect(roleBinding.Subjects).To(HaveLen(1))
 					Expect(roleBinding.Subjects[0].Name).To(Equal("my-service-account"))
 					Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
+					Expect(roleBinding.Subjects[0].Namespace).To(Equal("my-namespace"))
 				})
 			})
 
@@ -292,6 +294,8 @@ var _ = Describe("RoleRepository", func() {
 
 		When("using service accounts", func() {
 			BeforeEach(func() {
+				// Sha256 sum of "space_developer::my-namespace/my-service-account"
+				expectedName = "cf-253970950188359abff344b5976af3fd888c9c10ef2972603ec7eb1ef5e82296"
 				roleCreateMessage.Kind = rbacv1.ServiceAccountKind
 				roleCreateMessage.User = "my-service-account"
 				roleCreateMessage.ServiceAccountNamespace = "my-namespace"
@@ -301,6 +305,18 @@ var _ = Describe("RoleRepository", func() {
 				_, identity, _ := authorizedInChecker.AuthorizedInArgsForCall(0)
 				Expect(identity.Kind).To(Equal(rbacv1.ServiceAccountKind))
 				Expect(identity.Name).To(Equal("system:serviceaccount:my-namespace:my-service-account"))
+			})
+
+			It("creates a role binding in the space namespace", func() {
+				roleBinding := getTheRoleBinding(expectedName, cfSpace.Name)
+
+				Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleCreateMessage.GUID))
+				Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
+				Expect(roleBinding.RoleRef.Name).To(Equal(spaceDeveloperRole.Name))
+				Expect(roleBinding.Subjects).To(HaveLen(1))
+				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
+				Expect(roleBinding.Subjects[0].Name).To(Equal("my-service-account"))
+				Expect(roleBinding.Subjects[0].Namespace).To(Equal("my-namespace"))
 			})
 		})
 
