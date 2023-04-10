@@ -17,7 +17,7 @@ metadata:
   name: my-org-guid
   namespace: cf
 spec:
-  displayName: myOrg
+  displayName: my-org
 EOF
 
 kubectl wait --for=condition=ready cforg/my-org-guid -n cf
@@ -38,7 +38,7 @@ metadata:
   name: my-space-guid
   namespace: my-org-guid
 spec:
-  displayName: mySpace
+  displayName: my-space
 EOF
 
 kubectl wait --for=condition=ready cfspace/my-space-guid -n my-org-guid
@@ -49,29 +49,31 @@ Once `CFSpace` is `ready`, you can proceed to grant users access to this space.
 
 ### Grant users or service accounts access to Organizations and Spaces
 
-Korifi relies on Kubernetes RBAC (`Roles`, `ClusterRoles`, `RoleBindings`) for authentication and authorization. On the Korifi cluster, [Cloud Foundry roles](https://docs.cloudfoundry.org/concepts/roles.html) (such as `Admin`, `SpaceDeveloper`) are available as [ClusterRoles](https://github.com/cloudfoundry/korifi/tree/main/helm/korifi/controllers/cf_roles).
-Users or ServiceAccounts can be granted access by assigning them to these roles through namespace-scoped `RoleBindings`.
+Korifi relies on Kubernetes RBAC (`Roles`, `ClusterRoles`, `RoleBindings`) for authentication and authorization. On the Korifi cluster, [Cloud Foundry roles](https://docs.cloudfoundry.org/concepts/roles.html) (such as `Admin`, `SpaceDeveloper`) are represented as [ClusterRoles](https://github.com/cloudfoundry/korifi/tree/main/helm/korifi/controllers/cf_roles).
+Users or ServiceAccounts are granted access by assigning them these roles through namespace-scoped `RoleBindings`.
 
-> **Note:** Currently, we support only the [Admin](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/controllers/cf_roles/cf_admin.yaml) and [SpaceDeveloper](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/controllers/cf_roles/cf_space_developer.yaml) roles.
+> **Note:** Currently, we support only the [Admin](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/controllers/cf_roles/cf_admin.yaml),
+> [OrgUser](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/controllers/cf_roles/cf_org_user.yaml),
+> and [SpaceDeveloper](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/controllers/cf_roles/cf_space_developer.yaml) roles.
 
-All Korifi users and service accounts must have a binding to [`cf_user`](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/controllers/cf_roles/cf_root_namespace_user.yaml) role in the `$ROOT_NAMESPACE`.
+#### Grant a user or service account access to the Korifi API
+All Korifi users and service accounts must have a `RoleBinding` in the `$ROOT_NAMESPACE` for the `ClusterRole` `korifi-controllers-root-namespace-user` to access the API.
+
 This is required
-- for Korifi to be able to determine whether a user is registered to use Korifi
-- to allow registered users to list `domains`, `orgs`, `buildinfos` (as those are stored in the `$ROOT_NAMESPACE` and should be listable by all registered users with any roles).
+- to determine whether a user is allowed access to Korifi
+- to allow registered users to list `CFDomains`, `CFOrgs`, and `BuilderInfos` resources. These are stored in the `$ROOT_NAMESPACE` and should be listable by all registered users with any roles.
 
-To create a `cf_user` rolebinding for a user in the `$ROOT_NAMESPACE`
+Here's an example command to create this role binding for a user named "my-cf-user":
 
 ```sh
 cat <<EOF | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  annotations:
-    cloudfoundry.org/propagate-cf-role: "false"
-  labels:
-    cloudfoundry.org/role-guid: my-cf-user
-  name: my-cf-root-user
+  name: my-cf-user-korifi-access
   namespace: cf
+  labels:
+    cloudfoundry.org/role-guid: my-cf-user-korifi-access-guid
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -80,50 +82,27 @@ subjects:
   - kind: User
     name: my-cf-user
 EOF
-
 ```
-> **Note:** When configuring a `RoleBinding`, it is possible to specify multiple `subjects` for a single binding. However, to maintain compatibility with CF CLI it is necessary to maintain a 1:1 ratio between `RoleBindings` and `Users`/`ServiceAccounts`.
 
-To assign a `SpaceDeveloper` role for a user in a space
+#### Grant a user or service account admin-level access
+In Kubernetes, `RoleBindings` are namespace-scoped, which means that they are only valid within the namespace they were created in.
+In the case of an admin user, a rolebindings to the `korifi-contollers-admin` `ClusterRole` is required in the `$ROOT_NAMESPACE`, as well as the namespaces for all current and future orgs and spaces.
+To make this easier for operators, we have the `cloudfoundry.org/propagate-cf-role=true` annotation for rolebindings in the `$ROOT_NAMESPACE`.
+This annotation will propagate them into the namespaces that represent all orgs and spaces.
+
+Here's an example of assigning the admin role to the user "my-cf-user":
 
 ```sh
 cat <<EOF | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  annotations:
-    cloudfoundry.org/propagate-cf-role: "false"
+  name: my-cf-user-admin
+  namespace: cf
   labels:
-    cloudfoundry.org/role-guid: my-cf-user
-  name: my-cf-space-user
-  namespace: my-space-guid
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: korifi-controllers-space-developer
-subjects:
-  - kind: User
-    name: my-cf-user
-EOF
-
-```
-
-In Kubernetes, `RoleBindings` are namespace-scoped, which means that they are only valid within the `namespace` they were created in. Hence, in the case of `Admin` user, they need to have rolebindings present in all current and future `orgs` and `spaces`.
-To make this easier for operators, we have `cloudfoundry.org/propagate-cf-role` annotation that operators can set to `true` on a rolebindings that they want propagated into all child spaces. In case of `Admin`, operators can create an admin rolebinding in `$ROOT_NAMESPACE` and have it propagated to all orgs and spaces.
-
-To assign a `Admin` role for a user in a space
-
-```sh
-cat <<EOF | kubectl apply -f -
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
+    cloudfoundry.org/role-guid: my-cf-user-admin-guid
   annotations:
     cloudfoundry.org/propagate-cf-role: "true"
-  labels:
-    cloudfoundry.org/role-guid: my-cf-user
-  name: my-cf-root-user
-  namespace: cf
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -132,15 +111,64 @@ subjects:
   - kind: User
     name: my-cf-user
 EOF
-
 ```
+
+#### Granting a user or service account space developer access
+If you only want to grant a user `SpaceDeveloper` access, you can instead create a `RoleBinding` to the `ClusterRole` `korifi-controllers-root-namespace-user` in a space's namespace.
+
+Here's an example of assigning the `SpaceDeveloper` CF role to the user "my-cf-user" in the space with GUID "my-space-guid"
+
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-cf-user-space-developer
+  namespace: my-space-guid
+  labels:
+    cloudfoundry.org/role-guid: my-cf-user-space-developer-guid
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-controllers-space-developer
+subjects:
+  - kind: User
+    name: my-cf-user
+EOF
+```
+
+All non-admin users must also be `OrgUser`s of the org that contains the space. This is represented by a `RoleBinding`
+to the `ClusterRole` `korifi-controllers-organization-user` in the org's namespace.
+
+Here's an example of assigning the `OrgUser` CF role to the user "my-cf-user" in the org with GUID "my-org-guid"
+
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-cf-user-org-user
+  namespace: my-org-guid
+  labels:
+    cloudfoundry.org/role-guid: my-cf-user-org-user-guid
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-controllers-organization-user
+subjects:
+  - kind: User
+    name: my-cf-user
+EOF
+```
+
+> **Note:** When configuring a `RoleBinding`, it is possible to specify multiple `subjects` for a single binding. However, to maintain compatibility with CF CLI it is necessary to maintain a 1:1 ratio between `RoleBindings` and `Users`/`ServiceAccounts`.
 
 ## Using `kapp` to declaratively apply all resources in a single `yaml`. 
 
 [`kapp`](https://carvel.dev/kapp/) is an open source kubernetes deployment tool that provides a simpler and more streamlined way to manage and deploy kubernetes applications using declarative configuration.
 See `kapp` [documentation](https://carvel.dev/kapp/docs/v0.54.0/) for installation and usage instructions
 
-To create an `CFOrg`, `CFSpace` & and `Admin` RoleBinding for a user, 
+Here's an example of creating a `CFOrg`, `CFSpace` & and granting the user "my-cf-user" the CF `Admin` role in a single command:
 
 ```shell
 cat <<EOF | kapp deploy -a my-config -y -f -
@@ -175,7 +203,7 @@ metadata:
   annotations:
     kapp.k14s.io/change-group: "cforgs"
 spec:
-  displayName: myOrg
+  displayName: my-org
   
 ---
 apiVersion: korifi.cloudfoundry.org/v1alpha1
@@ -187,19 +215,18 @@ metadata:
     kapp.k14s.io/change-group: "cfspaces"
     kapp.k14s.io/change-rule: "upsert after upserting cforgs"
 spec:
-  displayName: mySpace
+  displayName: my-space
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  annotations:
-    cloudfoundry.org/propagate-cf-role: "false"
-    kapp.k14s.io/change-rule: "upsert after upserting cfspaces"
-  labels:
-    cloudfoundry.org/role-guid: my-cf-user
-  name: my-cf-root-user
+  name: my-cf-user-korifi-access
   namespace: cf
+  labels:
+    cloudfoundry.org/role-guid: my-cf-user-korifi-access-guid
+  annotations:
+    kapp.k14s.io/change-rule: "upsert after upserting cfspaces"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -212,13 +239,13 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
+  name: my-cf-user-admin
+  namespace: cf
+  labels:
+    cloudfoundry.org/role-guid: my-cf-user-admin-guid
   annotations:
     cloudfoundry.org/propagate-cf-role: "true"
     kapp.k14s.io/change-rule: "upsert after upserting cfspaces"
-  labels:
-    cloudfoundry.org/role-guid: my-cf-user
-  name: my-cf-admin-user
-  namespace: cf
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
