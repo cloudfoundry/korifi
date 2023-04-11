@@ -70,8 +70,8 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 			},
 		},
 		Metadata: Metadata{
-			Labels:      record.Labels,
-			Annotations: record.Annotations,
+			Labels:      emptyMapIfNil(record.Labels),
+			Annotations: emptyMapIfNil(record.Annotations),
 		},
 	}
 }
