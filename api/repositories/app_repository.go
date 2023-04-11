@@ -309,16 +309,32 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 	}
 
 	var filteredApps []korifiv1alpha1.CFApp
+	spaceGUIDSet := NewSet(message.SpaceGuids...)
 	for ns := range nsList {
+		if len(spaceGUIDSet) > 0 && !spaceGUIDSet.Includes(ns) {
+			continue
+		}
+
 		appList := &korifiv1alpha1.CFAppList{}
 		err := userClient.List(ctx, appList, client.InNamespace(ns))
+
 		if k8serrors.IsForbidden(err) {
 			continue
 		}
 		if err != nil {
 			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns, apierrors.FromK8sError(err, AppResourceType))
 		}
-		filteredApps = append(filteredApps, applyAppListFilter(appList.Items, message)...)
+
+		var preds []func(korifiv1alpha1.CFApp) bool
+		if len(message.Names) > 0 {
+			nameSet := NewSet(message.Names...)
+			preds = append(preds, func(a korifiv1alpha1.CFApp) bool { return nameSet.Includes(a.Spec.DisplayName) })
+		}
+		if len(message.Guids) > 0 {
+			GUIDSet := NewSet(message.Guids...)
+			preds = append(preds, func(a korifiv1alpha1.CFApp) bool { return GUIDSet.Includes(a.Name) })
+		}
+		filteredApps = append(filteredApps, Filter(appList.Items, preds...)...)
 	}
 
 	appRecords := returnAppList(filteredApps)
@@ -327,75 +343,6 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 	sort.Sort(byName(appRecords))
 
 	return appRecords, nil
-}
-
-func applyAppListFilter(appList []korifiv1alpha1.CFApp, message ListAppsMessage) []korifiv1alpha1.CFApp {
-	nameFilterSpecified := len(message.Names) > 0
-	guidsFilterSpecified := len(message.Guids) > 0
-	spaceGUIDFilterSpecified := len(message.SpaceGuids) > 0
-
-	var filtered []korifiv1alpha1.CFApp
-
-	if guidsFilterSpecified {
-		for _, app := range appList {
-			for _, guid := range message.Guids {
-				if appMatchesGUID(app, guid) {
-					filtered = append(filtered, app)
-				}
-			}
-		}
-	}
-
-	if guidsFilterSpecified && len(filtered) == 0 {
-		return filtered
-	}
-
-	if len(filtered) > 0 {
-		appList = filtered
-		filtered = []korifiv1alpha1.CFApp{}
-	}
-
-	if !nameFilterSpecified && !spaceGUIDFilterSpecified {
-		return appList
-	}
-
-	for _, app := range appList {
-		if nameFilterSpecified && spaceGUIDFilterSpecified {
-			for _, name := range message.Names {
-				for _, spaceGUID := range message.SpaceGuids {
-					if appBelongsToSpace(app, spaceGUID) && appMatchesName(app, name) {
-						filtered = append(filtered, app)
-					}
-				}
-			}
-		} else if nameFilterSpecified {
-			for _, name := range message.Names {
-				if appMatchesName(app, name) {
-					filtered = append(filtered, app)
-				}
-			}
-		} else if spaceGUIDFilterSpecified {
-			for _, spaceGUID := range message.SpaceGuids {
-				if appBelongsToSpace(app, spaceGUID) {
-					filtered = append(filtered, app)
-				}
-			}
-		}
-	}
-
-	return filtered
-}
-
-func appBelongsToSpace(app korifiv1alpha1.CFApp, spaceGUID string) bool {
-	return app.Namespace == spaceGUID
-}
-
-func appMatchesName(app korifiv1alpha1.CFApp, name string) bool {
-	return app.Spec.DisplayName == name
-}
-
-func appMatchesGUID(app korifiv1alpha1.CFApp, guid string) bool {
-	return app.Name == guid
 }
 
 func returnAppList(appList []korifiv1alpha1.CFApp) []AppRecord {

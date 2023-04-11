@@ -87,3 +87,33 @@ func matchesFilter(field string, filter []string) bool {
 
 	return false
 }
+
+type Set[T comparable] map[T]struct{}
+
+func (s Set[T]) Includes(element T) bool {
+	_, ok := s[element]
+	return ok
+}
+
+func NewSet[T comparable](elements ...T) Set[T] {
+	set := Set[T]{}
+	for _, e := range elements {
+		set[e] = struct{}{}
+	}
+	return set
+}
+
+func Filter[T any](resources []T, predicate ...func(T) bool) []T {
+	var res []T
+outer:
+	for _, r := range resources {
+		for _, p := range predicate {
+			if !p(r) {
+				continue outer
+			}
+		}
+		res = append(res, r)
+	}
+
+	return res
+}
