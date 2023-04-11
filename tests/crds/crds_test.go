@@ -92,13 +92,22 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(
 			kubectl("create", "rolebinding", "-n="+rootNamespace, "--user="+testCLIUser, "--clusterrole=korifi-controllers-root-namespace-user", cfUserRoleBindingName),
 		).Should(Exit(0))
+		Eventually(
+			kubectl("label", "rolebinding", cfUserRoleBindingName, "-n="+rootNamespace, "cloudfoundry.org/role-guid="+GenerateGUID()),
+		).Should(Exit(0))
 
 		Eventually(
 			kubectl("create", "rolebinding", "-n="+orgGUID, "--user="+testCLIUser, "--clusterrole=korifi-controllers-organization-user", testCLIUser+"-org-user"),
 		).Should(Exit(0))
+		Eventually(
+			kubectl("label", "rolebinding", testCLIUser+"-org-user", "-n="+orgGUID, "cloudfoundry.org/role-guid="+GenerateGUID()),
+		).Should(Exit(0))
 
 		Eventually(
 			kubectl("create", "rolebinding", "-n="+spaceGUID, "--user="+testCLIUser, "--clusterrole=korifi-controllers-space-developer", testCLIUser+"-space-developer"),
+		).Should(Exit(0))
+		Eventually(
+			kubectl("label", "rolebinding", testCLIUser+"-space-developer", "-n="+spaceGUID, "cloudfoundry.org/role-guid="+GenerateGUID()),
 		).Should(Exit(0))
 
 		loginAs(korifiAPIEndpoint, skipSSL == "true", testCLIUser)
