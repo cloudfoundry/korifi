@@ -84,6 +84,28 @@ subjects:
 EOF
 ```
 
+Here's an example command to create this role binding for a service account named "my-service-account" in namespace "my-service-account-namespace":
+
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-service-account-korifi-access
+  namespace: cf
+  labels:
+    cloudfoundry.org/role-guid: my-service-account-korifi-access-guid
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-controllers-root-namespace-user
+subjects:
+  - kind: ServiceAccount
+    name: my-service-account
+    namespace: my-service-account-namespace
+EOF
+```
+
 #### Grant a user or service account admin-level access
 In Kubernetes, `RoleBindings` are namespace-scoped, which means that they are only valid within the namespace they were created in.
 In the case of an admin user, a rolebindings to the `korifi-contollers-admin` `ClusterRole` is required in the `$ROOT_NAMESPACE`, as well as the namespaces for all current and future orgs and spaces.
@@ -113,6 +135,30 @@ subjects:
 EOF
 ```
 
+Here's an example of assigning the admin role to the service account "my-service-account" in namespace "my-service-account-namespace":
+
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-service-account-admin
+  namespace: cf
+  labels:
+    cloudfoundry.org/role-guid: my-service-account-admin-guid
+  annotations:
+    cloudfoundry.org/propagate-cf-role: "true"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-controllers-admin
+subjects:
+  - kind: ServiceAccount
+    name: my-service-account
+    namespace: my-service-account-namespace
+EOF
+```
+
 #### Granting a user or service account space developer access
 If you only want to grant a user `SpaceDeveloper` access, you can instead create a `RoleBinding` to the `ClusterRole` `korifi-controllers-root-namespace-user` in a space's namespace.
 
@@ -134,6 +180,28 @@ roleRef:
 subjects:
   - kind: User
     name: my-cf-user
+EOF
+```
+
+Here's an example of assigning the `SpaceDeveloper` CF role to the service account "my-service-account" in namespace "my-service-account-namespace":
+
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-service-account-space-developer
+  namespace: my-space-guid
+  labels:
+    cloudfoundry.org/role-guid: my-service-account-space-developer-guid
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-controllers-space-developer
+subjects:
+  - kind: ServiceAccount
+    name: my-service-account
+    namespace: my-service-account-namespace
 EOF
 ```
 
@@ -161,6 +229,28 @@ subjects:
 EOF
 ```
 
+Here's an example of assigning the `OrgUser` CF role to the service account "my-service-account" in namespace "my-service-account-namespace":
+
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-service-account-org-user
+  namespace: my-org-guid
+  labels:
+    cloudfoundry.org/role-guid: my-service-account-org-user-guid
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-controllers-organization-user
+subjects:
+  - kind: ServiceAccount
+    name: my-service-account
+    namespace: my-service-account-namespace
+EOF
+```
+
 > **Note:** When configuring a `RoleBinding`, it is possible to specify multiple `subjects` for a single binding. However, to maintain compatibility with CF CLI it is necessary to maintain a 1:1 ratio between `RoleBindings` and `Users`/`ServiceAccounts`.
 
 ## Using `kapp` to declaratively apply all resources in a single `yaml`. 
@@ -168,7 +258,7 @@ EOF
 [`kapp`](https://carvel.dev/kapp/) is an open source kubernetes deployment tool that provides a simpler and more streamlined way to manage and deploy kubernetes applications using declarative configuration.
 See `kapp` [documentation](https://carvel.dev/kapp/docs/v0.54.0/) for installation and usage instructions
 
-Here's an example of creating a `CFOrg`, `CFSpace` & and granting the user "my-cf-user" the CF `Admin` role in a single command:
+Here's an example of creating a `CFOrg`, `CFSpace` and granting the user "my-cf-user" the CF `Admin` role in a single command:
 
 ```shell
 cat <<EOF | kapp deploy -a my-config -y -f -
