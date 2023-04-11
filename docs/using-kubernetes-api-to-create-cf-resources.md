@@ -56,8 +56,8 @@ Users or ServiceAccounts are granted access by assigning them these roles throug
 > [OrgUser](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/controllers/cf_roles/cf_org_user.yaml),
 > and [SpaceDeveloper](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/controllers/cf_roles/cf_space_developer.yaml) roles.
 
-#### Grant a user or service account access to the Korifi API
-All Korifi users and service accounts must have a `RoleBinding` in the `$ROOT_NAMESPACE` for the `ClusterRole` `korifi-controllers-root-namespace-user` to access the API.
+#### Grant a user access to the Korifi API
+All Korifi users must have a `RoleBinding` in the `$ROOT_NAMESPACE` for the `ClusterRole` `korifi-controllers-root-namespace-user` to access the API.
 
 This is required
 - to determine whether a user is allowed access to Korifi
@@ -84,29 +84,7 @@ subjects:
 EOF
 ```
 
-Here's an example command to create this role binding for a service account named "my-service-account" in namespace "my-service-account-namespace":
-
-```sh
-cat <<EOF | kubectl apply -f -
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: my-service-account-korifi-access
-  namespace: cf
-  labels:
-    cloudfoundry.org/role-guid: my-service-account-korifi-access-guid
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: korifi-controllers-root-namespace-user
-subjects:
-  - kind: ServiceAccount
-    name: my-service-account
-    namespace: my-service-account-namespace
-EOF
-```
-
-#### Grant a user or service account admin-level access
+#### Grant a user admin-level access
 In Kubernetes, `RoleBindings` are namespace-scoped, which means that they are only valid within the namespace they were created in.
 In the case of an admin user, a rolebindings to the `korifi-contollers-admin` `ClusterRole` is required in the `$ROOT_NAMESPACE`, as well as the namespaces for all current and future orgs and spaces.
 To make this easier for operators, we have the `cloudfoundry.org/propagate-cf-role=true` annotation for rolebindings in the `$ROOT_NAMESPACE`.
@@ -135,31 +113,7 @@ subjects:
 EOF
 ```
 
-Here's an example of assigning the admin role to the service account "my-service-account" in namespace "my-service-account-namespace":
-
-```sh
-cat <<EOF | kubectl apply -f -
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: my-service-account-admin
-  namespace: cf
-  labels:
-    cloudfoundry.org/role-guid: my-service-account-admin-guid
-  annotations:
-    cloudfoundry.org/propagate-cf-role: "true"
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: korifi-controllers-admin
-subjects:
-  - kind: ServiceAccount
-    name: my-service-account
-    namespace: my-service-account-namespace
-EOF
-```
-
-#### Granting a user or service account space developer access
+#### Granting a user space developer access
 If you only want to grant a user `SpaceDeveloper` access, you can instead create a `RoleBinding` to the `ClusterRole` `korifi-controllers-root-namespace-user` in a space's namespace.
 
 Here's an example of assigning the `SpaceDeveloper` CF role to the user "my-cf-user" in the space with GUID "my-space-guid"
@@ -180,28 +134,6 @@ roleRef:
 subjects:
   - kind: User
     name: my-cf-user
-EOF
-```
-
-Here's an example of assigning the `SpaceDeveloper` CF role to the service account "my-service-account" in namespace "my-service-account-namespace":
-
-```sh
-cat <<EOF | kubectl apply -f -
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: my-service-account-space-developer
-  namespace: my-space-guid
-  labels:
-    cloudfoundry.org/role-guid: my-service-account-space-developer-guid
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: korifi-controllers-space-developer
-subjects:
-  - kind: ServiceAccount
-    name: my-service-account
-    namespace: my-service-account-namespace
 EOF
 ```
 
@@ -229,7 +161,14 @@ subjects:
 EOF
 ```
 
-Here's an example of assigning the `OrgUser` CF role to the service account "my-service-account" in namespace "my-service-account-namespace":
+> **Note:** When configuring a `RoleBinding`, it is possible to specify multiple `subjects` for a single binding. However, to maintain compatibility with CF CLI it is necessary to maintain a 1:1 ratio between `RoleBindings` and `Users`/`ServiceAccounts`.
+
+#### Granting roles to service accounts
+Korifi supports granting roles to both users and service accounts. To grant a role to a service account, follow the
+instructions above for granting a role to a user, but change the `subjects` field to specify a `ServiceAccount`.
+
+For example, here is how you could assign the `OrgUser` CF role to the service account "my-service-account" in
+namespace "my-service-account-namespace":
 
 ```sh
 cat <<EOF | kubectl apply -f -
@@ -250,8 +189,6 @@ subjects:
     namespace: my-service-account-namespace
 EOF
 ```
-
-> **Note:** When configuring a `RoleBinding`, it is possible to specify multiple `subjects` for a single binding. However, to maintain compatibility with CF CLI it is necessary to maintain a 1:1 ratio between `RoleBindings` and `Users`/`ServiceAccounts`.
 
 ## Using `kapp` to declaratively apply all resources in a single `yaml`. 
 
