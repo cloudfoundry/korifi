@@ -18,6 +18,7 @@ var _ = Describe("Manifest payload", func() {
 				testSpaceManifest Manifest
 				validateErr       error
 			)
+
 			BeforeEach(func() {
 				testSpaceManifest = Manifest{
 					Applications: []ManifestApplication{{
@@ -29,6 +30,7 @@ var _ = Describe("Manifest payload", func() {
 					}},
 				}
 			})
+
 			JustBeforeEach(func() {
 				validateErr = testSpaceManifest.Validate()
 			})
@@ -129,6 +131,17 @@ var _ = Describe("Manifest payload", func() {
 				})
 			})
 
+			When("app disk-quota and app disk_quota are both set", func() {
+				BeforeEach(func() {
+					testManifest.DiskQuota = tools.PtrTo("128M")
+					testManifest.AltDiskQuota = tools.PtrTo("128M")
+				})
+
+				It("response with an unprocessable entity error", func() {
+					Expect(validateErr).To(MatchError("disk_quota: and disk-quota may not be used together."))
+				})
+			})
+
 			When("HealthCheckInvocationTimeout is not positive", func() {
 				BeforeEach(func() {
 					testManifest.HealthCheckInvocationTimeout = tools.PtrTo(int64(0))
@@ -172,6 +185,17 @@ var _ = Describe("Manifest payload", func() {
 
 				It("returns a validation error", func() {
 					Expect(validateErr).To(MatchError("memory: must be greater than 0MB."))
+				})
+			})
+
+			When("random-route and default-route flags are both set", func() {
+				BeforeEach(func() {
+					testManifest.DefaultRoute = true
+					testManifest.RandomRoute = true
+				})
+
+				It("response with an unprocessable entity error", func() {
+					Expect(validateErr).To(MatchError("default-route: and random-route may not be used together."))
 				})
 			})
 		})
@@ -245,6 +269,17 @@ var _ = Describe("Manifest payload", func() {
 
 				It("returns a validation error", func() {
 					Expect(validateErr).To(MatchError("disk-quota: must be greater than 0MB."))
+				})
+			})
+
+			When("app disk-quota and app disk_quota are both set", func() {
+				BeforeEach(func() {
+					testManifestProcess.DiskQuota = tools.PtrTo("128M")
+					testManifestProcess.AltDiskQuota = tools.PtrTo("128M")
+				})
+
+				It("response with an unprocessable entity error", func() {
+					Expect(validateErr).To(MatchError("disk_quota: and disk-quota may not be used together."))
 				})
 			})
 
