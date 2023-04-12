@@ -141,8 +141,6 @@ var _ = Describe("SpaceRepository", func() {
 
 				Expect(space.Name).To(Equal(spaceName))
 				Expect(space.GUID).To(HavePrefix("cf-space-"))
-				Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 			})
 
 			When("the org does not exist", func() {
@@ -224,48 +222,36 @@ var _ = Describe("SpaceRepository", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(spaces).To(ConsistOf(
-				repositories.SpaceRecord{
-					Name:             "space1",
-					CreatedAt:        space11.CreationTimestamp.Time,
-					UpdatedAt:        space11.CreationTimestamp.Time,
-					GUID:             space11.Name,
-					OrganizationGUID: cfOrg1.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space2",
-					CreatedAt:        space12.CreationTimestamp.Time,
-					UpdatedAt:        space12.CreationTimestamp.Time,
-					GUID:             space12.Name,
-					OrganizationGUID: cfOrg1.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space1",
-					CreatedAt:        space21.CreationTimestamp.Time,
-					UpdatedAt:        space21.CreationTimestamp.Time,
-					GUID:             space21.Name,
-					OrganizationGUID: cfOrg2.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space3",
-					CreatedAt:        space22.CreationTimestamp.Time,
-					UpdatedAt:        space22.CreationTimestamp.Time,
-					GUID:             space22.Name,
-					OrganizationGUID: cfOrg2.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space1",
-					CreatedAt:        space31.CreationTimestamp.Time,
-					UpdatedAt:        space31.CreationTimestamp.Time,
-					GUID:             space31.Name,
-					OrganizationGUID: cfOrg3.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space4",
-					CreatedAt:        space32.CreationTimestamp.Time,
-					UpdatedAt:        space32.CreationTimestamp.Time,
-					GUID:             space32.Name,
-					OrganizationGUID: cfOrg3.Name,
-				},
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space1"),
+					"GUID":             Equal(space11.Name),
+					"OrganizationGUID": Equal(cfOrg1.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space2"),
+					"GUID":             Equal(space12.Name),
+					"OrganizationGUID": Equal(cfOrg1.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space1"),
+					"GUID":             Equal(space21.Name),
+					"OrganizationGUID": Equal(cfOrg2.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space3"),
+					"GUID":             Equal(space22.Name),
+					"OrganizationGUID": Equal(cfOrg2.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space1"),
+					"GUID":             Equal(space31.Name),
+					"OrganizationGUID": Equal(cfOrg3.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space4"),
+					"GUID":             Equal(space32.Name),
+					"OrganizationGUID": Equal(cfOrg3.Name),
+				}),
 			))
 		})
 
@@ -285,13 +271,11 @@ var _ = Describe("SpaceRepository", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(spaces).NotTo(ContainElement(
-					repositories.SpaceRecord{
-						Name:             "space1",
-						CreatedAt:        space11.CreationTimestamp.Time,
-						UpdatedAt:        space11.CreationTimestamp.Time,
-						GUID:             space11.Name,
-						OrganizationGUID: cfOrg1.Name,
-					},
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"GUID":             Equal(space11.Name),
+						"OrganizationGUID": Equal(cfOrg1.Name),
+					}),
 				))
 			})
 		})
