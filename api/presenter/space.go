@@ -2,7 +2,6 @@ package presenter
 
 import (
 	"net/url"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -31,8 +30,8 @@ func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse 
 	return SpaceResponse{
 		Name:      space.Name,
 		GUID:      space.GUID,
-		CreatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
+		CreatedAt: space.CreatedAt,
+		UpdatedAt: space.UpdatedAt,
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(space.Labels),
 			Annotations: emptyMapIfNil(space.Annotations),

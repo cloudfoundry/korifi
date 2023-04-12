@@ -51,8 +51,8 @@ type SpaceRecord struct {
 	OrganizationGUID string
 	Labels           map[string]string
 	Annotations      map[string]string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	CreatedAt        string
+	UpdatedAt        string
 }
 
 type SpaceRepo struct {
@@ -103,13 +103,7 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
-	return SpaceRecord{
-		Name:             message.Name,
-		GUID:             spaceCR.Name,
-		OrganizationGUID: message.OrganizationGUID,
-		CreatedAt:        spaceCR.CreationTimestamp.Time,
-		UpdatedAt:        spaceCR.CreationTimestamp.Time,
-	}, nil
+	return cfSpaceToSpaceRecord(*spaceCR), nil
 }
 
 //nolint:dupl
@@ -247,14 +241,15 @@ func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, space
 }
 
 func cfSpaceToSpaceRecord(cfSpace korifiv1alpha1.CFSpace) SpaceRecord {
+	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfSpace.ObjectMeta)
 	return SpaceRecord{
 		Name:             cfSpace.Spec.DisplayName,
 		GUID:             cfSpace.Name,
 		OrganizationGUID: cfSpace.Namespace,
 		Annotations:      cfSpace.Annotations,
 		Labels:           cfSpace.Labels,
-		CreatedAt:        cfSpace.CreationTimestamp.Time,
-		UpdatedAt:        cfSpace.CreationTimestamp.Time,
+		CreatedAt:        formatTimestamp(cfSpace.CreationTimestamp),
+		UpdatedAt:        updatedAtTime,
 	}
 }
 

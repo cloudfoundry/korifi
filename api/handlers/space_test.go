@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
@@ -22,7 +21,7 @@ var _ = Describe("Space", func() {
 	const spacesBase = "/v3/spaces"
 
 	var (
-		now           time.Time
+		now           string
 		apiHandler    *handlers.Space
 		spaceRepo     *fake.SpaceRepository
 		requestMethod string
@@ -31,7 +30,7 @@ var _ = Describe("Space", func() {
 	)
 
 	BeforeEach(func() {
-		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
+		now = "2021-09-17T15:23:10Z"
 		requestBody = ""
 		requestPath = spacesBase
 		spaceRepo = new(fake.SpaceRepository)
