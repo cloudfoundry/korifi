@@ -36,12 +36,12 @@ require (
 	golang.org/x/text v0.9.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.26.3
-	k8s.io/apimachinery v0.26.3
+	k8s.io/api v0.27.0
+	k8s.io/apimachinery v0.27.0
 	k8s.io/client-go v0.26.3
 	k8s.io/metrics v0.26.3
 	k8s.io/pod-security-admission v0.26.3
-	k8s.io/utils v0.0.0-20230202215443-34013725500c
+	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 	sigs.k8s.io/controller-runtime v0.14.6
 	sigs.k8s.io/controller-tools v0.11.3
 )
@@ -56,7 +56,6 @@ require (
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/kr/pretty v0.3.0 // indirect
 )
 
 require (
@@ -167,7 +166,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.26.1 // indirect
 	k8s.io/component-base v0.26.3 // indirect
 	k8s.io/klog/v2 v2.90.1
-	k8s.io/kube-openapi v0.0.0-20230202010329-39b3636cbaa3 // indirect
+	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	knative.dev/pkg v0.0.0-20230125083639-408ad0773f47 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
