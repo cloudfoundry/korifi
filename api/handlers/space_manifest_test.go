@@ -75,7 +75,7 @@ var _ = Describe("SpaceManifest", func() {
 
 		It("applies the manifest", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Location", ContainSubstring("space.apply_manifest~"+spaceGUID)))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Location", ContainSubstring("space.apply_manifest~test-space-guid")))
 
 			Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
 			_, actualAuthInfo, _, payload := manifestApplier.ApplyArgsForCall(0)

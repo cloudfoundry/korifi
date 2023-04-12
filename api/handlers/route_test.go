@@ -478,7 +478,7 @@ var _ = Describe("Route", func() {
 		BeforeEach(func() {
 			routeRepo.PatchRouteMetadataReturns(repositories.RouteRecord{
 				GUID:      "test-route-guid",
-				SpaceGUID: spaceGUID,
+				SpaceGUID: "test-space-guid",
 				Labels: map[string]string{
 					"env":                           "production",
 					"foo.example.com/my-identifier": "aruba",
@@ -507,7 +507,7 @@ var _ = Describe("Route", func() {
 			Expect(routeRepo.PatchRouteMetadataCallCount()).To(Equal(1))
 			_, _, msg := routeRepo.PatchRouteMetadataArgsForCall(0)
 			Expect(msg.RouteGUID).To(Equal("test-route-guid"))
-			Expect(msg.SpaceGUID).To(Equal(spaceGUID))
+			Expect(msg.SpaceGUID).To(Equal("test-space-guid"))
 			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
 			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
 			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))

@@ -205,7 +205,7 @@ var _ = Describe("ServiceBinding", func() {
 
 		When("the App and the ServiceInstance are in different spaces", func() {
 			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{SpaceGUID: spaceGUID}, nil)
+				appRepo.GetAppReturns(repositories.AppRecord{SpaceGUID: "test-space-guid"}, nil)
 				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{SpaceGUID: "another-space-guid"}, nil)
 			})
 

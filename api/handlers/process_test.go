@@ -139,7 +139,7 @@ var _ = Describe("Process", func() {
 		BeforeEach(func() {
 			processRepo.GetProcessReturns(repositories.ProcessRecord{
 				GUID:      "process-guid",
-				SpaceGUID: spaceGUID,
+				SpaceGUID: "test-space-guid",
 			}, nil)
 
 			processRepo.ScaleProcessReturns(repositories.ProcessRecord{
@@ -170,7 +170,7 @@ var _ = Describe("Process", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(scaleProcessMsg).To(Equal(repositories.ScaleProcessMessage{
 				GUID:      "process-guid",
-				SpaceGUID: spaceGUID,
+				SpaceGUID: "test-space-guid",
 				ProcessScaleValues: repositories.ProcessScaleValues{
 					Instances: tools.PtrTo(3),
 					MemoryMB:  tools.PtrTo(int64(512)),

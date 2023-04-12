@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,35 +19,47 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-const (
-	rolesBase = "/v3/roles"
-)
-
 var _ = Describe("Role", func() {
 	var (
 		apiHandler           *handlers.Role
 		roleRepo             *fake.CFRoleRepository
 		requestJSONValidator *fake.RequestJSONValidator
+		requestPath          string
+		requestMethod        string
+
+		payload       *payloads.RoleCreate
+		validationErr error
 	)
 
 	BeforeEach(func() {
+		requestPath = "/v3/roles"
+		requestMethod = http.MethodGet
 		roleRepo = new(fake.CFRoleRepository)
 		requestJSONValidator = new(fake.RequestJSONValidator)
 
 		apiHandler = handlers.NewRole(*serverURL, roleRepo, requestJSONValidator)
 		routerBuilder.LoadRoutes(apiHandler)
+
+		requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+			obj, ok := i.(*payloads.RoleCreate)
+			Expect(ok).To(BeTrue())
+			*obj = *payload
+			return validationErr
+		}
+	})
+
+	JustBeforeEach(func() {
+		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(`{"a": "b"}`))
+		Expect(err).NotTo(HaveOccurred())
+		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("Create Role", func() {
-		var (
-			roleCreate    *payloads.RoleCreate
-			validationErr error
-		)
-
 		BeforeEach(func() {
+			requestMethod = http.MethodPost
 			validationErr = nil
 			roleRepo.CreateRoleReturns(repositories.RoleRecord{GUID: "role-guid"}, nil)
-			roleCreate = &payloads.RoleCreate{
+			payload = &payloads.RoleCreate{
 				Type: "space_developer",
 				Relationships: payloads.RoleRelationships{
 					User: &payloads.UserRelationship{
@@ -63,20 +76,13 @@ var _ = Describe("Role", func() {
 			}
 		})
 
-		JustBeforeEach(func() {
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				payload, ok := i.(*payloads.RoleCreate)
-				Expect(ok).To(BeTrue())
-				*payload = *roleCreate
-				return validationErr
-			}
-
-			req, err := http.NewRequestWithContext(ctx, "POST", rolesBase, strings.NewReader(""))
-			Expect(err).NotTo(HaveOccurred())
-			routerBuilder.Build().ServeHTTP(rr, req)
-		})
-
 		It("creates the role", func() {
+			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			req, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			body, err := io.ReadAll(req.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(body).To(MatchJSON(`{"a":"b"}`))
+
 			Expect(roleRepo.CreateRoleCallCount()).To(Equal(1))
 			_, actualAuthInfo, roleMessage := roleRepo.CreateRoleArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -95,8 +101,8 @@ var _ = Describe("Role", func() {
 
 		When("username is passed in the guid field", func() {
 			BeforeEach(func() {
-				roleCreate.Relationships.User.Data.Username = ""
-				roleCreate.Relationships.User.Data.GUID = "my-user"
+				payload.Relationships.User.Data.Username = ""
+				payload.Relationships.User.Data.GUID = "my-user"
 			})
 
 			It("still works as guid and username are equivalent here", func() {
@@ -108,9 +114,9 @@ var _ = Describe("Role", func() {
 
 		When("the role is an organisation role", func() {
 			BeforeEach(func() {
-				roleCreate.Type = "organization_manager"
-				roleCreate.Relationships.Space = nil
-				roleCreate.Relationships.Organization = &payloads.Relationship{
+				payload.Type = "organization_manager"
+				payload.Relationships.Space = nil
+				payload.Relationships.Organization = &payloads.Relationship{
 					Data: &payloads.RelationshipData{
 						GUID: "my-org",
 					},
@@ -127,7 +133,7 @@ var _ = Describe("Role", func() {
 
 		When("the kind is a service account", func() {
 			BeforeEach(func() {
-				roleCreate.Relationships.User.Data.GUID = "system:serviceaccount:cf:my-user"
+				payload.Relationships.User.Data.GUID = "system:serviceaccount:cf:my-user"
 			})
 
 			It("creates a service account role binding", func() {
@@ -162,20 +168,11 @@ var _ = Describe("Role", func() {
 	})
 
 	Describe("List roles", func() {
-		var query string
-
 		BeforeEach(func() {
-			query = ""
 			roleRepo.ListRolesReturns([]repositories.RoleRecord{
 				{GUID: "role-1"},
 				{GUID: "role-2"},
 			}, nil)
-		})
-
-		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+query, nil)
-			Expect(err).NotTo(HaveOccurred())
-			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("lists roles", func() {
@@ -197,7 +194,7 @@ var _ = Describe("Role", func() {
 
 		When("include is specified", func() {
 			BeforeEach(func() {
-				query = "?include=user"
+				requestPath += "?include=user"
 			})
 
 			It("does not fail but has no effect on the result", func() {
@@ -217,7 +214,7 @@ var _ = Describe("Role", func() {
 			})
 
 			DescribeTable("filtering", func(filter string, expectedGUIDs ...any) {
-				req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?"+filter, nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", "/v3/roles?"+filter, nil)
 				Expect(err).NotTo(HaveOccurred())
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
@@ -239,7 +236,7 @@ var _ = Describe("Role", func() {
 			)
 
 			DescribeTable("ordering", func(order string, expectedGUIDs ...any) {
-				req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?order_by="+order, nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", "/v3/roles?order_by="+order, nil)
 				Expect(err).NotTo(HaveOccurred())
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
@@ -256,7 +253,7 @@ var _ = Describe("Role", func() {
 
 		When("order_by is not a valid field", func() {
 			BeforeEach(func() {
-				query = "?order_by=not_valid"
+				requestPath += "?order_by=not_valid"
 			})
 
 			It("returns an Unknown key error", func() {
@@ -282,12 +279,9 @@ var _ = Describe("Role", func() {
 				Space: "my-space",
 				Org:   "",
 			}, nil)
-		})
 
-		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "DELETE", rolesBase+"/role-guid", nil)
-			Expect(err).NotTo(HaveOccurred())
-			routerBuilder.Build().ServeHTTP(rr, req)
+			requestMethod = http.MethodDelete
+			requestPath += "/role-guid"
 		})
 
 		It("deletes the role", func() {

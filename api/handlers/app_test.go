@@ -20,13 +20,6 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 )
 
-const (
-	appGUID     = "test-app-guid"
-	appName     = "test-app"
-	spaceGUID   = "test-space-guid"
-	dropletGUID = "test-droplet-guid"
-)
-
 var _ = Describe("App", func() {
 	var (
 		appRepo     *fake.CFAppRepository
@@ -65,9 +58,9 @@ var _ = Describe("App", func() {
 		)
 
 		appRecord = repositories.AppRecord{
-			GUID:        appGUID,
+			GUID:        "test-app-guid",
 			Name:        "test-app",
-			SpaceGUID:   spaceGUID,
+			SpaceGUID:   "test-space-guid",
 			State:       "STOPPED",
 			DropletGUID: "test-droplet-guid",
 			Lifecycle: repositories.Lifecycle{
@@ -94,7 +87,7 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid", func() {
 		BeforeEach(func() {
-			req = createHttpRequest("GET", "/v3/apps/"+appGUID, nil)
+			req = createHttpRequest("GET", "/v3/apps/test-app-guid", nil)
 		})
 
 		It("returns the App", func() {
@@ -136,11 +129,11 @@ var _ = Describe("App", func() {
 	Describe("POST /v3/apps", func() {
 		requestBody := func(spaceGUID string) io.Reader {
 			return strings.NewReader(`{
-				"name": "` + appName + `",
+				"name": "test-app",
 				"relationships": {
 					"space": {
 						"data": {
-							"guid": "` + spaceGUID + `"
+							"guid": "test-space-guid"
 						}
 					}
 				}
@@ -149,7 +142,7 @@ var _ = Describe("App", func() {
 
 		BeforeEach(func() {
 			appRepo.CreateAppReturns(appRecord, nil)
-			req = createHttpRequest("POST", "/v3/apps", requestBody(spaceGUID))
+			req = createHttpRequest("POST", "/v3/apps", requestBody("test-space-guid"))
 		})
 
 		It("returns the App", func() {
@@ -161,7 +154,7 @@ var _ = Describe("App", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", appGUID),
+				MatchJSONPath("$.guid", "test-app-guid"),
 				MatchJSONPath("$.state", "STOPPED"),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
@@ -172,8 +165,8 @@ var _ = Describe("App", func() {
 			_, actualAuthInfo, actualMsg := processRepo.CreateProcessArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMsg).To(Equal(repositories.CreateProcessMessage{
-				AppGUID:   appGUID,
-				SpaceGUID: spaceGUID,
+				AppGUID:   "test-app-guid",
+				SpaceGUID: "test-space-guid",
 				Type:      "web",
 			}))
 		})
@@ -477,7 +470,7 @@ var _ = Describe("App", func() {
 		BeforeEach(func() {
 			appRecord.GUID = "patched-app-guid"
 			appRepo.PatchAppMetadataReturns(appRecord, nil)
-			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
+			req = createHttpRequest("PATCH", "/v3/apps/test-app-guid", strings.NewReader(`{
 				  "metadata": {
 					"labels": {
 					  "env": "production",
@@ -494,8 +487,8 @@ var _ = Describe("App", func() {
 		It("patches the app with the new labels and annotations", func() {
 			Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
 			_, _, msg := appRepo.PatchAppMetadataArgsForCall(0)
-			Expect(msg.AppGUID).To(Equal(appGUID))
-			Expect(msg.SpaceGUID).To(Equal(spaceGUID))
+			Expect(msg.AppGUID).To(Equal("test-app-guid"))
+			Expect(msg.SpaceGUID).To(Equal("test-space-guid"))
 			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
 			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
 			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
@@ -553,7 +546,7 @@ var _ = Describe("App", func() {
 		When("a label is invalid", func() {
 			When("the prefix is cloudfoundry.org", func() {
 				BeforeEach(func() {
-					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
+					req = createHttpRequest("PATCH", "/v3/apps/test-app-guid", strings.NewReader(`{
 					  "metadata": {
 						"labels": {
 						  "cloudfoundry.org/test": "production"
@@ -569,7 +562,7 @@ var _ = Describe("App", func() {
 
 			When("the prefix is a subdomain of cloudfoundry.org", func() {
 				BeforeEach(func() {
-					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
+					req = createHttpRequest("PATCH", "/v3/apps/test-app-guid", strings.NewReader(`{
 					  "metadata": {
 						"labels": {
 						  "korifi.cloudfoundry.org/test": "production"
@@ -587,7 +580,7 @@ var _ = Describe("App", func() {
 		When("an annotation is invalid", func() {
 			When("the prefix is cloudfoundry.org", func() {
 				BeforeEach(func() {
-					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
+					req = createHttpRequest("PATCH", "/v3/apps/test-app-guid", strings.NewReader(`{
 					  "metadata": {
 						"annotations": {
 						  "cloudfoundry.org/test": "there"
@@ -602,7 +595,7 @@ var _ = Describe("App", func() {
 
 				When("the prefix is a subdomain of cloudfoundry.org", func() {
 					BeforeEach(func() {
-						req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
+						req = createHttpRequest("PATCH", "/v3/apps/test-app-guid", strings.NewReader(`{
 						  "metadata": {
 							"annotations": {
 							  "korifi.cloudfoundry.org/test": "there"
@@ -623,16 +616,16 @@ var _ = Describe("App", func() {
 		var droplet repositories.DropletRecord
 
 		BeforeEach(func() {
-			droplet = repositories.DropletRecord{GUID: dropletGUID, AppGUID: appGUID}
+			droplet = repositories.DropletRecord{GUID: "test-droplet-guid", AppGUID: "test-app-guid"}
 
 			dropletRepo.GetDropletReturns(droplet, nil)
 			appRepo.SetCurrentDropletReturns(repositories.CurrentDropletRecord{
-				AppGUID:     appGUID,
-				DropletGUID: dropletGUID,
+				AppGUID:     "test-app-guid",
+				DropletGUID: "test-droplet-guid",
 			}, nil)
 
-			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
-					{ "data": { "guid": "`+dropletGUID+`" } }
+			req = createHttpRequest("PATCH", "/v3/apps/test-app-guid/relationships/current_droplet", strings.NewReader(`
+					{ "data": { "guid": "test-droplet-guid" } }
                 `))
 		})
 
@@ -645,24 +638,24 @@ var _ = Describe("App", func() {
 		It("sets the current droplet on the app", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-			Expect(actualAppGUID).To(Equal(appGUID))
+			Expect(actualAppGUID).To(Equal("test-app-guid"))
 
 			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
 			_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
-			Expect(actualDropletGUID).To(Equal(dropletGUID))
+			Expect(actualDropletGUID).To(Equal("test-droplet-guid"))
 
 			Expect(appRepo.SetCurrentDropletCallCount()).To(Equal(1))
 			_, _, message := appRepo.SetCurrentDropletArgsForCall(0)
-			Expect(message.AppGUID).To(Equal(appGUID))
-			Expect(message.DropletGUID).To(Equal(dropletGUID))
-			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+			Expect(message.AppGUID).To(Equal("test-app-guid"))
+			Expect(message.DropletGUID).To(Equal("test-droplet-guid"))
+			Expect(message.SpaceGUID).To(Equal("test-space-guid"))
 		})
 
 		It("returns the droplet", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.data.guid", dropletGUID),
+				MatchJSONPath("$.data.guid", "test-droplet-guid"),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
 		})
@@ -741,7 +734,7 @@ var _ = Describe("App", func() {
 			BeforeEach(func() {
 				droplet.AppGUID = "a-different-app-guid"
 				dropletRepo.GetDropletReturns(repositories.DropletRecord{
-					GUID:    dropletGUID,
+					GUID:    "test-droplet-guid",
 					AppGUID: "a-different-app-guid",
 				}, nil)
 			})
@@ -755,7 +748,7 @@ var _ = Describe("App", func() {
 
 		When("the guid is missing", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
+				req = createHttpRequest("PATCH", "/v3/apps/test-app-guid/relationships/current_droplet", strings.NewReader(`
 					{ "data": {  } }
                 `))
 			})
@@ -782,14 +775,14 @@ var _ = Describe("App", func() {
 			updatedAppRecord.State = "STARTED"
 			appRepo.SetAppDesiredStateReturns(updatedAppRecord, nil)
 
-			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/start", nil)
+			req = createHttpRequest("POST", "/v3/apps/test-app-guid/actions/start", nil)
 		})
 
 		It("returns the App in the response with a state of STARTED", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", appGUID),
+				MatchJSONPath("$.guid", "test-app-guid"),
 				MatchJSONPath("$.state", "STARTED"),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
@@ -844,14 +837,14 @@ var _ = Describe("App", func() {
 			appRepo.SetAppDesiredStateReturns(updatedAppRecord, nil)
 			appRepo.PatchAppMetadataReturns(updatedAppRecord, nil)
 
-			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
+			req = createHttpRequest("POST", "/v3/apps/test-app-guid/actions/stop", nil)
 		})
 
 		It("returns the App in the response with a state of STOPPED", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", appGUID),
+				MatchJSONPath("$.guid", "test-app-guid"),
 				MatchJSONPath("$.state", "STOPPED"),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
@@ -897,8 +890,8 @@ var _ = Describe("App", func() {
 		BeforeEach(func() {
 			processRecord := repositories.ProcessRecord{
 				GUID:             "process-1-guid",
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
+				SpaceGUID:        "test-space-guid",
+				AppGUID:          "test-app-guid",
 				Type:             "web",
 				Command:          "rackup",
 				DesiredInstances: 5,
@@ -927,14 +920,14 @@ var _ = Describe("App", func() {
 				process2Record,
 			}, nil)
 
-			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes", nil)
+			req = createHttpRequest("GET", "/v3/apps/test-app-guid/processes", nil)
 		})
 
 		It("returns the processes", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/processes"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/processes"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "process-1-guid"),
 				MatchJSONPath("$.resources[0].command", "[PRIVATE DATA HIDDEN IN LISTS]"),
@@ -978,8 +971,8 @@ var _ = Describe("App", func() {
 		BeforeEach(func() {
 			processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{
 				GUID:             "process-1-guid",
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
+				SpaceGUID:        "test-space-guid",
+				AppGUID:          "test-app-guid",
 				Type:             "web",
 				Command:          "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
 				DesiredInstances: 1,
@@ -995,7 +988,7 @@ var _ = Describe("App", func() {
 				UpdatedAt:   "1906-04-18T13:12:01Z",
 			}, nil)
 
-			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes/web", nil)
+			req = createHttpRequest("GET", "/v3/apps/test-app-guid/processes/web", nil)
 		})
 
 		It("returns a process", func() {
@@ -1048,16 +1041,16 @@ var _ = Describe("App", func() {
 			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
 				{
 					GUID:      "process-1-guid",
-					SpaceGUID: spaceGUID,
-					AppGUID:   appGUID,
+					SpaceGUID: "test-space-guid",
+					AppGUID:   "test-app-guid",
 					Type:      "web",
 				},
 			}, nil)
 
 			processRepo.ScaleProcessReturns(repositories.ProcessRecord{
 				GUID:             "process-1-guid",
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
+				SpaceGUID:        "test-space-guid",
+				AppGUID:          "test-app-guid",
 				Type:             "web",
 				Command:          "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
 				DesiredInstances: 5,
@@ -1073,7 +1066,7 @@ var _ = Describe("App", func() {
 				UpdatedAt:   "1906-04-18T13:12:01Z",
 			}, nil)
 
-			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(fmt.Sprintf(`{
+			req = createHttpRequest("POST", "/v3/apps/test-app-guid/processes/web/actions/scale", strings.NewReader(fmt.Sprintf(`{
 				"instances": %d,
 				"memory_in_mb": %d,
 				"disk_in_mb": %d
@@ -1084,7 +1077,7 @@ var _ = Describe("App", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualAppGUID).To(Equal(appGUID))
+			Expect(actualAppGUID).To(Equal("test-app-guid"))
 		})
 
 		It("lists the app processes", func() {
@@ -1092,8 +1085,8 @@ var _ = Describe("App", func() {
 			_, actualAuthInfo, listMsg := processRepo.ListProcessesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(listMsg).To(Equal(repositories.ListProcessesMessage{
-				AppGUIDs:  []string{appGUID},
-				SpaceGUID: spaceGUID,
+				AppGUIDs:  []string{"test-app-guid"},
+				SpaceGUID: "test-space-guid",
 			}))
 		})
 
@@ -1103,7 +1096,7 @@ var _ = Describe("App", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(scaleMsg).To(Equal(repositories.ScaleProcessMessage{
 				GUID:      "process-1-guid",
-				SpaceGUID: spaceGUID,
+				SpaceGUID: "test-space-guid",
 				ProcessScaleValues: repositories.ProcessScaleValues{
 					Instances: tools.PtrTo(5),
 					MemoryMB:  tools.PtrTo[int64](256),
@@ -1125,7 +1118,7 @@ var _ = Describe("App", func() {
 
 		When("the request JSON is invalid", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(`}`))
+				req = createHttpRequest("POST", "/v3/apps/test-app-guid/processes/web/actions/scale", strings.NewReader(`}`))
 			})
 
 			It("returns an error", func() {
@@ -1165,7 +1158,7 @@ var _ = Describe("App", func() {
 
 		When("scaling a nonexistent process type", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/bob/actions/scale", strings.NewReader("{}"))
+				req = createHttpRequest("POST", "/v3/apps/test-app-guid/processes/bob/actions/scale", strings.NewReader("{}"))
 			})
 
 			It("return a NotFound error", func() {
@@ -1186,7 +1179,7 @@ var _ = Describe("App", func() {
 		DescribeTable("request body validation",
 			func(requestBody string, status int) {
 				tableTestRecorder := httptest.NewRecorder()
-				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(requestBody))
+				req = createHttpRequest("POST", "/v3/apps/test-app-guid/processes/web/actions/scale", strings.NewReader(requestBody))
 				routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
 				Expect(tableTestRecorder).To(HaveHTTPStatus(status))
 			},
@@ -1225,7 +1218,7 @@ var _ = Describe("App", func() {
 				Name: "example.org",
 			}, nil)
 
-			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/routes", nil)
+			req = createHttpRequest("GET", "/v3/apps/test-app-guid/routes", nil)
 		})
 
 		It("sends authInfo from the context to the repo methods", func() {
@@ -1247,7 +1240,7 @@ var _ = Describe("App", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/routes"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/routes"),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", "test-route-guid"),
 				MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"),
@@ -1288,7 +1281,7 @@ var _ = Describe("App", func() {
 	Describe("GET /v3/apps/:guid/droplets/current", func() {
 		BeforeEach(func() {
 			dropletRepo.GetDropletReturns(repositories.DropletRecord{
-				GUID:      dropletGUID,
+				GUID:      "test-droplet-guid",
 				State:     "STAGED",
 				CreatedAt: "2019-05-10T17:17:48Z",
 				UpdatedAt: "2019-05-10T17:17:48Z",
@@ -1304,28 +1297,28 @@ var _ = Describe("App", func() {
 					"rake": "bundle exec rake",
 					"web":  "bundle exec rackup config.ru -p $PORT",
 				},
-				AppGUID:     appGUID,
+				AppGUID:     "test-app-guid",
 				PackageGUID: "test-package-guid",
 			}, nil)
 
-			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
+			req = createHttpRequest("GET", "/v3/apps/test-app-guid/droplets/current", nil)
 		})
 
 		It("returns the current droplet", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualAppGUID).To(Equal(appGUID))
+			Expect(actualAppGUID).To(Equal("test-app-guid"))
 
 			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualDropletGUID).To(Equal(dropletGUID))
+			Expect(actualDropletGUID).To(Equal("test-droplet-guid"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", dropletGUID),
+				MatchJSONPath("$.guid", "test-droplet-guid"),
 				MatchJSONPath("$.state", "STAGED"),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
@@ -1354,8 +1347,8 @@ var _ = Describe("App", func() {
 		When("the app doesn't have a current droplet assigned", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{
-					GUID:        appGUID,
-					SpaceGUID:   spaceGUID,
+					GUID:        "test-app-guid",
+					SpaceGUID:   "test-space-guid",
 					DropletGUID: "",
 				}, nil)
 			})
@@ -1392,14 +1385,14 @@ var _ = Describe("App", func() {
 			updatedAppRecord.State = "STARTED"
 			appRepo.SetAppDesiredStateReturns(updatedAppRecord, nil)
 
-			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/restart", nil)
+			req = createHttpRequest("POST", "/v3/apps/test-app-guid/actions/restart", nil)
 		})
 
 		It("restarts the app", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualAppGUID).To(Equal(appGUID))
+			Expect(actualAppGUID).To(Equal("test-app-guid"))
 
 			Expect(appRepo.SetAppDesiredStateCallCount()).To(Equal(2))
 			_, actualAuthInfo, appDesiredStateMessage := appRepo.SetAppDesiredStateArgsForCall(0)
@@ -1508,21 +1501,21 @@ var _ = Describe("App", func() {
 
 	Describe("DELETE /v3/apps/:guid", func() {
 		BeforeEach(func() {
-			req = createHttpRequest("DELETE", "/v3/apps/"+appGUID, nil)
+			req = createHttpRequest("DELETE", "/v3/apps/test-app-guid", nil)
 		})
 
 		It("deletes the app", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-			Expect(actualAppGUID).To(Equal(appGUID))
+			Expect(actualAppGUID).To(Equal("test-app-guid"))
 
 			Expect(appRepo.DeleteAppCallCount()).To(Equal(1))
 			_, _, message := appRepo.DeleteAppArgsForCall(0)
-			Expect(message.AppGUID).To(Equal(appGUID))
-			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+			Expect(message.AppGUID).To(Equal("test-app-guid"))
+			Expect(message.SpaceGUID).To(Equal("test-space-guid"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/app.delete~"+appGUID))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/app.delete~test-app-guid"))
 		})
 
 		When("fetching the app errors", func() {
@@ -1552,7 +1545,7 @@ var _ = Describe("App", func() {
 				EnvironmentVariables: map[string]string{"VAR": "VAL"},
 			}, nil)
 
-			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/env", nil)
+			req = createHttpRequest("GET", "/v3/apps/test-app-guid/env", nil)
 		})
 
 		It("returns the app environment", func() {
@@ -1579,26 +1572,26 @@ var _ = Describe("App", func() {
 	Describe("PATCH /v3/apps/:guid/environment_variables", func() {
 		BeforeEach(func() {
 			appRepo.PatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{
-				Name:      appGUID + "-env",
-				AppGUID:   appGUID,
-				SpaceGUID: spaceGUID,
+				Name:      "test-app-guid-env",
+				AppGUID:   "test-app-guid",
+				SpaceGUID: "test-space-guid",
 				EnvironmentVariables: map[string]string{
 					"KEY0": "VAL0",
 					"KEY2": "VAL2",
 				},
 			}, nil)
-			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(`{ "var": { "KEY1": null, "KEY2": "VAL2" } }`))
+			req = createHttpRequest("PATCH", "/v3/apps/test-app-guid/environment_variables", strings.NewReader(`{ "var": { "KEY1": null, "KEY2": "VAL2" } }`))
 		})
 
 		It("updates the app environemnt", func() {
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-			Expect(actualAppGUID).To(Equal(appGUID))
+			Expect(actualAppGUID).To(Equal("test-app-guid"))
 
 			Expect(appRepo.PatchAppEnvVarsCallCount()).To(Equal(1))
 			_, _, message := appRepo.PatchAppEnvVarsArgsForCall(0)
-			Expect(message.AppGUID).To(Equal(appGUID))
-			Expect(message.SpaceGUID).To(Equal(spaceGUID))
+			Expect(message.AppGUID).To(Equal("test-app-guid"))
+			Expect(message.SpaceGUID).To(Equal("test-space-guid"))
 			Expect(message.EnvironmentVariables).To(Equal(map[string]*string{
 				"KEY1": nil,
 				"KEY2": tools.PtrTo("VAL2"),
@@ -1616,7 +1609,7 @@ var _ = Describe("App", func() {
 		DescribeTable("env var validation",
 			func(requestBody string, status int) {
 				tableTestRecorder := httptest.NewRecorder()
-				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(requestBody))
+				req = createHttpRequest("PATCH", "/v3/apps/test-app-guid/environment_variables", strings.NewReader(requestBody))
 				routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
 				Expect(tableTestRecorder).To(HaveHTTPStatus(status))
 			},
@@ -1634,7 +1627,7 @@ var _ = Describe("App", func() {
 
 		When("the request JSON is invalid", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(`{`))
+				req = createHttpRequest("PATCH", "/v3/apps/test-app-guid/environment_variables", strings.NewReader(`{`))
 			})
 
 			It("returns a message parse error", func() {
@@ -1674,8 +1667,8 @@ var _ = Describe("App", func() {
 				GUID:        "package-1-guid",
 				UID:         "package-1-uid",
 				Type:        "bits",
-				AppGUID:     appGUID,
-				SpaceGUID:   spaceGUID,
+				AppGUID:     "test-app-guid",
+				SpaceGUID:   "test-space-guid",
 				State:       "AWAITING_UPLOAD",
 				CreatedAt:   "2017-04-21T18:48:22Z",
 				UpdatedAt:   "2017-04-21T18:48:42Z",
@@ -1696,7 +1689,7 @@ var _ = Describe("App", func() {
 				package2Record,
 			}, nil)
 
-			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/packages", nil)
+			req = createHttpRequest("GET", "/v3/apps/test-app-guid/packages", nil)
 		})
 
 		It("returns the packages", func() {
