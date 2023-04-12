@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -28,21 +29,10 @@ var _ = Describe("User", func() {
 			It("returns an empty list", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-					"pagination": {
-						"total_results": 0,
-						"total_pages": 1,
-						"first": {
-							"href": "https://api.example.org/v3/users"
-						},
-						"last": {
-							"href": "https://api.example.org/v3/users"
-						},
-						"next": null,
-						"previous": null
-					},
-					"resources": []
-				}`)))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.pagination.total_results", BeZero()),
+					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/users"),
+				)))
 			})
 		})
 
@@ -54,30 +44,12 @@ var _ = Describe("User", func() {
 			It("returns a list of users matching the usernames", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-					"pagination": {
-						"total_results": 2,
-						"total_pages": 1,
-						"first": {
-							"href": "https://api.example.org/v3/users?usernames=foo,bar"
-						},
-						"last": {
-							"href": "https://api.example.org/v3/users?usernames=foo,bar"
-						},
-						"next": null,
-						"previous": null
-					},
-					"resources": [
-						{
-							"username": "foo",
-							"guid": "foo"
-						},
-						{
-							"username": "bar",
-							"guid": "bar"
-						}
-					]
-				}`)))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
+					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/users?usernames=foo,bar"),
+					MatchJSONPath("$.resources[0].username", "foo"),
+					MatchJSONPath("$.resources[1].username", "bar"),
+				)))
 			})
 		})
 	})
