@@ -353,7 +353,7 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "first-test-app-guid"),
-				MatchJSONPath("$.resources[0].state", Equal("STOPPED")),
+				MatchJSONPath("$.resources[0].state", "STOPPED"),
 				MatchJSONPath("$.resources[1].guid", "second-test-app-guid"),
 			)))
 		})
@@ -1706,7 +1706,7 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/packages"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "package-1-guid"),
-				MatchJSONPath("$.resources[0].state", Equal("AWAITING_UPLOAD")),
+				MatchJSONPath("$.resources[0].state", "AWAITING_UPLOAD"),
 				MatchJSONPath("$.resources[1].guid", "package-2-guid"),
 			)))
 		})
