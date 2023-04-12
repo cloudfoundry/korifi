@@ -10,6 +10,7 @@ See [_Customizing the Chart Before Installing_](https://helm.sh/docs/intro/using
 Here are all the values that can be set for the chart:
 
 - `global`: Global values that are shared between Korifi and its subcharts.
+  - `commonName` (_String_): Custom CN for the ingress certs. If set ingress certs will have this values as the CN and the full url as a subjext alternative domain name. Useful for urls longer than 64 characters.
   - `containerRegistrySecret` (_String_): Name of the `Secret` to use when pushing or pulling from package, droplet and kpack-build repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
   - `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.
   - `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).

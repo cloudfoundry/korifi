@@ -25,6 +25,10 @@
           "description": "Base domain name for application URLs.",
           "type": "string"
         },
+        "commonName": {
+          "description": "Custom CN for the ingress certs. If set ingress certs will have this values as the CN and the full url as a subjext alternative domain name. Useful for urls longer than 64 characters.",
+          "type": "string"
+        },
         "generateIngressCertificates": {
           "description": "Use `cert-manager` to generate self-signed certificates for the API and app endpoints.",
           "type": "boolean"
