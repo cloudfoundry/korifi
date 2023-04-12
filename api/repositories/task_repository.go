@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -30,20 +29,21 @@ const (
 )
 
 type TaskRecord struct {
-	Name              string
-	GUID              string
-	SpaceGUID         string
-	Command           string
-	AppGUID           string
-	DropletGUID       string
-	Labels            map[string]string
-	Annotations       map[string]string
-	SequenceID        int64
-	CreationTimestamp time.Time
-	MemoryMB          int64
-	DiskMB            int64
-	State             string
-	FailureReason     string
+	Name          string
+	GUID          string
+	SpaceGUID     string
+	Command       string
+	AppGUID       string
+	DropletGUID   string
+	Labels        map[string]string
+	Annotations   map[string]string
+	SequenceID    int64
+	CreatedAt     string
+	UpdatedAt     string
+	MemoryMB      int64
+	DiskMB        int64
+	State         string
+	FailureReason string
 }
 
 type CreateTaskMessage struct {
@@ -286,20 +286,22 @@ func filterBySequenceIDs(tasks []korifiv1alpha1.CFTask, sequenceIDs []int64) []k
 }
 
 func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
+	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&task.ObjectMeta)
 	taskRecord := TaskRecord{
-		Name:              task.Name,
-		GUID:              task.Name,
-		SpaceGUID:         task.Namespace,
-		Command:           task.Spec.Command,
-		AppGUID:           task.Spec.AppRef.Name,
-		SequenceID:        task.Status.SequenceID,
-		CreationTimestamp: task.CreationTimestamp.Time,
-		MemoryMB:          task.Status.MemoryMB,
-		DiskMB:            task.Status.DiskQuotaMB,
-		DropletGUID:       task.Status.DropletRef.Name,
-		State:             toRecordState(task),
-		Labels:            task.Labels,
-		Annotations:       task.Annotations,
+		Name:        task.Name,
+		GUID:        task.Name,
+		SpaceGUID:   task.Namespace,
+		Command:     task.Spec.Command,
+		AppGUID:     task.Spec.AppRef.Name,
+		SequenceID:  task.Status.SequenceID,
+		CreatedAt:   formatTimestamp(task.CreationTimestamp),
+		UpdatedAt:   updatedAtTime,
+		MemoryMB:    task.Status.MemoryMB,
+		DiskMB:      task.Status.DiskQuotaMB,
+		DropletGUID: task.Status.DropletRef.Name,
+		State:       toRecordState(task),
+		Labels:      task.Labels,
+		Annotations: task.Annotations,
 	}
 
 	failedCond := meta.FindStatusCondition(task.Status.Conditions, korifiv1alpha1.TaskFailedConditionType)

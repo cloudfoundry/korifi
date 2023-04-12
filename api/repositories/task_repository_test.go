@@ -152,7 +152,15 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.Command).To(Equal("echo 'hello world'"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).NotTo(BeZero())
-				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+				recordCreatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+				recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.UpdatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+
 				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
@@ -244,7 +252,15 @@ var _ = Describe("TaskRepository", func() {
 					Expect(taskRecord.Command).To(Equal("echo hello"))
 					Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 					Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
-					Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+					recordCreatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.CreatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+					recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.UpdatedAt)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+
 					Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 					Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 					Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
@@ -539,7 +555,15 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.Command).To(Equal("echo hello"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
-				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+				recordCreatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+				recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.UpdatedAt)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+
 				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
