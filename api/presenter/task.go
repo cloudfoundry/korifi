@@ -3,7 +3,6 @@ package presenter
 import (
 	"net/http"
 	"net/url"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
@@ -53,8 +52,8 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse
 		Command:     responseTask.Command,
 		SequenceID:  responseTask.SequenceID,
 		DropletGUID: responseTask.DropletGUID,
-		CreatedAt:   responseTask.CreationTimestamp.UTC().Format(time.RFC3339),
-		UpdatedAt:   responseTask.CreationTimestamp.UTC().Format(time.RFC3339),
+		CreatedAt:   responseTask.CreatedAt,
+		UpdatedAt:   responseTask.UpdatedAt,
 		MemoryMB:    responseTask.MemoryMB,
 		DiskMB:      responseTask.DiskMB,
 		State:       responseTask.State,
