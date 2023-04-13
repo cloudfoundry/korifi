@@ -7,10 +7,20 @@ on:
 
 jobs:
   add-to-icebox:
+    if: github.event.label.name != 'epic'
     name: Add issue to icebox
     runs-on: ubuntu-latest
     steps:
       - uses: actions/add-to-project@v0.5.0
         with:
           project-url: https://github.com/orgs/cloudfoundry/projects/35
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+  add-to-roadmap:
+    if: github.event.label.name == 'epic'
+    name: Add epic to roadmap
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/orgs/cloudfoundry/projects/29
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
