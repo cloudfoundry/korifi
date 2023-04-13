@@ -106,7 +106,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		It("creates a kpack image with the source, env and services set", func() {
 			Eventually(func(g Gomega) {
 				kpackImage := new(buildv1alpha2.Image)
-				g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, kpackImage)).To(Succeed())
+				g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}, kpackImage)).To(Succeed())
 				g.Expect(kpackImage.Spec.Build).ToNot(BeNil())
 				g.Expect(kpackImage.Spec.Source.Registry.Image).To(BeEquivalentTo(source.Registry.Image))
 				g.Expect(kpackImage.Spec.Source.Registry.ImagePullSecrets).To(BeEquivalentTo(source.Registry.ImagePullSecrets))
@@ -121,7 +121,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			BeforeEach(func() {
 				existingKpackImage = &buildv1alpha2.Image{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      cfBuildGUID,
+						Name:      "app-guid",
 						Namespace: namespaceGUID,
 						Labels: map[string]string{
 							controllers.BuildWorkloadLabelKey: cfBuildGUID,
@@ -147,7 +147,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			It("updates the image and sets the status condition on BuildWorkload", func() {
 				Eventually(func(g Gomega) {
 					kpackImage := new(buildv1alpha2.Image)
-					g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, kpackImage)).To(Succeed())
+					g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}, kpackImage)).To(Succeed())
 					g.Expect(kpackImage.Spec.Build).ToNot(BeNil())
 					g.Expect(kpackImage.Spec.Source.Registry.Image).To(BeEquivalentTo(source.Registry.Image))
 					g.Expect(kpackImage.Spec.Source.Registry.ImagePullSecrets).To(BeEquivalentTo(source.Registry.ImagePullSecrets))
@@ -195,7 +195,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			It("doesn't create the kpack Image as long as the secret is missing", func() {
 				Consistently(func(g Gomega) bool {
-					lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+					lookupKey := types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}
 					return k8serrors.IsNotFound(k8sClient.Get(context.Background(), lookupKey, new(buildv1alpha2.Image)))
 				}).Should(BeTrue())
 			})
@@ -221,7 +221,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			It("doesn't create a kpack Image", func() {
 				Consistently(func(g Gomega) bool {
-					lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+					lookupKey := types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}
 					return k8serrors.IsNotFound(k8sClient.Get(context.Background(), lookupKey, new(buildv1alpha2.Image)))
 				}).Should(BeTrue())
 			})
@@ -235,17 +235,17 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			It("does not create a kpack image resource", func() {
 				Consistently(func(g Gomega) {
 					kpackImage := new(buildv1alpha2.Image)
-					err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, kpackImage)
-					g.Expect(err).To(MatchError(fmt.Sprintf("images.kpack.io %q not found", cfBuildGUID)))
+					err := k8sClient.Get(context.Background(), types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}, kpackImage)
+					g.Expect(err).To(MatchError(fmt.Sprintf("images.kpack.io %q not found", "app-guid")))
 				}).Should(Succeed())
 			})
 
 			When("the other reconciler has partially reconciled the object and created an Image", func() {
 				BeforeEach(func() {
-					image := buildKpackImageObject(cfBuildGUID, namespaceGUID, source, env, services)
+					image := buildKpackImageObject("app-guid", namespaceGUID, source, env, services)
 					Expect(k8sClient.Create(context.Background(), image)).To(Succeed())
 
-					kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+					kpackImageLookupKey := types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}
 					createdKpackImage := new(buildv1alpha2.Image)
 					Eventually(func() error {
 						return k8sClient.Get(context.Background(), kpackImageLookupKey, createdKpackImage)
@@ -294,7 +294,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(k8sClient.Create(context.Background(), buildWorkload)).To(Succeed())
 
-			kpackImageLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+			kpackImageLookupKey := types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}
 			createdKpackImage = new(buildv1alpha2.Image)
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), kpackImageLookupKey, createdKpackImage)

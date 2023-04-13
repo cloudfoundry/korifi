@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -138,7 +137,8 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	}
 
 	var kpackImage buildv1alpha2.Image
-	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), &kpackImage)
+	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
+	err := r.k8sClient.Get(ctx, client.ObjectKey{Namespace: buildWorkload.Namespace, Name: appGUID}, &kpackImage)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -205,12 +205,11 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 
 func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
 	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
-	kpackImageName := buildWorkload.Name
 	kpackImageNamespace := buildWorkload.Namespace
 	kpackImageTag := r.repositoryRef(appGUID)
 	desiredKpackImage := buildv1alpha2.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kpackImageName,
+			Name:      appGUID,
 			Namespace: kpackImageNamespace,
 		},
 	}
@@ -331,16 +330,8 @@ func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Bu
 		For(&korifiv1alpha1.BuildWorkload{}).
 		Watches(
 			&source.Kind{Type: new(buildv1alpha2.Image)},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				var requests []reconcile.Request
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      obj.GetLabels()[BuildWorkloadLabelKey],
-						Namespace: obj.GetNamespace(),
-					},
-				})
-				return requests
-			})).
+			&handler.EnqueueRequestForOwner{OwnerType: new(korifiv1alpha1.BuildWorkload)},
+		).
 		WithEventFilter(predicate.NewPredicateFuncs(filterBuildWorkloads))
 }
 
