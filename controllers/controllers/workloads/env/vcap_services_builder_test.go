@@ -1,11 +1,11 @@
 package env_test
 
 import (
-	"code.cloudfoundry.org/korifi/tools"
 	"encoding/json"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/tools"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -164,7 +164,7 @@ var _ = Describe("Builder", func() {
 			Expect(extractServiceInfo(vcapServices, "custom-service-2", 1)).To(ContainElements(
 				SatisfyAll(
 					HaveLen(10),
-					HaveKeyWithValue("label", "user-provided"),
+					HaveKeyWithValue("label", "custom-service-2"),
 					HaveKeyWithValue("name", "my-service-binding-2"),
 					HaveKeyWithValue("tags", ConsistOf("t1", "t2")),
 					HaveKeyWithValue("instance_guid", "my-service-instance-guid-2"),

@@ -87,13 +87,14 @@ func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, service
 		serviceLabel = *serviceInstance.Spec.ServiceLabel
 	}
 
-	return fromServiceBinding(serviceBinding, serviceInstance, secret), serviceLabel, nil
+	return fromServiceBinding(serviceBinding, serviceInstance, secret, serviceLabel), serviceLabel, nil
 }
 
 func fromServiceBinding(
 	serviceBinding korifiv1alpha1.CFServiceBinding,
 	serviceInstance korifiv1alpha1.CFServiceInstance,
 	serviceBindingSecret corev1.Secret,
+	serviceLabel string,
 ) ServiceDetails {
 	var serviceName string
 	var bindingName *string
@@ -112,7 +113,7 @@ func fromServiceBinding(
 	}
 
 	return ServiceDetails{
-		Label:          "user-provided",
+		Label:          serviceLabel,
 		Name:           serviceName,
 		Tags:           tags,
 		InstanceGUID:   serviceInstance.Name,
