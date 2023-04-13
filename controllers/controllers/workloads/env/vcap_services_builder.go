@@ -13,6 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const UserProvided = "user-provided"
+
 type VCAPServicesEnvValueBuilder struct {
 	k8sClient client.Client
 }
@@ -35,7 +37,7 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 		return map[string]string{"VCAP_SERVICES": "{}"}, nil
 	}
 
-	serviceEnvs := []ServiceDetails{}
+	serviceEnvs := VCAPServices{}
 	for _, currentServiceBinding := range serviceBindings.Items {
 		// If finalizing do not append
 		if !currentServiceBinding.DeletionTimestamp.IsZero() {
@@ -43,15 +45,16 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 		}
 
 		var serviceEnv ServiceDetails
-		serviceEnv, err = buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
+		var serviceLabel string
+		serviceEnv, serviceLabel, err = buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
 		if err != nil {
 			return nil, err
 		}
 
-		serviceEnvs = append(serviceEnvs, serviceEnv)
+		serviceEnvs[serviceLabel] = append(serviceEnvs[serviceLabel], serviceEnv)
 	}
 
-	jsonVal, err := json.Marshal(VCAPServices{UserProvided: serviceEnvs})
+	jsonVal, err := json.Marshal(serviceEnvs)
 	if err != nil {
 		return nil, err
 	}
@@ -61,24 +64,30 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 	}, nil
 }
 
-func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, error) {
+func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, string, error) {
 	if serviceBinding.Status.Binding.Name == "" {
-		return ServiceDetails{}, fmt.Errorf("service binding secret name is empty")
+		return ServiceDetails{}, "", fmt.Errorf("service binding secret name is empty")
 	}
+
+	serviceLabel := UserProvided
 
 	serviceInstance := korifiv1alpha1.CFServiceInstance{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Spec.Service.Name}, &serviceInstance)
 	if err != nil {
-		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceInstance: %w", err)
+		return ServiceDetails{}, "", fmt.Errorf("error fetching CFServiceInstance: %w", err)
 	}
 
 	secret := corev1.Secret{}
 	err = k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Status.Binding.Name}, &secret)
 	if err != nil {
-		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
+		return ServiceDetails{}, "", fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 	}
 
-	return fromServiceBinding(serviceBinding, serviceInstance, secret), nil
+	if serviceInstance.Spec.ServiceLabel != nil && *serviceInstance.Spec.ServiceLabel != "" {
+		serviceLabel = *serviceInstance.Spec.ServiceLabel
+	}
+
+	return fromServiceBinding(serviceBinding, serviceInstance, secret), serviceLabel, nil
 }
 
 func fromServiceBinding(
