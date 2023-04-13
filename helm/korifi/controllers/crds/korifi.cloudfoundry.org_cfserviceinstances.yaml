@@ -50,6 +50,10 @@ spec:
                 description: Name of a secret containing the service credentials.
                   The Secret must be in the same namespace
                 type: string
+              serviceLabel:
+                description: Service label to use when adding this instance to VCAP_Services
+                  Defaults to `user-provided` when this field is not set
+                type: string
               tags:
                 description: Tags are used by apps to identify service instances
                 items:

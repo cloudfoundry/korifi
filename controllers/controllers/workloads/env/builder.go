@@ -11,9 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type VCAPServices struct {
-	UserProvided []ServiceDetails `json:"user-provided,omitempty"`
-}
+type VCAPServices map[string][]ServiceDetails
 
 type ServiceDetails struct {
 	Label          string            `json:"label"`
