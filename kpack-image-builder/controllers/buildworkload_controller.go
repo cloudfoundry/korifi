@@ -212,11 +212,20 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kpackImageName,
 			Namespace: kpackImageNamespace,
-			Labels: map[string]string{
-				BuildWorkloadLabelKey: buildWorkload.Name,
-			},
 		},
-		Spec: buildv1alpha2.ImageSpec{
+	}
+
+	if err := r.imageRepoCreator.CreateRepository(ctx, r.repositoryRef(appGUID)); err != nil {
+		r.log.Info("failed to create image repository", "reason", err)
+		return err
+	}
+
+	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, &desiredKpackImage, func() error {
+		desiredKpackImage.Labels = map[string]string{
+			BuildWorkloadLabelKey: buildWorkload.Name,
+		}
+
+		desiredKpackImage.Spec = buildv1alpha2.ImageSpec{
 			Tag: kpackImageTag,
 			Builder: corev1.ObjectReference{
 				Kind:       clusterBuilderKind,
@@ -234,17 +243,18 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 				Services: buildWorkload.Spec.Services,
 				Env:      buildWorkload.Spec.Env,
 			},
-		},
-	}
+		}
 
-	err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.scheme)
-	if err != nil {
-		r.log.Info("failed to set OwnerRef on Kpack Image", "reason", err)
-		return err
-	}
+		err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.scheme)
+		if err != nil {
+			r.log.Info("failed to set OwnerRef on Kpack Image", "reason", err)
+			return err
+		}
 
-	err = r.createKpackImageIfNotExists(ctx, desiredKpackImage, appGUID)
+		return nil
+	})
 	if err != nil {
+		r.log.Info("failed to set create or patch kpack.Image", "reason", err)
 		return err
 	}
 
@@ -255,29 +265,6 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		Message: "Waiting for image build to complete",
 	})
 
-	return nil
-}
-
-func (r *BuildWorkloadReconciler) createKpackImageIfNotExists(ctx context.Context, desiredKpackImage buildv1alpha2.Image, appGUID string) error {
-	var foundKpackImage buildv1alpha2.Image
-	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(&desiredKpackImage), &foundKpackImage)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if err = r.imageRepoCreator.CreateRepository(ctx, r.repositoryRef(appGUID)); err != nil {
-				r.log.Info("failed to create image repository", "reason", err)
-				return err
-			}
-
-			err = r.k8sClient.Create(ctx, &desiredKpackImage)
-			if err != nil {
-				r.log.Info("error when creating kpack image", "reason", err)
-				return err
-			}
-		} else {
-			r.log.Info("error when checking if kpack image exists", "reason", err)
-			return err
-		}
-	}
 	return nil
 }
 
