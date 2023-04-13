@@ -39,16 +39,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		buildpacks     []string
 	)
 
-	eventuallyKpackImageShould := func(assertion func(*buildv1alpha2.Image, Gomega)) {
-		Eventually(func(g Gomega) {
-			kpackImage := new(buildv1alpha2.Image)
-			err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, kpackImage)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(kpackImage.Spec.Build).ToNot(BeNil())
-			assertion(kpackImage, g)
-		}).Should(Succeed())
-	}
-
 	BeforeEach(func() {
 		beforeCtx := context.Background()
 
@@ -114,29 +104,14 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		})
 
 		It("creates a kpack image with the source, env and services set", func() {
-			eventuallyKpackImageShould(func(kpackImage *buildv1alpha2.Image, g Gomega) {
+			Eventually(func(g Gomega) {
+				kpackImage := new(buildv1alpha2.Image)
+				g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, kpackImage)).To(Succeed())
+				g.Expect(kpackImage.Spec.Build).ToNot(BeNil())
 				g.Expect(kpackImage.Spec.Source.Registry.Image).To(BeEquivalentTo(source.Registry.Image))
 				g.Expect(kpackImage.Spec.Source.Registry.ImagePullSecrets).To(BeEquivalentTo(source.Registry.ImagePullSecrets))
 				g.Expect(kpackImage.Spec.Build.Env).To(Equal(env))
 				g.Expect(kpackImage.Spec.Build.Services).To(BeEquivalentTo(services))
-			})
-		})
-
-		It("creates the image repository", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(imageRepoCreator.CreateRepositoryCallCount()).ToNot(BeZero())
-				_, repoName := imageRepoCreator.CreateRepositoryArgsForCall(0)
-				g.Expect(repoName).To(Equal("my.repository/my-prefix/app-guid-droplets"))
-			}).Should(Succeed())
-		})
-
-		It("sets the status condition on BuildWorkload", func() {
-			cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-			updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
-			Eventually(func(g Gomega) {
-				err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
 			}).Should(Succeed())
 		})
 
@@ -169,7 +144,17 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Expect(k8sClient.Create(context.Background(), existingKpackImage)).To(Succeed())
 			})
 
-			It("sets the status condition on BuildWorkload", func() {
+			It("updates the image and sets the status condition on BuildWorkload", func() {
+				Eventually(func(g Gomega) {
+					kpackImage := new(buildv1alpha2.Image)
+					g.Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, kpackImage)).To(Succeed())
+					g.Expect(kpackImage.Spec.Build).ToNot(BeNil())
+					g.Expect(kpackImage.Spec.Source.Registry.Image).To(BeEquivalentTo(source.Registry.Image))
+					g.Expect(kpackImage.Spec.Source.Registry.ImagePullSecrets).To(BeEquivalentTo(source.Registry.ImagePullSecrets))
+					g.Expect(kpackImage.Spec.Build.Env).To(Equal(env))
+					g.Expect(kpackImage.Spec.Build.Services).To(BeEquivalentTo(services))
+				}).Should(Succeed())
+
 				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
@@ -178,6 +163,24 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
 				}).Should(Succeed())
 			})
+		})
+
+		It("creates the image repository", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(imageRepoCreator.CreateRepositoryCallCount()).ToNot(BeZero())
+				_, repoName := imageRepoCreator.CreateRepositoryArgsForCall(0)
+				g.Expect(repoName).To(Equal("my.repository/my-prefix/app-guid-droplets"))
+			}).Should(Succeed())
+		})
+
+		It("sets the status condition on BuildWorkload", func() {
+			cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
+			updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(context.Background(), cfBuildLookupKey, updatedBuildWorkload)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
+			}).Should(Succeed())
 		})
 
 		When("the source image pull secret doesn't exist", func() {
