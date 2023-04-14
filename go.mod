@@ -27,7 +27,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jellydator/validation v1.0.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1
-	github.com/mileusna/useragent v1.2.1
+	github.com/mileusna/useragent v1.3.2
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/onsi/gomega v1.27.6
 	github.com/pivotal/kpack v0.10.1
