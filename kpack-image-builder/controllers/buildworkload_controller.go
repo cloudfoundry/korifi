@@ -22,7 +22,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/tools/image"
@@ -32,7 +34,6 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -50,6 +52,7 @@ const (
 	clusterBuilderKind          = "ClusterBuilder"
 	clusterBuilderAPIVersion    = "kpack.io/v1alpha2"
 	BuildWorkloadLabelKey       = "korifi.cloudfoundry.org/build-workload-name"
+	ImageGenerationKey          = "korifi.cloudfoundry.org/kpack-image-generation"
 	kpackReconcilerName         = "kpack-image-builder"
 	buildpackBuildMetadataLabel = "io.buildpacks.build.metadata"
 )
@@ -140,31 +143,43 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
 	err := r.k8sClient.Get(ctx, client.ObjectKey{Namespace: buildWorkload.Namespace, Name: appGUID}, &kpackImage)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		} else {
-			r.log.Info("error when fetching Kpack Image", "reason", err)
-			return ctrl.Result{}, err
-		}
+		r.log.Info("error when fetching Kpack Image", "reason", err)
+		return ctrl.Result{}, err
 	}
 
-	kpackReadyStatusCondition := kpackImage.Status.GetCondition(corev1alpha1.ConditionReady)
 	kpackBuilderReadyStatusCondition := kpackImage.Status.GetCondition(buildv1alpha2.ConditionBuilderReady)
-	if kpackReadyStatusCondition.IsFalse() {
-		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.SucceededConditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "BuildFailed",
-			Message: "Check build log output",
-		})
-	} else if kpackBuilderReadyStatusCondition.IsFalse() {
+	if kpackBuilderReadyStatusCondition.IsFalse() {
 		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionFalse,
 			Reason:  "BuilderNotReady",
 			Message: "Check ClusterBuilder",
 		})
-	} else if kpackReadyStatusCondition.IsTrue() {
+		return ctrl.Result{}, nil
+	}
+
+	var kpackBuildList buildv1alpha2.BuildList
+	err = r.k8sClient.List(ctx, &kpackBuildList, client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
+		buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
+		buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
+	})
+	if len(kpackBuildList.Items) == 0 {
+		return ctrl.Result{}, nil
+	}
+	if err != nil {
+		r.log.Info("error when fetching Kpack builds", "reason", err)
+		return ctrl.Result{}, err
+	}
+
+	kpackSucceededStatusCondition := kpackBuildList.Items[0].Status.GetCondition(corev1alpha1.ConditionSucceeded)
+	if kpackSucceededStatusCondition.IsFalse() {
+		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "BuildFailed",
+			Message: "Check build log output",
+		})
+	} else if kpackSucceededStatusCondition.IsTrue() {
 		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionTrue,
@@ -182,7 +197,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 			return ctrl.Result{}, err
 		}
 
-		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackImage, foundServiceAccount.ImagePullSecrets)
+		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, &kpackBuildList.Items[0], foundServiceAccount.ImagePullSecrets)
 		if err != nil {
 			r.log.Info("error when compiling the DropletStatus", "reason", err)
 			return ctrl.Result{}, err
@@ -264,14 +279,16 @@ func (r *BuildWorkloadReconciler) createKpackImageAndUpdateStatus(ctx context.Co
 		Message: "Waiting for image build to complete",
 	})
 
+	buildWorkload.Labels[ImageGenerationKey] = strconv.FormatInt(desiredKpackImage.Generation, 10)
+
 	return nil
 }
 
-func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackImage *buildv1alpha2.Image, imagePullSecrets []corev1.LocalObjectReference) (*korifiv1alpha1.BuildDropletStatus, error) {
-	imageRef := kpackImage.Status.LatestImage
+func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackBuild *buildv1alpha2.Build, imagePullSecrets []corev1.LocalObjectReference) (*korifiv1alpha1.BuildDropletStatus, error) {
+	imageRef := kpackBuild.Status.LatestImage
 
 	creds := image.Creds{
-		Namespace:          kpackImage.Namespace,
+		Namespace:          kpackBuild.Namespace,
 		ServiceAccountName: r.controllerConfig.BuilderServiceAccount,
 	}
 
@@ -300,7 +317,7 @@ func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpa
 			ImagePullSecrets: imagePullSecrets,
 		},
 
-		Stack: kpackImage.Status.LatestStack,
+		Stack: kpackBuild.Status.Stack.ID,
 
 		ProcessTypes: processTypes,
 		Ports:        config.ExposedPorts,
@@ -325,12 +342,39 @@ func extractFullCommand(process process) string {
 	return cmdString
 }
 
+func (r *BuildWorkloadReconciler) buildWorkloadsFromBuild(o client.Object) []reconcile.Request {
+	buildworkloads := new(v1alpha1.BuildWorkloadList)
+	err := r.k8sClient.List(context.Background(), buildworkloads, client.InNamespace(o.GetNamespace()),
+		client.MatchingLabels{
+			korifiv1alpha1.CFAppGUIDLabelKey: o.GetLabels()[buildv1alpha2.ImageLabel],
+			ImageGenerationKey:               o.GetLabels()[buildv1alpha2.ImageGenerationLabel],
+		},
+	)
+	if err != nil {
+		r.log.Error(err, "failed to list BuildWorkloads",
+			korifiv1alpha1.CFAppGUIDLabelKey, o.GetLabels()[buildv1alpha2.ImageLabel],
+			ImageGenerationKey, o.GetLabels()[buildv1alpha2.ImageGenerationLabel],
+		)
+	}
+
+	res := []reconcile.Request{}
+	for _, bw := range buildworkloads.Items {
+		res = append(res, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&bw)})
+	}
+
+	return res
+}
+
 func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.BuildWorkload{}).
 		Watches(
 			&source.Kind{Type: new(buildv1alpha2.Image)},
-			&handler.EnqueueRequestForOwner{OwnerType: new(korifiv1alpha1.BuildWorkload)},
+			&handler.EnqueueRequestForOwner{OwnerType: &korifiv1alpha1.BuildWorkload{}},
+		).
+		Watches(
+			&source.Kind{Type: new(buildv1alpha2.Build)},
+			handler.EnqueueRequestsFromMapFunc(r.buildWorkloadsFromBuild),
 		).
 		WithEventFilter(predicate.NewPredicateFuncs(filterBuildWorkloads))
 }
