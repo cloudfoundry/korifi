@@ -370,8 +370,8 @@ func (r *BuildWorkloadReconciler) buildWorkloadsFromBuild(o client.Object) []rec
 	}
 
 	res := []reconcile.Request{}
-	for _, bw := range buildworkloads.Items {
-		res = append(res, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&bw)})
+	for i := range buildworkloads.Items {
+		res = append(res, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&buildworkloads.Items[i])})
 	}
 
 	return res
