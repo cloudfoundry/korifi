@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/tools/image"
@@ -55,6 +54,7 @@ const (
 	ImageGenerationKey          = "korifi.cloudfoundry.org/kpack-image-generation"
 	kpackReconcilerName         = "kpack-image-builder"
 	buildpackBuildMetadataLabel = "io.buildpacks.build.metadata"
+	buildWorkloadFinalizerName  = "kpack-image-builder.korifi.cloudfoundry.org/buildworkload"
 )
 
 //counterfeiter:generate -o fake -fake-name ImageConfigGetter . ImageConfigGetter
@@ -106,11 +106,23 @@ type BuildWorkloadReconciler struct {
 
 //+kubebuilder:rbac:groups=kpack.io,resources=images,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;patch
+//+kubebuilder:rbac:groups=kpack.io,resources=builds,verbs=deletecollection
 
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (ctrl.Result, error) {
+	if !buildWorkload.GetDeletionTimestamp().IsZero() {
+		err := r.finalize(ctx, buildWorkload)
+		return ctrl.Result{}, err
+	}
+
+	err := k8s.AddFinalizer(ctx, r.log, r.k8sClient, buildWorkload, buildWorkloadFinalizerName)
+	if err != nil {
+		r.log.Info("error adding finalizer", "reason", err)
+		return ctrl.Result{}, err
+	}
+
 	if len(buildWorkload.Spec.Buildpacks) > 0 {
 		// Specifying buildpacks is not supported
 		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
@@ -130,7 +142,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	}
 
 	if succeededStatus == nil {
-		err := r.ensureKpackImageRequirements(ctx, buildWorkload)
+		err = r.ensureKpackImageRequirements(ctx, buildWorkload)
 		if err != nil {
 			r.log.Info("kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
 			return ctrl.Result{}, err
@@ -141,7 +153,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 
 	var kpackImage buildv1alpha2.Image
 	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
-	err := r.k8sClient.Get(ctx, client.ObjectKey{Namespace: buildWorkload.Namespace, Name: appGUID}, &kpackImage)
+	err = r.k8sClient.Get(ctx, client.ObjectKey{Namespace: buildWorkload.Namespace, Name: appGUID}, &kpackImage)
 	if err != nil {
 		r.log.Info("error when fetching Kpack Image", "reason", err)
 		return ctrl.Result{}, err
@@ -343,7 +355,7 @@ func extractFullCommand(process process) string {
 }
 
 func (r *BuildWorkloadReconciler) buildWorkloadsFromBuild(o client.Object) []reconcile.Request {
-	buildworkloads := new(v1alpha1.BuildWorkloadList)
+	buildworkloads := new(korifiv1alpha1.BuildWorkloadList)
 	err := r.k8sClient.List(context.Background(), buildworkloads, client.InNamespace(o.GetNamespace()),
 		client.MatchingLabels{
 			korifiv1alpha1.CFAppGUIDLabelKey: o.GetLabels()[buildv1alpha2.ImageLabel],
@@ -363,6 +375,26 @@ func (r *BuildWorkloadReconciler) buildWorkloadsFromBuild(o client.Object) []rec
 	}
 
 	return res
+}
+
+func (r *BuildWorkloadReconciler) finalize(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
+	if !controllerutil.ContainsFinalizer(buildWorkload, buildWorkloadFinalizerName) {
+		return nil
+	}
+
+	err := r.k8sClient.DeleteAllOf(ctx, new(buildv1alpha2.Build), client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
+		buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
+		buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
+	})
+	if err != nil {
+		r.log.Error(err, "failed to delete kpack.Build")
+	}
+
+	if controllerutil.RemoveFinalizer(buildWorkload, buildWorkloadFinalizerName) {
+		r.log.V(1).Info("finalizer removed")
+	}
+
+	return nil
 }
 
 func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

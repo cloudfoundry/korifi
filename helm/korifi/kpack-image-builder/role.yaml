@@ -63,6 +63,7 @@ rules:
   resources:
   - builds
   verbs:
+  - deletecollection
   - get
   - list
   - patch

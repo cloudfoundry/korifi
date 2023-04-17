@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -446,6 +447,46 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				}))
 				Expect(updatedBuildWorkload.Status.Droplet.Ports).To(Equal([]int32{8080, 8443}))
 			})
+		})
+	})
+
+	Describe("deleting the build workload", func() {
+		var kpackBuild *buildv1alpha2.Build
+
+		BeforeEach(func() {
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
+
+			kpackBuild = &buildv1alpha2.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "build",
+					Namespace: namespaceGUID,
+					Labels: map[string]string{
+						"image.kpack.io/image":           "app-guid",
+						"image.kpack.io/imageGeneration": "1",
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, kpackBuild)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			Eventually(func(g Gomega) {
+				foundBuildWorkload := new(korifiv1alpha1.BuildWorkload)
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), foundBuildWorkload)).To(Succeed())
+				g.Expect(foundBuildWorkload.Labels).To(HaveKey(controllers.ImageGenerationKey))
+			}).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, buildWorkload)).To(Succeed())
+		})
+
+		It("deletes the corresponding kpack.Build", func() {
+			Eventually(func(g Gomega) {
+				foundBuildWorkload := new(korifiv1alpha1.BuildWorkload)
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), foundBuildWorkload)).To(MatchError(ContainSubstring("not found")))
+				foundKpackBuild := new(buildv1alpha2.Build)
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(kpackBuild), foundKpackBuild)).To(MatchError(ContainSubstring("not found")))
+			}).Should(Succeed())
 		})
 	})
 })
