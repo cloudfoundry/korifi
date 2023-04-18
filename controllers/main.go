@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -46,9 +45,11 @@ import (
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/registry"
 
+	"github.com/fsnotify/fsnotify"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
+	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -467,16 +468,41 @@ func main() {
 		os.Exit(1)
 	}
 
-	eventChan := make(chan string)
-	go func() {
-		setupLog.Info("starting to watch config file at "+configPath+" for logger level changes", "currentLevel", atomicLevel.Level())
-		if err2 := tools.WatchForConfigChangeEvents(context.Background(), configPath, setupLog, eventChan); err2 != nil {
-			setupLog.Error(err2, "error watching logging config")
-			os.Exit(1)
-		}
-	}()
+	//eventChan := make(chan string)
+	//go func() {
+	//	ctrl.Log.Info("starting to watch config file at "+configPath+" for logger level changes", "currentLevel", atomicLevel.Level())
+	//	if err2 := tools.WatchForConfigChangeEvents(context.Background(), configPath, ctrl.Log, eventChan); err2 != nil {
+	//		ctrl.Log.Error(err2, "error watching logging config")
+	//		os.Exit(1)
+	//	}
+	//}()
+	//
+	//go tools.SyncLogLevel(context.Background(), ctrl.Log, eventChan, atomicLevel, config.GetLogLevelFromPath)
 
-	go tools.SyncLogLevel(context.Background(), setupLog, eventChan, atomicLevel, config.GetLogLevelFromPath)
+	// viper.SetDefault("logLevel", "debug")
+
+	viper.SetConfigName("config")   // name of config file (without extension)
+	viper.AddConfigPath(configPath) // path to look for the config file in
+	err = viper.ReadInConfig()      // Find and read the config file
+	if err != nil {                 // Handle errors reading the config file
+		ctrl.Log.Error(err, "error watching logging config")
+		os.Exit(1)
+	}
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		ctrl.Log.Info("Config file changed:", e.Name)
+
+		cfgLogLevel, err := config.GetLogLevelFromPath(configPath)
+		if err != nil {
+			ctrl.Log.Error(err, "error reading config")
+			return
+		}
+
+		if atomicLevel.Level() != cfgLogLevel {
+			ctrl.Log.Info("updating logging level", "originalLevel", atomicLevel.Level(), "newLevel", cfgLogLevel)
+			atomicLevel.SetLevel(cfgLogLevel)
+		}
+	})
+	viper.WatchConfig()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

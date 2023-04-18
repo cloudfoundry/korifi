@@ -32,6 +32,7 @@ require (
 	github.com/onsi/gomega v1.27.6
 	github.com/pivotal/kpack v0.10.1
 	github.com/projectcontour/contour v1.24.3
+	github.com/spf13/viper v1.15.0
 	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
 	golang.org/x/text v0.9.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -44,6 +45,18 @@ require (
 	k8s.io/utils v0.0.0-20230202215443-34013725500c
 	sigs.k8s.io/controller-runtime v0.14.6
 	sigs.k8s.io/controller-tools v0.11.3
+)
+
+require (
+	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
+	github.com/spf13/afero v1.9.3 // indirect
+	github.com/spf13/cast v1.5.0 // indirect
+	github.com/spf13/jwalterweatherman v1.1.0 // indirect
+	github.com/subosito/gotenv v1.4.2 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 
 require (
