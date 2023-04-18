@@ -201,10 +201,8 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 		return []PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	preds := []func(korifiv1alpha1.CFPackage) bool{}
-	if len(message.AppGUIDs) > 0 {
-		appGUIDsSet := NewSet(message.AppGUIDs...)
-		preds = append(preds, func(p korifiv1alpha1.CFPackage) bool { return appGUIDsSet.Includes(p.Spec.AppRef.Name) })
+	preds := []func(korifiv1alpha1.CFPackage) bool{
+		SetPredicate(message.AppGUIDs, func(s korifiv1alpha1.CFPackage) string { return s.Spec.AppRef.Name }),
 	}
 	if len(message.States) > 0 {
 		stateSet := NewSet(message.States...)

@@ -263,20 +263,15 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	preds := []func(korifiv1alpha1.CFServiceBinding) bool{}
-	if len(message.ServiceInstanceGUIDs) > 0 {
-		set := NewSet(message.ServiceInstanceGUIDs...)
-		preds = append(preds, func(b korifiv1alpha1.CFServiceBinding) bool { return set.Includes(b.Spec.Service.Name) })
-	}
-	if len(message.AppGUIDs) > 0 {
-		set := NewSet(message.AppGUIDs...)
-		preds = append(preds, func(b korifiv1alpha1.CFServiceBinding) bool { return set.Includes(b.Spec.AppRef.Name) })
+	preds := []func(korifiv1alpha1.CFServiceBinding) bool{
+		SetPredicate(message.ServiceInstanceGUIDs, func(s korifiv1alpha1.CFServiceBinding) string { return s.Spec.Service.Name }),
+		SetPredicate(message.AppGUIDs, func(s korifiv1alpha1.CFServiceBinding) string { return s.Spec.AppRef.Name }),
 	}
 
 	var filteredServiceBindings []korifiv1alpha1.CFServiceBinding
 	for ns := range nsList {
-		serviceInstanceList := new(korifiv1alpha1.CFServiceBindingList)
-		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
+		serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
+		err = userClient.List(ctx, serviceBindingList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
 			continue
 		}
@@ -286,7 +281,7 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 				apierrors.FromK8sError(err, ServiceBindingResourceType),
 			)
 		}
-		filteredServiceBindings = append(filteredServiceBindings, Filter(serviceInstanceList.Items, preds...)...)
+		filteredServiceBindings = append(filteredServiceBindings, Filter(serviceBindingList.Items, preds...)...)
 	}
 
 	return toServiceBindingRecords(filteredServiceBindings), nil

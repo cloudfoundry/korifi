@@ -151,20 +151,15 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		allBuilds = append(allBuilds, buildList.Items...)
 	}
 
-	preds := []func(korifiv1alpha1.CFBuild) bool{
+	return returnDropletList(Filter(allBuilds,
 		func(a korifiv1alpha1.CFBuild) bool {
 			return getConditionValue(&a.Status.Conditions, StagingConditionType) == metav1.ConditionFalse
 		},
 		func(a korifiv1alpha1.CFBuild) bool {
 			return getConditionValue(&a.Status.Conditions, SucceededConditionType) == metav1.ConditionTrue
 		},
-	}
-	if len(message.PackageGUIDs) > 0 {
-		pkgGUIDSet := NewSet(message.PackageGUIDs...)
-		preds = append(preds, func(a korifiv1alpha1.CFBuild) bool { return pkgGUIDSet.Includes(a.Spec.PackageRef.Name) })
-	}
-
-	return returnDropletList(Filter(allBuilds, preds...)), nil
+		SetPredicate(message.PackageGUIDs, func(s korifiv1alpha1.CFBuild) string { return s.Spec.PackageRef.Name }),
+	)), nil
 }
 
 type UpdateDropletMessage struct {
