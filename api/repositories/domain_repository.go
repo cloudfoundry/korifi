@@ -152,7 +152,16 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 		return []DomainRecord{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	filtered := applyDomainListFilterAndOrder(cfdomainList.Items, message)
+	var preds []func(korifiv1alpha1.CFDomain) bool
+	if len(message.Names) > 0 {
+		nameSet := NewSet(message.Names...)
+		preds = append(preds, func(a korifiv1alpha1.CFDomain) bool { return nameSet.Includes(a.Spec.Name) })
+	}
+	filtered := Filter(cfdomainList.Items, preds...)
+
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
+	})
 
 	return returnDomainList(filtered), nil
 }
@@ -191,29 +200,6 @@ func (r *DomainRepo) DeleteDomain(ctx context.Context, authInfo authorization.In
 	}
 
 	return nil
-}
-
-func applyDomainListFilterAndOrder(domainList []korifiv1alpha1.CFDomain, message ListDomainsMessage) []korifiv1alpha1.CFDomain {
-	var filtered []korifiv1alpha1.CFDomain
-	if len(message.Names) > 0 {
-		for _, domain := range domainList {
-			for _, name := range message.Names {
-				if domain.Spec.Name == name {
-					filtered = append(filtered, domain)
-				}
-			}
-		}
-	} else {
-		filtered = domainList
-	}
-
-	// TODO: use the future message.Order fields to reorder the list of results
-	// For now, we order by created_at by default- if you really want to optimize runtime you can use bucketsort
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
-	})
-
-	return filtered
 }
 
 func returnDomainList(domainList []korifiv1alpha1.CFDomain) []DomainRecord {
