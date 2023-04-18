@@ -159,49 +159,37 @@ function deploy_korifi() {
 }
 
 function create_namespaces() {
-  if [[ -n "${debug}" ]]; then
-    for ns in cf korifi; do
-      cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: $ns
-EOF
-    done
-  else
-    for ns in cf korifi; do
-      cat <<EOF | kubectl apply -f -
+  local security_policy
+
+  security_policy="restricted"
+  for ns in cf korifi; do
+    cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: $security_policy
+    pod-security.kubernetes.io/enforce: $security_policy
   name: $ns
 EOF
-    done
-  fi
+  done
+}
 
-  if [[ -z "${use_custom_registry}" ]]; then
-    DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
-    DOCKER_USERNAME="user"
-    DOCKER_PASSWORD="password"
-  fi
+function create_registry_secret() {
+  DOCKER_SERVER=${DOCKER_SERVER:-"localregistry-docker-registry.default.svc.cluster.local:30050"}
+  DOCKER_USERNAME=${DOCKER_USERNAME:-"user"}
+  DOCKER_PASSWORD=${DOCKER_PASSWORD:-"password"}
 
-  if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSWORD:=}" ]]; then
-    if kubectl get -n cf secret image-registry-credentials >/dev/null 2>&1; then
-      kubectl delete -n cf secret image-registry-credentials
-    fi
-
-    kubectl create secret -n cf docker-registry image-registry-credentials \
-      --docker-server=${DOCKER_SERVER} \
-      --docker-username=${DOCKER_USERNAME} \
-      --docker-password="${DOCKER_PASSWORD}"
-  fi
+  kubectl delete -n cf secret image-registry-credentials --ignore-not-found
+  kubectl create secret -n cf docker-registry image-registry-credentials \
+    --docker-server="${DOCKER_SERVER}" \
+    --docker-username="${DOCKER_USERNAME}" \
+    --docker-password="${DOCKER_PASSWORD}"
 }
 
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
 create_namespaces
+create_registry_secret
 deploy_korifi
