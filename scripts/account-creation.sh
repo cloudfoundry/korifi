@@ -56,6 +56,36 @@ TOKEN_SECRET
   export E2E_SERVICE_ACCOUNT_TOKEN="$token"
 fi
 
+if [[ -z "${E2E_UNPRIVILEGED_SERVICE_ACCOUNT:=}" ]]; then
+  export E2E_UNPRIVILEGED_SERVICE_ACCOUNT="e2e-unprivileged-service-account"
+  kubectl delete serviceaccount --ignore-not-found=true -n "$ROOT_NAMESPACE" "$E2E_UNPRIVILEGED_SERVICE_ACCOUNT" &>/dev/null
+  kubectl create serviceaccount -n "$ROOT_NAMESPACE" "$E2E_UNPRIVILEGED_SERVICE_ACCOUNT"
+fi
+
+if [[ -z "${E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN:=}" ]]; then
+  E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN_NAME="${E2E_UNPRIVILEGED_SERVICE_ACCOUNT}-token"
+  kubectl delete secret --ignore-not-found=true -n "$ROOT_NAMESPACE" "$E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN_NAME" &>/dev/null
+  kubectl apply -f - <<TOKEN_SECRET
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: "$E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN_NAME"
+      namespace: "$ROOT_NAMESPACE"
+      annotations:
+        kubernetes.io/service-account.name: "$E2E_UNPRIVILEGED_SERVICE_ACCOUNT"
+    type: kubernetes.io/service-account-token
+    data:
+TOKEN_SECRET
+
+  token=""
+  while [ -z "$token" ]; do
+    token="$(kubectl get secrets -n "$ROOT_NAMESPACE" "$E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN_NAME" -ojsonpath='{.data.token}' | "${base64}" -d)"
+    sleep 0.5
+  done
+
+  export E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN="$token"
+fi
+
 if [[ -z "${CF_ADMIN_CERT:=}" ]]; then
   createCert "cf-admin" "$tmp/cf-admin-key.pem" "$tmp/cf-admin-cert.pem"
   CF_ADMIN_CERT="$("${base64}" -w0 "$tmp/cf-admin-cert.pem")"

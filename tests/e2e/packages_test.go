@@ -324,7 +324,7 @@ var _ = Describe("Package", func() {
 		When("the user has no space access", func() {
 			JustBeforeEach(func() {
 				var err error
-				resp, err = tokenClient.R().
+				resp, err = unprivilegedServiceAccountClient.R().
 					SetResult(&result).
 					Get("/v3/packages")
 				Expect(err).NotTo(HaveOccurred())

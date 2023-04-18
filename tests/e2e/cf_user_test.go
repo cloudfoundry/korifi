@@ -20,7 +20,7 @@ var _ = Describe("CF User", func() {
 
 	JustBeforeEach(func() {
 		var err error
-		httpResp, err = tokenClient.R().Get(reqPath)
+		httpResp, err = unprivilegedServiceAccountClient.R().Get(reqPath)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
