@@ -195,10 +195,8 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	preds := []func(korifiv1alpha1.CFServiceInstance) bool{}
-	if len(message.Names) > 0 {
-		set := NewSet(message.Names...)
-		preds = append(preds, func(i korifiv1alpha1.CFServiceInstance) bool { return set.Includes(i.Spec.DisplayName) })
+	preds := []func(korifiv1alpha1.CFServiceInstance) bool{
+		SetPredicate(message.Names, func(s korifiv1alpha1.CFServiceInstance) string { return s.Spec.DisplayName }),
 	}
 
 	spaceGUIDSet := NewSet(message.SpaceGuids...)

@@ -179,14 +179,8 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 		func(o korifiv1alpha1.CFOrg) bool {
 			return meta.IsStatusConditionTrue(o.Status.Conditions, StatusConditionReady)
 		},
-	}
-	if len(filter.GUIDs) > 0 {
-		guidsSet := NewSet(filter.GUIDs...)
-		preds = append(preds, func(o korifiv1alpha1.CFOrg) bool { return guidsSet.Includes(o.Name) })
-	}
-	if len(filter.Names) > 0 {
-		namesSet := NewSet(filter.Names...)
-		preds = append(preds, func(o korifiv1alpha1.CFOrg) bool { return namesSet.Includes(o.Spec.DisplayName) })
+		SetPredicate(filter.GUIDs, func(s korifiv1alpha1.CFOrg) string { return s.Name }),
+		SetPredicate(filter.Names, func(s korifiv1alpha1.CFOrg) string { return s.Spec.DisplayName }),
 	}
 
 	var records []OrgRecord

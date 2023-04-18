@@ -308,6 +308,11 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		return []AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFApp) bool{
+		SetPredicate(message.Names, func(s korifiv1alpha1.CFApp) string { return s.Spec.DisplayName }),
+		SetPredicate(message.Guids, func(s korifiv1alpha1.CFApp) string { return s.Name }),
+	}
+
 	var filteredApps []korifiv1alpha1.CFApp
 	spaceGUIDSet := NewSet(message.SpaceGuids...)
 	for ns := range nsList {
@@ -325,15 +330,6 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns, apierrors.FromK8sError(err, AppResourceType))
 		}
 
-		var preds []func(korifiv1alpha1.CFApp) bool
-		if len(message.Names) > 0 {
-			nameSet := NewSet(message.Names...)
-			preds = append(preds, func(a korifiv1alpha1.CFApp) bool { return nameSet.Includes(a.Spec.DisplayName) })
-		}
-		if len(message.Guids) > 0 {
-			GUIDSet := NewSet(message.Guids...)
-			preds = append(preds, func(a korifiv1alpha1.CFApp) bool { return GUIDSet.Includes(a.Name) })
-		}
 		filteredApps = append(filteredApps, Filter(appList.Items, preds...)...)
 	}
 

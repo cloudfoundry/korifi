@@ -176,7 +176,11 @@ func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	preds := []func(korifiv1alpha1.CFRoute) bool{}
+	preds := []func(korifiv1alpha1.CFRoute) bool{
+		SetPredicate(message.DomainGUIDs, func(s korifiv1alpha1.CFRoute) string { return s.Spec.DomainRef.Name }),
+		SetPredicate(message.Hosts, func(s korifiv1alpha1.CFRoute) string { return s.Spec.Host }),
+		SetPredicate(message.Paths, func(s korifiv1alpha1.CFRoute) string { return s.Spec.Path }),
+	}
 	if len(message.AppGUIDs) > 0 {
 		appGUIDsSet := NewSet(message.AppGUIDs...)
 		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool {
@@ -187,18 +191,6 @@ func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 			}
 			return false
 		})
-	}
-	if len(message.DomainGUIDs) > 0 {
-		domainGUIDSet := NewSet(message.DomainGUIDs...)
-		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool { return domainGUIDSet.Includes(r.Spec.DomainRef.Name) })
-	}
-	if len(message.Hosts) > 0 {
-		hostSet := NewSet(message.Hosts...)
-		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool { return hostSet.Includes(r.Spec.Host) })
-	}
-	if len(message.Paths) > 0 {
-		pathSet := NewSet(message.Paths...)
-		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool { return pathSet.Includes(r.Spec.Path) })
 	}
 
 	filteredRoutes := []korifiv1alpha1.CFRoute{}

@@ -183,14 +183,8 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 		func(s korifiv1alpha1.CFSpace) bool {
 			return meta.IsStatusConditionTrue(s.Status.Conditions, StatusConditionReady)
 		},
-	}
-	if len(message.GUIDs) > 0 {
-		set := NewSet(message.GUIDs...)
-		preds = append(preds, func(s korifiv1alpha1.CFSpace) bool { return set.Includes(s.Name) })
-	}
-	if len(message.Names) > 0 {
-		set := NewSet(message.Names...)
-		preds = append(preds, func(s korifiv1alpha1.CFSpace) bool { return set.Includes(s.Spec.DisplayName) })
+		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFSpace) string { return s.Name }),
+		SetPredicate(message.Names, func(s korifiv1alpha1.CFSpace) string { return s.Spec.DisplayName }),
 	}
 
 	orgGUIDs := NewSet(message.OrganizationGUIDs...)

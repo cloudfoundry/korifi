@@ -152,12 +152,7 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 		return []DomainRecord{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	var preds []func(korifiv1alpha1.CFDomain) bool
-	if len(message.Names) > 0 {
-		nameSet := NewSet(message.Names...)
-		preds = append(preds, func(a korifiv1alpha1.CFDomain) bool { return nameSet.Includes(a.Spec.Name) })
-	}
-	filtered := Filter(cfdomainList.Items, preds...)
+	filtered := Filter(cfdomainList.Items, SetPredicate(message.Names, func(s korifiv1alpha1.CFDomain) string { return s.Spec.Name }))
 
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)

@@ -170,14 +170,9 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	preds := []func(korifiv1alpha1.CFTask) bool{}
-	if len(msg.SequenceIDs) > 0 {
-		set := NewSet(msg.SequenceIDs...)
-		preds = append(preds, func(t korifiv1alpha1.CFTask) bool { return set.Includes(t.Status.SequenceID) })
-	}
-	if len(msg.AppGUIDs) > 0 {
-		set := NewSet(msg.AppGUIDs...)
-		preds = append(preds, func(t korifiv1alpha1.CFTask) bool { return set.Includes(t.Spec.AppRef.Name) })
+	preds := []func(korifiv1alpha1.CFTask) bool{
+		SetPredicate(msg.SequenceIDs, func(s korifiv1alpha1.CFTask) int64 { return s.Status.SequenceID }),
+		SetPredicate(msg.AppGUIDs, func(s korifiv1alpha1.CFTask) string { return s.Spec.AppRef.Name }),
 	}
 
 	var tasks []korifiv1alpha1.CFTask

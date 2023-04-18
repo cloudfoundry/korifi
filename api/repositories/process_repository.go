@@ -135,10 +135,8 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 		return []ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
 	}
 
-	preds := []func(korifiv1alpha1.CFProcess) bool{}
-	if len(message.AppGUIDs) > 0 {
-		appGUIDsSet := NewSet(message.AppGUIDs...)
-		preds = append(preds, func(p korifiv1alpha1.CFProcess) bool { return appGUIDsSet.Includes(p.Spec.AppRef.Name) })
+	preds := []func(korifiv1alpha1.CFProcess) bool{
+		SetPredicate(message.AppGUIDs, func(s korifiv1alpha1.CFProcess) string { return s.Spec.AppRef.Name }),
 	}
 
 	processList := &korifiv1alpha1.CFProcessList{}

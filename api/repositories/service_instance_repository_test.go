@@ -427,6 +427,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						},
 					}
 				})
+
 				It("returns only records for the ServiceInstances with matching spec.name fields", func() {
 					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),

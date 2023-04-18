@@ -103,3 +103,16 @@ outer:
 
 	return res
 }
+
+func SetPredicate[T comparable, S any](elements []T, mapFn func(S) T) func(S) bool {
+	if len(elements) == 0 {
+		return AlwaysTrue[S]
+	}
+
+	set := NewSet(elements...)
+	return func(e S) bool {
+		return set.Includes(mapFn(e))
+	}
+}
+
+func AlwaysTrue[T any](_ T) bool { return true }
