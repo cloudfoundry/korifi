@@ -173,7 +173,32 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 
 	cfSpaces := []korifiv1alpha1.CFSpace{}
 
+	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+
+	preds := []func(korifiv1alpha1.CFSpace) bool{
+		func(s korifiv1alpha1.CFSpace) bool { return authorizedSpaceNamespaces[s.Name] },
+		func(s korifiv1alpha1.CFSpace) bool {
+			return meta.IsStatusConditionTrue(s.Status.Conditions, StatusConditionReady)
+		},
+	}
+	if len(message.GUIDs) > 0 {
+		set := NewSet(message.GUIDs...)
+		preds = append(preds, func(s korifiv1alpha1.CFSpace) bool { return set.Includes(s.Name) })
+	}
+	if len(message.Names) > 0 {
+		set := NewSet(message.Names...)
+		preds = append(preds, func(s korifiv1alpha1.CFSpace) bool { return set.Includes(s.Spec.DisplayName) })
+	}
+
+	orgGUIDs := NewSet(message.OrganizationGUIDs...)
 	for org := range authorizedOrgNamespaces {
+		if len(orgGUIDs) > 0 && !orgGUIDs.Includes(org) {
+			continue
+		}
+
 		cfSpaceList := new(korifiv1alpha1.CFSpaceList)
 
 		err = userClient.List(ctx, cfSpaceList, client.InNamespace(org))
@@ -184,36 +209,11 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 			return nil, apierrors.FromK8sError(err, SpaceResourceType)
 		}
 
-		cfSpaces = append(cfSpaces, cfSpaceList.Items...)
-	}
-
-	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)
-	if err != nil {
-		return nil, err
+		cfSpaces = append(cfSpaces, Filter(cfSpaceList.Items, preds...)...)
 	}
 
 	var records []SpaceRecord
 	for _, cfSpace := range cfSpaces {
-		if !meta.IsStatusConditionTrue(cfSpace.Status.Conditions, StatusConditionReady) {
-			continue
-		}
-
-		if !matchesFilter(cfSpace.Namespace, message.OrganizationGUIDs) {
-			continue
-		}
-
-		if !matchesFilter(cfSpace.Name, message.GUIDs) {
-			continue
-		}
-
-		if !matchesFilter(cfSpace.Spec.DisplayName, message.Names) {
-			continue
-		}
-
-		if !authorizedSpaceNamespaces[cfSpace.Name] {
-			continue
-		}
-
 		records = append(records, cfSpaceToSpaceRecord(cfSpace))
 	}
 
