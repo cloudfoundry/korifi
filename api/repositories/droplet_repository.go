@@ -150,9 +150,21 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		}
 		allBuilds = append(allBuilds, buildList.Items...)
 	}
-	matches := applyDropletFilters(allBuilds, message)
 
-	return returnDropletList(matches), nil
+	preds := []func(korifiv1alpha1.CFBuild) bool{
+		func(a korifiv1alpha1.CFBuild) bool {
+			return getConditionValue(&a.Status.Conditions, StagingConditionType) == metav1.ConditionFalse
+		},
+		func(a korifiv1alpha1.CFBuild) bool {
+			return getConditionValue(&a.Status.Conditions, SucceededConditionType) == metav1.ConditionTrue
+		},
+	}
+	if len(message.PackageGUIDs) > 0 {
+		pkgGUIDSet := NewSet(message.PackageGUIDs...)
+		preds = append(preds, func(a korifiv1alpha1.CFBuild) bool { return pkgGUIDSet.Includes(a.Spec.PackageRef.Name) })
+	}
+
+	return returnDropletList(Filter(allBuilds, preds...)), nil
 }
 
 type UpdateDropletMessage struct {
@@ -162,10 +174,6 @@ type UpdateDropletMessage struct {
 
 func (r *DropletRepo) UpdateDroplet(ctx context.Context, authInfo authorization.Info, message UpdateDropletMessage) (DropletRecord, error) {
 	build, userClient, err := r.getBuildAssociatedWithDroplet(ctx, authInfo, message.GUID)
-	if err != nil {
-		return DropletRecord{}, err
-	}
-
 	if err != nil {
 		return DropletRecord{}, err
 	}
@@ -187,33 +195,4 @@ func returnDropletList(droplets []korifiv1alpha1.CFBuild) []DropletRecord {
 		dropletRecords = append(dropletRecords, cfBuildToDropletRecord(currentBuild))
 	}
 	return dropletRecords
-}
-
-func applyDropletFilters(builds []korifiv1alpha1.CFBuild, message ListDropletsMessage) []korifiv1alpha1.CFBuild {
-	var filtered []korifiv1alpha1.CFBuild
-	for i, build := range builds {
-
-		stagingStatus := getConditionValue(&build.Status.Conditions, StagingConditionType)
-		succeededStatus := getConditionValue(&build.Status.Conditions, SucceededConditionType)
-		if stagingStatus != metav1.ConditionFalse ||
-			succeededStatus != metav1.ConditionTrue {
-			continue
-		}
-
-		if len(message.PackageGUIDs) > 0 {
-			foundMatch := false
-			for _, packageGUID := range message.PackageGUIDs {
-				if build.Spec.PackageRef.Name == packageGUID {
-					foundMatch = true
-					break
-				}
-			}
-			if !foundMatch {
-				continue
-			}
-		}
-
-		filtered = append(filtered, builds[i])
-	}
-	return filtered
 }
