@@ -108,6 +108,73 @@ var _ = Describe("Spaces", func() {
 		})
 	})
 
+	Describe("create as a ServiceAccount user", func() {
+		var (
+			result    resource
+			orgName   string
+			orgGUID   string
+			spaceName string
+			createErr cfErrs
+		)
+
+		BeforeEach(func() {
+			orgName = generateGUID("org")
+			orgGUID = createOrg(orgName)
+			spaceName = generateGUID("space")
+			createErr = cfErrs{}
+
+			restyClient = tokenClient
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetBody(resource{
+					Name: spaceName,
+					Relationships: relationships{
+						"organization": {Data: resource{GUID: orgGUID}},
+					},
+				}).
+				SetError(&createErr).
+				SetResult(&result).
+				Post("/v3/spaces")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if len(createErr.Errors) == 0 {
+				deleteSpace(result.GUID)
+			}
+		})
+
+		When("the user is an org manager", func() {
+			BeforeEach(func() {
+				createOrgRole("organization_manager", serviceAccountName, orgGUID)
+			})
+
+			It("creates a space", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+				Expect(result.Name).To(Equal(spaceName))
+				Expect(result.GUID).To(HavePrefix("cf-space-"))
+				Expect(result.GUID).NotTo(BeEmpty())
+			})
+		})
+
+		When("the user is an org user", func() {
+			BeforeEach(func() {
+				createOrgRole("organization_user", serviceAccountName, orgGUID)
+			})
+
+			It("cannot create a space", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+			})
+		})
+	})
+
 	Describe("list", func() {
 		var (
 			org1GUID, org2GUID, org3GUID          string
@@ -544,7 +611,7 @@ var _ = Describe("Spaces", func() {
 
 		When("the user has no permissions", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns a Not-Found error", func() {

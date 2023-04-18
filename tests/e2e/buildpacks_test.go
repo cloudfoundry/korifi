@@ -43,7 +43,7 @@ var _ = Describe("Buildpacks", func() {
 
 		When("the user has no permissions", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns forbidden", func() {

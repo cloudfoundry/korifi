@@ -71,7 +71,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is not authorized in the space", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				client = unprivilegedServiceAccountClient
 			})
 
 			It("returns a not found error", func() {
@@ -139,7 +139,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is not authorized in any space", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				client = unprivilegedServiceAccountClient
 			})
 
 			It("returns an empty list", func() {
@@ -177,7 +177,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user cannot access the space", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				client = unprivilegedServiceAccountClient
 			})
 
 			It("returns an unprocessable entity error", func() {

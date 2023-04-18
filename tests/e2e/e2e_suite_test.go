@@ -32,29 +32,32 @@ import (
 var (
 	correlationId string
 
-	adminClient             *helpers.CorrelatedRestyClient
-	certClient              *helpers.CorrelatedRestyClient
-	tokenClient             *helpers.CorrelatedRestyClient
-	longCertClient          *helpers.CorrelatedRestyClient
-	apiServerRoot           string
-	serviceAccountName      string
-	serviceAccountToken     string
-	certUserName            string
-	certPEM                 string
-	longCertUserName        string
-	longCertPEM             string
-	rootNamespace           string
-	appFQDN                 string
-	commonTestOrgGUID       string
-	commonTestOrgName       string
-	assetsTmpDir            string
-	clusterVersionMinor     int
-	clusterVersionMajor     int
-	nodeAppBitsFile         string
-	doraAppBitsFile         string
-	golangAppBitsFile       string
-	multiProcessAppBitsFile string
-	defaultAppBitsFile      string
+	adminClient                      *helpers.CorrelatedRestyClient
+	certClient                       *helpers.CorrelatedRestyClient
+	tokenClient                      *helpers.CorrelatedRestyClient
+	unprivilegedServiceAccountClient *helpers.CorrelatedRestyClient
+	longCertClient                   *helpers.CorrelatedRestyClient
+	apiServerRoot                    string
+	serviceAccountName               string
+	serviceAccountToken              string
+	unprivilegedServiceAccountName   string
+	unprivilegedServiceAccountToken  string
+	certUserName                     string
+	certPEM                          string
+	longCertUserName                 string
+	longCertPEM                      string
+	rootNamespace                    string
+	appFQDN                          string
+	commonTestOrgGUID                string
+	commonTestOrgName                string
+	assetsTmpDir                     string
+	clusterVersionMinor              int
+	clusterVersionMajor              int
+	nodeAppBitsFile                  string
+	doraAppBitsFile                  string
+	golangAppBitsFile                string
+	multiProcessAppBitsFile          string
+	defaultAppBitsFile              string
 )
 
 type resource struct {
@@ -936,6 +939,8 @@ func commonTestSetup() {
 	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
 	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, mustHaveEnv("E2E_SERVICE_ACCOUNT"))
 	serviceAccountToken = mustHaveEnv("E2E_SERVICE_ACCOUNT_TOKEN")
+	unprivilegedServiceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, mustHaveEnv("E2E_UNPRIVILEGED_SERVICE_ACCOUNT"))
+	unprivilegedServiceAccountToken = mustHaveEnv("E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN")
 
 	certUserName = mustHaveEnv("E2E_USER_NAME")
 	certPEM = os.Getenv("E2E_USER_PEM")
@@ -953,6 +958,7 @@ func commonTestSetup() {
 	adminClient = makeClient("CF_ADMIN_PEM", "CF_ADMIN_TOKEN")
 	certClient = makeClient("E2E_USER_PEM", "E2E_USER_TOKEN")
 	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	unprivilegedServiceAccountClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(unprivilegedServiceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }
 

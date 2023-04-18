@@ -82,7 +82,7 @@ var _ = Describe("Orgs", func() {
 
 		When("not admin", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns a forbidden error", func() {
@@ -318,7 +318,7 @@ var _ = Describe("Orgs", func() {
 
 		When("the user is not authorized in the organization", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns a not found error", func() {

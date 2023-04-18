@@ -78,7 +78,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Create an app", func() {
+	Describe("Create an app as a user", func() {
 		var appName string
 
 		BeforeEach(func() {
@@ -126,6 +126,69 @@ var _ = Describe("Apps", func() {
 		When("the user cannot create apps in the space", func() {
 			BeforeEach(func() {
 				createSpaceRole("space_manager", certUserName, space1GUID)
+			})
+
+			It("fails", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
+				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
+			})
+		})
+	})
+
+	Describe("Create an app as a service account", func() {
+		var (
+			appName   string
+			orgName   string
+			orgGUID   string
+			spaceName string
+			spaceGUID string
+		)
+
+		BeforeEach(func() {
+			appName = generateGUID("app")
+
+			orgName = generateGUID("org")
+			orgGUID = createOrg(orgName)
+			createOrgRole("organization_user", serviceAccountName, orgGUID)
+
+			spaceName = generateGUID("space")
+			spaceGUID = createSpace(spaceName, orgGUID)
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = tokenClient.R().SetBody(appResource{
+				resource: resource{
+					Name: appName,
+					Relationships: relationships{
+						"space": {
+							Data: resource{
+								GUID: spaceGUID,
+							},
+						},
+					},
+				},
+			}).Post("/v3/apps")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("the service account has space developer role in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", serviceAccountName, spaceGUID)
+			})
+
+			It("succeeds", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+			})
+		})
+
+		When("the service account cannot create apps in the space", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_manager", serviceAccountName, spaceGUID)
 			})
 
 			It("fails", func() {

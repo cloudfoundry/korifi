@@ -107,7 +107,7 @@ var _ = Describe("Processes", func() {
 
 		When("the user is not authorized in the space", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns a not found error", func() {
@@ -170,7 +170,7 @@ var _ = Describe("Processes", func() {
 
 		When("the user is not authorized in the space", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns a not found error", func() {
