@@ -195,8 +195,19 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFServiceInstance) bool{}
+	if len(message.Names) > 0 {
+		set := NewSet(message.Names...)
+		preds = append(preds, func(i korifiv1alpha1.CFServiceInstance) bool { return set.Includes(i.Spec.DisplayName) })
+	}
+
+	spaceGUIDSet := NewSet(message.SpaceGuids...)
 	var filteredServiceInstances []korifiv1alpha1.CFServiceInstance
 	for ns := range nsList {
+		if len(spaceGUIDSet) > 0 && !spaceGUIDSet.Includes(ns) {
+			continue
+		}
+
 		serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
 		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
@@ -208,7 +219,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 				apierrors.FromK8sError(err, ServiceInstanceResourceType),
 			)
 		}
-		filteredServiceInstances = append(filteredServiceInstances, applyServiceInstanceListFilter(serviceInstanceList.Items, message)...)
+		filteredServiceInstances = append(filteredServiceInstances, Filter(serviceInstanceList.Items, preds...)...)
 	}
 
 	return returnServiceInstanceList(filteredServiceInstances), nil
@@ -307,22 +318,6 @@ func cfServiceInstanceToSecret(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 			},
 		},
 	}
-}
-
-func applyServiceInstanceListFilter(serviceInstanceList []korifiv1alpha1.CFServiceInstance, message ListServiceInstanceMessage) []korifiv1alpha1.CFServiceInstance {
-	if len(message.Names) == 0 && len(message.SpaceGuids) == 0 {
-		return serviceInstanceList
-	}
-
-	var filtered []korifiv1alpha1.CFServiceInstance
-	for _, serviceInstance := range serviceInstanceList {
-		if matchesFilter(serviceInstance.Spec.DisplayName, message.Names) &&
-			matchesFilter(serviceInstance.Namespace, message.SpaceGuids) {
-			filtered = append(filtered, serviceInstance)
-		}
-	}
-
-	return filtered
 }
 
 func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceInstance) []ServiceInstanceRecord {
