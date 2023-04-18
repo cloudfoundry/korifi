@@ -172,25 +172,26 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
+	preds := []func(korifiv1alpha1.CFOrg) bool{
+		func(o korifiv1alpha1.CFOrg) bool {
+			return authorizedNamespaces[o.Name]
+		},
+		func(o korifiv1alpha1.CFOrg) bool {
+			return meta.IsStatusConditionTrue(o.Status.Conditions, StatusConditionReady)
+		},
+	}
+	if len(filter.GUIDs) > 0 {
+		guidsSet := NewSet(filter.GUIDs...)
+		preds = append(preds, func(o korifiv1alpha1.CFOrg) bool { return guidsSet.Includes(o.Name) })
+	}
+	if len(filter.Names) > 0 {
+		namesSet := NewSet(filter.Names...)
+		preds = append(preds, func(o korifiv1alpha1.CFOrg) bool { return namesSet.Includes(o.Spec.DisplayName) })
+	}
+
 	var records []OrgRecord
-	for _, cfOrg := range cfOrgList.Items {
-		if !meta.IsStatusConditionTrue(cfOrg.Status.Conditions, StatusConditionReady) {
-			continue
-		}
-
-		if !matchesFilter(cfOrg.Name, filter.GUIDs) {
-			continue
-		}
-
-		if !matchesFilter(cfOrg.Spec.DisplayName, filter.Names) {
-			continue
-		}
-
-		if !authorizedNamespaces[cfOrg.Name] {
-			continue
-		}
-
-		records = append(records, cfOrgToOrgRecord(cfOrg))
+	for _, o := range Filter(cfOrgList.Items, preds...) {
+		records = append(records, cfOrgToOrgRecord(o))
 	}
 
 	return records, nil
