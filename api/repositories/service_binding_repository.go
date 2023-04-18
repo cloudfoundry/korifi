@@ -263,6 +263,16 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFServiceBinding) bool{}
+	if len(message.ServiceInstanceGUIDs) > 0 {
+		set := NewSet(message.ServiceInstanceGUIDs...)
+		preds = append(preds, func(b korifiv1alpha1.CFServiceBinding) bool { return set.Includes(b.Spec.Service.Name) })
+	}
+	if len(message.AppGUIDs) > 0 {
+		set := NewSet(message.AppGUIDs...)
+		preds = append(preds, func(b korifiv1alpha1.CFServiceBinding) bool { return set.Includes(b.Spec.AppRef.Name) })
+	}
+
 	var filteredServiceBindings []korifiv1alpha1.CFServiceBinding
 	for ns := range nsList {
 		serviceInstanceList := new(korifiv1alpha1.CFServiceBindingList)
@@ -276,22 +286,10 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 				apierrors.FromK8sError(err, ServiceBindingResourceType),
 			)
 		}
-		filteredServiceBindings = append(filteredServiceBindings, applyServiceBindingListFilter(serviceInstanceList.Items, message)...)
+		filteredServiceBindings = append(filteredServiceBindings, Filter(serviceInstanceList.Items, preds...)...)
 	}
 
 	return toServiceBindingRecords(filteredServiceBindings), nil
-}
-
-func applyServiceBindingListFilter(serviceBindingList []korifiv1alpha1.CFServiceBinding, message ListServiceBindingsMessage) []korifiv1alpha1.CFServiceBinding {
-	var filtered []korifiv1alpha1.CFServiceBinding
-	for _, serviceBinding := range serviceBindingList {
-		if matchesFilter(serviceBinding.Spec.Service.Name, message.ServiceInstanceGUIDs) &&
-			matchesFilter(serviceBinding.Spec.AppRef.Name, message.AppGUIDs) {
-			filtered = append(filtered, serviceBinding)
-		}
-	}
-
-	return filtered
 }
 
 func toServiceBindingRecords(serviceBindings []korifiv1alpha1.CFServiceBinding) []ServiceBindingRecord {
