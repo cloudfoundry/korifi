@@ -170,6 +170,16 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFTask) bool{}
+	if len(msg.SequenceIDs) > 0 {
+		set := NewSet(msg.SequenceIDs...)
+		preds = append(preds, func(t korifiv1alpha1.CFTask) bool { return set.Includes(t.Status.SequenceID) })
+	}
+	if len(msg.AppGUIDs) > 0 {
+		set := NewSet(msg.AppGUIDs...)
+		preds = append(preds, func(t korifiv1alpha1.CFTask) bool { return set.Includes(t.Spec.AppRef.Name) })
+	}
+
 	var tasks []korifiv1alpha1.CFTask
 	for ns := range nsList {
 		taskList := &korifiv1alpha1.CFTaskList{}
@@ -180,7 +190,7 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		if err != nil {
 			return nil, fmt.Errorf("failed to list tasks in namespace %s: %w", ns, apierrors.FromK8sError(err, TaskResourceType))
 		}
-		tasks = append(tasks, filterBySequenceIDs(filterByAppGUIDs(taskList.Items, msg.AppGUIDs), msg.SequenceIDs)...)
+		tasks = append(tasks, Filter(taskList.Items, preds...)...)
 	}
 
 	taskRecords := []TaskRecord{}
@@ -243,46 +253,6 @@ func (r *TaskRepo) PatchTaskMetadata(ctx context.Context, authInfo authorization
 	}
 
 	return taskToRecord(task), nil
-}
-
-func filterByAppGUIDs(tasks []korifiv1alpha1.CFTask, appGUIDs []string) []korifiv1alpha1.CFTask {
-	if len(appGUIDs) == 0 {
-		return tasks
-	}
-
-	guidMap := map[string]bool{}
-	for _, g := range appGUIDs {
-		guidMap[g] = true
-	}
-
-	var res []korifiv1alpha1.CFTask
-	for _, t := range tasks {
-		if guidMap[t.Spec.AppRef.Name] {
-			res = append(res, t)
-		}
-	}
-
-	return res
-}
-
-func filterBySequenceIDs(tasks []korifiv1alpha1.CFTask, sequenceIDs []int64) []korifiv1alpha1.CFTask {
-	if len(sequenceIDs) == 0 {
-		return tasks
-	}
-
-	seqIdMap := map[int64]bool{}
-	for _, seqId := range sequenceIDs {
-		seqIdMap[seqId] = true
-	}
-
-	var res []korifiv1alpha1.CFTask
-	for _, t := range tasks {
-		if seqIdMap[t.Status.SequenceID] {
-			res = append(res, t)
-		}
-	}
-
-	return res
 }
 
 func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {

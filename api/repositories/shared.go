@@ -74,20 +74,6 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 	return mapObj[key]
 }
 
-func matchesFilter(field string, filter []string) bool {
-	if len(filter) == 0 {
-		return true
-	}
-
-	for _, value := range filter {
-		if field == value {
-			return true
-		}
-	}
-
-	return false
-}
-
 type Set[T comparable] map[T]struct{}
 
 func (s Set[T]) Includes(element T) bool {
