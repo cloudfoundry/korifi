@@ -135,6 +135,12 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 		return []ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFProcess) bool{}
+	if len(message.AppGUIDs) > 0 {
+		appGUIDsSet := NewSet(message.AppGUIDs...)
+		preds = append(preds, func(p korifiv1alpha1.CFProcess) bool { return appGUIDsSet.Includes(p.Spec.AppRef.Name) })
+	}
+
 	processList := &korifiv1alpha1.CFProcessList{}
 	var matches []korifiv1alpha1.CFProcess
 	for ns := range nsList {
@@ -149,7 +155,7 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 			return []ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 		}
 		allProcesses := processList.Items
-		matches = append(matches, filterProcessesByAppGUID(allProcesses, message.AppGUIDs)...)
+		matches = append(matches, Filter(allProcesses, preds...)...)
 	}
 
 	return returnProcesses(matches)
@@ -296,23 +302,6 @@ func returnProcess(processes []korifiv1alpha1.CFProcess) (ProcessRecord, error) 
 	}
 
 	return cfProcessToProcessRecord(processes[0]), nil
-}
-
-func filterProcessesByAppGUID(processes []korifiv1alpha1.CFProcess, appGUIDs []string) []korifiv1alpha1.CFProcess {
-	if len(appGUIDs) == 0 {
-		return processes
-	}
-
-	var filtered []korifiv1alpha1.CFProcess
-	for _, process := range processes {
-		for _, appGUID := range appGUIDs {
-			if process.Spec.AppRef.Name == appGUID {
-				filtered = append(filtered, process)
-				break
-			}
-		}
-	}
-	return filtered
 }
 
 func returnProcesses(processes []korifiv1alpha1.CFProcess) ([]ProcessRecord, error) {
