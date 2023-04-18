@@ -201,6 +201,19 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 		return []PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFPackage) bool{}
+	if len(message.AppGUIDs) > 0 {
+		appGUIDsSet := NewSet(message.AppGUIDs...)
+		preds = append(preds, func(p korifiv1alpha1.CFPackage) bool { return appGUIDsSet.Includes(p.Spec.AppRef.Name) })
+	}
+	if len(message.States) > 0 {
+		stateSet := NewSet(message.States...)
+		preds = append(preds, func(p korifiv1alpha1.CFPackage) bool {
+			return (stateSet.Includes(PackageStateReady) && meta.IsStatusConditionTrue(p.Status.Conditions, workloads.StatusConditionReady)) ||
+				(stateSet.Includes(PackageStateAwaitingUpload) && !meta.IsStatusConditionTrue(p.Status.Conditions, workloads.StatusConditionReady))
+		})
+	}
+
 	var filteredPackages []korifiv1alpha1.CFPackage
 	for ns := range nsList {
 		packageList := &korifiv1alpha1.CFPackageList{}
@@ -211,47 +224,9 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 		if err != nil {
 			return []PackageRecord{}, fmt.Errorf("failed to list packages in namespace %s: %w", ns, apierrors.FromK8sError(err, PackageResourceType))
 		}
-		filteredPackages = append(filteredPackages, applyPackageFilter(packageList.Items, message)...)
+		filteredPackages = append(filteredPackages, Filter(packageList.Items, preds...)...)
 	}
 	return r.convertToPackageRecords(filteredPackages), nil
-}
-
-func applyPackageFilter(packages []korifiv1alpha1.CFPackage, message ListPackagesMessage) []korifiv1alpha1.CFPackage {
-	var appFiltered []korifiv1alpha1.CFPackage
-	if len(message.AppGUIDs) > 0 {
-		for _, currentPackage := range packages {
-			for _, appGUID := range message.AppGUIDs {
-				if currentPackage.Spec.AppRef.Name == appGUID {
-					appFiltered = append(appFiltered, currentPackage)
-					break
-				}
-			}
-		}
-	} else {
-		appFiltered = packages
-	}
-
-	var stateFiltered []korifiv1alpha1.CFPackage
-	if len(message.States) > 0 {
-		for _, currentPackage := range appFiltered {
-			for _, state := range message.States {
-				switch state {
-				case PackageStateReady:
-					if currentPackage.Spec.Source.Registry.Image != "" {
-						stateFiltered = append(stateFiltered, currentPackage)
-					}
-				case PackageStateAwaitingUpload:
-					if currentPackage.Spec.Source.Registry.Image == "" {
-						stateFiltered = append(stateFiltered, currentPackage)
-					}
-				}
-			}
-		}
-	} else {
-		stateFiltered = appFiltered
-	}
-
-	return stateFiltered
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
