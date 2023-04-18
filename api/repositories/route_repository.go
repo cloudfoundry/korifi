@@ -176,8 +176,38 @@ func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFRoute) bool{}
+	if len(message.AppGUIDs) > 0 {
+		appGUIDsSet := NewSet(message.AppGUIDs...)
+		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool {
+			for _, dest := range r.Spec.Destinations {
+				if appGUIDsSet.Includes(dest.AppRef.Name) {
+					return true
+				}
+			}
+			return false
+		})
+	}
+	if len(message.DomainGUIDs) > 0 {
+		domainGUIDSet := NewSet(message.DomainGUIDs...)
+		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool { return domainGUIDSet.Includes(r.Spec.DomainRef.Name) })
+	}
+	if len(message.Hosts) > 0 {
+		hostSet := NewSet(message.Hosts...)
+		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool { return hostSet.Includes(r.Spec.Host) })
+	}
+	if len(message.Paths) > 0 {
+		pathSet := NewSet(message.Paths...)
+		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool { return pathSet.Includes(r.Spec.Path) })
+	}
+
 	filteredRoutes := []korifiv1alpha1.CFRoute{}
+	spaceGUIDSet := NewSet(message.SpaceGUIDs...)
 	for ns := range nsList {
+		if len(spaceGUIDSet) > 0 && !spaceGUIDSet.Includes(ns) {
+			continue
+		}
+
 		cfRouteList := &korifiv1alpha1.CFRouteList{}
 		err := userClient.List(ctx, cfRouteList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
@@ -186,49 +216,10 @@ func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		if err != nil {
 			return []RouteRecord{}, fmt.Errorf("failed to list routes namespace %s: %w", ns, apierrors.FromK8sError(err, RouteResourceType))
 		}
-		filteredRoutes = append(filteredRoutes, applyRouteListFilter(cfRouteList.Items, message)...)
+		filteredRoutes = append(filteredRoutes, Filter(cfRouteList.Items, preds...)...)
 	}
 
 	return returnRouteList(filteredRoutes), nil
-}
-
-func applyRouteListFilter(routes []korifiv1alpha1.CFRoute, message ListRoutesMessage) []korifiv1alpha1.CFRoute {
-	if len(message.AppGUIDs) == 0 &&
-		len(message.SpaceGUIDs) == 0 &&
-		len(message.DomainGUIDs) == 0 &&
-		len(message.Hosts) == 0 &&
-		len(message.Paths) == 0 {
-		return routes
-	}
-
-	var filtered []korifiv1alpha1.CFRoute
-	for _, route := range routes {
-		if matchesFilter(route.Namespace, message.SpaceGUIDs) &&
-			matchesFilter(route.Spec.DomainRef.Name, message.DomainGUIDs) &&
-			matchesFilter(route.Spec.Host, message.Hosts) &&
-			matchesFilter(route.Spec.Path, message.Paths) {
-			filtered = append(filtered, route)
-		}
-	}
-
-	if len(message.AppGUIDs) == 0 {
-		return filtered
-	}
-
-	var appFiltered []korifiv1alpha1.CFRoute
-
-	for _, route := range filtered {
-		for _, destination := range route.Spec.Destinations {
-			for _, appGUID := range message.AppGUIDs {
-				if destination.AppRef.Name == appGUID {
-					appFiltered = append(appFiltered, route)
-					break
-				}
-			}
-		}
-	}
-
-	return appFiltered
 }
 
 func (f *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
