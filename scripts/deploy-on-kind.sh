@@ -42,8 +42,7 @@ EOF
 
 cluster=""
 use_custom_registry=""
-debug=""
-use_registry_service_account=""
+debug="false"
 
 while [[ $# -gt 0 ]]; do
   i=$1
@@ -60,10 +59,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     -v | --verbose)
       set -x
-      shift
-      ;;
-    -s | --use-registry-service-account)
-      use_registry_service_account="true"
       shift
       ;;
     -h | --help | help)
@@ -97,11 +92,8 @@ function ensure_kind_cluster() {
 }
 
 function ensure_local_registry() {
-  if [[ -n "${use_custom_registry}" ]]; then return 0; fi
-
-  local sethtpasswd=('--set' 'secrets.htpasswd=user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2')
-  if [[ -n "${use_registry_service_account}" ]]; then
-    sethtpasswd=()
+  if [[ -n "${use_custom_registry}" ]]; then
+    return 0
   fi
 
   helm repo add twuni https://helm.twun.io
@@ -111,7 +103,7 @@ function ensure_local_registry() {
     --set service.type=NodePort,service.nodePort=30050,service.port=30050 \
     --set persistence.enabled=true \
     --set persistence.deleteEnabled=true \
-    "${sethtpasswd[@]}"
+    --set secrets.htpasswd='user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2'
 
 }
 
@@ -135,7 +127,7 @@ function deploy_korifi() {
       make generate manifests
 
       kbld_file="scripts/assets/korifi-kbld.yml"
-      if [[ -n "$debug" ]]; then
+      if [[ "$debug" == "true" ]]; then
         kbld_file="scripts/assets/korifi-debug-kbld.yml"
       fi
 
@@ -152,34 +144,16 @@ function deploy_korifi() {
     echo "Deploying korifi..."
     helm dependency update helm/korifi
 
-    doDebug="false"
-    if [[ -n "${debug}" ]]; then
-      doDebug="true"
-    fi
+    REPOSITORY_PREFIX=${REPOSITORY_PREFIX:-"localregistry-docker-registry.default.svc.cluster.local:30050/"}
+    KPACK_BUILDER_REPOSITORY=${KPACK_BUILDER_REPOSITORY:-"localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder"}
 
-    if [[ -n "$use_custom_registry" ]]; then
-      helm upgrade --install korifi helm/korifi \
-        --namespace korifi \
-        --values=scripts/assets/values.yaml \
-        --set=global.debug="$doDebug" \
-        --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
-        --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
-        --wait
-    else
-      registry_configuration=()
-      if [[ -n "${use_registry_service_account}" ]]; then
-        registry_configuration=(
-          '--set' 'global.containerRegistryServiceAccount="registry-service-account"'
-        )
-      fi
-
-      helm upgrade --install korifi helm/korifi \
-        --namespace korifi \
-        --values=scripts/assets/values.yaml \
-        --set=global.debug="$doDebug" \
-        ${registry_configuration[@]-} \
-        --wait
-    fi
+    helm upgrade --install korifi helm/korifi \
+      --namespace korifi \
+      --values=scripts/assets/values.yaml \
+      --set=global.debug="$debug" \
+      --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
+      --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+      --wait
   }
   popd >/dev/null
 }
@@ -226,31 +200,8 @@ EOF
   fi
 }
 
-function create_registry_service_account() {
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations:
-    cloudfoundry.org/propagate-service-account: "true"
-  name: registry-service-account
-  namespace: cf
-EOF
-
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: registry-service-account
-  namespace: korifi
-EOF
-}
-
 ensure_kind_cluster "${cluster}"
 ensure_local_registry
 install_dependencies
 create_namespaces
-if [[ -n "${use_registry_service_account}" ]]; then
-  create_registry_service_account
-fi
 deploy_korifi

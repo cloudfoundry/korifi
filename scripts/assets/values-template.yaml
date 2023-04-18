@@ -3,7 +3,6 @@ adminUserName: cf-admin
 global:
   defaultAppDomainName: apps-127-0-0-1.nip.io
   generateIngressCertificates: true
-  containerRepositoryPrefix: localregistry-docker-registry.default.svc.cluster.local:30050/
   logLevel: debug
 
 api:
@@ -19,6 +18,5 @@ jobTaskRunner:
   jobTTL: 5s
 
 kpackImageBuilder:
-  builderRepository: localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder
   clusterStackBuildImage: paketobuildpacks/build:base-cnb
   clusterStackRunImage: paketobuildpacks/run:base-cnb
