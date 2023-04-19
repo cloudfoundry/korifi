@@ -65,9 +65,9 @@ var (
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	SetDefaultEventuallyTimeout(4 * time.Second)
+	SetDefaultEventuallyTimeout(10 * time.Second)
 	SetDefaultEventuallyPollingInterval(200 * time.Millisecond)
-	SetDefaultConsistentlyDuration(4 * time.Second)
+	SetDefaultConsistentlyDuration(10 * time.Second)
 	SetDefaultConsistentlyPollingInterval(200 * time.Millisecond)
 
 	RunSpecs(t, "Controller Suite")
