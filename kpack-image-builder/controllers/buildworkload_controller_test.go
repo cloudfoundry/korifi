@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -487,6 +488,26 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				foundKpackBuild := new(buildv1alpha2.Build)
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(kpackBuild), foundKpackBuild)).To(MatchError(ContainSubstring("not found")))
 			}).Should(Succeed())
+		})
+
+		When("there is another buildworkload referring to the kpack.Build", func() {
+			BeforeEach(func() {
+				otherBuildWorkload := buildWorkloadObject(testutils.GenerateGUID(), namespaceGUID, source, env, services, reconcilerName, buildpacks)
+				otherBuildWorkload.Labels[controllers.ImageGenerationKey] = "1"
+				Expect(k8sClient.Create(ctx, otherBuildWorkload)).To(Succeed())
+			})
+
+			It("doesn't delete the kpack.Build", func() {
+				Eventually(func(g Gomega) {
+					foundBuildWorkload := new(korifiv1alpha1.BuildWorkload)
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), foundBuildWorkload)).To(MatchError(ContainSubstring("not found")))
+				}).Should(Succeed())
+
+				Consistently(func(g Gomega) {
+					foundKpackBuild := new(buildv1alpha2.Build)
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(kpackBuild), foundKpackBuild)).To(Succeed())
+				}).Should(Succeed())
+			})
 		})
 	})
 })
