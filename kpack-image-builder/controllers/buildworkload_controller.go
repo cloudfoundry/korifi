@@ -175,12 +175,12 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
 		buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
 	})
-	if len(kpackBuildList.Items) == 0 {
-		return ctrl.Result{}, nil
-	}
 	if err != nil {
 		r.log.Info("error when fetching Kpack builds", "reason", err)
 		return ctrl.Result{}, err
+	}
+	if len(kpackBuildList.Items) == 0 {
+		return ctrl.Result{}, nil
 	}
 
 	kpackSucceededStatusCondition := kpackBuildList.Items[0].Status.GetCondition(corev1alpha1.ConditionSucceeded)
@@ -382,12 +382,24 @@ func (r *BuildWorkloadReconciler) finalize(ctx context.Context, buildWorkload *k
 		return nil
 	}
 
-	err := r.k8sClient.DeleteAllOf(ctx, new(buildv1alpha2.Build), client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
-		buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
-		buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
+	appBuildWorkloads := &korifiv1alpha1.BuildWorkloadList{}
+	err := r.k8sClient.List(ctx, appBuildWorkloads, client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
+		korifiv1alpha1.CFAppGUIDLabelKey: buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
+		ImageGenerationKey:               buildWorkload.Labels[ImageGenerationKey],
 	})
 	if err != nil {
-		r.log.Error(err, "failed to delete kpack.Build")
+		r.log.Error(err, "failed to list build workloads")
+		return err
+	}
+
+	if len(appBuildWorkloads.Items) == 1 {
+		err = r.k8sClient.DeleteAllOf(ctx, new(buildv1alpha2.Build), client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
+			buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
+			buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
+		})
+		if err != nil {
+			r.log.Error(err, "failed to delete kpack.Build")
+		}
 	}
 
 	if controllerutil.RemoveFinalizer(buildWorkload, buildWorkloadFinalizerName) {
