@@ -365,7 +365,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 		})
 
-		When("the Kpack image is not ready", func() {
+		When("the build is not ready", func() {
 			BeforeEach(func() {
 				buildSucceededStatus = metav1.ConditionFalse
 				buildSucceededReason = "BuildFailed"
@@ -403,7 +403,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 		})
 
-		When("the image build succeeded", func() {
+		When("the build succeeded", func() {
 			var configCallCount int
 
 			BeforeEach(func() {
@@ -447,6 +447,120 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					{Type: "db", Command: "my-command2"},
 				}))
 				Expect(updatedBuildWorkload.Status.Droplet.Ports).To(Equal([]int32{8080, 8443}))
+			})
+		})
+	})
+
+	Describe("detecting skipped previous builds", func() {
+		var buildWorkload2 *korifiv1alpha1.BuildWorkload
+
+		BeforeEach(func() {
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(buildWorkload.Labels).To(HaveKey(controllers.ImageGenerationKey))
+			}).Should(Succeed())
+
+			source2 := source
+			source2.Registry.Image += "2"
+			buildWorkload2 = buildWorkloadObject(testutils.GenerateGUID(), namespaceGUID, source2, env, services, reconcilerName, buildpacks)
+			Expect(k8sClient.Create(ctx, buildWorkload2)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
+				g.Expect(buildWorkload2.Labels).To(HaveKey(controllers.ImageGenerationKey))
+			}).Should(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sClient.Create(ctx, &buildv1alpha2.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "build",
+					Namespace: namespaceGUID,
+					Labels: map[string]string{
+						"image.kpack.io/image":           "app-guid",
+						"image.kpack.io/imageGeneration": buildWorkload2.Labels[controllers.ImageGenerationKey],
+					},
+				},
+			})).To(Succeed())
+		})
+
+		It("fails the first build workload", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Reason).To(Equal("KpackMissedBuild"))
+			}).Should(Succeed())
+		})
+
+		When("previous build workload builds are still running", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Create(ctx, &buildv1alpha2.Build{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      testutils.GenerateGUID(),
+						Namespace: namespaceGUID,
+						Labels: map[string]string{
+							"image.kpack.io/image":           "app-guid",
+							"image.kpack.io/imageGeneration": buildWorkload.Labels[controllers.ImageGenerationKey],
+						},
+					},
+				})).To(Succeed())
+			})
+
+			It("does not fail it", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the first build workload has already completed", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, k8sClient, buildWorkload, func() {
+					meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+						Type:   korifiv1alpha1.SucceededConditionType,
+						Status: metav1.ConditionTrue,
+						Reason: "DoneAlready",
+					})
+				})).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionTrue))
+				}).Should(Succeed())
+			})
+
+			It("does not fail the first build workload", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionTrue))
+				}).Should(Succeed())
+			})
+		})
+
+		When("there are build workloads with greater image generation", func() {
+			var buildWorkload3 *korifiv1alpha1.BuildWorkload
+
+			BeforeEach(func() {
+				source3 := source
+				source3.Registry.Image += "3"
+				buildWorkload3 = buildWorkloadObject(testutils.GenerateGUID(), namespaceGUID, source3, env, services, reconcilerName, buildpacks)
+				Expect(k8sClient.Create(ctx, buildWorkload3)).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload3), buildWorkload3)).To(Succeed())
+					g.Expect(buildWorkload3.Labels).To(HaveKey(controllers.ImageGenerationKey))
+				}).Should(Succeed())
+			})
+
+			It("does not fail them", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(mustHaveCondition(g, buildWorkload3.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+				}).Should(Succeed())
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload3), buildWorkload3)).To(Succeed())
+					g.Expect(mustHaveCondition(g, buildWorkload3.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+				}).Should(Succeed())
 			})
 		})
 	})
