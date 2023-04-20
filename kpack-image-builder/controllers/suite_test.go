@@ -109,6 +109,8 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
+	k8sClient = k8sManager.GetClient()
+
 	controllerConfig := &config.ControllerConfig{
 		CFRootNamespace:           PrefixedGUID("cf"),
 		ClusterBuilderName:        "cf-kpack-builder",
@@ -151,10 +153,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
-
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
 
 	rootNamespace = &v1.Namespace{
 		ObjectMeta: ctrl.ObjectMeta{

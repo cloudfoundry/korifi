@@ -120,10 +120,13 @@ var _ = Describe("KpackBuildReconciler", func() {
 		})
 
 		It("does not trigger the reconciler", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)).To(Succeed())
+			}).Should(Succeed())
+
 			Consistently(func(g Gomega) {
-				gotBuild := kpackv1alpha2.Build{}
-				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &gotBuild)).To(Succeed())
-				g.Expect(gotBuild.Finalizers).To(BeEmpty())
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)).To(Succeed())
+				g.Expect(build.Finalizers).To(BeEmpty())
 			}).Should(Succeed())
 		})
 	})
