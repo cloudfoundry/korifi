@@ -292,10 +292,14 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			})
 
 			It("doesn't modify that resource", func() {
-				Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
+				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
-					return info.Status.Buildpacks
-				}).Should(BeEmpty())
+				}).Should(Succeed())
+
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(info.Status.Buildpacks).To(BeEmpty())
+				}).Should(Succeed())
 			})
 		})
 
@@ -318,10 +322,14 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			})
 
 			It("doesn't modify that resource", func() {
-				Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
+				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
-					return info.Status.Buildpacks
-				}).Should(BeEmpty())
+				}).Should(Succeed())
+
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(info.Status.Buildpacks).To(BeEmpty())
+				}).Should(Succeed())
 			})
 		})
 	})

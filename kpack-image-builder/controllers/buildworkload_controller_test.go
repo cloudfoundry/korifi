@@ -213,7 +213,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Consistently(func(g Gomega) {
 					kpackImage := new(buildv1alpha2.Image)
 					err := k8sClient.Get(ctx, types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}, kpackImage)
-					g.Expect(err).To(MatchError(fmt.Sprintf("images.kpack.io %q not found", "app-guid")))
+					g.Expect(err).To(MatchError(fmt.Sprintf("Image.kpack.io %q not found", "app-guid")))
 				}).Should(Succeed())
 			})
 
@@ -252,10 +252,14 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				})
 
 				It("doesn't continue to reconcile the object", func() {
-					updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+						g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
+					}).Should(Succeed())
+
 					Consistently(func(g Gomega) {
-						g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, updatedBuildWorkload)).To(Succeed())
-						g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+						g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
 					}).Should(Succeed())
 				})
 			})
