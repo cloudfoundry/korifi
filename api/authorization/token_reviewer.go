@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	authv1 "k8s.io/api/authentication/v1"
@@ -46,29 +45,21 @@ func (r *TokenReviewer) WhoAmI(ctx context.Context, token string) (Identity, err
 		return Identity{}, apierrors.NewInvalidAuthError(errors.New("not authenticated"))
 	}
 
-	idKind := rbacv1.UserKind
 	idName := tokenReview.Status.User.Username
 
 	if isServiceAccount(tokenReview.Status.User) {
 		if !HasServiceAccountPrefix(idName) {
 			return Identity{}, fmt.Errorf("invalid serviceaccount name: %q", idName)
 		}
-
-		idKind = rbacv1.ServiceAccountKind
+		ns, _ := ServiceAccountNSAndName(idName)
+		return NewIdentity(rbacv1.ServiceAccountKind, idName, ns)
+	} else {
+		return NewIdentity(rbacv1.UserKind, idName, "")
 	}
-
-	return Identity{
-		Name: idName,
-		Kind: idKind,
-	}, nil
 }
 
 func isServiceAccount(subject authv1.UserInfo) bool {
 	return contains(subject.Groups, serviceAccountsGroup)
-}
-
-func HasServiceAccountPrefix(idName string) bool {
-	return strings.HasPrefix(idName, serviceAccountNamePrefix)
 }
 
 func contains(groups []string, soughtGroup string) bool {

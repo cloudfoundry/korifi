@@ -46,13 +46,16 @@ lint: fmt vet
 	golangci-lint run -v
 
 test: lint
-	@for comp in $(COMPONENTS); do make -C $$comp test; done
+	make test-unit
 	make test-tools
 	make test-e2e
 
 
 test-tools:
 	./scripts/run-tests.sh tools
+
+test-unit:
+	for comp in $(COMPONENTS); do make -C $$comp test; done
 
 test-e2e:
 	./scripts/run-tests.sh tests/e2e

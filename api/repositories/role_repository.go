@@ -107,12 +107,15 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	userIdentity := authorization.Identity{
-		Name: role.User,
 		Kind: role.Kind,
 	}
 
 	if role.Kind == rbacv1.ServiceAccountKind {
 		userIdentity.Name = fmt.Sprintf("system:serviceaccount:%s:%s", role.ServiceAccountNamespace, role.User)
+		userIdentity.Namespace = role.ServiceAccountNamespace
+	} else {
+		userIdentity.Name = role.User
+		userIdentity.APIGroup = "rbac.authorization.k8s.io"
 	}
 
 	if role.Space != "" {

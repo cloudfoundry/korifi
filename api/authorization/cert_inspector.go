@@ -23,7 +23,7 @@ func NewCertInspector(restConfig *rest.Config) *CertInspector {
 	}
 }
 
-func (c *CertInspector) WhoAmI(ctx context.Context, certPEM []byte) (Identity, error) {
+func (c *CertInspector) WhoAmI(_ context.Context, certPEM []byte) (Identity, error) {
 	certBlock, rst := pem.Decode(certPEM)
 	if certBlock == nil {
 		return Identity{}, apierrors.NewInvalidAuthError(errors.New("failed to decode cert PEM"))
@@ -51,8 +51,5 @@ func (c *CertInspector) WhoAmI(ctx context.Context, certPEM []byte) (Identity, e
 		return Identity{}, apierrors.FromK8sError(err, "")
 	}
 
-	return Identity{
-		Name: cert.Subject.CommonName,
-		Kind: rbacv1.UserKind,
-	}, nil
+	return NewIdentity(rbacv1.UserKind, cert.Subject.CommonName, "")
 }
