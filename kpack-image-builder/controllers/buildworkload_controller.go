@@ -197,7 +197,8 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, nil
 	}
 
-	kpackBuild, err := r.findKpackBuild(ctx, buildWorkload)
+	kpackBuild, err := r.findKpackBuild(ctx, kpackImage)
+	// TODO: What to do if kpack build is not found? ignore? requeue?
 	if err != nil {
 		r.log.Error(err, "error when finding Kpack build for build workload")
 		return ctrl.Result{}, err
@@ -305,11 +306,11 @@ func (r *BuildWorkloadReconciler) failSkippedEarlierWorkloads(ctx context.Contex
 	return nil
 }
 
-func (r *BuildWorkloadReconciler) findKpackBuild(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (*buildv1alpha2.Build, error) {
+func (r *BuildWorkloadReconciler) findKpackBuild(ctx context.Context, kpackImage buildv1alpha2.Image) (*buildv1alpha2.Build, error) {
 	var kpackBuildList buildv1alpha2.BuildList
-	err := r.k8sClient.List(ctx, &kpackBuildList, client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
-		buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
-		buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
+	err := r.k8sClient.List(ctx, &kpackBuildList, client.InNamespace(kpackImage.Namespace), client.MatchingLabels{
+		"image.kpack.io/image":       kpackImage.Name,
+		"image.kpack.io/buildNumber": strconv.FormatInt(kpackImage.Status.BuildCounter, 10),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error when fetching KPack builds: %w", err)
