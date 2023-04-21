@@ -88,6 +88,7 @@ kpackImageBuilder:
       memory: 100Mi
 
   clusterBuilderName: ""
+  builderReadinessTimeout: 30s
   clusterStackBuildImage: paketobuildpacks/build:full-cnb
   clusterStackRunImage: paketobuildpacks/run:full-cnb
   builderRepository: ""

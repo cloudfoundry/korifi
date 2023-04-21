@@ -87,6 +87,7 @@ Here are all the values that can be set for the chart:
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
 - `kpackImageBuilder`:
+  - `builderReadinessTimeout` (_String_): The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `builderRepository` (_String_): Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.
   - `clusterBuilderName` (_String_): The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.
   - `clusterStackBuildImage` (_String_): The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.

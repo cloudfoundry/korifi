@@ -35,6 +35,7 @@ data:
     logLevel: {{ .Values.global.logLevel }}
     {{- if .Values.kpackImageBuilder.include }}
     clusterBuilderName: {{ .Values.kpackImageBuilder.clusterBuilderName | default "cf-kpack-cluster-builder" }}
+    builderReadinessTimeout: {{ required "builderReadinessTimeout is required" .Values.kpackImageBuilder.builderReadinessTimeout }}
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     builderServiceAccount: kpack-service-account
     {{- if .Values.global.eksContainerRegistryRoleARN }}

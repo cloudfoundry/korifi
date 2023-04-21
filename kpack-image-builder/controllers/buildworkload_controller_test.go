@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -26,12 +27,12 @@ import (
 var _ = Describe("BuildWorkloadReconciler", func() {
 	const (
 		wellFormedRegistryCredentialsSecret = "image-registry-credentials"
-		kpackReconcilerName                 = "kpack-image-builder"
 	)
 
 	var (
 		namespaceGUID  string
 		cfBuildGUID    string
+		clusterBuilder *buildv1alpha2.ClusterBuilder
 		buildWorkload  *korifiv1alpha1.BuildWorkload
 		source         korifiv1alpha1.PackageSource
 		env            []corev1.EnvVar
@@ -41,6 +42,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 	)
 
 	BeforeEach(func() {
+		reconcilerName = "kpack-image-builder"
 		namespaceGUID = PrefixedGUID("namespace")
 		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}})).To(Succeed())
 
@@ -49,6 +51,23 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		registryServiceAccount := buildServiceAccount("builder-service-account", namespaceGUID, wellFormedRegistryCredentialsSecret)
 		Expect(k8sClient.Create(ctx, registryServiceAccount)).To(Succeed())
+
+		clusterBuilder = &buildv1alpha2.ClusterBuilder{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cf-kpack-builder",
+			},
+		}
+		Expect(k8sClient.Create(ctx, clusterBuilder)).To(Succeed())
+
+		Expect(k8s.Patch(ctx, k8sClient, clusterBuilder, func() {
+			clusterBuilder.Status.Conditions = corev1alpha1.Conditions{
+				{
+					Type:               corev1alpha1.ConditionType("Ready"),
+					Status:             corev1.ConditionStatus(metav1.ConditionTrue),
+					LastTransitionTime: corev1alpha1.VolatileTime{Inner: metav1.Now()},
+				},
+			}
+		})).To(Succeed())
 
 		cfBuildGUID = PrefixedGUID("cf-build")
 		env = []corev1.EnvVar{{
@@ -76,7 +95,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			},
 		}
 
-		reconcilerName = kpackReconcilerName
 		buildpacks = nil
 
 		fakeImageConfigGetter.ConfigReturns(image.Config{
@@ -90,6 +108,12 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			},
 			ExposedPorts: []int32{8080, 8443},
 		}, nil)
+	})
+
+	AfterEach(func() {
+		if clusterBuilder != nil {
+			Expect(k8sClient.Delete(ctx, clusterBuilder)).To(Succeed())
+		}
 	})
 
 	Describe("BuildWorkload initialization phase", func() {
@@ -387,26 +411,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 		})
 
-		When("the Kpack builder is not ready", func() {
-			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, createdKpackImage, func() {
-					setKpackImageStatus(createdKpackImage, "Ready", metav1.ConditionUnknown)
-					setKpackImageStatus(createdKpackImage, "BuilderReady", metav1.ConditionFalse)
-				})).To(Succeed())
-			})
-
-			It("sets the Succeeded condition to False", func() {
-				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
-				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, lookupKey, updatedWorkload)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
-					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Reason).To(Equal("BuilderNotReady"))
-				}).Should(Succeed())
-			})
-		})
-
 		When("the build succeeded", func() {
 			var configCallCount int
 
@@ -451,6 +455,85 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					{Type: "db", Command: "my-command2"},
 				}))
 				Expect(updatedBuildWorkload.Status.Droplet.Ports).To(Equal([]int32{8080, 8443}))
+			})
+		})
+	})
+
+	Describe("awaiting kpack builder readiness", func() {
+		BeforeEach(func() {
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
+
+			Expect(k8s.Patch(ctx, k8sClient, clusterBuilder, func() {
+				clusterBuilder.Status.Conditions = corev1alpha1.Conditions{
+					{
+						Type:               corev1alpha1.ConditionType("Ready"),
+						Status:             corev1.ConditionStatus(metav1.ConditionFalse),
+						LastTransitionTime: corev1alpha1.VolatileTime{Inner: metav1.Now()},
+					},
+				}
+			})).To(Succeed())
+		})
+
+		It("sets the Succeeded condition to False", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Reason).To(Equal("BuilderNotReady"))
+			}).Should(Succeed())
+		})
+
+		When("the kpack builder becomes ready", func() {
+			BeforeEach(func() {
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+					g.Expect(meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(
+						SatisfyAny(
+							BeNil(),
+							PointTo(MatchFields(
+								IgnoreExtras,
+								Fields{"Status": Equal(metav1.ConditionUnknown)},
+							)),
+						),
+					)
+				}, "2s").Should(Succeed())
+
+				Expect(k8s.Patch(ctx, k8sClient, clusterBuilder, func() {
+					clusterBuilder.Status.Conditions = corev1alpha1.Conditions{
+						{
+							Type:               corev1alpha1.ConditionType("Ready"),
+							Status:             corev1.ConditionStatus(metav1.ConditionTrue),
+							LastTransitionTime: corev1alpha1.VolatileTime{Inner: metav1.Now()},
+						},
+					}
+				})).To(Succeed())
+			})
+
+			It("never sets Succeeded condition to False (as it is tolerant towards builder being unavailable for a while)", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).ToNot(Equal(metav1.ConditionFalse))
+				}).Should(Succeed())
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).ToNot(Equal(metav1.ConditionFalse))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the kpack builder is not found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, clusterBuilder)).To(Succeed())
+				clusterBuilder = nil
+			})
+
+			It("sets the Succeeded condition to False", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Reason).To(Equal("BuilderNotReady"))
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Message).To(Equal("ClusterBuilder not found"))
+				}).Should(Succeed())
 			})
 		})
 	})
