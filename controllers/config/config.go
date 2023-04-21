@@ -37,6 +37,7 @@ type ControllerConfig struct {
 	// kpack-image-builder
 	ClusterBuilderName        string `yaml:"clusterBuilderName"`
 	BuilderServiceAccount     string `yaml:"builderServiceAccount"`
+	BuilderReadinessTimeout   string `yaml:"builderReadinessTimeout"`
 	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType     string `yaml:"containerRegistryType"`
 }
@@ -89,6 +90,10 @@ func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {
 	}
 
 	return tools.ParseDuration(c.TaskTTL)
+}
+
+func (c ControllerConfig) ParseBuilderReadinessTimeout() (time.Duration, error) {
+	return tools.ParseDuration(c.BuilderReadinessTimeout)
 }
 
 func (c ControllerConfig) ParseJobTTL() (time.Duration, error) {

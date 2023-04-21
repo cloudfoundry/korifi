@@ -267,6 +267,12 @@ func main() {
 		}
 
 		if controllerConfig.IncludeKpackImageBuilder {
+			var builderReadinessTimeout time.Duration
+			builderReadinessTimeout, err = controllerConfig.ParseBuilderReadinessTimeout()
+			if err != nil {
+				setupLog.Error(err, "error parsing builderReadinessTimeout")
+				os.Exit(1)
+			}
 			if err = controllers.NewBuildWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
@@ -275,6 +281,7 @@ func main() {
 				image.NewClient(k8sClient),
 				controllerConfig.ContainerRepositoryPrefix,
 				registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
+				builderReadinessTimeout,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")
 				os.Exit(1)

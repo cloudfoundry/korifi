@@ -21,8 +21,10 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -33,6 +35,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -77,28 +80,31 @@ func NewBuildWorkloadReconciler(
 	imageConfigGetter ImageConfigGetter,
 	imageRepoPrefix string,
 	imageRepoCreator RepositoryCreator,
+	builderReadinessTimeout time.Duration,
 ) *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload] {
 	buildWorkloadReconciler := BuildWorkloadReconciler{
-		k8sClient:         c,
-		scheme:            scheme,
-		log:               log,
-		controllerConfig:  config,
-		imageConfigGetter: imageConfigGetter,
-		imageRepoPrefix:   imageRepoPrefix,
-		imageRepoCreator:  imageRepoCreator,
+		k8sClient:               c,
+		scheme:                  scheme,
+		log:                     log,
+		controllerConfig:        config,
+		imageConfigGetter:       imageConfigGetter,
+		imageRepoPrefix:         imageRepoPrefix,
+		imageRepoCreator:        imageRepoCreator,
+		builderReadinessTimeout: builderReadinessTimeout,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload](log, c, &buildWorkloadReconciler)
 }
 
 // BuildWorkloadReconciler reconciles a BuildWorkload object
 type BuildWorkloadReconciler struct {
-	k8sClient         client.Client
-	scheme            *runtime.Scheme
-	log               logr.Logger
-	controllerConfig  *config.ControllerConfig
-	imageConfigGetter ImageConfigGetter
-	imageRepoPrefix   string
-	imageRepoCreator  RepositoryCreator
+	k8sClient               client.Client
+	scheme                  *runtime.Scheme
+	log                     logr.Logger
+	controllerConfig        *config.ControllerConfig
+	imageConfigGetter       ImageConfigGetter
+	imageRepoPrefix         string
+	imageRepoCreator        RepositoryCreator
+	builderReadinessTimeout time.Duration
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;patch;delete
@@ -154,12 +160,34 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
 	err = r.k8sClient.Get(ctx, client.ObjectKey{Namespace: buildWorkload.Namespace, Name: appGUID}, &kpackImage)
 	if err != nil {
-		r.log.Info("error when fetching Kpack Image", "reason", err)
+		r.log.Error(err, "error when fetching Kpack Image")
 		return ctrl.Result{}, err
 	}
 
-	kpackBuilderReadyStatusCondition := kpackImage.Status.GetCondition(buildv1alpha2.ConditionBuilderReady)
-	if kpackBuilderReadyStatusCondition.IsFalse() {
+	var imageBuilder buildv1alpha2.ClusterBuilder
+	err = r.k8sClient.Get(ctx, client.ObjectKey{Name: kpackImage.Spec.Builder.Name}, &imageBuilder)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			r.log.Info("failing build as builder is not found")
+			meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+				Type:    korifiv1alpha1.SucceededConditionType,
+				Status:  metav1.ConditionFalse,
+				Reason:  "BuilderNotReady",
+				Message: "ClusterBuilder not found",
+			})
+			return ctrl.Result{}, nil
+		}
+
+		r.log.Error(err, "error when fetching Kpack Builder")
+		return ctrl.Result{}, err
+	}
+
+	if builderReady := imageBuilder.Status.GetCondition(corev1alpha1.ConditionReady); builderReady.IsFalse() {
+		if time.Since(builderReady.LastTransitionTime.Inner.Time) < r.builderReadinessTimeout {
+			return ctrl.Result{}, errors.New("waiting for builder to be ready")
+		}
+
+		r.log.Info("failing build as builder not ready")
 		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
 			Status:  metav1.ConditionFalse,

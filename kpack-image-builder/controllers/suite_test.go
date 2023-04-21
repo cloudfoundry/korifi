@@ -128,6 +128,7 @@ var _ = BeforeSuite(func() {
 		fakeImageConfigGetter,
 		"my.repository/my-prefix/",
 		imageRepoCreator,
+		4*time.Second,
 	)
 	err = buildWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
