@@ -25,7 +25,7 @@ var _ = Describe("Processes", func() {
 		restyClient = certClient
 		errResp = cfErrs{}
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
-		appGUID, _ = pushTestApp(spaceGUID, procfileAppBitsFile)
+		appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
 		processGUID = getProcess(appGUID, "web").GUID
 	})
 
@@ -67,7 +67,7 @@ var _ = Describe("Processes", func() {
 		When("the user is NOT authorized in the space", func() {
 			BeforeEach(func() {
 				space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
-				app2GUID, _ = pushTestApp(space2GUID, procfileAppBitsFile)
+				app2GUID, _ = pushTestApp(space2GUID, defaultAppBitsFile)
 				requestAppGUID = app2GUID
 			})
 
