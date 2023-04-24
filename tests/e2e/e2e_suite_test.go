@@ -54,7 +54,7 @@ var (
 	doraAppBitsFile         string
 	golangAppBitsFile       string
 	multiProcessAppBitsFile string
-	procfileAppBitsFile     string
+	defaultAppBitsFile      string
 )
 
 type resource struct {
@@ -263,7 +263,7 @@ type sharedSetupData struct {
 	DoraAppBitsFile         string `json:"doraAppBitsFile"`
 	GolangAppBitsFile       string `json:"golangAppBitsFile"`
 	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
-	ProcfileAppBitsFile     string `json:"procfileAppBitsFile"`
+	DefaultAppBitsFile      string `json:"defaultAppBitsFile"`
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -277,12 +277,12 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
-	// The APP_BITS_PATH and APP_BITS_OUTPUT environment variables are a workaround to allow e2e tests to run
+	// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
 	// with a different app in these environments.
 	// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-	appBitsPath, ok := os.LookupEnv("APP_BITS_PATH")
+	defaultAppBitsPath, ok := os.LookupEnv("DEFAULT_APP_BITS_PATH")
 	if !ok {
-		appBitsPath = "assets/procfile"
+		defaultAppBitsPath = "assets/procfile"
 	}
 
 	sharedData := sharedSetupData{
@@ -292,7 +292,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		DoraAppBitsFile:         zipAsset("assets/vendored/dora"),
 		GolangAppBitsFile:       zipAsset("assets/golang"),
 		MultiProcessAppBitsFile: zipAsset("assets/multi-process"),
-		ProcfileAppBitsFile:     zipAsset(appBitsPath),
+		DefaultAppBitsFile:      zipAsset(defaultAppBitsPath),
 	}
 
 	bs, err := json.Marshal(sharedData)
@@ -307,7 +307,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	var wg sync.WaitGroup
 	wg.Add(5)
 	for _, f := range []string{
-		sharedData.ProcfileAppBitsFile,
+		sharedData.DefaultAppBitsFile,
 		sharedData.NodeAppBitsFile,
 		sharedData.DoraAppBitsFile,
 		sharedData.GolangAppBitsFile,
@@ -330,7 +330,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	commonTestOrgGUID = sharedSetup.CommonOrgGUID
 	commonTestOrgName = sharedSetup.CommonOrgName
-	procfileAppBitsFile = sharedSetup.ProcfileAppBitsFile
+	defaultAppBitsFile = sharedSetup.DefaultAppBitsFile
 	nodeAppBitsFile = sharedSetup.NodeAppBitsFile
 	doraAppBitsFile = sharedSetup.DoraAppBitsFile
 	golangAppBitsFile = sharedSetup.GolangAppBitsFile

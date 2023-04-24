@@ -263,7 +263,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID, _ = pushTestApp(space1GUID, procfileAppBitsFile)
+			appGUID, _ = pushTestApp(space1GUID, defaultAppBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
 
@@ -300,7 +300,7 @@ var _ = Describe("Apps", func() {
 			createSpaceRole("space_developer", certUserName, space1GUID)
 			appGUID = createApp(space1GUID, generateGUID("app"))
 			pkgGUID = createPackage(appGUID)
-			uploadTestApp(pkgGUID, procfileAppBitsFile)
+			uploadTestApp(pkgGUID, defaultAppBitsFile)
 		})
 
 		JustBeforeEach(func() {
@@ -346,7 +346,7 @@ var _ = Describe("Apps", func() {
 		BeforeEach(func() {
 			appGUID = createApp(space1GUID, generateGUID("app"))
 			pkgGUID = createPackage(appGUID)
-			uploadTestApp(pkgGUID, procfileAppBitsFile)
+			uploadTestApp(pkgGUID, defaultAppBitsFile)
 			buildGUID = createBuild(pkgGUID)
 			waitForDroplet(buildGUID)
 

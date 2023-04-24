@@ -361,7 +361,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space developer in the space", func() {
 			BeforeEach(func() {
-				appGUID, _ = pushTestApp(spaceGUID, procfileAppBitsFile)
+				appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
 				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
@@ -381,8 +381,8 @@ var _ = Describe("Routes", func() {
 				Expect(result.Destinations).To(HaveLen(1))
 				Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
 
-				// This enables replacing the default app output via APP_BITS_PATH and APP_BITS_OUTPUT
-				expectedOutput, ok := os.LookupEnv("APP_BITS_OUTPUT")
+				// This enables replacing the default app output via DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE
+				expectedOutput, ok := os.LookupEnv("DEFAULT_APP_RESPONSE")
 				if !ok {
 					expectedOutput = "hello-world"
 				}
