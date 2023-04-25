@@ -141,8 +141,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, nil
 	}
 
-	succeededCondition := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
-	if succeededCondition == nil {
+	if meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType) == nil {
 		err = r.ensureKpackImageRequirements(ctx, buildWorkload)
 		if err != nil {
 			r.log.Info("kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
@@ -152,7 +151,19 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, r.reconcileKpackImage(ctx, buildWorkload)
 	}
 
-	if succeededCondition.Status != metav1.ConditionUnknown {
+	err = r.failSkippedEarlierWorkloads(ctx, buildWorkload)
+	if err != nil {
+		r.log.Error(err, "error when failing skipped earlier workloads")
+	}
+
+	latestSuccessfulBuild, err := r.findLatestSuccessfulKpackBuild(ctx, buildWorkload)
+	if err != nil {
+		r.log.Error(err, "error when finding latest successful Kpack build for build workload")
+		return ctrl.Result{}, err
+	}
+
+	if hasCompleted(buildWorkload) && !moreRecentBuildAvailable(buildWorkload, latestSuccessfulBuild) {
+		r.log.Info("buildpack has already completed and there are no more recent successful builds")
 		return ctrl.Result{}, nil
 	}
 
@@ -197,23 +208,16 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, nil
 	}
 
-	kpackBuild, err := r.findKpackBuild(ctx, buildWorkload)
+	latestBuild, err := r.findLatestKpackBuild(ctx, buildWorkload)
 	if err != nil {
-		r.log.Error(err, "error when finding Kpack build for build workload")
+		r.log.Error(err, "error when finding latest Kpack build for build workload")
 		return ctrl.Result{}, err
-
 	}
-
-	if kpackBuild == nil {
+	if latestBuild == nil {
 		return ctrl.Result{}, nil
 	}
 
-	err = r.failSkippedEarlierWorkloads(ctx, buildWorkload)
-	if err != nil {
-		r.log.Error(err, "error when failing skipped earlier workloads")
-	}
-
-	kpackSucceededStatusCondition := kpackBuild.Status.GetCondition(corev1alpha1.ConditionSucceeded)
+	kpackSucceededStatusCondition := latestBuild.Status.GetCondition(corev1alpha1.ConditionSucceeded)
 	if kpackSucceededStatusCondition.IsFalse() {
 		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
 			Type:    korifiv1alpha1.SucceededConditionType,
@@ -239,7 +243,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 			return ctrl.Result{}, err
 		}
 
-		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, kpackBuild, foundServiceAccount.ImagePullSecrets)
+		buildWorkload.Status.Droplet, err = r.generateDropletStatus(ctx, latestBuild, foundServiceAccount.ImagePullSecrets)
 		if err != nil {
 			r.log.Info("error when compiling the DropletStatus", "reason", err)
 			return ctrl.Result{}, err
@@ -247,6 +251,30 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func moreRecentBuildAvailable(buildWorkload *korifiv1alpha1.BuildWorkload, latestKpackBuild *buildv1alpha2.Build) bool {
+	if latestKpackBuild == nil {
+		return false
+	}
+	if buildWorkload.Status.Droplet == nil {
+		return true
+	}
+
+	return latestKpackBuild.Status.LatestImage != buildWorkload.Status.Droplet.Registry.Image
+}
+
+func hasCompleted(buildWorkload *korifiv1alpha1.BuildWorkload) bool {
+	succeededCondition := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+	return succeededCondition.Status != metav1.ConditionUnknown
+}
+
+func isRunning(buildWorkload *korifiv1alpha1.BuildWorkload) bool {
+	succeededCondition := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+	if succeededCondition == nil {
+		return true
+	}
+	return succeededCondition.Status == metav1.ConditionUnknown
 }
 
 func (r *BuildWorkloadReconciler) failSkippedEarlierWorkloads(ctx context.Context, reconciledBuildWorkload *korifiv1alpha1.BuildWorkload) error {
@@ -265,8 +293,8 @@ func (r *BuildWorkloadReconciler) failSkippedEarlierWorkloads(ctx context.Contex
 
 	for i := range buildWorkloads.Items {
 		workload := &buildWorkloads.Items[i]
-		succeededCondition := meta.FindStatusCondition(workload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
-		if succeededCondition == nil || succeededCondition.Status != metav1.ConditionUnknown {
+
+		if isRunning(workload) {
 			continue
 		}
 
@@ -279,14 +307,15 @@ func (r *BuildWorkloadReconciler) failSkippedEarlierWorkloads(ctx context.Contex
 			continue
 		}
 
-		kpackBuild, err := r.findKpackBuild(ctx, workload)
-		if err != nil {
-			return fmt.Errorf("failed to find kpack build: %w", err)
-		}
+		// inProgress, err := r.hasBuildProgress(ctx, workload)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to check if there is running build for workload %q: %w", workload.Name, err)
+		// }
 
-		if kpackBuild != nil {
-			continue
-		}
+		// if inProgress {
+		// 	continue
+		// }
+		// fmt.Println("not in progress")
 
 		err = k8s.Patch(ctx, r.k8sClient, workload, func() {
 			meta.SetStatusCondition(&workload.Status.Conditions, metav1.Condition{
@@ -305,7 +334,22 @@ func (r *BuildWorkloadReconciler) failSkippedEarlierWorkloads(ctx context.Contex
 	return nil
 }
 
-func (r *BuildWorkloadReconciler) findKpackBuild(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (*buildv1alpha2.Build, error) {
+func (r *BuildWorkloadReconciler) hasBuildProgress(ctx context.Context, workload *korifiv1alpha1.BuildWorkload) (bool, error) {
+	builds, err := r.listKpackBuilds(ctx, workload)
+	if err != nil {
+		return false, fmt.Errorf("failed to find kpack build: %w", err)
+	}
+
+	for _, build := range builds {
+		if build.Status.GetCondition(corev1alpha1.ConditionSucceeded).IsUnknown() {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (r *BuildWorkloadReconciler) listKpackBuilds(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) ([]buildv1alpha2.Build, error) {
 	var kpackBuildList buildv1alpha2.BuildList
 	err := r.k8sClient.List(ctx, &kpackBuildList, client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
 		buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
@@ -314,11 +358,61 @@ func (r *BuildWorkloadReconciler) findKpackBuild(ctx context.Context, buildWorkl
 	if err != nil {
 		return nil, fmt.Errorf("error when fetching KPack builds: %w", err)
 	}
-	if len(kpackBuildList.Items) == 0 {
-		return nil, nil
+
+	return kpackBuildList.Items, nil
+}
+
+func successfulBuilds(builds []buildv1alpha2.Build) []buildv1alpha2.Build {
+	successfulBuilds := []buildv1alpha2.Build{}
+
+	for _, build := range builds {
+		if build.Status.GetCondition(corev1alpha1.ConditionSucceeded).IsTrue() {
+			successfulBuilds = append(successfulBuilds, build)
+		}
 	}
 
-	return &kpackBuildList.Items[0], nil
+	return successfulBuilds
+}
+
+func latestBuild(builds []buildv1alpha2.Build) *buildv1alpha2.Build {
+	if len(builds) == 0 {
+		return nil
+	}
+
+	latestBuild := builds[0]
+	for _, build := range builds {
+		if getBuildNumber(build) > getBuildNumber(latestBuild) {
+			latestBuild = build
+		}
+	}
+
+	return &latestBuild
+}
+
+func getBuildNumber(build buildv1alpha2.Build) int {
+	buildNumber, err := strconv.Atoi(build.Labels["image.kpack.io/buildNumber"])
+	if err != nil {
+		// TODO
+		fmt.Printf("err = %+v\n", err)
+		return -1
+	}
+	return buildNumber
+}
+
+func (r *BuildWorkloadReconciler) findLatestSuccessfulKpackBuild(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (*buildv1alpha2.Build, error) {
+	builds, err := r.listKpackBuilds(ctx, buildWorkload)
+	if err != nil {
+		return nil, err
+	}
+	return latestBuild(successfulBuilds(builds)), nil
+}
+
+func (r *BuildWorkloadReconciler) findLatestKpackBuild(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (*buildv1alpha2.Build, error) {
+	builds, err := r.listKpackBuilds(ctx, buildWorkload)
+	if err != nil {
+		return nil, err
+	}
+	return latestBuild(builds), nil
 }
 
 func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {

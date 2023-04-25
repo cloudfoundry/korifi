@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -459,6 +460,95 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		})
 	})
 
+	Describe("multiple kpack builds", func() {
+		var initialBuild, latestBuild *buildv1alpha2.Build
+
+		BeforeEach(func() {
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(buildWorkload.Labels).To(HaveKey(controllers.ImageGenerationKey))
+			}).Should(Succeed())
+
+			fmt.Printf("buildWorkload.Labels[controllers.ImageGenerationKey] = %+v\n", buildWorkload.Labels[controllers.ImageGenerationKey])
+			initialBuild = &buildv1alpha2.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "initial-build",
+					Namespace: namespaceGUID,
+					Labels: map[string]string{
+						buildv1alpha2.ImageLabel:         "app-guid",
+						"image.kpack.io/imageGeneration": buildWorkload.Labels[controllers.ImageGenerationKey],
+						"image.kpack.io/buildNumber":     "1",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, initialBuild)).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, initialBuild, func() {
+				initialBuild.Status.Conditions = []corev1alpha1.Condition{{
+					Type:   corev1alpha1.ConditionSucceeded,
+					Status: corev1.ConditionTrue,
+				}}
+				initialBuild.Status.LatestImage = "initial-image"
+			})).To(Succeed())
+
+			latestBuild = &buildv1alpha2.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "latest-build",
+					Namespace: namespaceGUID,
+					Labels: map[string]string{
+						buildv1alpha2.ImageLabel:         "app-guid",
+						"image.kpack.io/imageGeneration": buildWorkload.Labels[controllers.ImageGenerationKey],
+						"image.kpack.io/buildNumber":     "2",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, latestBuild)).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, latestBuild, func() {
+				latestBuild.Status.Conditions = []corev1alpha1.Condition{{
+					Type:   corev1alpha1.ConditionSucceeded,
+					Status: corev1.ConditionTrue,
+				}}
+				latestBuild.Status.LatestImage = "latest-image"
+			})).To(Succeed())
+		})
+
+		It("uses the latest build image", func() {
+			helpers.EventuallyShouldHold(func(g Gomega) {
+				var kpackBuildList buildv1alpha2.BuildList
+				g.Expect(k8sClient.List(ctx, &kpackBuildList, client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
+					buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
+					buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[controllers.ImageGenerationKey],
+				})).To(Succeed())
+				g.Expect(kpackBuildList.Items).To(HaveLen(2))
+
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(buildWorkload.Status.Droplet).NotTo(BeNil())
+				g.Expect(buildWorkload.Status.Droplet.Registry.Image).To(Equal("latest-image"))
+			})
+		})
+
+		When("the latest build has failed", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, k8sClient, latestBuild, func() {
+					latestBuild.Status.Conditions = []corev1alpha1.Condition{{
+						Type:   corev1alpha1.ConditionType("Succeeded"),
+						Status: corev1.ConditionStatus("False"),
+					}}
+					latestBuild.Status.LatestImage = ""
+				}))
+			})
+
+			It("uses the latest successfully built image", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+					g.Expect(buildWorkload.Status.Droplet).NotTo(BeNil())
+					g.Expect(buildWorkload.Status.Droplet.Registry.Image).To(Equal("initial-image"))
+				}).Should(Succeed())
+			})
+		})
+	})
+
 	Describe("awaiting kpack builder readiness", func() {
 		BeforeEach(func() {
 			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
@@ -594,10 +684,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				})).To(Succeed())
 			})
 
-			It("does not fail it", func() {
+			It("fails it again", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
-					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Reason).To(Equal("KpackMissedBuild"))
 				}).Should(Succeed())
 			})
 		})
@@ -761,6 +852,7 @@ func buildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1al
 			Namespace: namespace,
 			Labels: map[string]string{
 				korifiv1alpha1.CFAppGUIDLabelKey: "app-guid",
+				controllers.ImageGenerationKey:   "1",
 			},
 		},
 		Spec: korifiv1alpha1.BuildWorkloadSpec{
