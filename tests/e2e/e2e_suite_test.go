@@ -57,7 +57,7 @@ var (
 	doraAppBitsFile                  string
 	golangAppBitsFile                string
 	multiProcessAppBitsFile          string
-	defaultAppBitsFile              string
+	defaultAppBitsFile               string
 )
 
 type resource struct {
