@@ -26,18 +26,18 @@ directories:
   path: vendor
 - contents:
   - git:
-      commitTitle: Fix CatsConfig and config...
-      sha: eeadb781ea7dd0a84474c83fb5c72258821ab44c
+      commitTitle: Bump rack from 2.2.6.4 to 2.2.7 in /assets/hello-world...
+      sha: a55b8dde1725f68a10685b34625c629e995b6577
       tags:
-      - v12.1.0
+      - v13.0.0
     path: .
   path: e2e/assets/vendored/node
 - contents:
   - git:
-      commitTitle: Fix CatsConfig and config...
-      sha: eeadb781ea7dd0a84474c83fb5c72258821ab44c
+      commitTitle: Bump rack from 2.2.6.4 to 2.2.7 in /assets/hello-world...
+      sha: a55b8dde1725f68a10685b34625c629e995b6577
       tags:
-      - v12.1.0
+      - v13.0.0
     path: .
   path: e2e/assets/vendored/dora
 kind: LockConfig
