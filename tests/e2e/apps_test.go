@@ -399,6 +399,32 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
+	Describe("building an app with a specified buildpack", func() {
+		var buildGUID string
+
+		BeforeEach(func() {
+			manifest := manifestResource{
+				Version: 1,
+				Applications: []applicationResource{{
+					Name:         generateGUID("app"),
+					Memory:       "128MB",
+					DefaultRoute: true,
+					Buildpacks:   []string{"paketo-buildpacks/nodejs"},
+				}},
+			}
+			applySpaceManifest(manifest, space1GUID)
+
+			appGUID = getAppGUIDFromName(manifest.Applications[0].Name)
+			pkgGUID := createPackage(appGUID)
+			uploadTestApp(pkgGUID, nodeAppBitsFile)
+			buildGUID = createBuild(pkgGUID)
+		})
+
+		It("creates the droplet", func() {
+			waitForDroplet(buildGUID)
+		})
+	})
+
 	Describe("Built apps", func() {
 		var (
 			pkgGUID   string

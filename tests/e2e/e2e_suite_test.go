@@ -167,6 +167,7 @@ type applicationResource struct {
 	Routes       []manifestRouteResource              `yaml:"routes"`
 	Memory       string                               `yaml:"memory,omitempty"`
 	Metadata     metadata                             `yaml:"metadata,omitempty"`
+	Buildpacks   []string                             `yaml:"buildpacks"`
 }
 
 type manifestApplicationProcessResource struct {
