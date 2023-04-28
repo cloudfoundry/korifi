@@ -2,7 +2,6 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: korifi-controllers-mutating-webhook-configuration
   annotations:
     cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-controllers-serving-cert'
@@ -157,7 +156,6 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: korifi-controllers-validating-webhook-configuration
   annotations:
     cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-controllers-serving-cert'
