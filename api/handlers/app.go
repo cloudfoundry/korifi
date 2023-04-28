@@ -49,6 +49,7 @@ type CFAppRepository interface {
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
+	RestartApp(context.Context, authorization.Info, repositories.RestartAppMessage) (repositories.AppRecord, error)
 	DeleteApp(context.Context, authorization.Info, repositories.DeleteAppMessage) error
 	GetAppEnv(context.Context, authorization.Info, string) (repositories.AppEnvRecord, error)
 	PatchAppMetadata(context.Context, authorization.Info, repositories.PatchAppMetadataMessage) (repositories.AppRecord, error)
@@ -434,17 +435,15 @@ func (h *App) restart(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	app, err = h.stopApp(r.Context(), authInfo, app)
+	restartedApp, err := h.appRepo.RestartApp(r.Context(), authInfo, repositories.RestartAppMessage{
+		AppGUID:   appGUID,
+		SpaceGUID: app.SpaceGUID,
+	})
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to stop app", "AppGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to restart app", "AppGUID", appGUID)
 	}
 
-	app, err = h.startApp(r.Context(), authInfo, app)
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to start app", "AppGUID", appGUID)
-	}
-
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(restartedApp, h.serverURL)), nil
 }
 
 func (h *App) delete(r *http.Request) (*routing.Response, error) {

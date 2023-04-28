@@ -18,9 +18,7 @@ package workloads
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
-	"fmt"
 	"sort"
 	"strconv"
 
@@ -146,7 +144,7 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	actualAppWorkload := &korifiv1alpha1.AppWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfProcess.Namespace,
-			Name:      generateAppWorkloadName(cfAppRev, cfProcess.Name),
+			Name:      cfProcess.Name,
 		},
 	}
 
@@ -211,10 +209,17 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 
 	desiredAppWorkload.Labels = make(map[string]string)
 	desiredAppWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
+
 	cfAppRevisionKeyValue := korifiv1alpha1.CFAppRevisionKeyDefault
 	if cfApp.Annotations != nil {
 		if foundValue, has := cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey]; has {
 			cfAppRevisionKeyValue = foundValue
+		}
+
+		if restartedAt, hasRestartedAt := cfApp.Annotations["korifi.cloudfoundry.org/restartedAt"]; hasRestartedAt {
+			desiredAppWorkload.Annotations = map[string]string{
+				"korifi.cloudfoundry.org/restartedAt": restartedAt,
+			}
 		}
 	}
 	desiredAppWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
@@ -265,14 +270,6 @@ func calculateCPURequest(memoryMiB int64) resource.Quantity {
 		cpuMillicores = cpuRequestMinMillicores
 	}
 	return *resource.NewScaledQuantity(cpuMillicores, resource.Milli)
-}
-
-func generateAppWorkloadName(cfAppRev string, processGUID string) string {
-	h := sha1.New()
-	h.Write([]byte(cfAppRev))
-	appRevHash := h.Sum(nil)
-	appWorkloadName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
-	return appWorkloadName
 }
 
 func (r *CFProcessReconciler) fetchAppWorkloadsForProcess(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) ([]korifiv1alpha1.AppWorkload, error) {

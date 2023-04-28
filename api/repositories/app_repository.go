@@ -165,6 +165,11 @@ type SetAppDesiredStateMessage struct {
 	DesiredState string
 }
 
+type RestartAppMessage struct {
+	AppGUID   string
+	SpaceGUID string
+}
+
 type ListAppsMessage struct {
 	Names      []string
 	Guids      []string
@@ -591,6 +596,33 @@ func getAppEnv(ctx context.Context, userClient client.Client, app AppRecord) (ma
 	}
 
 	return appEnvMap, nil
+}
+
+func (r *AppRepo) RestartApp(ctx context.Context, authInfo authorization.Info, message RestartAppMessage) (AppRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      message.AppGUID,
+			Namespace: message.SpaceGUID,
+		},
+	}
+
+	err = k8s.PatchResource(ctx, userClient, cfApp, func() {
+		if cfApp.Annotations == nil {
+			cfApp.Annotations = map[string]string{}
+		}
+		cfApp.Annotations["korifi.cloudfoundry.org/restartedAt"] = time.Now().Format(time.RFC3339)
+		cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+	})
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to set restartedAt annotation: %w", apierrors.FromK8sError(err, AppResourceType))
+	}
+
+	return cfAppToAppRecord(*cfApp), nil
 }
 
 func GenerateEnvSecretName(appGUID string) string {

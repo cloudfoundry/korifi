@@ -180,6 +180,9 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 		AnnotationVersion:     appWorkload.Spec.Version,
 		AnnotationProcessGUID: fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, appWorkload.Spec.Version),
 	}
+	if restartedAt, hasRestartedAt := appWorkload.Annotations["korifi.cloudfoundry.org/restartedAt"]; hasRestartedAt {
+		annotations["korifi.cloudfoundry.org/restartedAt"] = restartedAt
+	}
 
 	statefulSet.Annotations = annotations
 	statefulSet.Spec.Template.Annotations = annotations
