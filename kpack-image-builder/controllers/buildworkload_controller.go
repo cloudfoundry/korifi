@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -32,6 +33,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -113,6 +115,7 @@ type BuildWorkloadReconciler struct {
 //+kubebuilder:rbac:groups=kpack.io,resources=images,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=builds,verbs=deletecollection
+//+kubebuilder:rbac:groups=kpack.io,resources=builders,verbs=get;list;watch;create;patch;update
 
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
@@ -129,60 +132,52 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, err
 	}
 
-	if len(buildWorkload.Spec.Buildpacks) > 0 {
-		// Specifying buildpacks is not supported
-		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.SucceededConditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "InvalidBuildpacks",
-			Message: `Only buildpack auto-detection is supported. Specifying buildpacks is not allowed.`,
-		})
-
-		return ctrl.Result{}, nil
-	}
-
 	if !hasKpackImage(buildWorkload) {
+		var builderName string
+		if len(buildWorkload.Spec.Buildpacks) > 0 {
+			builderName, err = r.ensureKpackBuilder(ctx, buildWorkload)
+			if err != nil {
+				r.log.Error(err, "failed ensuring custom builder")
+				return ctrl.Result{}, ignoreDoNotRetryError(fmt.Errorf("failed ensuring custom builder: %w", err))
+			}
+		}
+
 		err = r.ensureKpackImageRequirements(ctx, buildWorkload)
 		if err != nil {
 			r.log.Info("kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
 			return ctrl.Result{}, err
 		}
 
-		return ctrl.Result{}, r.reconcileKpackImage(ctx, buildWorkload)
+		return ctrl.Result{}, r.reconcileKpackImage(ctx, buildWorkload, builderName)
 	}
 
 	if hasCompleted(buildWorkload) {
 		return ctrl.Result{}, nil
 	}
 
-	var kpackImage buildv1alpha2.Image
-	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
-	err = r.k8sClient.Get(ctx, client.ObjectKey{Namespace: buildWorkload.Namespace, Name: appGUID}, &kpackImage)
+	kpackImage := new(buildv1alpha2.Image)
+	err = r.k8sClient.Get(ctx, client.ObjectKey{
+		Namespace: buildWorkload.Namespace,
+		Name:      buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
+	}, kpackImage)
 	if err != nil {
 		r.log.Error(err, "error when fetching Kpack Image")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed getting kpack Image: %w", err)
 	}
 
-	var imageBuilder buildv1alpha2.ClusterBuilder
-	err = r.k8sClient.Get(ctx, client.ObjectKey{Name: kpackImage.Spec.Builder.Name}, &imageBuilder)
+	err = r.ensureBuildCreationNotSkipped(ctx, buildWorkload, kpackImage)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			r.log.Info("failing build as builder is not found")
-			meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
-				Type:    korifiv1alpha1.SucceededConditionType,
-				Status:  metav1.ConditionFalse,
-				Reason:  "BuilderNotReady",
-				Message: "ClusterBuilder not found",
-			})
-			return ctrl.Result{}, nil
-		}
-
-		r.log.Error(err, "error when fetching Kpack Builder")
-		return ctrl.Result{}, err
+		r.log.Error(err, "ensuring kpack build was generated failed")
+		return ctrl.Result{}, ignoreDoNotRetryError(err)
 	}
 
-	if builderReady := imageBuilder.Status.GetCondition(corev1alpha1.ConditionReady); builderReady.IsFalse() {
-		if time.Since(builderReady.LastTransitionTime.Inner.Time) < r.builderReadinessTimeout {
+	builderReadyCondition, err := r.getBuilderReadyCondition(ctx, buildWorkload, kpackImage)
+	if err != nil {
+		return ctrl.Result{}, ignoreDoNotRetryError(fmt.Errorf("failed getting builder readiness condition"))
+	}
+
+	if builderReadyCondition.IsFalse() {
+		if time.Since(builderReadyCondition.LastTransitionTime.Inner.Time) < r.builderReadinessTimeout {
 			return ctrl.Result{}, errors.New("waiting for builder to be ready")
 		}
 
@@ -251,6 +246,202 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *BuildWorkloadReconciler) ensureBuildCreationNotSkipped(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload, kpackImage *buildv1alpha2.Image) error {
+	workloadImageGeneration, err := strconv.ParseInt(buildWorkload.Labels[ImageGenerationKey], 10, 64)
+	if err != nil {
+		r.log.Error(err, "couldn't parse image generation on buildworkload label")
+		return fmt.Errorf("couldn't parse image generation on buildworkload label: %w", err)
+	}
+
+	imageReady := kpackImage.Status.GetCondition(corev1alpha1.ConditionReady)
+	if imageReady != nil &&
+		imageReady.Status != corev1.ConditionUnknown &&
+		kpackImage.Status.ObservedGeneration >= workloadImageGeneration &&
+		kpackImage.Status.LatestBuildImageGeneration < workloadImageGeneration {
+		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "NoKpackBuildCreated",
+			Message: "This may happen when only a specified buildpack is changed. You can modify the sources to force a new Kpack Build",
+		})
+		return newDoNotRetryError(errors.New("kpack build was not created"))
+	}
+
+	return nil
+}
+
+func (r *BuildWorkloadReconciler) getBuilderReadyCondition(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload, kpackImage *buildv1alpha2.Image) (*corev1alpha1.Condition, error) {
+	var condition *corev1alpha1.Condition
+
+	switch kpackImage.Spec.Builder.Kind {
+	case "ClusterBuilder":
+		var imageBuilder buildv1alpha2.ClusterBuilder
+		err := r.k8sClient.Get(ctx, client.ObjectKey{Name: kpackImage.Spec.Builder.Name}, &imageBuilder)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				r.log.Error(err, "failing build as cluster builder is not found")
+				meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+					Type:    korifiv1alpha1.SucceededConditionType,
+					Status:  metav1.ConditionFalse,
+					Reason:  "BuilderNotReady",
+					Message: "ClusterBuilder not found",
+				})
+				return nil, newDoNotRetryError(err)
+			}
+
+			r.log.Error(err, "error when fetching Kpack ClusterBuilder")
+			return nil, err
+		}
+		condition = imageBuilder.Status.GetCondition(corev1alpha1.ConditionReady)
+
+	case "Builder":
+		var imageBuilder buildv1alpha2.Builder
+		err := r.k8sClient.Get(ctx, client.ObjectKey{Name: kpackImage.Spec.Builder.Name, Namespace: buildWorkload.Namespace}, &imageBuilder)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				r.log.Error(err, "failing build as builder is not found")
+				meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+					Type:    korifiv1alpha1.SucceededConditionType,
+					Status:  metav1.ConditionFalse,
+					Reason:  "BuilderNotReady",
+					Message: "Custom Builder not found",
+				})
+				return nil, newDoNotRetryError(err)
+			}
+
+			r.log.Error(err, "error when fetching Kpack Builder")
+			return nil, err
+		}
+
+		condition = imageBuilder.Status.GetCondition(corev1alpha1.ConditionReady)
+	default:
+		return nil, fmt.Errorf("unknown builder type %q", kpackImage.Spec.Builder.Kind)
+	}
+
+	return condition, nil
+}
+
+func (r *BuildWorkloadReconciler) getDefaultClusterBuilder(ctx context.Context) (*buildv1alpha2.ClusterBuilder, error) {
+	var defaultBuilder buildv1alpha2.ClusterBuilder
+	err := r.k8sClient.Get(ctx, client.ObjectKey{Name: r.controllerConfig.ClusterBuilderName}, &defaultBuilder)
+	return &defaultBuilder, err
+}
+
+type doNotRetryError struct {
+	inner error
+}
+
+func newDoNotRetryError(inner error) doNotRetryError {
+	return doNotRetryError{
+		inner: inner,
+	}
+}
+
+func (e doNotRetryError) Error() string {
+	return e.inner.Error()
+}
+
+func (e doNotRetryError) Unwrap() error {
+	return e.inner
+}
+
+func ignoreDoNotRetryError(err error) error {
+	if errors.As(err, &doNotRetryError{}) {
+		return nil
+	}
+	return err
+}
+
+func (r *BuildWorkloadReconciler) ensureKpackBuilder(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (string, error) {
+	var (
+		defaultBuilder *buildv1alpha2.ClusterBuilder
+		err            error
+	)
+
+	if defaultBuilder, err = r.getDefaultClusterBuilder(ctx); err != nil {
+		if k8serrors.IsNotFound(err) {
+			meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+				Type:    korifiv1alpha1.SucceededConditionType,
+				Status:  metav1.ConditionFalse,
+				Reason:  "BuilderNotReady",
+				Message: "Default ClusterBuilder not found",
+			})
+			return "", newDoNotRetryError(fmt.Errorf("default ClusterBuilder not found: %w", err))
+		}
+
+		r.log.Error(err, "error when fetching default ClusterBuilder")
+		return "", err
+	}
+
+	if err = r.checkBuildpacks(ctx, buildWorkload, defaultBuilder); err != nil {
+		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+			Type:    korifiv1alpha1.SucceededConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  "InvalidBuildpacks",
+			Message: err.Error(),
+		})
+
+		return "", newDoNotRetryError(err)
+	}
+
+	builderName := ComputeBuilderName(buildWorkload.Spec.Buildpacks)
+	builderRepo := fmt.Sprintf("%sbuilders-%s", r.imageRepoPrefix, builderName)
+	err = r.imageRepoCreator.CreateRepository(ctx, builderRepo)
+	if err != nil {
+		r.log.Error(err, "failed creating builder repo")
+		return "", fmt.Errorf("failed to create builder repo: %w", err)
+	}
+
+	builder := &buildv1alpha2.Builder{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      builderName,
+			Namespace: buildWorkload.Namespace,
+		},
+	}
+	_, err = ctrl.CreateOrUpdate(ctx, r.k8sClient, builder, func() error {
+		if err = controllerutil.SetOwnerReference(buildWorkload, builder, r.scheme); err != nil {
+			return err
+		}
+
+		builder.Spec.Tag = builderRepo
+		builder.Spec.Stack = defaultBuilder.Spec.Stack
+		builder.Spec.Store = defaultBuilder.Spec.Store
+		builder.Spec.ServiceAccountName = defaultBuilder.Spec.ServiceAccountRef.Name
+		builder.Spec.Order = nil
+		for _, bp := range buildWorkload.Spec.Buildpacks {
+			builder.Spec.Order = append(builder.Spec.Order, corev1alpha1.OrderEntry{
+				Group: []corev1alpha1.BuildpackRef{{BuildpackInfo: corev1alpha1.BuildpackInfo{Id: bp}}},
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		r.log.Error(err, "failed creating or updating kpack Builder")
+		return "", fmt.Errorf("failed creating or updating kpack Builder: %w", err)
+	}
+
+	return builder.Name, nil
+}
+
+func ComputeBuilderName(bps []string) string {
+	return uuid.NewSHA1(uuid.Nil, []byte(strings.Join(bps, "\x00"))).String()
+}
+
+func (r *BuildWorkloadReconciler) checkBuildpacks(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload, defaultBuilder *buildv1alpha2.ClusterBuilder) error {
+	validIDs := map[string]bool{}
+	for _, bp := range clusterBuilderToBuildpacks(defaultBuilder, metav1.Now()) {
+		validIDs[bp.Name] = true
+	}
+
+	for _, bp := range buildWorkload.Spec.Buildpacks {
+		if !validIDs[bp] {
+			return fmt.Errorf("buildpack %q not present in default ClusterStore. See `cf buildpacks`", bp)
+		}
+	}
+	return nil
 }
 
 func (r *BuildWorkloadReconciler) failSkippedEarlierWorkloads(ctx context.Context, reconciledBuildWorkload *korifiv1alpha1.BuildWorkload) error {
@@ -364,7 +555,11 @@ func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Conte
 	return nil
 }
 
-func (r *BuildWorkloadReconciler) reconcileKpackImage(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
+func (r *BuildWorkloadReconciler) reconcileKpackImage(
+	ctx context.Context,
+	buildWorkload *korifiv1alpha1.BuildWorkload,
+	customBuilderName string,
+) error {
 	appGUID := buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey]
 	kpackImageNamespace := buildWorkload.Namespace
 	kpackImageTag := r.repositoryRef(appGUID)
@@ -403,6 +598,11 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(ctx context.Context, build
 				Services: buildWorkload.Spec.Services,
 				Env:      buildWorkload.Spec.Env,
 			},
+		}
+		if customBuilderName != "" {
+			desiredKpackImage.Spec.Builder.Kind = "Builder"
+			desiredKpackImage.Spec.Builder.Name = customBuilderName
+			desiredKpackImage.Spec.Builder.Namespace = buildWorkload.Namespace
 		}
 
 		err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.scheme)

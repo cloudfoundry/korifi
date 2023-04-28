@@ -3,6 +3,7 @@ package controllers_test
 import (
 	"encoding/base64"
 	"fmt"
+	"strconv"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -31,15 +32,16 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 	)
 
 	var (
-		namespaceGUID  string
-		cfBuildGUID    string
-		clusterBuilder *buildv1alpha2.ClusterBuilder
-		buildWorkload  *korifiv1alpha1.BuildWorkload
-		source         korifiv1alpha1.PackageSource
-		env            []corev1.EnvVar
-		services       []corev1.ObjectReference
-		reconcilerName string
-		buildpacks     []string
+		namespaceGUID             string
+		cfBuildGUID               string
+		clusterBuilder            *buildv1alpha2.ClusterBuilder
+		buildWorkload             *korifiv1alpha1.BuildWorkload
+		source                    korifiv1alpha1.PackageSource
+		env                       []corev1.EnvVar
+		services                  []corev1.ObjectReference
+		reconcilerName            string
+		buildpacks                []string
+		imageRepoCreatorCallCount int
 	)
 
 	BeforeEach(func() {
@@ -57,6 +59,22 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cf-kpack-builder",
 			},
+			Spec: buildv1alpha2.ClusterBuilderSpec{
+				BuilderSpec: buildv1alpha2.BuilderSpec{
+					Stack: corev1.ObjectReference{
+						Kind: "ClusterStack",
+						Name: "my-cluster-stack",
+					},
+					Store: corev1.ObjectReference{
+						Kind:      "ClusterStore",
+						Namespace: "my-cluster-store",
+					},
+				},
+				ServiceAccountRef: corev1.ObjectReference{
+					Name:      "kpack-service-account",
+					Namespace: "cf",
+				},
+			},
 		}
 		Expect(k8sClient.Create(ctx, clusterBuilder)).To(Succeed())
 
@@ -67,6 +85,10 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					Status:             corev1.ConditionStatus(metav1.ConditionTrue),
 					LastTransitionTime: corev1alpha1.VolatileTime{Inner: metav1.Now()},
 				},
+			}
+			clusterBuilder.Status.Order = []corev1alpha1.OrderEntry{
+				{Group: []corev1alpha1.BuildpackRef{{BuildpackInfo: corev1alpha1.BuildpackInfo{Id: "repo/my-buildpack"}}}},
+				{Group: []corev1alpha1.BuildpackRef{{BuildpackInfo: corev1alpha1.BuildpackInfo{Id: "repo/another-buildpack"}}}},
 			}
 		})).To(Succeed())
 
@@ -109,6 +131,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			},
 			ExposedPorts: []int32{8080, 8443},
 		}, nil)
+
+		imageRepoCreatorCallCount = imageRepoCreator.CreateRepositoryCallCount()
 	})
 
 	AfterEach(func() {
@@ -133,6 +157,9 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(kpackImage.Spec.Source.Registry.ImagePullSecrets).To(BeEquivalentTo(source.Registry.ImagePullSecrets))
 					g.Expect(kpackImage.Spec.Build.Env).To(Equal(env))
 					g.Expect(kpackImage.Spec.Build.Services).To(BeEquivalentTo(services))
+
+					g.Expect(kpackImage.Spec.Builder.Kind).To(Equal("ClusterBuilder"))
+					g.Expect(kpackImage.Spec.Builder.Name).To(Equal("cf-kpack-builder"))
 				}).Should(Succeed())
 			})
 
@@ -147,8 +174,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			It("creates the image repository", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(imageRepoCreator.CreateRepositoryCallCount()).ToNot(BeZero())
-					_, repoName := imageRepoCreator.CreateRepositoryArgsForCall(0)
+					g.Expect(imageRepoCreator.CreateRepositoryCallCount()).To(BeNumerically(">", imageRepoCreatorCallCount))
+					_, repoName := imageRepoCreator.CreateRepositoryArgsForCall(imageRepoCreatorCallCount)
 					g.Expect(repoName).To(Equal("my.repository/my-prefix/app-guid-droplets"))
 				}).Should(Succeed())
 			})
@@ -205,27 +232,69 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		When("buildpacks are specified", func() {
 			BeforeEach(func() {
-				buildpacks = []string{"paketo-buildpacks/java"}
+				buildpacks = []string{"repo/my-buildpack"}
 			})
 
-			It("sets the Succeeded conditions to False", func() {
-				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
-				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
+			It("creates a OCI repository for the builder image", func() {
 				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, lookupKey, updatedWorkload)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(imageRepoCreator.CreateRepositoryCallCount()).To(BeNumerically(">", imageRepoCreatorCallCount))
+					_, repoName := imageRepoCreator.CreateRepositoryArgsForCall(imageRepoCreatorCallCount)
+					g.Expect(repoName).To(HavePrefix("my.repository/my-prefix/builders-"))
 				}).Should(Succeed())
-
-				foundCondition := meta.FindStatusCondition(updatedWorkload.Status.Conditions, "Succeeded")
-				Expect(foundCondition.Message).To(ContainSubstring("buildpack"))
 			})
 
-			It("doesn't create a kpack Image", func() {
-				Consistently(func() bool {
-					lookupKey := types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}
-					return k8serrors.IsNotFound(k8sClient.Get(ctx, lookupKey, new(buildv1alpha2.Image)))
-				}).Should(BeTrue())
+			It("creates a kpack Builder", func() {
+				builderName := controllers.ComputeBuilderName(buildWorkload.Spec.Buildpacks)
+				builder := &buildv1alpha2.Builder{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      builderName,
+						Namespace: namespaceGUID,
+					},
+				}
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(builder), builder)).To(Succeed())
+					g.Expect(builder.OwnerReferences).To(HaveLen(1))
+					g.Expect(builder.OwnerReferences[0].Name).To(Equal(buildWorkload.Name))
+
+					g.Expect(builder.Spec.Tag).To(Equal("my.repository/my-prefix/builders-" + builderName))
+					g.Expect(builder.Spec.Stack).To(Equal(clusterBuilder.Spec.Stack))
+					g.Expect(builder.Spec.Store).To(Equal(clusterBuilder.Spec.Store))
+					g.Expect(builder.Spec.ServiceAccountName).To(Equal(clusterBuilder.Spec.ServiceAccountRef.Name))
+					g.Expect(builder.Spec.Order).To(HaveLen(1))
+					g.Expect(builder.Spec.Order[0]).To(Equal(corev1alpha1.OrderEntry{
+						Group: []corev1alpha1.BuildpackRef{
+							{BuildpackInfo: corev1alpha1.BuildpackInfo{Id: "repo/my-buildpack"}},
+						},
+					}))
+				}).Should(Succeed())
+			})
+
+			It("sets the builder ref on the image", func() {
+				Eventually(func(g Gomega) {
+					kpackImage := new(buildv1alpha2.Image)
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}, kpackImage)).To(Succeed())
+					g.Expect(kpackImage.Spec.Builder.Name).To(Equal(controllers.ComputeBuilderName(buildWorkload.Spec.Buildpacks)))
+					g.Expect(kpackImage.Spec.Builder.Namespace).To(Equal(buildWorkload.Namespace))
+					g.Expect(kpackImage.Spec.Builder.Kind).To(Equal("Builder"))
+				}).Should(Succeed())
+			})
+
+			When("a buildpack isn't in the default ClusterBuilder", func() {
+				BeforeEach(func() {
+					buildpacks = append(buildpacks, "not/in-the-store")
+				})
+
+				It("fails the build", func() {
+					updatedWorkload := &korifiv1alpha1.BuildWorkload{ObjectMeta: metav1.ObjectMeta{Name: cfBuildGUID, Namespace: namespaceGUID}}
+					Eventually(func(g Gomega) {
+						err := k8sClient.Get(ctx, client.ObjectKeyFromObject(updatedWorkload), updatedWorkload)
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
+					}).Should(Succeed())
+
+					foundCondition := meta.FindStatusCondition(updatedWorkload.Status.Conditions, "Succeeded")
+					Expect(foundCondition.Message).To(ContainSubstring("buildpack"))
+				})
 			})
 		})
 
@@ -718,6 +787,71 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				Consistently(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload3), buildWorkload3)).To(Succeed())
 					g.Expect(mustHaveCondition(g, buildWorkload3.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+				}).Should(Succeed())
+			})
+		})
+	})
+
+	Describe("detecting kpack not triggering a build", func() {
+		var buildWorkload2 *korifiv1alpha1.BuildWorkload
+		var readyStatus corev1.ConditionStatus
+
+		BeforeEach(func() {
+			readyStatus = "True"
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(buildWorkload.Labels).To(HaveKey(controllers.ImageGenerationKey))
+			}).Should(Succeed())
+
+			source2 := source
+			source2.Registry.Image += "x"
+			buildWorkload2 = buildWorkloadObject(cfBuildGUID+"x", namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(k8sClient.Create(ctx, buildWorkload2)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
+				g.Expect(buildWorkload2.Labels).To(HaveKey(controllers.ImageGenerationKey))
+			}).Should(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			image := &buildv1alpha2.Image{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaceGUID,
+					Name:      "app-guid",
+				},
+			}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(image), image)).To(Succeed())
+
+			Expect(k8s.Patch(ctx, k8sClient, image, func() {
+				gen, err := strconv.ParseInt(buildWorkload2.Labels[controllers.ImageGenerationKey], 10, 64)
+				Expect(err).NotTo(HaveOccurred())
+				image.Status.ObservedGeneration = gen
+				image.Status.LatestBuildImageGeneration = gen - 1
+				image.Status.Conditions = corev1alpha1.Conditions{
+					{Type: "Ready", Status: readyStatus},
+				}
+			})).To(Succeed())
+		})
+
+		It("should fail the second buildworkload", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
+				g.Expect(mustHaveCondition(g, buildWorkload2.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(mustHaveCondition(g, buildWorkload2.Status.Conditions, korifiv1alpha1.SucceededConditionType).Reason).To(Equal("NoKpackBuildCreated"))
+			}).Should(Succeed())
+		})
+
+		When("the image ready status is unknown", func() {
+			BeforeEach(func() {
+				readyStatus = "Unknown"
+			})
+
+			It("does not fail the build workload", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
+					g.Expect(mustHaveCondition(g, buildWorkload2.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionUnknown))
 				}).Should(Succeed())
 			})
 		})

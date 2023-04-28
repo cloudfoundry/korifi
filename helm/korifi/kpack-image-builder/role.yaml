@@ -60,6 +60,17 @@ rules:
 - apiGroups:
   - kpack.io
   resources:
+  - builders
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
   - builds
   verbs:
   - deletecollection
