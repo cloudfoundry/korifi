@@ -22,6 +22,7 @@ var _ = Describe("ImageRepository", func() {
 		privilegedK8sClient k8sclient.Interface
 		imageSource         io.Reader
 		imageRepo           *repositories.ImageRepository
+		imageName           string
 		imageRef            string
 		tags                []string
 		uploadErr           error
@@ -30,6 +31,7 @@ var _ = Describe("ImageRepository", func() {
 	)
 
 	BeforeEach(func() {
+		imageName = "my-image"
 		imagePusher = new(fake.ImagePusher)
 		imagePusher.PushReturns("my-pushed-image", nil)
 
@@ -54,7 +56,7 @@ var _ = Describe("ImageRepository", func() {
 	})
 
 	JustBeforeEach(func() {
-		imageRef, uploadErr = imageRepo.UploadSourceImage(context.Background(), authInfo, "my-image", imageSource, space.Name, tags...)
+		imageRef, uploadErr = imageRepo.UploadSourceImage(context.Background(), authInfo, imageName, imageSource, space.Name, tags...)
 	})
 
 	It("fails with unauthorized error without a valid role in the space", func() {
@@ -79,6 +81,18 @@ var _ = Describe("ImageRepository", func() {
 			Expect(actualRef).To(Equal("my-image"))
 			Expect(zipReader).To(Equal(imageSource))
 			Expect(actualTags).To(Equal(tags))
+		})
+
+		When("the image name is invalid", func() {
+			BeforeEach(func() {
+				imageName = "invAlid-image"
+			})
+
+			It("fails with an easy to understand unprocessible entity error ", func() {
+				var apiError apierrors.UnprocessableEntityError
+				Expect(errors.As(uploadErr, &apiError)).To(BeTrue())
+				Expect(apiError.Detail()).To(Equal(`invalid image ref: "invAlid-image"`))
+			})
 		})
 
 		When("pushing the image fails", func() {

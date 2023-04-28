@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/tools/image"
+	"github.com/google/go-containerregistry/pkg/name"
 
 	authv1 "k8s.io/api/authorization/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -57,6 +58,11 @@ func (r *ImageRepository) UploadSourceImage(ctx context.Context, authInfo author
 
 	if !authorized {
 		return "", apierrors.NewForbiddenError(errors.New("not authorized to patch cfpackage"), PackageResourceType)
+	}
+
+	_, err = name.ParseReference(imageRef)
+	if err != nil {
+		return "", apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("invalid image ref: %q", imageRef))
 	}
 
 	pushedRef, err := r.pusher.Push(ctx, image.Creds{
