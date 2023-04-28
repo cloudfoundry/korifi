@@ -226,7 +226,7 @@ func printDropletNotFoundDebugInfo(clientset kubernetes.Interface, message strin
 	fmt.Fprintf(ginkgo.GinkgoWriter, "DropletGUID: %q\n", dropletGUID)
 	printPodsLogs(clientset, []podContainerDescriptor{
 		{
-			LabelKey:   "image.kpack.io/image",
+			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
 			LabelValue: dropletGUID,
 		},
 	})
