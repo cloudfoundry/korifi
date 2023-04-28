@@ -375,7 +375,7 @@
         "builderRepository": {
           "description": "Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.",
           "type": "string",
-          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*$"
+          "pattern": "^([a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*)?$"
         }
       },
       "required": ["include", "builderReadinessTimeout"],
