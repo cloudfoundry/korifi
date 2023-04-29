@@ -13,50 +13,69 @@ const ServiceBindingRootEnv = "SERVICE_BINDING_ROOT"
 
 func main() {
 	http.HandleFunc("/", helloWorldHandler)
+	http.HandleFunc("/env.json", envJsonHandler)
 	http.HandleFunc("/servicebindingroot", serviceBindingRootHandler)
 	http.HandleFunc("/servicebindings", serviceBindingsHandler)
 
-	http.ListenAndServe(":"+os.Getenv("PORT"), nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	fmt.Printf("Listening on port %s\n", port)
+	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 }
 
-func helloWorldHandler(res http.ResponseWriter, req *http.Request) {
-	fmt.Fprintln(res, "go, world!")
+func helloWorldHandler(w http.ResponseWriter, _ *http.Request) {
+	fmt.Fprintln(w, "Hi, I'm Dorifi!")
 }
 
-func serviceBindingRootHandler(res http.ResponseWriter, req *http.Request) {
+func envJsonHandler(w http.ResponseWriter, _ *http.Request) {
+	envJson := map[string]string{}
+	env := os.Environ()
+	for _, kvPair := range env {
+		elements := strings.Split(kvPair, "=")
+		envJson[elements[0]] = elements[1]
+	}
+
+	if err := json.NewEncoder(w).Encode(envJson); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "could not print environment: %s", err.Error())
+		return
+	}
+}
+
+func serviceBindingRootHandler(w http.ResponseWriter, _ *http.Request) {
 	serviceBindingRoot := os.Getenv(ServiceBindingRootEnv)
 	if serviceBindingRoot == "" {
-		fmt.Fprintln(res, "$SERVICE_BINDING_ROOT is empty")
+		fmt.Fprintln(w, "$SERVICE_BINDING_ROOT is empty")
 		return
 	}
 
-	fmt.Fprintln(res, serviceBindingRoot)
+	fmt.Fprintln(w, serviceBindingRoot)
 	dirs, err := os.ReadDir(serviceBindingRoot)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	for _, dir := range dirs {
 		dirPath := filepath.Join(serviceBindingRoot, dir.Name())
-		fmt.Fprintln(res, dirPath)
+		fmt.Fprintln(w, dirPath)
 
 		files, err := os.ReadDir(dirPath)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		for _, file := range files {
 			filePath := filepath.Join(dirPath, file.Name())
-			fmt.Fprintln(res, filePath)
+			fmt.Fprintln(w, filePath)
 		}
 	}
-
-	return
 }
 
-func serviceBindingsHandler(w http.ResponseWriter, r *http.Request) {
+func serviceBindingsHandler(w http.ResponseWriter, _ *http.Request) {
 	serviceBindingRoot := os.Getenv(ServiceBindingRootEnv)
 	bindings := make(map[string]interface{})
 	if serviceBindingRoot != "" {

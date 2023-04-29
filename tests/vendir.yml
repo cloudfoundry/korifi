@@ -36,29 +36,3 @@ directories:
     includePaths:
       - examples/contour/*.yaml
     newRootPath: examples/contour
-
-- path: e2e/assets/vendored/node
-  contents:
-  - path: .
-    git:
-      url: https://github.com/cloudfoundry/cf-acceptance-tests.git
-      depth: 1
-      refSelection:
-        semver:
-          constraints: ">=10.0.0"
-    newRootPath: assets/node
-    includePaths:
-    - assets/node/**/*
-
-- path: e2e/assets/vendored/dora
-  contents:
-  - path: .
-    git:
-      url: https://github.com/cloudfoundry/cf-acceptance-tests.git
-      depth: 1
-      refSelection:
-        semver:
-          constraints: ">=10.0.0"
-    newRootPath: assets/dora
-    includePaths:
-    - assets/dora/**/*

@@ -53,11 +53,8 @@ var (
 	assetsTmpDir                     string
 	clusterVersionMinor              int
 	clusterVersionMajor              int
-	nodeAppBitsFile                  string
-	doraAppBitsFile                  string
-	golangAppBitsFile                string
-	multiProcessAppBitsFile          string
 	defaultAppBitsFile               string
+	multiProcessAppBitsFile          string
 )
 
 type resource struct {
@@ -263,11 +260,8 @@ func TestE2E(t *testing.T) {
 type sharedSetupData struct {
 	CommonOrgName           string `json:"commonOrgName"`
 	CommonOrgGUID           string `json:"commonOrgGuid"`
-	NodeAppBitsFile         string `json:"nodeAppBitsFile"`
-	DoraAppBitsFile         string `json:"doraAppBitsFile"`
-	GolangAppBitsFile       string `json:"golangAppBitsFile"`
-	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
 	DefaultAppBitsFile      string `json:"defaultAppBitsFile"`
+	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -280,23 +274,15 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	assetsTmpDir, err = os.MkdirTemp("", "e2e-test-assets")
 	Expect(err).NotTo(HaveOccurred())
 
-	// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
-	// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
-	// with a different app in these environments.
-	// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-	defaultAppBitsPath, ok := os.LookupEnv("DEFAULT_APP_BITS_PATH")
-	if !ok {
-		defaultAppBitsPath = "assets/procfile"
-	}
-
 	sharedData := sharedSetupData{
-		CommonOrgName:           commonTestOrgName,
-		CommonOrgGUID:           commonTestOrgGUID,
-		NodeAppBitsFile:         zipAsset("assets/vendored/node"),
-		DoraAppBitsFile:         zipAsset("assets/vendored/dora"),
-		GolangAppBitsFile:       zipAsset("assets/golang"),
+		CommonOrgName: commonTestOrgName,
+		CommonOrgGUID: commonTestOrgGUID,
+		// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
+		// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
+		// with a different app in these environments.
+		// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
+		DefaultAppBitsFile:      zipAsset(getEnv("DEFAULT_APP_BITS_PATH", "assets/dorifi")),
 		MultiProcessAppBitsFile: zipAsset("assets/multi-process"),
-		DefaultAppBitsFile:      zipAsset(defaultAppBitsPath),
 	}
 
 	bs, err := json.Marshal(sharedData)
@@ -309,19 +295,17 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	t1 := time.Now()
 	blobsFlakeMitigationSpaceGUID := createSpace("blob-flake-mitigation", commonTestOrgGUID)
 	var wg sync.WaitGroup
-	wg.Add(5)
-	for _, f := range []string{
+	apps := []string{
 		sharedData.DefaultAppBitsFile,
-		sharedData.NodeAppBitsFile,
-		sharedData.DoraAppBitsFile,
-		sharedData.GolangAppBitsFile,
 		sharedData.MultiProcessAppBitsFile,
-	} {
-		go func(app string) {
+	}
+	wg.Add(len(apps))
+	for _, app := range apps {
+		go func(appBits string) {
 			defer GinkgoRecover()
-			pushTestApp(blobsFlakeMitigationSpaceGUID, app)
+			pushTestApp(blobsFlakeMitigationSpaceGUID, appBits)
 			wg.Done()
-		}(f)
+		}(app)
 	}
 	wg.Wait()
 	fmt.Printf(" done in %v\n", time.Since(t1))
@@ -335,9 +319,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgGUID = sharedSetup.CommonOrgGUID
 	commonTestOrgName = sharedSetup.CommonOrgName
 	defaultAppBitsFile = sharedSetup.DefaultAppBitsFile
-	nodeAppBitsFile = sharedSetup.NodeAppBitsFile
-	doraAppBitsFile = sharedSetup.DoraAppBitsFile
-	golangAppBitsFile = sharedSetup.GolangAppBitsFile
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
 
 	SetDefaultEventuallyTimeout(240 * time.Second)
@@ -363,6 +344,15 @@ func mustHaveEnv(key string) string {
 	ExpectWithOffset(1, ok).To(BeTrue(), "must set env var %q", key)
 
 	return val
+}
+
+func getEnv(key, defaultValue string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		return defaultValue
+	}
+
+	return value
 }
 
 func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
@@ -590,7 +580,7 @@ func setEnv(appName string, envVars map[string]interface{}) {
 	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
-func getEnv(appName string) map[string]interface{} {
+func getAppEnv(appName string) map[string]interface{} {
 	var env map[string]interface{}
 
 	resp, err := adminClient.R().
