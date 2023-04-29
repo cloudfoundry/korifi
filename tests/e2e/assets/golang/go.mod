@@ -1,3 +1,3 @@
-module github.com/cloudfoundry/korifi/tree/main/tests/e2e/assets/golang
+module dorifi
 
-go 1.19
+go 1.20

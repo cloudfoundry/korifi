@@ -409,14 +409,14 @@ var _ = Describe("Apps", func() {
 					Name:         generateGUID("app"),
 					Memory:       "128MB",
 					DefaultRoute: true,
-					Buildpacks:   []string{"paketo-buildpacks/nodejs"},
+					Buildpacks:   []string{"paketo-buildpacks/procfile"},
 				}},
 			}
 			applySpaceManifest(manifest, space1GUID)
 
 			appGUID = getAppGUIDFromName(manifest.Applications[0].Name)
 			pkgGUID := createPackage(appGUID)
-			uploadTestApp(pkgGUID, nodeAppBitsFile)
+			uploadTestApp(pkgGUID, defaultAppBitsFile)
 			buildGUID = createBuild(pkgGUID)
 		})
 
@@ -566,7 +566,7 @@ var _ = Describe("Apps", func() {
 				})
 
 				It("sets the new env var to the app environment", func() {
-					Expect(getEnv(appGUID)).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
+					Expect(getAppEnv(appGUID)).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
 				})
 			})
 		})
@@ -594,7 +594,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID, appName = pushTestApp(space1GUID, doraAppBitsFile)
+			appGUID, appName = pushTestApp(space1GUID, defaultAppBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
 
@@ -610,12 +610,12 @@ var _ = Describe("Apps", func() {
 		When("the app is re-pushed with different code", func() {
 			BeforeEach(func() {
 				body := curlApp(appGUID, "")
-				Expect(body).To(ContainSubstring("Hi, I'm Dora!"))
-				Expect(pushTestAppWithName(space1GUID, nodeAppBitsFile, appName)).To(Equal(appGUID))
+				Expect(body).To(ContainSubstring("Hi, I'm Dorifi!"))
+				Expect(pushTestAppWithName(space1GUID, multiProcessAppBitsFile, appName)).To(Equal(appGUID))
 			})
 
 			It("returns a different endpoint result", func() {
-				Eventually(func() []byte { return curlApp(appGUID, "") }).Should(ContainSubstring("Hello from a node app!"))
+				Eventually(func() []byte { return curlApp(appGUID, "") }).Should(ContainSubstring("Hello from a multi-process app!"))
 			})
 		})
 
@@ -718,7 +718,7 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID, _ = pushTestApp(space1GUID, golangAppBitsFile)
+			appGUID, _ = pushTestApp(space1GUID, defaultAppBitsFile)
 			credentials := map[string]string{
 				"foo": "bar",
 				"baz": "qux",

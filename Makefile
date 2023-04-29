@@ -54,8 +54,11 @@ test: lint
 test-tools:
 	./scripts/run-tests.sh tools
 
-test-e2e:
+test-e2e: build-dorifi
 	./scripts/run-tests.sh tests/e2e
+
+build-dorifi:
+	CGO_ENABLED=0 go build -o ../dorifi/dorifi -C tests/e2e/assets/golang .
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:
