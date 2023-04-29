@@ -18,26 +18,10 @@ directories:
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/98569452
     path: cert-manager
   - git:
-      commitTitle: Update Contour Docker image to v1.24.3....
-      sha: eaebf8babeccca49d8ccbd700faa51fbae0c5936
+      commitTitle: Update Contour Docker image to v1.24.4....
+      sha: 3d1e1ce0fb9789671d070f367cd1f22c5adb7ceb
       tags:
-      - v1.24.3
+      - v1.24.4
     path: contour
   path: vendor
-- contents:
-  - git:
-      commitTitle: Bump rack from 2.2.6.4 to 2.2.7 in /assets/hello-world...
-      sha: a55b8dde1725f68a10685b34625c629e995b6577
-      tags:
-      - v13.0.0
-    path: .
-  path: e2e/assets/vendored/node
-- contents:
-  - git:
-      commitTitle: Bump rack from 2.2.6.4 to 2.2.7 in /assets/hello-world...
-      sha: a55b8dde1725f68a10685b34625c629e995b6577
-      tags:
-      - v13.0.0
-    path: .
-  path: e2e/assets/vendored/dora
 kind: LockConfig
