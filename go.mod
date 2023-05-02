@@ -31,7 +31,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/onsi/gomega v1.27.6
 	github.com/pivotal/kpack v0.10.1
-	github.com/projectcontour/contour v1.24.3
+	github.com/projectcontour/contour v1.24.4
 	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
 	golang.org/x/text v0.9.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -45,6 +45,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.14.6
 	sigs.k8s.io/controller-tools v0.11.4
 )
+
+require github.com/kr/pretty v0.3.0 // indirect
 
 require (
 	cloud.google.com/go/compute v1.18.0 // indirect
