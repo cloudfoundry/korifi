@@ -199,6 +199,37 @@ func getPodContainerLog(clientset kubernetes.Interface, pod corev1.Pod, containe
 	return logBuf.String(), logScanner.Err()
 }
 
+func printEvents(clientset kubernetes.Interface, podContainerDescriptors []podContainerDescriptor) {
+	for _, desc := range podContainerDescriptors {
+		pods, err := getPods(clientset, desc.Namespace, desc.LabelKey, desc.LabelValue)
+		if err != nil {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get pods with label %s=%s: %v\n", desc.LabelKey, desc.LabelValue, err)
+			continue
+		}
+
+		if len(pods) == 0 {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "No pods with label %s=%s found\n", desc.LabelKey, desc.LabelValue)
+			continue
+		}
+
+		for _, pod := range pods {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "\n========== Events for pod %q in namespace %q ==========\n", pod.Name, pod.Namespace)
+			events, err := clientset.CoreV1().Events(pod.Namespace).List(context.Background(), metav1.ListOptions{
+				FieldSelector: "involvedObject.name=" + pod.Name,
+			})
+			if err != nil {
+				fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get events for pod %q in namespace %q: %+v\n", pod.Name, pod.Namespace, err)
+				continue
+			}
+
+			fmt.Fprint(ginkgo.GinkgoWriter, "LAST SEEN\tTYPE\tREASON\tMESSAGE\n")
+			for _, event := range events.Items {
+				fmt.Fprintf(ginkgo.GinkgoWriter, "%s\t%s\t%s\t%s\n", event.LastTimestamp, event.Type, event.Reason, event.Message)
+			}
+		}
+	}
+}
+
 func printDropletNotFoundDebugInfo(clientset kubernetes.Interface, message string) {
 	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Droplet not found debug log (start) ==========\n")
 
@@ -225,6 +256,12 @@ func printDropletNotFoundDebugInfo(clientset kubernetes.Interface, message strin
 	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Droplet build logs ==========\n")
 	fmt.Fprintf(ginkgo.GinkgoWriter, "DropletGUID: %q\n", dropletGUID)
 	printPodsLogs(clientset, []podContainerDescriptor{
+		{
+			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
+			LabelValue: dropletGUID,
+		},
+	})
+	printEvents(clientset, []podContainerDescriptor{
 		{
 			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
 			LabelValue: dropletGUID,
