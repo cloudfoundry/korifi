@@ -11,10 +11,12 @@ import (
 
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/onsi/ginkgo/v2"
+	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -199,7 +201,7 @@ func getPodContainerLog(clientset kubernetes.Interface, pod corev1.Pod, containe
 	return logBuf.String(), logScanner.Err()
 }
 
-func printEvents(clientset kubernetes.Interface, podContainerDescriptors []podContainerDescriptor) {
+func printPodEvents(clientset kubernetes.Interface, podContainerDescriptors []podContainerDescriptor) {
 	for _, desc := range podContainerDescriptors {
 		pods, err := getPods(clientset, desc.Namespace, desc.LabelKey, desc.LabelValue)
 		if err != nil {
@@ -213,20 +215,25 @@ func printEvents(clientset kubernetes.Interface, podContainerDescriptors []podCo
 		}
 
 		for _, pod := range pods {
-			fmt.Fprintf(ginkgo.GinkgoWriter, "\n========== Events for pod %q in namespace %q ==========\n", pod.Name, pod.Namespace)
-			events, err := clientset.CoreV1().Events(pod.Namespace).List(context.Background(), metav1.ListOptions{
-				FieldSelector: "involvedObject.name=" + pod.Name,
-			})
-			if err != nil {
-				fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get events for pod %q in namespace %q: %+v\n", pod.Name, pod.Namespace, err)
-				continue
-			}
-
-			fmt.Fprint(ginkgo.GinkgoWriter, "LAST SEEN\tTYPE\tREASON\tMESSAGE\n")
-			for _, event := range events.Items {
-				fmt.Fprintf(ginkgo.GinkgoWriter, "%s\t%s\t%s\t%s\n", event.LastTimestamp, event.Type, event.Reason, event.Message)
-			}
+			printEvents(clientset, &pod)
 		}
+	}
+}
+
+func printEvents(clientset kubernetes.Interface, obj client.Object) {
+	fmt.Fprintf(ginkgo.GinkgoWriter, "\n========== Events for %s %s/%s ==========\n",
+		obj.GetObjectKind().GroupVersionKind().Kind, obj.GetNamespace(), obj.GetName())
+	events, err := clientset.CoreV1().Events(obj.GetNamespace()).List(context.Background(), metav1.ListOptions{
+		FieldSelector: "involvedObject.name=" + obj.GetName(),
+	})
+	if err != nil {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get events: %v", err)
+		return
+	}
+
+	fmt.Fprint(ginkgo.GinkgoWriter, "LAST SEEN\tTYPE\tREASON\tMESSAGE\n")
+	for _, event := range events.Items {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "%s\t%s\t%s\t%s\n", event.LastTimestamp, event.Type, event.Reason, event.Message)
 	}
 }
 
@@ -261,12 +268,47 @@ func printDropletNotFoundDebugInfo(clientset kubernetes.Interface, message strin
 			LabelValue: dropletGUID,
 		},
 	})
-	printEvents(clientset, []podContainerDescriptor{
+	printPodEvents(clientset, []podContainerDescriptor{
 		{
 			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
 			LabelValue: dropletGUID,
 		},
 	})
+
+	if os.Getenv("CLUSTER_TYPE") == "EKS" {
+		fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== EBS CSI plugin logs ==========\n")
+		fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== ebs-csi-controller/ebs-plugin ==========\n")
+		printPodsLogs(clientset, []podContainerDescriptor{{
+			Namespace:  "kube-system",
+			LabelKey:   "app",
+			LabelValue: "ebs-csi-controller",
+			Container:  "ebs-plugin",
+		}})
+		fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== ebs-csi-controller/csi-provisioner ==========\n")
+		printPodsLogs(clientset, []podContainerDescriptor{{
+			Namespace:  "kube-system",
+			LabelKey:   "app",
+			LabelValue: "ebs-csi-controller",
+			Container:  "csi-provisioner",
+		}})
+		fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== ebs-csi-controller/csi-attacher ==========\n")
+		printPodsLogs(clientset, []podContainerDescriptor{{
+			Namespace:  "kube-system",
+			LabelKey:   "app",
+			LabelValue: "ebs-csi-controller",
+			Container:  "csi-attacher",
+		}})
+		fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== ebs-csi-node/ebs-plugin ==========\n")
+		printPodsLogs(clientset, []podContainerDescriptor{{
+			Namespace:  "kube-system",
+			LabelKey:   "app",
+			LabelValue: "ebs-csi-node",
+			Container:  "ebs-plugin",
+		}})
+
+		printPersistentVolumes(clientset)
+		printPersistentVolumeClaims(clientset, dropletGUID)
+	}
 
 	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Droplet not found debug log (end) ==========\n\n")
 }
@@ -297,4 +339,53 @@ func printAllRoleBindings(clientset kubernetes.Interface) {
 		}
 	}
 	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Expected 404 debug log (end) ==========\n\n")
+}
+
+func printPersistentVolumes(clientset kubernetes.Interface) {
+	pvList, err := clientset.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("failed getting persistent volumes: %v", err)
+		return
+	}
+
+	for _, pv := range pvList.Items {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "\n\n========== PV %s/%s ==========\n", pv.Namespace, pv.Name)
+		pvBytes, err := yaml.Marshal(pv)
+		if err != nil {
+			fmt.Printf("failed marshalling persistent volume: %v", err)
+			return
+		}
+		fmt.Fprintln(ginkgo.GinkgoWriter, string(pvBytes))
+		printEvents(clientset, &pv)
+	}
+}
+
+func printPersistentVolumeClaims(clientset kubernetes.Interface, dropletGUID string) {
+	pods, err := getPods(clientset, "", "korifi.cloudfoundry.org/build-workload-name", dropletGUID)
+	if err != nil {
+		fmt.Printf("failed listing pods for droplet %q: %v", dropletGUID, err)
+		return
+	}
+
+	namespace := ""
+	if len(pods) != 0 {
+		namespace = pods[0].Namespace
+	}
+
+	pvcList, err := clientset.CoreV1().PersistentVolumeClaims(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("failed getting persistent volume claims: %v", err)
+		return
+	}
+
+	for _, pvc := range pvcList.Items {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "\n\n========== PVC %s/%s ==========\n", pvc.Namespace, pvc.Name)
+		pvcBytes, err := yaml.Marshal(pvc)
+		if err != nil {
+			fmt.Printf("failed marshalling persistent volume claim: %v", err)
+			return
+		}
+		fmt.Fprintln(ginkgo.GinkgoWriter, string(pvcBytes))
+		printEvents(clientset, &pvc)
+	}
 }
