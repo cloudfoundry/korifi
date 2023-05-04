@@ -307,8 +307,9 @@ func printDropletNotFoundDebugInfo(clientset kubernetes.Interface, message strin
 		}})
 
 		printPersistentVolumes(clientset)
-		printPersistentVolumeClaims(clientset, dropletGUID)
+		printPersistentVolumeClaims(clientset)
 		printVolumeAttachments(clientset)
+		printWorkloadNamespaces(clientset)
 	}
 
 	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Droplet not found debug log (end) ==========\n\n")
@@ -362,19 +363,8 @@ func printPersistentVolumes(clientset kubernetes.Interface) {
 	}
 }
 
-func printPersistentVolumeClaims(clientset kubernetes.Interface, dropletGUID string) {
-	pods, err := getPods(clientset, "", "korifi.cloudfoundry.org/build-workload-name", dropletGUID)
-	if err != nil {
-		fmt.Printf("failed listing pods for droplet %q: %v", dropletGUID, err)
-		return
-	}
-
-	namespace := ""
-	if len(pods) != 0 {
-		namespace = pods[0].Namespace
-	}
-
-	pvcList, err := clientset.CoreV1().PersistentVolumeClaims(namespace).List(context.Background(), metav1.ListOptions{})
+func printPersistentVolumeClaims(clientset kubernetes.Interface) {
+	pvcList, err := clientset.CoreV1().PersistentVolumeClaims("").List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Printf("failed getting persistent volume claims: %v", err)
 		return
@@ -410,5 +400,22 @@ func printVolumeAttachments(clientset kubernetes.Interface) {
 		}
 		fmt.Fprintln(ginkgo.GinkgoWriter, string(attachmentBytes))
 		printEvents(clientset, &attachment)
+	}
+}
+
+func printWorkloadNamespaces(clientset kubernetes.Interface) {
+	nsList, err := clientset.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("failed getting volume attachments: %v", err)
+		return
+	}
+
+	fmt.Fprintln(ginkgo.GinkgoWriter, "\n\n========== Workload namespaces ==========")
+	for _, ns := range nsList.Items {
+		if !strings.HasPrefix(ns.Name, "cf") {
+			continue
+		}
+
+		fmt.Fprintf(ginkgo.GinkgoWriter, "Name: %s, Status.Phase: %s", ns.Name, ns.Status.Phase)
 	}
 }
