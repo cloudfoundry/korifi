@@ -308,6 +308,7 @@ func printDropletNotFoundDebugInfo(clientset kubernetes.Interface, message strin
 
 		printPersistentVolumes(clientset)
 		printPersistentVolumeClaims(clientset, dropletGUID)
+		printVolumeAttachments(clientset)
 	}
 
 	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Droplet not found debug log (end) ==========\n\n")
@@ -349,7 +350,8 @@ func printPersistentVolumes(clientset kubernetes.Interface) {
 	}
 
 	for _, pv := range pvList.Items {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "\n\n========== PV %s/%s ==========\n", pv.Namespace, pv.Name)
+		fmt.Fprintf(ginkgo.GinkgoWriter, "\n\n========== PV %s/%s (skipping managed fields) ==========\n", pv.Namespace, pv.Name)
+		pv.ManagedFields = []metav1.ManagedFieldsEntry{}
 		pvBytes, err := yaml.Marshal(pv)
 		if err != nil {
 			fmt.Printf("failed marshalling persistent volume: %v", err)
@@ -379,7 +381,8 @@ func printPersistentVolumeClaims(clientset kubernetes.Interface, dropletGUID str
 	}
 
 	for _, pvc := range pvcList.Items {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "\n\n========== PVC %s/%s ==========\n", pvc.Namespace, pvc.Name)
+		fmt.Fprintf(ginkgo.GinkgoWriter, "\n\n========== PVC %s/%s (skipping managed fields) ==========\n", pvc.Namespace, pvc.Name)
+		pvc.ManagedFields = []metav1.ManagedFieldsEntry{}
 		pvcBytes, err := yaml.Marshal(pvc)
 		if err != nil {
 			fmt.Printf("failed marshalling persistent volume claim: %v", err)
@@ -387,5 +390,25 @@ func printPersistentVolumeClaims(clientset kubernetes.Interface, dropletGUID str
 		}
 		fmt.Fprintln(ginkgo.GinkgoWriter, string(pvcBytes))
 		printEvents(clientset, &pvc)
+	}
+}
+
+func printVolumeAttachments(clientset kubernetes.Interface) {
+	attachmentsList, err := clientset.StorageV1().VolumeAttachments().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("failed getting volume attachments: %v", err)
+		return
+	}
+
+	for _, attachment := range attachmentsList.Items {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "\n\n========== VolumeAttachment %s/%s (skipping managed fields) ==========\n", attachment.Namespace, attachment.Name)
+		attachment.ManagedFields = []metav1.ManagedFieldsEntry{}
+		attachmentBytes, err := yaml.Marshal(attachment)
+		if err != nil {
+			fmt.Printf("failed marshalling volume attachment: %v", err)
+			return
+		}
+		fmt.Fprintln(ginkgo.GinkgoWriter, string(attachmentBytes))
+		printEvents(clientset, &attachment)
 	}
 }
