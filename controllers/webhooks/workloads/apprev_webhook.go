@@ -45,7 +45,8 @@ func (r *AppRevWebhook) Handle(ctx context.Context, req admission.Request) admis
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	if cfApp.Spec.DesiredState == korifiv1alpha1.StoppedState && oldCFApp.Spec.DesiredState == korifiv1alpha1.StartedState {
+	if cfApp.Spec.DesiredState == korifiv1alpha1.StoppedState && oldCFApp.Spec.DesiredState == korifiv1alpha1.StartedState ||
+		cfApp.Annotations["korifi.cloudfoundry.org/restartedAt"] != oldCFApp.Annotations["korifi.cloudfoundry.org/restartedAt"] {
 		cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = bumpAppRev(cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey])
 	}
 

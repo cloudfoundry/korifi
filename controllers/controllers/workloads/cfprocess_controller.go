@@ -18,9 +18,7 @@ package workloads
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
-	"fmt"
 	"sort"
 	"strconv"
 
@@ -88,19 +86,14 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 		return ctrl.Result{}, err
 	}
 
-	cfAppRev := korifiv1alpha1.CFAppRevisionKeyDefault
-	if foundValue, ok := cfApp.GetAnnotations()[korifiv1alpha1.CFAppRevisionKey]; ok {
-		cfAppRev = foundValue
-	}
-
 	if needsAppWorkload(cfApp, cfProcess) {
-		err = r.createOrPatchAppWorkload(ctx, cfApp, cfProcess, cfAppRev)
+		err = r.createOrPatchAppWorkload(ctx, cfApp, cfProcess)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	err = r.cleanUpAppWorkloads(ctx, cfProcess, cfApp.Spec.DesiredState, cfAppRev)
+	err = r.cleanUpAppWorkloads(ctx, cfProcess, cfApp.Spec.DesiredState)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -117,7 +110,7 @@ func needsAppWorkload(cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFP
 	return cfProcess.Spec.DesiredInstances != nil && *cfProcess.Spec.DesiredInstances > 0
 }
 
-func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfAppRev string) error {
+func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess) error {
 	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
 	if err != nil {
@@ -146,7 +139,7 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	actualAppWorkload := &korifiv1alpha1.AppWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfProcess.Namespace,
-			Name:      generateAppWorkloadName(cfAppRev, cfProcess.Name),
+			Name:      cfProcess.Name,
 		},
 	}
 
@@ -165,7 +158,7 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	return nil
 }
 
-func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState, cfAppRev string) error {
+func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState) error {
 	appWorkloadsForProcess, err := r.fetchAppWorkloadsForProcess(ctx, cfProcess)
 	if err != nil {
 		r.log.Info("error when trying to fetch AppWorkloads for process", "namespace", cfProcess.Namespace, "name", cfProcess.Name, "reason", err)
@@ -173,7 +166,7 @@ func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess
 	}
 
 	for i, currentAppWorkload := range appWorkloadsForProcess {
-		if needsToDeleteAppWorkload(desiredState, cfProcess, currentAppWorkload, cfAppRev) {
+		if needsToDeleteAppWorkload(desiredState, cfProcess, currentAppWorkload) {
 			err := r.k8sClient.Delete(ctx, &appWorkloadsForProcess[i])
 			if err != nil {
 				r.log.Info("error occurred deleting AppWorkload", "name", currentAppWorkload.Name, "reason", err)
@@ -188,11 +181,10 @@ func needsToDeleteAppWorkload(
 	desiredState korifiv1alpha1.DesiredState,
 	cfProcess *korifiv1alpha1.CFProcess,
 	appWorkload korifiv1alpha1.AppWorkload,
-	cfAppRev string,
 ) bool {
 	return desiredState == korifiv1alpha1.StoppedState ||
 		(cfProcess.Spec.DesiredInstances != nil && *cfProcess.Spec.DesiredInstances == 0) ||
-		appWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] != cfAppRev
+		appWorkload.Name != cfProcess.Name
 }
 
 func appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload *korifiv1alpha1.AppWorkload) controllerutil.MutateFn {
@@ -211,10 +203,17 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 
 	desiredAppWorkload.Labels = make(map[string]string)
 	desiredAppWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
+
 	cfAppRevisionKeyValue := korifiv1alpha1.CFAppRevisionKeyDefault
 	if cfApp.Annotations != nil {
 		if foundValue, has := cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey]; has {
 			cfAppRevisionKeyValue = foundValue
+		}
+
+		if restartedAt, hasRestartedAt := cfApp.Annotations["korifi.cloudfoundry.org/restartedAt"]; hasRestartedAt {
+			desiredAppWorkload.Annotations = map[string]string{
+				"korifi.cloudfoundry.org/restartedAt": restartedAt,
+			}
 		}
 	}
 	desiredAppWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] = cfAppRevisionKeyValue
@@ -265,14 +264,6 @@ func calculateCPURequest(memoryMiB int64) resource.Quantity {
 		cpuMillicores = cpuRequestMinMillicores
 	}
 	return *resource.NewScaledQuantity(cpuMillicores, resource.Milli)
-}
-
-func generateAppWorkloadName(cfAppRev string, processGUID string) string {
-	h := sha1.New()
-	h.Write([]byte(cfAppRev))
-	appRevHash := h.Sum(nil)
-	appWorkloadName := processGUID + fmt.Sprintf("-%x", appRevHash)[:5]
-	return appWorkloadName
 }
 
 func (r *CFProcessReconciler) fetchAppWorkloadsForProcess(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) ([]korifiv1alpha1.AppWorkload, error) {
