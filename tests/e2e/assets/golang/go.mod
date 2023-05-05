@@ -1,3 +1,3 @@
 module dorifi
 
-go 1.20
+go 1.19 // Support installations with a slightly older version of kpack
