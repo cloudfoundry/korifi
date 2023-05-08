@@ -13,12 +13,12 @@ import (
 
 var _ = Describe("Processes", func() {
 	var (
-		spaceGUID   string
-		appGUID     string
-		processGUID string
-		restyClient *helpers.CorrelatedRestyClient
-		resp        *resty.Response
-		errResp     cfErrs
+		spaceGUID      string
+		appGUID        string
+		webProcessGUID string
+		restyClient    *helpers.CorrelatedRestyClient
+		resp           *resty.Response
+		errResp        cfErrs
 	)
 
 	BeforeEach(func() {
@@ -26,7 +26,7 @@ var _ = Describe("Processes", func() {
 		errResp = cfErrs{}
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 		appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
-		processGUID = getProcess(appGUID, "web").GUID
+		webProcessGUID = getProcess(appGUID, "web").GUID
 	})
 
 	AfterEach(func() {
@@ -56,10 +56,12 @@ var _ = Describe("Processes", func() {
 			It("returns the processes for the app", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-				Expect(processGUID).To(HavePrefix("cf-proc-"))
-				Expect(processGUID).To(HaveSuffix("-web"))
-				Expect(result.Resources).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(processGUID)}),
+				Expect(webProcessGUID).To(HavePrefix("cf-proc-"))
+				Expect(webProcessGUID).To(HaveSuffix("-web"))
+				// If DEFAULT_APP_BITS_PATH is set, then there may also be non-web processes.
+				// To avoid failures in this case, we only test that the web process is included in the response.
+				Expect(result.Resources).To(ContainElement(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(webProcessGUID)}),
 				))
 			})
 		})
@@ -95,7 +97,7 @@ var _ = Describe("Processes", func() {
 			resp, err = restyClient.R().
 				SetResult(&list).
 				SetError(&errResp).
-				Get("/v3/processes/" + processGUID + "/sidecars")
+				Get("/v3/processes/" + webProcessGUID + "/sidecars")
 
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -128,7 +130,7 @@ var _ = Describe("Processes", func() {
 			resp, err = restyClient.R().
 				SetResult(&processStats).
 				SetError(&errResp).
-				Get("/v3/processes/" + processGUID + "/stats")
+				Get("/v3/processes/" + webProcessGUID + "/stats")
 
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -145,7 +147,7 @@ var _ = Describe("Processes", func() {
 					resp, err = restyClient.R().
 						SetResult(&processStats).
 						SetError(&errResp).
-						Get("/v3/processes/" + processGUID + "/stats")
+						Get("/v3/processes/" + webProcessGUID + "/stats")
 					g.Expect(err).NotTo(HaveOccurred())
 
 					// no 'g.' here - we require all calls to return 200
@@ -190,13 +192,13 @@ var _ = Describe("Processes", func() {
 			var err error
 			resp, err = restyClient.R().
 				SetResult(&result).
-				Get("/v3/processes/" + processGUID)
+				Get("/v3/processes/" + webProcessGUID)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("can fetch the process", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.GUID).To(Equal(processGUID))
+			Expect(result.GUID).To(Equal(webProcessGUID))
 		})
 	})
 
@@ -208,7 +210,7 @@ var _ = Describe("Processes", func() {
 				SetBody(scaleResource{Instances: 2}).
 				SetError(&errResp).
 				SetResult(&result).
-				Post("/v3/processes/" + processGUID + "/actions/scale")
+				Post("/v3/processes/" + webProcessGUID + "/actions/scale")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -233,7 +235,7 @@ var _ = Describe("Processes", func() {
 
 			It("succeeds, and returns the process", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.GUID).To(Equal(processGUID))
+				Expect(result.GUID).To(Equal(webProcessGUID))
 			})
 		})
 	})
@@ -247,7 +249,7 @@ var _ = Describe("Processes", func() {
 				SetBody(commandResource{Command: "new command"}).
 				SetError(&errResp).
 				SetResult(&result).
-				Patch("/v3/processes/" + processGUID)
+				Patch("/v3/processes/" + webProcessGUID)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -258,7 +260,7 @@ var _ = Describe("Processes", func() {
 
 			It("returns success", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.GUID).To(Equal(processGUID))
+				Expect(result.GUID).To(Equal(webProcessGUID))
 			})
 		})
 
@@ -290,7 +292,7 @@ var _ = Describe("Processes", func() {
 				}}).
 				SetError(&errResp).
 				SetResult(&result).
-				Patch("/v3/processes/" + processGUID)
+				Patch("/v3/processes/" + webProcessGUID)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -302,7 +304,7 @@ var _ = Describe("Processes", func() {
 			It("successfully patches the annotations", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(string(resp.Body())).To(ContainSubstring(`"foo":"bar"`))
-				Expect(result.GUID).To(Equal(processGUID))
+				Expect(result.GUID).To(Equal(webProcessGUID))
 			})
 		})
 
