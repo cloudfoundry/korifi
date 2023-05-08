@@ -2,12 +2,12 @@ package e2e_test
 
 import (
 	"encoding/json"
-	"net/http"
-
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"net/http"
+	"os"
 )
 
 var _ = Describe("Apps", func() {
@@ -403,13 +403,18 @@ var _ = Describe("Apps", func() {
 		var buildGUID string
 
 		BeforeEach(func() {
+			buildpackName := os.Getenv("DEFAULT_APP_SPECIFIED_BUILDPACK")
+			if buildpackName == "" {
+				buildpackName = "paketo-buildpacks/procfile"
+			}
+
 			manifest := manifestResource{
 				Version: 1,
 				Applications: []applicationResource{{
 					Name:         generateGUID("app"),
 					Memory:       "128MB",
 					DefaultRoute: true,
-					Buildpacks:   []string{"paketo-buildpacks/procfile"},
+					Buildpacks:   []string{buildpackName},
 				}},
 			}
 			applySpaceManifest(manifest, space1GUID)
