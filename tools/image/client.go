@@ -237,7 +237,7 @@ func (c Client) deleteTag(ref name.Reference, tag string, authOpt remote.Option)
 
 	if descriptor.Digest.String() == ref.Identifier() {
 		c.logger.V(1).Info("deleting tag", "tag", tag)
-		err = remote.Delete(descriptor.Ref, authOpt)
+		err = remote.Delete(tagRef, authOpt)
 		if err != nil {
 			c.logger.V(1).Info("failed to delete tag", "reason", err)
 		}
