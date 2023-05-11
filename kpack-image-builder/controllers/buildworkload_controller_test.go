@@ -824,6 +824,18 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(image), image)).To(Succeed())
 
+			Expect(k8sClient.Create(ctx, &buildv1alpha2.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "first-build",
+					Namespace: namespaceGUID,
+					Labels: map[string]string{
+						buildv1alpha2.ImageLabel:           "app-guid",
+						buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[controllers.ImageGenerationKey],
+						buildv1alpha2.BuildNumberLabel:     "1",
+					},
+				},
+			})).To(Succeed())
+
 			Expect(k8s.Patch(ctx, k8sClient, image, func() {
 				gen, err := strconv.ParseInt(buildWorkload2.Labels[controllers.ImageGenerationKey], 10, 64)
 				Expect(err).NotTo(HaveOccurred())
@@ -832,14 +844,20 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				image.Status.Conditions = corev1alpha1.Conditions{
 					{Type: "Ready", Status: readyStatus},
 				}
+				image.Status.LatestBuildRef = "first-build"
 			})).To(Succeed())
 		})
 
-		It("should fail the second buildworkload", func() {
+		It("should annotate the latest build as re-build needed", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
-				g.Expect(mustHaveCondition(g, buildWorkload2.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(mustHaveCondition(g, buildWorkload2.Status.Conditions, korifiv1alpha1.SucceededConditionType).Reason).To(Equal("NoKpackBuildCreated"))
+				latestBuild := &buildv1alpha2.Build{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespaceGUID,
+						Name:      "first-build",
+					},
+				}
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(latestBuild), latestBuild)).To(Succeed())
+				g.Expect(latestBuild.Annotations).To(HaveKey(buildv1alpha2.BuildNeededAnnotation))
 			}).Should(Succeed())
 		})
 
@@ -848,10 +866,16 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				readyStatus = "Unknown"
 			})
 
-			It("does not fail the build workload", func() {
+			It("does not annotate the latest build as re-build needed", func() {
 				Consistently(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
-					g.Expect(mustHaveCondition(g, buildWorkload2.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status).To(Equal(metav1.ConditionUnknown))
+					latestBuild := &buildv1alpha2.Build{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: namespaceGUID,
+							Name:      "first-build",
+						},
+					}
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(latestBuild), latestBuild)).To(Succeed())
+					g.Expect(latestBuild.Annotations).NotTo(HaveKey(buildv1alpha2.BuildNeededAnnotation))
 				}).Should(Succeed())
 			})
 		})
