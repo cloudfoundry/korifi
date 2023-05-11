@@ -165,7 +165,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, fmt.Errorf("failed getting kpack Image: %w", err)
 	}
 
-	err = r.ensureBuildCreationNotSkipped(ctx, buildWorkload, kpackImage)
+	err = r.recoverIfBuildCreationHasBeenSkipped(ctx, buildWorkload, kpackImage)
 	if err != nil {
 		r.log.Error(err, "ensuring kpack build was generated failed")
 		return ctrl.Result{}, ignoreDoNotRetryError(err)
@@ -248,7 +248,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	return ctrl.Result{}, nil
 }
 
-func (r *BuildWorkloadReconciler) ensureBuildCreationNotSkipped(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload, kpackImage *buildv1alpha2.Image) error {
+func (r *BuildWorkloadReconciler) recoverIfBuildCreationHasBeenSkipped(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload, kpackImage *buildv1alpha2.Image) error {
 	workloadImageGeneration, err := strconv.ParseInt(buildWorkload.Labels[ImageGenerationKey], 10, 64)
 	if err != nil {
 		r.log.Error(err, "couldn't parse image generation on buildworkload label")
@@ -260,13 +260,25 @@ func (r *BuildWorkloadReconciler) ensureBuildCreationNotSkipped(ctx context.Cont
 		imageReady.Status != corev1.ConditionUnknown &&
 		kpackImage.Status.ObservedGeneration >= workloadImageGeneration &&
 		kpackImage.Status.LatestBuildImageGeneration < workloadImageGeneration {
-		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
-			Type:    korifiv1alpha1.SucceededConditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "NoKpackBuildCreated",
-			Message: "This may happen when only a specified buildpack is changed. You can modify the sources to force a new Kpack Build",
+		latestKpackBuild := &buildv1alpha2.Build{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: kpackImage.Namespace,
+				Name:      kpackImage.Status.LatestBuildRef,
+			},
+		}
+		err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(latestKpackBuild), latestKpackBuild)
+		if err != nil {
+			return fmt.Errorf("failed to get latest kpack build %q: %w", kpackImage.Status.LatestBuildRef, err)
+		}
+		err = k8s.Patch(ctx, r.k8sClient, latestKpackBuild, func() {
+			if latestKpackBuild.Annotations == nil {
+				latestKpackBuild.Annotations = map[string]string{}
+			}
+			latestKpackBuild.Annotations[buildv1alpha2.BuildNeededAnnotation] = "true"
 		})
-		return newDoNotRetryError(errors.New("kpack build was not created"))
+		if err != nil {
+			return fmt.Errorf("failed to request additional build for build %q: %w", latestKpackBuild.Name, err)
+		}
 	}
 
 	return nil
