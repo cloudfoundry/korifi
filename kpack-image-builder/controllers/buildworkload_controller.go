@@ -420,7 +420,7 @@ func (r *BuildWorkloadReconciler) ensureKpackBuilder(ctx context.Context, buildW
 		builder.Spec.Tag = builderRepo
 		builder.Spec.Stack = defaultBuilder.Spec.Stack
 		builder.Spec.Store = defaultBuilder.Spec.Store
-		builder.Spec.ServiceAccountName = defaultBuilder.Spec.ServiceAccountRef.Name
+		builder.Spec.ServiceAccountName = r.controllerConfig.BuilderServiceAccount
 		builder.Spec.Order = nil
 		for _, bp := range buildWorkload.Spec.Buildpacks {
 			builder.Spec.Order = append(builder.Spec.Order, corev1alpha1.OrderEntry{
