@@ -259,7 +259,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(builder.Spec.Tag).To(Equal("my.repository/my-prefix/builders-" + builderName))
 					g.Expect(builder.Spec.Stack).To(Equal(clusterBuilder.Spec.Stack))
 					g.Expect(builder.Spec.Store).To(Equal(clusterBuilder.Spec.Store))
-					g.Expect(builder.Spec.ServiceAccountName).To(Equal(clusterBuilder.Spec.ServiceAccountRef.Name))
+					g.Expect(builder.Spec.ServiceAccountName).To(Equal("builder-service-account"))
 					g.Expect(builder.Spec.Order).To(HaveLen(1))
 					g.Expect(builder.Spec.Order[0]).To(Equal(corev1alpha1.OrderEntry{
 						Group: []corev1alpha1.BuildpackRef{
