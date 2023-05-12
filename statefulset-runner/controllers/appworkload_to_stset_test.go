@@ -59,9 +59,9 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.OwnerReferences[0].Kind).To(Equal("AppWorkload"))
 	})
 
-	It("should base the name and namspace on the appworkload", func() {
+	It("should use the workload name as statefulset name", func() {
 		Expect(statefulSet.Namespace).To(Equal(appWorkload.Namespace))
-		Expect(statefulSet.Name).To(ContainSubstring("premium-app-guid-1234"))
+		Expect(statefulSet.Name).To(Equal(appWorkload.Name))
 	})
 
 	It("should set podManagementPolicy to parallel", func() {
@@ -143,11 +143,10 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	})
 
 	It("should set guid as a label selector", func() {
-		Expect(statefulSet.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelGUID, "guid_1234"))
-	})
-
-	It("should set version as a label selector", func() {
-		Expect(statefulSet.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelVersion, "version_1234"))
+		Expect(statefulSet.Spec.Selector.MatchLabels).To(SatisfyAll(
+			HaveLen(1),
+			HaveKeyWithValue(controllers.LabelGUID, "guid_1234"),
+		))
 	})
 
 	It("should set memory limit", func() {
@@ -195,11 +194,6 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				Operator: metav1.LabelSelectorOpIn,
 				Values:   []string{"guid_1234"},
 			},
-			metav1.LabelSelectorRequirement{
-				Key:      controllers.LabelVersion,
-				Operator: metav1.LabelSelectorOpIn,
-				Values:   []string{"version_1234"},
-			},
 		))
 	})
 
@@ -223,6 +217,10 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 
 	It("should set the serviceAccountName", func() {
 		Expect(statefulSet.Spec.Template.Spec.ServiceAccountName).To(Equal("korifi-app"))
+	})
+
+	It("does not set the startedAt annotation on the statefulset pod template spec", func() {
+		Expect(statefulSet.Spec.Template.Annotations).NotTo(HaveKey(korifiv1alpha1.StartedAtAnnotation))
 	})
 
 	When("the app has environment set", func() {
@@ -278,6 +276,18 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				{Name: "b-second", Value: "second"},
 				{Name: "c-third", Value: "third"},
 			}))
+		})
+	})
+
+	When("the app workload is annotated with startedAt annotation", func() {
+		BeforeEach(func() {
+			appWorkload.Annotations = map[string]string{
+				korifiv1alpha1.StartedAtAnnotation: "started-now",
+			}
+		})
+
+		It("propagates the annotation on the statefulset's pod template spec", func() {
+			Expect(statefulSet.Spec.Template.Annotations).To(HaveKeyWithValue(korifiv1alpha1.StartedAtAnnotation, "started-now"))
 		})
 	})
 

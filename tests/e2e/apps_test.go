@@ -2,12 +2,13 @@ package e2e_test
 
 import (
 	"encoding/json"
+	"net/http"
+	"os"
+
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"net/http"
-	"os"
 )
 
 var _ = Describe("Apps", func() {

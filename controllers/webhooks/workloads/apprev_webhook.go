@@ -35,6 +35,7 @@ func (r *AppRevWebhook) InjectDecoder(d *admission.Decoder) error {
 }
 
 func (r *AppRevWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
+	apprevlog.Info("Apprev Webhook Handle()")
 	var cfApp korifiv1alpha1.CFApp
 	if err := r.decoder.Decode(req, &cfApp); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
@@ -45,7 +46,8 @@ func (r *AppRevWebhook) Handle(ctx context.Context, req admission.Request) admis
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	if cfApp.Spec.DesiredState == korifiv1alpha1.StoppedState && oldCFApp.Spec.DesiredState == korifiv1alpha1.StartedState {
+	if cfApp.Spec.DesiredState == korifiv1alpha1.StoppedState && oldCFApp.Spec.DesiredState == korifiv1alpha1.StartedState ||
+		cfApp.Annotations[korifiv1alpha1.StartedAtAnnotation] != oldCFApp.Annotations[korifiv1alpha1.StartedAtAnnotation] {
 		cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = bumpAppRev(cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey])
 	}
 

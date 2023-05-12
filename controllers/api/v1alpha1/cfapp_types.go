@@ -21,6 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const StartedAtAnnotation = "korifi.cloudfoundry.org/startedAt"
+
 // CFAppSpec defines the desired state of CFApp
 type CFAppSpec struct {
 	// The mutable, user-friendly name of the app. Unlike metadata.name, the user can change this field.

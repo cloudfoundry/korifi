@@ -1,12 +1,8 @@
 package controllers
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"regexp"
 	"sort"
-	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
@@ -25,18 +21,6 @@ func NewAppWorkloadToStatefulsetConverter(scheme *runtime.Scheme) *AppWorkloadTo
 	return &AppWorkloadToStatefulsetConverter{
 		scheme: scheme,
 	}
-}
-
-func getStatefulSetName(appWorkload *korifiv1alpha1.AppWorkload) (string, error) {
-	nameSuffix, err := hash(fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, appWorkload.Spec.Version))
-	if err != nil {
-		return "", fmt.Errorf("failed to generate hash for statefulset name: %w", err)
-	}
-
-	namePrefix := fmt.Sprintf("%s-%s", appWorkload.Spec.AppGUID, appWorkload.Namespace)
-	namePrefix = sanitizeName(namePrefix, appWorkload.Spec.GUID)
-
-	return fmt.Sprintf("%s-%s", namePrefix, nameSuffix), nil
 }
 
 func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.AppWorkload) (*appsv1.StatefulSet, error) {
@@ -113,14 +97,9 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 		},
 	}
 
-	statefulsetName, err := getStatefulSetName(appWorkload)
-	if err != nil {
-		return nil, err
-	}
-
 	statefulSet := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      statefulsetName,
+			Name:      appWorkload.Name,
 			Namespace: appWorkload.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -158,7 +137,7 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 		},
 	}
 
-	err = controllerutil.SetOwnerReference(appWorkload, statefulSet, r.scheme)
+	err := controllerutil.SetOwnerReference(appWorkload, statefulSet, r.scheme)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set OwnerRef on StatefulSet :%w", err)
 	}
@@ -180,35 +159,14 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 		AnnotationVersion:     appWorkload.Spec.Version,
 		AnnotationProcessGUID: fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, appWorkload.Spec.Version),
 	}
+	if startedAt, hasStartedAt := appWorkload.Annotations[korifiv1alpha1.StartedAtAnnotation]; hasStartedAt {
+		annotations[korifiv1alpha1.StartedAtAnnotation] = startedAt
+	}
 
 	statefulSet.Annotations = annotations
 	statefulSet.Spec.Template.Annotations = annotations
 
 	return statefulSet, nil
-}
-
-func sanitizeName(name, fallback string) string {
-	const sanitizedNameMaxLen = 40
-	return sanitizeNameWithMaxStringLen(name, fallback, sanitizedNameMaxLen)
-}
-
-func sanitizeNameWithMaxStringLen(name, fallback string, maxStringLen int) string {
-	validNameRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
-	sanitizedName := strings.ReplaceAll(strings.ToLower(name), "_", "-")
-
-	if validNameRegex.MatchString(sanitizedName) {
-		return truncateString(sanitizedName, maxStringLen)
-	}
-
-	return truncateString(fallback, maxStringLen)
-}
-
-func truncateString(str string, num int) string {
-	if len(str) > num {
-		return str[0:num]
-	}
-
-	return str
 }
 
 func toLabelSelectorRequirements(selector *metav1.LabelSelector) []metav1.LabelSelectorRequirement {
@@ -233,22 +191,7 @@ func toLabelSelectorRequirements(selector *metav1.LabelSelector) []metav1.LabelS
 func statefulSetLabelSelector(appWorkload *korifiv1alpha1.AppWorkload) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			LabelGUID:    appWorkload.Spec.GUID,
-			LabelVersion: appWorkload.Spec.Version,
+			LabelGUID: appWorkload.Spec.GUID,
 		},
 	}
-}
-
-func hash(s string) (string, error) {
-	const MaxHashLength = 10
-
-	sha := sha256.New()
-
-	if _, err := sha.Write([]byte(s)); err != nil {
-		return "", fmt.Errorf("failed to calculate sha: %w", err)
-	}
-
-	hashValue := hex.EncodeToString(sha.Sum(nil))
-
-	return hashValue[:MaxHashLength], nil
 }

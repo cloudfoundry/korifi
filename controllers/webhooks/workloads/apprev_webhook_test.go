@@ -4,6 +4,7 @@ import (
 	"context"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -79,6 +80,30 @@ var _ = Describe("ApprevWebhook", func() {
 
 			It("sets the app rev to 0", func() {
 				Expect(app.Annotations[korifiv1alpha1.CFAppRevisionKey]).To(Equal("0"))
+			})
+		})
+	})
+
+	When("the startedAt annotation is set", func() {
+		JustBeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, k8sClient, app, func() {
+				app.Annotations[korifiv1alpha1.StartedAtAnnotation] = "starting-now"
+			})).To(Succeed())
+		})
+
+		It("increments the app rev", func() {
+			Expect(app.Annotations[korifiv1alpha1.CFAppRevisionKey]).To(Equal("6"))
+		})
+
+		When("the startedAt annotation is updated", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, app, func() {
+					app.Annotations[korifiv1alpha1.StartedAtAnnotation] = "already-started"
+				})).To(Succeed())
+			})
+
+			It("increments the app rev", func() {
+				Expect(app.Annotations[korifiv1alpha1.CFAppRevisionKey]).To(Equal("7"))
 			})
 		})
 	})
