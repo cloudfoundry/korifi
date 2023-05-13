@@ -48,9 +48,11 @@ var _ = Describe("Smoke Tests", func() {
 				apiArguments = append(apiArguments, "--skip-ssl-validation")
 			}
 
+			By("targetting the API")
 			cfAPI := cf.Cf(apiArguments...)
 			Eventually(cfAPI).Should(Exit(0))
 
+			By("logging in")
 			loginAs(GetRequiredEnvVar("SMOKE_TEST_USER"))
 
 			appRouteProtocol = GetDefaultedEnvVar("SMOKE_TEST_APP_ROUTE_PROTOCOL", "https")
@@ -58,8 +60,11 @@ var _ = Describe("Smoke Tests", func() {
 			orgName = generator.PrefixedRandomName(NamePrefix, "org")
 			spaceName := generator.PrefixedRandomName(NamePrefix, "space")
 
+			By("creating an org")
 			Eventually(cf.Cf("create-org", orgName)).Should(Exit(0))
+			By("creating a space")
 			Eventually(cf.Cf("create-space", "-o", orgName, spaceName)).Should(Exit(0))
+			By("targetting the org")
 			Eventually(cf.Cf("target", "-o", orgName, "-s", spaceName)).Should(Exit(0))
 		})
 
@@ -77,10 +82,25 @@ var _ = Describe("Smoke Tests", func() {
 
 		It("creates a routable app pod in Kubernetes from a source-based app", func() {
 			appName = generator.PrefixedRandomName(NamePrefix, "app")
+			serviceName := generator.PrefixedRandomName(NamePrefix, "svc")
 
-			cfPush := cf.Cf("push", appName, "-p", "assets/test-node-app")
+			By("pushing an unstarted app")
+			cfPush := cf.Cf("push", appName, "-p", "assets/test-node-app", "--no-start")
 			Eventually(cfPush).Should(Exit(0))
 
+			By("creating a user-provided service instance")
+			cfCreateService := cf.Cf("create-user-provided-service", serviceName, "-p", `{"key1":"value1","key2":"value2"}`)
+			Eventually(cfCreateService).Should(Exit(0))
+
+			By("binding the service to the app")
+			cfBindService := cf.Cf("bind-service", appName, serviceName)
+			Eventually(cfBindService).Should(Exit(0))
+
+			By("staging and starting the app")
+			cfStart := cf.Cf("start", appName)
+			Eventually(cfStart).Should(Exit(0))
+
+			By("sending a request to the app")
 			var httpClient http.Client
 			httpClient.Transport = &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -93,10 +113,15 @@ var _ = Describe("Smoke Tests", func() {
 				g.Expect(resp).To(HaveHTTPBody(ContainSubstring("Hello World")))
 			}, 5*time.Minute, 30*time.Second).Should(Succeed())
 
+			By("checking the app logs")
 			Eventually(func(g Gomega) {
 				cfLogs := cf.Cf("logs", appName, "--recent")
 				g.Expect(string(cfLogs.Wait().Out.Contents())).To(ContainSubstring("Console output from test-node-app"))
 			}, 2*time.Minute, 2*time.Second).Should(Succeed())
+
+			By("running a task")
+			cfRunTask := cf.Cf("run-task", appName, "-c", `echo "Hello from the task"`)
+			Eventually(cfRunTask).Should(Exit(0))
 		})
 	})
 })
