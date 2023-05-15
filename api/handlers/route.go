@@ -41,7 +41,7 @@ type Route struct {
 	domainRepo       CFDomainRepository
 	appRepo          CFAppRepository
 	spaceRepo        SpaceRepository
-	decoderValidator *DecoderValidator
+	decoderValidator *GoPlaygroundValidator
 }
 
 func NewRoute(
@@ -50,7 +50,7 @@ func NewRoute(
 	domainRepo CFDomainRepository,
 	appRepo CFAppRepository,
 	spaceRepo SpaceRepository,
-	decoderValidator *DecoderValidator,
+	decoderValidator *GoPlaygroundValidator,
 ) *Route {
 	return &Route{
 		serverURL:        serverURL,
@@ -116,13 +116,17 @@ func (h *Route) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.create")
 
-	var payload payloads.RouteCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.RouteCreate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
+	}
+
 	spaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
+	_, err = h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(
 			logger,
@@ -166,8 +170,8 @@ func (h *Route) insertDestinations(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.insert-destinations")
 
-	var destinationCreatePayload payloads.DestinationListCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &destinationCreatePayload); err != nil {
+	payload, err := BodyToObject[payloads.DestinationListCreate](r, true)
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -178,7 +182,7 @@ func (h *Route) insertDestinations(r *http.Request) (*routing.Response, error) {
 		return nil, err
 	}
 
-	destinationListCreateMessage := destinationCreatePayload.ToMessage(routeRecord)
+	destinationListCreateMessage := payload.ToMessage(routeRecord)
 
 	responseRouteRecord, err := h.routeRepo.AddDestinationsToRoute(r.Context(), authInfo, destinationListCreateMessage)
 	if err != nil {
@@ -304,9 +308,13 @@ func (h *Route) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 	}
 
-	var payload payloads.RoutePatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.RoutePatch](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err = h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	route, err = h.routeRepo.PatchRouteMetadata(r.Context(), authInfo, payload.ToMessage(routeGUID, route.SpaceGUID))

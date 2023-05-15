@@ -26,7 +26,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
 //counterfeiter:generate -o fake -fake-name ImageRepository . ImageRepository
-//counterfeiter:generate -o fake -fake-name RequestJSONValidator . RequestJSONValidator
+//counterfeiter:generate -o fake -fake-name PayloadValidator . PayloadValidator
 
 type CFPackageRepository interface {
 	GetPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
@@ -40,8 +40,8 @@ type ImageRepository interface {
 	UploadSourceImage(ctx context.Context, authInfo authorization.Info, imageRef string, srcReader io.Reader, spaceGUID string, tags ...string) (imageRefWithDigest string, err error)
 }
 
-type RequestJSONValidator interface {
-	DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error
+type PayloadValidator interface {
+	ValidatePayload(any) error
 }
 
 type Package struct {
@@ -50,7 +50,7 @@ type Package struct {
 	appRepo            CFAppRepository
 	dropletRepo        CFDropletRepository
 	imageRepo          ImageRepository
-	requestValidator   RequestJSONValidator
+	requestValidator   PayloadValidator
 	registrySecretName string
 }
 
@@ -60,7 +60,7 @@ func NewPackage(
 	appRepo CFAppRepository,
 	dropletRepo CFDropletRepository,
 	imageRepo ImageRepository,
-	requestValidator RequestJSONValidator,
+	requestValidator PayloadValidator,
 	registrySecretName string,
 ) *Package {
 	return &Package{
@@ -135,9 +135,13 @@ func (h Package) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.create")
 
-	var payload payloads.PackageCreate
-	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.PackageCreate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.requestValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
@@ -167,9 +171,13 @@ func (h Package) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.update")
 
-	var payload payloads.PackageUpdate
-	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.PackageUpdate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.requestValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	packageGUID := routing.URLParam(r, "guid")

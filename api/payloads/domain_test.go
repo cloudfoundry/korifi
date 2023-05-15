@@ -1,15 +1,11 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
-	"github.com/onsi/gomega/gstruct"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,14 +14,12 @@ import (
 var _ = Describe("DomainCreate", func() {
 	Describe("Decode", func() {
 		var (
-			createPayload        payloads.DomainCreate
-			decodedDomainPayload *payloads.DomainCreate
-			validatorErr         error
+			createPayload *payloads.DomainCreate
+			validatorErr  error
 		)
 
 		BeforeEach(func() {
-			decodedDomainPayload = new(payloads.DomainCreate)
-			createPayload = payloads.DomainCreate{
+			createPayload = &payloads.DomainCreate{
 				Name: "bob.com",
 				Metadata: payloads.Metadata{
 					Labels: map[string]string{
@@ -39,18 +33,11 @@ var _ = Describe("DomainCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			body, err := json.Marshal(createPayload)
-			Expect(err).NotTo(HaveOccurred())
-
-			req, err := http.NewRequest("", "", bytes.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedDomainPayload)
+			validatorErr = validator.ValidatePayload(createPayload)
 		})
 
 		It("succeeds", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
-			Expect(decodedDomainPayload).To(gstruct.PointTo(Equal(createPayload)))
 		})
 
 		When("name is empty", func() {
@@ -150,15 +137,12 @@ var _ = Describe("DomainCreate", func() {
 
 var _ = Describe("DomainUpdate", func() {
 	var (
-		updatePayload        payloads.DomainUpdate
-		decodedUpdatePayload *payloads.DomainUpdate
-		validatorErr         error
+		updatePayload *payloads.DomainUpdate
+		validatorErr  error
 	)
 
 	BeforeEach(func() {
-		decodedUpdatePayload = new(payloads.DomainUpdate)
-
-		updatePayload = payloads.DomainUpdate{
+		updatePayload = &payloads.DomainUpdate{
 			Metadata: payloads.MetadataPatch{
 				Labels: map[string]*string{
 					"foo": tools.PtrTo("bar"),
@@ -171,18 +155,11 @@ var _ = Describe("DomainUpdate", func() {
 	})
 
 	JustBeforeEach(func() {
-		updateBody, err := json.Marshal(updatePayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(updateBody))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedUpdatePayload)
+		validatorErr = validator.ValidatePayload(updatePayload)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(decodedUpdatePayload).To(gstruct.PointTo(Equal(updatePayload)))
 	})
 
 	When("metadata.labels contains an invalid key", func() {

@@ -36,7 +36,7 @@ var _ = Describe("Droplet", func() {
 		req, err = http.NewRequestWithContext(ctx, "GET", "/v3/droplets/"+dropletGUID, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		decoderValidator, err := NewDefaultDecoderValidator()
+		decoderValidator, err := NewGoPlaygroundValidator()
 		Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewDroplet(
 			*serverURL,

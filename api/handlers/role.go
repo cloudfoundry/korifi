@@ -49,14 +49,14 @@ type CFRoleRepository interface {
 type Role struct {
 	apiBaseURL       url.URL
 	roleRepo         CFRoleRepository
-	decoderValidator RequestJSONValidator
+	payloadValidator PayloadValidator
 }
 
-func NewRole(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator RequestJSONValidator) *Role {
+func NewRole(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator PayloadValidator) *Role {
 	return &Role{
 		apiBaseURL:       apiBaseURL,
 		roleRepo:         roleRepo,
-		decoderValidator: decoderValidator,
+		payloadValidator: decoderValidator,
 	}
 }
 
@@ -64,8 +64,12 @@ func (h *Role) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.role.create")
 
-	var payload payloads.RoleCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.RoleCreate](r, true)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.payloadValidator.ValidatePayload(payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 

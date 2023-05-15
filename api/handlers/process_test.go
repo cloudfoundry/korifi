@@ -27,7 +27,7 @@ var _ = Describe("Process", func() {
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
 		processStats = new(fake.ProcessStats)
-		decoderValidator, err := NewDefaultDecoderValidator()
+		decoderValidator, err := NewGoPlaygroundValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewProcess(

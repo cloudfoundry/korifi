@@ -45,7 +45,7 @@ var _ = Describe("ServiceBinding", func() {
 			SpaceGUID: "space-guid",
 		}, nil)
 
-		decoderValidator, err := NewDefaultDecoderValidator()
+		decoderValidator, err := NewGoPlaygroundValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewServiceBinding(

@@ -18,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/middleware"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/validators"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/routing"
@@ -219,7 +220,7 @@ func main() {
 	)
 	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 
-	decoderValidator, err := handlers.NewDefaultDecoderValidator()
+	decoderValidator, err := handlers.NewGoPlaygroundValidator()
 	if err != nil {
 		panic(fmt.Sprintf("could not wire validator: %v", err))
 	}
@@ -327,7 +328,7 @@ func main() {
 			*serverURL,
 			manifest,
 			spaceRepo,
-			decoderValidator,
+			validators.NewManifest(),
 		),
 		handlers.NewRole(
 			*serverURL,

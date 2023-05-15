@@ -36,20 +36,20 @@ type Task struct {
 	serverURL        url.URL
 	appRepo          CFAppRepository
 	taskRepo         CFTaskRepository
-	requestValidator RequestJSONValidator
+	payloadValidator PayloadValidator
 }
 
 func NewTask(
 	serverURL url.URL,
 	appRepo CFAppRepository,
 	taskRepo CFTaskRepository,
-	requestValidator RequestJSONValidator,
+	payloadValidator PayloadValidator,
 ) *Task {
 	return &Task{
 		serverURL:        serverURL,
 		taskRepo:         taskRepo,
 		appRepo:          appRepo,
-		requestValidator: requestValidator,
+		payloadValidator: payloadValidator,
 	}
 }
 
@@ -85,9 +85,13 @@ func (h *Task) create(r *http.Request) (*routing.Response, error) {
 
 	appGUID := routing.URLParam(r, "appGUID")
 
-	var payload payloads.TaskCreate
-	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.TaskCreate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err = h.payloadValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	appRecord, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
@@ -173,9 +177,13 @@ func (h *Task) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch task from Kubernetes", "TaskGUID", taskGUID)
 	}
 
-	var payload payloads.TaskUpdate
-	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.TaskUpdate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err = h.payloadValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	task, err = h.taskRepo.PatchTaskMetadata(r.Context(), authInfo, payload.ToMessage(taskGUID, task.SpaceGUID))

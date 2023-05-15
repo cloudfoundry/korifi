@@ -64,7 +64,7 @@ var _ = Describe("Build", func() {
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/builds/"+buildGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			decoderValidator, err := NewDefaultDecoderValidator()
+			decoderValidator, err := NewGoPlaygroundValidator()
 			Expect(err).NotTo(HaveOccurred())
 
 			apiHandler := NewBuild(
@@ -113,7 +113,7 @@ var _ = Describe("Build", func() {
 			packageRepo                 *fake.CFPackageRepository
 			appRepo                     *fake.CFAppRepository
 			buildRepo                   *fake.CFBuildRepository
-			requestJSONValidator        *fake.RequestJSONValidator
+			payloadValidator            *fake.PayloadValidator
 			expectedLifecycleBuildpacks []string
 			payload                     payloads.BuildCreate
 		)
@@ -140,8 +140,8 @@ var _ = Describe("Build", func() {
 				},
 			}
 
-			requestJSONValidator = new(fake.RequestJSONValidator)
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+			payloadValidator = new(fake.PayloadValidator)
+			payloadValidator.ValidatePayloadStub = func(i interface{}) error {
 				build, ok := i.(*payloads.BuildCreate)
 				Expect(ok).To(BeTrue())
 				*build = payload
@@ -200,7 +200,7 @@ var _ = Describe("Build", func() {
 				buildRepo,
 				packageRepo,
 				appRepo,
-				requestJSONValidator,
+				payloadValidator,
 			)
 			routerBuilder.LoadRoutes(apiHandler)
 
@@ -313,7 +313,7 @@ var _ = Describe("Build", func() {
 
 		When("the JSON body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				payloadValidator.ValidatePayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {
@@ -324,7 +324,7 @@ var _ = Describe("Build", func() {
 
 	Describe("the PATCH /v3/builds endpoint", func() {
 		BeforeEach(func() {
-			decoderValidator, err := NewDefaultDecoderValidator()
+			decoderValidator, err := NewGoPlaygroundValidator()
 			Expect(err).NotTo(HaveOccurred())
 
 			apiHandler := NewBuild(

@@ -36,7 +36,7 @@ var _ = Describe("Space", func() {
 			OrganizationGUID: "the-org-guid",
 		}, nil)
 
-		decoderValidator, err := handlers.NewDefaultDecoderValidator()
+		decoderValidator, err := handlers.NewGoPlaygroundValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = handlers.NewSpace(

@@ -44,14 +44,14 @@ type Process struct {
 	serverURL        url.URL
 	processRepo      CFProcessRepository
 	processStats     ProcessStats
-	decoderValidator *DecoderValidator
+	decoderValidator *GoPlaygroundValidator
 }
 
 func NewProcess(
 	serverURL url.URL,
 	processRepo CFProcessRepository,
 	processStatsFetcher ProcessStats,
-	decoderValidator *DecoderValidator,
+	decoderValidator *GoPlaygroundValidator,
 ) *Process {
 	return &Process{
 		serverURL:        serverURL,
@@ -109,9 +109,13 @@ func (h *Process) scale(r *http.Request) (*routing.Response, error) {
 
 	processGUID := routing.URLParam(r, "guid")
 
-	var payload payloads.ProcessScale
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.ProcessScale](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	process, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
@@ -173,9 +177,13 @@ func (h *Process) update(r *http.Request) (*routing.Response, error) {
 
 	processGUID := routing.URLParam(r, "guid")
 
-	var payload payloads.ProcessPatch
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.ProcessPatch](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
+	}
+
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate json payload")
 	}
 
 	process, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)

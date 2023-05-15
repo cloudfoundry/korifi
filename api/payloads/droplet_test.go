@@ -1,13 +1,8 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
-	"github.com/onsi/gomega/gstruct"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,14 +11,12 @@ import (
 var _ = Describe("DropletUpdate", func() {
 	Describe("Decode", func() {
 		var (
-			updatePayload         payloads.DropletUpdate
-			decodedDropletPayload *payloads.DropletUpdate
-			validatorErr          error
+			updatePayload *payloads.DropletUpdate
+			validatorErr  error
 		)
 
 		BeforeEach(func() {
-			decodedDropletPayload = new(payloads.DropletUpdate)
-			updatePayload = payloads.DropletUpdate{
+			updatePayload = &payloads.DropletUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"foo": tools.PtrTo("bar"),
@@ -36,18 +29,11 @@ var _ = Describe("DropletUpdate", func() {
 		})
 
 		JustBeforeEach(func() {
-			body, err := json.Marshal(updatePayload)
-			Expect(err).NotTo(HaveOccurred())
-
-			req, err := http.NewRequest("", "", bytes.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedDropletPayload)
+			validatorErr = validator.ValidatePayload(updatePayload)
 		})
 
 		It("succeeds", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
-			Expect(decodedDropletPayload).To(gstruct.PointTo(Equal(updatePayload)))
 		})
 
 		When("metadata.labels contains an invalid key", func() {

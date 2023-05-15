@@ -19,18 +19,18 @@ import (
 
 var _ = Describe("Domain", func() {
 	var (
-		apiHandler           *handlers.Domain
-		domainRepo           *fake.CFDomainRepository
-		requestJSONValidator *fake.RequestJSONValidator
-		req                  *http.Request
+		apiHandler       *handlers.Domain
+		domainRepo       *fake.CFDomainRepository
+		payloadValidator *fake.PayloadValidator
+		req              *http.Request
 	)
 
 	BeforeEach(func() {
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		payloadValidator = new(fake.PayloadValidator)
 		domainRepo = new(fake.CFDomainRepository)
 		apiHandler = handlers.NewDomain(
 			*serverURL,
-			requestJSONValidator,
+			payloadValidator,
 			domainRepo,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -56,7 +56,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+			payloadValidator.ValidatePayloadStub = func(i interface{}) error {
 				domain, ok := i.(*payloads.DomainCreate)
 				Expect(ok).To(BeTrue())
 				*domain = payload
@@ -102,7 +102,7 @@ var _ = Describe("Domain", func() {
 
 		When("decoding the payload fails", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				payloadValidator.ValidatePayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {
@@ -198,7 +198,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+			payloadValidator.ValidatePayloadStub = func(i interface{}) error {
 				update, ok := i.(*payloads.DomainUpdate)
 				Expect(ok).To(BeTrue())
 				*update = payload
@@ -243,7 +243,7 @@ var _ = Describe("Domain", func() {
 
 		When("decoding the payload fails", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				payloadValidator.ValidatePayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {

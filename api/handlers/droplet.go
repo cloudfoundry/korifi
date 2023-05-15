@@ -30,13 +30,13 @@ type CFDropletRepository interface {
 type Droplet struct {
 	serverURL        url.URL
 	dropletRepo      CFDropletRepository
-	decoderValidator *DecoderValidator
+	decoderValidator *GoPlaygroundValidator
 }
 
 func NewDroplet(
 	serverURL url.URL,
 	dropletRepo CFDropletRepository,
-	decoderValidator *DecoderValidator,
+	decoderValidator *GoPlaygroundValidator,
 ) *Droplet {
 	return &Droplet{
 		serverURL:        serverURL,
@@ -70,12 +70,16 @@ func (h *Droplet) update(r *http.Request) (*routing.Response, error) {
 
 	dropletGUID := routing.URLParam(r, "guid")
 
-	var payload payloads.DropletUpdate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.DropletUpdate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	_, err := h.dropletRepo.GetDroplet(r.Context(), authInfo, dropletGUID)
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
+	}
+
+	_, err = h.dropletRepo.GetDroplet(r.Context(), authInfo, dropletGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(
 			logger,

@@ -1,9 +1,7 @@
 package payloads_test
 
 import (
-	"bytes"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -34,14 +32,12 @@ var _ = Describe("ServiceInstanceList", func() {
 
 var _ = Describe("ServiceInstanceCreate", func() {
 	var (
-		createPayload         payloads.ServiceInstanceCreate
-		serviceInstanceCreate *payloads.ServiceInstanceCreate
-		validatorErr          error
+		createPayload *payloads.ServiceInstanceCreate
+		validatorErr  error
 	)
 
 	BeforeEach(func() {
-		serviceInstanceCreate = new(payloads.ServiceInstanceCreate)
-		createPayload = payloads.ServiceInstanceCreate{
+		createPayload = &payloads.ServiceInstanceCreate{
 			Name: "service-instance-name",
 			Type: "user-provided",
 			Tags: []string{"foo", "bar"},
@@ -64,18 +60,11 @@ var _ = Describe("ServiceInstanceCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(createPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, serviceInstanceCreate)
+		validatorErr = validator.ValidatePayload(createPayload)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(serviceInstanceCreate).To(PointTo(Equal(createPayload)))
 	})
 
 	When("name is not set", func() {
@@ -159,7 +148,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 
 	Context("ToServiceInstanceCreateMessage()", func() {
 		It("converts to repo message correctly", func() {
-			msg := serviceInstanceCreate.ToServiceInstanceCreateMessage()
+			msg := createPayload.ToServiceInstanceCreateMessage()
 			Expect(msg.Name).To(Equal("service-instance-name"))
 			Expect(msg.Type).To(Equal("user-provided"))
 			Expect(msg.SpaceGUID).To(Equal("space-guid"))
@@ -231,14 +220,12 @@ var _ = Describe("ServiceInstancePatch custom unmarshalling", func() {
 
 var _ = Describe("ServiceInstancePatch", func() {
 	var (
-		patchPayload         payloads.ServiceInstancePatch
-		serviceInstancePatch *payloads.ServiceInstancePatch
-		validatorErr         error
+		patchPayload *payloads.ServiceInstancePatch
+		validatorErr error
 	)
 
 	BeforeEach(func() {
-		serviceInstancePatch = new(payloads.ServiceInstancePatch)
-		patchPayload = payloads.ServiceInstancePatch{
+		patchPayload = &payloads.ServiceInstancePatch{
 			Name: tools.PtrTo("service-instance-name"),
 			Tags: &[]string{"foo", "bar"},
 			Credentials: &map[string]string{
@@ -253,34 +240,26 @@ var _ = Describe("ServiceInstancePatch", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(patchPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, serviceInstancePatch)
+		validatorErr = validator.ValidatePayload(patchPayload)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(serviceInstancePatch).To(PointTo(Equal(patchPayload)))
 	})
 
 	When("nothing is set", func() {
 		BeforeEach(func() {
-			patchPayload = payloads.ServiceInstancePatch{}
+			patchPayload = &payloads.ServiceInstancePatch{}
 		})
 
 		It("succeeds", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
-			Expect(serviceInstancePatch).To(PointTo(Equal(patchPayload)))
 		})
 	})
 
 	Context("ToServiceInstancePatchMessage", func() {
 		It("converts to repo message correctly", func() {
-			msg := serviceInstancePatch.ToServiceInstancePatchMessage("space-guid", "app-guid")
+			msg := patchPayload.ToServiceInstancePatchMessage("space-guid", "app-guid")
 			Expect(msg.SpaceGUID).To(Equal("space-guid"))
 			Expect(msg.GUID).To(Equal("app-guid"))
 			Expect(msg.Name).To(PointTo(Equal("service-instance-name")))

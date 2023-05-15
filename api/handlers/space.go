@@ -34,14 +34,14 @@ type SpaceRepository interface {
 type Space struct {
 	spaceRepo        SpaceRepository
 	apiBaseURL       url.URL
-	decoderValidator *DecoderValidator
+	payloadValidator *GoPlaygroundValidator
 }
 
-func NewSpace(apiBaseURL url.URL, spaceRepo SpaceRepository, decoderValidator *DecoderValidator) *Space {
+func NewSpace(apiBaseURL url.URL, spaceRepo SpaceRepository, decoderValidator *GoPlaygroundValidator) *Space {
 	return &Space{
 		apiBaseURL:       apiBaseURL,
 		spaceRepo:        spaceRepo,
-		decoderValidator: decoderValidator,
+		payloadValidator: decoderValidator,
 	}
 }
 
@@ -49,9 +49,13 @@ func (h *Space) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.create")
 
-	var payload payloads.SpaceCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate payload")
+	payload, err := BodyToObject[payloads.SpaceCreate](r, true)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode payload")
+	}
+
+	if err := h.payloadValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to validate payload")
 	}
 
 	space := payload.ToMessage()
@@ -99,9 +103,13 @@ func (h *Space) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch org from Kubernetes", "GUID", spaceGUID)
 	}
 
-	var payload payloads.SpacePatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.SpacePatch](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err = h.payloadValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	space, err = h.spaceRepo.PatchSpaceMetadata(r.Context(), authInfo, payload.ToMessage(spaceGUID, space.OrganizationGUID))

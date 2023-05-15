@@ -49,7 +49,7 @@ var _ = Describe("App", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		spaceRepo = new(fake.SpaceRepository)
 		packageRepo = new(fake.CFPackageRepository)
-		decoderValidator, err := NewDefaultDecoderValidator()
+		decoderValidator, err := NewGoPlaygroundValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewApp(

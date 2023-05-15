@@ -26,7 +26,7 @@ type ServiceBinding struct {
 	serviceBindingRepo  CFServiceBindingRepository
 	serviceInstanceRepo CFServiceInstanceRepository
 	serverURL           url.URL
-	decoderValidator    *DecoderValidator
+	payloadValidator    *GoPlaygroundValidator
 }
 
 //counterfeiter:generate -o fake -fake-name CFServiceBindingRepository . CFServiceBindingRepository
@@ -38,13 +38,13 @@ type CFServiceBindingRepository interface {
 	UpdateServiceBinding(context.Context, authorization.Info, repositories.UpdateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
 }
 
-func NewServiceBinding(serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, decoderValidator *DecoderValidator) *ServiceBinding {
+func NewServiceBinding(serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, payloadValidator *GoPlaygroundValidator) *ServiceBinding {
 	return &ServiceBinding{
 		appRepo:             appRepo,
 		serviceInstanceRepo: serviceInstanceRepo,
 		serviceBindingRepo:  serviceBindingRepo,
 		serverURL:           serverURL,
-		decoderValidator:    decoderValidator,
+		payloadValidator:    payloadValidator,
 	}
 }
 
@@ -52,9 +52,13 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-binding.create")
 
-	var payload payloads.ServiceBindingCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.ServiceBindingCreate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.payloadValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
@@ -140,12 +144,16 @@ func (h *ServiceBinding) update(r *http.Request) (*routing.Response, error) { //
 
 	serviceBindingGUID := routing.URLParam(r, "guid")
 
-	var payload payloads.ServiceBindingUpdate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.ServiceBindingUpdate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	_, err := h.serviceBindingRepo.GetServiceBinding(r.Context(), authInfo, serviceBindingGUID)
+	if err := h.payloadValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
+	}
+
+	_, err = h.serviceBindingRepo.GetServiceBinding(r.Context(), authInfo, serviceBindingGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error getting service binding in repository")
 	}

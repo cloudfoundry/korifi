@@ -63,7 +63,7 @@ type App struct {
 	domainRepo       CFDomainRepository
 	spaceRepo        SpaceRepository
 	packageRepo      CFPackageRepository
-	decoderValidator *DecoderValidator
+	decoderValidator *GoPlaygroundValidator
 }
 
 func NewApp(
@@ -75,7 +75,7 @@ func NewApp(
 	domainRepo CFDomainRepository,
 	spaceRepo SpaceRepository,
 	packageRepo CFPackageRepository,
-	decoderValidator *DecoderValidator,
+	decoderValidator *GoPlaygroundValidator,
 ) *App {
 	return &App{
 		serverURL:        serverURL,
@@ -106,13 +106,18 @@ func (h *App) get(r *http.Request) (*routing.Response, error) {
 func (h *App) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.create")
-	var payload payloads.AppCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+
+	payload, err := BodyToObject[payloads.AppCreate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate json payload")
+	}
+
 	spaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
+	_, err = h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(
 			logger,
@@ -194,9 +199,13 @@ func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.set-current-droplet")
 	appGUID := routing.URLParam(r, "guid")
 
-	var payload payloads.AppSetCurrentDroplet
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.AppSetCurrentDroplet](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
+	}
+
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate json payload")
 	}
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
@@ -376,9 +385,13 @@ func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
 		WithName("handlers.app.scale-process").
 		WithValues("appGUID", appGUID, "processType", processType)
 
-	var payload payloads.ProcessScale
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.ProcessScale](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
+	}
+
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate json payload")
 	}
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
@@ -502,9 +515,13 @@ func (h *App) updateEnvVars(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.update-env-vars")
 	appGUID := routing.URLParam(r, "guid")
 
-	var payload payloads.AppPatchEnvVars
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.AppPatchEnvVars](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
@@ -586,9 +603,13 @@ func (h *App) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	var payload payloads.AppPatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.AppPatch](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err = h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	app, err = h.appRepo.PatchAppMetadata(r.Context(), authInfo, payload.ToMessage(appGUID, app.SpaceGUID))

@@ -24,16 +24,16 @@ const (
 
 var _ = Describe("Role", func() {
 	var (
-		apiHandler           *handlers.Role
-		roleRepo             *fake.CFRoleRepository
-		requestJSONValidator *fake.RequestJSONValidator
+		apiHandler       *handlers.Role
+		roleRepo         *fake.CFRoleRepository
+		payloadValidator *fake.PayloadValidator
 	)
 
 	BeforeEach(func() {
 		roleRepo = new(fake.CFRoleRepository)
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		payloadValidator = new(fake.PayloadValidator)
 
-		apiHandler = handlers.NewRole(*serverURL, roleRepo, requestJSONValidator)
+		apiHandler = handlers.NewRole(*serverURL, roleRepo, payloadValidator)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
@@ -64,7 +64,7 @@ var _ = Describe("Role", func() {
 		})
 
 		JustBeforeEach(func() {
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
+			payloadValidator.ValidatePayloadStub = func(i interface{}) error {
 				payload, ok := i.(*payloads.RoleCreate)
 				Expect(ok).To(BeTrue())
 				*payload = *roleCreate

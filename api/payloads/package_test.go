@@ -1,28 +1,22 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("PackageCreate", func() {
 	var (
-		createPayload payloads.PackageCreate
-		packageCreate *payloads.PackageCreate
+		createPayload *payloads.PackageCreate
 		validatorErr  error
 	)
 
 	BeforeEach(func() {
-		packageCreate = new(payloads.PackageCreate)
-		createPayload = payloads.PackageCreate{
+		createPayload = &payloads.PackageCreate{
 			Type: "bits",
 			Relationships: &payloads.PackageRelationships{
 				App: &payloads.Relationship{
@@ -43,18 +37,11 @@ var _ = Describe("PackageCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(createPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, packageCreate)
+		validatorErr = validator.ValidatePayload(createPayload)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(packageCreate).To(gstruct.PointTo(Equal(createPayload)))
 	})
 
 	When("type is empty", func() {
@@ -148,14 +135,12 @@ var _ = Describe("PackageCreate", func() {
 
 var _ = Describe("PackageUpdate", func() {
 	var (
-		updatePayload payloads.PackageUpdate
-		packageUpdate *payloads.PackageUpdate
+		updatePayload *payloads.PackageUpdate
 		validatorErr  error
 	)
 
 	BeforeEach(func() {
-		packageUpdate = new(payloads.PackageUpdate)
-		updatePayload = payloads.PackageUpdate{
+		updatePayload = &payloads.PackageUpdate{
 			Metadata: payloads.MetadataPatch{
 				Labels: map[string]*string{
 					"foo": tools.PtrTo("bar"),
@@ -169,18 +154,11 @@ var _ = Describe("PackageUpdate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(updatePayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, packageUpdate)
+		validatorErr = validator.ValidatePayload(updatePayload)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(packageUpdate).To(gstruct.PointTo(Equal(updatePayload)))
 	})
 
 	When("metadata.labels contains an invalid key", func() {
@@ -213,7 +191,7 @@ var _ = Describe("PackageUpdate", func() {
 
 	Context("toMessage", func() {
 		It("converts to repo message correctly", func() {
-			msg := packageUpdate.ToMessage("foo")
+			msg := updatePayload.ToMessage("foo")
 			Expect(msg.MetadataPatch.Labels).To(Equal(map[string]*string{
 				"foo": tools.PtrTo("bar"),
 				"bar": nil,

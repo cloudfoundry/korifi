@@ -65,7 +65,7 @@ var _ = Describe("Route", func() {
 			Name: "test-space-guid",
 		}, nil)
 
-		decoderValidator, err := NewDefaultDecoderValidator()
+		decoderValidator, err := NewGoPlaygroundValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler := NewRoute(

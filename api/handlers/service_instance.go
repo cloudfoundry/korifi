@@ -38,20 +38,20 @@ type ServiceInstance struct {
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
 	spaceRepo           SpaceRepository
-	requestValidator    RequestJSONValidator
+	payloadValidator    PayloadValidator
 }
 
 func NewServiceInstance(
 	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
 	spaceRepo SpaceRepository,
-	requestValidator RequestJSONValidator,
+	requestValidator PayloadValidator,
 ) *ServiceInstance {
 	return &ServiceInstance{
 		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
 		spaceRepo:           spaceRepo,
-		requestValidator:    requestValidator,
+		payloadValidator:    requestValidator,
 	}
 }
 
@@ -60,13 +60,17 @@ func (h *ServiceInstance) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.create")
 
-	var payload payloads.ServiceInstanceCreate
-	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.ServiceInstanceCreate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
+	if err := h.payloadValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
+	}
+
 	spaceGUID := payload.Relationships.Space.Data.GUID
-	_, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
+	_, err = h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(
 			logger,
@@ -88,9 +92,13 @@ func (h *ServiceInstance) patch(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.patch")
 
-	var payload payloads.ServiceInstancePatch
-	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.ServiceInstancePatch](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.payloadValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	serviceInstanceGUID := routing.URLParam(r, "guid")

@@ -30,7 +30,7 @@ var _ = Describe("Org", func() {
 
 		orgRepo = new(fake.OrgRepository)
 		domainRepo = new(fake.CFDomainRepository)
-		decoderValidator, err := handlers.NewDefaultDecoderValidator()
+		decoderValidator, err := handlers.NewGoPlaygroundValidator()
 		Expect(err).NotTo(HaveOccurred())
 
 		apiHandler = handlers.NewOrg(*serverURL, orgRepo, domainRepo, decoderValidator, time.Hour)

@@ -33,7 +33,7 @@ type SpaceManifest struct {
 	serverURL        url.URL
 	manifestApplier  ManifestApplier
 	spaceRepo        CFSpaceRepository
-	decoderValidator *DecoderValidator
+	payloadValidator PayloadValidator
 }
 
 //counterfeiter:generate -o fake -fake-name ManifestApplier . ManifestApplier
@@ -45,13 +45,13 @@ func NewSpaceManifest(
 	serverURL url.URL,
 	manifestApplier ManifestApplier,
 	spaceRepo CFSpaceRepository,
-	decoderValidator *DecoderValidator,
+	payloadValidator PayloadValidator,
 ) *SpaceManifest {
 	return &SpaceManifest{
 		serverURL:        serverURL,
 		manifestApplier:  manifestApplier,
 		spaceRepo:        spaceRepo,
-		decoderValidator: decoderValidator,
+		payloadValidator: payloadValidator,
 	}
 }
 
@@ -71,12 +71,17 @@ func (h *SpaceManifest) apply(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space-manifest.apply")
 
 	spaceGUID := routing.URLParam(r, "spaceGUID")
-	var manifest payloads.Manifest
-	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
+
+	manifest, err := BodyToObject[payloads.Manifest](r, false)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	if err := h.manifestApplier.Apply(r.Context(), authInfo, spaceGUID, manifest); err != nil {
+	if err := h.payloadValidator.ValidatePayload(manifest); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
+	}
+
+	if err := h.manifestApplier.Apply(r.Context(), authInfo, spaceGUID, *manifest); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error applying manifest")
 	}
 

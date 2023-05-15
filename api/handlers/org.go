@@ -38,11 +38,11 @@ type Org struct {
 	apiBaseURL                               url.URL
 	orgRepo                                  CFOrgRepository
 	domainRepo                               CFDomainRepository
-	decoderValidator                         *DecoderValidator
+	decoderValidator                         *GoPlaygroundValidator
 	userCertificateExpirationWarningDuration time.Duration
 }
 
-func NewOrg(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator, userCertificateExpirationWarningDuration time.Duration) *Org {
+func NewOrg(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *GoPlaygroundValidator, userCertificateExpirationWarningDuration time.Duration) *Org {
 	return &Org{
 		apiBaseURL:                               apiBaseURL,
 		orgRepo:                                  orgRepo,
@@ -56,8 +56,12 @@ func (h *Org) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.create")
 
-	var payload payloads.OrgCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.OrgCreate](r, true)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "incorrect-payload-for-create-org")
+	}
+
+	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "invalid-payload-for-create-org")
 	}
 
@@ -81,9 +85,13 @@ func (h *Org) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch org from Kubernetes", "OrgGUID", orgGUID)
 	}
 
-	var payload payloads.OrgPatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.OrgPatch](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err = h.decoderValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	org, err := h.orgRepo.PatchOrgMetadata(r.Context(), authInfo, payload.ToMessage(orgGUID))

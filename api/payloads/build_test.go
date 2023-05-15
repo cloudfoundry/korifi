@@ -1,13 +1,8 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 )
@@ -15,14 +10,12 @@ import (
 var _ = Describe("BuildCreate", func() {
 	Describe("Decode", func() {
 		var (
-			createPayload       payloads.BuildCreate
-			decodedBuildPayload *payloads.BuildCreate
-			validatorErr        error
+			createPayload *payloads.BuildCreate
+			validatorErr  error
 		)
 
 		BeforeEach(func() {
-			decodedBuildPayload = new(payloads.BuildCreate)
-			createPayload = payloads.BuildCreate{
+			createPayload = &payloads.BuildCreate{
 				Package: &payloads.RelationshipData{
 					GUID: "some-build-guid",
 				},
@@ -30,18 +23,11 @@ var _ = Describe("BuildCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			body, err := json.Marshal(createPayload)
-			Expect(err).NotTo(HaveOccurred())
-
-			req, err := http.NewRequest("", "", bytes.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedBuildPayload)
+			validatorErr = validator.ValidatePayload(createPayload)
 		})
 
 		It("succeeds", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
-			Expect(decodedBuildPayload).To(gstruct.PointTo(Equal(createPayload)))
 		})
 
 		When("package is not provided", func() {

@@ -1,15 +1,10 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
-
-	"github.com/onsi/gomega/gstruct"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	. "github.com/onsi/ginkgo/v2"
@@ -42,14 +37,12 @@ var _ = Describe("TaskList", func() {
 
 var _ = Describe("TaskCreate", func() {
 	var (
-		createPayload payloads.TaskCreate
-		taskCreate    *payloads.TaskCreate
+		createPayload *payloads.TaskCreate
 		validatorErr  error
 	)
 
 	BeforeEach(func() {
-		taskCreate = new(payloads.TaskCreate)
-		createPayload = payloads.TaskCreate{
+		createPayload = &payloads.TaskCreate{
 			Command: "sleep 9000",
 			Metadata: payloads.Metadata{
 				Labels: map[string]string{
@@ -64,18 +57,11 @@ var _ = Describe("TaskCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(createPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, taskCreate)
+		validatorErr = validator.ValidatePayload(createPayload)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(taskCreate).To(gstruct.PointTo(Equal(createPayload)))
 	})
 
 	When("no command is set", func() {
@@ -118,7 +104,7 @@ var _ = Describe("TaskCreate", func() {
 
 	Context("ToMessage()", func() {
 		It("converts to repo message correctly", func() {
-			msg := taskCreate.ToMessage(repositories.AppRecord{GUID: "appGUID", SpaceGUID: "spaceGUID"})
+			msg := createPayload.ToMessage(repositories.AppRecord{GUID: "appGUID", SpaceGUID: "spaceGUID"})
 			Expect(msg.AppGUID).To(Equal("appGUID"))
 			Expect(msg.SpaceGUID).To(Equal("spaceGUID"))
 			Expect(msg.Metadata.Labels).To(Equal(map[string]string{
@@ -134,14 +120,12 @@ var _ = Describe("TaskCreate", func() {
 
 var _ = Describe("TaskUpdate", func() {
 	var (
-		updatePayload payloads.TaskUpdate
-		taskUpdate    *payloads.TaskUpdate
+		updatePayload *payloads.TaskUpdate
 		validatorErr  error
 	)
 
 	BeforeEach(func() {
-		taskUpdate = new(payloads.TaskUpdate)
-		updatePayload = payloads.TaskUpdate{
+		updatePayload = &payloads.TaskUpdate{
 			Metadata: payloads.MetadataPatch{
 				Labels: map[string]*string{
 					"foo": tools.PtrTo("bar"),
@@ -155,18 +139,11 @@ var _ = Describe("TaskUpdate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(updatePayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, taskUpdate)
+		validatorErr = validator.ValidatePayload(updatePayload)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(taskUpdate).To(gstruct.PointTo(Equal(updatePayload)))
 	})
 
 	When("metadata.labels contains an invalid key", func() {
@@ -199,7 +176,7 @@ var _ = Describe("TaskUpdate", func() {
 
 	Context("toMessage()", func() {
 		It("converts to repo message correctly", func() {
-			msg := taskUpdate.ToMessage("taskGUID", "spaceGUID")
+			msg := updatePayload.ToMessage("taskGUID", "spaceGUID")
 			Expect(msg.TaskGUID).To(Equal("taskGUID"))
 			Expect(msg.SpaceGUID).To(Equal("spaceGUID"))
 			Expect(msg.MetadataPatch.Labels).To(Equal(map[string]*string{

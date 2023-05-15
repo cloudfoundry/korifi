@@ -1,11 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	"code.cloudfoundry.org/korifi/api/errors"
@@ -14,20 +9,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("RoleCreate", func() {
 	var (
-		createPayload payloads.RoleCreate
-		roleCreate    *payloads.RoleCreate
+		createPayload *payloads.RoleCreate
 		validatorErr  error
 		apiError      errors.ApiError
 	)
 
 	BeforeEach(func() {
-		roleCreate = new(payloads.RoleCreate)
-		createPayload = payloads.RoleCreate{
+		createPayload = &payloads.RoleCreate{
 			Type: "space_manager",
 			Relationships: payloads.RoleRelationships{
 				User: &payloads.UserRelationship{
@@ -45,19 +37,12 @@ var _ = Describe("RoleCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(createPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, roleCreate)
+		validatorErr = validator.ValidatePayload(createPayload)
 		apiError, _ = validatorErr.(errors.ApiError)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(roleCreate).To(PointTo(Equal(createPayload)))
 	})
 
 	When("the user name is missing", func() {
@@ -140,7 +125,7 @@ var _ = Describe("RoleCreate", func() {
 
 	Context("ToMessage()", func() {
 		It("converts to repo message correctly", func() {
-			msg := roleCreate.ToMessage()
+			msg := createPayload.ToMessage()
 			Expect(msg.Type).To(Equal("space_manager"))
 			Expect(msg.Space).To(Equal("cf-space-guid"))
 			Expect(msg.User).To(Equal("cf-service-account"))
@@ -155,12 +140,11 @@ var _ = Describe("RoleCreate", func() {
 
 		It("succeeds", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
-			Expect(roleCreate).To(PointTo(Equal(createPayload)))
 		})
 
 		Context("ToMessage()", func() {
 			It("converts to repo message correctly", func() {
-				msg := roleCreate.ToMessage()
+				msg := createPayload.ToMessage()
 				Expect(msg.Type).To(Equal("space_manager"))
 				Expect(msg.Space).To(Equal("cf-space-guid"))
 				Expect(msg.User).To(Equal("cf-service-account"))
@@ -173,27 +157,31 @@ var _ = Describe("RoleCreate", func() {
 
 var _ = DescribeTable("Role org / space combination validation",
 	func(role, orgOrSpace string, succeeds bool, errMsg string) {
-		createRoleRequestBody := fmt.Sprintf(`{
-				"type": "%s",
-				"relationships": {
-					"user": {
-						"data": {
-							"username": "my-user"
-						}
+		createRolePayload := payloads.RoleCreate{
+			Type: role,
+			Relationships: payloads.RoleRelationships{
+				User: &payloads.UserRelationship{
+					Data: payloads.UserRelationshipData{
+						Username: "my-user",
 					},
-					"%s": {
-						"data": {
-							"guid": "some-guid"
-						}
-					}
-				}
-			}`, role, orgOrSpace)
+				},
+			},
+		}
 
-		req, err := http.NewRequest("", "", bytes.NewReader([]byte(createRoleRequestBody)))
-		Expect(err).NotTo(HaveOccurred())
-
-		var roleCreate payloads.RoleCreate
-		err = validator.DecodeAndValidateJSONPayload(req, &roleCreate)
+		if orgOrSpace == "organization" {
+			createRolePayload.Relationships.Organization = &payloads.Relationship{
+				Data: &payloads.RelationshipData{
+					GUID: "some-guid",
+				},
+			}
+		} else if orgOrSpace == "space" {
+			createRolePayload.Relationships.Space = &payloads.Relationship{
+				Data: &payloads.RelationshipData{
+					GUID: "some-guid",
+				},
+			}
+		}
+		err := validator.ValidatePayload(createRolePayload)
 
 		if succeeds {
 			Expect(err).NotTo(HaveOccurred())

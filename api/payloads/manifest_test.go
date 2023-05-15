@@ -2,6 +2,7 @@ package payloads_test
 
 import (
 	. "code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/validators"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,29 +13,32 @@ import (
 var _ = Describe("Manifest payload", func() {
 	const spaceGUID = "the-space-guid"
 
+	var (
+		validator         validators.Manifest
+		testSpaceManifest Manifest
+		validateErr       error
+	)
+
+	BeforeEach(func() {
+		validator = validators.NewManifest()
+
+		testSpaceManifest = Manifest{
+			Applications: []ManifestApplication{{
+				Name:         "test-app",
+				DefaultRoute: true,
+				Memory:       nil,
+				DiskQuota:    nil,
+				Metadata:     MetadataPatch{},
+			}},
+		}
+	})
+
+	JustBeforeEach(func() {
+		validateErr = validator.ValidatePayload(testSpaceManifest)
+	})
+
 	Describe("Manifest", func() {
 		Describe("Validate", func() {
-			var (
-				testSpaceManifest Manifest
-				validateErr       error
-			)
-
-			BeforeEach(func() {
-				testSpaceManifest = Manifest{
-					Applications: []ManifestApplication{{
-						Name:         "test-app",
-						DefaultRoute: true,
-						Memory:       nil,
-						DiskQuota:    nil,
-						Metadata:     MetadataPatch{},
-					}},
-				}
-			})
-
-			JustBeforeEach(func() {
-				validateErr = testSpaceManifest.Validate()
-			})
-
 			It("validates the struct", func() {
 				Expect(validateErr).NotTo(HaveOccurred())
 			})
@@ -52,10 +56,7 @@ var _ = Describe("Manifest payload", func() {
 	})
 
 	Describe("ManifestApplication", func() {
-		var (
-			testManifest ManifestApplication
-			validateErr  error
-		)
+		var testManifest ManifestApplication
 
 		Describe("Validate", func() {
 			BeforeEach(func() {
@@ -63,10 +64,7 @@ var _ = Describe("Manifest payload", func() {
 					Name:         "test-app",
 					DefaultRoute: true,
 				}
-			})
-
-			JustBeforeEach(func() {
-				validateErr = testManifest.Validate()
+				testSpaceManifest.Applications = []ManifestApplication{testManifest}
 			})
 
 			It("validates the struct", func() {
@@ -75,127 +73,128 @@ var _ = Describe("Manifest payload", func() {
 
 			When("Name is empty", func() {
 				BeforeEach(func() {
-					testManifest.Name = ""
+					testSpaceManifest.Applications[0].Name = ""
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("name: cannot be blank."))
+					Expect(validateErr).To(MatchError(ContainSubstring("name: cannot be blank.")))
 				})
 			})
 
 			When("Instances is negative", func() {
 				BeforeEach(func() {
-					testManifest.Instances = tools.PtrTo(-1)
+					testSpaceManifest.Applications[0].Instances = tools.PtrTo(-1)
 				})
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("instances: must be no less than 0."))
+					Expect(validateErr).To(MatchError(ContainSubstring("instances: must be no less than 0.")))
 				})
 			})
 
 			When("the disk quota doesn't supply a unit", func() {
 				BeforeEach(func() {
-					testManifest.DiskQuota = tools.PtrTo("1024")
+					testSpaceManifest.Applications[0].DiskQuota = tools.PtrTo("1024")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk_quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB).")))
 				})
 			})
 
 			When("the disk quota is not positive", func() {
 				BeforeEach(func() {
-					testManifest.DiskQuota = tools.PtrTo("0MB")
+					testSpaceManifest.Applications[0].DiskQuota = tools.PtrTo("0MB")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: must be greater than 0MB."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk_quota: must be greater than 0MB.")))
 				})
 			})
 
 			When("the alt disk quota doesn't supply a unit", func() {
 				BeforeEach(func() {
-					testManifest.AltDiskQuota = tools.PtrTo("1024")
+					testSpaceManifest.Applications[0].AltDiskQuota = tools.PtrTo("1024")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk-quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk-quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB).")))
 				})
 			})
 
 			When("the alt disk quota is not positive", func() {
 				BeforeEach(func() {
-					testManifest.AltDiskQuota = tools.PtrTo("0MB")
+					testSpaceManifest.Applications[0].AltDiskQuota = tools.PtrTo("0MB")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk-quota: must be greater than 0MB."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk-quota: must be greater than 0MB.")))
 				})
 			})
 
 			When("app disk-quota and app disk_quota are both set", func() {
 				BeforeEach(func() {
-					testManifest.DiskQuota = tools.PtrTo("128M")
-					testManifest.AltDiskQuota = tools.PtrTo("128M")
+					testSpaceManifest.Applications[0].DiskQuota = tools.PtrTo("128M")
+					testSpaceManifest.Applications[0].AltDiskQuota = tools.PtrTo("128M")
 				})
 
 				It("response with an unprocessable entity error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: and disk-quota may not be used together."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk_quota: and disk-quota may not be used together.")))
 				})
 			})
 
 			When("HealthCheckInvocationTimeout is not positive", func() {
 				BeforeEach(func() {
-					testManifest.HealthCheckInvocationTimeout = tools.PtrTo(int64(0))
+					testSpaceManifest.Applications[0].HealthCheckInvocationTimeout = tools.PtrTo(int64(0))
 				})
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("health-check-invocation-timeout: must be no less than 1."))
+					Expect(validateErr).To(MatchError(ContainSubstring("health-check-invocation-timeout: must be no less than 1.")))
 				})
 			})
 
 			When("HealthCheckType is invalid", func() {
 				BeforeEach(func() {
-					testManifest.HealthCheckType = tools.PtrTo("FakeHealthcheckType")
+					testSpaceManifest.Applications[0].HealthCheckType = tools.PtrTo("FakeHealthcheckType")
 				})
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("health-check-type: must be a valid value."))
+					Expect(validateErr).To(MatchError(ContainSubstring("health-check-type: must be a valid value.")))
 				})
 			})
 
 			When("Timeout is not positive", func() {
 				BeforeEach(func() {
-					testManifest.Timeout = tools.PtrTo(int64(0))
+					testSpaceManifest.Applications[0].Timeout = tools.PtrTo(int64(0))
 				})
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("timeout: must be no less than 1."))
+					Expect(validateErr).To(MatchError(ContainSubstring("timeout: must be no less than 1.")))
 				})
 			})
 
 			When("Memory units not valid", func() {
 				BeforeEach(func() {
-					testManifest.Memory = tools.PtrTo("5CUPS")
+					testSpaceManifest.Applications[0].Memory = tools.PtrTo("5CUPS")
 				})
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("memory: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					Expect(validateErr).To(MatchError(ContainSubstring("memory: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB).")))
 				})
 			})
 
 			When("the memory is not positive", func() {
 				BeforeEach(func() {
-					testManifest.Memory = tools.PtrTo("0MB")
+					testSpaceManifest.Applications[0].Memory = tools.PtrTo("0MB")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("memory: must be greater than 0MB."))
+					Expect(validateErr).To(MatchError(ContainSubstring("memory: must be greater than 0MB.")))
 				})
 			})
 
 			When("random-route and default-route flags are both set", func() {
 				BeforeEach(func() {
-					testManifest.DefaultRoute = true
-					testManifest.RandomRoute = true
+					testSpaceManifest.Applications[0].DefaultRoute = true
+					testSpaceManifest.Applications[0].RandomRoute = true
 				})
 
 				It("response with an unprocessable entity error", func() {
-					Expect(validateErr).To(MatchError("default-route: and random-route may not be used together."))
+					Expect(validateErr).To(MatchError(ContainSubstring("default-route: and random-route may not be used together.")))
 				})
 			})
 		})
@@ -203,19 +202,10 @@ var _ = Describe("Manifest payload", func() {
 
 	Describe("ManifestApplicationProcess", func() {
 		Describe("Validate", func() {
-			var (
-				testManifestProcess ManifestApplicationProcess
-				validateErr         error
-			)
-
 			BeforeEach(func() {
-				testManifestProcess = ManifestApplicationProcess{
-					Type: "some-type",
+				testSpaceManifest.Applications[0].Processes = []ManifestApplicationProcess{
+					{Type: "some-type"},
 				}
-			})
-
-			JustBeforeEach(func() {
-				validateErr = testManifestProcess.Validate()
 			})
 
 			It("Validates the struct", func() {
@@ -224,119 +214,119 @@ var _ = Describe("Manifest payload", func() {
 
 			When("the type is empty", func() {
 				BeforeEach(func() {
-					testManifestProcess.Type = ""
+					testSpaceManifest.Applications[0].Processes[0].Type = ""
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("type: cannot be blank."))
+					Expect(validateErr).To(MatchError(ContainSubstring("type: cannot be blank.")))
 				})
 			})
 
 			When("the disk quota doesn't supply a unit", func() {
 				BeforeEach(func() {
-					testManifestProcess.DiskQuota = tools.PtrTo("1024")
+					testSpaceManifest.Applications[0].Processes[0].DiskQuota = tools.PtrTo("1024")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk_quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB).")))
 				})
 			})
 
 			When("the disk quota is not positive", func() {
 				BeforeEach(func() {
-					testManifestProcess.DiskQuota = tools.PtrTo("0MB")
+					testSpaceManifest.Applications[0].Processes[0].DiskQuota = tools.PtrTo("0MB")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: must be greater than 0MB."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk_quota: must be greater than 0MB.")))
 				})
 			})
 
 			When("the alt disk quota doesn't supply a unit", func() {
 				BeforeEach(func() {
-					testManifestProcess.AltDiskQuota = tools.PtrTo("1024")
+					testSpaceManifest.Applications[0].Processes[0].AltDiskQuota = tools.PtrTo("1024")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk-quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk-quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB).")))
 				})
 			})
 
 			When("the alt disk quota is not positive", func() {
 				BeforeEach(func() {
-					testManifestProcess.AltDiskQuota = tools.PtrTo("0MB")
+					testSpaceManifest.Applications[0].Processes[0].AltDiskQuota = tools.PtrTo("0MB")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk-quota: must be greater than 0MB."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk-quota: must be greater than 0MB.")))
 				})
 			})
 
 			When("app disk-quota and app disk_quota are both set", func() {
 				BeforeEach(func() {
-					testManifestProcess.DiskQuota = tools.PtrTo("128M")
-					testManifestProcess.AltDiskQuota = tools.PtrTo("128M")
+					testSpaceManifest.Applications[0].Processes[0].DiskQuota = tools.PtrTo("128M")
+					testSpaceManifest.Applications[0].Processes[0].AltDiskQuota = tools.PtrTo("128M")
 				})
 
 				It("response with an unprocessable entity error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: and disk-quota may not be used together."))
+					Expect(validateErr).To(MatchError(ContainSubstring("disk_quota: and disk-quota may not be used together.")))
 				})
 			})
 
 			When("HealthCheckInvocationTimeout is not positive", func() {
 				BeforeEach(func() {
-					testManifestProcess.HealthCheckInvocationTimeout = tools.PtrTo(int64(0))
+					testSpaceManifest.Applications[0].Processes[0].HealthCheckInvocationTimeout = tools.PtrTo(int64(0))
 				})
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("health-check-invocation-timeout: must be no less than 1."))
+					Expect(validateErr).To(MatchError(ContainSubstring("health-check-invocation-timeout: must be no less than 1.")))
 				})
 			})
 
 			When("HealthCheckType is invalid", func() {
 				BeforeEach(func() {
-					testManifestProcess.HealthCheckType = tools.PtrTo("FakeHealthcheckType")
+					testSpaceManifest.Applications[0].Processes[0].HealthCheckType = tools.PtrTo("FakeHealthcheckType")
 				})
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("health-check-type: must be a valid value."))
+					Expect(validateErr).To(MatchError(ContainSubstring("health-check-type: must be a valid value.")))
 				})
 			})
 
 			When("Instances is negative", func() {
 				BeforeEach(func() {
-					testManifestProcess.Instances = tools.PtrTo(-1)
+					testSpaceManifest.Applications[0].Processes[0].Instances = tools.PtrTo(-1)
 				})
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("instances: must be no less than 0."))
+					Expect(validateErr).To(MatchError(ContainSubstring("instances: must be no less than 0.")))
 				})
 			})
 
 			When("the memory doesn't supply a unit", func() {
 				BeforeEach(func() {
-					testManifestProcess.Memory = tools.PtrTo("1024")
+					testSpaceManifest.Applications[0].Processes[0].Memory = tools.PtrTo("1024")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("memory: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					Expect(validateErr).To(MatchError(ContainSubstring("memory: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB).")))
 				})
 			})
 
 			When("the memory is not positive", func() {
 				BeforeEach(func() {
-					testManifestProcess.Memory = tools.PtrTo("0MB")
+					testSpaceManifest.Applications[0].Processes[0].Memory = tools.PtrTo("0MB")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("memory: must be greater than 0MB."))
+					Expect(validateErr).To(MatchError(ContainSubstring("memory: must be greater than 0MB.")))
 				})
 			})
 
 			When("Timeout is not positive", func() {
 				BeforeEach(func() {
-					testManifestProcess.Timeout = tools.PtrTo(int64(0))
+					testSpaceManifest.Applications[0].Processes[0].Timeout = tools.PtrTo(int64(0))
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("timeout: must be no less than 1."))
+					Expect(validateErr).To(MatchError(ContainSubstring("timeout: must be no less than 1.")))
 				})
 			})
 		})
@@ -528,27 +518,21 @@ var _ = Describe("Manifest payload", func() {
 	})
 
 	Describe("ManifestRoute", func() {
-		var (
-			validateErr       error
-			testManifestRoute ManifestRoute
-		)
 		BeforeEach(func() {
-			testManifestRoute = ManifestRoute{}
+			testSpaceManifest.Applications[0].Routes = []ManifestRoute{{}}
 		})
-		JustBeforeEach(func() {
-			validateErr = testManifestRoute.Validate()
-		})
+
 		It("validates the struct", func() {
 			Expect(validateErr).NotTo(HaveOccurred())
 		})
 
 		When("the route is not valid", func() {
 			BeforeEach(func() {
-				testManifestRoute.Route = tools.PtrTo("httpp://invalidprotocol.net")
+				testSpaceManifest.Applications[0].Routes[0].Route = tools.PtrTo("httpp://invalidprotocol.net")
 			})
 
 			It("returns a validation error", func() {
-				Expect(validateErr).To(MatchError("route: is not a valid route."))
+				Expect(validateErr).To(MatchError(ContainSubstring("route: is not a valid route.")))
 			})
 		})
 	})

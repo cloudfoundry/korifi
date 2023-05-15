@@ -9,11 +9,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var validator *handlers.DecoderValidator
+var validator handlers.PayloadValidator
 
 var _ = BeforeEach(func() {
 	var err error
-	validator, err = handlers.NewDefaultDecoderValidator()
+	validator, err = handlers.NewGoPlaygroundValidator()
 	Expect(err).NotTo(HaveOccurred())
 })
 

@@ -33,13 +33,13 @@ type CFDomainRepository interface {
 
 type Domain struct {
 	serverURL            url.URL
-	requestJSONValidator RequestJSONValidator
+	requestJSONValidator PayloadValidator
 	domainRepo           CFDomainRepository
 }
 
 func NewDomain(
 	serverURL url.URL,
-	requestJSONValidator RequestJSONValidator,
+	requestJSONValidator PayloadValidator,
 	domainRepo CFDomainRepository,
 ) *Domain {
 	return &Domain{
@@ -53,9 +53,13 @@ func (h *Domain) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.create")
 
-	var payload payloads.DomainCreate
-	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.DomainCreate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	if err := h.requestJSONValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
 	domainCreateMessage, err := payload.ToMessage()
@@ -92,12 +96,16 @@ func (h *Domain) update(r *http.Request) (*routing.Response, error) { //nolint:d
 
 	domainGUID := routing.URLParam(r, "guid")
 
-	var payload payloads.DomainUpdate
-	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	payload, err := BodyToObject[payloads.DomainUpdate](r, true)
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	_, err := h.domainRepo.GetDomain(r.Context(), authInfo, domainGUID)
+	if err := h.requestJSONValidator.ValidatePayload(payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
+	}
+
+	_, err = h.domainRepo.GetDomain(r.Context(), authInfo, domainGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error getting domain in repository")
 	}
