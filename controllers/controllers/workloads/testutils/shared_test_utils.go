@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	CFAppLabelKey         = "korifi.cloudfoundry.org/app-guid"
-	cfAppRevisionKey      = "korifi.cloudfoundry.org/app-rev"
-	CFProcessGUIDLabelKey = "korifi.cloudfoundry.org/process-guid"
-	CFProcessTypeLabelKey = "korifi.cloudfoundry.org/process-type"
-	appFinalizerName      = "cfApp.korifi.cloudfoundry.org"
+	CFAppLabelKey            = "korifi.cloudfoundry.org/app-guid"
+	cfAppRevisionKey         = "korifi.cloudfoundry.org/app-rev"
+	cfAppLastStopRevisionKey = "korifi.cloudfoundry.org/last-stop-app-rev"
+	CFProcessGUIDLabelKey    = "korifi.cloudfoundry.org/process-guid"
+	CFProcessTypeLabelKey    = "korifi.cloudfoundry.org/process-type"
+	appFinalizerName         = "cfApp.korifi.cloudfoundry.org"
 )
 
 func GenerateGUID() string {
@@ -43,7 +44,8 @@ func BuildCFAppCRObject(appGUID string, spaceGUID string) *korifiv1alpha1.CFApp 
 			Name:      appGUID,
 			Namespace: spaceGUID,
 			Annotations: map[string]string{
-				cfAppRevisionKey: "0",
+				cfAppRevisionKey:         "5",
+				cfAppLastStopRevisionKey: "2",
 			},
 			Finalizers: []string{
 				appFinalizerName,

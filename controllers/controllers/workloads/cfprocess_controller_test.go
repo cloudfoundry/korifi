@@ -2,8 +2,6 @@ package workloads_test
 
 import (
 	"context"
-	"crypto/sha1"
-	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -15,7 +13,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -145,6 +142,8 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppRevisionKey, cfApp.Annotations[cfAppRevisionKey]))
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessGUIDLabelKey, testProcessGUID))
 				g.Expect(appWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessTypeLabelKey, cfProcess.Spec.ProcessType))
+
+				g.Expect(appWorkload.ObjectMeta.Annotations).To(HaveKeyWithValue(korifiv1alpha1.CFAppLastStopRevisionKey, cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]))
 
 				g.Expect(appWorkload.Spec.GUID).To(Equal(cfProcess.Name))
 				g.Expect(appWorkload.Spec.Version).To(Equal(cfApp.Annotations[cfAppRevisionKey]))
@@ -301,6 +300,78 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				}).Should(Succeed())
 			})
 		})
+
+		When("both the app-rev and the last-stop-app-rev are bumped", func() {
+			var prevAppWorkloadName string
+
+			JustBeforeEach(func() {
+				Eventually(func(g Gomega) {
+					var appWorkloads korifiv1alpha1.AppWorkloadList
+					g.Expect(k8sClient.List(context.Background(), &appWorkloads,
+						client.InNamespace(cfSpace.Status.GUID),
+						client.MatchingLabels{
+							korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
+						}),
+					).To(Succeed())
+					g.Expect(appWorkloads.Items).To(HaveLen(1))
+					prevAppWorkloadName = appWorkloads.Items[0].Name
+				}).Should(Succeed())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+					cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = "6"
+					cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = "6"
+				})).To(Succeed())
+			})
+
+			It("deletes the app workload and createas a new one", func() {
+				Eventually(func(g Gomega) {
+					var appWorkloads korifiv1alpha1.AppWorkloadList
+					g.Expect(k8sClient.List(context.Background(), &appWorkloads,
+						client.InNamespace(cfSpace.Status.GUID),
+						client.MatchingLabels{
+							korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
+						}),
+					).To(Succeed())
+					g.Expect(appWorkloads.Items).To(HaveLen(1))
+					g.Expect(appWorkloads.Items[0].Name).ToNot(Equal(prevAppWorkloadName))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the app-rev is bumped and the last-stop-app-rev is not", func() {
+			var appWorkloadName string
+
+			JustBeforeEach(func() {
+				Eventually(func(g Gomega) {
+					var appWorkloads korifiv1alpha1.AppWorkloadList
+					g.Expect(k8sClient.List(context.Background(), &appWorkloads,
+						client.InNamespace(cfSpace.Status.GUID),
+						client.MatchingLabels{
+							korifiv1alpha1.CFProcessGUIDLabelKey: testProcessGUID,
+						}),
+					).To(Succeed())
+					g.Expect(appWorkloads.Items).To(HaveLen(1))
+					appWorkloadName = appWorkloads.Items[0].Name
+				}).Should(Succeed())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+					cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = "6"
+				})).To(Succeed())
+			})
+
+			It("does not delete the app workload", func() {
+				appWorkload := korifiv1alpha1.AppWorkload{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: cfProcess.Namespace,
+						Name:      appWorkloadName,
+					},
+				}
+
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&appWorkload), &appWorkload)).To(Succeed())
+				}, "1s").Should(Succeed())
+			})
+		})
 	})
 
 	When("a CFRoute destination specifying a different port already exists before the app is started", func() {
@@ -385,98 +456,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					g.Expect(appWorkload.Spec.LivenessProbe.FailureThreshold).To(BeEquivalentTo(1))
 				})
 			})
-		})
-	})
-
-	When("the CFApp has an AppWorkload and is restarted by bumping the \"rev\" annotation", func() {
-		var newRevValue string
-		JustBeforeEach(func() {
-			appRev := cfApp.Annotations[cfAppRevisionKey]
-			h := sha1.New()
-			h.Write([]byte(appRev))
-			appRevHash := h.Sum(nil)
-			appWorkload1Name := testProcessGUID + fmt.Sprintf("-%x", appRevHash)[:5]
-			// Create the rev1 AppWorkload
-			rev1AppWorkload := &korifiv1alpha1.AppWorkload{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      appWorkload1Name,
-					Namespace: cfSpace.Status.GUID,
-					Labels: map[string]string{
-						CFAppGUIDLabelKey:     cfApp.Name,
-						cfAppRevisionKey:      appRev,
-						CFProcessGUIDLabelKey: testProcessGUID,
-						CFProcessTypeLabelKey: cfProcess.Spec.ProcessType,
-					},
-				},
-				Spec: korifiv1alpha1.AppWorkloadSpec{
-					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "some-image-pull-secret"}},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory:           resource.MustParse("1Mi"),
-							corev1.ResourceEphemeralStorage: resource.MustParse("1Mi"),
-						},
-						Limits: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("1Mi"),
-						},
-					},
-				},
-			}
-			Expect(
-				k8sClient.Create(ctx, rev1AppWorkload),
-			).To(Succeed())
-
-			// Set CFApp annotation.rev 0->1 & set state to started to trigger reconcile
-			newRevValue = "1"
-			cfApp.Annotations[cfAppRevisionKey] = newRevValue
-			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			Expect(
-				k8sClient.Create(ctx, cfApp),
-			).To(Succeed())
-		})
-
-		It("deletes the old AppWorkload, and creates a new AppWorkload for the current revision", func() {
-			// check that AppWorkload rev1 is eventually created
-			var rev2AppWorkload *korifiv1alpha1.AppWorkload
-			Eventually(func() bool {
-				var appWorkloads korifiv1alpha1.AppWorkloadList
-				err := k8sClient.List(ctx, &appWorkloads, client.InNamespace(cfSpace.Status.GUID))
-				if err != nil {
-					return false
-				}
-
-				for _, currentAppWorkload := range appWorkloads.Items {
-					if processGUIDLabel, has := currentAppWorkload.Labels[CFProcessGUIDLabelKey]; has && processGUIDLabel == testProcessGUID {
-						if revLabel, has := currentAppWorkload.Labels[cfAppRevisionKey]; has && revLabel == newRevValue {
-							rev2AppWorkload = &currentAppWorkload
-							return true
-						}
-					}
-				}
-				return false
-			}).Should(BeTrue(), "Timed out waiting for creation of AppWorkload/%s in namespace %s", testProcessGUID, cfSpace.Status.GUID)
-
-			Expect(rev2AppWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFAppGUIDLabelKey, testAppGUID))
-			Expect(rev2AppWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(cfAppRevisionKey, cfApp.Annotations[cfAppRevisionKey]))
-			Expect(rev2AppWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessGUIDLabelKey, testProcessGUID))
-			Expect(rev2AppWorkload.ObjectMeta.Labels).To(HaveKeyWithValue(CFProcessTypeLabelKey, cfProcess.Spec.ProcessType))
-
-			// check that AppWorkload rev0 is eventually deleted
-			Eventually(func() bool {
-				var appWorkloads korifiv1alpha1.AppWorkloadList
-				err := k8sClient.List(ctx, &appWorkloads, client.InNamespace(cfSpace.Status.GUID))
-				if err != nil {
-					return true
-				}
-
-				for _, currentAppWorkload := range appWorkloads.Items {
-					if processGUIDLabel, has := currentAppWorkload.Labels[CFProcessGUIDLabelKey]; has && processGUIDLabel == testProcessGUID {
-						if revLabel, has := currentAppWorkload.Labels[cfAppRevisionKey]; has && revLabel == korifiv1alpha1.CFAppRevisionKeyDefault {
-							return true
-						}
-					}
-				}
-				return false
-			}).Should(BeFalse(), "Timed out waiting for deletion of AppWorkload/%s in namespace %s", testProcessGUID, cfSpace.Status.GUID)
 		})
 	})
 
