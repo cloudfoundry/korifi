@@ -46,7 +46,9 @@ func (r *AppRevWebhook) Handle(ctx context.Context, req admission.Request) admis
 	}
 
 	if cfApp.Spec.DesiredState == korifiv1alpha1.StoppedState && oldCFApp.Spec.DesiredState == korifiv1alpha1.StartedState {
-		cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = bumpAppRev(cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey])
+		newAppRev := bumpAppRev(cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey])
+		cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = newAppRev
+		cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = newAppRev
 	}
 
 	marshalled, err := json.Marshal(cfApp)

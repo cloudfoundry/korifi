@@ -58,6 +58,10 @@ var _ = Describe("ApprevWebhook", func() {
 			Expect(app.Annotations[korifiv1alpha1.CFAppRevisionKey]).To(Equal("6"))
 		})
 
+		It("updates status.lastStopAppRev", func() {
+			Expect(app.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("6"))
+		})
+
 		When("the app rev is not a number", func() {
 			BeforeEach(func() {
 				app.Annotations[korifiv1alpha1.CFAppRevisionKey] = "a"

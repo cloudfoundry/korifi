@@ -121,6 +121,13 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 		return ctrl.Result{}, err
 	}
 
+	if cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] == "" {
+		if cfApp.Annotations == nil {
+			cfApp.Annotations = map[string]string{}
+		}
+		cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey]
+	}
+
 	secretName := cfApp.Name + "-vcap-application"
 	err = r.reconcileVCAPSecret(ctx, log, cfApp, secretName, r.vcapApplicationEnvBuilder)
 	if err != nil {

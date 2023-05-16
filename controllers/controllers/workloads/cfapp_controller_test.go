@@ -48,6 +48,9 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: cfSpace.Status.GUID,
+					Annotations: map[string]string{
+						korifiv1alpha1.CFAppRevisionKey: "42",
+					},
 				},
 				Spec: korifiv1alpha1.CFAppSpec{
 					DisplayName:  "test-app",
@@ -106,6 +109,30 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Name: serviceInstanceSecret.Name,
 				}
 			})).To(Succeed())
+		})
+
+		It("sets the last-stop-app-rev annotation to the value of the app-rev annotation", func() {
+			Eventually(func(g Gomega) {
+				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(createdCFApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("42"))
+			}).Should(Succeed())
+		})
+
+		When("status.lastStopAppRev is not empty", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+					cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = "2"
+				})).To(Succeed())
+			})
+
+			It("doesn't set it", func() {
+				Consistently(func(g Gomega) {
+					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(createdCFApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("2"))
+				}, "1s").Should(Succeed())
+			})
 		})
 
 		It("sets status.vcapApplicationSecretName and creates the corresponding secret", func() {
