@@ -81,7 +81,7 @@ func (h *SpaceManifest) apply(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
-	if err := h.manifestApplier.Apply(r.Context(), authInfo, spaceGUID, *manifest); err != nil {
+	if err := h.manifestApplier.Apply(r.Context(), authInfo, spaceGUID, manifest); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error applying manifest")
 	}
 

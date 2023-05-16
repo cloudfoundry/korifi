@@ -302,34 +302,31 @@ var _ = Describe("Package", func() {
 	})
 
 	Describe("the POST /v3/packages endpoint", func() {
-		var appUID types.UID
+		var (
+			appUID types.UID
+			body   string
+		)
 
 		BeforeEach(func() {
 			appUID = "appUID"
-			body := &payloads.PackageCreate{
-				Type: "bits",
-				Relationships: &payloads.PackageRelationships{
-					App: &payloads.Relationship{
-						Data: &payloads.RelationshipData{
-							GUID: appGUID,
-						},
-					},
+			body = fmt.Sprintf(`{
+				"type: "bits",
+				"relationships": {
+					"app": {
+						"data": {
+							"guid": "%s"
+						}
+					}
 				},
-				Metadata: payloads.Metadata{
-					Labels: map[string]string{
-						"bob": "foo",
+				"metadata": {
+					"labels": {
+						"bob": "foo"
 					},
-					Annotations: map[string]string{
-						"jim": "foo",
-					},
-				},
-			}
-			payloadValidator.ValidatePayloadStub = func(i interface{}) error {
-				b, ok := i.(*payloads.PackageCreate)
-				Expect(ok).To(BeTrue())
-				*b = *body
-				return nil
-			}
+					"annotations": {
+						"jim": "foo"
+					}
+				}
+			}`, appGUID)
 
 			packageRepo.CreatePackageReturns(repositories.PackageRecord{
 				Type:        "bits",
@@ -351,7 +348,7 @@ var _ = Describe("Package", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(""))
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(body))
 			Expect(err).NotTo(HaveOccurred())
 
 			routerBuilder.Build().ServeHTTP(rr, req)

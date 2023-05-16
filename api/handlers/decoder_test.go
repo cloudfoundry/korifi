@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 )
 
 type example struct {
@@ -22,7 +21,7 @@ var _ = Describe("Decoder", func() {
 		ctype     string
 		body      string
 		onlyKnown bool
-		res       *example
+		res       example
 		resErr    error
 	)
 
@@ -49,7 +48,7 @@ var _ = Describe("Decoder", func() {
 
 		It("can load a request body into an object", func() {
 			Expect(resErr).NotTo(HaveOccurred())
-			Expect(res).To(PointTo(Equal(example{Foo: 42, Bar: "meaning"})))
+			Expect(res).To(Equal(example{Foo: 42, Bar: "meaning"}))
 		})
 	})
 
@@ -63,7 +62,7 @@ bar: meaning`
 
 		It("can load a request body into an object", func() {
 			Expect(resErr).NotTo(HaveOccurred())
-			Expect(res).To(PointTo(Equal(example{Foo: 42, Bar: "meaning"})))
+			Expect(res).To(Equal(example{Foo: 42, Bar: "meaning"}))
 		})
 	})
 
@@ -74,6 +73,17 @@ bar: meaning`
 
 		It("fails", func() {
 			Expect(resErr).To(MatchError(ContainSubstring("unsupported Content-Type")))
+		})
+	})
+
+	When("content-type empty", func() {
+		BeforeEach(func() {
+			ctype = ""
+			body = `{"foo": 42, "bar": "meaning"}`
+		})
+
+		It("defaults to JSON and succeeds", func() {
+			Expect(resErr).NotTo(HaveOccurred())
 		})
 	})
 

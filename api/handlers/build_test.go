@@ -9,7 +9,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
-	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
@@ -115,7 +114,7 @@ var _ = Describe("Build", func() {
 			buildRepo                   *fake.CFBuildRepository
 			payloadValidator            *fake.PayloadValidator
 			expectedLifecycleBuildpacks []string
-			payload                     payloads.BuildCreate
+			payload                     string
 		)
 
 		const (
@@ -134,21 +133,13 @@ var _ = Describe("Build", func() {
 		)
 
 		BeforeEach(func() {
-			payload = payloads.BuildCreate{
-				Package: &payloads.RelationshipData{
-					GUID: packageGUID,
-				},
-			}
+			payload = `{
+				"package": {
+					"guid": "the-package-guid"
+				}
+			}`
 
 			payloadValidator = new(fake.PayloadValidator)
-			payloadValidator.ValidatePayloadStub = func(i interface{}) error {
-				build, ok := i.(*payloads.BuildCreate)
-				Expect(ok).To(BeTrue())
-				*build = payload
-
-				return nil
-			}
-
 			expectedLifecycleBuildpacks = []string{"buildpack-a", "buildpack-b"}
 
 			packageRepo = new(fake.CFPackageRepository)
@@ -205,7 +196,7 @@ var _ = Describe("Build", func() {
 			routerBuilder.LoadRoutes(apiHandler)
 
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(""))
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(payload))
 			Expect(err).NotTo(HaveOccurred())
 		})
 

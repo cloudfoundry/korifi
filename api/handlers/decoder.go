@@ -17,7 +17,7 @@ type decoder interface {
 	Decode(any) error
 }
 
-func BodyToObject[T any](r *http.Request, onlyKnownFields bool) (*T, error) {
+func BodyToObject[T any](r *http.Request, onlyKnownFields bool) (T, error) {
 	var (
 		out T
 		d   decoder
@@ -28,12 +28,12 @@ func BodyToObject[T any](r *http.Request, onlyKnownFields bool) (*T, error) {
 
 	d, err = newDecoder(r, onlyKnownFields)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 
 	err = translateError(d.Decode(&out))
 
-	return &out, err
+	return out, err
 }
 
 func translateError(err error) error {
@@ -66,6 +66,8 @@ func newDecoder(r *http.Request, onlyKnownFields bool) (decoder, error) {
 	contentType := r.Header.Get("Content-Type")
 
 	switch contentType {
+	case "":
+		fallthrough
 	case "application/json":
 		dec := json.NewDecoder(r.Body)
 		if onlyKnownFields {

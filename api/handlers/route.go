@@ -121,7 +121,7 @@ func (h *Route) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	if err := h.decoderValidator.ValidatePayload(payload); err != nil {
+	if err = h.decoderValidator.ValidatePayload(payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to validate payload")
 	}
 
