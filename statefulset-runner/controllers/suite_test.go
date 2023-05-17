@@ -37,6 +37,9 @@ func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 			Name:       name,
 			Namespace:  namespace,
 			Generation: 1,
+			Annotations: map[string]string{
+				korifiv1alpha1.CFAppLastStopRevisionKey: "lastStopAppRev",
+			},
 		},
 		Spec: korifiv1alpha1.AppWorkloadSpec{
 			AppGUID:          "premium_app_guid_1234",
