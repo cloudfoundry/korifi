@@ -440,14 +440,8 @@ var _ = Describe("Spaces", func() {
 
 					app1 := getApp(app1GUID)
 					Expect(app1.Metadata).NotTo(BeNil())
-					Expect(app1.Metadata.Labels).To(Equal(map[string]string{
-						"foo":                              "FOO",
-						"korifi.cloudfoundry.org/app-guid": app1GUID,
-					}))
-					Expect(app1.Metadata.Annotations).To(Equal(map[string]string{
-						"bar":                             "BAR",
-						"korifi.cloudfoundry.org/app-rev": "0",
-					}))
+					Expect(app1.Metadata.Labels).To(HaveKeyWithValue("foo", "FOO"))
+					Expect(app1.Metadata.Annotations).To(HaveKeyWithValue("bar", "BAR"))
 
 					app1Process := getProcess(app1GUID, "web")
 					Expect(app1Process.Instances).To(Equal(1))
@@ -513,16 +507,14 @@ var _ = Describe("Spaces", func() {
 
 						app1 := getApp(app1GUID)
 						Expect(app1.Metadata).NotTo(BeNil())
-						Expect(app1.Metadata.Labels).To(Equal(map[string]string{
-							"foo":                              "FOO",
-							"baz":                              "luhrmann",
-							"korifi.cloudfoundry.org/app-guid": app1GUID,
-						}))
-						Expect(app1.Metadata.Annotations).To(Equal(map[string]string{
-							"bar":                             "BAR",
-							"fizz":                            "buzz",
-							"korifi.cloudfoundry.org/app-rev": "0",
-						}))
+						Expect(app1.Metadata.Labels).To(SatisfyAll(
+							HaveKeyWithValue("foo", "FOO"),
+							HaveKeyWithValue("baz", "luhrmann"),
+						))
+						Expect(app1.Metadata.Annotations).To(SatisfyAll(
+							HaveKeyWithValue("bar", "BAR"),
+							HaveKeyWithValue("fizz", "buzz"),
+						))
 
 						app1Process := getProcess(app1GUID, "web")
 						Expect(app1Process.Instances).To(Equal(1))

@@ -157,6 +157,11 @@ func main() {
 		namespaceRetriever,
 		cfg.RootNamespace,
 	)
+	deploymentRepo := repositories.NewDeploymentRepo(
+		userClientFactory,
+		namespaceRetriever,
+		cfg.RootNamespace,
+	)
 	buildRepo := repositories.NewBuildRepo(
 		namespaceRetriever,
 		userClientFactory,
@@ -302,6 +307,11 @@ func main() {
 			*serverURL,
 			decoderValidator,
 			domainRepo,
+		),
+		handlers.NewDeployment(
+			*serverURL,
+			decoderValidator,
+			deploymentRepo,
 		),
 		handlers.NewJob(
 			*serverURL,

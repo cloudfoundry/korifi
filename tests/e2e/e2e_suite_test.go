@@ -715,6 +715,28 @@ func createBuild(packageGUID string) string {
 	return build.GUID
 }
 
+func createDeployment(appGUID string) string {
+	var deployment resource
+
+	resp, err := adminClient.R().
+		SetBody(resource{
+			Relationships: relationships{
+				"app": relationship{
+					Data: resource{
+						GUID: appGUID,
+					},
+				},
+			},
+		}).
+		SetResult(&deployment).
+		Post("/v3/deployments")
+
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+	return deployment.GUID
+}
+
 func waitForDroplet(buildGUID string) {
 	EventuallyWithOffset(1, func() (*resty.Response, error) {
 		resp, err := adminClient.R().
