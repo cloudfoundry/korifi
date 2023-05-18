@@ -37,16 +37,16 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.3
-	k8s.io/apimachinery v0.26.3
+	k8s.io/apimachinery v0.27.2
 	k8s.io/client-go v0.26.3
 	k8s.io/metrics v0.26.3
 	k8s.io/pod-security-admission v0.26.3
-	k8s.io/utils v0.0.0-20230202215443-34013725500c
+	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 	sigs.k8s.io/controller-runtime v0.14.6
 	sigs.k8s.io/controller-tools v0.11.4
 )
 
-require github.com/kr/pretty v0.3.0 // indirect
+require github.com/rogpeppe/go-internal v1.6.1 // indirect
 
 require (
 	cloud.google.com/go/compute v1.19.1 // indirect
@@ -165,7 +165,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.26.1 // indirect
 	k8s.io/component-base v0.26.3 // indirect
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kube-openapi v0.0.0-20230202010329-39b3636cbaa3 // indirect
+	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	knative.dev/pkg v0.0.0-20230125083639-408ad0773f47 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
