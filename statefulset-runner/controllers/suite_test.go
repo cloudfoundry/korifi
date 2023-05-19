@@ -34,8 +34,9 @@ var _ = BeforeEach(func() {
 func createAppWorkload(namespace, name string) *korifiv1alpha1.AppWorkload {
 	return &korifiv1alpha1.AppWorkload{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:       name,
+			Namespace:  namespace,
+			Generation: 1,
 		},
 		Spec: korifiv1alpha1.AppWorkloadSpec{
 			AppGUID:          "premium_app_guid_1234",

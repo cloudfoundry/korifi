@@ -31,6 +31,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,13 +70,46 @@ func NewCFProcessReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFProcess, *korifiv1alpha1.CFProcess](log, client, &processReconciler)
 }
 
+func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.CFProcess{}).
+		Watches(
+			&source.Kind{Type: &korifiv1alpha1.CFApp{}},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFProcessRequests),
+		)
+}
+
+func (r *CFProcessReconciler) enqueueCFProcessRequests(o client.Object) []reconcile.Request {
+	processList := &korifiv1alpha1.CFProcessList{}
+	err := r.k8sClient.List(context.Background(), processList, client.InNamespace(o.GetNamespace()), client.MatchingLabels{korifiv1alpha1.CFAppGUIDLabelKey: o.GetName()})
+	if err != nil {
+		r.log.Info("error when trying to list CFProcesses in namespace", "namespace", o.GetNamespace(), "reason", err)
+		return []reconcile.Request{}
+	}
+
+	var requests []reconcile.Request
+	for i := range processList.Items {
+		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&processList.Items[i])})
+	}
+
+	return requests
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses/finalizers,verbs=update
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
 func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) (ctrl.Result, error) {
+	log := r.log.WithValues("namespace", cfProcess.Namespace, "name", cfProcess.Name)
+
+	cfProcess.Status.ObservedGeneration = cfProcess.Generation
+	log.V(1).Info("set observed generation", "generation", cfProcess.Status.ObservedGeneration)
+
+	shared.GetConditionOrSetAsUnknown(&cfProcess.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfProcess.Generation)
+
 	cfApp := new(korifiv1alpha1.CFApp)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
 	if err != nil {
@@ -104,6 +138,13 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	meta.SetStatusCondition(&cfProcess.Status.Conditions, metav1.Condition{
+		Type:               shared.StatusConditionReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             shared.StatusConditionReady,
+		ObservedGeneration: cfProcess.Generation,
+	})
 
 	return ctrl.Result{}, nil
 }
@@ -392,26 +433,6 @@ func livenessProbe(cfProcess *korifiv1alpha1.CFProcess, port int) *corev1.Probe 
 		PeriodSeconds:    30,
 		FailureThreshold: 1,
 	}
-}
-
-func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFProcess{}).
-		Watches(&source.Kind{Type: &korifiv1alpha1.CFApp{}}, handler.EnqueueRequestsFromMapFunc(func(app client.Object) []reconcile.Request {
-			processList := &korifiv1alpha1.CFProcessList{}
-			err := mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{korifiv1alpha1.CFAppGUIDLabelKey: app.GetName()})
-			if err != nil {
-				r.log.Info("error when trying to list CFProcesses in namespace", "namespace", app.GetNamespace(), "reason", err)
-				return []reconcile.Request{}
-			}
-
-			var requests []reconcile.Request
-			for i := range processList.Items {
-				requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&processList.Items[i])})
-			}
-
-			return requests
-		}))
 }
 
 func mebibyteQuantity(miB int64) resource.Quantity {

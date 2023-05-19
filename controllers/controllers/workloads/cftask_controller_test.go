@@ -185,6 +185,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				g.Expect(initializedStatusCondition).NotTo(BeNil())
 				g.Expect(initializedStatusCondition.Status).To(Equal(metav1.ConditionTrue), "task did not become initialized")
 				g.Expect(initializedStatusCondition.Reason).To(Equal("TaskInitialized"))
+				g.Expect(initializedStatusCondition.ObservedGeneration).To(Equal(task.Generation))
 			}).Should(Succeed())
 		})
 
@@ -194,6 +195,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		It("populates the droplet name in the status", func() {
 			Expect(task.Status.DropletRef.Name).To(Equal(cfDroplet.Name))
+		})
+
+		It("sets the ObservedGeneration status field", func() {
+			Expect(task.Status.ObservedGeneration).To(Equal(task.Generation))
 		})
 
 		It("creates an TaskWorkload", func() {
@@ -337,6 +342,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 					g.Expect(canceledStatusCondition).NotTo(BeNil())
 					g.Expect(canceledStatusCondition.Status).To(Equal(metav1.ConditionTrue))
 					g.Expect(canceledStatusCondition.Reason).To(Equal("TaskCancelled"))
+					g.Expect(canceledStatusCondition.ObservedGeneration).To(Equal(cfTask.Generation))
 				})
 			})
 		})

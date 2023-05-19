@@ -129,6 +129,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 						imageRegistrySecret.Namespace,
 					)))
 					g.Expect(readyCondition.Reason).To(Equal("RegistrySecretPropagation"))
+					g.Expect(readyCondition.ObservedGeneration).To(Equal(createdOrg.Generation))
 				}, 5*time.Second).Should(Succeed())
 			})
 		})
@@ -160,6 +161,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfRootNamespace, Name: orgGUID}, &createdOrg)).To(Succeed())
 
 				g.Expect(createdOrg.Status.GUID).To(Equal(orgGUID))
+				g.Expect(createdOrg.Status.ObservedGeneration).To(Equal(createdOrg.Generation))
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}).Should(Succeed())
 		})

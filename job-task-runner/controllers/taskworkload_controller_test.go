@@ -44,8 +44,9 @@ var _ = Describe("TaskworkloadController", func() {
 
 		taskWorkload = &korifiv1alpha1.TaskWorkload{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-task-workload",
-				Namespace: "my-namespace",
+				Name:       "my-task-workload",
+				Namespace:  "my-namespace",
+				Generation: 1,
 			},
 			Spec: korifiv1alpha1.TaskWorkloadSpec{
 				Image:   "my-image",
@@ -210,6 +211,7 @@ var _ = Describe("TaskworkloadController", func() {
 		_, object, _, _ := fakeStatusWriter.PatchArgsForCall(0)
 		patchedTaskWorkload, ok := object.(*korifiv1alpha1.TaskWorkload)
 		Expect(ok).To(BeTrue())
+		Expect(patchedTaskWorkload.Status.ObservedGeneration).To(Equal(patchedTaskWorkload.Generation))
 		Expect(meta.IsStatusConditionTrue(patchedTaskWorkload.Status.Conditions, "foo")).To(BeTrue())
 	})
 

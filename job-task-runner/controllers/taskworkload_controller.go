@@ -21,21 +21,21 @@ import (
 	"fmt"
 	"time"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 const (
@@ -58,12 +58,6 @@ type TaskWorkloadReconciler struct {
 	jobTTL       time.Duration
 }
 
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads,verbs=get;list;watch;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/status,verbs=get;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/finalizers,verbs=update
-//+kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;get;list;watch
-//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
-
 func NewTaskWorkloadReconciler(
 	logger logr.Logger,
 	k8sClient client.Client,
@@ -82,8 +76,23 @@ func NewTaskWorkloadReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload](logger, k8sClient, &taskReconciler)
 }
 
+func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.TaskWorkload{}).
+		Owns(&batchv1.Job{})
+}
+
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads,verbs=get;list;watch;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/status,verbs=get;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=taskworkloads/finalizers,verbs=update
+//+kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;get;list;watch
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+
 func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload) (ctrl.Result, error) {
 	logger := r.logger.WithValues("namespace", taskWorkload.Namespace, "name", taskWorkload.Name)
+
+	taskWorkload.Status.ObservedGeneration = taskWorkload.Generation
+	logger.V(1).Info("set observed generation", "generation", taskWorkload.Status.ObservedGeneration)
 
 	job, err := r.getOrCreateJob(ctx, logger, taskWorkload)
 	if err != nil {
@@ -142,12 +151,6 @@ func (r TaskWorkloadReconciler) createJob(ctx context.Context, logger logr.Logge
 	return job, nil
 }
 
-func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.TaskWorkload{}).
-		Owns(&batchv1.Job{})
-}
-
 func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -204,6 +207,7 @@ func (r *TaskWorkloadReconciler) updateTaskWorkloadStatus(ctx context.Context, t
 	}
 
 	for _, condition := range conditions {
+		condition.ObservedGeneration = taskWorkload.Generation
 		meta.SetStatusCondition(&taskWorkload.Status.Conditions, condition)
 	}
 

@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -442,7 +442,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 		return CurrentDropletRecord{}, fmt.Errorf("failed to set app droplet: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	_, err = f.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, workloads.StatusConditionReady)
+	_, err = f.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, shared.StatusConditionReady)
 	if err != nil {
 		return CurrentDropletRecord{}, fmt.Errorf("failed to await the app staged condition: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
@@ -654,7 +654,7 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 		},
 		CreatedAt:             cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt:             updatedAtTime,
-		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, workloads.StatusConditionReady),
+		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady),
 		envSecretName:         cfApp.Spec.EnvSecretName,
 		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,
 		vcapAppSecretName:     cfApp.Status.VCAPApplicationSecretName,

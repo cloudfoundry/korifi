@@ -23,6 +23,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -74,6 +75,12 @@ func NewCFTaskReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask](logger, client, &taskReconciler)
 }
 
+func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.CFTask{}).
+		Owns(&korifiv1alpha1.TaskWorkload{})
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cftasks/finalizers,verbs=update
@@ -81,21 +88,26 @@ func NewCFTaskReconciler(
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifiv1alpha1.CFTask) (ctrl.Result, error) {
+	log := r.logger.WithValues("namespace", cfTask.Namespace, "name", cfTask.Name)
+
+	cfTask.Status.ObservedGeneration = cfTask.Generation
+	log.V(1).Info("set observed generation", "generation", cfTask.Status.ObservedGeneration)
+
 	if r.alreadyExpired(cfTask) {
-		r.logger.V(1).Info("deleting-expired-task", "namespace", cfTask.Namespace, "name", cfTask.Name)
+		log.V(1).Info("deleting-expired-task", "namespace", cfTask.Namespace, "name", cfTask.Name)
 		err := r.k8sClient.Delete(ctx, cfTask)
 		if err != nil {
-			r.logger.Info("error-deleting-task", "reason", err)
+			log.Info("error-deleting-task", "reason", err)
 		}
 		return ctrl.Result{}, err
 	}
 
 	if cfTask.Spec.Canceled {
-		err := r.handleCancelation(ctx, cfTask)
+		err := r.handleCancelation(ctx, log, cfTask)
 		return r.reconcileResult(cfTask, err)
 	}
 
-	cfApp, err := r.getApp(ctx, cfTask)
+	cfApp, err := r.getApp(ctx, log, cfTask)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -105,7 +117,7 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 		return ctrl.Result{}, err
 	}
 
-	cfDroplet, err := r.getDroplet(ctx, cfTask, cfApp)
+	cfDroplet, err := r.getDroplet(ctx, log, cfTask, cfApp)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -114,17 +126,17 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 
 	webProcess, err := r.getWebProcess(ctx, cfApp)
 	if err != nil {
-		r.logger.Info("failed to get web processes", "reason", err)
+		log.Info("failed to get web processes", "reason", err)
 		return r.reconcileResult(cfTask, err)
 	}
 
 	env, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.logger.Info("failed to build env", "reason", err)
+		log.Info("failed to build env", "reason", err)
 		return r.reconcileResult(cfTask, err)
 	}
 
-	taskWorkload, err := r.createOrPatchTaskWorkload(ctx, cfTask, cfDroplet, webProcess, env)
+	taskWorkload, err := r.createOrPatchTaskWorkload(ctx, log, cfTask, cfDroplet, webProcess, env)
 	if err != nil {
 		return r.reconcileResult(cfTask, err)
 	}
@@ -144,17 +156,12 @@ func (r *CFTaskReconciler) setTaskStatus(cfTask *korifiv1alpha1.CFTask, taskWork
 		if cond == nil {
 			continue
 		}
+		cond.ObservedGeneration = cfTask.Generation
 		meta.SetStatusCondition(&cfTask.Status.Conditions, *cond)
 	}
 }
 
-func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFTask{}).
-		Owns(&korifiv1alpha1.TaskWorkload{})
-}
-
-func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CFTask) (*korifiv1alpha1.CFApp, error) {
+func (r *CFTaskReconciler) getApp(ctx context.Context, log logr.Logger, cfTask *korifiv1alpha1.CFTask) (*korifiv1alpha1.CFApp, error) {
 	cfApp := new(korifiv1alpha1.CFApp)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{
 		Namespace: cfTask.Namespace,
@@ -168,7 +175,7 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CF
 		return nil, err
 	}
 
-	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, StatusConditionReady) {
+	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady) {
 		r.logger.Info("cfapp not staged", "app-namespace", cfApp.Namespace, "app-name", cfApp.Name)
 		r.recorder.Eventf(cfTask, "Warning", "AppNotStaged", "App %s:%s is not staged", cfApp.Namespace, cfApp.Name)
 		return nil, errors.New("app not staged")
@@ -182,7 +189,7 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CF
 	return cfApp, nil
 }
 
-func (r *CFTaskReconciler) getDroplet(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.CFBuild, error) {
+func (r *CFTaskReconciler) getDroplet(ctx context.Context, log logr.Logger, cfTask *korifiv1alpha1.CFTask, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.CFBuild, error) {
 	cfDroplet := new(korifiv1alpha1.CFBuild)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{
 		Namespace: cfApp.Namespace,
@@ -222,7 +229,7 @@ func (r *CFTaskReconciler) getWebProcess(ctx context.Context, cfApp *korifiv1alp
 	return processList.Items[0], nil
 }
 
-func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess, env []corev1.EnvVar) (*korifiv1alpha1.TaskWorkload, error) {
+func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, log logr.Logger, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess, env []corev1.EnvVar) (*korifiv1alpha1.TaskWorkload, error) {
 	taskWorkload := &korifiv1alpha1.TaskWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
@@ -288,13 +295,14 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 func (r *CFTaskReconciler) initializeStatus(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild) {
 	cfTask.Status.DropletRef.Name = cfDroplet.Name
 	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-		Type:   korifiv1alpha1.TaskInitializedConditionType,
-		Status: metav1.ConditionTrue,
-		Reason: "TaskInitialized",
+		Type:               korifiv1alpha1.TaskInitializedConditionType,
+		Status:             metav1.ConditionTrue,
+		Reason:             "TaskInitialized",
+		ObservedGeneration: cfTask.Generation,
 	})
 }
 
-func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
+func (r *CFTaskReconciler) handleCancelation(ctx context.Context, log logr.Logger, cfTask *korifiv1alpha1.CFTask) error {
 	taskWorkload := &korifiv1alpha1.TaskWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
@@ -308,16 +316,18 @@ func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifi
 	}
 
 	meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-		Type:   korifiv1alpha1.TaskCanceledConditionType,
-		Status: metav1.ConditionTrue,
-		Reason: TaskCanceledReason,
+		Type:               korifiv1alpha1.TaskCanceledConditionType,
+		Status:             metav1.ConditionTrue,
+		Reason:             TaskCanceledReason,
+		ObservedGeneration: cfTask.Generation,
 	})
 
 	if !meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType) {
 		meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-			Type:   korifiv1alpha1.TaskFailedConditionType,
-			Status: metav1.ConditionTrue,
-			Reason: TaskCanceledReason,
+			Type:               korifiv1alpha1.TaskFailedConditionType,
+			Status:             metav1.ConditionTrue,
+			Reason:             TaskCanceledReason,
+			ObservedGeneration: cfTask.Generation,
 		})
 	}
 

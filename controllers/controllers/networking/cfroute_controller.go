@@ -63,6 +63,11 @@ func NewCFRouteReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute](log, client, &routeReconciler)
 }
 
+func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.CFRoute{})
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/finalizers,verbs=update
@@ -94,6 +99,9 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 		}
 		return ctrl.Result{}, err
 	}
+
+	cfRoute.Status.ObservedGeneration = cfRoute.Generation
+	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
 	err = k8s.AddFinalizer(ctx, log, r.client, cfRoute, CFRouteFinalizerName)
 	if err != nil {
@@ -132,19 +140,21 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 func createValidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain, description, reason, message string) korifiv1alpha1.CFRouteStatus {
 	fqdn := buildFQDN(cfRoute, cfDomain)
 	cfRouteStatus := korifiv1alpha1.CFRouteStatus{
-		FQDN:          fqdn,
-		URI:           fqdn + cfRoute.Spec.Path,
-		Destinations:  cfRoute.Spec.Destinations,
-		CurrentStatus: korifiv1alpha1.ValidStatus,
-		Description:   description,
-		Conditions:    cfRoute.Status.Conditions,
+		FQDN:               fqdn,
+		URI:                fqdn + cfRoute.Spec.Path,
+		Destinations:       cfRoute.Spec.Destinations,
+		CurrentStatus:      korifiv1alpha1.ValidStatus,
+		Description:        description,
+		Conditions:         cfRoute.Status.Conditions,
+		ObservedGeneration: cfRoute.Generation,
 	}
 
 	meta.SetStatusCondition(&cfRouteStatus.Conditions, metav1.Condition{
-		Type:    "Valid",
-		Status:  metav1.ConditionTrue,
-		Reason:  reason,
-		Message: message,
+		Type:               "Valid",
+		Status:             metav1.ConditionTrue,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: cfRoute.Generation,
 	})
 
 	return cfRouteStatus
@@ -152,24 +162,21 @@ func createValidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1a
 
 func createInvalidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, description, reason, message string) korifiv1alpha1.CFRouteStatus {
 	cfRouteStatus := korifiv1alpha1.CFRouteStatus{
-		Description:   description,
-		CurrentStatus: korifiv1alpha1.InvalidStatus,
-		Conditions:    cfRoute.Status.Conditions,
+		Description:        description,
+		CurrentStatus:      korifiv1alpha1.InvalidStatus,
+		Conditions:         cfRoute.Status.Conditions,
+		ObservedGeneration: cfRoute.Generation,
 	}
 
 	meta.SetStatusCondition(&cfRouteStatus.Conditions, metav1.Condition{
-		Type:    "Valid",
-		Status:  metav1.ConditionFalse,
-		Reason:  reason,
-		Message: message,
+		Type:               "Valid",
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: cfRoute.Generation,
 	})
 
 	return cfRouteStatus
-}
-
-func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFRoute{})
 }
 
 func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
@@ -368,7 +375,7 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, log logr
 		return err
 	}
 
-	log.V(1).Info("reconciled FQDN HTTPProxy", "operation", result)
+	log.V(1).Info("FQDN HTTPProxy reconciled", "operation", result)
 	return nil
 }
 

@@ -4,11 +4,10 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/korifi/tools"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -156,10 +155,19 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
-				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
 				g.Expect(readyStatusCondition).NotTo(BeNil())
 				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(readyStatusCondition.Reason).To(Equal("DropletNotAssigned"))
+				g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
+			}).Should(Succeed())
+		})
+
+		It("sets the ObservedGeneration status field", func() {
+			Eventually(func(g Gomega) {
+				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(createdCFApp.Status.ObservedGeneration).To(Equal(createdCFApp.Generation))
 			}).Should(Succeed())
 		})
 
@@ -200,10 +208,11 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
-				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
 				g.Expect(readyStatusCondition).NotTo(BeNil())
 				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(readyStatusCondition.Reason).To(Equal("CannotResolveCurrentDropletRef"))
+				g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
 			}).Should(Succeed())
 		})
 	})
@@ -503,10 +512,11 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 				g.Expect(err).NotTo(HaveOccurred())
-				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
 				g.Expect(readyStatusCondition).NotTo(BeNil())
 				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(readyStatusCondition.Reason).To(Equal("DropletAssigned"))
+				g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
 			}).Should(Succeed())
 		})
 
@@ -515,9 +525,10 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				Eventually(func(g Gomega) {
 					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 					g.Expect(err).NotTo(HaveOccurred())
-					readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+					readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
 					g.Expect(readyStatusCondition).NotTo(BeNil())
 					g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
 				}).Should(Succeed())
 				Expect(k8sClient.Delete(context.Background(), cfBuild)).To(Succeed())
 			})
@@ -526,10 +537,11 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				Eventually(func(g Gomega) {
 					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
 					g.Expect(err).NotTo(HaveOccurred())
-					readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, workloads.StatusConditionReady)
+					readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
 					g.Expect(readyStatusCondition).NotTo(BeNil())
 					g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(readyStatusCondition.Reason).To(Equal("CannotResolveCurrentDropletRef"))
+					g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
 				}).Should(Succeed())
 			})
 		})

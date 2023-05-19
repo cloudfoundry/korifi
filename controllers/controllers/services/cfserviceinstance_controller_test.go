@@ -63,8 +63,7 @@ var _ = Describe("CFServiceInstance", func() {
 		Eventually(func(g Gomega) {
 			updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 			serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-			err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 
 			g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("secret-name"))
 			g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -73,6 +72,15 @@ var _ = Describe("CFServiceInstance", func() {
 				"Reason":  Equal("SecretFound"),
 				"Message": Equal(""),
 			})))
+		}).Should(Succeed())
+	})
+
+	It("sets the ObservedGeneration status field", func() {
+		Eventually(func(g Gomega) {
+			updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+			serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
+			g.Expect(k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
+			g.Expect(updatedCFServiceInstance.Status.ObservedGeneration).To(Equal(cfServiceInstance.Generation))
 		}).Should(Succeed())
 	})
 
@@ -85,8 +93,7 @@ var _ = Describe("CFServiceInstance", func() {
 			Eventually(func(g Gomega) {
 				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 				serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-				err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
-				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 
 				g.Expect(updatedCFServiceInstance.Status.Binding).To(BeZero())
 				g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -112,8 +119,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Eventually(func(g Gomega) {
 					updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 					serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-					err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 
 					g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("other-secret-name"))
 					g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{

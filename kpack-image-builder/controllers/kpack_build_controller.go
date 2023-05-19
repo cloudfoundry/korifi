@@ -45,6 +45,23 @@ func NewKpackBuildController(
 	})
 }
 
+func (c KpackBuildController) SetupWithManager(mgr manager.Manager) *ctrl.Builder {
+	// ignoring error as this construction is not dynamic
+	labelSelector, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      BuildWorkloadLabelKey,
+				Operator: metav1.LabelSelectorOpExists,
+				Values:   []string{},
+			},
+		},
+	})
+
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&kpackv1alpha2.Build{}).
+		WithEventFilter(labelSelector)
+}
+
 //+kubebuilder:rbac:groups=kpack.io,resources=builds,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=builds/status,verbs=get;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=builds/finalizers,verbs=get;patch
@@ -89,21 +106,4 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (c KpackBuildController) SetupWithManager(mgr manager.Manager) *ctrl.Builder {
-	// ignoring error as this construction is not dynamic
-	labelSelector, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      BuildWorkloadLabelKey,
-				Operator: metav1.LabelSelectorOpExists,
-				Values:   []string{},
-			},
-		},
-	})
-
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kpackv1alpha2.Build{}).
-		WithEventFilter(labelSelector)
 }

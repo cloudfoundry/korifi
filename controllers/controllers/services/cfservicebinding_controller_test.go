@@ -184,6 +184,13 @@ var _ = Describe("CFServiceBinding", func() {
 		}).Should(Succeed())
 	})
 
+	It("sets the ObservedGeneration status field", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), cfServiceBinding)).To(Succeed())
+			g.Expect(cfServiceBinding.Status.ObservedGeneration).To(Equal(cfServiceBinding.Generation))
+		}).Should(Succeed())
+	})
+
 	When("the CFServiceBinding has a displayName set", func() {
 		var bindingName string
 

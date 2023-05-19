@@ -46,6 +46,9 @@ type PackageSource struct {
 type CFPackageStatus struct {
 	// Conditions capture the current status of the Package
 	Conditions []metav1.Condition `json:"conditions"`
+
+	// ObservedGeneration captures the latest generation of the CFPackage that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

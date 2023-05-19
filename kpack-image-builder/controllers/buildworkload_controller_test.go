@@ -168,6 +168,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, cfBuildLookupKey, updatedBuildWorkload)).To(Succeed())
+					g.Expect(updatedBuildWorkload.Status.ObservedGeneration).To(Equal(updatedBuildWorkload.Generation))
 					g.Expect(mustHaveCondition(g, updatedBuildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
 				}).Should(Succeed())
 			})
@@ -287,13 +288,13 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				It("fails the build", func() {
 					updatedWorkload := &korifiv1alpha1.BuildWorkload{ObjectMeta: metav1.ObjectMeta{Name: cfBuildGUID, Namespace: namespaceGUID}}
 					Eventually(func(g Gomega) {
-						err := k8sClient.Get(ctx, client.ObjectKeyFromObject(updatedWorkload), updatedWorkload)
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(updatedWorkload), updatedWorkload)).To(Succeed())
 						g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
-					}).Should(Succeed())
 
-					foundCondition := meta.FindStatusCondition(updatedWorkload.Status.Conditions, "Succeeded")
-					Expect(foundCondition.Message).To(ContainSubstring("buildpack"))
+						foundCondition := meta.FindStatusCondition(updatedWorkload.Status.Conditions, "Succeeded")
+						g.Expect(foundCondition.Message).To(ContainSubstring("buildpack"))
+						g.Expect(foundCondition.ObservedGeneration).To(Equal(updatedWorkload.Generation))
+					}).Should(Succeed())
 				})
 			})
 		})
