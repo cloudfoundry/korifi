@@ -282,6 +282,11 @@ spec:
                   - type
                   type: object
                 type: array
+              observedGeneration:
+                description: ObservedGeneration captures the latest generation of
+                  the TaskWorkload that has been reconciled
+                format: int64
+                type: integer
             type: object
         type: object
     served: true

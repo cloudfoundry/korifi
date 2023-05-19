@@ -85,6 +85,9 @@ type HealthCheckData struct {
 type CFProcessStatus struct {
 	// Conditions capture the current status of the Process
 	Conditions []metav1.Condition `json:"conditions"`
+
+	// ObservedGeneration captures the latest generation of the CFProcess that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,8 +58,8 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 			Expect(meta.FindStatusCondition(createdCFPackage.Status.Conditions, workloads.InitializedConditionType).ObservedGeneration).To(Equal(createdCFPackage.Generation))
 
-			Expect(meta.IsStatusConditionFalse(createdCFPackage.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
-			Expect(meta.FindStatusCondition(createdCFPackage.Status.Conditions, workloads.StatusConditionReady).ObservedGeneration).To(Equal(createdCFPackage.Generation))
+			Expect(meta.IsStatusConditionFalse(createdCFPackage.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
+			Expect(meta.FindStatusCondition(createdCFPackage.Status.Conditions, shared.StatusConditionReady).ObservedGeneration).To(Equal(createdCFPackage.Generation))
 
 			Expect(createdCFPackage.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
 				APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
@@ -81,6 +81,15 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 			Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
 		})
 
+		It("sets the ObservedGeneration status field", func() {
+			var createdCFPackage korifiv1alpha1.CFPackage
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
+
+				g.Expect(createdCFPackage.Status.ObservedGeneration).To(Equal(createdCFPackage.Generation))
+			}).Should(Succeed())
+		})
+
 		When("the package is updated with its source image", func() {
 			var createdCFPackage korifiv1alpha1.CFPackage
 
@@ -100,7 +109,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 			It("sets the ready condition to true", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
-					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
+					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 				}).Should(Succeed())
 			})
 		})

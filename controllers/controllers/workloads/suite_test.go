@@ -149,11 +149,11 @@ var _ = BeforeSuite(func() {
 	packageCleaner = new(fake.PackageCleaner)
 	err = (NewCFPackageReconciler(
 		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFPackage"),
 		imageDeleter,
 		packageCleaner,
-		k8sManager.GetScheme(),
 		"package-repo-secret-name",
-		ctrl.Log.WithName("controllers").WithName("CFPackage"),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

@@ -61,13 +61,44 @@ func NewBuilderInfoReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.BuilderInfo, *korifiv1alpha1.BuilderInfo](log, c, &builderInfoReconciler)
 }
 
-// BuilderInfoReconciler reconciles a BuilderInfo object
 type BuilderInfoReconciler struct {
 	k8sClient          client.Client
 	scheme             *runtime.Scheme
 	log                logr.Logger
 	clusterBuilderName string
 	rootNamespaceName  string
+}
+
+func (r *BuilderInfoReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.BuilderInfo{}).
+		Watches(
+			&source.Kind{Type: new(buildv1alpha2.ClusterBuilder)},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueBuilderInfoRequests),
+		).
+		WithEventFilter(predicate.NewPredicateFuncs(r.filterBuilderInfos))
+}
+
+func (r *BuilderInfoReconciler) enqueueBuilderInfoRequests(o client.Object) []reconcile.Request {
+	var requests []reconcile.Request
+	if o.GetName() == r.clusterBuilderName {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      BuilderInfoName,
+				Namespace: r.rootNamespaceName,
+			},
+		})
+	}
+	return requests
+}
+
+func (r *BuilderInfoReconciler) filterBuilderInfos(object client.Object) bool {
+	builderInfo, ok := object.(*korifiv1alpha1.BuilderInfo)
+	if !ok {
+		return true
+	}
+
+	return builderInfo.Name == BuilderInfoName && builderInfo.Namespace == r.rootNamespaceName
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=builderinfos,verbs=get;list;watch;create;patch;delete
@@ -77,6 +108,11 @@ type BuilderInfoReconciler struct {
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
 
 func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *korifiv1alpha1.BuilderInfo) (ctrl.Result, error) {
+	log := r.log.WithValues("namespace", info.Namespace, "name", info.Name)
+
+	info.Status.ObservedGeneration = info.Generation
+	log.V(1).Info("set observed generation", "generation", info.Status.ObservedGeneration)
+
 	clusterBuilder := new(buildv1alpha2.ClusterBuilder)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: r.clusterBuilderName}, clusterBuilder)
 	if err != nil {
@@ -85,10 +121,11 @@ func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *kor
 		info.Status.Stacks = []korifiv1alpha1.BuilderInfoStatusStack{}
 		info.Status.Buildpacks = []korifiv1alpha1.BuilderInfoStatusBuildpack{}
 		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
-			Type:    ReadyConditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "ClusterBuilderMissing",
-			Message: fmt.Sprintf("Error fetching ClusterBuilder %q: %s", r.clusterBuilderName, err),
+			Type:               ReadyConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "ClusterBuilderMissing",
+			Message:            fmt.Sprintf("Error fetching ClusterBuilder %q: %s", r.clusterBuilderName, err),
+			ObservedGeneration: info.Generation,
 		})
 		return ctrl.Result{}, err
 	}
@@ -100,10 +137,11 @@ func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *kor
 	clusterBuilderReadyCondition := clusterBuilder.Status.GetCondition(corev1alpha1.ConditionReady)
 	if clusterBuilderReadyCondition != nil && clusterBuilderReadyCondition.Status == corev1.ConditionTrue {
 		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
-			Type:    ReadyConditionType,
-			Status:  metav1.ConditionTrue,
-			Reason:  "ClusterBuilderReady",
-			Message: fmt.Sprintf("ClusterBuilder %q is ready", r.clusterBuilderName),
+			Type:               ReadyConditionType,
+			Status:             metav1.ConditionTrue,
+			Reason:             "ClusterBuilderReady",
+			Message:            fmt.Sprintf("ClusterBuilder %q is ready", r.clusterBuilderName),
+			ObservedGeneration: info.Generation,
 		})
 	} else {
 		var msg string
@@ -116,10 +154,11 @@ func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *kor
 		}
 
 		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
-			Type:    ReadyConditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  "ClusterBuilderNotReady",
-			Message: fmt.Sprintf("ClusterBuilder %q is not ready: %s", r.clusterBuilderName, msg),
+			Type:               ReadyConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "ClusterBuilderNotReady",
+			Message:            fmt.Sprintf("ClusterBuilder %q is not ready: %s", r.clusterBuilderName, msg),
+			ObservedGeneration: info.Generation,
 		})
 	}
 
@@ -164,33 +203,4 @@ func lastUpdatedTime(metadata metav1.ObjectMeta) metav1.Time {
 		}
 	}
 	return latestTime
-}
-
-func (r *BuilderInfoReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.BuilderInfo{}).
-		Watches(
-			&source.Kind{Type: new(buildv1alpha2.ClusterBuilder)},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				var requests []reconcile.Request
-				if obj.GetName() == r.clusterBuilderName {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Name:      BuilderInfoName,
-							Namespace: r.rootNamespaceName,
-						},
-					})
-				}
-				return requests
-			})).
-		WithEventFilter(predicate.NewPredicateFuncs(r.filterBuilderInfos))
-}
-
-func (r *BuilderInfoReconciler) filterBuilderInfos(object client.Object) bool {
-	builderInfo, ok := object.(*korifiv1alpha1.BuilderInfo)
-	if !ok {
-		return true
-	}
-
-	return builderInfo.Name == BuilderInfoName && builderInfo.Namespace == r.rootNamespaceName
 }

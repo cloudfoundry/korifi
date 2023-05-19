@@ -118,6 +118,14 @@ var _ = Describe("AppWorkload Reconcile", func() {
 			Expect(actualWorkload.Name).To(Equal(appWorkload.Name))
 		})
 
+		It("sets the appworkload status", func() {
+			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+			_, object, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+			patchedAppWorkload, ok := object.(*korifiv1alpha1.AppWorkload)
+			Expect(ok).To(BeTrue())
+			Expect(patchedAppWorkload.Status.ObservedGeneration).To(Equal(patchedAppWorkload.Generation))
+		})
+
 		When("coverting the app workload to statefulset fails", func() {
 			BeforeEach(func() {
 				fakeWorkloadToStSet.ConvertReturns(nil, errors.New("convert-error"))

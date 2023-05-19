@@ -24,16 +24,14 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
-
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;patch;create;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/status,verbs=patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update
 
 const (
 	CFDomainFinalizerName = "cfDomain.korifi.cloudfoundry.org"
@@ -54,6 +52,15 @@ func NewCFDomainReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFDomain, *korifiv1alpha1.CFDomain](log, client, &routeReconciler)
 }
 
+func (r *CFDomainReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.CFDomain{})
+}
+
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;patch;create;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/status,verbs=patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update
+
 func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfDomain.Namespace, "name", cfDomain.Name)
 
@@ -61,18 +68,24 @@ func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *ko
 		return r.finalizeCFDomain(ctx, log, cfDomain)
 	}
 
+	cfDomain.Status.ObservedGeneration = cfDomain.Generation
+	log.V(1).Info("set observed generation", "generation", cfDomain.Status.ObservedGeneration)
+
 	err := k8s.AddFinalizer(ctx, log, r.client, cfDomain, CFDomainFinalizerName)
 	if err != nil {
 		log.Info("error adding finalizer", "reason", err)
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
-}
+	meta.SetStatusCondition(&cfDomain.Status.Conditions, metav1.Condition{
+		Type:               "Valid",
+		Status:             metav1.ConditionTrue,
+		Reason:             "Valid",
+		Message:            "Valid Domain",
+		ObservedGeneration: cfDomain.Generation,
+	})
 
-func (r *CFDomainReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFDomain{})
+	return ctrl.Result{}, nil
 }
 
 func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logger, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {

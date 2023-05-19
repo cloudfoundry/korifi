@@ -137,6 +137,13 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		}).Should(Succeed())
 	})
 
+	It("sets the ObservedGeneration status field", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
+			g.Expect(cfRoute.Status.ObservedGeneration).To(Equal(cfRoute.Generation))
+		}).Should(Succeed())
+	})
+
 	When("the route Host contains upper case characters", func() {
 		BeforeEach(func() {
 			testRouteHost = "My-App"

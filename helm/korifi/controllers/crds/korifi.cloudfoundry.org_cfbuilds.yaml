@@ -237,6 +237,11 @@ spec:
                 - registry
                 - stack
                 type: object
+              observedGeneration:
+                description: ObservedGeneration captures the latest generation of
+                  the CFBuild that has been reconciled
+                format: int64
+                type: integer
             required:
             - conditions
             type: object

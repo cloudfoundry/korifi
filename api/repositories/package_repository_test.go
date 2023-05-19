@@ -64,11 +64,11 @@ var _ = Describe("PackageRepository", func() {
 
 		err = (workloads.NewCFPackageReconciler(
 			k8sManager.GetClient(),
+			k8sManager.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 			image.NewClient(k8sInterface),
 			cleanup.NewPackageCleaner(k8sClient, 5),
-			k8sManager.GetScheme(),
 			"package-repo-secret-name",
-			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 		)).SetupWithManager(k8sManager)
 		Expect(err).NotTo(HaveOccurred())
 

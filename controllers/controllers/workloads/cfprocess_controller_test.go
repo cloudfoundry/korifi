@@ -65,6 +65,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		cfPackage = BuildCFPackageCRObject(testPackageGUID, cfSpace.Status.GUID, testAppGUID, "ref")
 		cfBuild = BuildCFBuildObject(testBuildGUID, cfSpace.Status.GUID, testPackageGUID, testAppGUID)
 	})
+
 	JustBeforeEach(func() {
 		Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
 
@@ -109,6 +110,15 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				Controller:         tools.PtrTo(true),
 				BlockOwnerDeletion: tools.PtrTo(true),
 			}))
+		})
+
+		It("sets the ObservedGeneration status field", func() {
+			Eventually(func(g Gomega) {
+				var createdCFProcess korifiv1alpha1.CFProcess
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: cfSpace.Status.GUID}, &createdCFProcess)).To(Succeed())
+
+				g.Expect(createdCFProcess.Status.ObservedGeneration).To(Equal(createdCFProcess.Generation))
+			}).Should(Succeed())
 		})
 	})
 

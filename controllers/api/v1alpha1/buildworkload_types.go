@@ -21,9 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // BuildWorkloadSpec defines the desired state of BuildWorkload
 type BuildWorkloadSpec struct {
 	// A reference to the CFBuild that requested the build. The CFBuild must be in the same namespace
@@ -52,6 +49,9 @@ type BuildWorkloadStatus struct {
 	Conditions []metav1.Condition `json:"conditions"`
 
 	Droplet *BuildDropletStatus `json:"droplet,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the BuildWorkload that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

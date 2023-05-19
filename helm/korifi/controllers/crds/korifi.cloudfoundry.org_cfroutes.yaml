@@ -263,6 +263,11 @@ spec:
               fqdn:
                 description: The fully-qualified domain name for the route
                 type: string
+              observedGeneration:
+                description: ObservedGeneration captures the latest generation of
+                  the CFRoute that has been reconciled
+                format: int64
+                type: integer
               uri:
                 description: The URI (FQDN + path) for the route
                 type: string

@@ -13,7 +13,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -98,7 +98,7 @@ var _ = Describe("AppRepository", func() {
 			When("the app has staged condition true", func() {
 				BeforeEach(func() {
 					cfApp.Status.Conditions = []metav1.Condition{{
-						Type:               workloads.StatusConditionReady,
+						Type:               shared.StatusConditionReady,
 						Status:             metav1.ConditionTrue,
 						LastTransitionTime: metav1.Now(),
 						Reason:             "staged",
@@ -121,7 +121,7 @@ var _ = Describe("AppRepository", func() {
 			When("the app has staged condition false", func() {
 				BeforeEach(func() {
 					meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-						Type:    workloads.StatusConditionReady,
+						Type:    shared.StatusConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "appStaged",
 						Message: "",
@@ -130,7 +130,7 @@ var _ = Describe("AppRepository", func() {
 					Eventually(func(g Gomega) {
 						app := korifiv1alpha1.CFApp{}
 						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
-						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
+						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 					}).Should(Succeed())
 				})
 
@@ -1131,7 +1131,7 @@ var _ = Describe("AppRepository", func() {
 					theAppCopy := theApp.DeepCopy()
 					theAppCopy.Status = korifiv1alpha1.CFAppStatus{
 						Conditions: []metav1.Condition{{
-							Type:               workloads.StatusConditionReady,
+							Type:               shared.StatusConditionReady,
 							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Now(),
 							Reason:             "staged",

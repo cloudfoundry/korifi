@@ -62,6 +62,9 @@ type CFAppStatus struct {
 	// VCAPApplicationSecretName contains the name of the CFApp's VCAP_APPLICATION Secret, which should exist in the same namespace
 	//+kubebuilder:validation:Optional
 	VCAPApplicationSecretName string `json:"vcapApplicationSecretName"`
+
+	// ObservedGeneration captures the latest generation of the CFApp that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

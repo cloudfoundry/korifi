@@ -123,6 +123,15 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
+		It("sets the ObservedGeneration status field", func() {
+			Eventually(func(g Gomega) {
+				var createdCFBuild korifiv1alpha1.CFBuild
+				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
+				g.Expect(k8sClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
+				g.Expect(createdCFBuild.Status.ObservedGeneration).To(Equal(createdCFBuild.Generation))
+			}).Should(Succeed())
+		})
+
 		It("creates a BuildWorkload with the buildRef, source, env, and buildpacks set", func() {
 			createdCFApp := &korifiv1alpha1.CFApp{}
 			Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, createdCFApp)).To(Succeed())
@@ -207,10 +216,12 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					g.Expect(stagingCondition).NotTo(BeNil())
 					g.Expect(stagingCondition.Status).To(Equal(metav1.ConditionTrue))
 					g.Expect(stagingCondition.Reason).To(Equal("BuildRunning"))
+					g.Expect(stagingCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 
 					succeededCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
 					g.Expect(succeededCondition).NotTo(BeNil())
 					g.Expect(succeededCondition.Status).To(Equal(metav1.ConditionUnknown))
+					g.Expect(succeededCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 				}).Should(Succeed())
 			})
 		})
@@ -442,10 +453,12 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					g.Expect(stagingCondition).NotTo(BeNil())
 					g.Expect(stagingCondition.Status).To(Equal(metav1.ConditionTrue))
 					g.Expect(stagingCondition.Reason).To(Equal("BuildRunning"))
+					g.Expect(stagingCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 
 					succeededCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
 					g.Expect(succeededCondition).NotTo(BeNil())
 					g.Expect(succeededCondition.Status).To(Equal(metav1.ConditionUnknown))
+					g.Expect(succeededCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 				}).Should(Succeed())
 			})
 		})
@@ -485,11 +498,13 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					g.Expect(stagingStatusCondition).NotTo(BeNil())
 					g.Expect(stagingStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(stagingStatusCondition.Reason).To(Equal("BuildNotRunning"))
+					g.Expect(stagingStatusCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 
 					succeededStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
 					g.Expect(succeededStatusCondition).NotTo(BeNil())
 					g.Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(succeededStatusCondition.Reason).To(Equal("BuildFailed"))
+					g.Expect(succeededStatusCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 				}).Should(Succeed())
 			})
 		})
@@ -546,11 +561,13 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					g.Expect(stagingStatusCondition).NotTo(BeNil())
 					g.Expect(stagingStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(stagingStatusCondition.Reason).To(Equal("BuildNotRunning"))
+					g.Expect(stagingStatusCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 
 					succeededStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, succeededConditionType)
 					g.Expect(succeededStatusCondition).NotTo(BeNil())
 					g.Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionTrue))
 					g.Expect(succeededStatusCondition.Reason).To(Equal("BuildSucceeded"))
+					g.Expect(succeededStatusCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 				}).Should(Succeed())
 			})
 

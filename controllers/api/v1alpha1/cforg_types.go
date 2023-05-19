@@ -26,14 +26,8 @@ const (
 	OrgSpaceDeprecatedName = "XXX-deprecated-XXX"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CFOrgSpec defines the desired state of CFOrg
 type CFOrgSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// The mutable, user-friendly name of the CFOrg. Unlike metadata.name, the user can change this field.
 	// +kubebuilder:validation:Pattern="^[[:alnum:][:punct:][:print:]]+$"
 	DisplayName string `json:"displayName"`
@@ -41,11 +35,12 @@ type CFOrgSpec struct {
 
 // CFOrgStatus defines the observed state of CFOrg
 type CFOrgStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 	Conditions []metav1.Condition `json:"conditions"`
 
 	GUID string `json:"guid"`
+
+	// ObservedGeneration captures the latest generation of the CFOrg that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -53,13 +53,62 @@ func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log log
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFApp, *korifiv1alpha1.CFApp](log, k8sClient, &appReconciler)
 }
 
+func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.CFApp{}).
+		Watches(
+			&source.Kind{Type: &korifiv1alpha1.CFBuild{}},
+			handler.EnqueueRequestsFromMapFunc(buildToApp),
+		).
+		Watches(
+			&source.Kind{Type: &korifiv1alpha1.CFServiceBinding{}},
+			handler.EnqueueRequestsFromMapFunc(serviceBindingToApp),
+		)
+}
+
+func buildToApp(o client.Object) []reconcile.Request {
+	cfBuild, ok := o.(*korifiv1alpha1.CFBuild)
+	if !ok {
+		return nil
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      cfBuild.Spec.AppRef.Name,
+				Namespace: o.GetNamespace(),
+			},
+		},
+	}
+}
+
+func serviceBindingToApp(o client.Object) []reconcile.Request {
+	serviceBinding, ok := o.(*korifiv1alpha1.CFServiceBinding)
+	if !ok {
+		return nil
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      serviceBinding.Spec.AppRef.Name,
+				Namespace: o.GetNamespace(),
+			},
+		},
+	}
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfapps/finalizers,verbs=update
+
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
 func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfApp.Namespace, "name", cfApp.Name)
+
+	cfApp.Status.ObservedGeneration = cfApp.Generation
+	log.V(1).Info("set observed generation", "generation", cfApp.Status.ObservedGeneration)
 
 	if !cfApp.GetDeletionTimestamp().IsZero() {
 		err := r.finalizeCFApp(ctx, log, cfApp)
@@ -86,37 +135,41 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 		log.Info("unable to create CFApp VCAP Services secret", "reason", err)
 		return ctrl.Result{}, err
 	}
+
 	cfApp.Status.VCAPServicesSecretName = secretName
 
 	if cfApp.Status.Conditions == nil {
 		cfApp.Status.Conditions = make([]metav1.Condition, 0)
 	}
 
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:   StatusConditionReady,
-		Status: metav1.ConditionFalse,
-		Reason: "DropletNotAssigned",
-	})
-
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
+		meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+			Type:               shared.StatusConditionReady,
+			Status:             metav1.ConditionFalse,
+			Reason:             "DropletNotAssigned",
+			ObservedGeneration: cfApp.Generation,
+		})
+
 		return ctrl.Result{}, nil
 	}
 
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:   StatusConditionReady,
-		Status: metav1.ConditionFalse,
-		Reason: "CannotResolveCurrentDropletRef",
-	})
-
 	droplet, err := r.getDroplet(ctx, log, cfApp)
 	if err != nil {
+		meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+			Type:               shared.StatusConditionReady,
+			Status:             metav1.ConditionFalse,
+			Reason:             "CannotResolveCurrentDropletRef",
+			ObservedGeneration: cfApp.Generation,
+		})
+
 		return ctrl.Result{}, err
 	}
 
 	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:   StatusConditionReady,
-		Status: metav1.ConditionTrue,
-		Reason: "DropletAssigned",
+		Type:               shared.StatusConditionReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             "DropletAssigned",
+		ObservedGeneration: cfApp.Generation,
 	})
 
 	err = r.startApp(ctx, log, cfApp, droplet)
@@ -152,9 +205,9 @@ func (r *CFAppReconciler) startApp(ctx context.Context, log logr.Logger, cfApp *
 	for _, dropletProcess := range addWebIfMissing(droplet.ProcessTypes) {
 		loopLog := log.WithValues("processType", dropletProcess.Type)
 
-		existingProcess, err := r.fetchProcessByType(ctx, log, cfApp.Name, cfApp.Namespace, dropletProcess.Type)
+		existingProcess, err := r.fetchProcessByType(ctx, loopLog, cfApp.Name, cfApp.Namespace, dropletProcess.Type)
 		if err != nil {
-			loopLog.Info("error when fetching  cfprocess by type", "reason", err)
+			loopLog.Info("error when fetching CFProcess by type", "reason", err)
 			return err
 		}
 
@@ -336,47 +389,6 @@ func (r *CFAppReconciler) getCFRoutes(ctx context.Context, log logr.Logger, cfAp
 	}
 
 	return foundRoutes.Items, nil
-}
-
-func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFApp{}).
-		Watches(&source.Kind{Type: &korifiv1alpha1.CFBuild{}}, handler.EnqueueRequestsFromMapFunc(buildToApp)).
-		Watches(&source.Kind{Type: &korifiv1alpha1.CFServiceBinding{}}, handler.EnqueueRequestsFromMapFunc(serviceBindingToApp))
-}
-
-func buildToApp(o client.Object) []reconcile.Request {
-	cfBuild, ok := o.(*korifiv1alpha1.CFBuild)
-	if !ok {
-		return nil
-	}
-
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      cfBuild.Spec.AppRef.Name,
-				Namespace: o.GetNamespace(),
-			},
-		},
-	}
-}
-
-func serviceBindingToApp(o client.Object) []reconcile.Request {
-	serviceBinding, ok := o.(*korifiv1alpha1.CFServiceBinding)
-	if !ok {
-		return nil
-	}
-
-	result := []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      serviceBinding.Spec.AppRef.Name,
-				Namespace: o.GetNamespace(),
-			},
-		},
-	}
-
-	return result
 }
 
 func (r *CFAppReconciler) reconcileVCAPSecret(

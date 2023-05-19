@@ -42,6 +42,9 @@ type CFBuildStatus struct {
 	Droplet *BuildDropletStatus `json:"droplet,omitempty"`
 	// Conditions capture the current status of the Build
 	Conditions []metav1.Condition `json:"conditions"`
+
+	// ObservedGeneration captures the latest generation of the CFBuild that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // BuildDropletStatus defines the observed state of the CFBuild's Droplet or runnable image

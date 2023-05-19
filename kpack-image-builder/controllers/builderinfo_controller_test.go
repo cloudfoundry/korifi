@@ -135,6 +135,14 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 				Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
 				Expect(readyCondition.Reason).To(Equal("ClusterBuilderReady"))
 				Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is ready", clusterBuilderName)))
+				Expect(readyCondition.ObservedGeneration).To(Equal(info.Generation))
+			})
+
+			It("sets the ObservedGeneration status field", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(info.Status.ObservedGeneration).To(Equal(info.Generation))
+				}).Should(Succeed())
 			})
 
 			When("the cluster builder status is not ready", func() {
@@ -160,6 +168,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 						g.Expect(readyCondition.Reason).To(Equal("ClusterBuilderNotReady"))
 						g.Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is not ready: something happened", clusterBuilderName)))
+						g.Expect(readyCondition.ObservedGeneration).To(Equal(info.Generation))
 					}).Should(Succeed())
 				})
 			})
@@ -187,6 +196,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 						g.Expect(readyCondition.Reason).To(Equal("ClusterBuilderNotReady"))
 						g.Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is not ready: resource not reconciled", clusterBuilderName)))
+						g.Expect(readyCondition.ObservedGeneration).To(Equal(info.Generation))
 					}).Should(Succeed())
 				})
 			})
@@ -383,6 +393,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			Expect(readyCondition.Reason).To(Equal("ClusterBuilderMissing"))
 			Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
 			Expect(readyCondition.Message).To(Equal(fmt.Sprintf("Error fetching ClusterBuilder %q: ClusterBuilder.kpack.io %q not found", clusterBuilderName, clusterBuilderName)))
+			Expect(readyCondition.ObservedGeneration).To(Equal(info.Generation))
 		})
 
 		When("the ClusterBuilder is created", func() {

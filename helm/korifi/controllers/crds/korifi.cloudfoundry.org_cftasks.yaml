@@ -138,6 +138,11 @@ spec:
               memoryMB:
                 format: int64
                 type: integer
+              observedGeneration:
+                description: ObservedGeneration captures the latest generation of
+                  the CFTask that has been reconciled
+                format: int64
+                type: integer
               sequenceId:
                 format: int64
                 type: integer

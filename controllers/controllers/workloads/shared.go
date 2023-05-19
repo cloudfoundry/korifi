@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -19,10 +20,6 @@ import (
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-
-const (
-	StatusConditionReady = "Ready"
-)
 
 func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string, annotations map[string]string) error {
 	log = log.WithName("createOrPatchNamespace")
@@ -187,14 +184,15 @@ func getNamespace(ctx context.Context, log logr.Logger, client client.Client, na
 	return nil
 }
 
-func logAndSetReadyStatus(err error, log logr.Logger, conditions *[]metav1.Condition, reason string) (ctrl.Result, error) {
+func logAndSetReadyStatus(err error, log logr.Logger, conditions *[]metav1.Condition, reason string, generation int64) (ctrl.Result, error) {
 	log.Info(err.Error())
 
 	meta.SetStatusCondition(conditions, metav1.Condition{
-		Type:    StatusConditionReady,
-		Status:  metav1.ConditionFalse,
-		Reason:  reason,
-		Message: err.Error(),
+		Type:               shared.StatusConditionReady,
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
+		Message:            err.Error(),
+		ObservedGeneration: generation,
 	})
 
 	return ctrl.Result{}, err

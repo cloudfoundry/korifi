@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -207,8 +208,8 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 	if len(message.States) > 0 {
 		stateSet := NewSet(message.States...)
 		preds = append(preds, func(p korifiv1alpha1.CFPackage) bool {
-			return (stateSet.Includes(PackageStateReady) && meta.IsStatusConditionTrue(p.Status.Conditions, workloads.StatusConditionReady)) ||
-				(stateSet.Includes(PackageStateAwaitingUpload) && !meta.IsStatusConditionTrue(p.Status.Conditions, workloads.StatusConditionReady))
+			return (stateSet.Includes(PackageStateReady) && meta.IsStatusConditionTrue(p.Status.Conditions, shared.StatusConditionReady)) ||
+				(stateSet.Includes(PackageStateAwaitingUpload) && !meta.IsStatusConditionTrue(p.Status.Conditions, shared.StatusConditionReady))
 		})
 	}
 
@@ -249,7 +250,7 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, workloads.StatusConditionReady)
+	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, shared.StatusConditionReady)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed awaiting Ready status condition: %w", err)
 	}
@@ -261,7 +262,7 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 func (r *PackageRepo) cfPackageToPackageRecord(cfPackage *korifiv1alpha1.CFPackage) PackageRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfPackage.ObjectMeta)
 	state := PackageStateAwaitingUpload
-	if meta.IsStatusConditionTrue(cfPackage.Status.Conditions, workloads.StatusConditionReady) {
+	if meta.IsStatusConditionTrue(cfPackage.Status.Conditions, shared.StatusConditionReady) {
 		state = PackageStateReady
 	}
 	return PackageRecord{

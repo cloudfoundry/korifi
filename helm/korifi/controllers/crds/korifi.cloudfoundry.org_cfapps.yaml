@@ -179,6 +179,11 @@ spec:
               observedDesiredState:
                 description: 'Deprecated: No longer used'
                 type: string
+              observedGeneration:
+                description: ObservedGeneration captures the latest generation of
+                  the CFApp that has been reconciled
+                format: int64
+                type: integer
               vcapApplicationSecretName:
                 description: VCAPApplicationSecretName contains the name of the CFApp's
                   VCAP_APPLICATION Secret, which should exist in the same namespace

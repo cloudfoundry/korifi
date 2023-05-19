@@ -38,6 +38,9 @@ type CFSpaceStatus struct {
 	Conditions []metav1.Condition `json:"conditions"`
 
 	GUID string `json:"guid"`
+
+	// ObservedGeneration captures the latest generation of the CFSpace that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

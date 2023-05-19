@@ -161,11 +161,11 @@ func main() {
 
 		if err = (workloadscontrollers.NewCFPackageReconciler(
 			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 			image.NewClient(k8sClient),
 			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
-			mgr.GetScheme(),
 			controllerConfig.ContainerRegistrySecretName,
-			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
 			os.Exit(1)
@@ -331,7 +331,7 @@ func main() {
 		}
 
 		if controllerConfig.IncludeStatefulsetRunner {
-			logger := ctrl.Log.WithName("controllers").WithName("AppWorkloadReconciler")
+			logger := ctrl.Log.WithName("controllers").WithName("AppWorkload")
 			if err = statefulsetcontrollers.NewAppWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),

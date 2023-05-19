@@ -26,9 +26,6 @@ const (
 	InvalidStatus CurrentStatus = "invalid"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // Destination defines a target for a CFRoute, does not carry meaning outside of a CF context
 type Destination struct {
 	// A unique identifier for this route destination. Required to support CF V3 Destination endpoints
@@ -50,9 +47,6 @@ type Protocol string
 
 // CFRouteSpec defines the desired state of CFRoute
 type CFRouteSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// The subdomain of the route within the domain. Host is optional and defaults to empty.
 	// When the host is empty, then the name of the app will be used
 	Host string `json:"host,omitempty"`
@@ -81,6 +75,9 @@ type CFRouteStatus struct {
 
 	// Conditions capture the current status of the route
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the CFRoute that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // CurrentStatus declares whether the CFRoute is currently valid or invalid
