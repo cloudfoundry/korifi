@@ -88,6 +88,14 @@ func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logg
 		return ctrl.Result{}, err
 	}
 
+	if len(domainRoutes) == 0 {
+		if controllerutil.RemoveFinalizer(cfDomain, CFDomainFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	for i := range domainRoutes {
 		err = r.client.Delete(ctx, &domainRoutes[i])
 		if err != nil {
@@ -96,11 +104,7 @@ func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logg
 		}
 	}
 
-	if controllerutil.RemoveFinalizer(cfDomain, CFDomainFinalizerName) {
-		log.V(1).Info("finalizer removed")
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{Requeue: true}, nil
 }
 
 func (r *CFDomainReconciler) listRoutesForDomain(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) ([]korifiv1alpha1.CFRoute, error) {
