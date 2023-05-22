@@ -94,8 +94,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	})
 
 	AfterEach(func() {
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, cfRoute))).To(Succeed())
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, cfDomain))).To(Succeed())
 		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ns))).To(Succeed())
 	})
 
@@ -515,22 +513,24 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, secondCFRouteForFQDN)).To(Succeed())
-		})
-
-		It("removes the route from the shared FQDN HTTPProxy", func() {
 			Eventually(func(g Gomega) {
-				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)).To(Succeed())
+				proxy := new(contourv1.HTTPProxy)
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, proxy)).To(Succeed())
 
 				g.Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(testFQDN))
-				g.Expect(proxy.Spec.Includes).To(ContainElement(contourv1.Include{
+				g.Expect(proxy.Spec.Includes).To(ConsistOf(contourv1.Include{
+					Name:      testRouteGUID,
+					Namespace: testNamespace,
+				}, contourv1.Include{
 					Name:      secondRouteGUID,
 					Namespace: testNamespace,
 				}))
 			}).Should(Succeed())
 
 			Expect(k8sClient.Delete(ctx, secondCFRouteForFQDN)).To(Succeed())
+		})
 
+		It("removes the route from the shared FQDN HTTPProxy", func() {
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testFQDN, Namespace: testNamespace}, &proxy)).To(Succeed())
