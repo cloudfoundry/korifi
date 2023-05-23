@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +39,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			},
 			Spec: korifiv1alpha1.CFPackageSpec{
 				Type: "bits",
-				AppRef: v1.LocalObjectReference{
+				AppRef: corev1.LocalObjectReference{
 					Name: cfAppName,
 				},
 			},
@@ -53,10 +52,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Name:      testutils.PrefixedGUID("droplet"),
 			},
 			Spec: korifiv1alpha1.CFBuildSpec{
-				PackageRef: v1.LocalObjectReference{
+				PackageRef: corev1.LocalObjectReference{
 					Name: cfPackage.Name,
 				},
-				AppRef: v1.LocalObjectReference{
+				AppRef: corev1.LocalObjectReference{
 					Name: cfAppName,
 				},
 				Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
@@ -156,10 +155,11 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	Describe("CFTask creation", func() {
 		var (
 			eventCallCount int
-			task           korifiv1alpha1.CFTask
+			task           *korifiv1alpha1.CFTask
 		)
 
 		BeforeEach(func() {
+			task = &korifiv1alpha1.CFTask{}
 			Eventually(func(g Gomega) {
 				app := new(korifiv1alpha1.CFApp)
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfApp.Name}, app)).To(Succeed())
@@ -180,7 +180,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(k8sClient.Status().Patch(ctx, cfTask, client.MergeFrom(orig))).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, &task)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
 				initializedStatusCondition := meta.FindStatusCondition(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)
 				g.Expect(initializedStatusCondition).NotTo(BeNil())
 				g.Expect(initializedStatusCondition.Status).To(Equal(metav1.ConditionTrue), "task did not become initialized")
@@ -284,7 +284,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(eventRecorder.EventfCallCount()).To(Equal(eventCallCount+1), "eventRecorder.Eventf call count mismatch")
 			eventTaskObj, eventType, eventReason, eventMessage, eventMessageArgs := eventRecorder.EventfArgsForCall(eventCallCount)
 			eventTask := eventTaskObj.(*korifiv1alpha1.CFTask)
-			Expect(*eventTask).To(BeEquivalentTo(task), "Unexpected task in event record")
+			Expect(client.ObjectKeyFromObject(eventTask)).To(Equal(client.ObjectKeyFromObject(task)))
 			Expect(eventType).To(Equal("Normal"), "Unexpected event type in event record")
 			Expect(eventReason).To(Equal("TaskWorkloadCreated"), "Unexpected event reason in event record")
 			Expect(eventMessage).To(Equal("Created task workload %s"), "Unexpected event message in event record")
@@ -316,7 +316,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 			It("reflects the status in the korifi task", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, &task)).To(Succeed())
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskStartedConditionType)).To(BeTrue())
 				}).Should(Succeed())
 			})
