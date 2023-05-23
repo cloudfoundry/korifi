@@ -160,7 +160,6 @@ func main() {
 	deploymentRepo := repositories.NewDeploymentRepo(
 		userClientFactory,
 		namespaceRetriever,
-		cfg.RootNamespace,
 	)
 	buildRepo := repositories.NewBuildRepo(
 		namespaceRetriever,

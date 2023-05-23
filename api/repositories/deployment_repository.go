@@ -8,7 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -20,7 +20,6 @@ const DeploymentResourceType = "Deployment"
 type DeploymentRepo struct {
 	userClientFactory  authorization.UserK8sClientFactory
 	namespaceRetriever NamespaceRetriever
-	rootNamespace      string
 }
 
 type DeploymentRecord struct {
@@ -58,12 +57,10 @@ type CreateDeploymentMessage struct {
 func NewDeploymentRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	namespaceRetriever NamespaceRetriever,
-	rootNamespace string,
 ) *DeploymentRepo {
 	return &DeploymentRepo{
 		userClientFactory:  userClientFactory,
 		namespaceRetriever: namespaceRetriever,
-		rootNamespace:      rootNamespace,
 	}
 }
 
@@ -152,7 +149,7 @@ func appToDeploymentRecord(cfApp *korifiv1alpha1.CFApp) DeploymentRecord {
 		},
 	}
 
-	if meta.IsStatusConditionTrue(cfApp.Status.Conditions, workloads.StatusConditionReady) {
+	if meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady) {
 		deploymentRecord.Status = DeploymentStatus{
 			Value:  DeploymentStatusValueFinalized,
 			Reason: DeploymentStatusReasonDeployed,

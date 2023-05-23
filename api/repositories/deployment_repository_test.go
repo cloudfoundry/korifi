@@ -6,7 +6,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("DomainRepository", func() {
+var _ = Describe("DeploymentRepository", func() {
 	var (
 		deploymentRepo *repositories.DeploymentRepo
 		cfOrg          *korifiv1alpha1.CFOrg
@@ -30,7 +30,7 @@ var _ = Describe("DomainRepository", func() {
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
 		cfApp = createApp(cfSpace.Name)
 
-		deploymentRepo = repositories.NewDeploymentRepo(userClientFactory, namespaceRetriever, rootNamespace)
+		deploymentRepo = repositories.NewDeploymentRepo(userClientFactory, namespaceRetriever)
 	})
 
 	Describe("GetDeployment", func() {
@@ -76,7 +76,7 @@ var _ = Describe("DomainRepository", func() {
 				BeforeEach(func() {
 					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-							Type:   workloads.StatusConditionReady,
+							Type:   shared.StatusConditionReady,
 							Status: metav1.ConditionTrue,
 							Reason: "ready",
 						})
@@ -170,7 +170,7 @@ var _ = Describe("DomainRepository", func() {
 				BeforeEach(func() {
 					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-							Type:   workloads.StatusConditionReady,
+							Type:   shared.StatusConditionReady,
 							Status: metav1.ConditionTrue,
 							Reason: "ready",
 						})
