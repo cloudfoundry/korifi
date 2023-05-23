@@ -137,20 +137,21 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequestsForServiceAccount(ctx context.
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;patch;delete
 
 func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfSpace.Namespace, "name", cfSpace.Name)
+	log := shared.ObjectLogger(r.log, cfSpace)
+	ctx = logr.NewContext(ctx, log)
 
 	cfSpace.Status.ObservedGeneration = cfSpace.Generation
 	log.V(1).Info("set observed generation", "generation", cfSpace.Status.ObservedGeneration)
 
 	if !cfSpace.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, log, cfSpace)
+		return r.finalize(ctx, cfSpace)
 	}
 
 	shared.GetConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfSpace.Generation)
 
 	cfSpace.Status.GUID = cfSpace.GetName()
 
-	err := createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
+	err := createOrPatchNamespace(ctx, r.client, cfSpace, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.SpaceNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
 		korifiv1alpha1.SpaceGUIDKey: cfSpace.Name,
 	}), map[string]string{
@@ -160,22 +161,22 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		return logAndSetReadyStatus(fmt.Errorf("error creating namespace: %w", err), log, &cfSpace.Status.Conditions, "NamespaceCreation", cfSpace.Generation)
 	}
 
-	err = getNamespace(ctx, log, r.client, cfSpace.Name)
+	err = getNamespace(ctx, r.client, cfSpace.Name)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = propagateSecret(ctx, r.client, log, cfSpace, r.containerRegistrySecretName)
+	err = propagateSecret(ctx, r.client, cfSpace, r.containerRegistrySecretName)
 	if err != nil {
 		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfSpace.Status.Conditions, "RegistrySecretPropagation", cfSpace.Generation)
 	}
 
-	err = reconcileRoleBindings(ctx, r.client, log, cfSpace)
+	err = reconcileRoleBindings(ctx, r.client, cfSpace)
 	if err != nil {
 		return logAndSetReadyStatus(fmt.Errorf("error propagating role-bindings: %w", err), log, &cfSpace.Status.Conditions, "RoleBindingPropagation", cfSpace.Generation)
 	}
 
-	err = r.reconcileServiceAccounts(ctx, cfSpace, log)
+	err = r.reconcileServiceAccounts(ctx, cfSpace)
 	if err != nil {
 		return logAndSetReadyStatus(fmt.Errorf("error propagating service accounts: %w", err), log, &cfSpace.Status.Conditions, "ServiceAccountPropagation", cfSpace.Generation)
 	}
@@ -190,22 +191,18 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 	return ctrl.Result{}, nil
 }
 
-func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space client.Object, log logr.Logger) error {
-	log = log.WithName("reconcileServiceAccounts").
+func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space client.Object) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("reconcileServiceAccounts").
 		WithValues("rootNamespace", r.rootNamespace, "targetNamespace", space.GetName())
 
-	var (
-		result controllerutil.OperationResult
-		err    error
-	)
-
 	serviceAccounts := new(corev1.ServiceAccountList)
-	err = r.client.List(ctx, serviceAccounts, client.InNamespace(r.rootNamespace))
+	err := r.client.List(ctx, serviceAccounts, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		log.Info("error listing service accounts from root namespace", "reason", err)
 		return err
 	}
 
+	var result controllerutil.OperationResult
 	serviceAccountMap := make(map[string]struct{})
 	for _, rootServiceAccount := range serviceAccounts.Items {
 		loopLog := log.WithValues("serviceAccountName", rootServiceAccount.Name)
@@ -263,7 +260,7 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 				return err
 			}
 
-			loopLog.V(1).Info("Service Account propagated", "name", rootServiceAccount.Name, "operation", result)
+			loopLog.V(1).Info("service Account propagated", "operation", result)
 		}
 	}
 
@@ -320,8 +317,8 @@ func keepImagePullSecrets(serviceAccountName string, secretRefs []corev1.LocalOb
 	return results
 }
 
-func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space client.Object) (ctrl.Result, error) {
-	log = log.WithName("finalize")
+func (r *CFSpaceReconciler) finalize(ctx context.Context, space client.Object) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalize")
 
 	if !controllerutil.ContainsFinalizer(space, korifiv1alpha1.CFSpaceFinalizerName) {
 		return ctrl.Result{}, nil

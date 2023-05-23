@@ -22,8 +22,8 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
-func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string, annotations map[string]string) error {
-	log = log.WithName("createOrPatchNamespace")
+func createOrPatchNamespace(ctx context.Context, client client.Client, orgOrSpace client.Object, labels map[string]string, annotations map[string]string) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchNamespace")
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -54,14 +54,14 @@ func updateMap(dest *map[string]string, values map[string]string) {
 	}
 }
 
-func propagateSecret(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, secretName string) error {
+func propagateSecret(ctx context.Context, client client.Client, orgOrSpace client.Object, secretName string) error {
 	if secretName == "" {
 		// we are operating in service account role association mode for registry permissions.
 		// only tested implicity in EKS e2es
 		return nil
 	}
 
-	log = log.WithName("propagateSecret").
+	log := logr.FromContextOrDiscard(ctx).WithName("propagateSecret").
 		WithValues("secretName", secretName, "parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
 
 	secret := new(corev1.Secret)
@@ -95,22 +95,18 @@ func propagateSecret(ctx context.Context, client client.Client, log logr.Logger,
 	return nil
 }
 
-func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object) error {
-	var (
-		result controllerutil.OperationResult
-		err    error
-	)
-
-	log = log.WithName("propagateRolebindings").
+func reconcileRoleBindings(ctx context.Context, kClient client.Client, orgOrSpace client.Object) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("propagateRolebindings").
 		WithValues("parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
 
 	roleBindings := new(rbacv1.RoleBindingList)
-	err = kClient.List(ctx, roleBindings, client.InNamespace(orgOrSpace.GetNamespace()))
+	err := kClient.List(ctx, roleBindings, client.InNamespace(orgOrSpace.GetNamespace()))
 	if err != nil {
 		log.Info("error listing role-bindings from the parent namespace", "reason", err)
 		return err
 	}
 
+	var result controllerutil.OperationResult
 	parentRoleBindingMap := make(map[string]struct{})
 	for _, binding := range roleBindings.Items {
 		if binding.Annotations[korifiv1alpha1.PropagateRoleBindingAnnotation] == "true" {
@@ -174,11 +170,12 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 			}
 		}
 	}
+
 	return nil
 }
 
-func getNamespace(ctx context.Context, log logr.Logger, client client.Client, namespaceName string) error {
-	log = log.WithValues("namespace", namespaceName)
+func getNamespace(ctx context.Context, client client.Client, namespaceName string) error {
+	log := logr.FromContextOrDiscard(ctx).WithValues("namespace", namespaceName)
 
 	namespace := new(corev1.Namespace)
 	err := client.Get(ctx, types.NamespacedName{Name: namespaceName}, namespace)
@@ -186,6 +183,7 @@ func getNamespace(ctx context.Context, log logr.Logger, client client.Client, na
 		log.Info("failed to get namespace", "reason", err)
 		return err
 	}
+
 	return nil
 }
 

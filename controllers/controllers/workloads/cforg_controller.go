@@ -122,20 +122,21 @@ func (r *CFOrgReconciler) enqueueCFOrgRequests(ctx context.Context, object clien
 //+kubebuilder:rbac:groups="policy",resources=podsecuritypolicies,verbs=use
 
 func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfOrg.Namespace, "name", cfOrg.Name)
+	log := shared.ObjectLogger(r.log, cfOrg)
+	ctx = logr.NewContext(ctx, log)
 
 	cfOrg.Status.ObservedGeneration = cfOrg.Generation
 	log.V(1).Info("set observed generation", "generation", cfOrg.Status.ObservedGeneration)
 
 	if !cfOrg.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, log, cfOrg)
+		return r.finalize(ctx, cfOrg)
 	}
 
 	shared.GetConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfOrg.Generation)
 
 	cfOrg.Status.GUID = cfOrg.Name
 
-	err := createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
+	err := createOrPatchNamespace(ctx, r.client, cfOrg, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.OrgNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
 		korifiv1alpha1.OrgGUIDKey: cfOrg.Name,
 	}), map[string]string{
@@ -145,17 +146,17 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 		return logAndSetReadyStatus(fmt.Errorf("error creating namespace: %w", err), log, &cfOrg.Status.Conditions, "NamespaceCreation", cfOrg.Generation)
 	}
 
-	err = getNamespace(ctx, log, r.client, cfOrg.Name)
+	err = getNamespace(ctx, r.client, cfOrg.Name)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = propagateSecret(ctx, r.client, log, cfOrg, r.containerRegistrySecretName)
+	err = propagateSecret(ctx, r.client, cfOrg, r.containerRegistrySecretName)
 	if err != nil {
 		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfOrg.Status.Conditions, "RegistrySecretPropagation", cfOrg.Generation)
 	}
 
-	err = reconcileRoleBindings(ctx, r.client, log, cfOrg)
+	err = reconcileRoleBindings(ctx, r.client, cfOrg)
 	if err != nil {
 		return logAndSetReadyStatus(fmt.Errorf("error propagating role-bindings: %w", err), log, &cfOrg.Status.Conditions, "RoleBindingPropagation", cfOrg.Generation)
 	}
@@ -170,8 +171,8 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 	return ctrl.Result{}, nil
 }
 
-func (r *CFOrgReconciler) finalize(ctx context.Context, log logr.Logger, org client.Object) (ctrl.Result, error) {
-	log = log.WithName("finalize")
+func (r *CFOrgReconciler) finalize(ctx context.Context, org client.Object) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalize")
 
 	if !controllerutil.ContainsFinalizer(org, korifiv1alpha1.CFOrgFinalizerName) {
 		return ctrl.Result{}, nil
