@@ -7,9 +7,11 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
@@ -603,6 +605,10 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 				return spaceNamespace.GetDeletionTimestamp().IsZero()
 			}).Should(BeFalse(), "timed out waiting for deletion timestamps to be set on namespace")
+		})
+
+		It("writes a log message", func() {
+			Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
 		})
 
 		When("there are CFApps in the space", func() {

@@ -28,6 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
@@ -56,6 +57,7 @@ var (
 	packageCleaner      *fake.PackageCleaner
 	eventRecorder       *controllerfake.EventRecorder
 	buildCleaner        *fake.BuildCleaner
+	logOutput           *gbytes.Buffer
 )
 
 const (
@@ -75,6 +77,8 @@ func TestWorkloadsControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	logOutput = gbytes.NewBuffer()
+	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
 
 	ctx, cancel = context.WithCancel(context.TODO())
