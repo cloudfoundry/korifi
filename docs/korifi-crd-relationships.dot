@@ -1,0 +1,53 @@
+digraph G
+{
+    subgraph cluster_korifi {
+        label="Korifi Core";
+        subgraph cluster_global {
+            label="Global"
+            cforg[label="CFOrg"];
+            cfspace[label="CFSpace"];
+            cfdomain[label="CFDomain"];
+            cfserviceinstance[label="CFServiceInstance"];
+            builderinfo[label="BuilderInfo"];
+        }
+
+        cfapp[label="CFApp"];
+        cfbuild[label="CFBuild"];
+        cfpackage[label="CFPackage"];
+        cfprocess[label="CFProcess"];
+        cfroute[label="CFRoute"];
+        cfservicebinding[label="CFServiceBinding"];
+        cftask[label="CFTask"];
+    }
+    subgraph cluster_interface {
+        label="Interface resources"
+        appworkload[label="AppWorkload"];
+        taskworkload[label="TaskWorkload"];
+        buildworkload[label="BuildWorkload"];
+    }
+
+    subgraph cluster_kpack {
+        label="kpack"
+            kpackbuild[label="KpackBuild"];
+        kpackimage[label="KpackImage"];
+    }
+
+    cfapp -> cfprocess[color="blue"];
+    cfprocess -> appworkload[color="blue"];
+    cfapp -> cftask[color="green"];
+    cftask -> taskworkload[color="blue"];
+    cfapp -> cfpackage[color="blue"];
+    cfapp -> cfbuild[color="green"];
+    cfbuild -> buildworkload[color="blue"];
+    cfapp -> cfroute;
+    cfapp -> cfservicebinding;
+    cfserviceinstance -> cfservicebinding[color="green"];
+    cforg -> cfspace;
+    cfspace -> cfapp;
+    cfdomain -> cfroute;
+    buildworkload -> kpackimage[color="green"];
+    buildworkload -> kpackbuild[color="green"];
+    cfapp -> kpackimage[style=dashed];
+    kpackimage -> kpackbuild;
+
+}
