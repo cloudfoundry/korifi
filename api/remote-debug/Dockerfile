@@ -1,6 +1,8 @@
 # syntax = docker/dockerfile:experimental
 FROM golang:1.20.4 as builder
 
+ARG version=dev
+
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
@@ -25,10 +27,11 @@ COPY controllers/controllers/shared controllers/controllers/shared
 COPY controllers/controllers/workloads controllers/controllers/workloads
 COPY controllers/webhooks controllers/webhooks
 COPY tools tools
+COPY version version
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags=all="-N -l" -o cfapi api/main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X code.cloudfoundry.org/korifi/version.Version=${version}" -gcflags=all="-N -l" -o cfapi api/main.go
 
 # Get Delve from a GOPATH not from a Go Modules project
 WORKDIR /go/src/

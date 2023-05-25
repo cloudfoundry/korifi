@@ -25,6 +25,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
+	"code.cloudfoundry.org/korifi/version"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -80,6 +81,8 @@ func main() {
 	}()
 
 	go tools.SyncLogLevel(context.Background(), ctrl.Log, eventChan, atomicLevel, config.GetLogLevelFromPath)
+
+	ctrl.Log.Info("starting Korifi API", "version", version.Version)
 
 	privilegedCRClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
 	if err != nil {

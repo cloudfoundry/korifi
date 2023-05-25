@@ -45,6 +45,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/registry"
+	"code.cloudfoundry.org/korifi/version"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
@@ -115,6 +116,8 @@ func main() {
 	klog.SetLogger(ctrl.Log)
 
 	log.SetOutput(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"})
+
+	ctrl.Log.Info("starting Korifi controllers", "version", version.Version)
 
 	conf := ctrl.GetConfigOrDie()
 	k8sClient, err := k8sclient.NewForConfig(conf)
