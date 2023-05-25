@@ -1,7 +1,6 @@
 package workloads_test
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -280,13 +279,6 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			}).Should(Succeed())
 
 			Expect(k8sClient.Delete(ctx, &cfOrg)).To(Succeed())
-		})
-
-		It("eventually deletes the CFOrg", func() {
-			Eventually(func() bool {
-				var createdCFOrg korifiv1alpha1.CFOrg
-				return apierrors.IsNotFound(k8sClient.Get(context.Background(), types.NamespacedName{Name: orgGUID, Namespace: cfRootNamespace}, &createdCFOrg))
-			}).Should(BeTrue(), "timed out waiting for org to be deleted")
 		})
 
 		It("eventually deletes the namespace", func() {

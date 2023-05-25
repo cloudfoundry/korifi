@@ -111,8 +111,7 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 	log.V(1).Info("set observed generation", "generation", cfApp.Status.ObservedGeneration)
 
 	if !cfApp.GetDeletionTimestamp().IsZero() {
-		err := r.finalizeCFApp(ctx, log, cfApp)
-		return ctrl.Result{}, err
+		return r.finalizeCFApp(ctx, log, cfApp)
 	}
 
 	err := k8s.AddFinalizer(ctx, log, r.k8sClient, cfApp, cfAppFinalizerName)
@@ -301,28 +300,32 @@ func (r *CFAppReconciler) fetchProcessByType(ctx context.Context, log logr.Logge
 	return &cfProcessList.Items[0], nil
 }
 
-func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, log logr.Logger, cfApp *korifiv1alpha1.CFApp) error {
+func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, log logr.Logger, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	log = log.WithName("finalize")
 
 	if !controllerutil.ContainsFinalizer(cfApp, cfAppFinalizerName) {
-		return nil
+		return ctrl.Result{}, nil
 	}
 
 	err := r.finalizeCFAppRoutes(ctx, log, cfApp)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 
-	err = r.finalizeCFServiceBindings(ctx, log, cfApp)
+	sbFinalizationResult, err := r.finalizeCFServiceBindings(ctx, log, cfApp)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
+	}
+
+	if (sbFinalizationResult != ctrl.Result{}) {
+		return sbFinalizationResult, nil
 	}
 
 	if controllerutil.RemoveFinalizer(cfApp, cfAppFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
 
-	return nil
+	return ctrl.Result{}, nil
 }
 
 func (r *CFAppReconciler) finalizeCFAppRoutes(ctx context.Context, log logr.Logger, cfApp *korifiv1alpha1.CFApp) error {
@@ -339,23 +342,27 @@ func (r *CFAppReconciler) finalizeCFAppRoutes(ctx context.Context, log logr.Logg
 	return nil
 }
 
-func (r *CFAppReconciler) finalizeCFServiceBindings(ctx context.Context, log logr.Logger, cfApp *korifiv1alpha1.CFApp) error {
+func (r *CFAppReconciler) finalizeCFServiceBindings(ctx context.Context, log logr.Logger, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	sbList := korifiv1alpha1.CFServiceBindingList{}
 	err := r.k8sClient.List(ctx, &sbList, client.InNamespace(cfApp.Namespace), client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name})
 	if err != nil {
 		log.Info("failed to list app service bindings", "reason", err)
-		return err
+		return ctrl.Result{}, err
+	}
+
+	if len(sbList.Items) == 0 {
+		return ctrl.Result{}, nil
 	}
 
 	for i := range sbList.Items {
 		err = r.k8sClient.Delete(ctx, &sbList.Items[i])
 		if err != nil {
 			log.Info("failed to delete service binding", "serviceBindingName", sbList.Items[i].Name, "reason", err)
-			return err
+			return ctrl.Result{}, err
 		}
 	}
 
-	return nil
+	return ctrl.Result{Requeue: true}, nil
 }
 
 func (r *CFAppReconciler) updateRouteDestinations(ctx context.Context, log logr.Logger, cfAppGUID string, cfRoutes []korifiv1alpha1.CFRoute) error {

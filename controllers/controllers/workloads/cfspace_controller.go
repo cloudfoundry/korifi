@@ -341,16 +341,20 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space
 
 	log.V(1).Info("deleting namespace while finalizing CFSpace")
 	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space.GetName()}})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
+		if controllerutil.RemoveFinalizer(space, spaceFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	if err != nil {
 		log.Info("failed to delete namespace", "reason", err)
 		return ctrl.Result{}, err
 	}
 
-	if controllerutil.RemoveFinalizer(space, spaceFinalizerName) {
-		log.V(1).Info("finalizer removed")
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{Requeue: true}, nil
 }
 
 func (r *CFSpaceReconciler) finalizeCFApps(ctx context.Context, log logr.Logger, namespace string) error {

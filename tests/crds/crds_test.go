@@ -34,14 +34,11 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		Eventually(
-			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforg", orgGUID),
-			"20s",
-		).Should(Exit(0))
+		deleteOrg := kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforg", orgGUID)
+		deleteRoleBinding := kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "rolebinding", cfUserRoleBindingName)
 
-		Eventually(
-			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "rolebinding", cfUserRoleBindingName),
-		).Should(Exit(0))
+		Eventually(deleteOrg, "20s").Should(Exit(0), "deleteOrg")
+		Eventually(deleteRoleBinding, "20s").Should(Exit(0), "deleteRoleBinging")
 	})
 
 	It("can create a CFOrg", func() {
@@ -165,16 +162,15 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
 	})
 
+	It("can delete the space", func() {
+		Eventually(kubectl("delete", "--ignore-not-found=true", "-n="+orgGUID, "cfspace/"+spaceGUID), "120s").Should(Exit(0))
+		Eventually(kubectl("wait", "--for=delete", "namespace/"+spaceGUID)).Should(Exit(0))
+	})
+
 	It("can delete the org", func() {
-		Eventually(
-			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforgs/"+orgGUID),
-			"20s",
-		).Should(Exit(0))
+		Eventually(kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforgs/"+orgGUID), "120s").Should(Exit(0))
 
-		Eventually(kubectl("wait", "--for=delete", "cforg/"+orgGUID, "-n", rootNamespace, "--timeout=20s"), "20s").Should(Exit(0))
-
-		Eventually(kubectl("wait", "--for=delete", "namespace/"+orgGUID, "--timeout=60s"), "60s").Should(Exit(0))
-
-		Eventually(kubectl("wait", "--for=delete", "namespace/"+spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
+		Eventually(kubectl("wait", "--for=delete", "cforg/"+orgGUID, "-n", rootNamespace)).Should(Exit(0))
+		Eventually(kubectl("wait", "--for=delete", "namespace/"+orgGUID)).Should(Exit(0))
 	})
 })

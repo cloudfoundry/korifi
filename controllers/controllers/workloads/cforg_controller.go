@@ -188,14 +188,18 @@ func (r *CFOrgReconciler) finalize(ctx context.Context, log logr.Logger, org cli
 	}
 
 	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.GetName()}})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
+		if controllerutil.RemoveFinalizer(org, orgFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	if err != nil {
 		log.Info("failed to delete namespace", "reason", err)
 		return ctrl.Result{}, err
 	}
 
-	if controllerutil.RemoveFinalizer(org, orgFinalizerName) {
-		log.V(1).Info("finalizer removed")
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{Requeue: true}, nil
 }

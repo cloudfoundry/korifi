@@ -165,14 +165,14 @@ func (r *CFPackageReconciler) finalize(ctx context.Context, log logr.Logger, cfP
 		}
 	}
 
-	origPkg := cfPackage.DeepCopy()
-	if controllerutil.RemoveFinalizer(cfPackage, cfPackageFinalizer) {
-		err := r.k8sClient.Patch(ctx, cfPackage, client.MergeFrom(origPkg))
-		if err != nil {
-			r.log.Info("failed to patch package", "reason", err)
-			return ctrl.Result{}, fmt.Errorf("failed to patch package: %w", err)
+	err := k8s.Patch(ctx, r.k8sClient, cfPackage, func() {
+		if controllerutil.RemoveFinalizer(cfPackage, cfPackageFinalizer) {
+			log.V(1).Info("finalizer removed")
 		}
-		log.Info("finalizer removed")
+	})
+	if err != nil {
+		r.log.Info("failed to patch package", "reason", err)
+		return ctrl.Result{}, fmt.Errorf("failed to patch package: %w", err)
 	}
 
 	return ctrl.Result{}, nil

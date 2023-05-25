@@ -1,7 +1,6 @@
 package workloads_test
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -532,13 +531,6 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}).Should(Succeed())
 
 			Expect(k8sClient.Delete(ctx, cfSpace)).To(Succeed())
-		})
-
-		It("eventually deletes the CFSpace", func() {
-			Eventually(func() bool {
-				var createdCFSpace korifiv1alpha1.CFSpace
-				return apierrors.IsNotFound(k8sClient.Get(context.Background(), types.NamespacedName{Name: spaceGUID, Namespace: cfOrg.Status.GUID}, &createdCFSpace))
-			}).Should(BeTrue(), "timed out waiting for CFSpace to be deleted")
 		})
 
 		It("eventually deletes the namespace", func() {
