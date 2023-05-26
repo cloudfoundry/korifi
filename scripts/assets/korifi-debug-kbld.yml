@@ -7,11 +7,9 @@ sources:
   docker:
     buildx:
       file: api/remote-debug/Dockerfile
-      rawOptions: ["--build-arg", "version=v9999.99.99-local.dev-debug"]
 
 - image: cloudfoundry/korifi-controllers:latest
   path: .
   docker:
     buildx:
       file: controllers/remote-debug/Dockerfile
-      rawOptions: ["--build-arg", "version=v9999.99.99-local.dev-debug"]
