@@ -7,11 +7,9 @@ sources:
   docker:
     buildx:
       file: api/Dockerfile
-      rawOptions: ["--build-arg", "version=v9999.99.99-local.dev"]
 
 - image: cloudfoundry/korifi-controllers:latest
   path: .
   docker:
     buildx:
       file: controllers/Dockerfile
-      rawOptions: ["--build-arg", "version=v9999.99.99-local.dev"]

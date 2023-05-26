@@ -143,10 +143,13 @@ function deploy_korifi() {
         kbld_file="scripts/assets/korifi-debug-kbld.yml"
       fi
 
-      kbld \
-        -f "$kbld_file" \
-        -f "scripts/assets/values-template.yaml" \
-        --images-annotation=false >"scripts/assets/values.yaml"
+      VERSION=$(git describe --tags | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}')
+
+      yq "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
+        kbld \
+          --images-annotation=false \
+          -f "scripts/assets/values-template.yaml" \
+          -f - >"scripts/assets/values.yaml"
 
       awk '/image:/ {print $2}' scripts/assets/values.yaml | while read -r img; do
         kind load docker-image --name "$CLUSTER_NAME" "$img"
