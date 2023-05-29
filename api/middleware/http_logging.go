@@ -37,6 +37,6 @@ func HTTPLogging(next http.Handler) http.Handler {
 
 		wrapper := &responseWriterWrapper{writer: w}
 		next.ServeHTTP(wrapper, r)
-		logger.Info("response", "status", wrapper.status, "size", wrapper.size, "durationMillis", time.Since(t1).Milliseconds())
+		logger.Info("response", "url", r.URL, "method", r.Method, "status", wrapper.status, "size", wrapper.size, "durationMillis", time.Since(t1).Milliseconds())
 	})
 }
