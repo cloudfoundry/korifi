@@ -482,8 +482,14 @@ func (r *BuildWorkloadReconciler) ensureKpackBuilder(ctx context.Context, log lo
 		builder.Spec.ServiceAccountName = r.controllerConfig.BuilderServiceAccount
 		builder.Spec.Order = nil
 		for _, bp := range buildWorkload.Spec.Buildpacks {
-			builder.Spec.Order = append(builder.Spec.Order, corev1alpha1.OrderEntry{
-				Group: []corev1alpha1.BuildpackRef{{BuildpackInfo: corev1alpha1.BuildpackInfo{Id: bp}}},
+			builder.Spec.Order = append(builder.Spec.Order, buildv1alpha2.BuilderOrderEntry{
+				Group: []buildv1alpha2.BuilderBuildpackRef{{
+					BuildpackRef: corev1alpha1.BuildpackRef{
+						BuildpackInfo: corev1alpha1.BuildpackInfo{
+							Id: bp,
+						},
+					},
+				}},
 			})
 		}
 
