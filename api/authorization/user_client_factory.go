@@ -9,6 +9,9 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/tools/k8s"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -68,7 +71,23 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo Info) (client.WithWatch,
 		return nil, apierrors.FromK8sError(err, "")
 	}
 
-	return NewAuthRetryingClient(userClient, f.backoff), nil
+	return k8s.NewRetryingClient(userClient, isForbidden, f.backoff), nil
+}
+
+// isForbidden returns true for forbidden errors that are NOT korifi webhook
+// validation errors, false otherwise upon webhook validation errors it makes
+// no sense to retry the operation as the webhook is expected to consistently
+// return the same validation error
+func isForbidden(err error) bool {
+	if !k8serrors.IsForbidden(err) {
+		return false
+	}
+
+	if _, isValidationErr := webhooks.WebhookErrorToValidationError(err); isValidationErr {
+		return false
+	}
+
+	return true
 }
 
 func (f UnprivilegedClientFactory) BuildK8sClient(authInfo Info) (k8sclient.Interface, error) {
