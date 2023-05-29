@@ -178,12 +178,12 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, err
 	}
 
-	err := k8s.AddFinalizer(ctx, log, r.k8sClient, buildWorkload, buildWorkloadFinalizerName)
-	if err != nil {
-		log.Info("error adding finalizer", "reason", err)
-		return ctrl.Result{}, err
+	if controllerutil.AddFinalizer(buildWorkload, buildWorkloadFinalizerName) {
+		log.Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
+	var err error
 	if !hasKpackImage(buildWorkload) {
 		var builderName string
 		if len(buildWorkload.Spec.Buildpacks) > 0 {

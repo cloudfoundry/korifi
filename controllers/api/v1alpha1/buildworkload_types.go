@@ -46,6 +46,7 @@ type BuildWorkloadSpec struct {
 // BuildWorkloadStatus defines the observed state of BuildWorkload
 type BuildWorkloadStatus struct {
 	// Conditions capture the current status of the observed generation of the BuildWorkload
+	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 
 	Droplet *BuildDropletStatus `json:"droplet,omitempty"`

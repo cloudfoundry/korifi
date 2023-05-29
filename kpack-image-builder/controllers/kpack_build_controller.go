@@ -99,10 +99,9 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 		return ctrl.Result{}, nil
 	}
 
-	err := k8s.AddFinalizer(ctx, log, c.k8sClient, kpackBuild, kpackBuildFinalizer)
-	if err != nil {
-		log.Error(err, "Error adding finalizer")
-		return ctrl.Result{}, err
+	if controllerutil.AddFinalizer(kpackBuild, kpackBuildFinalizer) {
+		log.Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return ctrl.Result{}, nil

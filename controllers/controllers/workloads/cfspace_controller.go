@@ -148,14 +148,14 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 
 	shared.GetConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfSpace.Generation)
 
-	err := k8s.AddFinalizer(ctx, log, r.client, cfSpace, spaceFinalizerName)
-	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error adding finalizer: %w", err), log, &cfSpace.Status.Conditions, "FinalizerAddition", cfSpace.Generation)
+	if controllerutil.AddFinalizer(cfSpace, spaceFinalizerName) {
+		log.Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	cfSpace.Status.GUID = cfSpace.GetName()
 
-	err = createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
+	err := createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.SpaceNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
 		korifiv1alpha1.SpaceGUIDKey: cfSpace.Name,
 	}), map[string]string{

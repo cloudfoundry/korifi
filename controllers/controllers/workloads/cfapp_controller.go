@@ -114,10 +114,9 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 		return r.finalizeCFApp(ctx, log, cfApp)
 	}
 
-	err := k8s.AddFinalizer(ctx, log, r.k8sClient, cfApp, cfAppFinalizerName)
-	if err != nil {
-		log.Info("error adding finalizer", "reason", err)
-		return ctrl.Result{}, err
+	if controllerutil.AddFinalizer(cfApp, cfAppFinalizerName) {
+		log.Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] == "" {
@@ -128,7 +127,7 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 	}
 
 	secretName := cfApp.Name + "-vcap-application"
-	err = r.reconcileVCAPSecret(ctx, log, cfApp, secretName, r.vcapApplicationEnvBuilder)
+	err := r.reconcileVCAPSecret(ctx, log, cfApp, secretName, r.vcapApplicationEnvBuilder)
 	if err != nil {
 		log.Info("unable to create CFApp VCAP Application secret", "reason", err)
 		return ctrl.Result{}, err
