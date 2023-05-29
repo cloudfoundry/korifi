@@ -262,10 +262,14 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(builder.Spec.Store).To(Equal(clusterBuilder.Spec.Store))
 					g.Expect(builder.Spec.ServiceAccountName).To(Equal("builder-service-account"))
 					g.Expect(builder.Spec.Order).To(HaveLen(1))
-					g.Expect(builder.Spec.Order[0]).To(Equal(corev1alpha1.OrderEntry{
-						Group: []corev1alpha1.BuildpackRef{
-							{BuildpackInfo: corev1alpha1.BuildpackInfo{Id: "repo/my-buildpack"}},
-						},
+					g.Expect(builder.Spec.Order[0]).To(Equal(buildv1alpha2.BuilderOrderEntry{
+						Group: []buildv1alpha2.BuilderBuildpackRef{{
+							BuildpackRef: corev1alpha1.BuildpackRef{
+								BuildpackInfo: corev1alpha1.BuildpackInfo{
+									Id: "repo/my-buildpack",
+								},
+							},
+						}},
 					}))
 				}).Should(Succeed())
 			})
