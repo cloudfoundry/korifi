@@ -138,14 +138,14 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 
 	shared.GetConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfOrg.Generation)
 
-	err := k8s.AddFinalizer(ctx, log, r.client, cfOrg, orgFinalizerName)
-	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error adding finalizer: %w", err), log, &cfOrg.Status.Conditions, "FinalizerAddition", cfOrg.Generation)
+	if controllerutil.AddFinalizer(cfOrg, orgFinalizerName) {
+		log.Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	cfOrg.Status.GUID = cfOrg.Name
 
-	err = createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
+	err := createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.OrgNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
 		korifiv1alpha1.OrgGUIDKey: cfOrg.Name,
 	}), map[string]string{

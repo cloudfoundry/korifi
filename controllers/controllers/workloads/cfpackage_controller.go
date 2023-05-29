@@ -100,14 +100,13 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 		return r.finalize(ctx, log, cfPackage)
 	}
 
-	err := k8s.AddFinalizer(ctx, log, r.k8sClient, cfPackage, cfPackageFinalizer)
-	if err != nil {
-		log.Error(err, "Error adding finalizer")
-		return ctrl.Result{}, err
+	if controllerutil.AddFinalizer(cfPackage, cfPackageFinalizer) {
+		log.Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	var cfApp korifiv1alpha1.CFApp
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
 	if err != nil {
 		log.Info("error when fetching CFApp", "reason", err)
 		return ctrl.Result{}, err

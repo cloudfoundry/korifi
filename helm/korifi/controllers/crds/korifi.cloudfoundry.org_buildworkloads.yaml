@@ -400,8 +400,6 @@ spec:
                   the BuildWorkload that has been reconciled
                 format: int64
                 type: integer
-            required:
-            - conditions
             type: object
         type: object
     served: true

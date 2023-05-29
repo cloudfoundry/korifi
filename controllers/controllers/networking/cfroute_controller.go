@@ -103,10 +103,9 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 	cfRoute.Status.ObservedGeneration = cfRoute.Generation
 	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
-	err = k8s.AddFinalizer(ctx, log, r.client, cfRoute, CFRouteFinalizerName)
-	if err != nil {
-		log.Info("error adding finalizer", "reason", err)
-		return ctrl.Result{}, err
+	if controllerutil.AddFinalizer(cfRoute, CFRouteFinalizerName) {
+		log.Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	err = r.createOrPatchServices(ctx, log, cfRoute)

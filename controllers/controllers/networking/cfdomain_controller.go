@@ -71,10 +71,9 @@ func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *ko
 	cfDomain.Status.ObservedGeneration = cfDomain.Generation
 	log.V(1).Info("set observed generation", "generation", cfDomain.Status.ObservedGeneration)
 
-	err := k8s.AddFinalizer(ctx, log, r.client, cfDomain, CFDomainFinalizerName)
-	if err != nil {
-		log.Info("error adding finalizer", "reason", err)
-		return ctrl.Result{}, err
+	if controllerutil.AddFinalizer(cfDomain, CFDomainFinalizerName) {
+		log.Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	meta.SetStatusCondition(&cfDomain.Status.Conditions, metav1.Condition{
