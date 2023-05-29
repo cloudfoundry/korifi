@@ -23,7 +23,7 @@ var _ = Describe("Await", func() {
 	)
 
 	BeforeEach(func() {
-		awaiter = conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](100 * time.Millisecond)
+		awaiter = conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](time.Second)
 		awaitedTask = nil
 		awaitErr = nil
 
