@@ -24,6 +24,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 	"code.cloudfoundry.org/korifi/version"
 
@@ -104,7 +105,7 @@ func main() {
 		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
 	}
 
-	userClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, authorization.NewDefaultBackoff())
+	userClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, k8s.NewDefaultBackoff())
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())

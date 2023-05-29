@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -121,7 +122,7 @@ var _ = BeforeEach(func() {
 
 	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
-	userClientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, authorization.NewDefaultBackoff())
+	userClientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, k8s.NewDefaultBackoff())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
