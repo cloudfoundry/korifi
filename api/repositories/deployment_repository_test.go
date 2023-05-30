@@ -9,10 +9,12 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"code.cloudfoundry.org/korifi/version"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -29,6 +31,18 @@ var _ = Describe("DeploymentRepository", func() {
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
 		cfApp = createApp(cfSpace.Name)
+		Expect(k8sClient.Create(ctx, &korifiv1alpha1.AppWorkload{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfApp.Namespace,
+				Name:      uuid.NewString(),
+				Labels: map[string]string{
+					korifiv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
+				},
+				Annotations: map[string]string{
+					version.KorifiCreationVersionKey: "0.7.2",
+				},
+			},
+		})).To(Succeed())
 
 		deploymentRepo = repositories.NewDeploymentRepo(userClientFactory, namespaceRetriever)
 	})
@@ -208,6 +222,24 @@ var _ = Describe("DeploymentRepository", func() {
 
 				It("returns a not found error", func() {
 					Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			When("one of the app workloads does not support rolling deployments", func() {
+				BeforeEach(func() {
+					Expect(k8sClient.Create(ctx, &korifiv1alpha1.AppWorkload{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: cfApp.Namespace,
+							Name:      uuid.NewString(),
+							Labels: map[string]string{
+								korifiv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
+							},
+						},
+					})).To(Succeed())
+				})
+
+				It("returns an error", func() {
+					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 				})
 			})
 		})

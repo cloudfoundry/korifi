@@ -49,6 +49,13 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - appworkloads
+  verbs:
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - cfprocesses
   verbs:
   - create
