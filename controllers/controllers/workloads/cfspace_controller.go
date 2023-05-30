@@ -354,7 +354,9 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{Requeue: true}, nil
+	log.V(1).Info("requeuing waiting for namespace deletion")
+
+	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
 func (r *CFSpaceReconciler) finalizeCFApps(ctx context.Context, log logr.Logger, namespace string) error {
