@@ -132,8 +132,8 @@ var _ = Describe("Service Instances", func() {
 
 				serviceInstance := serviceInstances.Resources[0]
 				Expect(serviceInstance.Name).To(Equal("new-instance-name"))
-				Expect(serviceInstance.Metadata.Labels).To(Equal(map[string]string{"a-label": "a-label-value"}))
-				Expect(serviceInstance.Metadata.Annotations).To(Equal(map[string]string{"an-annotation": "an-annotation-value"}))
+				Expect(serviceInstance.Metadata.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+				Expect(serviceInstance.Metadata.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
 				Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
 			})
 		})

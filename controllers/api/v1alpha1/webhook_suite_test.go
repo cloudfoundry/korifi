@@ -31,6 +31,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -140,6 +141,7 @@ var _ = BeforeSuite(func() {
 	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
 	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), namespace)
 	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
+	version.NewVersionWebhook("some-version").SetupWebhookWithManager(mgr)
 
 	//+kubebuilder:scaffold:webhook
 

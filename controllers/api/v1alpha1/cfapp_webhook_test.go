@@ -62,7 +62,6 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 		})
 
 		It("adds a label mathching metadata.name", func() {
-			Expect(cfApp.Labels).To(HaveLen(1))
 			Expect(cfApp.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfApp.Name))
 		})
 	})
@@ -73,7 +72,6 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 		})
 
 		It("adds an app revision annotation", func() {
-			Expect(cfApp.Annotations).To(HaveLen(1))
 			Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
 		})
 	})
