@@ -10,6 +10,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"code.cloudfoundry.org/korifi/version"
+	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -101,6 +103,10 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 		return DeploymentRecord{}, apierrors.FromK8sError(err, DeploymentResourceType)
 	}
 
+	if err = ensureSupport(ctx, userClient, app); err != nil {
+		return DeploymentRecord{}, err
+	}
+
 	dropletGUID := app.Spec.CurrentDropletRef.Name
 	if message.DropletGUID != "" {
 		dropletGUID = message.DropletGUID
@@ -157,4 +163,36 @@ func appToDeploymentRecord(cfApp *korifiv1alpha1.CFApp) DeploymentRecord {
 	}
 
 	return deploymentRecord
+}
+
+func ensureSupport(ctx context.Context, userClient client.Client, app *korifiv1alpha1.CFApp) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("repo.deployment.ensureSupport")
+
+	var appWorkloadsList korifiv1alpha1.AppWorkloadList
+	err := userClient.List(ctx, &appWorkloadsList, client.InNamespace(app.Namespace), client.MatchingLabels{
+		korifiv1alpha1.CFAppGUIDLabelKey: app.Name,
+	})
+	if err != nil {
+		return apierrors.FromK8sError(err, DeploymentResourceType)
+	}
+
+	checker := version.NewChecker("v0.7.1")
+	for i := range appWorkloadsList.Items {
+		appWorkload := appWorkloadsList.Items[i]
+		newer, err := checker.ObjectIsNewer(&appWorkload)
+		if newer {
+			continue
+		}
+
+		if err != nil {
+			log.Info("failed comparining version of appWorkload",
+				"ns", appWorkload.Namespace,
+				"name", appWorkload.Name,
+				"version", appWorkload.Annotations[version.KorifiCreationVersionKey],
+			)
+		}
+		return apierrors.NewUnprocessableEntityError(nil, "App instances created with an older version of Korifi can't use the rolling strategy. Please restart/restage/re-push app before using the rolling strategy")
+	}
+
+	return nil
 }
