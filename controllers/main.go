@@ -37,6 +37,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
+	versionwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
@@ -456,6 +457,8 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
 			os.Exit(1)
 		}
+
+		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
 
 		if controllerConfig.IncludeStatefulsetRunner {
 			if err = statesetfulrunnerv1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {
