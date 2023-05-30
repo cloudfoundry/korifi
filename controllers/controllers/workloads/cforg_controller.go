@@ -201,5 +201,7 @@ func (r *CFOrgReconciler) finalize(ctx context.Context, log logr.Logger, org cli
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{Requeue: true}, nil
+	log.V(1).Info("requeuing waiting for namespace deletion")
+
+	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
