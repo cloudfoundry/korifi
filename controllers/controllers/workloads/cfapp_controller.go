@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -361,7 +362,7 @@ func (r *CFAppReconciler) finalizeCFServiceBindings(ctx context.Context, log log
 		}
 	}
 
-	return ctrl.Result{Requeue: true}, nil
+	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
 func (r *CFAppReconciler) updateRouteDestinations(ctx context.Context, log logr.Logger, cfAppGUID string, cfRoutes []korifiv1alpha1.CFRoute) error {
