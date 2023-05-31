@@ -18,7 +18,6 @@ package workloads
 
 import (
 	"context"
-	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -164,14 +163,8 @@ func (r *CFPackageReconciler) finalize(ctx context.Context, log logr.Logger, cfP
 		}
 	}
 
-	err := k8s.Patch(ctx, r.k8sClient, cfPackage, func() {
-		if controllerutil.RemoveFinalizer(cfPackage, cfPackageFinalizer) {
-			log.V(1).Info("finalizer removed")
-		}
-	})
-	if err != nil {
-		r.log.Info("failed to patch package", "reason", err)
-		return ctrl.Result{}, fmt.Errorf("failed to patch package: %w", err)
+	if controllerutil.RemoveFinalizer(cfPackage, cfPackageFinalizer) {
+		log.V(1).Info("finalizer removed")
 	}
 
 	return ctrl.Result{}, nil
