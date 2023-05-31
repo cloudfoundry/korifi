@@ -19,10 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	logTailLines int64 = 50
-)
-
 type podContainerDescriptor struct {
 	Namespace     string
 	LabelKey      string
@@ -147,18 +143,16 @@ func printPodContainerLogs(clientset kubernetes.Interface, pod corev1.Pod, conta
 	}
 
 	logHeader := fmt.Sprintf(
-		"Logs for pod %q, container %q (last %d lines)",
+		"Logs for pod %q, container %q",
 		pod.Name,
 		container,
-		logTailLines,
 	)
 	if !fullLogOnErr() && correlationId != "" {
 		logHeader = fmt.Sprintf(
-			"Logs for pod %q, container %q with correlation ID %q (last %d lines)",
+			"Logs for pod %q, container %q with correlation ID %q",
 			pod.Name,
 			container,
 			correlationId,
-			logTailLines,
 		)
 	}
 
@@ -180,7 +174,10 @@ func getPods(clientset kubernetes.Interface, namespace, labelKey, labelValue str
 }
 
 func getPodContainerLog(clientset kubernetes.Interface, pod corev1.Pod, container, correlationId string) (string, error) {
-	podLogOpts := corev1.PodLogOptions{TailLines: tools.PtrTo(logTailLines), Container: container}
+	podLogOpts := corev1.PodLogOptions{
+		SinceTime: tools.PtrTo(metav1.NewTime(ginkgo.CurrentSpecReport().StartTime)),
+		Container: container,
+	}
 	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
 
 	logStream, err := req.Stream(context.Background())
