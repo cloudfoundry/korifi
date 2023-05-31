@@ -53,8 +53,8 @@ func (c *PDBUpdater) createPDB(ctx context.Context, statefulSet *appsv1.Stateful
 		},
 	}
 
-	if err := controllerutil.SetOwnerReference(statefulSet, pdb, scheme.Scheme); err != nil {
-		return fmt.Errorf("pdb updater failed to set owner ref : %w", err)
+	if err := controllerutil.SetControllerReference(statefulSet, pdb, scheme.Scheme); err != nil {
+		return fmt.Errorf("pdb updater failed to set owner ref: %w", err)
 	}
 
 	err := c.client.Create(ctx, pdb)

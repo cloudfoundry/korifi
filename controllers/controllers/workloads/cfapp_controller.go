@@ -430,7 +430,7 @@ func (r *CFAppReconciler) reconcileVCAPSecret(
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, secret, func() error {
 		secret.StringData = envValue
 
-		return controllerutil.SetOwnerReference(cfApp, secret, r.scheme)
+		return controllerutil.SetControllerReference(cfApp, secret, r.scheme)
 	})
 	if err != nil {
 		log.Info("unable to create or patch Secret", "reason", err)

@@ -112,8 +112,9 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 		return ctrl.Result{}, err
 	}
 
-	err = controllerutil.SetOwnerReference(cfApp, cfTask, r.scheme)
+	err = controllerutil.SetControllerReference(cfApp, cfTask, r.scheme)
 	if err != nil {
+		log.Info("unable to set owner reference on CFTask", "reason", err)
 		return ctrl.Result{}, err
 	}
 

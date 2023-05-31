@@ -241,7 +241,7 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, log logr.
 				korifiv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 			}
 
-			err := controllerutil.SetOwnerReference(cfRoute, service, r.scheme)
+			err := controllerutil.SetControllerReference(cfRoute, service, r.scheme)
 			if err != nil {
 				loopLog.Info("failed to set OwnerRef on Service", "reason", err)
 				return err
@@ -302,7 +302,7 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, log log
 			}
 		}
 
-		err := controllerutil.SetOwnerReference(cfRoute, routeHTTPProxy, r.scheme)
+		err := controllerutil.SetControllerReference(cfRoute, routeHTTPProxy, r.scheme)
 		if err != nil {
 			log.Info("failed to set OwnerRef on route HTTPProxy", "reason", err)
 			return err
@@ -361,6 +361,7 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, log logr
 			})
 		}
 
+		// Cannot use SetControllerReference here as multiple CFRoutes can "own" the same FQDN HTTPProxy.
 		err = controllerutil.SetOwnerReference(cfRoute, fqdnHTTPProxy, r.scheme)
 		if err != nil {
 			log.Info("failed to set OwnerRef on FQDN HTTPProxy", "reason", err)
