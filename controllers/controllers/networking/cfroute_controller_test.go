@@ -7,6 +7,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -129,10 +130,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			g.Expect(proxy.Spec.VirtualHost).To(BeNil())
 			g.Expect(proxy.Spec.Routes).To(BeEmpty())
 			g.Expect(proxy.ObjectMeta.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
-				APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-				Kind:       "CFRoute",
-				Name:       cfRoute.Name,
-				UID:        cfRoute.GetUID(),
+				APIVersion:         "korifi.cloudfoundry.org/v1alpha1",
+				Kind:               "CFRoute",
+				Name:               cfRoute.Name,
+				UID:                cfRoute.GetUID(),
+				Controller:         tools.PtrTo(true),
+				BlockOwnerDeletion: tools.PtrTo(true),
 			}))
 		}).Should(Succeed())
 	})
@@ -225,10 +228,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					HaveKeyWithValue("korifi.cloudfoundry.org/process-type", "web"),
 				))
 				g.Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
-					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-					Kind:       "CFRoute",
-					Name:       cfRoute.Name,
-					UID:        cfRoute.GetUID(),
+					APIVersion:         "korifi.cloudfoundry.org/v1alpha1",
+					Kind:               "CFRoute",
+					Name:               cfRoute.Name,
+					UID:                cfRoute.GetUID(),
+					Controller:         tools.PtrTo(true),
+					BlockOwnerDeletion: tools.PtrTo(true),
 				}))
 			}).Should(Succeed())
 		})
@@ -427,10 +432,12 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				))
 				g.Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 					{
-						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-						Kind:       "CFRoute",
-						Name:       cfRoute.Name,
-						UID:        cfRoute.GetUID(),
+						APIVersion:         "korifi.cloudfoundry.org/v1alpha1",
+						Kind:               "CFRoute",
+						Name:               cfRoute.Name,
+						UID:                cfRoute.GetUID(),
+						Controller:         tools.PtrTo(true),
+						BlockOwnerDeletion: tools.PtrTo(true),
 					},
 				}))
 			})

@@ -71,8 +71,10 @@ func (r *CFServiceBindingReconciler) SetupWithManager(mgr ctrl.Manager) *builder
 //+kubebuilder:rbac:groups=servicebinding.io,resources=servicebindings,verbs=get;list;create;update;patch;watch
 
 func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+	log := r.log.WithValues("namespace", cfServiceBinding.Namespace, "name", cfServiceBinding.Name)
+
 	cfServiceBinding.Status.ObservedGeneration = cfServiceBinding.Generation
-	r.log.V(1).Info("set observed generation", "generation", cfServiceBinding.Status.ObservedGeneration)
+	log.V(1).Info("set observed generation", "generation", cfServiceBinding.Status.ObservedGeneration)
 
 	instance := new(korifiv1alpha1.CFServiceInstance)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, instance)
@@ -82,9 +84,9 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		return r.handleGetError(ctx, err, cfServiceBinding, BindingSecretAvailableCondition, "ServiceInstanceNotFound", "Service instance")
 	}
 
-	err = controllerutil.SetOwnerReference(instance, cfServiceBinding, r.scheme)
+	err = controllerutil.SetControllerReference(instance, cfServiceBinding, r.scheme)
 	if err != nil {
-		r.log.Info("error when making the service instance owner of the service binding", "reason", err)
+		log.Info("error when making the service instance owner of the service binding", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -107,12 +109,12 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 	cfApp := new(korifiv1alpha1.CFApp)
 	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
 	if err != nil {
-		r.log.Info("error when fetching CFApp", "reason", err)
+		log.Info("error when fetching CFApp", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	if cfApp.Status.VCAPServicesSecretName == "" {
-		r.log.V(1).Info("did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
+		log.V(1).Info("did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
 		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 			Type:               VCAPServicesSecretAvailableCondition,
 			Status:             metav1.ConditionFalse,
@@ -143,7 +145,7 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualSBServiceBinding, sbServiceBindingMutateFn(&actualSBServiceBinding, desiredSBServiceBinding))
 	if err != nil {
-		r.log.Info("error calling Create on servicebinding.io ServiceBinding", "reason", err)
+		log.Info("error calling Create on servicebinding.io ServiceBinding", "reason", err)
 		return ctrl.Result{}, err
 	}
 

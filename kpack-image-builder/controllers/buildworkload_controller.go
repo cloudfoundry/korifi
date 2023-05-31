@@ -472,7 +472,8 @@ func (r *BuildWorkloadReconciler) ensureKpackBuilder(ctx context.Context, log lo
 		},
 	}
 	_, err = ctrl.CreateOrUpdate(ctx, r.k8sClient, builder, func() error {
-		if err = controllerutil.SetOwnerReference(buildWorkload, builder, r.scheme); err != nil {
+		if err = controllerutil.SetControllerReference(buildWorkload, builder, r.scheme); err != nil {
+			log.Info("unable to set owner reference on Builder", "reason", err)
 			return err
 		}
 
@@ -684,6 +685,7 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 			desiredKpackImage.Spec.Builder.Namespace = buildWorkload.Namespace
 		}
 
+		// Cannot use SetControllerReference here as multiple BuildWorkloads can "own" the same Image.
 		err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.scheme)
 		if err != nil {
 			log.Info("failed to set OwnerRef on Kpack Image", "reason", err)

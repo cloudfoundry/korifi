@@ -3,10 +3,9 @@ package workloads_test
 import (
 	"context"
 
-	"code.cloudfoundry.org/korifi/tools"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -114,10 +113,12 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
 				g.Expect(createdCFBuild.GetOwnerReferences()).To(ConsistOf(
 					metav1.OwnerReference{
-						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-						Kind:       "CFApp",
-						Name:       desiredCFApp.Name,
-						UID:        desiredCFApp.UID,
+						APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
+						Kind:               "CFApp",
+						Name:               desiredCFApp.Name,
+						UID:                desiredCFApp.UID,
+						Controller:         tools.PtrTo(true),
+						BlockOwnerDeletion: tools.PtrTo(true),
 					},
 				))
 			}).Should(Succeed())

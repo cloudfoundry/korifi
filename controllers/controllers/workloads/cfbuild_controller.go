@@ -126,7 +126,7 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		return ctrl.Result{}, err
 	}
 
-	err = controllerutil.SetOwnerReference(cfApp, cfBuild, r.scheme)
+	err = controllerutil.SetControllerReference(cfApp, cfBuild, r.scheme)
 	if err != nil {
 		log.Info("unable to set owner reference on CFBuild", "reason", err)
 		return ctrl.Result{}, err

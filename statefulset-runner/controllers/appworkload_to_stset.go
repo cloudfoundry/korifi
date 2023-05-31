@@ -162,7 +162,7 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 		},
 	}
 
-	err = controllerutil.SetOwnerReference(appWorkload, statefulSet, r.scheme)
+	err = controllerutil.SetControllerReference(appWorkload, statefulSet, r.scheme)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set OwnerRef on StatefulSet :%w", err)
 	}
