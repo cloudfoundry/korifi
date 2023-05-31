@@ -70,6 +70,10 @@ function parse_cmdline_args() {
   fi
 }
 
+function install_yq() {
+  GOBIN="${ROOT_DIR}/bin" go install github.com/mikefarah/yq/v4@latest
+}
+
 function validate_registry_params() {
   local registry_env_vars
   registry_env_vars="\$DOCKER_SERVER \$DOCKER_USERNAME \$DOCKER_PASSWORD \$REPOSITORY_PREFIX \$KPACK_BUILDER_REPOSITORY"
@@ -145,7 +149,7 @@ function deploy_korifi() {
 
       VERSION=$(git describe --tags | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}')
 
-      yq "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
+      "${ROOT_DIR}/bin/yq" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
         kbld \
           --images-annotation=false \
           -f "scripts/assets/values-template.yaml" \
@@ -197,6 +201,7 @@ function create_registry_secret() {
 
 function main() {
   parse_cmdline_args "$@"
+  install_yq
   validate_registry_params
   ensure_kind_cluster "$CLUSTER_NAME"
   ensure_local_registry
