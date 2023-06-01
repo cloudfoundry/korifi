@@ -139,7 +139,7 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 	shared.GetConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfOrg.Generation)
 
 	if controllerutil.AddFinalizer(cfOrg, orgFinalizerName) {
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
 	}
 

@@ -150,7 +150,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 	shared.GetConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfSpace.Generation)
 
 	if controllerutil.AddFinalizer(cfSpace, spaceFinalizerName) {
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
 	}
 

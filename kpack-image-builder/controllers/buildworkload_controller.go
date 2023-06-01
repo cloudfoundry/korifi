@@ -179,7 +179,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	}
 
 	if controllerutil.AddFinalizer(buildWorkload, buildWorkloadFinalizerName) {
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
 	}
 

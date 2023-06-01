@@ -38,7 +38,7 @@ func (r *VersionWebhook) InjectDecoder(d *admission.Decoder) error {
 }
 
 func (r *VersionWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
-	versionlog.Info("adding-version")
+	versionlog.V(1).Info("adding-version")
 
 	var obj metav1.PartialObjectMetadata
 

@@ -116,7 +116,7 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 	}
 
 	if controllerutil.AddFinalizer(cfApp, cfAppFinalizerName) {
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
 	}
 

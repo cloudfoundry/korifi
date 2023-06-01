@@ -100,7 +100,7 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 	}
 
 	if controllerutil.AddFinalizer(cfPackage, cfPackageFinalizer) {
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
 	}
 

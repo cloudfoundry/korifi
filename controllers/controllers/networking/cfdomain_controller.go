@@ -73,7 +73,7 @@ func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *ko
 	log.V(1).Info("set observed generation", "generation", cfDomain.Status.ObservedGeneration)
 
 	if controllerutil.AddFinalizer(cfDomain, CFDomainFinalizerName) {
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
