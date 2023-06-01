@@ -100,7 +100,7 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 	}
 
 	if controllerutil.AddFinalizer(kpackBuild, kpackBuildFinalizer) {
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
 	}
 

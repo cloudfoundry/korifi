@@ -104,7 +104,7 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
 	if controllerutil.AddFinalizer(cfRoute, CFRouteFinalizerName) {
-		log.Info("added finalizer")
+		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -193,7 +193,7 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger
 
 	// Cleanup the FQDN HTTPProxy on delete
 	if foundFQDNProxy {
-		log.Info("found FQDN proxy", "fqdn", routeFQDN)
+		log.V(1).Info("found FQDN proxy", "fqdn", routeFQDN)
 		err := r.finalizeFQDNProxy(ctx, log, cfRoute.Name, fqdnHTTPProxy)
 		if err != nil {
 			return err
