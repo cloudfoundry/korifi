@@ -95,7 +95,7 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 	if !cfRoute.GetDeletionTimestamp().IsZero() {
 		err = r.finalizeCFRoute(ctx, log, cfRoute, cfDomain)
 		if err != nil {
-			log.Error(err, "failed to finalize cf route")
+			log.Info("failed to finalize cf route", "reason", err)
 		}
 		return ctrl.Result{}, err
 	}
