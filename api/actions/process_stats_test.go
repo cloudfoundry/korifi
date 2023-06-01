@@ -111,7 +111,12 @@ var _ = Describe("ProcessStats", func() {
 		Expect(responseRecords[0].Index).To(Equal(0))
 		Expect(responseRecords[0].Type).To(Equal("web"))
 		Expect(responseRecords[0].State).To(Equal("RUNNING"))
-		Expect(responseRecords[0].Usage.Time).To(Equal(tools.PtrTo(time.Now().UTC().Format(repositories.TimestampFormat))))
+
+		Expect(responseRecords[0].Usage.Time).NotTo(BeNil())
+		usageTime, err := time.Parse(repositories.TimestampFormat, *responseRecords[0].Usage.Time)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(usageTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+
 		Expect(responseRecords[0].Usage.CPU).To(Equal(tools.PtrTo(0.123)))
 		Expect(responseRecords[0].Usage.Mem).To(Equal(tools.PtrTo(int64(456))))
 		Expect(responseRecords[0].Usage.Disk).To(Equal(tools.PtrTo(int64(890))))
@@ -121,7 +126,12 @@ var _ = Describe("ProcessStats", func() {
 		Expect(responseRecords[1].Index).To(Equal(1))
 		Expect(responseRecords[1].Type).To(Equal("web"))
 		Expect(responseRecords[1].State).To(Equal("RUNNING"))
-		Expect(responseRecords[1].Usage.Time).To(Equal(tools.PtrTo(time.Now().UTC().Format(repositories.TimestampFormat))))
+
+		Expect(responseRecords[1].Usage.Time).NotTo(BeNil())
+		usageTime, err = time.Parse(repositories.TimestampFormat, *responseRecords[1].Usage.Time)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(usageTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+
 		Expect(responseRecords[1].Usage.CPU).To(Equal(tools.PtrTo(0.124)))
 		Expect(responseRecords[1].Usage.Mem).To(Equal(tools.PtrTo(int64(457))))
 		Expect(responseRecords[1].Usage.Disk).To(Equal(tools.PtrTo(int64(891))))
