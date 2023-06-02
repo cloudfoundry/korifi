@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -155,7 +156,19 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 
 	cfSpace.Status.GUID = cfSpace.GetName()
 
-	err := createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
+	rootNamespaceDeletionStatus, err := r.checkRootNamespaceDeletionStatus(ctx, log)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if rootNamespaceDeletionStatus {
+		// The root namespace is being deleted, but the space has not yet been marked for deletion.
+		// Skip propagating resources as it could hinder cleanup of resources in the space.
+		log.V(1).Info("skipping reconcile due to deletion of root namespace")
+		return ctrl.Result{}, nil
+	}
+
+	err = createOrPatchNamespace(ctx, r.client, log, cfSpace, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.SpaceNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
 		korifiv1alpha1.SpaceGUIDKey: cfSpace.Name,
 	}), map[string]string{
@@ -193,6 +206,20 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 	})
 
 	return ctrl.Result{}, nil
+}
+
+func (r *CFSpaceReconciler) checkRootNamespaceDeletionStatus(ctx context.Context, log logr.Logger) (bool, error) {
+	log = log.WithName("reconcileServiceAccounts").
+		WithValues("rootNamespace", r.rootNamespace)
+
+	rootNamespace := new(corev1.Namespace)
+	err := r.client.Get(ctx, types.NamespacedName{Name: r.rootNamespace}, rootNamespace)
+	if err != nil {
+		log.Info("error getting root namespace", "reason", err)
+		return false, err
+	}
+
+	return !rootNamespace.GetDeletionTimestamp().IsZero(), nil
 }
 
 func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space client.Object, log logr.Logger) error {
@@ -327,10 +354,26 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space
 		return ctrl.Result{}, nil
 	}
 
+	log.V(1).Info("checking for namespace while finalizing CFSpace")
+	spaceNamespace := new(corev1.Namespace)
+	err := r.client.Get(ctx, types.NamespacedName{Name: space.GetName()}, spaceNamespace)
+	if k8serrors.IsNotFound(err) {
+		if controllerutil.RemoveFinalizer(space, spaceFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	if err != nil {
+		log.Info("failed to get namespace", "reason", err)
+		return ctrl.Result{}, err
+	}
+
 	duration := time.Since(space.GetDeletionTimestamp().Time)
 	log.V(1).Info(fmt.Sprintf("finalizing CFSpace for %fs", duration.Seconds()))
 	if duration < 60.0*time.Second {
-		err := r.finalizeCFApps(ctx, log, space.GetName())
+		err = r.finalizeCFApps(ctx, log, space.GetName())
 		if err != nil {
 			log.Info("failed to finalize CFApps while deleting CFSpace", "reason", err)
 			return ctrl.Result{RequeueAfter: 500 * time.Millisecond}, nil
@@ -340,15 +383,7 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space
 	}
 
 	log.V(1).Info("deleting namespace while finalizing CFSpace")
-	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space.GetName()}})
-	if k8serrors.IsNotFound(err) {
-		if controllerutil.RemoveFinalizer(space, spaceFinalizerName) {
-			log.V(1).Info("finalizer removed")
-		}
-
-		return ctrl.Result{}, nil
-	}
-
+	err = r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space.GetName()}})
 	if err != nil {
 		log.Info("failed to delete namespace", "reason", err)
 		return ctrl.Result{}, err
