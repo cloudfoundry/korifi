@@ -344,7 +344,10 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space
 		return ctrl.Result{}, nil
 	}
 
-	log.V(1).Info("checking for namespace while finalizing CFSpace")
+	duration := time.Since(space.GetDeletionTimestamp().Time)
+	log.V(1).Info(fmt.Sprintf("finalizing CFSpace for %fs", duration.Seconds()))
+
+	log.V(1).Info("checking for namespace")
 	spaceNamespace := new(corev1.Namespace)
 	err := r.client.Get(ctx, types.NamespacedName{Name: space.GetName()}, spaceNamespace)
 	if k8serrors.IsNotFound(err) {
@@ -360,23 +363,25 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space
 		return ctrl.Result{}, err
 	}
 
-	duration := time.Since(space.GetDeletionTimestamp().Time)
-	log.V(1).Info(fmt.Sprintf("finalizing CFSpace for %fs", duration.Seconds()))
-	if duration < 60.0*time.Second {
-		err = r.finalizeCFApps(ctx, log, space.GetName())
-		if err != nil {
-			log.Info("failed to finalize CFApps while deleting CFSpace", "reason", err)
-			return ctrl.Result{RequeueAfter: 500 * time.Millisecond}, nil
-		}
-	} else {
-		log.Info("timed out finalizing CFApps while deleting CFSpace")
-	}
+	if spaceNamespace.GetDeletionTimestamp().IsZero() {
+		if duration < 60.0*time.Second {
+			err = r.finalizeCFApps(ctx, log, space.GetName())
+			if err != nil {
+				log.Info("failed to delete CFApps", "reason", err)
+				return ctrl.Result{RequeueAfter: 500 * time.Millisecond}, nil
+			}
 
-	log.V(1).Info("deleting namespace while finalizing CFSpace")
-	err = r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space.GetName()}})
-	if err != nil {
-		log.Info("failed to delete namespace", "reason", err)
-		return ctrl.Result{}, err
+			log.V(1).Info("all CFApps deleted")
+		} else {
+			log.Info("timed out deleting CFApps")
+		}
+
+		log.V(1).Info("deleting namespace")
+		err = r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: space.GetName()}})
+		if err != nil {
+			log.Info("failed to delete namespace", "reason", err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	log.V(1).Info("requeuing waiting for namespace deletion")
@@ -388,7 +393,7 @@ func (r *CFSpaceReconciler) finalizeCFApps(ctx context.Context, log logr.Logger,
 	appList := korifiv1alpha1.CFAppList{}
 	err := r.client.List(ctx, &appList, client.InNamespace(namespace))
 	if err != nil {
-		return fmt.Errorf("failed to list CFApps while finalizing CFSpace: %w", err)
+		return fmt.Errorf("failed to list CFApps: %w", err)
 	}
 
 	for i := range appList.Items {
