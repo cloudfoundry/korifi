@@ -105,6 +105,7 @@ func buildworkloadToBuild(o client.Object) []reconcile.Request {
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/status,verbs=get
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/finalizers,verbs=update
 
 func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfBuild.Namespace, "name", cfBuild.Name)
