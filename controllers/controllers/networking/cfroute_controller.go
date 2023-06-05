@@ -85,10 +85,10 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 	err := r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			cfRoute.Status = createInvalidRouteStatus(cfRoute, "CFDomain not found", "InvalidDomainRef", err.Error())
+			cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "CFDomain not found", "InvalidDomainRef", err.Error())
 			return ctrl.Result{}, err
 		}
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error fetching domain reference", "FetchDomainRef", err.Error())
+		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error fetching domain reference", "FetchDomainRef", err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -100,9 +100,6 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 		return ctrl.Result{}, err
 	}
 
-	cfRoute.Status.ObservedGeneration = cfRoute.Generation
-	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
-
 	if controllerutil.AddFinalizer(cfRoute, CFRouteFinalizerName) {
 		log.V(1).Info("added finalizer")
 		return ctrl.Result{Requeue: true}, nil
@@ -110,19 +107,19 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 
 	err = r.createOrPatchServices(ctx, log, cfRoute)
 	if err != nil {
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error creating/patching services", "CreatePatchServices", err.Error())
+		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching services", "CreatePatchServices", err.Error())
 		return ctrl.Result{}, err
 	}
 
 	err = r.createOrPatchRouteProxy(ctx, log, cfRoute)
 	if err != nil {
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error creating/patching Route Proxy", "CreatePatchRouteProxy", err.Error())
+		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching Route Proxy", "CreatePatchRouteProxy", err.Error())
 		return ctrl.Result{}, err
 	}
 
 	err = r.createOrPatchFQDNProxy(ctx, log, cfRoute, cfDomain)
 	if err != nil {
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error creating/patching FQDN Proxy", "CreatePatchFQDNProxy", err.Error())
+		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching FQDN Proxy", "CreatePatchFQDNProxy", err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -132,11 +129,11 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 		return ctrl.Result{}, err
 	}
 
-	cfRoute.Status = createValidRouteStatus(cfRoute, cfDomain, "Valid CFRoute", "Valid", "Valid CFRoute")
+	cfRoute.Status = createValidRouteStatus(log, cfRoute, cfDomain, "Valid CFRoute", "Valid", "Valid CFRoute")
 	return ctrl.Result{}, nil
 }
 
-func createValidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain, description, reason, message string) korifiv1alpha1.CFRouteStatus {
+func createValidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain, description, reason, message string) korifiv1alpha1.CFRouteStatus {
 	fqdn := buildFQDN(cfRoute, cfDomain)
 	cfRouteStatus := korifiv1alpha1.CFRouteStatus{
 		FQDN:               fqdn,
@@ -147,6 +144,7 @@ func createValidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1a
 		Conditions:         cfRoute.Status.Conditions,
 		ObservedGeneration: cfRoute.Generation,
 	}
+	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
 	meta.SetStatusCondition(&cfRouteStatus.Conditions, metav1.Condition{
 		Type:               "Valid",
@@ -159,13 +157,14 @@ func createValidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1a
 	return cfRouteStatus
 }
 
-func createInvalidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, description, reason, message string) korifiv1alpha1.CFRouteStatus {
+func createInvalidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, description, reason, message string) korifiv1alpha1.CFRouteStatus {
 	cfRouteStatus := korifiv1alpha1.CFRouteStatus{
-		Description:        description,
 		CurrentStatus:      korifiv1alpha1.InvalidStatus,
+		Description:        description,
 		Conditions:         cfRoute.Status.Conditions,
 		ObservedGeneration: cfRoute.Generation,
 	}
+	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
 	meta.SetStatusCondition(&cfRouteStatus.Conditions, metav1.Condition{
 		Type:               "Valid",
