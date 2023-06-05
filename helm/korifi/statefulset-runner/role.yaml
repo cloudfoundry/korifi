@@ -15,6 +15,12 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - statefulsets/finalizers
+  verbs:
+  - update
+- apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - appworkloads
