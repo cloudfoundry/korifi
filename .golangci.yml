@@ -24,7 +24,6 @@ linters:
 
   enable:
     - dupl
-    - ginkgolinter
 
 issues:
   exclude-rules:
