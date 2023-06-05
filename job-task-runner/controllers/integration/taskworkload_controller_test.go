@@ -59,7 +59,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 
 		jobList := &batchv1.JobList{}
 		Eventually(func(g Gomega) {
-			g.Expect(k8sClient.List(context.Background(), jobList, client.InNamespace(testNamespace.Name)))
+			g.Expect(k8sClient.List(context.Background(), jobList, client.InNamespace(testNamespace.Name))).To(Succeed())
 			g.Expect(jobList.Items).To(HaveLen(1))
 		}).Should(Succeed())
 

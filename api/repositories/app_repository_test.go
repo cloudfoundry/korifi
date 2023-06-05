@@ -814,8 +814,7 @@ var _ = Describe("AppRepository", func() {
 					Expect(k8sClient.Get(testCtx, cfAppSecretLookupKey, createdCFAppSecret)).To(Succeed())
 
 					// Secret has an owner reference that points to the App CR
-					Expect(createdCFAppSecret.OwnerReferences)
-					Expect(createdCFAppSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+					Expect(createdCFAppSecret.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 						{
 							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 							Kind:       "CFApp",

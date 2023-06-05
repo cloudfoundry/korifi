@@ -414,7 +414,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 				build1.Status.Stack.ID = kpackBuildStack
 				build1.Status.LatestImage = kpackBuildImageRef
-			}))
+			})).To(Succeed())
 		})
 
 		When("there are two buildworkloads for the image", func() {
@@ -450,7 +450,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						Type:   corev1alpha1.ConditionType("Succeeded"),
 						Status: corev1.ConditionStatus("True"),
 					})
-				}))
+				})).To(Succeed())
 			})
 
 			It("updates both the build workload statuses", func() {
