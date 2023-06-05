@@ -38,7 +38,6 @@ func TestNetworkingControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	SetDefaultEventuallyTimeout(10 * time.Second)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	var ctx context.Context

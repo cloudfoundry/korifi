@@ -627,7 +627,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		})
 
 		JustBeforeEach(func() {
-			Expect(k8sClient.Delete(context.Background(), cfApp))
+			Expect(k8sClient.Delete(context.Background(), cfApp)).To(Succeed())
 		})
 
 		It("eventually deletes the CFApp", func() {
