@@ -17,6 +17,9 @@ Here are all the values that can be set for the chart:
   - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
   - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
   - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
+  - `reconcilers`:
+    - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
+    - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.
   - `rootNamespace` (_String_): Root of the Cloud Foundry namespace hierarchy.
 - `adminUserName` (_String_): Name of the admin user that will be bound to the Cloud Foundry Admin role.
 - `api`:
@@ -62,9 +65,6 @@ Here are all the values that can be set for the chart:
   - `processDefaults`:
     - `diskQuotaMB` (_Integer_): Default disk quota for the `web` process.
     - `memoryMB` (_Integer_): Default memory limit for the `web` process.
-  - `reconcilers`:
-    - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
-    - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
     - `limits`: Resource limits.

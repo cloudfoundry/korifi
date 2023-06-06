@@ -26,7 +26,6 @@ import (
 
 const (
 	testAppWorkloadGUID = "test-appworkload-guid"
-	testNamespace       = "test-ns"
 )
 
 var _ = Describe("AppWorkload Reconcile", func() {

@@ -32,6 +32,7 @@ type (
 
 		RootNamespace                            string                 `yaml:"rootNamespace"`
 		BuilderName                              string                 `yaml:"builderName"`
+		RunnerName                               string                 `yaml:"runnerName"`
 		ContainerRepositoryPrefix                string                 `yaml:"containerRepositoryPrefix"`
 		ContainerRegistryType                    string                 `yaml:"containerRegistryType"`
 		PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`

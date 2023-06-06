@@ -173,6 +173,11 @@ func main() {
 		namespaceRetriever,
 		userClientFactory,
 	)
+	runnerInfoRepo := repositories.NewRunnerInfoRepository(
+		userClientFactory,
+		cfg.RunnerName,
+		cfg.RootNamespace,
+	)
 	packageRepo := repositories.NewPackageRepo(
 		userClientFactory,
 		namespaceRetriever,
@@ -319,6 +324,8 @@ func main() {
 			*serverURL,
 			decoderValidator,
 			deploymentRepo,
+			runnerInfoRepo,
+			cfg.RunnerName,
 		),
 		handlers.NewJob(
 			*serverURL,

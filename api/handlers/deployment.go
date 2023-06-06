@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -28,21 +29,33 @@ type CFDeploymentRepository interface {
 	CreateDeployment(context.Context, authorization.Info, repositories.CreateDeploymentMessage) (repositories.DeploymentRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name RunnerInfoRepository . RunnerInfoRepository
+
+type RunnerInfoRepository interface {
+	GetRunnerInfo(context.Context, authorization.Info, string) (repositories.RunnerInfoRecord, error)
+}
+
 type Deployment struct {
 	serverURL            url.URL
 	requestJSONValidator RequestJSONValidator
 	deploymentRepo       CFDeploymentRepository
+	runnerInfoRepo       RunnerInfoRepository
+	runnerName           string
 }
 
 func NewDeployment(
 	serverURL url.URL,
 	requestJSONValidator RequestJSONValidator,
 	deploymentRepo CFDeploymentRepository,
+	runnerInfoRepo RunnerInfoRepository,
+	runnerName string,
 ) *Deployment {
 	return &Deployment{
 		serverURL:            serverURL,
 		requestJSONValidator: requestJSONValidator,
 		deploymentRepo:       deploymentRepo,
+		runnerInfoRepo:       runnerInfoRepo,
+		runnerName:           runnerName,
 	}
 }
 
@@ -53,6 +66,16 @@ func (h *Deployment) create(r *http.Request) (*routing.Response, error) {
 	var payload payloads.DeploymentCreate
 	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	runnerInfo, err := h.runnerInfoRepo.GetRunnerInfo(r.Context(), authInfo, h.runnerName)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Error getting runner info in repository")
+	}
+
+	if !runnerInfo.Capabilities.RollingDeploy {
+		err = fmt.Errorf("The configured runner '%s' does not support rolling deploys", h.runnerName)
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewRollingDeployNotSupportedError(err), fmt.Sprintf("Runner '%s' does not support rolling deploys", h.runnerName))
 	}
 
 	deploymentCreateMessage := payload.ToMessage()

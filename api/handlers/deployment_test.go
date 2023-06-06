@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,16 +21,29 @@ var _ = Describe("Deployment", func() {
 	var (
 		req             *http.Request
 		deploymentsRepo *fake.CFDeploymentRepository
+		runnerInfoRepo  *fake.RunnerInfoRepository
+		runnerName      string
 	)
 
 	BeforeEach(func() {
 		deploymentsRepo = new(fake.CFDeploymentRepository)
+		runnerInfoRepo = new(fake.RunnerInfoRepository)
+		runnerName = "statefulset-runner"
 
 		decoderValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		apiHandler := handlers.NewDeployment(*serverURL, decoderValidator, deploymentsRepo)
+		apiHandler := handlers.NewDeployment(*serverURL, decoderValidator, deploymentsRepo, runnerInfoRepo, runnerName)
 		routerBuilder.LoadRoutes(apiHandler)
+
+		runnerInfoRepo.GetRunnerInfoReturns(repositories.RunnerInfoRecord{
+			Name:       "statefulset-runner",
+			Namespace:  "korifi",
+			RunnerName: "statefulset-runner",
+			Capabilities: v1alpha1.RunnerInfoCapabilities{
+				RollingDeploy: true,
+			},
+		}, nil)
 	})
 
 	JustBeforeEach(func() {
@@ -59,6 +73,24 @@ var _ = Describe("Deployment", func() {
 					}
 				  }
 				}`, dropletGUID, appGUID)))
+		})
+
+		When("runner is not capable of rolling deploy", func() {
+			BeforeEach(func() {
+				runnerInfoRepo.GetRunnerInfoReturns(repositories.RunnerInfoRecord{
+					Name:       "statefulset-runner",
+					Namespace:  "korifi",
+					RunnerName: "statefulset-runner",
+					Capabilities: v1alpha1.RunnerInfoCapabilities{
+						RollingDeploy: false,
+					},
+				}, nil)
+			})
+
+			It("returns an error if the RunnerInfo indicates unable to rolling deploy", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
+				Expect(rr).To(HaveHTTPBody("{\"errors\":[{\"detail\":\"The configured runner 'statefulset-runner' does not support rolling deploys\",\"title\":\"CF-RollingDeployNotSupported\",\"code\":42000}]}\n"))
+			})
 		})
 
 		It("returns a HTTP 201 Created response", func() {

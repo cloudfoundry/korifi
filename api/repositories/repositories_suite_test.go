@@ -53,6 +53,7 @@ var (
 	authInfo              authorization.Info
 	rootNamespace         string
 	builderName           string
+	runnerName            string
 	idProvider            authorization.IdentityProvider
 	nsPerms               *authorization.NamespacePermissions
 	adminRole             *rbacv1.ClusterRole
@@ -114,6 +115,7 @@ var _ = BeforeEach(func() {
 	authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
 	rootNamespace = prefixedGUID("root-ns")
 	builderName = "kpack-image-builder"
+	runnerName = "statefulset-runner"
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
 	certInspector := authorization.NewCertInspector(k8sConfig)
 	baseIDProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)

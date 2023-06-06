@@ -1,0 +1,6 @@
+apiVersion: korifi.cloudfoundry.org/v1alpha1
+kind: RunnerInfo
+metadata:
+  name: runnerinfo-sample
+spec:
+  # TODO(user): Add fields here

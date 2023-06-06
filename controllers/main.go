@@ -349,6 +349,16 @@ func main() {
 				setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
 				os.Exit(1)
 			}
+
+			logger = ctrl.Log.WithName("controllers").WithName("RunnerInfo")
+			if err = statefulsetcontrollers.NewRunnerInfoReconciler(
+				mgr.GetClient(),
+				mgr.GetScheme(),
+				logger,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "RunnerInfo")
+				os.Exit(1)
+			}
 		}
 
 		if controllerConfig.IncludeContourRouter {

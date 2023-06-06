@@ -102,6 +102,14 @@ var _ = BeforeSuite(func() {
 	err = (appWorkloadReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	runnerInfoReconciler := NewRunnerInfoReconciler(
+		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		logger,
+	)
+	err = (runnerInfoReconciler).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())

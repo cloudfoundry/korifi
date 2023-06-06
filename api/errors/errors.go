@@ -334,6 +334,22 @@ func NewResourceNotReadyError(cause error) ResourceNotReadyError {
 	}
 }
 
+type RollingDeployNotSupportedError struct {
+	apiError
+}
+
+func NewRollingDeployNotSupportedError(cause error) RollingDeployNotSupportedError {
+	return RollingDeployNotSupportedError{
+		apiError: apiError{
+			cause:      cause,
+			title:      "CF-RollingDeployNotSupported",
+			detail:     cause.Error(),
+			code:       42000,
+			httpStatus: http.StatusBadRequest,
+		},
+	}
+}
+
 func FromK8sError(err error, resourceType string) error {
 	if webhookValidationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
 		return NewUnprocessableEntityError(err, webhookValidationError.GetMessage())
