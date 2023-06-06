@@ -23,6 +23,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -118,10 +119,11 @@ var _ = BeforeSuite(func() {
 			MemoryMB:    500,
 			DiskQuotaMB: 512,
 		},
-		CFRootNamespace:             cfRootNamespace,
-		ContainerRegistrySecretName: packageRegistrySecretName,
-		WorkloadsTLSSecretName:      "korifi-workloads-ingress-cert",
-		WorkloadsTLSSecretNamespace: "korifi-controllers-system",
+		CFRootNamespace:                  cfRootNamespace,
+		ContainerRegistrySecretName:      packageRegistrySecretName,
+		WorkloadsTLSSecretName:           "korifi-workloads-ingress-cert",
+		WorkloadsTLSSecretNamespace:      "korifi-controllers-system",
+		SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(2)),
 	}
 
 	eventRecorder = new(controllerfake.EventRecorder)
@@ -192,6 +194,7 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
 		controllerConfig.ContainerRegistrySecretName,
 		controllerConfig.CFRootNamespace,
+		*controllerConfig.SpaceFinalizerAppDeletionTimeout,
 		labelCompiler,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -259,7 +262,7 @@ var _ = BeforeSuite(func() {
 	}()
 
 	createNamespace(cfRootNamespace)
-	imageRegistrySecret = createSecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
+	imageRegistrySecret = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
 	cfOrg = createOrg(cfRootNamespace)
 })
 
@@ -292,11 +295,16 @@ func createNamespace(name string) *corev1.Namespace {
 	return ns
 }
 
-func createSecret(ctx context.Context, k8sClient client.Client, name string, namespace string) *corev1.Secret {
+func createImageRegistrySecret(ctx context.Context, k8sClient client.Client, name string, namespace string) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				"kapp.k14s.io/foo": "bar",
+				"meta.helm.sh/baz": "foo",
+				"bar":              "baz",
+			},
 		},
 		StringData: map[string]string{
 			"foo": "bar",

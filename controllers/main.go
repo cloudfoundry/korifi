@@ -230,6 +230,7 @@ func main() {
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
 			controllerConfig.ContainerRegistrySecretName,
 			controllerConfig.CFRootNamespace,
+			*controllerConfig.SpaceFinalizerAppDeletionTimeout,
 			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")

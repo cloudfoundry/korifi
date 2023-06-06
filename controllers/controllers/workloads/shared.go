@@ -3,6 +3,7 @@ package workloads
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -12,7 +13,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,8 +31,8 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, client, namespace, func() error {
-		updateMap(&namespace.Labels, labels)
 		updateMap(&namespace.Annotations, annotations)
+		updateMap(&namespace.Labels, labels)
 		return nil
 	})
 	if err != nil {
@@ -77,8 +77,8 @@ func propagateSecret(ctx context.Context, client client.Client, log logr.Logger,
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, client, newSecret, func() error {
-		newSecret.Annotations = secret.Annotations
-		newSecret.Labels = secret.Labels
+		newSecret.Annotations = shared.RemovePackageManagerAnnotations(secret.Annotations, log)
+		newSecret.Labels = shared.RemovePackageManagerAnnotations(secret.Labels, log)
 		newSecret.Immutable = secret.Immutable
 		newSecret.Data = secret.Data
 		newSecret.StringData = secret.StringData
@@ -125,12 +125,12 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 			}
 
 			result, err = controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
-				newRoleBinding.Labels = binding.Labels
+				newRoleBinding.Annotations = shared.RemovePackageManagerAnnotations(binding.Annotations, log)
+				newRoleBinding.Labels = shared.RemovePackageManagerAnnotations(binding.Labels, log)
 				if newRoleBinding.Labels == nil {
 					newRoleBinding.Labels = map[string]string{}
 				}
 				newRoleBinding.Labels[korifiv1alpha1.PropagatedFromLabel] = orgOrSpace.GetNamespace()
-				newRoleBinding.Annotations = binding.Annotations
 				newRoleBinding.Subjects = binding.Subjects
 				newRoleBinding.RoleRef = binding.RoleRef
 				return nil

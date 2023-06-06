@@ -108,7 +108,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			})
 
 			AfterEach(func() {
-				imageRegistrySecret = createSecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
+				imageRegistrySecret = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
 			})
 
 			It("sets the CFOrg's Ready condition to 'False'", func() {

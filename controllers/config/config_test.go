@@ -5,16 +5,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"go.uber.org/zap/zapcore"
-
-	"gopkg.in/yaml.v3"
-
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("LoadFromPath", func() {
@@ -37,15 +35,16 @@ var _ = Describe("LoadFromPath", func() {
 				DiskQuotaMB: 512,
 				Timeout:     tools.PtrTo(int64(30)),
 			},
-			CFRootNamespace:             "rootNamespace",
-			ContainerRegistrySecretName: "packageRegistrySecretName",
-			TaskTTL:                     "taskTTL",
-			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
-			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
-			BuilderName:                 "buildReconciler",
-			RunnerName:                  "statefulset-runner",
-			JobTTL:                      "jobTTL",
-			LogLevel:                    zapcore.DebugLevel,
+			CFRootNamespace:                  "rootNamespace",
+			ContainerRegistrySecretName:      "packageRegistrySecretName",
+			TaskTTL:                          "taskTTL",
+			WorkloadsTLSSecretName:           "workloadsTLSSecretName",
+			WorkloadsTLSSecretNamespace:      "workloadsTLSSecretNamespace",
+			BuilderName:                      "buildReconciler",
+			RunnerName:                       "statefulset-runner",
+			JobTTL:                           "jobTTL",
+			LogLevel:                         zapcore.DebugLevel,
+			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
 		}
 	})
 
@@ -69,21 +68,22 @@ var _ = Describe("LoadFromPath", func() {
 				DiskQuotaMB: 512,
 				Timeout:     tools.PtrTo(int64(30)),
 			},
-			CFRootNamespace:             "rootNamespace",
-			ContainerRegistrySecretName: "packageRegistrySecretName",
-			TaskTTL:                     "taskTTL",
-			WorkloadsTLSSecretName:      "workloadsTLSSecretName",
-			WorkloadsTLSSecretNamespace: "workloadsTLSSecretNamespace",
-			BuilderName:                 "buildReconciler",
-			RunnerName:                  "statefulset-runner",
-			NamespaceLabels:             map[string]string{},
-			ExtraVCAPApplicationValues:  map[string]any{},
-			JobTTL:                      "jobTTL",
-			LogLevel:                    zapcore.DebugLevel,
+			CFRootNamespace:                  "rootNamespace",
+			ContainerRegistrySecretName:      "packageRegistrySecretName",
+			TaskTTL:                          "taskTTL",
+			WorkloadsTLSSecretName:           "workloadsTLSSecretName",
+			WorkloadsTLSSecretNamespace:      "workloadsTLSSecretNamespace",
+			BuilderName:                      "buildReconciler",
+			RunnerName:                       "statefulset-runner",
+			NamespaceLabels:                  map[string]string{},
+			ExtraVCAPApplicationValues:       map[string]any{},
+			JobTTL:                           "jobTTL",
+			LogLevel:                         zapcore.DebugLevel,
+			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
 		}))
 	})
 
-	When("timeout is not set", func() {
+	When("the CFProcess default timeout is not set", func() {
 		BeforeEach(func() {
 			cfg.CFProcessDefaults.Timeout = nil
 		})
@@ -100,6 +100,16 @@ var _ = Describe("LoadFromPath", func() {
 
 		It("uses the default", func() {
 			Expect(retConfig.LogLevel).To(Equal(zapcore.InfoLevel))
+		})
+	})
+
+	When("the space finalizer app deletion timeout is not set", func() {
+		BeforeEach(func() {
+			cfg.SpaceFinalizerAppDeletionTimeout = nil
+		})
+
+		It("uses the default", func() {
+			Expect(retConfig.SpaceFinalizerAppDeletionTimeout).To(gstruct.PointTo(Equal(int64(60))))
 		})
 	})
 })
