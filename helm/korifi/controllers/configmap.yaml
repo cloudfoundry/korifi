@@ -9,8 +9,8 @@ data:
     includeJobTaskRunner: {{ .Values.jobTaskRunner.include }}
     includeStatefulsetRunner: {{ .Values.statefulsetRunner.include }}
     includeContourRouter: {{ .Values.contourRouter.include }}
-    builderName: {{ .Values.controllers.reconcilers.build }}
-    runnerName: {{ .Values.controllers.reconcilers.app }}
+    builderName: {{ .Values.global.reconcilers.build }}
+    runnerName: {{ .Values.global.reconcilers.run }}
     cfProcessDefaults:
       memoryMB: {{ .Values.controllers.processDefaults.memoryMB }}
       diskQuotaMB: {{ .Values.controllers.processDefaults.diskQuotaMB }}

@@ -39,6 +39,24 @@ rules:
   - get
   - patch
 - apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runnerinfos
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runnerinfos/status
+  verbs:
+  - get
+  - patch
+- apiGroups:
   - policy
   resources:
   - poddisruptionbudgets

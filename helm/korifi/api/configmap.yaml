@@ -13,7 +13,8 @@ data:
     readHeaderTimeout: {{ .Values.api.apiServer.timeouts.readHeader }}
     writeTimeout: {{ .Values.api.apiServer.timeouts.write }}
     rootNamespace: {{ .Values.global.rootNamespace }}
-    builderName: {{ .Values.api.builderName }}
+    builderName: {{ .Values.global.reconcilers.build }}
+    runnerName: {{ .Values.global.reconcilers.run }}
     defaultLifecycleConfig:
       type: {{ .Values.api.lifecycle.type }}
       stack: {{ .Values.api.lifecycle.stack }}

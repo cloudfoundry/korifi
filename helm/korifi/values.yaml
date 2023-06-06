@@ -8,6 +8,10 @@ global:
   eksContainerRegistryRoleARN: ""
   containerRegistryCACertSecret:
 
+  reconcilers:
+    build: kpack-image-builder
+    run: statefulset-runner
+
 adminUserName:
 
 api:
@@ -62,9 +66,6 @@ controllers:
       cpu: 50m
       memory: 100Mi
 
-  reconcilers:
-    build: kpack-image-builder
-    app: statefulset-runner
   processDefaults:
     memoryMB: 1024
     diskQuotaMB: 1024

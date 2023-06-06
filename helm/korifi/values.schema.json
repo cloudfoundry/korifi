@@ -41,13 +41,28 @@
         "eksContainerRegistryRoleARN": {
           "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
           "type": "string"
+        },
+        "reconcilers": {
+          "type": "object",
+          "properties": {
+            "build": {
+              "description": "ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.",
+              "type": "string"
+            },
+            "app": {
+              "description": "ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.",
+              "type": "string"
+            }
+          },
+          "required": ["build", "run"]
         }
       },
       "required": [
-        "rootNamespace",
         "containerRepositoryPrefix",
         "defaultAppDomainName",
-        "logLevel"
+        "logLevel",
+        "reconcilers",
+        "rootNamespace"
       ],
       "type": "object"
     },
@@ -252,20 +267,6 @@
           "description": "Reference to the controllers container image.",
           "type": "string"
         },
-        "reconcilers": {
-          "type": "object",
-          "properties": {
-            "build": {
-              "description": "ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.",
-              "type": "string"
-            },
-            "app": {
-              "description": "ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.",
-              "type": "string"
-            }
-          },
-          "required": ["build", "app"]
-        },
         "processDefaults": {
           "type": "object",
           "properties": {
@@ -309,7 +310,7 @@
           "minimum": 1
         }
       },
-      "required": ["image", "reconcilers", "taskTTL", "workloadsTLSSecret"],
+      "required": ["image", "taskTTL", "workloadsTLSSecret"],
       "type": "object"
     },
     "kpackImageBuilder": {
