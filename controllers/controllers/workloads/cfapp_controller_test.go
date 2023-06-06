@@ -30,7 +30,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 	When("a new CFApp resource is created", func() {
 		var (
-			ctx            context.Context
 			cfAppGUID      string
 			cfApp          *korifiv1alpha1.CFApp
 			serviceBinding *korifiv1alpha1.CFServiceBinding
@@ -41,10 +40,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			cfAppGUID = PrefixedGUID("create-app")
 
 			cfApp = &korifiv1alpha1.CFApp{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CFApp",
-					APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: cfSpace.Status.GUID,
@@ -60,14 +55,11 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					},
 				},
 			}
-			Expect(
-				k8sClient.Create(ctx, cfApp),
-			).To(Succeed())
 
 			serviceInstanceSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      PrefixedGUID("service-instance-secret"),
-					Namespace: cfApp.Namespace,
+					Namespace: cfSpace.Status.GUID,
 				},
 				StringData: map[string]string{
 					"foo": "bar",
@@ -78,7 +70,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			serviceInstance := &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      PrefixedGUID("app-service-instance"),
-					Namespace: cfApp.Namespace,
+					Namespace: cfSpace.Status.GUID,
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					Type:       "user-provided",
@@ -90,11 +82,11 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			serviceBinding = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      PrefixedGUID("app-service-binding"),
-					Namespace: cfApp.Namespace,
+					Namespace: cfSpace.Status.GUID,
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					AppRef: corev1.LocalObjectReference{
-						Name: cfApp.Name,
+						Name: cfAppGUID,
 					},
 					Service: corev1.ObjectReference{
 						Namespace: cfSpace.Status.GUID,
@@ -111,6 +103,13 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			})).To(Succeed())
 		})
 
+		JustBeforeEach(func() {
+			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+			}).Should(Succeed())
+		})
+
 		It("sets the last-stop-app-rev annotation to the value of the app-rev annotation", func() {
 			Eventually(func(g Gomega) {
 				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
@@ -121,9 +120,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		When("status.lastStopAppRev is not empty", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-					cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = "2"
-				})).To(Succeed())
+				cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = "2"
 			})
 
 			It("doesn't set it", func() {
@@ -201,7 +198,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		When("the service binding is deleted", func() {
 			var vcapServicesSecret *corev1.Secret
 
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				vcapServicesSecret = getVCAPServicesSecret()
 				Expect(k8sClient.Delete(ctx, serviceBinding)).To(Succeed())
 			})
@@ -694,7 +691,6 @@ func getApp(nsGUID, appGUID string) (*korifiv1alpha1.CFApp, error) {
 }
 
 func findProcessWithType(cfApp *korifiv1alpha1.CFApp, processType string) *korifiv1alpha1.CFProcess {
-	ctx := context.Background()
 	cfProcessList := &korifiv1alpha1.CFProcessList{}
 
 	Eventually(func(g Gomega) {
