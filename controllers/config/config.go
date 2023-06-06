@@ -17,19 +17,20 @@ type ControllerConfig struct {
 	IncludeContourRouter     bool `yaml:"includeContourRouter"`
 
 	// core controllers
-	CFProcessDefaults           CFProcessDefaults `yaml:"cfProcessDefaults"`
-	CFRootNamespace             string            `yaml:"cfRootNamespace"`
-	ContainerRegistrySecretName string            `yaml:"containerRegistrySecretName"`
-	TaskTTL                     string            `yaml:"taskTTL"`
-	WorkloadsTLSSecretName      string            `yaml:"workloads_tls_secret_name"`
-	WorkloadsTLSSecretNamespace string            `yaml:"workloads_tls_secret_namespace"`
-	BuilderName                 string            `yaml:"builderName"`
-	RunnerName                  string            `yaml:"runnerName"`
-	NamespaceLabels             map[string]string `yaml:"namespaceLabels"`
-	ExtraVCAPApplicationValues  map[string]any    `yaml:"extraVCAPApplicationValues"`
-	MaxRetainedPackagesPerApp   int               `yaml:"maxRetainedPackagesPerApp"`
-	MaxRetainedBuildsPerApp     int               `yaml:"maxRetainedBuildsPerApp"`
-	LogLevel                    zapcore.Level     `yaml:"logLevel"`
+	CFProcessDefaults                CFProcessDefaults `yaml:"cfProcessDefaults"`
+	CFRootNamespace                  string            `yaml:"cfRootNamespace"`
+	ContainerRegistrySecretName      string            `yaml:"containerRegistrySecretName"`
+	TaskTTL                          string            `yaml:"taskTTL"`
+	WorkloadsTLSSecretName           string            `yaml:"workloads_tls_secret_name"`
+	WorkloadsTLSSecretNamespace      string            `yaml:"workloads_tls_secret_namespace"`
+	BuilderName                      string            `yaml:"builderName"`
+	RunnerName                       string            `yaml:"runnerName"`
+	NamespaceLabels                  map[string]string `yaml:"namespaceLabels"`
+	ExtraVCAPApplicationValues       map[string]any    `yaml:"extraVCAPApplicationValues"`
+	MaxRetainedPackagesPerApp        int               `yaml:"maxRetainedPackagesPerApp"`
+	MaxRetainedBuildsPerApp          int               `yaml:"maxRetainedBuildsPerApp"`
+	LogLevel                         zapcore.Level     `yaml:"logLevel"`
+	SpaceFinalizerAppDeletionTimeout *int64            `yaml:"spaceFinalizerAppDeletionTimeout"`
 
 	// job-task-runner
 	JobTTL string `yaml:"jobTTL"`
@@ -63,6 +64,10 @@ func LoadFromPath(path string) (*ControllerConfig, error) {
 
 	if config.CFProcessDefaults.Timeout == nil {
 		config.CFProcessDefaults.Timeout = tools.PtrTo(defaultTimeout)
+	}
+
+	if config.SpaceFinalizerAppDeletionTimeout == nil {
+		config.SpaceFinalizerAppDeletionTimeout = tools.PtrTo(defaultTimeout)
 	}
 
 	return &config, nil

@@ -2,9 +2,11 @@ package shared
 
 import (
 	"context"
+	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -113,4 +115,27 @@ func GetConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType st
 	})
 
 	return metav1.ConditionUnknown
+}
+
+func RemovePackageManagerAnnotations(src map[string]string, log logr.Logger) map[string]string {
+	if src == nil {
+		return src
+	}
+
+	dest := map[string]string{}
+	for key, value := range src {
+		if strings.HasPrefix(key, "meta.helm.sh/") {
+			log.V(1).Info("skipping helm annotation propagation", "key", key)
+			continue
+		}
+
+		if strings.HasPrefix(key, "kapp.k14s.io/") {
+			log.V(1).Info("skipping kapp annotation propagation", "key", key)
+			continue
+		}
+
+		dest[key] = value
+	}
+
+	return dest
 }
