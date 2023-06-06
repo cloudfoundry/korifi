@@ -81,7 +81,6 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		var cleanCallCount int
 
 		BeforeEach(func() {
-			ctx := context.Background()
 			cleanCallCount = buildCleaner.CleanCallCount()
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			Expect(k8sClient.Create(ctx, desiredCFPackage)).To(Succeed())
@@ -238,8 +237,6 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			)
 
 			BeforeEach(func() {
-				ctx := context.Background()
-
 				secret1Data := map[string]string{
 					"foo": "bar",
 				}
@@ -422,7 +419,6 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			)
 
 			BeforeEach(func() {
-				ctx := context.Background()
 				newCFBuildGUID = PrefixedGUID("new-cf-build")
 				existingBuildWorkload = &korifiv1alpha1.BuildWorkload{
 					ObjectMeta: metav1.ObjectMeta{
@@ -523,8 +519,6 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			)
 
 			BeforeEach(func() {
-				ctx := context.Background()
-
 				returnedPorts = []int32{42}
 				returnedProcessTypes = []korifiv1alpha1.ProcessType{
 					{
