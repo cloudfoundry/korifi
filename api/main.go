@@ -330,6 +330,7 @@ func main() {
 			domainRepo,
 			decoderValidator,
 			cfg.GetUserCertificateDuration(),
+			cfg.DefaultDomainName,
 		),
 		handlers.NewSpace(
 			*serverURL,

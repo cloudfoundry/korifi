@@ -333,4 +333,35 @@ var _ = Describe("Orgs", func() {
 			})
 		})
 	})
+
+	Describe("get default domain", func() {
+		var (
+			result  bareResource
+			orgGUID string
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("org"))
+			createOrgRole("organization_user", certUserName, orgGUID)
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetResult(&result).
+				Get("/v3/organizations/" + orgGUID + "/domains/default")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			domainName := mustHaveEnv("APP_FQDN")
+			Expect(result.Name).To(Equal(domainName))
+			Expect(result.GUID).NotTo(BeEmpty())
+		})
+	})
 })

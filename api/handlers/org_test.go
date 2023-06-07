@@ -33,7 +33,7 @@ var _ = Describe("Org", func() {
 		decoderValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
-		apiHandler = handlers.NewOrg(*serverURL, orgRepo, domainRepo, decoderValidator, time.Hour)
+		apiHandler = handlers.NewOrg(*serverURL, orgRepo, domainRepo, decoderValidator, time.Hour, "the-default.domain")
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
@@ -492,6 +492,81 @@ var _ = Describe("Org", func() {
 
 			It("returns an Unknown key error", func() {
 				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names'")
+			})
+		})
+	})
+
+	Describe("Get the default domain", func() {
+		BeforeEach(func() {
+			domainRepo.GetDomainByNameReturns(repositories.DomainRecord{
+				GUID: "the-default-domain-guid",
+				Name: "the-default.domain",
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/organizations/org-guid/domains/default", nil)
+			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("returns the configured default domain", func() {
+			Expect(orgRepo.GetOrgCallCount()).To(Equal(1))
+			_, info, orgGUID := orgRepo.GetOrgArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
+			Expect(orgGUID).To(Equal("org-guid"))
+
+			Expect(domainRepo.GetDomainByNameCallCount()).To(Equal(1))
+			_, info, defaultDomainName := domainRepo.GetDomainByNameArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
+			Expect(defaultDomainName).To(Equal("the-default.domain"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "the-default-domain-guid"),
+				MatchJSONPath("$.name", "the-default.domain"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/the-default-domain-guid"),
+			)))
+		})
+
+		When("getting the Org fails", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, errors.New("failed to get org"))
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("getting the Org is forbidden", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, apierrors.NewForbiddenError(errors.New("boom"), repositories.OrgResourceType))
+			})
+
+			It("returns an NotFound error", func() {
+				expectNotFoundError(repositories.OrgResourceType)
+			})
+		})
+
+		When("getting the Domain fails", func() {
+			BeforeEach(func() {
+				domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("failed to get domain"))
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("getting the Domain is forbidden", func() {
+			BeforeEach(func() {
+				domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, apierrors.NewForbiddenError(errors.New("boom"), repositories.DomainResourceType))
+			})
+
+			It("returns an NotFound error", func() {
+				expectNotFoundError(repositories.DomainResourceType)
 			})
 		})
 	})
