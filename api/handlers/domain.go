@@ -25,6 +25,7 @@ const (
 
 type CFDomainRepository interface {
 	GetDomain(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
+	GetDomainByName(ctx context.Context, authInfo authorization.Info, domainName string) (repositories.DomainRecord, error)
 	CreateDomain(context.Context, authorization.Info, repositories.CreateDomainMessage) (repositories.DomainRecord, error)
 	UpdateDomain(context.Context, authorization.Info, repositories.UpdateDomainMessage) (repositories.DomainRecord, error)
 	ListDomains(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)

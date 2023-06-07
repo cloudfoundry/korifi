@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	OrgsPath       = "/v3/organizations"
-	OrgPath        = "/v3/organizations/{guid}"
-	OrgDomainsPath = "/v3/organizations/{guid}/domains"
+	OrgsPath             = "/v3/organizations"
+	OrgPath              = "/v3/organizations/{guid}"
+	OrgDomainsPath       = "/v3/organizations/{guid}/domains"
+	OrgDefaultDomainPath = "/v3/organizations/{guid}/domains/default"
 )
 
 //counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
@@ -40,15 +41,17 @@ type Org struct {
 	domainRepo                               CFDomainRepository
 	decoderValidator                         *DecoderValidator
 	userCertificateExpirationWarningDuration time.Duration
+	defaultDomainName                        string
 }
 
-func NewOrg(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator, userCertificateExpirationWarningDuration time.Duration) *Org {
+func NewOrg(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator, userCertificateExpirationWarningDuration time.Duration, defaultDomainName string) *Org {
 	return &Org{
 		apiBaseURL:                               apiBaseURL,
 		orgRepo:                                  orgRepo,
 		domainRepo:                               domainRepo,
 		decoderValidator:                         decoderValidator,
 		userCertificateExpirationWarningDuration: userCertificateExpirationWarningDuration,
+		defaultDomainName:                        defaultDomainName,
 	}
 }
 
@@ -160,6 +163,24 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDomain, domainList, h.apiBaseURL, *r.URL)), nil
 }
 
+func (h *Org) defaultDomain(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.default-domain")
+
+	orgGUID := routing.URLParam(r, "guid")
+
+	if _, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID); err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
+	}
+
+	domain, err := h.domainRepo.GetDomainByName(r.Context(), authInfo, h.defaultDomainName)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get domain")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.apiBaseURL)), nil
+}
+
 func (h *Org) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -171,6 +192,7 @@ func (h *Org) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: OrgPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: OrgPath, Handler: h.update},
 		{Method: "GET", Pattern: OrgDomainsPath, Handler: h.listDomains},
+		{Method: "GET", Pattern: OrgDefaultDomainPath, Handler: h.defaultDomain},
 	}
 }
 

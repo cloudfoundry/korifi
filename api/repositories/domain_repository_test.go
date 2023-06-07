@@ -329,6 +329,18 @@ var _ = Describe("DomainRepository", func() {
 			Expect(foundDomain.Name).To(Equal(domainName))
 		})
 
+		When("the user has no permission to list domains in the root namespace", func() {
+			BeforeEach(func() {
+				userName = generateGUID()
+				cert, key := testhelpers.ObtainClientCert(testEnv, userName)
+				authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
+			})
+
+			It("returns a not found error", func() {
+				Expect(getErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
 		When("No matches exist for the provided name", func() {
 			BeforeEach(func() {
 				searchName = "fubar"
