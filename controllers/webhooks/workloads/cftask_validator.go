@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -59,64 +60,64 @@ func (v *CFTaskValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 var _ webhook.CustomValidator = &CFTaskValidator{}
 
-func (v *CFTaskValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *CFTaskValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	task, ok := obj.(*v1alpha1.CFTask)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
 	}
 
 	cftasklog.V(1).Info("validate task creation", "namespace", task.Namespace, "name", task.Name)
 
 	if len(task.Spec.Command) == 0 {
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    MissingRequredFieldErrorType,
 			Message: fmt.Sprintf("task %s:%s is missing required field 'Spec.Command'", task.Namespace, task.Name),
 		}.ExportJSONError()
 	}
 
 	if task.Spec.AppRef.Name == "" {
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    MissingRequredFieldErrorType,
 			Message: fmt.Sprintf("task %s:%s is missing required field 'Spec.AppRef.Name'", task.Namespace, task.Name),
 		}.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (v *CFTaskValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) error {
+func (v *CFTaskValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) (admission.Warnings, error) {
 	newTask, ok := obj.(*v1alpha1.CFTask)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
 	}
 
 	if !newTask.GetDeletionTimestamp().IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	cftasklog.V(1).Info("validate task update", "namespace", newTask.Namespace, "name", newTask.Name)
 
 	oldTask, ok := oldObj.(*v1alpha1.CFTask)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", oldObj))
 	}
 
 	if newTask.Status.SequenceID < 0 {
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    InvalidFieldValueErrorType,
 			Message: fmt.Sprintf("task %s:%s Status.SequenceID cannot be negative", newTask.Namespace, newTask.Name),
 		}.ExportJSONError()
 	}
 
 	if oldTask.Status.SequenceID != 0 && newTask.Status.SequenceID != oldTask.Status.SequenceID {
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    ImmutableFieldModificationErrorType,
 			Message: fmt.Sprintf("task %s:%s Status.SequenceID is immutable", newTask.Namespace, newTask.Name),
 		}.ExportJSONError()
 	}
 
 	if oldTask.Spec.Canceled || !newTask.Spec.Canceled {
-		return nil
+		return nil, nil
 	}
 
 	state := ""
@@ -127,15 +128,15 @@ func (v *CFTaskValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Obj
 	}
 
 	if state != "" {
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    CancelationNotPossibleErrorType,
 			Message: fmt.Sprintf("Task state is %s and therefore cannot be canceled", state),
 		}.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (v *CFTaskValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	return nil
+func (v *CFTaskValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }

@@ -42,7 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -81,22 +80,22 @@ func (r *CFSpaceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFSpace{}).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequests),
 		).
 		Watches(
-			&source.Kind{Type: &rbacv1.RoleBinding{}},
+			&rbacv1.RoleBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequests),
 		).
 		Watches(
-			&source.Kind{Type: &corev1.ServiceAccount{}},
+			&corev1.ServiceAccount{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFSpaceRequestsForServiceAccount),
 		)
 }
 
-func (r *CFSpaceReconciler) enqueueCFSpaceRequests(object client.Object) []reconcile.Request {
+func (r *CFSpaceReconciler) enqueueCFSpaceRequests(ctx context.Context, object client.Object) []reconcile.Request {
 	cfSpaceList := &korifiv1alpha1.CFSpaceList{}
-	err := r.client.List(context.Background(), cfSpaceList, client.InNamespace(object.GetNamespace()))
+	err := r.client.List(ctx, cfSpaceList, client.InNamespace(object.GetNamespace()))
 	if err != nil {
 		return []reconcile.Request{}
 	}
@@ -109,13 +108,13 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequests(object client.Object) []recon
 	return requests
 }
 
-func (r *CFSpaceReconciler) enqueueCFSpaceRequestsForServiceAccount(object client.Object) []reconcile.Request {
+func (r *CFSpaceReconciler) enqueueCFSpaceRequestsForServiceAccount(ctx context.Context, object client.Object) []reconcile.Request {
 	if object.GetNamespace() != r.rootNamespace {
 		return nil
 	}
 
 	cfSpaceList := &korifiv1alpha1.CFSpaceList{}
-	err := r.client.List(context.Background(), cfSpaceList)
+	err := r.client.List(ctx, cfSpaceList)
 	if err != nil {
 		return []reconcile.Request{}
 	}

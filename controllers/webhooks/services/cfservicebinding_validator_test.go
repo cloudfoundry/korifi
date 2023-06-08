@@ -66,7 +66,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateCreate(ctx, serviceBinding)
+			_, retErr = validatingWebhook.ValidateCreate(ctx, serviceBinding)
 		})
 
 		It("allows the creation of a service binding with unique app and service instance references", func() {
@@ -123,7 +123,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 		})
 
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateUpdate(ctx, serviceBinding, updatedServiceBinding)
+			_, retErr = validatingWebhook.ValidateUpdate(ctx, serviceBinding, updatedServiceBinding)
 		})
 
 		It("allows the DisplayName to change", func() {
@@ -173,7 +173,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateDelete(ctx, serviceBinding)
+			_, retErr = validatingWebhook.ValidateDelete(ctx, serviceBinding)
 		})
 
 		It("allows the deletion of a service binding", func() {

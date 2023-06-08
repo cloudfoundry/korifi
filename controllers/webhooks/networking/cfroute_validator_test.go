@@ -103,7 +103,7 @@ var _ = Describe("CFRouteValidator", func() {
 
 	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateCreate(ctx, cfRoute)
+			_, retErr = validatingWebhook.ValidateCreate(ctx, cfRoute)
 		})
 
 		It("allows the request", func() {
@@ -312,7 +312,7 @@ var _ = Describe("CFRouteValidator", func() {
 		})
 
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateUpdate(ctx, cfRoute, updatedCFRoute)
+			_, retErr = validatingWebhook.ValidateUpdate(ctx, cfRoute, updatedCFRoute)
 		})
 
 		It("allows the request", func() {
@@ -450,7 +450,7 @@ var _ = Describe("CFRouteValidator", func() {
 
 	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateDelete(ctx, cfRoute)
+			_, retErr = validatingWebhook.ValidateDelete(ctx, cfRoute)
 		})
 
 		It("allows the request", func() {

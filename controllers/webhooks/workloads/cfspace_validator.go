@@ -14,6 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -47,64 +48,64 @@ func (v *CFSpaceValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	space, ok := obj.(*korifiv1alpha1.CFSpace)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
 	if len(space.Name) > maxLabelLength {
-		return errors.New("space name cannot be longer than 63 chars")
+		return nil, errors.New("space name cannot be longer than 63 chars")
 	}
 
 	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, strings.ToLower(space.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		return validationErr.ExportJSONError()
+		return nil, validationErr.ExportJSONError()
 	}
 
 	err := v.placementValidator.ValidateSpaceCreate(*space)
 	if err != nil {
-		return err.ExportJSONError()
+		return nil, err.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
 	space, ok := obj.(*korifiv1alpha1.CFSpace)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
 	if !space.GetDeletionTimestamp().IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	oldSpace, ok := oldObj.(*korifiv1alpha1.CFSpace)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
 	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, strings.ToLower(oldSpace.Spec.DisplayName), strings.ToLower(space.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		return validationErr.ExportJSONError()
+		return nil, validationErr.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (v *CFSpaceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (v *CFSpaceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	space, ok := obj.(*korifiv1alpha1.CFSpace)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space.Spec.DisplayName)
 	if validationErr != nil {
-		return validationErr.ExportJSONError()
+		return nil, validationErr.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }

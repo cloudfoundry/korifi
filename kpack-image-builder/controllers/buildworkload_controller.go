@@ -49,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -113,19 +112,19 @@ func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Bu
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.BuildWorkload{}).
 		Watches(
-			&source.Kind{Type: new(buildv1alpha2.Image)},
-			&handler.EnqueueRequestForOwner{OwnerType: &korifiv1alpha1.BuildWorkload{}},
+			new(buildv1alpha2.Image),
+			handler.EnqueueRequestForOwner(r.scheme, mgr.GetRESTMapper(), &korifiv1alpha1.BuildWorkload{}),
 		).
 		Watches(
-			&source.Kind{Type: new(buildv1alpha2.Build)},
+			new(buildv1alpha2.Build),
 			handler.EnqueueRequestsFromMapFunc(r.buildWorkloadsFromBuild),
 		).
 		WithEventFilter(predicate.NewPredicateFuncs(filterBuildWorkloads))
 }
 
-func (r *BuildWorkloadReconciler) buildWorkloadsFromBuild(o client.Object) []reconcile.Request {
+func (r *BuildWorkloadReconciler) buildWorkloadsFromBuild(ctx context.Context, o client.Object) []reconcile.Request {
 	buildworkloads := new(korifiv1alpha1.BuildWorkloadList)
-	err := r.k8sClient.List(context.Background(), buildworkloads, client.InNamespace(o.GetNamespace()),
+	err := r.k8sClient.List(ctx, buildworkloads, client.InNamespace(o.GetNamespace()),
 		client.MatchingLabels{
 			korifiv1alpha1.CFAppGUIDLabelKey: o.GetLabels()[buildv1alpha2.ImageLabel],
 			ImageGenerationKey:               o.GetLabels()[buildv1alpha2.ImageGenerationLabel],

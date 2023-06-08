@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type EnvBuilder interface {
@@ -74,14 +73,14 @@ func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builde
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFProcess{}).
 		Watches(
-			&source.Kind{Type: &korifiv1alpha1.CFApp{}},
+			&korifiv1alpha1.CFApp{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFProcessRequests),
 		)
 }
 
-func (r *CFProcessReconciler) enqueueCFProcessRequests(o client.Object) []reconcile.Request {
+func (r *CFProcessReconciler) enqueueCFProcessRequests(ctx context.Context, o client.Object) []reconcile.Request {
 	processList := &korifiv1alpha1.CFProcessList{}
-	err := r.k8sClient.List(context.Background(), processList, client.InNamespace(o.GetNamespace()), client.MatchingLabels{korifiv1alpha1.CFAppGUIDLabelKey: o.GetName()})
+	err := r.k8sClient.List(ctx, processList, client.InNamespace(o.GetNamespace()), client.MatchingLabels{korifiv1alpha1.CFAppGUIDLabelKey: o.GetName()})
 	if err != nil {
 		r.log.Info("error when trying to list CFProcesses in namespace", "namespace", o.GetNamespace(), "reason", err)
 		return []reconcile.Request{}

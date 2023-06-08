@@ -72,7 +72,7 @@ var _ = Describe("CFDomainValidator", func() {
 		})
 
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateCreate(ctx, &requestDomainCR)
+			_, retErr = validatingWebhook.ValidateCreate(ctx, &requestDomainCR)
 		})
 
 		It("does not return an error when no domains exist", func() {
@@ -164,7 +164,7 @@ var _ = Describe("CFDomainValidator", func() {
 		})
 
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateUpdate(ctx, &oldCFDomain, updatedCFDomain)
+			_, retErr = validatingWebhook.ValidateUpdate(ctx, &oldCFDomain, updatedCFDomain)
 		})
 
 		It("returns an error", func() {

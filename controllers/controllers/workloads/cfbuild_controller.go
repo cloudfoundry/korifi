@@ -39,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 //counterfeiter:generate -o fake -fake-name BuildCleaner . BuildCleaner
@@ -81,12 +80,12 @@ func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFBuild{}).
 		Watches(
-			&source.Kind{Type: &korifiv1alpha1.BuildWorkload{}},
+			&korifiv1alpha1.BuildWorkload{},
 			handler.EnqueueRequestsFromMapFunc(buildworkloadToBuild),
 		)
 }
 
-func buildworkloadToBuild(o client.Object) []reconcile.Request {
+func buildworkloadToBuild(ctx context.Context, o client.Object) []reconcile.Request {
 	return []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{

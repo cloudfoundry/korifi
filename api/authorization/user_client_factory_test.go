@@ -18,6 +18,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -36,7 +37,9 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		authInfo = authorization.Info{}
 		ctx = context.Background()
 		userName = uuid.NewString()
-		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
+		httpClient, err := rest.HTTPClientFor(k8sConfig)
+		Expect(err).NotTo(HaveOccurred())
+		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig, httpClient)
 		Expect(err).NotTo(HaveOccurred())
 		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, wait.Backoff{
 			Steps:    6,

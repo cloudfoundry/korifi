@@ -120,7 +120,9 @@ var _ = BeforeEach(func() {
 	idProvider = authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
 	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider)
 
-	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
+	httpClient, err := rest.HTTPClientFor(k8sConfig)
+	Expect(err).NotTo(HaveOccurred())
+	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig, httpClient)
 	Expect(err).NotTo(HaveOccurred())
 	userClientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, k8s.NewDefaultBackoff())
 
