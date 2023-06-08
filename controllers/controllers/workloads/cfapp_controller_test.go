@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -22,10 +23,24 @@ import (
 )
 
 var _ = Describe("CFAppReconciler Integration Tests", func() {
-	var cfSpace *korifiv1alpha1.CFSpace
+	var (
+		cfSpace      *korifiv1alpha1.CFSpace
+		cfDomainGUID string
+	)
 
 	BeforeEach(func() {
 		cfSpace = createSpace(cfOrg)
+		cfDomainGUID = PrefixedGUID("test-domain")
+		cfDomain := &korifiv1alpha1.CFDomain{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfSpace.Status.GUID,
+				Name:      cfDomainGUID,
+			},
+			Spec: korifiv1alpha1.CFDomainSpec{
+				Name: "a" + uuid.NewString() + ".com",
+			},
+		}
+		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 	})
 
 	When("a new CFApp resource is created", func() {
@@ -325,71 +340,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			})
 		})
 
-		When("routes exist and CFProcesses do not exist for the app", func() {
-			var (
-				cfRouteGUID string
-				cfRoute     *korifiv1alpha1.CFRoute
-			)
-
-			BeforeEach(func() {
-				cfRouteGUID = GenerateGUID()
-				cfRoute = &korifiv1alpha1.CFRoute{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      cfRouteGUID,
-						Namespace: cfSpace.Status.GUID,
-					},
-					Spec: korifiv1alpha1.CFRouteSpec{
-						Host:     "testRouteHost",
-						Path:     "",
-						Protocol: "http",
-						DomainRef: corev1.ObjectReference{
-							Name:      "testDomainGUID",
-							Namespace: cfSpace.Status.GUID,
-						},
-						Destinations: []korifiv1alpha1.Destination{
-							{
-								GUID: "destination-1-guid",
-								Port: 0,
-								AppRef: corev1.LocalObjectReference{
-									Name: cfAppGUID,
-								},
-								ProcessType: "web",
-								Protocol:    "http1",
-							},
-							{
-								GUID: "destination-2-guid",
-								Port: 0,
-								AppRef: corev1.LocalObjectReference{
-									Name: "some-other-app-guid",
-								},
-								ProcessType: "worked",
-								Protocol:    "http1",
-							},
-						},
-					},
-				}
-				Expect(k8sClient.Create(context.Background(), cfRoute)).To(Succeed())
-			})
-
-			It("eventually creates CFProcess for each process", func() {
-				testCtx := context.Background()
-				droplet := cfBuild.Status.Droplet
-				processTypes := droplet.ProcessTypes
-				for _, process := range processTypes {
-					cfProcessList := korifiv1alpha1.CFProcessList{}
-					Eventually(func() []korifiv1alpha1.CFProcess {
-						Expect(
-							k8sClient.List(testCtx, &cfProcessList, &client.ListOptions{
-								LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, process.Type),
-								Namespace:     cfApp.Namespace,
-							}),
-						).To(Succeed())
-						return cfProcessList.Items
-					}).Should(HaveLen(1), "expected CFProcess to eventually be created")
-				}
-			})
-		})
-
 		When("CFProcesses exist for the app", func() {
 			var (
 				cfProcessForTypeWebGUID string
@@ -591,11 +541,11 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Namespace: cfSpace.Status.GUID,
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
-					Host:     "testRouteHost",
+					Host:     "test-route-host",
 					Path:     "",
 					Protocol: "http",
 					DomainRef: corev1.ObjectReference{
-						Name:      "testDomainGUID",
+						Name:      cfDomainGUID,
 						Namespace: cfSpace.Status.GUID,
 					},
 					Destinations: []korifiv1alpha1.Destination{
@@ -606,15 +556,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 								Name: cfAppGUID,
 							},
 							ProcessType: "web",
-							Protocol:    "http1",
-						},
-						{
-							GUID: "destination-2-guid",
-							Port: 0,
-							AppRef: corev1.LocalObjectReference{
-								Name: "some-other-app-guid",
-							},
-							ProcessType: "worked",
 							Protocol:    "http1",
 						},
 					},
@@ -636,24 +577,12 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		})
 
 		It("eventually deletes the destination on the CFRoute", func() {
-			var createdCFRoute korifiv1alpha1.CFRoute
-			Eventually(func() []korifiv1alpha1.Destination {
+			Eventually(func(g Gomega) {
+				var createdCFRoute korifiv1alpha1.CFRoute
 				err := k8sClient.Get(context.Background(), types.NamespacedName{Name: cfRouteGUID, Namespace: cfSpace.Status.GUID}, &createdCFRoute)
-				if err != nil {
-					return []korifiv1alpha1.Destination{}
-				}
-				return createdCFRoute.Spec.Destinations
-			}).Should(HaveLen(1), "expecting length of destinations to be 1 after cfapp delete")
-
-			Expect(createdCFRoute.Spec.Destinations).Should(ConsistOf(korifiv1alpha1.Destination{
-				GUID: "destination-2-guid",
-				Port: 0,
-				AppRef: corev1.LocalObjectReference{
-					Name: "some-other-app-guid",
-				},
-				ProcessType: "worked",
-				Protocol:    "http1",
-			}))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(createdCFRoute.Spec.Destinations).To(BeEmpty())
+			}).Should(Succeed())
 		})
 
 		When("the app is referenced by service bindings", func() {

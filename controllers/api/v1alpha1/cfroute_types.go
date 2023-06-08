@@ -22,6 +22,8 @@ import (
 )
 
 const (
+	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
+
 	ValidStatus   CurrentStatus = "valid"
 	InvalidStatus CurrentStatus = "invalid"
 )

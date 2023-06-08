@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -21,10 +22,6 @@ import (
 )
 
 var _ = Describe("CFSpaceReconciler Integration Tests", func() {
-	const (
-		spaceName = "my-space"
-	)
-
 	var (
 		spaceGUID                                       string
 		cfSpace                                         *korifiv1alpha1.CFSpace
@@ -64,7 +61,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				Namespace: cfOrg.Status.GUID,
 			},
 			Spec: korifiv1alpha1.CFSpaceSpec{
-				DisplayName: spaceName,
+				DisplayName: uuid.NewString(),
 			},
 		}
 	})

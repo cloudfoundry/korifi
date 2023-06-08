@@ -21,6 +21,8 @@ import (
 )
 
 const (
+	CFSpaceFinalizerName = "cfSpace.korifi.cloudfoundry.org"
+
 	SpaceNameKey = "cloudfoundry.org/space-name"
 	SpaceGUIDKey = "cloudfoundry.org/space-guid"
 )

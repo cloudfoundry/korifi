@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
+	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
@@ -130,6 +131,7 @@ var _ = BeforeSuite(func() {
 	Expect(services.NewCFServiceBindingValidator(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), services.ServiceBindingEntityType)),
 	).SetupWebhookWithManager(mgr)).To(Succeed())
+	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
 
 	go func() {
 		defer GinkgoRecover()

@@ -21,6 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	BuildWorkloadFinalizerName = "kpack-image-builder.korifi.cloudfoundry.org/buildworkload"
+)
+
 // BuildWorkloadSpec defines the desired state of BuildWorkload
 type BuildWorkloadSpec struct {
 	// A reference to the CFBuild that requested the build. The CFBuild must be in the same namespace

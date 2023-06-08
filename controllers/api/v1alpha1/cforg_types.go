@@ -21,6 +21,8 @@ import (
 )
 
 const (
+	CFOrgFinalizerName = "cfOrg.korifi.cloudfoundry.org"
+
 	OrgNameKey             = "cloudfoundry.org/org-name"
 	OrgGUIDKey             = "cloudfoundry.org/org-guid"
 	OrgSpaceDeprecatedName = "XXX-deprecated-XXX"

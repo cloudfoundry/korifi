@@ -41,10 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	orgFinalizerName = "cfOrg.korifi.cloudfoundry.org"
-)
-
 // CFOrgReconciler reconciles a CFOrg object
 type CFOrgReconciler struct {
 	client                      client.Client
@@ -137,11 +133,6 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 
 	shared.GetConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfOrg.Generation)
 
-	if controllerutil.AddFinalizer(cfOrg, orgFinalizerName) {
-		log.V(1).Info("added finalizer")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
 	cfOrg.Status.GUID = cfOrg.Name
 
 	err := createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
@@ -182,13 +173,13 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 func (r *CFOrgReconciler) finalize(ctx context.Context, log logr.Logger, org client.Object) (ctrl.Result, error) {
 	log = log.WithName("finalize")
 
-	if !controllerutil.ContainsFinalizer(org, orgFinalizerName) {
+	if !controllerutil.ContainsFinalizer(org, korifiv1alpha1.CFOrgFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
 	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.GetName()}})
 	if k8serrors.IsNotFound(err) {
-		if controllerutil.RemoveFinalizer(org, orgFinalizerName) {
+		if controllerutil.RemoveFinalizer(org, korifiv1alpha1.CFOrgFinalizerName) {
 			log.V(1).Info("finalizer removed")
 		}
 

@@ -22,6 +22,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+const (
+	CFAppFinalizerName = "cfApp.korifi.cloudfoundry.org"
+)
+
 // log is for logging in this package.
 var cfapplog = logf.Log.WithName("cfapp-resource")
 

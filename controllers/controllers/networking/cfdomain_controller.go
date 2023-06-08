@@ -34,10 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	CFDomainFinalizerName = "cfDomain.korifi.cloudfoundry.org"
-)
-
 type CFDomainReconciler struct {
 	client client.Client
 	scheme *runtime.Scheme
@@ -72,11 +68,6 @@ func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *ko
 	cfDomain.Status.ObservedGeneration = cfDomain.Generation
 	log.V(1).Info("set observed generation", "generation", cfDomain.Status.ObservedGeneration)
 
-	if controllerutil.AddFinalizer(cfDomain, CFDomainFinalizerName) {
-		log.V(1).Info("added finalizer")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
 	meta.SetStatusCondition(&cfDomain.Status.Conditions, metav1.Condition{
 		Type:               "Valid",
 		Status:             metav1.ConditionTrue,
@@ -91,7 +82,7 @@ func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *ko
 func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logger, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
 	log = log.WithName("finalizeCFDomain")
 
-	if !controllerutil.ContainsFinalizer(cfDomain, CFDomainFinalizerName) {
+	if !controllerutil.ContainsFinalizer(cfDomain, korifiv1alpha1.CFDomainFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -102,7 +93,7 @@ func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logg
 	}
 
 	if len(domainRoutes) == 0 {
-		if controllerutil.RemoveFinalizer(cfDomain, CFDomainFinalizerName) {
+		if controllerutil.RemoveFinalizer(cfDomain, korifiv1alpha1.CFDomainFinalizerName) {
 			log.V(1).Info("finalizer removed")
 		}
 

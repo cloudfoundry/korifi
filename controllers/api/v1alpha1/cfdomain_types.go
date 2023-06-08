@@ -20,6 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	CFDomainFinalizerName = "cfDomain.korifi.cloudfoundry.org"
+)
+
 // CFDomainSpec defines the desired state of CFDomain
 type CFDomainSpec struct {
 	// The domain name. It is required and must conform to RFC 1035

@@ -39,8 +39,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		processTypeWeb           = "web"
 		processTypeWebCommand    = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-		oldDetectedCommand       = "old-detected-command"
-		newDetectedCommand       = "new-detected-command"
+		detectedCommand          = "detected-command"
 		processTypeWorker        = "worker"
 		processTypeWorkerCommand = "bundle exec rackup config.ru"
 		port8080                 = 8080
@@ -57,17 +56,13 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		// Technically the app controller should be creating this process based on CFApp and CFBuild, but we
 		// want to drive testing with a specific CFProcess instead of cascading (non-object-ref) state through
 		// other resources.
-		cfProcess = BuildCFProcessCRObject(testProcessGUID, cfSpace.Status.GUID, testAppGUID, processTypeWeb, processTypeWebCommand, oldDetectedCommand)
+		cfProcess = BuildCFProcessCRObject(testProcessGUID, cfSpace.Status.GUID, testAppGUID, processTypeWeb, processTypeWebCommand, detectedCommand)
 		cfApp = BuildCFAppCRObject(testAppGUID, cfSpace.Status.GUID)
+		cfApp.Spec.EnvSecretName = testAppGUID + "-env"
+		cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: testBuildGUID}
+
 		cfPackage = BuildCFPackageCRObject(testPackageGUID, cfSpace.Status.GUID, testAppGUID, "ref")
 		cfBuild = BuildCFBuildObject(testBuildGUID, cfSpace.Status.GUID, testPackageGUID, testAppGUID)
-	})
-
-	JustBeforeEach(func() {
-		Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
-
-		UpdateCFAppWithCurrentDropletRef(cfApp, testBuildGUID)
-		cfApp.Spec.EnvSecretName = testAppGUID + "-env"
 
 		appEnvSecret := BuildCFAppEnvVarsSecret(testAppGUID, cfSpace.Status.GUID, map[string]string{
 			"b-test-env-key-second": "b-test-env-val-second",
@@ -77,52 +72,45 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		Expect(k8sClient.Create(ctx, appEnvSecret)).To(Succeed())
 
 		Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
-		dropletProcessTypeMap := map[string]string{
-			processTypeWeb:    newDetectedCommand,
-			processTypeWorker: processTypeWorkerCommand,
-		}
-		dropletPorts := []int32{port8080, port9000}
-		buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypeMap, dropletPorts)
+		buildDropletStatus := BuildCFBuildDropletStatusObject(map[string]string{"web": "command-from-droplet"}, []int32{})
 		cfBuild = createBuildWithDroplet(ctx, k8sClient, cfBuild, buildDropletStatus)
+
+		Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
+		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 	})
 
-	When("the CFProcess is created", func() {
-		JustBeforeEach(func() {
-			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
-		})
+	It("eventually reconciles to set owner references on CFProcess", func() {
+		Eventually(func() []metav1.OwnerReference {
+			var createdCFProcess korifiv1alpha1.CFProcess
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: cfSpace.Status.GUID}, &createdCFProcess)
+			if err != nil {
+				return nil
+			}
+			return createdCFProcess.GetOwnerReferences()
+		}).Should(ConsistOf(metav1.OwnerReference{
+			APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
+			Kind:               "CFApp",
+			Name:               cfApp.Name,
+			UID:                cfApp.UID,
+			Controller:         tools.PtrTo(true),
+			BlockOwnerDeletion: tools.PtrTo(true),
+		}))
+	})
 
-		It("eventually reconciles to set owner references on CFProcess", func() {
-			Eventually(func() []metav1.OwnerReference {
-				var createdCFProcess korifiv1alpha1.CFProcess
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: cfSpace.Status.GUID}, &createdCFProcess)
-				if err != nil {
-					return nil
-				}
-				return createdCFProcess.GetOwnerReferences()
-			}).Should(ConsistOf(metav1.OwnerReference{
-				APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
-				Kind:               "CFApp",
-				Name:               cfApp.Name,
-				UID:                cfApp.UID,
-				Controller:         tools.PtrTo(true),
-				BlockOwnerDeletion: tools.PtrTo(true),
-			}))
-		})
+	It("sets the ObservedGeneration status field", func() {
+		Eventually(func(g Gomega) {
+			var createdCFProcess korifiv1alpha1.CFProcess
+			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: cfSpace.Status.GUID}, &createdCFProcess)).To(Succeed())
 
-		It("sets the ObservedGeneration status field", func() {
-			Eventually(func(g Gomega) {
-				var createdCFProcess korifiv1alpha1.CFProcess
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testProcessGUID, Namespace: cfSpace.Status.GUID}, &createdCFProcess)).To(Succeed())
-
-				g.Expect(createdCFProcess.Status.ObservedGeneration).To(Equal(createdCFProcess.Generation))
-			}).Should(Succeed())
-		})
+			g.Expect(createdCFProcess.Status.ObservedGeneration).To(Equal(createdCFProcess.Generation))
+		}).Should(Succeed())
 	})
 
 	When("the CFApp desired state is STARTED", func() {
-		JustBeforeEach(func() {
-			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+			})).To(Succeed())
 		})
 
 		It("eventually reconciles the CFProcess into an AppWorkload", func() {
@@ -229,15 +217,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		When("The process command field isn't set", func() {
 			BeforeEach(func() {
-				cfProcess.Spec.Command = ""
+				Expect(k8s.PatchResource(ctx, k8sClient, cfProcess, func() {
+					cfProcess.Spec.Command = ""
+				})).To(Succeed())
 			})
 
-			It("eventually creates an app workload using the newDetectedCommand from the build", func() {
+			It("eventually creates an app workload using the command from the build", func() {
 				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
-					var updatedCFApp korifiv1alpha1.CFApp
-					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &updatedCFApp)).To(Succeed())
-
-					g.Expect(appWorkload.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", newDetectedCommand))
+					g.Expect(appWorkload.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", "command-from-droplet"))
 				})
 			})
 		})
@@ -376,13 +363,17 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 	When("a CFRoute destination specifying a different port already exists before the app is started", func() {
 		JustBeforeEach(func() {
-			wrongDestination := korifiv1alpha1.Destination{
-				GUID:        "destination1-guid",
-				AppRef:      corev1.LocalObjectReference{Name: "some-other-guid"},
-				ProcessType: processTypeWeb,
-				Port:        12,
-				Protocol:    "http1",
+			cfDomain := &korifiv1alpha1.CFDomain{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: cfSpace.Status.GUID,
+					Name:      GenerateGUID(),
+				},
+				Spec: korifiv1alpha1.CFDomainSpec{
+					Name: "my.domain",
+				},
 			}
+			Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
+
 			destination := korifiv1alpha1.Destination{
 				GUID:        "destination2-guid",
 				AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
@@ -392,7 +383,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			}
 			cfRoute := &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      GenerateGUID(),
+					Name:      cfDomain.Name,
 					Namespace: cfSpace.Status.GUID,
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
@@ -400,10 +391,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					Path:     "",
 					Protocol: "http",
 					DomainRef: corev1.ObjectReference{
-						Name:      GenerateGUID(),
+						Name:      cfDomain.Name,
 						Namespace: cfSpace.Status.GUID,
 					},
-					Destinations: []korifiv1alpha1.Destination{wrongDestination, destination},
+					Destinations: []korifiv1alpha1.Destination{destination},
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
@@ -411,14 +402,13 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				cfRoute.Status = korifiv1alpha1.CFRouteStatus{
 					CurrentStatus: "valid",
 					Description:   "ok",
-					Destinations:  []korifiv1alpha1.Destination{wrongDestination, destination},
+					Destinations:  []korifiv1alpha1.Destination{destination},
 				}
 			})).To(Succeed())
 
-			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			Expect(
-				k8sClient.Create(ctx, cfApp),
-			).To(Succeed())
+			Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+			})).To(Succeed())
 		})
 
 		It("eventually reconciles the CFProcess into an AppWorkload with VCAP env set according to the destination port", func() {
@@ -466,6 +456,13 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			healthCheckTimeoutSeconds           = 9
 			healthCheckInvocationTimeoutSeconds = 3
 		)
+
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+			})).To(Succeed())
+		})
+
 		JustBeforeEach(func() {
 			Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
 				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
@@ -477,9 +474,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					},
 				}
 			})).To(Succeed())
-
-			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 		})
 
 		It("sets the startup and liveness probes correctly on the AppWorkload", func() {
@@ -511,6 +505,13 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			healthCheckTimeoutSeconds           = 9
 			healthCheckInvocationTimeoutSeconds = 3
 		)
+
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+			})).To(Succeed())
+		})
+
 		JustBeforeEach(func() {
 			Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
 				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
@@ -521,9 +522,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					},
 				}
 			})).To(Succeed())
-
-			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 		})
 
 		It("sets the startup and liveness probes correctly on the AppWorkload", func() {
@@ -548,13 +546,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	})
 
 	When("the CFProcess has a process health check", func() {
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
+			})).To(Succeed())
+		})
+
 		JustBeforeEach(func() {
 			Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
 				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{Type: "process"}
 			})).To(Succeed())
-
-			cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
-			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 		})
 
 		It("sets the liveness and readinessProbes correctly on the AppWorkload", func() {

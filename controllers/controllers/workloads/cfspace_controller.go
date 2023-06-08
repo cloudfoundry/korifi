@@ -44,10 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	spaceFinalizerName = "cfSpace.korifi.cloudfoundry.org"
-)
-
 // CFSpaceReconciler reconciles a CFSpace object
 type CFSpaceReconciler struct {
 	client                      client.Client
@@ -147,11 +143,6 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 	}
 
 	shared.GetConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfSpace.Generation)
-
-	if controllerutil.AddFinalizer(cfSpace, spaceFinalizerName) {
-		log.V(1).Info("added finalizer")
-		return ctrl.Result{Requeue: true}, nil
-	}
 
 	cfSpace.Status.GUID = cfSpace.GetName()
 
@@ -349,7 +340,7 @@ func keepImagePullSecrets(serviceAccountName string, secretRefs []corev1.LocalOb
 func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space client.Object) (ctrl.Result, error) {
 	log = log.WithName("finalize")
 
-	if !controllerutil.ContainsFinalizer(space, spaceFinalizerName) {
+	if !controllerutil.ContainsFinalizer(space, korifiv1alpha1.CFSpaceFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -357,7 +348,7 @@ func (r *CFSpaceReconciler) finalize(ctx context.Context, log logr.Logger, space
 	spaceNamespace := new(corev1.Namespace)
 	err := r.client.Get(ctx, types.NamespacedName{Name: space.GetName()}, spaceNamespace)
 	if k8serrors.IsNotFound(err) {
-		if controllerutil.RemoveFinalizer(space, spaceFinalizerName) {
+		if controllerutil.RemoveFinalizer(space, korifiv1alpha1.CFSpaceFinalizerName) {
 			log.V(1).Info("finalizer removed")
 		}
 

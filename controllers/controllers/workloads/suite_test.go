@@ -14,7 +14,14 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
 	controllerfake "code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -50,6 +57,10 @@ var (
 )
 
 const (
+	defaultMemoryMB    = 128
+	defaultDiskQuotaMB = 256
+	defaultTimeout     = 60
+
 	packageRegistrySecretName = "test-package-registry-secret"
 )
 
@@ -69,6 +80,9 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
+		},
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml")},
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -191,7 +205,47 @@ var _ = BeforeSuite(func() {
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	// Add new reconcilers here
+	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
+	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
+	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(workloads.NewCFAppValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.AppEntityType)),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	(&workloads.AppRevWebhook{}).SetupWebhookWithManager(k8sManager)
+
+	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.CFOrgEntityType))
+	orgPlacementValidator := webhooks.NewPlacementValidator(k8sManager.GetClient(), cfRootNamespace)
+	Expect(workloads.NewCFOrgValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.CFSpaceEntityType))
+	spacePlacementValidator := webhooks.NewPlacementValidator(k8sManager.GetClient(), cfRootNamespace)
+	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	Expect(networking.NewCFDomainValidator(k8sManager.GetClient()).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(services.NewCFServiceInstanceValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), services.ServiceInstanceEntityType)),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(workloads.NewCFTaskDefaulter(config.CFProcessDefaults{
+		MemoryMB:    128,
+		DiskQuotaMB: 256,
+	}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	Expect(korifiv1alpha1.NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB, defaultTimeout).
+		SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(networking.NewCFRouteValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), networking.RouteEntityType)),
+		cfRootNamespace,
+		k8sManager.GetClient(),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(services.NewCFServiceBindingValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), services.ServiceBindingEntityType)),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	// Setup index for manager
 	err = SetupIndexWithManager(k8sManager)

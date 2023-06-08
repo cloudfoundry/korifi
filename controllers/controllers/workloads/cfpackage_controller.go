@@ -36,7 +36,6 @@ import (
 )
 
 const (
-	cfPackageFinalizer       string = "korifi.cloudfoundry.org/cfPackageController"
 	InitializedConditionType string = "Initialized"
 )
 
@@ -99,11 +98,6 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 		return r.finalize(ctx, log, cfPackage)
 	}
 
-	if controllerutil.AddFinalizer(cfPackage, cfPackageFinalizer) {
-		log.V(1).Info("added finalizer")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
 	var cfApp korifiv1alpha1.CFApp
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
 	if err != nil {
@@ -150,7 +144,7 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 func (r *CFPackageReconciler) finalize(ctx context.Context, log logr.Logger, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
 	log = log.WithName("finalize")
 
-	if !controllerutil.ContainsFinalizer(cfPackage, cfPackageFinalizer) {
+	if !controllerutil.ContainsFinalizer(cfPackage, korifiv1alpha1.CFPackageFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -163,7 +157,7 @@ func (r *CFPackageReconciler) finalize(ctx context.Context, log logr.Logger, cfP
 		}
 	}
 
-	if controllerutil.RemoveFinalizer(cfPackage, cfPackageFinalizer) {
+	if controllerutil.RemoveFinalizer(cfPackage, korifiv1alpha1.CFPackageFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
 

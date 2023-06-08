@@ -174,10 +174,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
-			orig := cfTask.DeepCopy()
-			cfTask.Status.MemoryMB = 123
-			cfTask.Status.DiskQuotaMB = 432
-			Expect(k8sClient.Status().Patch(ctx, cfTask, client.MergeFrom(orig))).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
@@ -218,10 +214,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				g.Expect(taskWorkload.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 				g.Expect(taskWorkload.Spec.Image).To(Equal("registry.io/my/image"))
 				g.Expect(taskWorkload.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
-				g.Expect(taskWorkload.Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", 123)))
-				g.Expect(taskWorkload.Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", 123)))
-				g.Expect(taskWorkload.Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 432)))
-				g.Expect(taskWorkload.Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 432)))
+				g.Expect(taskWorkload.Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", defaultMemoryMB)))
+				g.Expect(taskWorkload.Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", defaultMemoryMB)))
+				g.Expect(taskWorkload.Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", defaultDiskQuotaMB)))
+				g.Expect(taskWorkload.Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", defaultDiskQuotaMB)))
 				g.Expect(taskWorkload.Spec.Resources.Requests.Cpu().String()).To(Equal("75m"))
 				g.Expect(taskWorkload.GetOwnerReferences()).To(ConsistOf(SatisfyAll(
 					HaveField("Name", cfTask.Name),
@@ -330,7 +326,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		When("spec.canceled is set to true", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfTask, func() {
 					cfTask.Spec.Canceled = true
 				})).To(Succeed())
 			})
@@ -340,8 +336,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
 					canceledStatusCondition := meta.FindStatusCondition(cfTask.Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)
 					g.Expect(canceledStatusCondition).NotTo(BeNil())
-					fmt.Printf("canceledStatusCondition) = %+v\n", canceledStatusCondition)
-					fmt.Printf("cfTask.Generation = %+v\n", cfTask.Generation)
 					g.Expect(canceledStatusCondition.Status).To(Equal(metav1.ConditionTrue))
 					g.Expect(canceledStatusCondition.Reason).To(Equal("TaskCanceled"))
 					g.Expect(canceledStatusCondition.ObservedGeneration).To(Equal(cfTask.Generation))

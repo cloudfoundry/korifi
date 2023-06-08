@@ -4,6 +4,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -29,7 +30,7 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 					Namespace: namespace,
 				},
 				Spec: korifiv1alpha1.CFDomainSpec{
-					Name: "example.com",
+					Name: "a" + uuid.NewString() + ".com",
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())

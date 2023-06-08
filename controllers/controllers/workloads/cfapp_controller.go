@@ -25,10 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	cfAppFinalizerName = "cfApp.korifi.cloudfoundry.org"
-)
-
 type EnvValueBuilder interface {
 	BuildEnvValue(context.Context, *korifiv1alpha1.CFApp) (map[string]string, error)
 }
@@ -112,11 +108,6 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 
 	if !cfApp.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFApp(ctx, log, cfApp)
-	}
-
-	if controllerutil.AddFinalizer(cfApp, cfAppFinalizerName) {
-		log.V(1).Info("added finalizer")
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] == "" {
@@ -302,7 +293,7 @@ func (r *CFAppReconciler) fetchProcessByType(ctx context.Context, log logr.Logge
 func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, log logr.Logger, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	log = log.WithName("finalize")
 
-	if !controllerutil.ContainsFinalizer(cfApp, cfAppFinalizerName) {
+	if !controllerutil.ContainsFinalizer(cfApp, korifiv1alpha1.CFAppFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -320,7 +311,7 @@ func (r *CFAppReconciler) finalizeCFApp(ctx context.Context, log logr.Logger, cf
 		return sbFinalizationResult, nil
 	}
 
-	if controllerutil.RemoveFinalizer(cfApp, cfAppFinalizerName) {
+	if controllerutil.RemoveFinalizer(cfApp, korifiv1alpha1.CFAppFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
 
