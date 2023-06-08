@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -58,16 +57,16 @@ func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFApp{}).
 		Watches(
-			&source.Kind{Type: &korifiv1alpha1.CFBuild{}},
+			&korifiv1alpha1.CFBuild{},
 			handler.EnqueueRequestsFromMapFunc(buildToApp),
 		).
 		Watches(
-			&source.Kind{Type: &korifiv1alpha1.CFServiceBinding{}},
+			&korifiv1alpha1.CFServiceBinding{},
 			handler.EnqueueRequestsFromMapFunc(serviceBindingToApp),
 		)
 }
 
-func buildToApp(o client.Object) []reconcile.Request {
+func buildToApp(ctx context.Context, o client.Object) []reconcile.Request {
 	cfBuild, ok := o.(*korifiv1alpha1.CFBuild)
 	if !ok {
 		return nil
@@ -83,7 +82,7 @@ func buildToApp(o client.Object) []reconcile.Request {
 	}
 }
 
-func serviceBindingToApp(o client.Object) []reconcile.Request {
+func serviceBindingToApp(ctx context.Context, o client.Object) []reconcile.Request {
 	serviceBinding, ok := o.(*korifiv1alpha1.CFServiceBinding)
 	if !ok {
 		return nil

@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -111,13 +110,13 @@ func (r *AppWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Buil
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.AppWorkload{}).
 		Watches(
-			&source.Kind{Type: new(appsv1.StatefulSet)},
+			new(appsv1.StatefulSet),
 			handler.EnqueueRequestsFromMapFunc(r.enqueueAppWorkloadRequests),
 		).
 		WithEventFilter(predicate.NewPredicateFuncs(filterAppWorkloads))
 }
 
-func (r *AppWorkloadReconciler) enqueueAppWorkloadRequests(o client.Object) []reconcile.Request {
+func (r *AppWorkloadReconciler) enqueueAppWorkloadRequests(ctx context.Context, o client.Object) []reconcile.Request {
 	var requests []reconcile.Request
 
 	if appWorkloadName, ok := o.GetLabels()[LabelAppWorkloadGUID]; ok {

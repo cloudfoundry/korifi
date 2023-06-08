@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -65,15 +66,15 @@ func (v *CFDomainValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	domain, ok := obj.(*korifiv1alpha1.CFDomain)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
 	}
 
 	err := validateDomainName(domain.Spec.Name)
 	if err != nil {
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    InvalidDomainErrorType,
 			Message: fmt.Sprintf("%q is not a valid domain: %s", domain.Spec.Name, err.Error()),
 		}.ExportJSONError()
@@ -82,53 +83,53 @@ func (v *CFDomainValidator) ValidateCreate(ctx context.Context, obj runtime.Obje
 	isOverlapping, err := v.domainIsOverlapping(ctx, domain.Spec.Name)
 	if err != nil {
 		log.Info("error checking for overlapping domain", "reason", err)
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    webhooks.UnknownErrorType,
 			Message: webhooks.UnknownErrorMessage,
 		}.ExportJSONError()
 	}
 
 	if isOverlapping {
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    DuplicateDomainErrorType,
 			Message: "Overlapping domain exists",
 		}.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }
 
 func validateDomainName(domainName string) error {
 	return validation.IsFullyQualifiedDomainName(field.NewPath("CFDomain", "Spec", "Name"), domainName).ToAggregate()
 }
 
-func (v *CFDomainValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) error {
+func (v *CFDomainValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) (admission.Warnings, error) {
 	domain, ok := obj.(*korifiv1alpha1.CFDomain)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
 	}
 
 	if !domain.GetDeletionTimestamp().IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	oldDomain, ok := oldObj.(*korifiv1alpha1.CFDomain)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
 	}
 
 	if oldDomain.Spec.Name != domain.Spec.Name {
-		return webhooks.ValidationError{
+		return nil, webhooks.ValidationError{
 			Type:    webhooks.ImmutableFieldErrorType,
 			Message: fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFDomain.Spec.Name"),
 		}.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (v *CFDomainValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	return nil
+func (v *CFDomainValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 func (v *CFDomainValidator) domainIsOverlapping(ctx context.Context, domainName string) (bool, error) {

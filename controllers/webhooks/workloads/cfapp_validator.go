@@ -13,6 +13,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -44,55 +45,55 @@ func (v *CFAppValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (v *CFAppValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *CFAppValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	app, ok := obj.(*korifiv1alpha1.CFApp)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
 	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		return validationErr.ExportJSONError()
+		return nil, validationErr.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
 	app, ok := obj.(*korifiv1alpha1.CFApp)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
 	if !app.GetDeletionTimestamp().IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	oldApp, ok := oldObj.(*korifiv1alpha1.CFApp)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
 	}
 
 	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
 	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, strings.ToLower(oldApp.Spec.DisplayName), strings.ToLower(app.Spec.DisplayName), duplicateErrorMessage)
 	if validationErr != nil {
-		return validationErr.ExportJSONError()
+		return nil, validationErr.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (v *CFAppValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (v *CFAppValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	app, ok := obj.(*korifiv1alpha1.CFApp)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
 	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName))
 	if validationErr != nil {
-		return validationErr.ExportJSONError()
+		return nil, validationErr.ExportJSONError()
 	}
 
-	return nil
+	return nil, nil
 }

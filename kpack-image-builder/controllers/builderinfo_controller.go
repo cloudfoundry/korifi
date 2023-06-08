@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -73,13 +72,13 @@ func (r *BuilderInfoReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Buil
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.BuilderInfo{}).
 		Watches(
-			&source.Kind{Type: new(buildv1alpha2.ClusterBuilder)},
+			new(buildv1alpha2.ClusterBuilder),
 			handler.EnqueueRequestsFromMapFunc(r.enqueueBuilderInfoRequests),
 		).
 		WithEventFilter(predicate.NewPredicateFuncs(r.filterBuilderInfos))
 }
 
-func (r *BuilderInfoReconciler) enqueueBuilderInfoRequests(o client.Object) []reconcile.Request {
+func (r *BuilderInfoReconciler) enqueueBuilderInfoRequests(ctx context.Context, o client.Object) []reconcile.Request {
 	var requests []reconcile.Request
 	if o.GetName() == r.clusterBuilderName {
 		requests = append(requests, reconcile.Request{

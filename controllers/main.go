@@ -50,7 +50,7 @@ import (
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
-	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
+	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"

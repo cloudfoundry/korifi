@@ -27,11 +27,7 @@ func (r *AppRevWebhook) SetupWebhookWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register("/mutate-korifi-cloudfoundry-org-v1alpha1-cfapp-apprev", &admission.Webhook{
 		Handler: r,
 	})
-}
-
-func (r *AppRevWebhook) InjectDecoder(d *admission.Decoder) error {
-	r.decoder = d
-	return nil
+	r.decoder = admission.NewDecoder(mgr.GetScheme())
 }
 
 func (r *AppRevWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {

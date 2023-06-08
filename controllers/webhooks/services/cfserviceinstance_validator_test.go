@@ -57,7 +57,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateCreate(ctx, serviceInstance)
+			_, retErr = validatingWebhook.ValidateCreate(ctx, serviceInstance)
 		})
 
 		It("allows the request", func() {
@@ -114,7 +114,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 		})
 
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateUpdate(ctx, serviceInstance, updatedServiceInstance)
+			_, retErr = validatingWebhook.ValidateUpdate(ctx, serviceInstance, updatedServiceInstance)
 		})
 
 		It("allows the request", func() {
@@ -175,7 +175,7 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateDelete(ctx, serviceInstance)
+			_, retErr = validatingWebhook.ValidateDelete(ctx, serviceInstance)
 		})
 
 		It("allows the request", func() {

@@ -100,7 +100,11 @@ func main() {
 	}
 	namespaceRetriever := repositories.NewNamespaceRetriever(dynamicClient)
 
-	mapper, err := apiutil.NewDynamicRESTMapper(k8sClientConfig)
+	httpClient, err := rest.HTTPClientFor(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create http client from k8s rest config: %v", err))
+	}
+	mapper, err := apiutil.NewDynamicRESTMapper(k8sClientConfig, httpClient)
 	if err != nil {
 		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
 	}

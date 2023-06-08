@@ -39,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -75,18 +74,18 @@ func (r *CFOrgReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFOrg{}).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
 		).
 		Watches(
-			&source.Kind{Type: &rbacv1.RoleBinding{}},
+			&rbacv1.RoleBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
 		)
 }
 
-func (r *CFOrgReconciler) enqueueCFOrgRequests(object client.Object) []reconcile.Request {
+func (r *CFOrgReconciler) enqueueCFOrgRequests(ctx context.Context, object client.Object) []reconcile.Request {
 	cfOrgList := &korifiv1alpha1.CFOrgList{}
-	err := r.client.List(context.Background(), cfOrgList, client.InNamespace(object.GetNamespace()))
+	err := r.client.List(ctx, cfOrgList, client.InNamespace(object.GetNamespace()))
 	if err != nil {
 		return []reconcile.Request{}
 	}

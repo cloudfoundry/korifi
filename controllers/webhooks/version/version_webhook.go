@@ -30,11 +30,7 @@ func (r *VersionWebhook) SetupWebhookWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register("/mutate-korifi-cloudfoundry-org-v1alpha1-all-version", &admission.Webhook{
 		Handler: r,
 	})
-}
-
-func (r *VersionWebhook) InjectDecoder(d *admission.Decoder) error {
-	r.decoder = d
-	return nil
+	r.decoder = admission.NewDecoder(mgr.GetScheme())
 }
 
 func (r *VersionWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
