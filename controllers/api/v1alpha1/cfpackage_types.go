@@ -21,6 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	CFPackageFinalizerName = "korifi.cloudfoundry.org/cfPackageController"
+)
+
 // CFPackageSpec defines the desired state of CFPackage
 type CFPackageSpec struct {
 	// The package type. Only "bits" is currently allowed.

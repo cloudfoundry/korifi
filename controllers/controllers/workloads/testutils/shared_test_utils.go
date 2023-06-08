@@ -256,7 +256,3 @@ func UpdateCFBuildWithDropletStatus(cfbuild *korifiv1alpha1.CFBuild) {
 		Ports: []int32{8080},
 	}
 }
-
-func UpdateCFAppWithCurrentDropletRef(cfApp *korifiv1alpha1.CFApp, buildGUID string) {
-	cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
-}

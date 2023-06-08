@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/tools/image"
@@ -16,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const kpackBuildFinalizer string = "korifi.cloudfoundry.org/kpackBuild"
+const KpackBuildFinalizer string = "korifi.cloudfoundry.org/kpackBuild"
 
 //counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter
 
@@ -68,14 +69,17 @@ func (c KpackBuildController) SetupWithManager(mgr manager.Manager) *ctrl.Builde
 
 func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild *kpackv1alpha2.Build) (ctrl.Result, error) {
 	log := c.log.WithValues("namespace", kpackBuild.Namespace, "name", kpackBuild.Name, "deletionTimestamp", kpackBuild.DeletionTimestamp)
+	log.Info("in finalizer")
 
 	if !kpackBuild.GetDeletionTimestamp().IsZero() {
-		if !controllerutil.ContainsFinalizer(kpackBuild, kpackBuildFinalizer) {
+		if !controllerutil.ContainsFinalizer(kpackBuild, KpackBuildFinalizer) {
 			return ctrl.Result{}, nil
 		}
 
+		fmt.Println("in finalizer and deleted")
 		if kpackBuild.Status.LatestImage != "" {
 			tagsToDelete := []string{}
+			fmt.Printf("kpackBuild.Spec.Tags = %+v\n", kpackBuild.Spec.Tags)
 			for _, t := range kpackBuild.Spec.Tags {
 				parts := strings.Split(t, ":")
 				if len(parts) == 2 {
@@ -83,25 +87,24 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 				}
 			}
 
+			fmt.Println("about to delete image")
 			err := c.imageDeleter.Delete(ctx, image.Creds{
 				Namespace:          kpackBuild.Namespace,
 				ServiceAccountName: c.registryServiceAccount,
 			}, kpackBuild.Status.LatestImage, tagsToDelete...)
 			if err != nil {
+				fmt.Println("falied to delete image")
 				log.Info("failed to delete droplet image", "reason", err)
 			}
 		}
 
-		if controllerutil.RemoveFinalizer(kpackBuild, kpackBuildFinalizer) {
+		fmt.Println("about to remove finalizer")
+
+		if controllerutil.RemoveFinalizer(kpackBuild, KpackBuildFinalizer) {
 			log.V(1).Info("finalizer removed")
 		}
 
 		return ctrl.Result{}, nil
-	}
-
-	if controllerutil.AddFinalizer(kpackBuild, kpackBuildFinalizer) {
-		log.V(1).Info("added finalizer")
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return ctrl.Result{}, nil

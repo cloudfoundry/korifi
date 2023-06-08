@@ -1,4 +1,4 @@
-package workloads_test
+package finalizer_test
 
 import (
 	"context"
@@ -10,13 +10,13 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
-
 	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -33,13 +33,15 @@ import (
 )
 
 var (
-	cancel                   context.CancelFunc
-	testEnv                  *envtest.Environment
-	k8sClient                client.Client
-	internalWebhookK8sClient client.Client
+	cancel    context.CancelFunc
+	testEnv   *envtest.Environment
+	k8sClient client.Client
 )
 
-const rootNamespace = "cf"
+const (
+	rootNamespace     = "cf"
+	defaultDomainName = "default-domain"
+)
 
 func TestWorkloadsWebhooks(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
@@ -75,20 +77,6 @@ var _ = BeforeSuite(func() {
 	Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
 
-	//+kubebuilder:scaffold:scheme
-
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
-
-	// Create root namespace
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: rootNamespace,
-		},
-	})).To(Succeed())
-
-	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
@@ -100,14 +88,15 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	internalWebhookK8sClient = mgr.GetClient()
+	k8sClient = mgr.GetClient()
 
+	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
+
+	version.NewVersionWebhook("some-version").SetupWebhookWithManager(mgr)
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
-
-	(&workloads.AppRevWebhook{}).SetupWebhookWithManager(mgr)
-
-	appNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType))
-	Expect(workloads.NewCFAppValidator(appNameDuplicateValidator).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(workloads.NewCFAppValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
+	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType))
 	orgPlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
@@ -117,15 +106,16 @@ var _ = BeforeSuite(func() {
 	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
 	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	Expect(workloads.NewCFTaskDefaulter(config.CFProcessDefaults{
-		MemoryMB:    500,
-		DiskQuotaMB: 512,
-	}).SetupWebhookWithManager(mgr)).To(Succeed())
-	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(mgr)).To(Succeed())
-	version.NewVersionWebhook("some-version").SetupWebhookWithManager(mgr)
-	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
+	Expect(networking.NewCFDomainValidator(mgr.GetClient()).SetupWebhookWithManager(mgr)).To(Succeed())
 
-	//+kubebuilder:scaffold:webhook
+	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr)).To(Succeed())
+
+	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect(networking.NewCFRouteValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
+		rootNamespace,
+		mgr.GetClient(),
+	).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()
@@ -146,6 +136,23 @@ var _ = BeforeSuite(func() {
 		conn.Close()
 		return nil
 	}).Should(Succeed())
+
+	// Create root namespace
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: rootNamespace,
+		},
+	})).To(Succeed())
+
+	Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: rootNamespace,
+			Name:      defaultDomainName,
+		},
+		Spec: korifiv1alpha1.CFDomainSpec{
+			Name: "my.domain",
+		},
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {

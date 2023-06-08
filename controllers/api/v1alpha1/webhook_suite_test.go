@@ -30,6 +30,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
@@ -142,6 +143,7 @@ var _ = BeforeSuite(func() {
 	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), namespace)
 	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(mgr)
+	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
 
 	//+kubebuilder:scaffold:webhook
 

@@ -35,12 +35,14 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	versionwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	kpackimagebuilderfinalizer "code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
 	statesetfulrunnerv1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
 	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -459,12 +461,17 @@ func main() {
 		}
 
 		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
+		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
 
 		if controllerConfig.IncludeStatefulsetRunner {
 			if err = statesetfulrunnerv1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
 				os.Exit(1)
 			}
+		}
+
+		if controllerConfig.IncludeKpackImageBuilder {
+			kpackimagebuilderfinalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(mgr)
 		}
 
 		if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {

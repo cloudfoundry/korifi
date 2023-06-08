@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -39,10 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
 )
 
 // CFRouteReconciler reconciles a CFRoute object to create Contour resources
@@ -98,11 +93,6 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 			log.Info("failed to finalize cf route", "reason", err)
 		}
 		return ctrl.Result{}, err
-	}
-
-	if controllerutil.AddFinalizer(cfRoute, CFRouteFinalizerName) {
-		log.V(1).Info("added finalizer")
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	err = r.createOrPatchServices(ctx, log, cfRoute)
@@ -180,7 +170,7 @@ func createInvalidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, 
 func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
 	log = log.WithName("finalizeCRRoute")
 
-	if !controllerutil.ContainsFinalizer(cfRoute, CFRouteFinalizerName) {
+	if !controllerutil.ContainsFinalizer(cfRoute, korifiv1alpha1.CFRouteFinalizerName) {
 		return nil
 	}
 
@@ -199,7 +189,7 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger
 		}
 	}
 
-	if controllerutil.RemoveFinalizer(cfRoute, CFRouteFinalizerName) {
+	if controllerutil.RemoveFinalizer(cfRoute, korifiv1alpha1.CFRouteFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
 
@@ -473,5 +463,5 @@ func generateServiceName(destination *korifiv1alpha1.Destination) string {
 }
 
 func buildFQDN(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) string {
-	return strings.ToLower(fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name))
+	return fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name)
 }

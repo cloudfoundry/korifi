@@ -107,27 +107,4 @@ var _ = Describe("KpackBuildReconciler", func() {
 			})
 		})
 	})
-
-	Context("non-Korifi builds", func() {
-		BeforeEach(func() {
-			build = kpackv1alpha2.Build{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bar",
-					Namespace: namespaceGUID,
-				},
-			}
-			Expect(k8sClient.Create(ctx, &build)).To(Succeed())
-		})
-
-		It("does not trigger the reconciler", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)).To(Succeed())
-			}).Should(Succeed())
-
-			Consistently(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)).To(Succeed())
-				g.Expect(build.Finalizers).To(BeEmpty())
-			}).Should(Succeed())
-		})
-	})
 })

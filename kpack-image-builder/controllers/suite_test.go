@@ -38,6 +38,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	//+kubebuilder:scaffold:imports
 )
@@ -84,6 +85,11 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "helm", "korifi", "controllers", "crds"),
 			filepath.Join("..", "..", "tests", "vendor", "kpack"),
 		},
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "helm", "korifi", "kpack-image-builder", "manifests.yaml"),
+			},
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -110,6 +116,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient = k8sManager.GetClient()
+
+	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 
 	controllerConfig := &config.ControllerConfig{
 		CFRootNamespace:           PrefixedGUID("cf"),

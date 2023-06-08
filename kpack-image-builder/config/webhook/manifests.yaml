@@ -1,0 +1,26 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-korifi-cloudfoundry-org-v1alpha1-kpack-image-builder-finalizer
+  failurePolicy: Fail
+  name: mcffinalizer.korifi.cloudfoundry.org
+  rules:
+  - apiGroups:
+    - korifi.cloudfoundry.org
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - buildworkloads
+  sideEffects: None

@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -21,9 +22,6 @@ import (
 )
 
 var _ = Describe("CFOrgReconciler Integration Tests", func() {
-	const (
-		orgName = "my-org"
-	)
 	var (
 		orgGUID                                      string
 		cfOrg                                        korifiv1alpha1.CFOrg
@@ -59,7 +57,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				Namespace: cfRootNamespace,
 			},
 			Spec: korifiv1alpha1.CFOrgSpec{
-				DisplayName: orgName,
+				DisplayName: uuid.NewString(),
 			},
 		}
 	})

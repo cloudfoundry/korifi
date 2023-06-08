@@ -1,4 +1,4 @@
-package workloads_test
+package finalizer_test
 
 import (
 	"context"
@@ -10,13 +10,10 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
-	"code.cloudfoundry.org/korifi/controllers/coordination"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
-
-	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -33,13 +30,14 @@ import (
 )
 
 var (
-	cancel                   context.CancelFunc
-	testEnv                  *envtest.Environment
-	k8sClient                client.Client
-	internalWebhookK8sClient client.Client
+	cancel    context.CancelFunc
+	testEnv   *envtest.Environment
+	k8sClient client.Client
 )
 
-const rootNamespace = "cf"
+const (
+	rootNamespace = "cf"
+)
 
 func TestWorkloadsWebhooks(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
@@ -57,11 +55,15 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
+			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
+			filepath.Join("..", "..", "..", "..", "tests", "vendor", "kpack"),
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml")},
+			Paths: []string{
+				filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml"),
+				filepath.Join("..", "..", "..", "..", "helm", "korifi", "kpack-image-builder", "manifests.yaml"),
+			},
 		},
 	}
 
@@ -74,21 +76,8 @@ var _ = BeforeSuite(func() {
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 	Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme)).To(Succeed())
 
-	//+kubebuilder:scaffold:scheme
-
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
-
-	// Create root namespace
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: rootNamespace,
-		},
-	})).To(Succeed())
-
-	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
@@ -100,32 +89,10 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	internalWebhookK8sClient = mgr.GetClient()
+	k8sClient = mgr.GetClient()
 
-	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
-
-	(&workloads.AppRevWebhook{}).SetupWebhookWithManager(mgr)
-
-	appNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType))
-	Expect(workloads.NewCFAppValidator(appNameDuplicateValidator).SetupWebhookWithManager(mgr)).To(Succeed())
-
-	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType))
-	orgPlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
-	Expect(workloads.NewCFOrgValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
-
-	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType))
-	spacePlacementValidator := webhooks.NewPlacementValidator(mgr.GetClient(), rootNamespace)
-	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(mgr)).To(Succeed())
-
-	Expect(workloads.NewCFTaskDefaulter(config.CFProcessDefaults{
-		MemoryMB:    500,
-		DiskQuotaMB: 512,
-	}).SetupWebhookWithManager(mgr)).To(Succeed())
-	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(mgr)).To(Succeed())
+	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(mgr)
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(mgr)
-	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
-
-	//+kubebuilder:scaffold:webhook
 
 	go func() {
 		defer GinkgoRecover()
@@ -146,6 +113,13 @@ var _ = BeforeSuite(func() {
 		conn.Close()
 		return nil
 	}).Should(Succeed())
+
+	// Create root namespace
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: rootNamespace,
+		},
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {
