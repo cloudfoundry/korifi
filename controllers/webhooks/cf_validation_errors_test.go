@@ -38,9 +38,11 @@ var _ = Describe("CFWebhookValidationError", func() {
 	})
 
 	Describe("ExportJSONError", func() {
-		It("returns an error with the JSON representation of the validation error", func() {
-			expectedBody := `{"validationErrorType":"` + validationErrorType + `","message":"` + validationErrorMessage + `"}`
-			Expect(validationErr.ExportJSONError()).To(MatchError(MatchJSON(expectedBody)))
+		It("returns a status error wth the JSON representation of the validation error", func() {
+			jsonErr := validationErr.ExportJSONError()
+			Expect(jsonErr).To(BeAssignableToTypeOf(&k8serrors.StatusError{}))
+			statusErr := jsonErr.(*k8serrors.StatusError)
+			Expect(string(statusErr.Status().Reason)).To(MatchJSON(`{"validationErrorType":"` + validationErrorType + `","message":"` + validationErrorMessage + `"}`))
 		})
 	})
 })

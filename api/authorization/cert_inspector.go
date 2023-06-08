@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	authv1 "k8s.io/api/authorization/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,12 +44,26 @@ func (c *CertInspector) WhoAmI(ctx context.Context, certPEM []byte) (Identity, e
 	config.CertData = pem.EncodeToMemory(certBlock)
 	config.KeyData = pem.EncodeToMemory(keyBlock)
 
-	// This does an API call within the controller-runtime code and is
-	// sufficient to determine whether the certificate is valid and accepted by
-	// the cluster
-	_, err = client.New(config, client.Options{})
+	// We need to try to communicate with the API to determine if the
+	// certificate is valid. We use the SelfSubjectAccessReview as something
+	// that should always not error for a valid user, even if they are
+	// not allowed to perform the given action
+	cl, err := client.New(config, client.Options{})
 	if err != nil {
 		return Identity{}, apierrors.FromK8sError(err, "")
+	}
+
+	accessReview := &authv1.SelfSubjectAccessReview{
+		Spec: authv1.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authv1.ResourceAttributes{
+				Verb:     "list",
+				Resource: "namespace",
+			},
+		},
+	}
+	err = cl.Create(ctx, accessReview)
+	if err != nil {
+		return Identity{}, apierrors.NewInvalidAuthError(err)
 	}
 
 	return Identity{

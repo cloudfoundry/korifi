@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	//. "github.com/onsi/gomega"
 
@@ -57,13 +58,13 @@ func (m *beValidationErrorMatcher) NegatedFailureMessage(actual interface{}) (me
 }
 
 func toValidationError(actual interface{}) (webhooks.ValidationError, error) {
-	actualErr, ok := actual.(error)
+	actualErr, ok := actual.(*k8serrors.StatusError)
 	if !ok {
-		return webhooks.ValidationError{}, fmt.Errorf("%v is not an error", actual)
+		return webhooks.ValidationError{}, fmt.Errorf("%v is not a status error", actual)
 	}
 
 	var validationErr webhooks.ValidationError
-	err := json.Unmarshal([]byte(actualErr.Error()), &validationErr)
+	err := json.Unmarshal([]byte(actualErr.Status().Reason), &validationErr)
 	if err != nil {
 		return webhooks.ValidationError{}, fmt.Errorf("%v is not a validation error: %w", actualErr.Error(), err)
 	}
