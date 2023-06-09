@@ -118,7 +118,7 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 	}
 
 	for k := range r.Form {
-		if strings.HasPrefix(k, "fields[") || k == "per_page" {
+		if strings.HasPrefix(k, "fields[") {
 			r.Form.Del(k)
 		}
 	}
