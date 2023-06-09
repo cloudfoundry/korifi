@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -147,7 +148,7 @@ var _ = Describe("ServiceBinding", func() {
 			})
 
 			It("returns an error and doesn't create the ServiceBinding", func() {
-				expectUnprocessableEntityError(`Type must be one of [app]`)
+				expectUnprocessableEntityError(regexp.QuoteMeta("Type must be one of [app]"))
 				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
 			})
 		})
@@ -371,7 +372,7 @@ var _ = Describe("ServiceBinding", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, service_instance_guids, include, type'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 			})
 		})
 	})

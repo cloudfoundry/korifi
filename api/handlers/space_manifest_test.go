@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -124,7 +125,7 @@ var _ = Describe("SpaceManifest", func() {
 			})
 
 			It("response with an unprocessable entity error listing all the errors", func() {
-				expectUnprocessableEntityError("applications[0].memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB), applications[0].processes[0].health-check-type must be a valid value, applications[0].routes[0].route is not a valid route")
+				expectUnprocessableEntityError(regexp.QuoteMeta("applications[0].memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB), applications[0].processes[0].health-check-type must be a valid value, applications[0].routes[0].route is not a valid route"))
 			})
 		})
 

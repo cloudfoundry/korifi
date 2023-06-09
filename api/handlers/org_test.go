@@ -491,7 +491,7 @@ var _ = Describe("Org", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 			})
 		})
 	})

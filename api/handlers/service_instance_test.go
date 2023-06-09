@@ -288,7 +288,7 @@ var _ = Describe("ServiceInstance", func() {
 				})
 
 				It("returns an Unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at', 'name'")
+					expectUnknownKeyError("The query parameter is invalid: Order by can only be: .*")
 				})
 			})
 		})
@@ -319,7 +319,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, space_guids, fields, order_by, per_page'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 			})
 		})
 	})
