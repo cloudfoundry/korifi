@@ -50,7 +50,7 @@ func (p *RouteList) ToMessage() repositories.ListRoutesMessage {
 }
 
 func (p *RouteList) SupportedKeys() []string {
-	return []string{"app_guids", "space_guids", "domain_guids", "hosts", "paths"}
+	return []string{"app_guids", "space_guids", "domain_guids", "hosts", "paths", "per_page", "page"}
 }
 
 func (p *RouteList) DecodeFromURLValues(values url.Values) error {

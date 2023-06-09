@@ -55,7 +55,7 @@ func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessag
 }
 
 func (p *PackageListQueryParameters) SupportedKeys() []string {
-	return []string{"app_guids", "order_by", "per_page", "states"}
+	return []string{"app_guids", "order_by", "per_page", "states", "page"}
 }
 
 func (p *PackageListQueryParameters) DecodeFromURLValues(values url.Values) error {
@@ -73,7 +73,7 @@ func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) re
 }
 
 func (p *PackageListDropletsQueryParameters) SupportedKeys() []string {
-	return []string{"states", "per_page"}
+	return []string{"states", "per_page", "page"}
 }
 
 func (p *PackageListDropletsQueryParameters) DecodeFromURLValues(values url.Values) error {

@@ -40,7 +40,7 @@ func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage
 }
 
 func (l *ServiceBindingList) SupportedKeys() []string {
-	return []string{"app_guids", "service_instance_guids", "include", "type"}
+	return []string{"app_guids", "service_instance_guids", "include", "type", "per_page", "page"}
 }
 
 func (l *ServiceBindingList) DecodeFromURLValues(values url.Values) error {
