@@ -220,13 +220,10 @@ type BadQueryParamValueError struct {
 }
 
 func NewBadQueryParamValueError(key string, validValues ...string) BadQueryParamValueError {
-	for i := range validValues {
-		validValues[i] = fmt.Sprintf("'%s'", validValues[i])
-	}
 	return BadQueryParamValueError{
 		apiError: apiError{
 			title:      "CF-BadQueryParameter",
-			detail:     fmt.Sprintf("The query parameter is invalid: %s can only be: %s", key, strings.Join(validValues, ", ")),
+			detail:     fmt.Sprintf("The query parameter is invalid: %s can only be: %s", key, quotedCommaSeparatedList(validValues)),
 			code:       10005,
 			httpStatus: http.StatusBadRequest,
 		},
@@ -242,11 +239,19 @@ func NewUnknownKeyError(cause error, validKeys []string) UnknownKeyError {
 		apiError: apiError{
 			cause:      cause,
 			title:      "CF-BadQueryParameter",
-			detail:     fmt.Sprintf("The query parameter is invalid: Valid parameters are: '%s'", strings.Join(validKeys, ", ")),
+			detail:     fmt.Sprintf("The query parameter is invalid: Valid parameters are: %s", quotedCommaSeparatedList(validKeys)),
 			code:       10005,
 			httpStatus: http.StatusBadRequest,
 		},
 	}
+}
+
+func quotedCommaSeparatedList(in []string) string {
+	var out []string
+	for _, i := range in {
+		out = append(out, fmt.Sprintf("'%s'", i))
+	}
+	return strings.Join(out, ", ")
 }
 
 type UniquenessError struct {
