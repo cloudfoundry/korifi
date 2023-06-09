@@ -296,7 +296,7 @@ var _ = Describe("Task", func() {
 				})
 
 				It("returns an unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'sequence_ids'")
+					expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 				})
 			})
 

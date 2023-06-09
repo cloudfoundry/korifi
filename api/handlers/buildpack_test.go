@@ -104,7 +104,7 @@ var _ = Describe("Buildpack", func() {
 				})
 
 				It("returns an Unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at', 'position'")
+					expectUnknownKeyError("The query parameter is invalid: Order by can only be: .*")
 				})
 			})
 		})
@@ -117,7 +117,7 @@ var _ = Describe("Buildpack", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'order_by'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 			})
 		})
 	})

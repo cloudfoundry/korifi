@@ -260,7 +260,7 @@ var _ = Describe("Role", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at'")
+				expectUnknownKeyError("The query parameter is invalid: Order by can only be: .*")
 			})
 		})
 

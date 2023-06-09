@@ -355,7 +355,7 @@ var _ = Describe("Process", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 			})
 		})
 

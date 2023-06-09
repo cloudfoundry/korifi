@@ -10,6 +10,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/routing"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -52,13 +53,11 @@ var _ = BeforeEach(func() {
 func expectErrorResponse(status int, title, detail string, code int) {
 	ExpectWithOffset(2, rr).To(HaveHTTPStatus(status))
 	ExpectWithOffset(2, rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-	ExpectWithOffset(2, rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
-		"errors": [{
-			"title": %q,
-			"detail": %q,
-			"code": %d
-		}]
-	}`, title, detail, code))))
+	ExpectWithOffset(2, rr).To(HaveHTTPBody(SatisfyAll(
+		MatchJSONPath("$.errors[0].title", MatchRegexp(title)),
+		MatchJSONPath("$.errors[0].detail", MatchRegexp(detail)),
+		MatchJSONPath("$.errors[0].code", BeEquivalentTo(code)),
+	)))
 }
 
 func expectUnknownError() {

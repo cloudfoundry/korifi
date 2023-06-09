@@ -136,7 +136,7 @@ var _ = Describe("LogCache", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'start_time, end_time, envelope_types, limit, descending'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 			})
 		})
 

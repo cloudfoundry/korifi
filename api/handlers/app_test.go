@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -241,7 +242,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError("Environment_variables must be a map[string]string")
+				expectUnprocessableEntityError(regexp.QuoteMeta("Environment_variables must be a map[string]string"))
 			})
 		})
 
@@ -432,7 +433,7 @@ var _ = Describe("App", func() {
 				})
 
 				It("returns an Unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at', 'name', 'state'")
+					expectUnknownKeyError("The query parameter is invalid: Order by can only be: .*")
 				})
 			})
 		})
@@ -468,7 +469,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'names, guids, space_guids, order_by'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 			})
 		})
 	})

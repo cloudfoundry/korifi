@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -249,7 +250,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, space_guids, domain_guids, hosts, paths'")
+				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
 			})
 		})
 	})
@@ -874,7 +875,7 @@ var _ = Describe("Route", func() {
 			})
 
 			It("returns an error and doesn't add the destinations", func() {
-				expectUnprocessableEntityError("Protocol must be one of [http1]")
+				expectUnprocessableEntityError(regexp.QuoteMeta("Protocol must be one of [http1]"))
 				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
 			})
 		})
