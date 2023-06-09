@@ -33,7 +33,7 @@ func (t *TaskList) ToMessage() repositories.ListTaskMessage {
 }
 
 func (t *TaskList) SupportedKeys() []string {
-	return []string{"sequence_ids"}
+	return []string{"sequence_ids", "per_page", "page"}
 }
 
 func (a *TaskList) DecodeFromURLValues(values url.Values) error {

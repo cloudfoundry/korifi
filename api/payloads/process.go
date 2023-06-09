@@ -48,7 +48,7 @@ func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
 }
 
 func (p *ProcessList) SupportedKeys() []string {
-	return []string{"app_guids"}
+	return []string{"app_guids", "per_page", "page"}
 }
 
 func (p *ProcessList) DecodeFromURLValues(values url.Values) error {

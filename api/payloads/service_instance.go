@@ -95,7 +95,7 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "fields", "order_by", "per_page"}
+	return []string{"names", "space_guids", "fields", "order_by", "per_page", "page"}
 }
 
 func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {

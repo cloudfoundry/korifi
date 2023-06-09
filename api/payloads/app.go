@@ -69,7 +69,7 @@ func (a *AppList) ToMessage() repositories.ListAppsMessage {
 }
 
 func (a *AppList) SupportedKeys() []string {
-	return []string{"names", "guids", "space_guids", "order_by"}
+	return []string{"names", "guids", "space_guids", "order_by", "per_page", "page"}
 }
 
 func (a *AppList) DecodeFromURLValues(values url.Values) error {

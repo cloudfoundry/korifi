@@ -57,7 +57,7 @@ func (d *DomainList) ToMessage() repositories.ListDomainsMessage {
 }
 
 func (d *DomainList) SupportedKeys() []string {
-	return []string{"names"}
+	return []string{"names", "per_page", "page"}
 }
 
 func (d *DomainList) DecodeFromURLValues(values url.Values) error {
