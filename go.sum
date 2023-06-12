@@ -126,7 +126,7 @@ github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XL
 github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589 h1:krfRl01rzPzxSxyLyrChD+U+MzsBXbm0OwYYB67uF+4=
 github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589/go.mod h1:OuDyvmLnMCwa2ep4Jkm6nyA0ocJuZlGyk2gGseVzERM=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
-github.com/cloudflare/circl v1.1.0 h1:bZgT/A+cikZnKIwn7xL2OBj012Bmvho/o6RpRvv3GKY=
+github.com/cloudflare/circl v1.3.3 h1:fE/Qz0QdIGqeWfnwq0RE0R7MI51s0M2E4Ga9kq5AEMs=
 github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74 h1:yr55FjD7Izo5FXR/jdQ1lKv/9y8xkwdwqmHN836iihM=
 github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74/go.mod h1:bKEHPrQ6kVJs/JnG/nAtWwOEdNOenRFoEcmvsYsS5BQ=
 github.com/cloudfoundry/dropsonde v1.0.0/go.mod h1:6zwvrWK5TpxBVYi1cdkE5WDsIO8E0n7qAJg3wR9B67c=
@@ -391,8 +391,8 @@ github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3I
 github.com/opencontainers/image-spec v1.1.0-rc3 h1:fzg1mXZFj8YdPeNkRXMg+zb88BFV0Ys52cJydRwBkb8=
 github.com/opencontainers/image-spec v1.1.0-rc3/go.mod h1:X4pATf0uXsnn3g5aiGIsVnJBR4mxhKzfwmvK/B2NTm8=
 github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
-github.com/pivotal/kpack v0.11.0 h1:ftpBG5t1yPs7GnIlLYgd5qAKtzFmAznYJb9pVceJFQQ=
-github.com/pivotal/kpack v0.11.0/go.mod h1:HsGvHCebrox8nzOewbLZbRVs4iftg7HqK/0/bsTW5BA=
+github.com/pivotal/kpack v0.11.1 h1:GYsIt6jflCBPxlTKO8f6ilWXECO0qo23YXodeUyj6lU=
+github.com/pivotal/kpack v0.11.1/go.mod h1:IFxrKqxdEM6/P9wJjoAPRg2S4R26lH/VittIgOmI17Q=
 github.com/pjbgf/sha1cd v0.3.0 h1:4D5XXmUUBUl/xQ6IjCkEAbqXskkq/4O7LmGn0AqMDs4=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
