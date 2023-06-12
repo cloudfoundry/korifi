@@ -762,7 +762,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError("GUID is a required field")
+				expectUnprocessableEntityError("data.guid cannot be blank")
 			})
 		})
 

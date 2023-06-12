@@ -23,7 +23,7 @@ func TestPayloads(t *testing.T) {
 }
 
 func expectUnprocessableEntityError(err error, detail string) {
-	Expect(err).To(HaveOccurred())
-	Expect(err).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-	Expect(err.(apierrors.UnprocessableEntityError).Detail()).To(ContainSubstring(detail))
+	ExpectWithOffset(1, err).To(HaveOccurred())
+	ExpectWithOffset(1, err).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+	ExpectWithOffset(1, err.(apierrors.UnprocessableEntityError).Detail()).To(ContainSubstring(detail))
 }

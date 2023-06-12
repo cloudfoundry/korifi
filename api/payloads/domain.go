@@ -5,13 +5,22 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/jellydator/validation"
 )
 
 type DomainCreate struct {
-	Name          string                  `json:"name" validate:"required"`
+	Name          string                  `json:"name"`
 	Internal      bool                    `json:"internal"`
 	Metadata      Metadata                `json:"metadata"`
 	Relationships map[string]Relationship `json:"relationships"`
+}
+
+func (c *DomainCreate) Validate() error {
+	return validation.ValidateStruct(c,
+		validation.Field(&c.Name, validation.Required),
+		validation.Field(&c.Metadata),
+		validation.Field(&c.Relationships),
+	)
 }
 
 func (c *DomainCreate) ToMessage() (repositories.CreateDomainMessage, error) {
@@ -44,6 +53,12 @@ func (c *DomainUpdate) ToMessage(domainGUID string) repositories.UpdateDomainMes
 			Annotations: c.Metadata.Annotations,
 		},
 	}
+}
+
+func (c *DomainUpdate) Validate() error {
+	return validation.ValidateStruct(c,
+		validation.Field(&c.Metadata),
+	)
 }
 
 type DomainList struct {
