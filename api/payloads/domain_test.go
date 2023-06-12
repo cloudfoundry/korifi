@@ -59,11 +59,11 @@ var _ = Describe("DomainCreate", func() {
 			})
 
 			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "Name is a required field")
+				expectUnprocessableEntityError(validatorErr, "name cannot be blank")
 			})
 		})
 
-		When("metadata.labels contains an invalid key", func() {
+		When("metadata is invalid", func() {
 			BeforeEach(func() {
 				createPayload.Metadata = payloads.Metadata{
 					Labels: map[string]string{
@@ -73,21 +73,19 @@ var _ = Describe("DomainCreate", func() {
 			})
 
 			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+				expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
 			})
 		})
 
-		When("metadata.annotations contains an invalid key", func() {
+		When("relationship is invalid", func() {
 			BeforeEach(func() {
-				createPayload.Metadata = payloads.Metadata{
-					Annotations: map[string]string{
-						"foo.cloudfoundry.org/bar": "jim",
-					},
+				createPayload.Relationships = map[string]payloads.Relationship{
+					"foo": {Data: nil},
 				}
 			})
 
 			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+				expectUnprocessableEntityError(validatorErr, "data cannot be blank")
 			})
 		})
 	})
@@ -195,21 +193,7 @@ var _ = Describe("DomainUpdate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
-		})
-	})
-
-	When("metadata.annotations contains an invalid key", func() {
-		BeforeEach(func() {
-			updatePayload.Metadata = payloads.MetadataPatch{
-				Annotations: map[string]*string{
-					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-				},
-			}
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+			expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
 		})
 	})
 })
