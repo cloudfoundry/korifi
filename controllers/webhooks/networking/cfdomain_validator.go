@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
@@ -61,7 +60,7 @@ func NewCFDomainValidator(client client.Client) *CFDomainValidator {
 
 func (v *CFDomainValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.CFDomain{}).
+		For(&korifiv1alpha1.CFDomain{}).
 		WithValidator(v).
 		Complete()
 }

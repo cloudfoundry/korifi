@@ -12,6 +12,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
@@ -86,14 +87,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient = mgr.GetClient()
-
-	// Create root namespace
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: rootNamespace,
-		},
-	})).To(Succeed())
+	k8sClient = helpers.NewCacheSyncingClient(mgr.GetClient())
 
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(mgr)
 
@@ -152,6 +146,13 @@ var _ = BeforeSuite(func() {
 		conn.Close()
 		return nil
 	}).Should(Succeed())
+
+	// Create root namespace
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: rootNamespace,
+		},
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {

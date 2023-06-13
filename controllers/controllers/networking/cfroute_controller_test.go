@@ -61,9 +61,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfDomain), cfDomain)).To(Succeed())
-		}).Should(Succeed())
 
 		cfApp := &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -79,9 +76,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-		}).Should(Succeed())
 
 		cfRoute = &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{

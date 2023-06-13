@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/tools/image"
@@ -76,10 +75,8 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 			return ctrl.Result{}, nil
 		}
 
-		fmt.Println("in finalizer and deleted")
 		if kpackBuild.Status.LatestImage != "" {
 			tagsToDelete := []string{}
-			fmt.Printf("kpackBuild.Spec.Tags = %+v\n", kpackBuild.Spec.Tags)
 			for _, t := range kpackBuild.Spec.Tags {
 				parts := strings.Split(t, ":")
 				if len(parts) == 2 {
@@ -87,18 +84,14 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 				}
 			}
 
-			fmt.Println("about to delete image")
 			err := c.imageDeleter.Delete(ctx, image.Creds{
 				Namespace:          kpackBuild.Namespace,
 				ServiceAccountName: c.registryServiceAccount,
 			}, kpackBuild.Status.LatestImage, tagsToDelete...)
 			if err != nil {
-				fmt.Println("falied to delete image")
 				log.Info("failed to delete droplet image", "reason", err)
 			}
 		}
-
-		fmt.Println("about to remove finalizer")
 
 		if controllerutil.RemoveFinalizer(kpackBuild, KpackBuildFinalizer) {
 			log.V(1).Info("finalizer removed")

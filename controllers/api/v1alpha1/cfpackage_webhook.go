@@ -38,10 +38,10 @@ var _ webhook.Defaulter = &CFPackage{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *CFPackage) Default() {
 	cfpackagelog.V(1).Info("mutating CFPackage webhook handler", "name", r.Name)
-	packageLabels := r.ObjectMeta.GetLabels()
+	packageLabels := r.GetLabels()
 	if packageLabels == nil {
 		packageLabels = make(map[string]string)
 	}
 	packageLabels[CFAppGUIDLabelKey] = r.Spec.AppRef.Name
-	r.ObjectMeta.SetLabels(packageLabels)
+	r.SetLabels(packageLabels)
 }

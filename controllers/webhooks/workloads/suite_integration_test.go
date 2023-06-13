@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
@@ -33,10 +34,9 @@ import (
 )
 
 var (
-	cancel                   context.CancelFunc
-	testEnv                  *envtest.Environment
-	k8sClient                client.Client
-	internalWebhookK8sClient client.Client
+	cancel    context.CancelFunc
+	testEnv   *envtest.Environment
+	k8sClient client.Client
 )
 
 const rootNamespace = "cf"
@@ -77,17 +77,6 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
-
-	// Create root namespace
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: rootNamespace,
-		},
-	})).To(Succeed())
-
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -100,7 +89,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	internalWebhookK8sClient = mgr.GetClient()
+	k8sClient = helpers.NewCacheSyncingClient(mgr.GetClient())
 
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
@@ -146,6 +135,13 @@ var _ = BeforeSuite(func() {
 		conn.Close()
 		return nil
 	}).Should(Succeed())
+
+	// Create root namespace
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: rootNamespace,
+		},
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {

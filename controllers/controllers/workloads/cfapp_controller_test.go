@@ -120,9 +120,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		JustBeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
-			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-			}).Should(Succeed())
 		})
 
 		It("sets the last-stop-app-rev annotation to the value of the app-rev annotation", func() {

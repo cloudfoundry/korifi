@@ -22,6 +22,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -108,7 +109,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient = k8sManager.GetClient()
+	k8sClient = helpers.NewCacheSyncingClient(k8sManager.GetClient())
 
 	cfRootNamespace = testutils.PrefixedGUID("root-namespace")
 

@@ -13,12 +13,13 @@ import (
 var _ = Describe("CF Space", func() {
 	Describe("display name validation", func() {
 		var (
+			cfOrg     *korifiv1alpha1.CFOrg
 			cfSpace   *korifiv1alpha1.CFSpace
 			createErr error
 		)
 
 		BeforeEach(func() {
-			cfOrg := &korifiv1alpha1.CFOrg{
+			cfOrg = &korifiv1alpha1.CFOrg{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespace,
 					Name:      uuid.NewString(),
@@ -39,7 +40,7 @@ var _ = Describe("CF Space", func() {
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFSpaceSpec{
-					DisplayName: "space-name",
+					DisplayName: "space-name-" + uuid.NewString(),
 				},
 			}
 		})
@@ -50,6 +51,24 @@ var _ = Describe("CF Space", func() {
 
 		It("accepts a valid name", func() {
 			Expect(createErr).NotTo(HaveOccurred())
+		})
+
+		When("a space with the same display name already exists", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFSpace{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: cfOrg.Name,
+						Name:      uuid.NewString(),
+					},
+					Spec: korifiv1alpha1.CFSpaceSpec{
+						DisplayName: cfSpace.Spec.DisplayName,
+					},
+				})).To(Succeed())
+			})
+
+			It("fails", func() {
+				Expect(createErr).To(HaveOccurred())
+			})
 		})
 
 		When("name contains a space", func() {
