@@ -23,6 +23,7 @@ const (
 
 	PropagateRoleBindingAnnotation    = "cloudfoundry.org/propagate-cf-role"
 	PropagateServiceAccountAnnotation = "cloudfoundry.org/propagate-service-account"
+	PropagateDeletionAnnotation       = "cloudfoundry.org/propagate-deletion"
 	PropagatedFromLabel               = "cloudfoundry.org/propagated-from"
 )
 

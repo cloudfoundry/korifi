@@ -255,7 +255,9 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 
 				g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
+		})
 
+		JustBeforeEach(func() {
 			Expect(k8sClient.Delete(ctx, roleBinding)).To(Succeed())
 		})
 
@@ -264,6 +266,29 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				var deletedRoleBinding rbacv1.RoleBinding
 				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfOrg.Name}, &deletedRoleBinding))
 			}).Should(BeTrue(), "timed out waiting for role binding to be deleted")
+		})
+
+		When("the role binding is annotated not to propagate deletions", func() {
+			BeforeEach(func() {
+				origRoleBinding := roleBinding.DeepCopy()
+
+				roleBinding.Annotations["cloudfoundry.org/propagate-deletion"] = "false"
+				Expect(k8sClient.Patch(ctx, roleBinding, client.MergeFrom(origRoleBinding))).To(Succeed())
+
+				Eventually(func(g Gomega) map[string]string {
+					var copiedRoleBinding rbacv1.RoleBinding
+					g.Expect(
+						k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfOrg.Name}, &copiedRoleBinding),
+					).To(Succeed())
+					return copiedRoleBinding.Annotations
+				}).Should(HaveKeyWithValue("cloudfoundry.org/propagate-deletion", "false"))
+			})
+
+			It("doesn't delete the corresponding role binding in the CFOrg", func() {
+				Consistently(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfOrg.Name}, new(rbacv1.RoleBinding)))
+				}).Should(BeFalse(), "org's copy of role binding was deleted and shouldn't have been")
+			})
 		})
 	})
 

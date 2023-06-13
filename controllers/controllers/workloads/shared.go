@@ -161,6 +161,10 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 
 	for index := range propagatedRoleBindings.Items {
 		propagatedRoleBinding := propagatedRoleBindings.Items[index]
+		if propagatedRoleBinding.Annotations[korifiv1alpha1.PropagateDeletionAnnotation] == "false" {
+			continue
+		}
+
 		if _, found := parentRoleBindingMap[propagatedRoleBinding.Name]; !found {
 			err = kClient.Delete(ctx, &propagatedRoleBinding)
 			if err != nil {

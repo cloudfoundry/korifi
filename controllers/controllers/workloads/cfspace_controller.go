@@ -309,6 +309,10 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 
 	for index := range propagatedServiceAccounts.Items {
 		propagatedServiceAccount := propagatedServiceAccounts.Items[index]
+		if propagatedServiceAccount.Annotations[korifiv1alpha1.PropagateDeletionAnnotation] == "false" {
+			continue
+		}
+
 		if _, found := serviceAccountMap[propagatedServiceAccount.Name]; !found {
 			err = r.client.Delete(ctx, &propagatedServiceAccount)
 			if err != nil {
