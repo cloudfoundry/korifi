@@ -76,22 +76,24 @@ func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder 
 func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", cfRoute.Namespace, "name", cfRoute.Name)
 
+	var err error
+
+	if !cfRoute.GetDeletionTimestamp().IsZero() {
+		err = r.finalizeCFRoute(ctx, log, cfRoute)
+		if err != nil {
+			log.Info("failed to finalize cf route", "reason", err)
+		}
+		return ctrl.Result{}, err
+	}
+
 	cfDomain := &korifiv1alpha1.CFDomain{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
+	err = r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "CFDomain not found", "InvalidDomainRef", err.Error())
 			return ctrl.Result{}, err
 		}
 		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error fetching domain reference", "FetchDomainRef", err.Error())
-		return ctrl.Result{}, err
-	}
-
-	if !cfRoute.GetDeletionTimestamp().IsZero() {
-		err = r.finalizeCFRoute(ctx, log, cfRoute, cfDomain)
-		if err != nil {
-			log.Info("failed to finalize cf route", "reason", err)
-		}
 		return ctrl.Result{}, err
 	}
 
@@ -167,25 +169,26 @@ func createInvalidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, 
 	return cfRouteStatus
 }
 
-func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
+func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) error {
 	log = log.WithName("finalizeCRRoute")
 
 	if !controllerutil.ContainsFinalizer(cfRoute, korifiv1alpha1.CFRouteFinalizerName) {
 		return nil
 	}
 
-	routeFQDN := buildFQDN(cfRoute, cfDomain)
-	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, log, routeFQDN, cfRoute.Namespace, false)
-	if err != nil {
-		return err
-	}
-
-	// Cleanup the FQDN HTTPProxy on delete
-	if foundFQDNProxy {
-		log.V(1).Info("found FQDN proxy", "fqdn", routeFQDN)
-		err := r.finalizeFQDNProxy(ctx, log, cfRoute.Name, fqdnHTTPProxy)
+	if cfRoute.Status.FQDN != "" {
+		fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, log, cfRoute.Status.FQDN, cfRoute.Namespace, false)
 		if err != nil {
 			return err
+		}
+
+		// Cleanup the FQDN HTTPProxy on delete
+		if foundFQDNProxy {
+			log.V(1).Info("found FQDN proxy", "fqdn", cfRoute.Status.FQDN)
+			err := r.finalizeFQDNProxy(ctx, log, cfRoute.Name, fqdnHTTPProxy)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
