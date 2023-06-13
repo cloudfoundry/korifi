@@ -34,6 +34,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -85,6 +86,8 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
+	namespace = testutils.PrefixedGUID("webhooks-test-ns")
+
 	cfg, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
@@ -94,13 +97,6 @@ var _ = BeforeSuite(func() {
 	Expect(korifiv1alpha1.AddToScheme(scheme)).To(Succeed())
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
-
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
-
-	namespace = testutils.PrefixedGUID("webhooks-test-ns")
-	createNamespace(ctx, k8sClient, namespace)
 
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
@@ -113,6 +109,8 @@ var _ = BeforeSuite(func() {
 		MetricsBindAddress: "0",
 	})
 	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient = helpers.NewCacheSyncingClient(mgr.GetClient())
 
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 	Expect(workloads.NewCFAppValidator(
@@ -166,6 +164,12 @@ var _ = BeforeSuite(func() {
 		conn.Close()
 		return nil
 	}).Should(Succeed())
+
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {
@@ -173,13 +177,3 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
-
-func createNamespace(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
-	Expect(k8sClient.Create(ctx, ns)).To(Succeed())
-	return ns
-}

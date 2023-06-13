@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -44,15 +42,6 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 				Labels: map[string]string{korifiv1alpha1.OrgNameKey: orgNamespace},
 			},
 		})).To(Succeed())
-
-		// Ensure that the client used by the validating webhook has the CFOrg in its cache.
-		// In practice this will always be the case because...
-		//   1. The controllers and webhooks share the same client
-		//   2. The CFSpace is created in the namespace that the CFOrgReconciler creates
-		//   3. To create the namespace, the CFOrgReconciler has to first fetch the CFOrg (ensuring it's in the cache)
-		Eventually(func() error {
-			return internalWebhookK8sClient.Get(ctx, types.NamespacedName{Name: orgNamespace, Namespace: rootNamespace}, new(korifiv1alpha1.CFOrg))
-		}).Should(Succeed())
 	})
 
 	Describe("creating a space", func() {
@@ -147,11 +136,9 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 	})
 
 	Describe("deleting a space", func() {
-		var err error
 		BeforeEach(func() {
 			cfSpace = makeCFSpace(orgNamespace, "my-space")
-			err = k8sClient.Create(ctx, cfSpace)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 		})
 
 		It("can delete the space", func() {

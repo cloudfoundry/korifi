@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -369,7 +370,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					Name:      GenerateGUID(),
 				},
 				Spec: korifiv1alpha1.CFDomainSpec{
-					Name: "my.domain",
+					Name: "a" + uuid.NewString() + ".com",
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())

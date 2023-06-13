@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -88,7 +89,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient = mgr.GetClient()
+	k8sClient = helpers.NewCacheSyncingClient(mgr.GetClient())
 
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
 
