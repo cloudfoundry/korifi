@@ -3,5 +3,6 @@ kind: ServiceAccount
 metadata:
   annotations:
     cloudfoundry.org/propagate-service-account: "true"
+    cloudfoundry.org/propagate-deletion: "false"
   name: korifi-task
   namespace: {{ .Values.global.rootNamespace }}

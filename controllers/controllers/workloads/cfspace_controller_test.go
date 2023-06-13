@@ -499,7 +499,9 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
+		})
 
+		JustBeforeEach(func() {
 			Expect(k8sClient.Delete(ctx, roleBinding)).To(Succeed())
 		})
 
@@ -508,6 +510,29 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				var deletedRoleBinding rbacv1.RoleBinding
 				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfSpace.Name}, &deletedRoleBinding))
 			}).Should(BeTrue(), "timed out waiting for role binding to be deleted")
+		})
+
+		When("the role binding is annotated not to propagate deletions", func() {
+			BeforeEach(func() {
+				origRoleBinding := roleBinding.DeepCopy()
+
+				roleBinding.Annotations["cloudfoundry.org/propagate-deletion"] = "false"
+				Expect(k8sClient.Patch(ctx, roleBinding, client.MergeFrom(origRoleBinding))).To(Succeed())
+
+				Eventually(func(g Gomega) map[string]string {
+					var copiedRoleBinding rbacv1.RoleBinding
+					g.Expect(
+						k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfSpace.Name}, &copiedRoleBinding),
+					).To(Succeed())
+					return copiedRoleBinding.Annotations
+				}).Should(HaveKeyWithValue("cloudfoundry.org/propagate-deletion", "false"))
+			})
+
+			It("doesn't delete the corresponding role binding in the CFSpace", func() {
+				Consistently(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: roleBinding.Name, Namespace: cfSpace.Name}, new(rbacv1.RoleBinding)))
+				}).Should(BeFalse(), "space's copy of role binding was deleted and shouldn't have been")
+			})
 		})
 	})
 
@@ -520,15 +545,39 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
+		})
 
+		JustBeforeEach(func() {
 			Expect(k8sClient.Delete(ctx, serviceAccount)).To(Succeed())
 		})
 
 		It("deletes the corresponding service account in CFSpace", func() {
 			Eventually(func() bool {
-				var deletedServiceAccount corev1.ServiceAccount
-				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name}, &deletedServiceAccount))
+				return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name}, new(corev1.ServiceAccount)))
 			}).Should(BeTrue(), "timed out waiting for service account to be deleted")
+		})
+
+		When("the service account is annotated not to propagate deletions", func() {
+			BeforeEach(func() {
+				origServiceAccount := serviceAccount.DeepCopy()
+
+				serviceAccount.Annotations["cloudfoundry.org/propagate-deletion"] = "false"
+				Expect(k8sClient.Patch(ctx, serviceAccount, client.MergeFrom(origServiceAccount))).To(Succeed())
+
+				Eventually(func(g Gomega) map[string]string {
+					var copiedServiceAccount corev1.ServiceAccount
+					g.Expect(
+						k8sClient.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name}, &copiedServiceAccount),
+					).To(Succeed())
+					return copiedServiceAccount.Annotations
+				}).Should(HaveKeyWithValue("cloudfoundry.org/propagate-deletion", "false"))
+			})
+
+			It("doesn't delete the corresponding service account in the CFSpace", func() {
+				Consistently(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name}, new(corev1.ServiceAccount)))
+				}).Should(BeFalse(), "space's copy of service account was deleted and shouldn't have been")
+			})
 		})
 	})
 
