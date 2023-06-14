@@ -40,7 +40,7 @@ var _ = Describe("BuildCreate", func() {
 			})
 
 			It("says package is required", func() {
-				expectUnprocessableEntityError(validatorErr, "Package is a required field")
+				expectUnprocessableEntityError(validatorErr, "package cannot be blank")
 			})
 		})
 
@@ -50,7 +50,7 @@ var _ = Describe("BuildCreate", func() {
 			})
 
 			It("says guid is required", func() {
-				expectUnprocessableEntityError(validatorErr, "GUID is a required field")
+				expectUnprocessableEntityError(validatorErr, "package.guid cannot be blank")
 			})
 		})
 
@@ -62,7 +62,7 @@ var _ = Describe("BuildCreate", func() {
 			})
 
 			It("says labels and annotations are not supported", func() {
-				expectUnprocessableEntityError(validatorErr, "Labels and annotations are not supported for builds")
+				expectUnprocessableEntityError(validatorErr, "metadata.annotations must be blank")
 			})
 		})
 
@@ -74,7 +74,7 @@ var _ = Describe("BuildCreate", func() {
 			})
 
 			It("says labels and annotations are not supported", func() {
-				expectUnprocessableEntityError(validatorErr, "Labels and annotations are not supported for builds")
+				expectUnprocessableEntityError(validatorErr, "metadata.labels must be blank")
 			})
 		})
 	})

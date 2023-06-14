@@ -10,8 +10,15 @@ import (
 )
 
 type BuildMetadata struct {
-	Annotations map[string]string `json:"annotations" validate:"buildmetadatavalidator"`
-	Labels      map[string]string `json:"labels" validate:"buildmetadatavalidator"`
+	Annotations map[string]string `json:"annotations"`
+	Labels      map[string]string `json:"labels"`
+}
+
+func (m BuildMetadata) Validate() error {
+	return validation.ValidateStruct(&m,
+		validation.Field(&m.Annotations, validation.Empty),
+		validation.Field(&m.Labels, validation.Empty),
+	)
 }
 
 type Metadata struct {
