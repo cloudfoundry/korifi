@@ -56,7 +56,7 @@ const (
 	clusterBuilderAPIVersion    = "kpack.io/v1alpha2"
 	BuildWorkloadLabelKey       = "korifi.cloudfoundry.org/build-workload-name"
 	ImageGenerationKey          = "korifi.cloudfoundry.org/kpack-image-generation"
-	kpackReconcilerName         = "kpack-image-builder"
+	KpackReconcilerName         = "kpack-image-builder"
 	buildpackBuildMetadataLabel = "io.buildpacks.build.metadata"
 )
 
@@ -152,7 +152,7 @@ func filterBuildWorkloads(object client.Object) bool {
 	}
 
 	// Only reconcile buildworkloads that have their Spec.BuilderName matching this builder
-	return buildWorkload.Spec.BuilderName == kpackReconcilerName
+	return buildWorkload.Spec.BuilderName == KpackReconcilerName
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads,verbs=get;list;watch;create;patch;delete

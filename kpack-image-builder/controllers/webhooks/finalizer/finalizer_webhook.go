@@ -8,8 +8,9 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -20,15 +21,24 @@ type KpackImageBuilderFinalizerWebhook struct {
 func NewKpackImageBuilderFinalizerWebhook() *KpackImageBuilderFinalizerWebhook {
 	return &KpackImageBuilderFinalizerWebhook{
 		delegate: k8s.NewFinalizerWebhook(map[string]k8s.FinalizerDescriptor{
-			"BuildWorkload": {FinalizerName: korifiv1alpha1.BuildWorkloadFinalizerName, SetPolicy: k8s.Always},
+			"BuildWorkload": {FinalizerName: korifiv1alpha1.BuildWorkloadFinalizerName, SetPolicy: kpackImageBuilderBuildWorkloadsOnly},
 			"Build":         {FinalizerName: controllers.KpackBuildFinalizer, SetPolicy: korifiBuildsOnly},
 		}),
 	}
 }
 
-func korifiBuildsOnly(obj client.Object) bool {
+func korifiBuildsOnly(obj unstructured.Unstructured) bool {
 	_, hasBuildWorkloadLabel := obj.GetLabels()[controllers.BuildWorkloadLabelKey]
 	return hasBuildWorkloadLabel
+}
+
+func kpackImageBuilderBuildWorkloadsOnly(obj unstructured.Unstructured) bool {
+	var bw korifiv1alpha1.BuildWorkload
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &bw); err != nil {
+		return false
+	}
+
+	return bw.Spec.BuilderName == controllers.KpackReconcilerName
 }
 
 func (r *KpackImageBuilderFinalizerWebhook) SetupWebhookWithManager(mgr ctrl.Manager) {

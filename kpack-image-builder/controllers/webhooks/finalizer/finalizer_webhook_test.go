@@ -19,14 +19,29 @@ var _ = Describe("KpackImageBuilder Finalizers Webhook", func() {
 			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 			Expect(obj.GetFinalizers()).To(Equal(expectedFinalizers))
 		},
-		Entry("buildworkload",
+		Entry("kpack-image-builder-buildworkload",
 			&korifiv1alpha1.BuildWorkload{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
 					Name:      uuid.NewString(),
 				},
+				Spec: korifiv1alpha1.BuildWorkloadSpec{
+					BuilderName: "kpack-image-builder",
+				},
 			},
 			[]string{korifiv1alpha1.BuildWorkloadFinalizerName},
+		),
+		Entry("non-kpack-image-builder-buildworkload",
+			&korifiv1alpha1.BuildWorkload{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.BuildWorkloadSpec{
+					BuilderName: "another-image-builder",
+				},
+			},
+			nil,
 		),
 		Entry("korifi-kpackbuild",
 			&kpackv1alpha2.Build{

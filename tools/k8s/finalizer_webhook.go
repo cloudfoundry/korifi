@@ -7,8 +7,9 @@ import (
 	"net/http"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -16,10 +17,10 @@ import (
 
 type FinalizerDescriptor struct {
 	FinalizerName string
-	SetPolicy     func(client.Object) bool
+	SetPolicy     func(unstructured.Unstructured) bool
 }
 
-func Always(_ client.Object) bool {
+func Always(_ unstructured.Unstructured) bool {
 	return true
 }
 
@@ -39,35 +40,45 @@ func (r *FinalizerWebhook) SetupWebhookWithManager(mgr ctrl.Manager) {
 }
 
 func (r *FinalizerWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
-	var obj metav1.PartialObjectMetadata
+	var unstructuredObj unstructured.Unstructured
 
-	if err := r.decoder.Decode(req, &obj); err != nil {
+	if err := r.decoder.Decode(req, &unstructuredObj); err != nil {
+		finalizerlog.Error(err, "failed to decode req object")
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	origMarshalled, err := json.Marshal(obj)
+	var partialObj metav1.PartialObjectMetadata
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, &partialObj)
 	if err != nil {
+		finalizerlog.Error(err, "failed to convert unstructured to partialObj")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	objKind := obj.GetObjectKind().GroupVersionKind().Kind
+	origMarshalled, err := json.Marshal(partialObj)
+	if err != nil {
+		finalizerlog.Error(err, "failed to marshall partialObj")
+		return admission.Errored(http.StatusInternalServerError, err)
+	}
+
+	objKind := unstructuredObj.GetObjectKind().GroupVersionKind().Kind
 	if finalizer, hasFinalizer := r.resourceTypeToFinalizerNameRegistry[objKind]; hasFinalizer {
-		if !finalizer.SetPolicy(&obj) {
-			return admission.Allowed(fmt.Sprintf("not applicable to %s %s/%s", objKind, obj.GetNamespace(), obj.GetName()))
+		if !finalizer.SetPolicy(unstructuredObj) {
+			return admission.Allowed(fmt.Sprintf("not applicable to %s %s/%s", objKind, unstructuredObj.GetNamespace(), unstructuredObj.GetName()))
 		}
 
-		if controllerutil.AddFinalizer(&obj, finalizer.FinalizerName) {
+		if controllerutil.AddFinalizer(&partialObj, finalizer.FinalizerName) {
 			finalizerlog.Info("added finalizer on object",
-				"kind", obj.GetObjectKind().GroupVersionKind().Kind,
-				"namespace", obj.GetNamespace(),
-				"name", obj.GetName())
+				"kind", unstructuredObj.GetObjectKind().GroupVersionKind().Kind,
+				"namespace", unstructuredObj.GetNamespace(),
+				"name", unstructuredObj.GetName())
 		}
 	} else {
 		finalizerlog.Info("no finalizer registered for " + objKind)
 	}
 
-	marshalled, err := json.Marshal(obj)
+	marshalled, err := json.Marshal(partialObj)
 	if err != nil {
+		finalizerlog.Error(err, "failed to marshall updated partialObj")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
