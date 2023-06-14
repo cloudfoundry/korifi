@@ -50,7 +50,7 @@ var _ = Describe("DropletUpdate", func() {
 			})
 
 			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+				expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
 			})
 		})
 
@@ -64,7 +64,7 @@ var _ = Describe("DropletUpdate", func() {
 			})
 
 			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+				expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
 			})
 		})
 	})
