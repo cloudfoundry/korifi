@@ -8,12 +8,14 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("Droplet", func() {
@@ -26,8 +28,9 @@ var _ = Describe("Droplet", func() {
 		updatedAt = "1906-04-18T13:12:01Z"
 	)
 	var (
-		dropletRepo *fake.CFDropletRepository
-		req         *http.Request
+		requestJSONValidator *fake.RequestJSONValidator
+		dropletRepo          *fake.CFDropletRepository
+		req                  *http.Request
 	)
 
 	BeforeEach(func() {
@@ -36,12 +39,12 @@ var _ = Describe("Droplet", func() {
 		req, err = http.NewRequestWithContext(ctx, "GET", "/v3/droplets/"+dropletGUID, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		requestJSONValidator = new(fake.RequestJSONValidator)
+
 		apiHandler := NewDroplet(
 			*serverURL,
 			dropletRepo,
-			decoderValidator,
+			requestJSONValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -117,6 +120,8 @@ var _ = Describe("Droplet", func() {
 	})
 
 	Describe("the PATCH /v3/droplet/:guid endpoint", func() {
+		var payload *payloads.DropletUpdate
+
 		BeforeEach(func() {
 			dropletRepo.GetDropletReturns(repositories.DropletRecord{
 				GUID:      dropletGUID,
@@ -169,17 +174,23 @@ var _ = Describe("Droplet", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-				  "metadata": {
-					"labels": {
-					  "foo": "bar"
-					},
-					"annotations": {
-					  "bar": "baz"
-					}
-				  }
-				}`))
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
+
+			payload = &payloads.DropletUpdate{
+				Metadata: payloads.MetadataPatch{
+					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+				},
+			}
+
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+		})
+
+		It("validates the payload", func() {
+			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 
 		It("updates the droplet", func() {
@@ -199,91 +210,13 @@ var _ = Describe("Droplet", func() {
 			)))
 		})
 
-		When("the payload cannot be decoded", func() {
+		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{"one": "two"}`))
-				Expect(err).NotTo(HaveOccurred())
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
-			It("returns an error", func() {
-				expectUnprocessableEntityError("invalid request body: json: unknown field \"one\"")
-			})
-		})
-
-		When("a label is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-					  "metadata": {
-						"labels": {
-						  "cloudfoundry.org/test": "production"
-					    }
-				      }
-					}`))
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-					  "metadata": {
-						"labels": {
-						  "korifi.cloudfoundry.org/test": "production"
-					    }
-			          }
-					}`))
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-		})
-
-		When("an annotation is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-					  "metadata": {
-						"annotations": {
-						  "cloudfoundry.org/test": "there"
-						}
-					  }
-					}`))
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-
-				When("the prefix is a subdomain of cloudfoundry.org", func() {
-					BeforeEach(func() {
-						var err error
-						req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-						  "metadata": {
-							"annotations": {
-							  "korifi.cloudfoundry.org/test": "there"
-							}
-						  }
-						}`))
-						Expect(err).NotTo(HaveOccurred())
-					})
-
-					It("returns an unprocessable entity error", func() {
-						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-					})
-				})
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("validation error")
 			})
 		})
 
