@@ -2,22 +2,22 @@ package handlers_test
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 )
 
@@ -30,14 +30,15 @@ const (
 
 var _ = Describe("App", func() {
 	var (
-		appRepo     *fake.CFAppRepository
-		dropletRepo *fake.CFDropletRepository
-		processRepo *fake.CFProcessRepository
-		routeRepo   *fake.CFRouteRepository
-		domainRepo  *fake.CFDomainRepository
-		spaceRepo   *fake.SpaceRepository
-		packageRepo *fake.CFPackageRepository
-		req         *http.Request
+		appRepo              *fake.CFAppRepository
+		dropletRepo          *fake.CFDropletRepository
+		processRepo          *fake.CFProcessRepository
+		routeRepo            *fake.CFRouteRepository
+		domainRepo           *fake.CFDomainRepository
+		spaceRepo            *fake.SpaceRepository
+		packageRepo          *fake.CFPackageRepository
+		requestJSONValidator *fake.RequestJSONValidator
+		req                  *http.Request
 
 		appRecord repositories.AppRecord
 	)
@@ -50,8 +51,7 @@ var _ = Describe("App", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		spaceRepo = new(fake.SpaceRepository)
 		packageRepo = new(fake.CFPackageRepository)
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		requestJSONValidator = new(fake.RequestJSONValidator)
 
 		apiHandler := NewApp(
 			*serverURL,
@@ -62,7 +62,7 @@ var _ = Describe("App", func() {
 			domainRepo,
 			spaceRepo,
 			packageRepo,
-			decoderValidator,
+			requestJSONValidator,
 		)
 
 		appRecord = repositories.AppRecord{
@@ -135,22 +135,22 @@ var _ = Describe("App", func() {
 	})
 
 	Describe("POST /v3/apps", func() {
-		requestBody := func(spaceGUID string) io.Reader {
-			return strings.NewReader(`{
-				"name": "` + appName + `",
-				"relationships": {
-					"space": {
-						"data": {
-							"guid": "` + spaceGUID + `"
-						}
-					}
-				}
-			}`)
-		}
+		var payload *payloads.AppCreate
 
 		BeforeEach(func() {
+			payload = &payloads.AppCreate{
+				Name: appName,
+				Relationships: payloads.AppRelationships{
+					Space: payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: spaceGUID,
+						},
+					},
+				},
+			}
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 			appRepo.CreateAppReturns(appRecord, nil)
-			req = createHttpRequest("POST", "/v3/apps", requestBody(spaceGUID))
+			req = createHttpRequest("POST", "/v3/apps", strings.NewReader("the-json-body"))
 		})
 
 		It("returns the App", func() {
@@ -179,6 +179,12 @@ var _ = Describe("App", func() {
 			}))
 		})
 
+		It("validates the payload", func() {
+			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+		})
+
 		When("creating the process fails", func() {
 			BeforeEach(func() {
 				processRepo.CreateProcessReturns(errors.New("create-process-err"))
@@ -199,72 +205,9 @@ var _ = Describe("App", func() {
 			})
 		})
 
-		When("the request body is invalid json", func() {
+		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{`))
-			})
-
-			It("has the expected error", func() {
-				expectBadRequestError()
-			})
-		})
-
-		When("the request body does not validate", func() {
-			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{"description" : "Invalid Request"}`))
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(`invalid request body: json: unknown field "description"`)
-			})
-		})
-
-		When("the request body is invalid with invalid app name", func() {
-			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{
-					"name": 12345,
-					"relationships": { "space": { "data": { "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576" } } }
-				}`))
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Name must be a string")
-			})
-		})
-
-		When("the request body is invalid with invalid environment variable object", func() {
-			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{
-					"name": "my_app",
-					"environment_variables": [],
-					"relationships": { "space": { "data": { "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576" } } }
-				}`))
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(regexp.QuoteMeta("Environment_variables must be a map[string]string"))
-			})
-		})
-
-		When("the request body is invalid with missing required name field", func() {
-			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{
-					"relationships": { "space": { "data": { "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806" } } }
-				}`))
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Name is a required field")
-			})
-		})
-
-		When("the request body is invalid with missing data within lifecycle", func() {
-			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps", strings.NewReader(`{
-					"name": "test-app",
-					"lifecycle":{},
-					"relationships": { "space": { "data": { "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806" } } }
-				}`))
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -274,11 +217,7 @@ var _ = Describe("App", func() {
 					MatchJSONPath("$.errors", HaveLen(1)),
 					MatchJSONPath("$.errors[0].title", "CF-UnprocessableEntity"),
 					MatchJSONPath("$.errors[0].code", BeEquivalentTo(10008)),
-					MatchJSONPath("$.errors[0].detail", SatisfyAll(
-						ContainSubstring("Type is a required field"),
-						ContainSubstring("Buildpacks is a required field"),
-						ContainSubstring("Stack is a required field"),
-					)),
+					MatchJSONPath("$.errors[0].detail", Equal("validation error")),
 				)))
 			})
 		})
@@ -286,7 +225,6 @@ var _ = Describe("App", func() {
 		When("the space does not exist", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewNotFoundError(nil, repositories.SpaceResourceType))
-				req = createHttpRequest("POST", "/v3/apps", requestBody("no-such-guid"))
 			})
 
 			It("returns an error", func() {
@@ -475,21 +413,26 @@ var _ = Describe("App", func() {
 	})
 
 	Describe("PATCH /v3/apps/:guid", func() {
+		var payload *payloads.AppPatch
+
 		BeforeEach(func() {
 			appRecord.GUID = "patched-app-guid"
-			appRepo.PatchAppMetadataReturns(appRecord, nil)
-			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
-				  "metadata": {
-					"labels": {
-					  "env": "production",
-					  "foo.example.com/my-identifier": "aruba"
+			payload = &payloads.AppPatch{
+				Metadata: payloads.MetadataPatch{
+					Annotations: map[string]*string{
+						"hello":                       tools.PtrTo("there"),
+						"foo.example.com/lorem-ipsum": tools.PtrTo("Lorem ipsum."),
 					},
-					"annotations": {
-					  "hello": "there",
-					  "foo.example.com/lorem-ipsum": "Lorem ipsum."
-					}
-				  }
-				}`))
+					Labels: map[string]*string{
+						"env":                           tools.PtrTo("production"),
+						"foo.example.com/my-identifier": tools.PtrTo("aruba"),
+					},
+				},
+			}
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+
+			appRepo.PatchAppMetadataReturns(appRecord, nil)
+			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader("the-json-body"))
 		})
 
 		It("patches the app with the new labels and annotations", func() {
@@ -501,6 +444,12 @@ var _ = Describe("App", func() {
 			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
 			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
 			Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+		})
+
+		It("validates the payload", func() {
+			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 
 		It("returns the App in the response", func() {
@@ -551,77 +500,22 @@ var _ = Describe("App", func() {
 			})
 		})
 
-		When("a label is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
-					  "metadata": {
-						"labels": {
-						  "cloudfoundry.org/test": "production"
-					    }
-        		      }
-					}`))
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
+		When("the request body is invalid", func() {
+			BeforeEach(func() {
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
-					  "metadata": {
-						"labels": {
-						  "korifi.cloudfoundry.org/test": "production"
-					    }
-    		          }
-					}`))
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-		})
-
-		When("an annotation is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
-					  "metadata": {
-						"annotations": {
-						  "cloudfoundry.org/test": "there"
-						}
-					  }
-					}`))
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-
-				When("the prefix is a subdomain of cloudfoundry.org", func() {
-					BeforeEach(func() {
-						req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader(`{
-						  "metadata": {
-							"annotations": {
-							  "korifi.cloudfoundry.org/test": "there"
-							}
-						  }
-						}`))
-					})
-
-					It("returns an unprocessable entity error", func() {
-						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-					})
-				})
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("validation error")
 			})
 		})
 	})
 
 	Describe("PATCH /v3/apps/:guid/relationships/current_droplet", func() {
-		var droplet repositories.DropletRecord
+		var (
+			droplet repositories.DropletRecord
+			payload *payloads.AppSetCurrentDroplet
+		)
 
 		BeforeEach(func() {
 			droplet = repositories.DropletRecord{GUID: dropletGUID, AppGUID: appGUID}
@@ -632,9 +526,16 @@ var _ = Describe("App", func() {
 				DropletGUID: dropletGUID,
 			}, nil)
 
-			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
-					{ "data": { "guid": "`+dropletGUID+`" } }
-                `))
+			payload = &payloads.AppSetCurrentDroplet{
+				Relationship: payloads.Relationship{
+					Data: &payloads.RelationshipData{
+						GUID: dropletGUID,
+					},
+				},
+			}
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+
+			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader("the-json-body"))
 		})
 
 		itDoesntSetTheCurrentDroplet := func() {
@@ -666,6 +567,12 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.data.guid", dropletGUID),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
+		})
+
+		It("validates the payload", func() {
+			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 
 		When("setting the current droplet fails", func() {
@@ -753,16 +660,13 @@ var _ = Describe("App", func() {
 
 			itDoesntSetTheCurrentDroplet()
 		})
-
-		When("the guid is missing", func() {
+		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader(`
-					{ "data": {  } }
-                `))
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
-			It("returns an error", func() {
-				expectUnprocessableEntityError("data.guid cannot be blank")
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("validation error")
 			})
 		})
 
@@ -1045,6 +949,8 @@ var _ = Describe("App", func() {
 	})
 
 	Describe("the POST /v3/apps/:guid/process/:processType/actions/scale endpoint", func() {
+		var payload *payloads.ProcessScale
+
 		BeforeEach(func() {
 			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
 				{
@@ -1074,11 +980,14 @@ var _ = Describe("App", func() {
 				UpdatedAt:   "1906-04-18T13:12:01Z",
 			}, nil)
 
-			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(fmt.Sprintf(`{
-				"instances": %d,
-				"memory_in_mb": %d,
-				"disk_in_mb": %d
-			}`, 5, 256, 1024)))
+			payload = &payloads.ProcessScale{
+				Instances: tools.PtrTo(5),
+				MemoryMB:  tools.PtrTo[int64](256),
+				DiskMB:    tools.PtrTo[int64](1024),
+			}
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+
+			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader("the-json-body"))
 		})
 
 		It("gets the app", func() {
@@ -1124,13 +1033,18 @@ var _ = Describe("App", func() {
 			)))
 		})
 
-		When("the request JSON is invalid", func() {
+		It("validates the payload", func() {
+			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+		})
+		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(`}`))
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
-			It("returns an error", func() {
-				expectBadRequestError()
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("validation error")
 			})
 		})
 
@@ -1183,21 +1097,6 @@ var _ = Describe("App", func() {
 				expectUnknownError()
 			})
 		})
-
-		DescribeTable("request body validation",
-			func(requestBody string, status int) {
-				tableTestRecorder := httptest.NewRecorder()
-				req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader(requestBody))
-				routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
-				Expect(tableTestRecorder).To(HaveHTTPStatus(status))
-			},
-			Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),
-			Entry("memory is not a positive integer", `{"memory_in_mb":0}`, http.StatusUnprocessableEntity),
-			Entry("disk is not a positive integer", `{"disk_in_mb":0}`, http.StatusUnprocessableEntity),
-			Entry("instances is zero", `{"instances":0}`, http.StatusOK),
-			Entry("memory is a positive integer", `{"memory_in_mb":1024}`, http.StatusOK),
-			Entry("disk is a positive integer", `{"disk_in_mb":1024}`, http.StatusOK),
-		)
 	})
 
 	Describe("GET /v3/apps/:guid/routes", func() {
@@ -1578,6 +1477,8 @@ var _ = Describe("App", func() {
 	})
 
 	Describe("PATCH /v3/apps/:guid/environment_variables", func() {
+		var payload *payloads.AppPatchEnvVars
+
 		BeforeEach(func() {
 			appRepo.PatchAppEnvVarsReturns(repositories.AppEnvVarsRecord{
 				Name:      appGUID + "-env",
@@ -1588,7 +1489,15 @@ var _ = Describe("App", func() {
 					"KEY2": "VAL2",
 				},
 			}, nil)
-			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(`{ "var": { "KEY1": null, "KEY2": "VAL2" } }`))
+			payload = &payloads.AppPatchEnvVars{
+				Var: map[string]interface{}{
+					"KEY1": nil,
+					"KEY2": "VAL2",
+				},
+			}
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+
+			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader("the-json-body"))
 		})
 
 		It("updates the app environemnt", func() {
@@ -1614,32 +1523,19 @@ var _ = Describe("App", func() {
 			)))
 		})
 
-		DescribeTable("env var validation",
-			func(requestBody string, status int) {
-				tableTestRecorder := httptest.NewRecorder()
-				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(requestBody))
-				routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
-				Expect(tableTestRecorder).To(HaveHTTPStatus(status))
-			},
-			Entry("contains a null value", `{ "var": { "key": null } }`, http.StatusOK),
-			Entry("contains an int value", `{ "var": { "key": 9999 } }`, http.StatusOK),
-			Entry("contains an float value", `{ "var": { "key": 9999.9 } }`, http.StatusOK),
-			Entry("contains an bool value", `{ "var": { "key": true } }`, http.StatusOK),
-			Entry("contains an string value", `{ "var": { "key": "string" } }`, http.StatusOK),
-			Entry("contains a PORT key", `{ "var": { "PORT": 9000 } }`, http.StatusUnprocessableEntity),
-			Entry("contains a VPORT key", `{ "var": { "VPORT": 9000 } }`, http.StatusOK),
-			Entry("contains a PORTO key", `{ "var": { "PORTO": 9000 } }`, http.StatusOK),
-			Entry("contains a VCAP_ key prefix", `{ "var": {"VCAP_POTATO":"foo" } }`, http.StatusUnprocessableEntity),
-			Entry("contains a VMC_ key prefix", `{ "var": {"VMC_APPLE":"bar" } }`, http.StatusUnprocessableEntity),
-		)
+		It("validates the payload", func() {
+			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+		})
 
-		When("the request JSON is invalid", func() {
+		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader(`{`))
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
-			It("returns a message parse error", func() {
-				expectBadRequestError()
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("validation error")
 			})
 		})
 

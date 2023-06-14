@@ -3,6 +3,7 @@ package payloads
 import (
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -43,7 +44,7 @@ type ProcessList struct {
 
 func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
 	return repositories.ListProcessesMessage{
-		AppGUIDs: ParseArrayParam(p.AppGUIDs),
+		AppGUIDs: parse.ArrayParam(p.AppGUIDs),
 	}
 }
 

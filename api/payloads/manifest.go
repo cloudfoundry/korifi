@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 
+	payload_validation "code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
@@ -191,7 +192,7 @@ func (m Manifest) Validate() error {
 
 func (a ManifestApplication) Validate() error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.Name, validation.Required),
+		validation.Field(&a.Name, payload_validation.StrictlyRequired),
 		validation.Field(&a.DefaultRoute, validation.When(a.RandomRoute, validation.Nil.Error("and random-route may not be used together"))),
 		validation.Field(&a.DiskQuota, validation.By(validateAmountWithUnit), validation.When(a.AltDiskQuota != nil, validation.Nil.Error("and disk-quota may not be used together"))),
 		validation.Field(&a.AltDiskQuota, validation.By(validateAmountWithUnit)),
@@ -207,7 +208,7 @@ func (a ManifestApplication) Validate() error {
 
 func (p ManifestApplicationProcess) Validate() error {
 	return validation.ValidateStruct(&p,
-		validation.Field(&p.Type, validation.Required),
+		validation.Field(&p.Type, payload_validation.StrictlyRequired),
 		validation.Field(&p.DiskQuota, validation.By(validateAmountWithUnit), validation.When(p.AltDiskQuota != nil, validation.Nil.Error("and disk-quota may not be used together"))),
 		validation.Field(&p.AltDiskQuota, validation.By(validateAmountWithUnit)),
 		validation.Field(&p.HealthCheckInvocationTimeout, validation.Min(1), validation.NilOrNotEmpty.Error("must be no less than 1")),

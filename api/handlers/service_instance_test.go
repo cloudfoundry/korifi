@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +24,6 @@ var _ = Describe("ServiceInstance", func() {
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
 		spaceRepo           *fake.SpaceRepository
 		decoderValidator    *fake.RequestJSONValidator
-		payload             any
 
 		reqMethod string
 		reqPath   string
@@ -41,17 +39,6 @@ var _ = Describe("ServiceInstance", func() {
 		spaceRepo = new(fake.SpaceRepository)
 
 		decoderValidator = new(fake.RequestJSONValidator)
-		decoderValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-			switch t := i.(type) {
-			case *payloads.ServiceInstanceCreate:
-				*t = *(payload.(*payloads.ServiceInstanceCreate))
-			case *payloads.ServiceInstancePatch:
-				*t = *(payload.(*payloads.ServiceInstancePatch))
-			default:
-				Fail(fmt.Sprintf("no case for payload type %T", i))
-			}
-			return nil
-		}
 
 		apiHandler := NewServiceInstance(
 			*serverURL,
@@ -75,7 +62,7 @@ var _ = Describe("ServiceInstance", func() {
 		BeforeEach(func() {
 			reqMethod = http.MethodPost
 
-			payload = &payloads.ServiceInstanceCreate{
+			decoderValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ServiceInstanceCreate{
 				Name: "service-instance-name",
 				Type: "user-provided",
 				Tags: []string{"foo", "bar"},
@@ -87,7 +74,7 @@ var _ = Describe("ServiceInstance", func() {
 					},
 				},
 				Metadata: payloads.Metadata{},
-			}
+			})
 
 			serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{
 				Name:       "service-instance-name",
@@ -326,7 +313,7 @@ var _ = Describe("ServiceInstance", func() {
 
 	Describe("PATCH /v3/service_instances/:guid", func() {
 		BeforeEach(func() {
-			payload = &payloads.ServiceInstancePatch{
+			decoderValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ServiceInstancePatch{
 				Name:        tools.PtrTo("new-name"),
 				Tags:        &[]string{"alice", "bob"},
 				Credentials: &map[string]string{"foo": "bar"},
@@ -334,7 +321,7 @@ var _ = Describe("ServiceInstance", func() {
 					Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
 					Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
 				},
-			}
+			})
 
 			serviceInstanceRepo.PatchServiceInstanceReturns(repositories.ServiceInstanceRecord{
 				Name: "new-name",

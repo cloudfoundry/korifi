@@ -1,9 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -64,13 +61,7 @@ var _ = Describe("TaskCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(createPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, taskCreate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), taskCreate)
 	})
 
 	It("succeeds", func() {
@@ -155,13 +146,7 @@ var _ = Describe("TaskUpdate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(updatePayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, taskUpdate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(updatePayload), taskUpdate)
 	})
 
 	It("succeeds", func() {

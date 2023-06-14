@@ -2,7 +2,6 @@ package payloads_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -45,13 +44,7 @@ var _ = Describe("RoleCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(createPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, roleCreate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), roleCreate)
 		apiError, _ = validatorErr.(errors.ApiError)
 	})
 

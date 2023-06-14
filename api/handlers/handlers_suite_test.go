@@ -93,3 +93,14 @@ func generateGUID(prefix string) string {
 
 	return fmt.Sprintf("%s-%s", prefix, guid[:13])
 }
+
+func decodeAndValidateJSONPayloadStub[T any](desiredPayload *T) func(_ *http.Request, decodedPayload any) error {
+	return func(_ *http.Request, decodedPayload any) error {
+		decodedPayloadPtr, ok := decodedPayload.(*T)
+		Expect(ok).To(BeTrue())
+
+		*decodedPayloadPtr = *desiredPayload
+
+		return nil
+	}
+}

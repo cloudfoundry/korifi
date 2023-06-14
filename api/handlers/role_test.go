@@ -38,13 +38,9 @@ var _ = Describe("Role", func() {
 	})
 
 	Describe("Create Role", func() {
-		var (
-			roleCreate    *payloads.RoleCreate
-			validationErr error
-		)
+		var roleCreate *payloads.RoleCreate
 
 		BeforeEach(func() {
-			validationErr = nil
 			roleRepo.CreateRoleReturns(repositories.RoleRecord{GUID: "role-guid"}, nil)
 			roleCreate = &payloads.RoleCreate{
 				Type: "space_developer",
@@ -61,16 +57,11 @@ var _ = Describe("Role", func() {
 					},
 				},
 			}
+
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(roleCreate)
 		})
 
 		JustBeforeEach(func() {
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				payload, ok := i.(*payloads.RoleCreate)
-				Expect(ok).To(BeTrue())
-				*payload = *roleCreate
-				return validationErr
-			}
-
 			req, err := http.NewRequestWithContext(ctx, "POST", rolesBase, strings.NewReader(""))
 			Expect(err).NotTo(HaveOccurred())
 			routerBuilder.Build().ServeHTTP(rr, req)
@@ -142,7 +133,7 @@ var _ = Describe("Role", func() {
 
 		When("the payload validator returns an error", func() {
 			BeforeEach(func() {
-				validationErr = apierrors.NewUnprocessableEntityError(errors.New("foo"), "some error")
+				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("foo"), "some error"))
 			})
 
 			It("returns an error", func() {

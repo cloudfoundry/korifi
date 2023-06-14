@@ -1,10 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"github.com/onsi/gomega/gstruct"
@@ -42,13 +38,7 @@ var _ = Describe("DeploymentCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			body, err := json.Marshal(createDeployment)
-			Expect(err).NotTo(HaveOccurred())
-
-			req, err := http.NewRequest("", "", bytes.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedDeploymentPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createDeployment), decodedDeploymentPayload)
 		})
 
 		It("succeeds", func() {

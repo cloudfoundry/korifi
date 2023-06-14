@@ -306,7 +306,8 @@ var _ = Describe("Package", func() {
 
 		BeforeEach(func() {
 			appUID = "appUID"
-			body := &payloads.PackageCreate{
+
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.PackageCreate{
 				Type: "bits",
 				Relationships: &payloads.PackageRelationships{
 					App: &payloads.Relationship{
@@ -323,13 +324,7 @@ var _ = Describe("Package", func() {
 						"jim": "foo",
 					},
 				},
-			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				b, ok := i.(*payloads.PackageCreate)
-				Expect(ok).To(BeTrue())
-				*b = *body
-				return nil
-			}
+			})
 
 			packageRepo.CreatePackageReturns(repositories.PackageRecord{
 				Type:        "bits",
@@ -452,7 +447,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			packageGUID = generateGUID("package")
 
-			body := &payloads.PackageUpdate{
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.PackageUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"bob": tools.PtrTo("foo"),
@@ -461,14 +456,7 @@ var _ = Describe("Package", func() {
 						"jim": tools.PtrTo("foo"),
 					},
 				},
-			}
-
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				b, ok := i.(*payloads.PackageUpdate)
-				Expect(ok).To(BeTrue())
-				*b = *body
-				return nil
-			}
+			})
 
 			packageRepo.UpdatePackageReturns(repositories.PackageRecord{
 				Type:        "bits",

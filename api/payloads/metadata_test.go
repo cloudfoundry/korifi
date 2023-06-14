@@ -1,10 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,13 +28,7 @@ var _ = Describe("Metadata", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(metadataPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedMetadataPayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(metadataPayload), decodedMetadataPayload)
 	})
 
 	It("succeeds", func() {
@@ -87,13 +77,7 @@ var _ = Describe("MetadataPatch", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(metadataPatchPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedMetadataPatchPayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(metadataPatchPayload), decodedMetadataPatchPayload)
 	})
 
 	It("succeeds", func() {

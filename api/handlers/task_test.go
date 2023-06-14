@@ -28,7 +28,6 @@ var _ = Describe("Task", func() {
 		appRepo              *fake.CFAppRepository
 		taskRepo             *fake.CFTaskRepository
 		requestJSONValidator *fake.RequestJSONValidator
-		payload              any
 	)
 
 	BeforeEach(func() {
@@ -50,16 +49,6 @@ var _ = Describe("Task", func() {
 		}, nil)
 
 		requestJSONValidator = new(fake.RequestJSONValidator)
-		requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-			switch t := i.(type) {
-			case *payloads.TaskCreate:
-				*t = *(payload.(*payloads.TaskCreate))
-			case *payloads.TaskUpdate:
-				*t = *(payload.(*payloads.TaskUpdate))
-			}
-
-			return nil
-		}
 
 		apiHandler := handlers.NewTask(*serverURL, appRepo, taskRepo, requestJSONValidator)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -73,13 +62,13 @@ var _ = Describe("Task", func() {
 
 	Describe("POST /v3/apps/:app-guid/tasks", func() {
 		BeforeEach(func() {
-			payload = &payloads.TaskCreate{
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.TaskCreate{
 				Command: "echo hello",
 				Metadata: payloads.Metadata{
 					Labels:      map[string]string{"env": "production"},
 					Annotations: map[string]string{"hello": "there"},
 				},
-			}
+			})
 
 			requestMethod = http.MethodPost
 			requestPath = "/v3/apps/the-app-guid/tasks"
@@ -467,7 +456,7 @@ var _ = Describe("Task", func() {
 
 	Describe("PATCH /v3/tasks/:guid", func() {
 		BeforeEach(func() {
-			payload = &payloads.TaskUpdate{
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.TaskUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"env":                           tools.PtrTo("production"),
@@ -478,7 +467,7 @@ var _ = Describe("Task", func() {
 						"foo.example.com/lorem-ipsum": tools.PtrTo("Lorem ipsum."),
 					},
 				},
-			}
+			})
 
 			taskRepo.PatchTaskMetadataReturns(repositories.TaskRecord{GUID: "the-task-guid"}, nil)
 
