@@ -33,7 +33,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 	var (
 		namespaceGUID             string
-		buildWorkloadGUID         string
+		cfBuildGUID               string
 		clusterBuilder            *buildv1alpha2.ClusterBuilder
 		buildWorkload             *korifiv1alpha1.BuildWorkload
 		source                    korifiv1alpha1.PackageSource
@@ -92,7 +92,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			}
 		})).To(Succeed())
 
-		buildWorkloadGUID = PrefixedGUID("build-workload")
+		cfBuildGUID = PrefixedGUID("cf-build")
 		env = []corev1.EnvVar{{
 			Name: "VCAP_SERVICES",
 			ValueFrom: &corev1.EnvVarSource{
@@ -143,7 +143,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 	Describe("BuildWorkload initialization phase", func() {
 		JustBeforeEach(func() {
-			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
 		})
 
@@ -164,7 +164,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 
 			It("sets the build workload succeeded condition to unknown", func() {
-				cfBuildLookupKey := types.NamespacedName{Name: buildWorkloadGUID, Namespace: namespaceGUID}
+				cfBuildLookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, cfBuildLookupKey, updatedBuildWorkload)).To(Succeed())
@@ -191,7 +191,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						Name:      "app-guid",
 						Namespace: namespaceGUID,
 						Labels: map[string]string{
-							controllers.BuildWorkloadLabelKey: buildWorkloadGUID,
+							controllers.BuildWorkloadLabelKey: cfBuildGUID,
 						},
 					},
 					Spec: buildv1alpha2.ImageSpec{
@@ -290,7 +290,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				})
 
 				It("fails the build", func() {
-					updatedWorkload := &korifiv1alpha1.BuildWorkload{ObjectMeta: metav1.ObjectMeta{Name: buildWorkloadGUID, Namespace: namespaceGUID}}
+					updatedWorkload := &korifiv1alpha1.BuildWorkload{ObjectMeta: metav1.ObjectMeta{Name: cfBuildGUID, Namespace: namespaceGUID}}
 					Eventually(func(g Gomega) {
 						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(updatedWorkload), updatedWorkload)).To(Succeed())
 						g.Expect(mustHaveCondition(g, updatedWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
@@ -337,7 +337,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				JustBeforeEach(func() {
 					updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
 					Eventually(func() error {
-						return k8sClient.Get(ctx, types.NamespacedName{Name: buildWorkloadGUID, Namespace: namespaceGUID}, updatedBuildWorkload)
+						return k8sClient.Get(ctx, types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}, updatedBuildWorkload)
 					}).Should(Succeed())
 
 					Expect(k8s.Patch(ctx, k8sClient, updatedBuildWorkload, func() {
@@ -376,7 +376,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		)
 
 		BeforeEach(func() {
-			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
 
 			kpackImageLookupKey := types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}
@@ -424,7 +424,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			)
 
 			BeforeEach(func() {
-				cfBuildGUID2 = buildWorkloadGUID + "-2"
+				cfBuildGUID2 = cfBuildGUID + "-2"
 				source2 := source
 				source2.Registry.Image += "2"
 				buildWorkload2 := buildWorkloadObject(cfBuildGUID2, namespaceGUID, source2, env, services, reconcilerName, buildpacks)
@@ -454,7 +454,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 
 			It("updates both the build workload statuses", func() {
-				lookupKey := types.NamespacedName{Name: buildWorkloadGUID, Namespace: namespaceGUID}
+				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, lookupKey, updatedWorkload)).To(Succeed())
@@ -476,7 +476,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 
 			It("sets the Succeeded condition to False", func() {
-				lookupKey := types.NamespacedName{Name: buildWorkloadGUID, Namespace: namespaceGUID}
+				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(ctx, lookupKey, updatedWorkload)
@@ -499,7 +499,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 
 			It("sets the Succeeded condition to True", func() {
-				lookupKey := types.NamespacedName{Name: buildWorkloadGUID, Namespace: namespaceGUID}
+				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) {
 					err := k8sClient.Get(ctx, lookupKey, updatedWorkload)
@@ -509,7 +509,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			})
 
 			It("sets status.droplet", func() {
-				lookupKey := types.NamespacedName{Name: buildWorkloadGUID, Namespace: namespaceGUID}
+				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: namespaceGUID}
 				updatedBuildWorkload := new(korifiv1alpha1.BuildWorkload)
 				Eventually(func(g Gomega) *korifiv1alpha1.BuildDropletStatus {
 					err := k8sClient.Get(ctx, lookupKey, updatedBuildWorkload)
@@ -605,7 +605,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 	Describe("awaiting kpack builder readiness", func() {
 		BeforeEach(func() {
-			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
 
 			Expect(k8s.Patch(ctx, k8sClient, clusterBuilder, func() {
@@ -686,7 +686,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		var buildWorkload2 *korifiv1alpha1.BuildWorkload
 
 		BeforeEach(func() {
-			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
@@ -803,7 +803,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		BeforeEach(func() {
 			readyStatus = "True"
-			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
@@ -812,7 +812,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			source2 := source
 			source2.Registry.Image += "x"
-			buildWorkload2 = buildWorkloadObject(buildWorkloadGUID+"x", namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			buildWorkload2 = buildWorkloadObject(cfBuildGUID+"x", namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(k8sClient.Create(ctx, buildWorkload2)).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
@@ -890,7 +890,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		var kpackBuild *buildv1alpha2.Build
 
 		BeforeEach(func() {
-			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			buildWorkload = buildWorkloadObject(cfBuildGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(k8sClient.Create(ctx, buildWorkload)).To(Succeed())
 
 			kpackBuild = &buildv1alpha2.Build{
@@ -898,11 +898,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					Name:      "build",
 					Namespace: namespaceGUID,
 					Labels: map[string]string{
-						korifiv1alpha1.CFAppGUIDLabelKey:   "app-guid",
 						buildv1alpha2.ImageLabel:           "app-guid",
 						buildv1alpha2.ImageGenerationLabel: "1",
-						buildv1alpha2.BuildNumberLabel:     "1",
-						controllers.BuildWorkloadLabelKey:  buildWorkload.Name,
 					},
 				},
 			}
@@ -991,10 +988,10 @@ func PrefixedGUID(prefix string) string {
 	return prefix + "-" + uuid.NewString()[:8]
 }
 
-func buildWorkloadObject(buildWorkloadGUID string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference, reconcilerName string, buildpacks []string) *korifiv1alpha1.BuildWorkload {
+func buildWorkloadObject(cfBuildGUID string, namespace string, source korifiv1alpha1.PackageSource, env []corev1.EnvVar, services []corev1.ObjectReference, reconcilerName string, buildpacks []string) *korifiv1alpha1.BuildWorkload {
 	return &korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildWorkloadGUID,
+			Name:      cfBuildGUID,
 			Namespace: namespace,
 			Labels: map[string]string{
 				korifiv1alpha1.CFAppGUIDLabelKey: "app-guid",
@@ -1002,7 +999,7 @@ func buildWorkloadObject(buildWorkloadGUID string, namespace string, source kori
 		},
 		Spec: korifiv1alpha1.BuildWorkloadSpec{
 			BuildRef: korifiv1alpha1.RequiredLocalObjectReference{
-				Name: buildWorkloadGUID,
+				Name: cfBuildGUID,
 			},
 			Source:      source,
 			Buildpacks:  buildpacks,

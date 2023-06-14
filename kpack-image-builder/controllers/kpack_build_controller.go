@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const KpackBuildFinalizer string = "korifi.cloudfoundry.org/kpackBuild"
+const kpackBuildFinalizer string = "korifi.cloudfoundry.org/kpackBuild"
 
 //counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter
 
@@ -68,10 +68,9 @@ func (c KpackBuildController) SetupWithManager(mgr manager.Manager) *ctrl.Builde
 
 func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild *kpackv1alpha2.Build) (ctrl.Result, error) {
 	log := c.log.WithValues("namespace", kpackBuild.Namespace, "name", kpackBuild.Name, "deletionTimestamp", kpackBuild.DeletionTimestamp)
-	log.Info("in finalizer")
 
 	if !kpackBuild.GetDeletionTimestamp().IsZero() {
-		if !controllerutil.ContainsFinalizer(kpackBuild, KpackBuildFinalizer) {
+		if !controllerutil.ContainsFinalizer(kpackBuild, kpackBuildFinalizer) {
 			return ctrl.Result{}, nil
 		}
 
@@ -93,11 +92,16 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 			}
 		}
 
-		if controllerutil.RemoveFinalizer(kpackBuild, KpackBuildFinalizer) {
+		if controllerutil.RemoveFinalizer(kpackBuild, kpackBuildFinalizer) {
 			log.V(1).Info("finalizer removed")
 		}
 
 		return ctrl.Result{}, nil
+	}
+
+	if controllerutil.AddFinalizer(kpackBuild, kpackBuildFinalizer) {
+		log.V(1).Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return ctrl.Result{}, nil

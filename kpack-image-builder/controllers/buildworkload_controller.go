@@ -58,6 +58,7 @@ const (
 	ImageGenerationKey          = "korifi.cloudfoundry.org/kpack-image-generation"
 	kpackReconcilerName         = "kpack-image-builder"
 	buildpackBuildMetadataLabel = "io.buildpacks.build.metadata"
+	buildWorkloadFinalizerName  = "kpack-image-builder.korifi.cloudfoundry.org/buildworkload"
 )
 
 //counterfeiter:generate -o fake -fake-name ImageConfigGetter . ImageConfigGetter
@@ -173,7 +174,13 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	log.V(1).Info("set observed generation", "generation", buildWorkload.Status.ObservedGeneration)
 
 	if !buildWorkload.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, log, buildWorkload)
+		err := r.finalize(ctx, log, buildWorkload)
+		return ctrl.Result{}, err
+	}
+
+	if controllerutil.AddFinalizer(buildWorkload, buildWorkloadFinalizerName) {
+		log.V(1).Info("added finalizer")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	var err error
@@ -763,76 +770,36 @@ func extractFullCommand(process process) string {
 	return cmdString
 }
 
-func (r *BuildWorkloadReconciler) finalize(ctx context.Context, log logr.Logger, buildWorkload *korifiv1alpha1.BuildWorkload) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(buildWorkload, korifiv1alpha1.BuildWorkloadFinalizerName) {
-		return ctrl.Result{}, nil
+func (r *BuildWorkloadReconciler) finalize(ctx context.Context, log logr.Logger, buildWorkload *korifiv1alpha1.BuildWorkload) error {
+	if !controllerutil.ContainsFinalizer(buildWorkload, buildWorkloadFinalizerName) {
+		return nil
 	}
 
-	lastBuildWorkload, err := r.isLastBuildWorkload(ctx, buildWorkload)
-	if err != nil {
-		log.Error(err, "failed to check for last build workloads")
-		return ctrl.Result{}, err
-	}
-
-	if lastBuildWorkload {
-		err = r.deleteBuildsForBuildWorkload(ctx, buildWorkload)
-		if err != nil {
-			log.Error(err, "failed to delete builds for build workload")
-			return ctrl.Result{}, err
-		}
-
-		hasRemainingBuilds, err := r.hasRemainingBuilds(ctx, buildWorkload)
-		if err != nil {
-			log.Error(err, "failed to check for remaining builds for build workload")
-			return ctrl.Result{}, err
-		}
-
-		if hasRemainingBuilds {
-			return ctrl.Result{RequeueAfter: time.Second}, nil
-		}
-	}
-
-	if controllerutil.RemoveFinalizer(buildWorkload, korifiv1alpha1.BuildWorkloadFinalizerName) {
-		log.V(1).Info("finalizer removed")
-	}
-
-	return ctrl.Result{}, nil
-}
-
-func (r *BuildWorkloadReconciler) isLastBuildWorkload(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (bool, error) {
 	appBuildWorkloads := &korifiv1alpha1.BuildWorkloadList{}
 	err := r.k8sClient.List(ctx, appBuildWorkloads, client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
 		korifiv1alpha1.CFAppGUIDLabelKey: buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
 		ImageGenerationKey:               buildWorkload.Labels[ImageGenerationKey],
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed to list build workloads: %w", err)
+		log.Info("failed to list build workloads", "reason", err)
+		return err
 	}
 
-	return len(appBuildWorkloads.Items) == 1, nil
-}
-
-func (r *BuildWorkloadReconciler) deleteBuildsForBuildWorkload(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
-	err := r.k8sClient.DeleteAllOf(ctx, new(buildv1alpha2.Build), client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
-		buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
-		buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
-	})
-	if err != nil {
-		return fmt.Errorf("failed to delete builds: %w", err)
+	if len(appBuildWorkloads.Items) == 1 {
+		err = r.k8sClient.DeleteAllOf(ctx, new(buildv1alpha2.Build), client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
+			buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
+			buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
+		})
+		if err != nil {
+			log.Info("failed to delete kpack.Build", "reason", err)
+		}
 	}
+
+	if controllerutil.RemoveFinalizer(buildWorkload, buildWorkloadFinalizerName) {
+		log.V(1).Info("finalizer removed")
+	}
+
 	return nil
-}
-
-func (r *BuildWorkloadReconciler) hasRemainingBuilds(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (bool, error) {
-	buildList := &buildv1alpha2.BuildList{}
-	if err := r.k8sClient.List(ctx, buildList, client.InNamespace(buildWorkload.Namespace), client.MatchingLabels{
-		buildv1alpha2.ImageLabel:           buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
-		buildv1alpha2.ImageGenerationLabel: buildWorkload.Labels[ImageGenerationKey],
-	}); err != nil {
-		return false, fmt.Errorf("failed to list build workloads: %w", err)
-	}
-
-	return len(buildList.Items) != 0, nil
 }
 
 func (r *BuildWorkloadReconciler) repositoryRef(appGUID string) string {
