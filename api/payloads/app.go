@@ -5,7 +5,10 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/config"
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	payload_validation "code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/jellydator/validation"
 )
 
 // DefaultLifecycleConfig is overwritten by main.go
@@ -17,15 +20,30 @@ var DefaultLifecycleConfig = config.DefaultLifecycleConfig{
 }
 
 type AppCreate struct {
-	Name                 string            `json:"name" validate:"required"`
+	Name                 string            `json:"name"`
 	EnvironmentVariables map[string]string `json:"environment_variables"`
-	Relationships        AppRelationships  `json:"relationships" validate:"required"`
+	Relationships        AppRelationships  `json:"relationships"`
 	Lifecycle            *Lifecycle        `json:"lifecycle"`
 	Metadata             Metadata          `json:"metadata"`
 }
 
+func (c AppCreate) Validate() error {
+	return validation.ValidateStruct(&c,
+		validation.Field(&c.Name, payload_validation.StrictlyRequired),
+		validation.Field(&c.Relationships, payload_validation.StrictlyRequired),
+		validation.Field(&c.Lifecycle),
+		validation.Field(&c.Metadata),
+	)
+}
+
 type AppRelationships struct {
-	Space Relationship `json:"space" validate:"required"`
+	Space Relationship `json:"space"`
+}
+
+func (r AppRelationships) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.Space, payload_validation.StrictlyRequired),
+	)
 }
 
 func (p AppCreate) ToAppCreateMessage() repositories.CreateAppMessage {
@@ -51,7 +69,13 @@ func (p AppCreate) ToAppCreateMessage() repositories.CreateAppMessage {
 }
 
 type AppSetCurrentDroplet struct {
-	Relationship `json:",inline" validate:"required"`
+	Relationship `json:",inline"`
+}
+
+func (d AppSetCurrentDroplet) Validate() error {
+	return validation.ValidateStruct(&d,
+		validation.Field(&d.Relationship, payload_validation.StrictlyRequired),
+	)
 }
 
 type AppList struct {
@@ -62,9 +86,9 @@ type AppList struct {
 
 func (a *AppList) ToMessage() repositories.ListAppsMessage {
 	return repositories.ListAppsMessage{
-		Names:      ParseArrayParam(a.Names),
-		Guids:      ParseArrayParam(a.GUIDs),
-		SpaceGuids: ParseArrayParam(a.SpaceGuids),
+		Names:      parse.ArrayParam(a.Names),
+		Guids:      parse.ArrayParam(a.GUIDs),
+		SpaceGuids: parse.ArrayParam(a.SpaceGuids),
 	}
 }
 
@@ -80,7 +104,19 @@ func (a *AppList) DecodeFromURLValues(values url.Values) error {
 }
 
 type AppPatchEnvVars struct {
-	Var map[string]interface{} `json:"var" validate:"required,dive,keys,startsnotwith=VCAP_,startsnotwith=VMC_,ne=PORT,endkeys"`
+	Var map[string]interface{} `json:"var"`
+}
+
+func (p AppPatchEnvVars) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Var,
+			payload_validation.StrictlyRequired,
+			validation.Map().Keys(
+				payload_validation.NotStartWith("VCAP_"),
+				payload_validation.NotStartWith("VMC_"),
+				payload_validation.NotEqual("PORT"),
+			).AllowExtraKeys(),
+		))
 }
 
 func (a *AppPatchEnvVars) ToMessage(appGUID, spaceGUID string) repositories.PatchAppEnvVarsMessage {

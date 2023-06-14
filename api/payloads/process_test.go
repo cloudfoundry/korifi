@@ -3,9 +3,12 @@ package payloads_test
 import (
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("ProcessList", func() {
@@ -19,5 +22,74 @@ var _ = Describe("ProcessList", func() {
 		Expect(processList).To(Equal(payloads.ProcessList{
 			AppGUIDs: "app_guid",
 		}))
+	})
+})
+
+var _ = Describe("Process payload validation", func() {
+	var (
+		decoderValidator *handlers.DecoderValidator
+		validatorErr     error
+	)
+
+	BeforeEach(func() {
+		var err error
+		decoderValidator, err = handlers.NewDefaultDecoderValidator()
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	Describe("ProcessScale", func() {
+		var (
+			payload        payloads.ProcessScale
+			decodedPayload *payloads.ProcessScale
+		)
+
+		BeforeEach(func() {
+			payload = payloads.ProcessScale{
+				Instances: tools.PtrTo(1),
+				MemoryMB:  tools.PtrTo[int64](2),
+				DiskMB:    tools.PtrTo[int64](3),
+			}
+
+			decodedPayload = new(payloads.ProcessScale)
+		})
+
+		JustBeforeEach(func() {
+			validatorErr = decoderValidator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+		})
+
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
+		})
+
+		When("instances is negative", func() {
+			BeforeEach(func() {
+				payload.Instances = tools.PtrTo(-1)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(validatorErr, "Instances must be 0 or greater")
+			})
+		})
+
+		When("memory is negative", func() {
+			BeforeEach(func() {
+				payload.MemoryMB = tools.PtrTo[int64](-1)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(validatorErr, "MemoryMB must be greater than 0")
+			})
+		})
+
+		When("disk is negative", func() {
+			BeforeEach(func() {
+				payload.DiskMB = tools.PtrTo[int64](-1)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(validatorErr, "DiskMB must be greater than 0")
+			})
+		})
 	})
 })

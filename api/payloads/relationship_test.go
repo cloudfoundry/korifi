@@ -1,10 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,13 +24,7 @@ var _ = Describe("Relationship", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(relationshipPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedRelationshipPayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(relationshipPayload), decodedRelationshipPayload)
 	})
 
 	It("succeeds", func() {

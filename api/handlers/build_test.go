@@ -115,7 +115,6 @@ var _ = Describe("Build", func() {
 			buildRepo                   *fake.CFBuildRepository
 			requestJSONValidator        *fake.RequestJSONValidator
 			expectedLifecycleBuildpacks []string
-			payload                     payloads.BuildCreate
 		)
 
 		const (
@@ -134,20 +133,12 @@ var _ = Describe("Build", func() {
 		)
 
 		BeforeEach(func() {
-			payload = payloads.BuildCreate{
+			requestJSONValidator = new(fake.RequestJSONValidator)
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.BuildCreate{
 				Package: &payloads.RelationshipData{
 					GUID: packageGUID,
 				},
-			}
-
-			requestJSONValidator = new(fake.RequestJSONValidator)
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				build, ok := i.(*payloads.BuildCreate)
-				Expect(ok).To(BeTrue())
-				*build = payload
-
-				return nil
-			}
+			})
 
 			expectedLifecycleBuildpacks = []string{"buildpack-a", "buildpack-b"}
 

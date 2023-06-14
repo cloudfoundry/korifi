@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	payload_validation "code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"github.com/jellydator/validation"
 )
@@ -15,9 +17,9 @@ type DomainCreate struct {
 	Relationships map[string]Relationship `json:"relationships"`
 }
 
-func (c *DomainCreate) Validate() error {
-	return validation.ValidateStruct(c,
-		validation.Field(&c.Name, validation.Required),
+func (c DomainCreate) Validate() error {
+	return validation.ValidateStruct(&c,
+		validation.Field(&c.Name, payload_validation.StrictlyRequired),
 		validation.Field(&c.Metadata),
 		validation.Field(&c.Relationships),
 	)
@@ -55,8 +57,8 @@ func (c *DomainUpdate) ToMessage(domainGUID string) repositories.UpdateDomainMes
 	}
 }
 
-func (c *DomainUpdate) Validate() error {
-	return validation.ValidateStruct(c,
+func (c DomainUpdate) Validate() error {
+	return validation.ValidateStruct(&c,
 		validation.Field(&c.Metadata),
 	)
 }
@@ -67,7 +69,7 @@ type DomainList struct {
 
 func (d *DomainList) ToMessage() repositories.ListDomainsMessage {
 	return repositories.ListDomainsMessage{
-		Names: ParseArrayParam(d.Names),
+		Names: parse.ArrayParam(d.Names),
 	}
 }
 

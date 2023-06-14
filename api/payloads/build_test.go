@@ -1,10 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -30,13 +26,7 @@ var _ = Describe("BuildCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			body, err := json.Marshal(createPayload)
-			Expect(err).NotTo(HaveOccurred())
-
-			req, err := http.NewRequest("", "", bytes.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedBuildPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), decodedBuildPayload)
 		})
 
 		It("succeeds", func() {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -89,8 +90,8 @@ type ServiceInstanceList struct {
 
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
-		Names:      ParseArrayParam(l.Names),
-		SpaceGuids: ParseArrayParam(l.SpaceGuids),
+		Names:      parse.ArrayParam(l.Names),
+		SpaceGuids: parse.ArrayParam(l.SpaceGuids),
 	}
 }
 

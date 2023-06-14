@@ -1,9 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -39,13 +36,7 @@ var _ = Describe("DomainCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			body, err := json.Marshal(createPayload)
-			Expect(err).NotTo(HaveOccurred())
-
-			req, err := http.NewRequest("", "", bytes.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedDomainPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), decodedDomainPayload)
 		})
 
 		It("succeeds", func() {
@@ -169,13 +160,7 @@ var _ = Describe("DomainUpdate", func() {
 	})
 
 	JustBeforeEach(func() {
-		updateBody, err := json.Marshal(updatePayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(updateBody))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedUpdatePayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(updatePayload), decodedUpdatePayload)
 	})
 
 	It("succeeds", func() {
@@ -183,7 +168,7 @@ var _ = Describe("DomainUpdate", func() {
 		Expect(decodedUpdatePayload).To(gstruct.PointTo(Equal(updatePayload)))
 	})
 
-	When("metadata.labels contains an invalid key", func() {
+	When("metadata is invalid", func() {
 		BeforeEach(func() {
 			updatePayload.Metadata = payloads.MetadataPatch{
 				Labels: map[string]*string{

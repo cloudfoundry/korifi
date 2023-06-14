@@ -3,6 +3,7 @@ package payloads
 import (
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -41,11 +42,11 @@ type RouteList struct {
 
 func (p *RouteList) ToMessage() repositories.ListRoutesMessage {
 	return repositories.ListRoutesMessage{
-		AppGUIDs:    ParseArrayParam(p.AppGUIDs),
-		SpaceGUIDs:  ParseArrayParam(p.SpaceGUIDs),
-		DomainGUIDs: ParseArrayParam(p.DomainGUIDs),
-		Hosts:       ParseArrayParam(p.Hosts),
-		Paths:       ParseArrayParam(p.Paths),
+		AppGUIDs:    parse.ArrayParam(p.AppGUIDs),
+		SpaceGUIDs:  parse.ArrayParam(p.SpaceGUIDs),
+		DomainGUIDs: parse.ArrayParam(p.DomainGUIDs),
+		Hosts:       parse.ArrayParam(p.Hosts),
+		Paths:       parse.ArrayParam(p.Paths),
 	}
 }
 

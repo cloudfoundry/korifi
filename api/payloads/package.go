@@ -3,6 +3,7 @@ package payloads
 import (
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -49,8 +50,8 @@ type PackageListQueryParameters struct {
 
 func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessage {
 	return repositories.ListPackagesMessage{
-		AppGUIDs: ParseArrayParam(p.AppGUIDs),
-		States:   ParseArrayParam(p.States),
+		AppGUIDs: parse.ArrayParam(p.AppGUIDs),
+		States:   parse.ArrayParam(p.States),
 	}
 }
 

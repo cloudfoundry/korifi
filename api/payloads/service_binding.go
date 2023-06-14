@@ -3,6 +3,7 @@ package payloads
 import (
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -34,8 +35,8 @@ type ServiceBindingList struct {
 
 func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage {
 	return repositories.ListServiceBindingsMessage{
-		ServiceInstanceGUIDs: ParseArrayParam(l.ServiceInstanceGUIDs),
-		AppGUIDs:             ParseArrayParam(l.AppGUIDs),
+		ServiceInstanceGUIDs: parse.ArrayParam(l.ServiceInstanceGUIDs),
+		AppGUIDs:             parse.ArrayParam(l.AppGUIDs),
 	}
 }
 

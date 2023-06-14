@@ -42,10 +42,10 @@ var _ = Describe("Domain", func() {
 	})
 
 	Describe("POST /v3/domain", func() {
-		var payload payloads.DomainCreate
+		var payload *payloads.DomainCreate
 
 		BeforeEach(func() {
-			payload = payloads.DomainCreate{
+			payload = &payloads.DomainCreate{
 				Name:     "my.domain",
 				Internal: false,
 				Metadata: payloads.Metadata{
@@ -57,13 +57,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				domain, ok := i.(*payloads.DomainCreate)
-				Expect(ok).To(BeTrue())
-				*domain = payload
-
-				return nil
-			}
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 
 			domainRepo.CreateDomainReturns(repositories.DomainRecord{
 				Name:        "my.domain",
@@ -190,10 +184,10 @@ var _ = Describe("Domain", func() {
 	})
 
 	Describe("PATCH /v3/domains/:guid", func() {
-		var payload payloads.DomainUpdate
+		var payload *payloads.DomainUpdate
 
 		BeforeEach(func() {
-			payload = payloads.DomainUpdate{
+			payload = &payloads.DomainUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"foo": tools.PtrTo("bar"),
@@ -203,13 +197,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				update, ok := i.(*payloads.DomainUpdate)
-				Expect(ok).To(BeTrue())
-				*update = payload
-
-				return nil
-			}
+			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 
 			domainRepo.UpdateDomainReturns(repositories.DomainRecord{
 				Name:        "my.domain",

@@ -1,9 +1,7 @@
 package payloads_test
 
 import (
-	"bytes"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -64,13 +62,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(createPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, serviceInstanceCreate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), serviceInstanceCreate)
 	})
 
 	It("succeeds", func() {
@@ -253,13 +245,7 @@ var _ = Describe("ServiceInstancePatch", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(patchPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, serviceInstancePatch)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(patchPayload), serviceInstancePatch)
 	})
 
 	It("succeeds", func() {

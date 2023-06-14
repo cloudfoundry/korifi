@@ -1,10 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/onsi/gomega/gstruct"
@@ -36,13 +32,7 @@ var _ = Describe("DropletUpdate", func() {
 		})
 
 		JustBeforeEach(func() {
-			body, err := json.Marshal(updatePayload)
-			Expect(err).NotTo(HaveOccurred())
-
-			req, err := http.NewRequest("", "", bytes.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedDropletPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(updatePayload), decodedDropletPayload)
 		})
 
 		It("succeeds", func() {

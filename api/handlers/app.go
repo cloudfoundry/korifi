@@ -55,15 +55,15 @@ type CFAppRepository interface {
 }
 
 type App struct {
-	serverURL        url.URL
-	appRepo          CFAppRepository
-	dropletRepo      CFDropletRepository
-	processRepo      CFProcessRepository
-	routeRepo        CFRouteRepository
-	domainRepo       CFDomainRepository
-	spaceRepo        SpaceRepository
-	packageRepo      CFPackageRepository
-	decoderValidator *DecoderValidator
+	serverURL            url.URL
+	appRepo              CFAppRepository
+	dropletRepo          CFDropletRepository
+	processRepo          CFProcessRepository
+	routeRepo            CFRouteRepository
+	domainRepo           CFDomainRepository
+	spaceRepo            SpaceRepository
+	packageRepo          CFPackageRepository
+	requestJSONValidator RequestJSONValidator
 }
 
 func NewApp(
@@ -75,18 +75,18 @@ func NewApp(
 	domainRepo CFDomainRepository,
 	spaceRepo SpaceRepository,
 	packageRepo CFPackageRepository,
-	decoderValidator *DecoderValidator,
+	requestJSONValidator RequestJSONValidator,
 ) *App {
 	return &App{
-		serverURL:        serverURL,
-		appRepo:          appRepo,
-		dropletRepo:      dropletRepo,
-		processRepo:      processRepo,
-		routeRepo:        routeRepo,
-		domainRepo:       domainRepo,
-		decoderValidator: decoderValidator,
-		packageRepo:      packageRepo,
-		spaceRepo:        spaceRepo,
+		serverURL:            serverURL,
+		appRepo:              appRepo,
+		dropletRepo:          dropletRepo,
+		processRepo:          processRepo,
+		routeRepo:            routeRepo,
+		domainRepo:           domainRepo,
+		spaceRepo:            spaceRepo,
+		packageRepo:          packageRepo,
+		requestJSONValidator: requestJSONValidator,
 	}
 }
 
@@ -107,7 +107,7 @@ func (h *App) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.create")
 	var payload payloads.AppCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
@@ -195,7 +195,7 @@ func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {
 	appGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.AppSetCurrentDroplet
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
@@ -377,7 +377,7 @@ func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
 		WithValues("appGUID", appGUID, "processType", processType)
 
 	var payload payloads.ProcessScale
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
@@ -503,7 +503,7 @@ func (h *App) updateEnvVars(r *http.Request) (*routing.Response, error) {
 	appGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.AppPatchEnvVars
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -587,7 +587,7 @@ func (h *App) update(r *http.Request) (*routing.Response, error) {
 	}
 
 	var payload payloads.AppPatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err = h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 

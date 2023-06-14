@@ -1,8 +1,8 @@
-package payloads
+package parse
 
 import "strings"
 
-func ParseArrayParam(arrayParam string) []string {
+func ArrayParam(arrayParam string) []string {
 	if arrayParam == "" {
 		return []string{}
 	}
