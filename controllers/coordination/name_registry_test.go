@@ -148,7 +148,7 @@ var _ = Describe("NameRegistry", func() {
 
 		When("patching fails", func() {
 			BeforeEach(func() {
-				client.PatchReturns(errors.New("boom!"))
+				client.PatchReturnsOnCall(0, errors.New("boom!"))
 			})
 
 			It("returns the error", func() {
@@ -156,6 +156,17 @@ var _ = Describe("NameRegistry", func() {
 					ContainSubstring("boom!"),
 					ContainSubstring("failed to acquire lock"),
 				)))
+			})
+		})
+
+		When("patching fails with NotFound but eventually succeeds", func() {
+			BeforeEach(func() {
+				client.PatchReturns(k8serrors.NewNotFound(schema.GroupResource{}, "boom!"))
+				client.PatchReturnsOnCall(5, nil)
+			})
+
+			It("succeeds", func() {
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

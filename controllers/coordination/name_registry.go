@@ -6,10 +6,13 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -89,7 +92,11 @@ func (r NameRegistry) TryLockName(ctx context.Context, namespace, name string) e
     {"op":"replace", "path":"/spec/holderIdentity", "value": "%s"}
     ]`, unlockedIdentity, lockedIdentity)
 
-	if err := r.client.Patch(ctx, lease, client.RawPatch(types.JSONPatchType, []byte(jsonPatch))); err != nil {
+	if err := retry.OnError(k8s.NewDefaultBackoff(),
+		func(err error) bool { return k8serrors.IsNotFound(err) },
+		func() error {
+			return r.client.Patch(ctx, lease, client.RawPatch(types.JSONPatchType, []byte(jsonPatch)))
+		}); err != nil {
 		return fmt.Errorf("failed to acquire lock on lease: %w", err)
 	}
 
