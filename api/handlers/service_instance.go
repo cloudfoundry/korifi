@@ -38,14 +38,14 @@ type ServiceInstance struct {
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
 	spaceRepo           SpaceRepository
-	requestValidator    RequestJSONValidator
+	requestValidator    RequestValidator
 }
 
 func NewServiceInstance(
 	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
 	spaceRepo SpaceRepository,
-	requestValidator RequestJSONValidator,
+	requestValidator RequestValidator,
 ) *ServiceInstance {
 	return &ServiceInstance{
 		serverURL:           serverURL,

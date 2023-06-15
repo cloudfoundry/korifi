@@ -23,11 +23,11 @@ import (
 
 var _ = Describe("Task", func() {
 	var (
-		requestMethod        string
-		requestPath          string
-		appRepo              *fake.CFAppRepository
-		taskRepo             *fake.CFTaskRepository
-		requestJSONValidator *fake.RequestJSONValidator
+		requestMethod    string
+		requestPath      string
+		appRepo          *fake.CFAppRepository
+		taskRepo         *fake.CFTaskRepository
+		requestValidator *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
@@ -48,9 +48,9 @@ var _ = Describe("Task", func() {
 			SpaceGUID: "the-space-guid",
 		}, nil)
 
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		requestValidator = new(fake.RequestValidator)
 
-		apiHandler := handlers.NewTask(*serverURL, appRepo, taskRepo, requestJSONValidator)
+		apiHandler := handlers.NewTask(*serverURL, appRepo, taskRepo, requestValidator)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
@@ -62,7 +62,7 @@ var _ = Describe("Task", func() {
 
 	Describe("POST /v3/apps/:app-guid/tasks", func() {
 		BeforeEach(func() {
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.TaskCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.TaskCreate{
 				Command: "echo hello",
 				Metadata: payloads.Metadata{
 					Labels:      map[string]string{"env": "production"},
@@ -79,8 +79,8 @@ var _ = Describe("Task", func() {
 		})
 
 		It("creates a task", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			body, err := io.ReadAll(req.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(body).To(MatchJSON(`{"input": "json"}`))
@@ -456,7 +456,7 @@ var _ = Describe("Task", func() {
 
 	Describe("PATCH /v3/tasks/:guid", func() {
 		BeforeEach(func() {
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.TaskUpdate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.TaskUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"env":                           tools.PtrTo("production"),
@@ -479,8 +479,8 @@ var _ = Describe("Task", func() {
 		})
 
 		It("patches the task with the new labels and annotations", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			body, err := io.ReadAll(req.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(body).To(MatchJSON(`{"input": "json"}`))

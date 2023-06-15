@@ -23,7 +23,7 @@ var _ = Describe("ServiceInstance", func() {
 	var (
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
 		spaceRepo           *fake.SpaceRepository
-		decoderValidator    *fake.RequestJSONValidator
+		decoderValidator    *fake.RequestValidator
 
 		reqMethod string
 		reqPath   string
@@ -38,7 +38,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		spaceRepo = new(fake.SpaceRepository)
 
-		decoderValidator = new(fake.RequestJSONValidator)
+		decoderValidator = new(fake.RequestValidator)
 
 		apiHandler := NewServiceInstance(
 			*serverURL,

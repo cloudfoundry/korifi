@@ -36,26 +36,26 @@ type RunnerInfoRepository interface {
 }
 
 type Deployment struct {
-	serverURL            url.URL
-	requestJSONValidator RequestJSONValidator
-	deploymentRepo       CFDeploymentRepository
-	runnerInfoRepo       RunnerInfoRepository
-	runnerName           string
+	serverURL        url.URL
+	requestValidator RequestValidator
+	deploymentRepo   CFDeploymentRepository
+	runnerInfoRepo   RunnerInfoRepository
+	runnerName       string
 }
 
 func NewDeployment(
 	serverURL url.URL,
-	requestJSONValidator RequestJSONValidator,
+	requestValidator RequestValidator,
 	deploymentRepo CFDeploymentRepository,
 	runnerInfoRepo RunnerInfoRepository,
 	runnerName string,
 ) *Deployment {
 	return &Deployment{
-		serverURL:            serverURL,
-		requestJSONValidator: requestJSONValidator,
-		deploymentRepo:       deploymentRepo,
-		runnerInfoRepo:       runnerInfoRepo,
-		runnerName:           runnerName,
+		serverURL:        serverURL,
+		requestValidator: requestValidator,
+		deploymentRepo:   deploymentRepo,
+		runnerInfoRepo:   runnerInfoRepo,
+		runnerName:       runnerName,
 	}
 }
 
@@ -64,7 +64,7 @@ func (h *Deployment) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.deployment.create")
 
 	var payload payloads.DeploymentCreate
-	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 

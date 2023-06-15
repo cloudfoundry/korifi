@@ -1,15 +1,26 @@
 package payloads
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
+
+	"github.com/jellydator/validation"
 )
+
+var allowedEnvelopeTypes = []string{"LOG", "COUNTER", "GAUGE", "TIMER", "EVENT"}
 
 type LogRead struct {
 	StartTime     int64
-	EnvelopeTypes []string `validate:"dive,eq=LOG|eq=COUNTER|eq=GAUGE|eq=TIMER|eq=EVENT"`
+	EnvelopeTypes []string
 	Limit         int64
 	Descending    bool
+}
+
+func (l LogRead) Validate() error {
+	return validation.ValidateStruct(&l,
+		validation.Field(&l.EnvelopeTypes, validation.Each(validation.StringIn(true, allowedEnvelopeTypes...).Error(fmt.Sprintf("value must be one of %q", allowedEnvelopeTypes)))),
+	)
 }
 
 func (l *LogRead) SupportedKeys() []string {

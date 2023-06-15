@@ -33,20 +33,20 @@ type CFDomainRepository interface {
 }
 
 type Domain struct {
-	serverURL            url.URL
-	requestJSONValidator RequestJSONValidator
-	domainRepo           CFDomainRepository
+	serverURL        url.URL
+	requestValidator RequestValidator
+	domainRepo       CFDomainRepository
 }
 
 func NewDomain(
 	serverURL url.URL,
-	requestJSONValidator RequestJSONValidator,
+	requestValidator RequestValidator,
 	domainRepo CFDomainRepository,
 ) *Domain {
 	return &Domain{
-		serverURL:            serverURL,
-		requestJSONValidator: requestJSONValidator,
-		domainRepo:           domainRepo,
+		serverURL:        serverURL,
+		requestValidator: requestValidator,
+		domainRepo:       domainRepo,
 	}
 }
 
@@ -55,7 +55,7 @@ func (h *Domain) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.create")
 
 	var payload payloads.DomainCreate
-	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -94,7 +94,7 @@ func (h *Domain) update(r *http.Request) (*routing.Response, error) { //nolint:d
 	domainGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.DomainUpdate
-	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 

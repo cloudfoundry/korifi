@@ -26,6 +26,16 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
+type RequestValidator interface {
+	DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error
+	DecodeAndValidateURLValues(r *http.Request, payloadObject KeyedPayload) error
+}
+
+type KeyedPayload interface {
+	SupportedKeys() []string
+	DecodeFromURLValues(url.Values) error
+}
+
 type DecoderValidator struct {
 	validator  *validator.Validate
 	translator ut.Translator
@@ -75,6 +85,30 @@ func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object
 	}
 
 	return dv.validatePayload(object)
+}
+
+func (dv *DecoderValidator) DecodeAndValidateURLValues(r *http.Request, object KeyedPayload) error {
+	if err := checkKeysAreSupported(object, r.Form); err != nil {
+		return apierrors.NewUnknownKeyError(err, object.SupportedKeys())
+	}
+	if err := object.DecodeFromURLValues(r.Form); err != nil {
+		return apierrors.NewMessageParseError(err)
+	}
+	return dv.validatePayload(object)
+}
+
+func checkKeysAreSupported(payloadObject KeyedPayload, values url.Values) error {
+	supportedKeys := map[string]bool{}
+	for _, key := range payloadObject.SupportedKeys() {
+		supportedKeys[key] = true
+	}
+	for key := range values {
+		if !supportedKeys[key] {
+			return fmt.Errorf("unsupported query parameter: %s", key)
+		}
+	}
+
+	return nil
 }
 
 func (dv *DecoderValidator) validatePayload(object interface{}) error {

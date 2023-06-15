@@ -28,9 +28,9 @@ var _ = Describe("Droplet", func() {
 		updatedAt = "1906-04-18T13:12:01Z"
 	)
 	var (
-		requestJSONValidator *fake.RequestJSONValidator
-		dropletRepo          *fake.CFDropletRepository
-		req                  *http.Request
+		requestValidator *fake.RequestValidator
+		dropletRepo      *fake.CFDropletRepository
+		req              *http.Request
 	)
 
 	BeforeEach(func() {
@@ -39,12 +39,12 @@ var _ = Describe("Droplet", func() {
 		req, err = http.NewRequestWithContext(ctx, "GET", "/v3/droplets/"+dropletGUID, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		requestValidator = new(fake.RequestValidator)
 
 		apiHandler := NewDroplet(
 			*serverURL,
 			dropletRepo,
-			requestJSONValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -184,12 +184,12 @@ var _ = Describe("Droplet", func() {
 				},
 			}
 
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 		})
 
 		It("validates the payload", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 
@@ -212,7 +212,7 @@ var _ = Describe("Droplet", func() {
 
 		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
 			It("returns an unprocessable entity error", func() {

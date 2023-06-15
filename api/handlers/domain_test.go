@@ -20,18 +20,18 @@ import (
 
 var _ = Describe("Domain", func() {
 	var (
-		apiHandler           *handlers.Domain
-		domainRepo           *fake.CFDomainRepository
-		requestJSONValidator *fake.RequestJSONValidator
-		req                  *http.Request
+		apiHandler       *handlers.Domain
+		domainRepo       *fake.CFDomainRepository
+		requestValidator *fake.RequestValidator
+		req              *http.Request
 	)
 
 	BeforeEach(func() {
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		requestValidator = new(fake.RequestValidator)
 		domainRepo = new(fake.CFDomainRepository)
 		apiHandler = handlers.NewDomain(
 			*serverURL,
-			requestJSONValidator,
+			requestValidator,
 			domainRepo,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -57,7 +57,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 
 			domainRepo.CreateDomainReturns(repositories.DomainRecord{
 				Name:        "my.domain",
@@ -75,8 +75,8 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("creates a domain", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			request, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			request, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Eventually(gbytes.BufferReader(request.Body)).Should(gbytes.Say("the-json-payload"))
 
 			Expect(domainRepo.CreateDomainCallCount()).To(Equal(1))
@@ -101,7 +101,7 @@ var _ = Describe("Domain", func() {
 
 		When("decoding the payload fails", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {
@@ -197,7 +197,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 
 			domainRepo.UpdateDomainReturns(repositories.DomainRecord{
 				Name:        "my.domain",
@@ -215,8 +215,8 @@ var _ = Describe("Domain", func() {
 		})
 
 		It("updates the domain", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			request, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			request, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Eventually(gbytes.BufferReader(request.Body)).Should(gbytes.Say("the-json-payload"))
 
 			Expect(domainRepo.UpdateDomainCallCount()).To(Equal(1))
@@ -240,7 +240,7 @@ var _ = Describe("Domain", func() {
 
 		When("decoding the payload fails", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {

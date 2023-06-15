@@ -49,10 +49,10 @@ type CFRoleRepository interface {
 type Role struct {
 	apiBaseURL       url.URL
 	roleRepo         CFRoleRepository
-	decoderValidator RequestJSONValidator
+	decoderValidator RequestValidator
 }
 
-func NewRole(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator RequestJSONValidator) *Role {
+func NewRole(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator RequestValidator) *Role {
 	return &Role{
 		apiBaseURL:       apiBaseURL,
 		roleRepo:         roleRepo,

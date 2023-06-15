@@ -334,6 +334,7 @@ func main() {
 			appRepo,
 			buildRepo,
 			appLogs,
+			decoderValidator,
 		),
 		handlers.NewOrg(
 			*serverURL,

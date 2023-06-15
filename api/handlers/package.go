@@ -26,7 +26,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
 //counterfeiter:generate -o fake -fake-name ImageRepository . ImageRepository
-//counterfeiter:generate -o fake -fake-name RequestJSONValidator . RequestJSONValidator
+//counterfeiter:generate -o fake -fake-name RequestValidator . RequestValidator
 
 type CFPackageRepository interface {
 	GetPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
@@ -40,17 +40,13 @@ type ImageRepository interface {
 	UploadSourceImage(ctx context.Context, authInfo authorization.Info, imageRef string, srcReader io.Reader, spaceGUID string, tags ...string) (imageRefWithDigest string, err error)
 }
 
-type RequestJSONValidator interface {
-	DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error
-}
-
 type Package struct {
 	serverURL          url.URL
 	packageRepo        CFPackageRepository
 	appRepo            CFAppRepository
 	dropletRepo        CFDropletRepository
 	imageRepo          ImageRepository
-	requestValidator   RequestJSONValidator
+	requestValidator   RequestValidator
 	registrySecretName string
 }
 
@@ -60,7 +56,7 @@ func NewPackage(
 	appRepo CFAppRepository,
 	dropletRepo CFDropletRepository,
 	imageRepo ImageRepository,
-	requestValidator RequestJSONValidator,
+	requestValidator RequestValidator,
 	registrySecretName string,
 ) *Package {
 	return &Package{

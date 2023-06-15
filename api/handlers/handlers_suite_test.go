@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/routing"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
@@ -101,6 +102,21 @@ func decodeAndValidateJSONPayloadStub[T any](desiredPayload *T) func(_ *http.Req
 
 		*decodedPayloadPtr = *desiredPayload
 
+		return nil
+	}
+}
+
+type keyedPayloadImpl[P any] interface {
+	handlers.KeyedPayload
+	*P
+}
+
+func decodeAndValidateURLValuesStub[P any, I keyedPayloadImpl[P]](desiredPayload I) func(*http.Request, handlers.KeyedPayload) error {
+	return func(_ *http.Request, output handlers.KeyedPayload) error {
+		outputPtr, ok := output.(I)
+		Expect(ok).To(BeTrue())
+
+		*outputPtr = *desiredPayload
 		return nil
 	}
 }
