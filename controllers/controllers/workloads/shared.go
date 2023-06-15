@@ -77,8 +77,8 @@ func propagateSecret(ctx context.Context, client client.Client, log logr.Logger,
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, client, newSecret, func() error {
-		newSecret.Annotations = shared.RemovePackageManagerAnnotations(secret.Annotations, log)
-		newSecret.Labels = shared.RemovePackageManagerAnnotations(secret.Labels, log)
+		newSecret.Annotations = shared.RemovePackageManagerKeys(secret.Annotations, log)
+		newSecret.Labels = shared.RemovePackageManagerKeys(secret.Labels, log)
 		newSecret.Immutable = secret.Immutable
 		newSecret.Data = secret.Data
 		newSecret.StringData = secret.StringData
@@ -125,8 +125,8 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 			}
 
 			result, err = controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
-				newRoleBinding.Annotations = shared.RemovePackageManagerAnnotations(binding.Annotations, log)
-				newRoleBinding.Labels = shared.RemovePackageManagerAnnotations(binding.Labels, log)
+				newRoleBinding.Annotations = shared.RemovePackageManagerKeys(binding.Annotations, log)
+				newRoleBinding.Labels = shared.RemovePackageManagerKeys(binding.Labels, log)
 				if newRoleBinding.Labels == nil {
 					newRoleBinding.Labels = map[string]string{}
 				}

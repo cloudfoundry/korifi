@@ -237,9 +237,9 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 			}
 
 			result, err = controllerutil.CreateOrPatch(ctx, r.client, spaceServiceAccount, func() error {
-				spaceServiceAccount.Annotations = shared.RemovePackageManagerAnnotations(rootServiceAccount.Annotations, loopLog)
+				spaceServiceAccount.Annotations = shared.RemovePackageManagerKeys(rootServiceAccount.Annotations, loopLog)
 
-				spaceServiceAccount.Labels = shared.RemovePackageManagerAnnotations(rootServiceAccount.Labels, loopLog)
+				spaceServiceAccount.Labels = shared.RemovePackageManagerKeys(rootServiceAccount.Labels, loopLog)
 				if spaceServiceAccount.Labels == nil {
 					spaceServiceAccount.Labels = map[string]string{}
 				}

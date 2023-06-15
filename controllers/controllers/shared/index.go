@@ -117,7 +117,7 @@ func GetConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType st
 	return metav1.ConditionUnknown
 }
 
-func RemovePackageManagerAnnotations(src map[string]string, log logr.Logger) map[string]string {
+func RemovePackageManagerKeys(src map[string]string, log logr.Logger) map[string]string {
 	if src == nil {
 		return src
 	}
