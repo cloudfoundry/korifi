@@ -113,7 +113,7 @@ var _ = Describe("Build", func() {
 			packageRepo                 *fake.CFPackageRepository
 			appRepo                     *fake.CFAppRepository
 			buildRepo                   *fake.CFBuildRepository
-			requestJSONValidator        *fake.RequestJSONValidator
+			requestValidator            *fake.RequestValidator
 			expectedLifecycleBuildpacks []string
 		)
 
@@ -133,8 +133,8 @@ var _ = Describe("Build", func() {
 		)
 
 		BeforeEach(func() {
-			requestJSONValidator = new(fake.RequestJSONValidator)
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.BuildCreate{
+			requestValidator = new(fake.RequestValidator)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.BuildCreate{
 				Package: &payloads.RelationshipData{
 					GUID: packageGUID,
 				},
@@ -191,7 +191,7 @@ var _ = Describe("Build", func() {
 				buildRepo,
 				packageRepo,
 				appRepo,
-				requestJSONValidator,
+				requestValidator,
 			)
 			routerBuilder.LoadRoutes(apiHandler)
 
@@ -304,7 +304,7 @@ var _ = Describe("Build", func() {
 
 		When("the JSON body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {

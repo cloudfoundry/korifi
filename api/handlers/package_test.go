@@ -31,7 +31,7 @@ var _ = Describe("Package", func() {
 		appRepo                    *fake.CFAppRepository
 		dropletRepo                *fake.CFDropletRepository
 		imageRepo                  *fake.ImageRepository
-		requestJSONValidator       *fake.RequestJSONValidator
+		requestValidator           *fake.RequestValidator
 		packageImagePullSecretName string
 
 		packageGUID string
@@ -46,7 +46,7 @@ var _ = Describe("Package", func() {
 		appRepo = new(fake.CFAppRepository)
 		dropletRepo = new(fake.CFDropletRepository)
 		imageRepo = new(fake.ImageRepository)
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		requestValidator = new(fake.RequestValidator)
 		packageImagePullSecretName = "package-image-pull-secret"
 
 		packageGUID = generateGUID("package")
@@ -61,7 +61,7 @@ var _ = Describe("Package", func() {
 			appRepo,
 			dropletRepo,
 			imageRepo,
-			requestJSONValidator,
+			requestValidator,
 			packageImagePullSecretName,
 		)
 
@@ -307,7 +307,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			appUID = "appUID"
 
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.PackageCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.PackageCreate{
 				Type: "bits",
 				Relationships: &payloads.PackageRelationships{
 					App: &payloads.Relationship{
@@ -424,7 +424,7 @@ var _ = Describe("Package", func() {
 
 		When("the request JSON is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "test-error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "test-error"))
 			})
 
 			It("returns an error", func() {
@@ -447,7 +447,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			packageGUID = generateGUID("package")
 
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.PackageUpdate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.PackageUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"bob": tools.PtrTo("foo"),
@@ -479,12 +479,12 @@ var _ = Describe("Package", func() {
 		})
 
 		It("validates the request payload", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 		})
 
 		When("the request payload validation fails", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(errors.New("req-invalid"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("req-invalid"))
 			})
 
 			It("returns an error", func() {

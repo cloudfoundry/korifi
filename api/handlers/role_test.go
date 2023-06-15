@@ -24,16 +24,16 @@ const (
 
 var _ = Describe("Role", func() {
 	var (
-		apiHandler           *handlers.Role
-		roleRepo             *fake.CFRoleRepository
-		requestJSONValidator *fake.RequestJSONValidator
+		apiHandler       *handlers.Role
+		roleRepo         *fake.CFRoleRepository
+		requestValidator *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
 		roleRepo = new(fake.CFRoleRepository)
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		requestValidator = new(fake.RequestValidator)
 
-		apiHandler = handlers.NewRole(*serverURL, roleRepo, requestJSONValidator)
+		apiHandler = handlers.NewRole(*serverURL, roleRepo, requestValidator)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
@@ -58,7 +58,7 @@ var _ = Describe("Role", func() {
 				},
 			}
 
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(roleCreate)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(roleCreate)
 		})
 
 		JustBeforeEach(func() {
@@ -133,7 +133,7 @@ var _ = Describe("Role", func() {
 
 		When("the payload validator returns an error", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("foo"), "some error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("foo"), "some error"))
 			})
 
 			It("returns an error", func() {

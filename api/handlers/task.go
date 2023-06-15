@@ -36,14 +36,14 @@ type Task struct {
 	serverURL        url.URL
 	appRepo          CFAppRepository
 	taskRepo         CFTaskRepository
-	requestValidator RequestJSONValidator
+	requestValidator RequestValidator
 }
 
 func NewTask(
 	serverURL url.URL,
 	appRepo CFAppRepository,
 	taskRepo CFTaskRepository,
-	requestValidator RequestJSONValidator,
+	requestValidator RequestValidator,
 ) *Task {
 	return &Task{
 		serverURL:        serverURL,

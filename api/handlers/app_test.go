@@ -30,15 +30,15 @@ const (
 
 var _ = Describe("App", func() {
 	var (
-		appRepo              *fake.CFAppRepository
-		dropletRepo          *fake.CFDropletRepository
-		processRepo          *fake.CFProcessRepository
-		routeRepo            *fake.CFRouteRepository
-		domainRepo           *fake.CFDomainRepository
-		spaceRepo            *fake.SpaceRepository
-		packageRepo          *fake.CFPackageRepository
-		requestJSONValidator *fake.RequestJSONValidator
-		req                  *http.Request
+		appRepo          *fake.CFAppRepository
+		dropletRepo      *fake.CFDropletRepository
+		processRepo      *fake.CFProcessRepository
+		routeRepo        *fake.CFRouteRepository
+		domainRepo       *fake.CFDomainRepository
+		spaceRepo        *fake.SpaceRepository
+		packageRepo      *fake.CFPackageRepository
+		requestValidator *fake.RequestValidator
+		req              *http.Request
 
 		appRecord repositories.AppRecord
 	)
@@ -51,7 +51,7 @@ var _ = Describe("App", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		spaceRepo = new(fake.SpaceRepository)
 		packageRepo = new(fake.CFPackageRepository)
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		requestValidator = new(fake.RequestValidator)
 
 		apiHandler := NewApp(
 			*serverURL,
@@ -62,7 +62,7 @@ var _ = Describe("App", func() {
 			domainRepo,
 			spaceRepo,
 			packageRepo,
-			requestJSONValidator,
+			requestValidator,
 		)
 
 		appRecord = repositories.AppRecord{
@@ -148,7 +148,7 @@ var _ = Describe("App", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 			appRepo.CreateAppReturns(appRecord, nil)
 			req = createHttpRequest("POST", "/v3/apps", strings.NewReader("the-json-body"))
 		})
@@ -180,8 +180,8 @@ var _ = Describe("App", func() {
 		})
 
 		It("validates the payload", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 
@@ -207,7 +207,7 @@ var _ = Describe("App", func() {
 
 		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -429,7 +429,7 @@ var _ = Describe("App", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 
 			appRepo.PatchAppMetadataReturns(appRecord, nil)
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader("the-json-body"))
@@ -447,8 +447,8 @@ var _ = Describe("App", func() {
 		})
 
 		It("validates the payload", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 
@@ -502,7 +502,7 @@ var _ = Describe("App", func() {
 
 		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -533,7 +533,7 @@ var _ = Describe("App", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader("the-json-body"))
 		})
@@ -570,8 +570,8 @@ var _ = Describe("App", func() {
 		})
 
 		It("validates the payload", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 
@@ -662,7 +662,7 @@ var _ = Describe("App", func() {
 		})
 		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -985,7 +985,7 @@ var _ = Describe("App", func() {
 				MemoryMB:  tools.PtrTo[int64](256),
 				DiskMB:    tools.PtrTo[int64](1024),
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 
 			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader("the-json-body"))
 		})
@@ -1034,13 +1034,13 @@ var _ = Describe("App", func() {
 		})
 
 		It("validates the payload", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -1495,7 +1495,7 @@ var _ = Describe("App", func() {
 					"KEY2": "VAL2",
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
 
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader("the-json-body"))
 		})
@@ -1524,14 +1524,14 @@ var _ = Describe("App", func() {
 		})
 
 		It("validates the payload", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestJSONValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
 		})
 
 		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
 			It("returns an unprocessable entity error", func() {

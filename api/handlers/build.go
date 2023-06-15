@@ -29,11 +29,11 @@ type CFBuildRepository interface {
 }
 
 type Build struct {
-	serverURL            url.URL
-	buildRepo            CFBuildRepository
-	packageRepo          CFPackageRepository
-	appRepo              CFAppRepository
-	requestJSONValidator RequestJSONValidator
+	serverURL        url.URL
+	buildRepo        CFBuildRepository
+	packageRepo      CFPackageRepository
+	appRepo          CFAppRepository
+	requestValidator RequestValidator
 }
 
 func NewBuild(
@@ -41,14 +41,14 @@ func NewBuild(
 	buildRepo CFBuildRepository,
 	packageRepo CFPackageRepository,
 	appRepo CFAppRepository,
-	requestJSONValidator RequestJSONValidator,
+	requestValidator RequestValidator,
 ) *Build {
 	return &Build{
-		serverURL:            serverURL,
-		buildRepo:            buildRepo,
-		packageRepo:          packageRepo,
-		appRepo:              appRepo,
-		requestJSONValidator: requestJSONValidator,
+		serverURL:        serverURL,
+		buildRepo:        buildRepo,
+		packageRepo:      packageRepo,
+		appRepo:          appRepo,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -70,7 +70,7 @@ func (h *Build) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.build.create")
 
 	var payload payloads.BuildCreate
-	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
