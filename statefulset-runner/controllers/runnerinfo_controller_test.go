@@ -81,7 +81,7 @@ var _ = Describe("RunnerInfo Reconcile", func() {
 			patchedRunnerInfo, ok := object.(*korifiv1alpha1.RunnerInfo)
 			Expect(ok).To(BeTrue())
 			Expect(patchedRunnerInfo.Status.ObservedGeneration).To(Equal(patchedRunnerInfo.Generation))
-			Expect(patchedRunnerInfo.Status.Capabilities.RollingDeploy).To(Equal(true))
+			Expect(patchedRunnerInfo.Status.Capabilities.RollingDeploy).To(BeTrue())
 		})
 	})
 })
