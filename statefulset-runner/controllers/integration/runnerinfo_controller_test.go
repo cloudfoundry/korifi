@@ -28,7 +28,7 @@ var _ = Describe("RunnerInfosController", func() {
 			namespaceName = prefixedGUID("ns")
 			runnerInfoName = "statefulset-runner"
 			createNamespace(ctx, k8sClient, namespaceName)
-	
+
 			runnerInfo = &korifiv1alpha1.RunnerInfo{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      runnerInfoName,
@@ -41,7 +41,7 @@ var _ = Describe("RunnerInfosController", func() {
 			Expect(k8sClient.Create(ctx, runnerInfo)).To(Succeed())
 			Expect(err).NotTo(HaveOccurred())
 		})
-	
+
 		getRunnerInfo := func(g Gomega) korifiv1alpha1.RunnerInfo {
 			runnerInfo := korifiv1alpha1.RunnerInfo{}
 			g.Eventually(func(g Gomega) {
@@ -49,7 +49,7 @@ var _ = Describe("RunnerInfosController", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(runnerInfo.Status.ObservedGeneration).To(BeEquivalentTo(1))
 			}).Should(Succeed())
-	
+
 			return runnerInfo
 		}
 
@@ -67,7 +67,7 @@ var _ = Describe("RunnerInfosController", func() {
 			namespaceName = prefixedGUID("ns")
 			runnerInfoName = "foobrizzle-runner"
 			createNamespace(ctx, k8sClient, namespaceName)
-	
+
 			runnerInfo = &korifiv1alpha1.RunnerInfo{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      runnerInfoName,
@@ -80,7 +80,7 @@ var _ = Describe("RunnerInfosController", func() {
 			Expect(k8sClient.Create(ctx, runnerInfo)).To(Succeed())
 			Expect(err).NotTo(HaveOccurred())
 		})
-	
+
 		getRunnerInfo := func(g Gomega) korifiv1alpha1.RunnerInfo {
 			runnerInfo := korifiv1alpha1.RunnerInfo{}
 			g.Eventually(func(g Gomega) {
@@ -88,7 +88,7 @@ var _ = Describe("RunnerInfosController", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(runnerInfo.Status.ObservedGeneration).To(BeEquivalentTo(0))
 			}).Should(Succeed())
-	
+
 			return runnerInfo
 		}
 
