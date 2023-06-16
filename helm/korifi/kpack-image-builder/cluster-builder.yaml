@@ -17,7 +17,7 @@ kind: ClusterStack
 metadata:
   name: cf-default-stack
 spec:
-  id: "io.buildpacks.stacks.bionic"
+  id: "io.buildpacks.stacks.jammy"
   buildImage:
     image: {{ .Values.kpackImageBuilder.clusterStackBuildImage | quote }}
   runImage:
