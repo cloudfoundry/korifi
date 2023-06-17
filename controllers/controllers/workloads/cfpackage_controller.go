@@ -89,13 +89,14 @@ func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builde
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/finalizers,verbs=get;update;patch
 
 func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfPackage.Namespace, "name", cfPackage.Name)
+	log := shared.ObjectLogger(r.log, cfPackage)
+	ctx = logr.NewContext(ctx, log)
 
 	cfPackage.Status.ObservedGeneration = cfPackage.Generation
 	log.V(1).Info("set observed generation", "generation", cfPackage.Status.ObservedGeneration)
 
 	if !cfPackage.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, log, cfPackage)
+		return r.finalize(ctx, cfPackage)
 	}
 
 	var cfApp korifiv1alpha1.CFApp
@@ -141,8 +142,8 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 	return ctrl.Result{}, nil
 }
 
-func (r *CFPackageReconciler) finalize(ctx context.Context, log logr.Logger, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
-	log = log.WithName("finalize")
+func (r *CFPackageReconciler) finalize(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalize")
 
 	if !controllerutil.ContainsFinalizer(cfPackage, korifiv1alpha1.CFPackageFinalizerName) {
 		return ctrl.Result{}, nil
