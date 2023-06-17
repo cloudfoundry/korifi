@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,6 +106,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 			g.Expect(createdCFProcess.Status.ObservedGeneration).To(Equal(createdCFProcess.Generation))
 		}).Should(Succeed())
+	})
+
+	It("writes a log message", func() {
+		Eventually(logOutput).Should(gbytes.Say("set observed generation"))
 	})
 
 	When("the CFApp desired state is STARTED", func() {
