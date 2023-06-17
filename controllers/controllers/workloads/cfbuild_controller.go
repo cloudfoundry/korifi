@@ -18,7 +18,6 @@ package workloads
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -107,7 +106,8 @@ func buildworkloadToBuild(ctx context.Context, o client.Object) []reconcile.Requ
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/finalizers,verbs=update
 
 func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfBuild.Namespace, "name", cfBuild.Name)
+	log := shared.ObjectLogger(r.log, cfBuild)
+	ctx = logr.NewContext(ctx, log)
 
 	cfBuild.Status.ObservedGeneration = cfBuild.Generation
 	log.V(1).Info("set observed generation", "generation", cfBuild.Status.ObservedGeneration)
@@ -134,13 +134,14 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 
 	err = r.buildCleaner.Clean(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfBuild.Namespace})
 	if err != nil {
-		log.Info("unable to clean old builds", "reason", err)
+		log.Info("unable to clean up old builds", "reason", err)
 	}
 
 	stagingStatus := shared.GetConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, cfBuild.Generation)
 	succeededStatus := shared.GetConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, cfBuild.Generation)
 
 	if succeededStatus != metav1.ConditionUnknown {
+		log.Info("build status indicates completion", "status", succeededStatus)
 		return ctrl.Result{}, nil
 	}
 
@@ -148,6 +149,7 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		err = r.createBuildWorkload(ctx, cfBuild, cfApp, cfPackage)
 		if err != nil {
 			log.Info("failed to create BuildWorkload", "reason", err)
+			return ctrl.Result{}, err
 		}
 
 		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
@@ -157,7 +159,7 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 			ObservedGeneration: cfBuild.Generation,
 		})
 
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	var buildWorkload korifiv1alpha1.BuildWorkload
@@ -216,6 +218,8 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 }
 
 func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createBuildWorkload")
+
 	namespace := cfBuild.Namespace
 	desiredWorkload := korifiv1alpha1.BuildWorkload{
 		ObjectMeta: metav1.ObjectMeta{
@@ -243,66 +247,78 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 
 	buildServices, err := r.prepareBuildServices(ctx, namespace, cfApp.Name)
 	if err != nil {
-		return fmt.Errorf("prepareBuildServices: %w", err)
+		return err
 	}
 	desiredWorkload.Spec.Services = buildServices
 
 	imageEnvironment, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		return fmt.Errorf("prepareEnvironment: %w", err)
+		log.Info("failed to build environment", "reason", err)
+		return err
 	}
 	desiredWorkload.Spec.Env = imageEnvironment
 
 	err = controllerutil.SetControllerReference(cfBuild, &desiredWorkload, r.scheme)
 	if err != nil {
-		return fmt.Errorf("failed to set OwnerRef on BuildWorkload: %w", err)
+		log.Info("failed to set OwnerRef on BuildWorkload", "reason", err)
+		return err
 	}
 
 	err = r.createBuildWorkloadIfNotExists(ctx, desiredWorkload)
 	if err != nil {
-		return fmt.Errorf("createBuildWorkloadIfNotExists: %w", err)
+		return err
 	}
 
 	return nil
 }
 
 func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace, appGUID string) ([]corev1.ObjectReference, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("prepareBuildServices")
+
 	serviceBindingsList := &korifiv1alpha1.CFServiceBindingList{}
 	err := r.k8sClient.List(ctx, serviceBindingsList,
 		client.InNamespace(namespace),
 		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error listing CFServiceBindings: %w", err)
+		log.Info("error listing CFServiceBindings", "reason", err)
+		return nil, err
 	}
 
 	var buildServices []corev1.ObjectReference
 	for _, serviceBinding := range serviceBindingsList.Items {
-		if serviceBinding.Status.Binding.Name != "" {
-			objRef := corev1.ObjectReference{
-				Kind:       "Secret",
-				Name:       serviceBinding.Status.Binding.Name,
-				APIVersion: "v1",
-			}
-			buildServices = append(buildServices, objRef)
-		} else {
-			return nil, errors.New("binding secret name is empty")
+		if serviceBinding.Status.Binding.Name == "" {
+			log.Info("binding secret name is empty")
+			return nil, err
 		}
+
+		objRef := corev1.ObjectReference{
+			Kind:       "Secret",
+			Name:       serviceBinding.Status.Binding.Name,
+			APIVersion: "v1",
+		}
+
+		buildServices = append(buildServices, objRef)
 	}
+
 	return buildServices, nil
 }
 
 func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createBuildWorkloadIfNotExists")
+
 	var foundWorkload korifiv1alpha1.BuildWorkload
 	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(&desiredWorkload), &foundWorkload)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			err = r.k8sClient.Create(ctx, &desiredWorkload)
 			if err != nil {
-				return fmt.Errorf("error creating BuildWorkload: %w", err)
+				log.Info("error creating BuildWorkload", "reason", err)
+				return err
 			}
 		} else {
-			return fmt.Errorf("error checking if BuildWorkload exists: %w", err)
+			log.Info("error checking if BuildWorkload exists", "reason", err)
+			return err
 		}
 	}
 	return nil
