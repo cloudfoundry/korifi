@@ -103,7 +103,8 @@ func (r *CFProcessReconciler) enqueueCFProcessRequests(ctx context.Context, o cl
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
 func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfProcess.Namespace, "name", cfProcess.Name)
+	log := shared.ObjectLogger(r.log, cfProcess)
+	ctx = logr.NewContext(ctx, log)
 
 	cfProcess.Status.ObservedGeneration = cfProcess.Generation
 	log.V(1).Info("set observed generation", "generation", cfProcess.Status.ObservedGeneration)
@@ -113,7 +114,7 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 	cfApp := new(korifiv1alpha1.CFApp)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
 	if err != nil {
-		r.log.Info("error when trying to fetch CFApp", "namespace", cfProcess.Namespace, "name", cfProcess.Spec.AppRef.Name, "reason", err)
+		log.Info("error when trying to fetch CFApp", "namespace", cfProcess.Namespace, "name", cfProcess.Spec.AppRef.Name, "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -164,28 +165,30 @@ func needsAppWorkload(cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFP
 }
 
 func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfAppRev, cfLastStopAppRev string) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchAppWorkload")
+
 	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
 	if err != nil {
-		r.log.Info("error when trying to fetch CFBuild", "namespace", cfProcess.Namespace, "name", cfApp.Spec.CurrentDropletRef.Name, "reason", err)
+		log.Info("error when trying to fetch CFBuild", "namespace", cfProcess.Namespace, "name", cfApp.Spec.CurrentDropletRef.Name, "reason", err)
 		return err
 	}
 
 	if cfBuild.Status.Droplet == nil {
-		r.log.Info("no build droplet status on CFBuild", "namespace", cfProcess.Namespace, "name", cfApp.Spec.CurrentDropletRef.Name, "reason", err)
+		log.Info("no build droplet status on CFBuild", "namespace", cfProcess.Namespace, "name", cfApp.Spec.CurrentDropletRef.Name, "reason", err)
 		return errors.New("no build droplet status on CFBuild")
 	}
 
 	var appPort int
 	appPort, err = r.getPort(ctx, cfProcess, cfApp)
 	if err != nil {
-		r.log.Info("error when trying to fetch routes for CFApp", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
+		log.Info("error when trying to fetch routes for CFApp", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
 		return err
 	}
 
 	envVars, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
-		r.log.Info("error when trying build the process environment for app", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
+		log.Info("error when trying build the process environment for app", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
 		return err
 	}
 
@@ -199,22 +202,24 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	var desiredAppWorkload *korifiv1alpha1.AppWorkload
 	desiredAppWorkload, err = r.generateAppWorkload(actualAppWorkload, cfApp, cfProcess, cfBuild, appPort, envVars, cfAppRev, cfLastStopAppRev)
 	if err != nil { // untested
-		r.log.Info("error when initializing AppWorkload", "reason", err)
+		log.Info("error when initializing AppWorkload", "reason", err)
 		return err
 	}
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, actualAppWorkload, appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload))
 	if err != nil {
-		r.log.Info("error calling CreateOrPatch on AppWorkload", "reason", err)
+		log.Info("error calling CreateOrPatch on AppWorkload", "reason", err)
 		return err
 	}
 	return nil
 }
 
 func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState, cfLastStopAppRev string) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("cleanUpAppWorkloads")
+
 	appWorkloadsForProcess, err := r.fetchAppWorkloadsForProcess(ctx, cfProcess)
 	if err != nil {
-		r.log.Info("error when trying to fetch AppWorkloads for process", "namespace", cfProcess.Namespace, "name", cfProcess.Name, "reason", err)
+		log.Info("error when trying to fetch AppWorkloads for process", "namespace", cfProcess.Namespace, "name", cfProcess.Name, "reason", err)
 		return err
 	}
 
@@ -222,7 +227,7 @@ func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess
 		if needsToDeleteAppWorkload(desiredState, cfProcess, currentAppWorkload, cfLastStopAppRev) {
 			err := r.k8sClient.Delete(ctx, &appWorkloadsForProcess[i])
 			if err != nil {
-				r.log.Info("error occurred deleting AppWorkload", "name", currentAppWorkload.Name, "reason", err)
+				log.Info("error occurred deleting AppWorkload", "name", currentAppWorkload.Name, "reason", err)
 				return err
 			}
 		}
@@ -324,12 +329,14 @@ func (r *CFProcessReconciler) fetchAppWorkloadsForProcess(ctx context.Context, c
 	if err != nil {
 		return []korifiv1alpha1.AppWorkload{}, err
 	}
+
 	var appWorkloadsForProcess []korifiv1alpha1.AppWorkload
 	for _, currentAppWorkload := range allAppWorkloads.Items {
 		if processGUID, has := currentAppWorkload.Labels[korifiv1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
 			appWorkloadsForProcess = append(appWorkloadsForProcess, currentAppWorkload)
 		}
 	}
+
 	return appWorkloadsForProcess, err
 }
 
@@ -383,12 +390,15 @@ func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CF
 	if cmd == "" {
 		cmd = process.Spec.DetectedCommand
 	}
+
 	if cmd == "" {
 		return []string{}
 	}
+
 	if app.Spec.Lifecycle.Type == korifiv1alpha1.BuildpackLifecycle {
 		return []string{"/cnb/lifecycle/launcher", cmd}
 	}
+
 	return []string{"/bin/sh", "-c", cmd}
 }
 
