@@ -348,15 +348,21 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
 
-			updatedTask := cfTask.DeepCopy()
-			meta.SetStatusCondition(&updatedTask.Status.Conditions, metav1.Condition{
-				Type:               korifiv1alpha1.TaskSucceededConditionType,
-				Status:             metav1.ConditionTrue,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "succeeded",
-				Message:            "succeeded",
-			})
-			Expect(k8sClient.Status().Patch(ctx, updatedTask, client.MergeFrom(cfTask))).To(Succeed())
+			// wait for reconciler to set initialized condition to avoid it overwriting the succeeded condition
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+			}).Should(Succeed())
+
+			Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+					Type:               korifiv1alpha1.TaskSucceededConditionType,
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+					Reason:             "succeeded",
+					Message:            "succeeded",
+				})
+			})).To(Succeed())
 		})
 
 		It("it can get the task shortly after completion", func() {
