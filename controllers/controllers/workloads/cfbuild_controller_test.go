@@ -100,7 +100,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(buildCleaner.CleanCallCount()).To(BeNumerically(">", cleanCallCount))
 			}).Should(Succeed())
-			_, app := buildCleaner.CleanArgsForCall(cleanCallCount)
+			_, app := buildCleaner.CleanArgsForCall(buildCleaner.CleanCallCount() - 1)
 			Expect(app.Name).To(Equal(cfAppGUID))
 			Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
 		})
