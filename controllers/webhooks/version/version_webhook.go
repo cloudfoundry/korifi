@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/version"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,20 +35,22 @@ func (r *VersionWebhook) SetupWebhookWithManager(mgr ctrl.Manager) {
 }
 
 func (r *VersionWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
-	versionlog.V(1).Info("adding-version")
-
 	var obj metav1.PartialObjectMetadata
 
 	if err := r.decoder.Decode(req, &obj); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
+	logger := versionlog.WithValues("kind", obj.GetObjectKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
+
 	switch req.Operation {
 	case corev1.Create:
+		logger.V(1).Info("adding-version-on-create")
 		return r.setVersion(ctx, obj, r.version)
 	case corev1.Update:
-		return r.resetVersion(ctx, obj, req)
+		return r.resetVersion(ctx, logger, obj, req)
 	default:
+		logger.Info("received-unexpected-operation-type", "operation", req.Operation)
 		return admission.Denied("we only accept create/update")
 	}
 }
@@ -73,17 +76,19 @@ func (r *VersionWebhook) setVersion(ctx context.Context, obj metav1.PartialObjec
 	return admission.PatchResponseFromRaw(origMarshalled, marshalled)
 }
 
-func (r *VersionWebhook) resetVersion(ctx context.Context, obj metav1.PartialObjectMetadata, req admission.Request) admission.Response {
+func (r *VersionWebhook) resetVersion(ctx context.Context, logger logr.Logger, obj metav1.PartialObjectMetadata, req admission.Request) admission.Response {
 	if _, ok := obj.Annotations[version.KorifiCreationVersionKey]; ok {
 		return admission.Allowed("already set")
 	}
 
 	var oldObj metav1.PartialObjectMetadata
 	if err := r.decoder.DecodeRaw(req.OldObject, &oldObj); err != nil {
+		logger.Error(err, "failed-to-decode-old-object")
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
 	if oldVersion, ok := oldObj.Annotations[version.KorifiCreationVersionKey]; ok {
+		logger.V(1).Info("restoring-removed-version", "version", oldVersion)
 		return r.setVersion(ctx, obj, oldVersion)
 	}
 
