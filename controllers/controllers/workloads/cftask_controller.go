@@ -51,7 +51,7 @@ type CFTaskReconciler struct {
 	k8sClient       client.Client
 	scheme          *runtime.Scheme
 	recorder        record.EventRecorder
-	logger          logr.Logger
+	log             logr.Logger
 	envBuilder      EnvBuilder
 	taskTTLDuration time.Duration
 }
@@ -60,7 +60,7 @@ func NewCFTaskReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	recorder record.EventRecorder,
-	logger logr.Logger,
+	log logr.Logger,
 	envBuilder EnvBuilder,
 	taskTTLDuration time.Duration,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask] {
@@ -68,11 +68,11 @@ func NewCFTaskReconciler(
 		k8sClient:       client,
 		scheme:          scheme,
 		recorder:        recorder,
-		logger:          logger,
+		log:             log,
 		envBuilder:      envBuilder,
 		taskTTLDuration: taskTTLDuration,
 	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask](logger, client, &taskReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask](log, client, &taskReconciler)
 }
 
 func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
@@ -88,7 +88,8 @@ func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifiv1alpha1.CFTask) (ctrl.Result, error) {
-	log := r.logger.WithValues("namespace", cfTask.Namespace, "name", cfTask.Name)
+	log := shared.ObjectLogger(r.log, cfTask)
+	ctx = logr.NewContext(ctx, log)
 
 	cfTask.Status.ObservedGeneration = cfTask.Generation
 	log.V(1).Info("set observed generation", "generation", cfTask.Status.ObservedGeneration)
@@ -103,11 +104,11 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 	}
 
 	if cfTask.Spec.Canceled {
-		err := r.handleCancelation(ctx, log, cfTask)
+		err := r.handleCancelation(ctx, cfTask)
 		return r.reconcileResult(cfTask, err)
 	}
 
-	cfApp, err := r.getApp(ctx, log, cfTask)
+	cfApp, err := r.getApp(ctx, cfTask)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -118,7 +119,7 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 		return ctrl.Result{}, err
 	}
 
-	cfDroplet, err := r.getDroplet(ctx, log, cfTask, cfApp)
+	cfDroplet, err := r.getDroplet(ctx, cfTask, cfApp)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -137,7 +138,7 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 		return r.reconcileResult(cfTask, err)
 	}
 
-	taskWorkload, err := r.createOrPatchTaskWorkload(ctx, log, cfTask, cfDroplet, webProcess, env)
+	taskWorkload, err := r.createOrPatchTaskWorkload(ctx, cfTask, cfDroplet, webProcess, env)
 	if err != nil {
 		return r.reconcileResult(cfTask, err)
 	}
@@ -162,27 +163,32 @@ func (r *CFTaskReconciler) setTaskStatus(cfTask *korifiv1alpha1.CFTask, taskWork
 	}
 }
 
-func (r *CFTaskReconciler) getApp(ctx context.Context, log logr.Logger, cfTask *korifiv1alpha1.CFTask) (*korifiv1alpha1.CFApp, error) {
+func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CFTask) (*korifiv1alpha1.CFApp, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("getApp").WithValues("appName", cfTask.Spec.AppRef.Name)
+
 	cfApp := new(korifiv1alpha1.CFApp)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{
 		Namespace: cfTask.Namespace,
 		Name:      cfTask.Spec.AppRef.Name,
 	}, cfApp)
 	if err != nil {
-		r.logger.Info("error-getting-cfapp", "reason", err)
 		if k8serrors.IsNotFound(err) {
 			r.recorder.Eventf(cfTask, "Warning", "AppNotFound", "Did not find app with name %s in namespace %s", cfTask.Spec.AppRef.Name, cfTask.Namespace)
+		} else {
+			log.Info("error getting CFApp", "reason", err)
 		}
+
 		return nil, err
 	}
 
 	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady) {
-		r.logger.Info("cfapp not staged", "app-namespace", cfApp.Namespace, "app-name", cfApp.Name)
+		log.Info("CFApp not staged", "appNamespace", cfApp.Namespace, "appName", cfApp.Name)
 		r.recorder.Eventf(cfTask, "Warning", "AppNotStaged", "App %s:%s is not staged", cfApp.Namespace, cfApp.Name)
 		return nil, errors.New("app not staged")
 	}
 
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
+		log.Info("app droplet ref not set")
 		r.recorder.Eventf(cfTask, "Warning", "AppCurrentDropletRefNotSet", "App %s does not have a current droplet", cfTask.Spec.AppRef.Name)
 		return nil, errors.New("app droplet ref not set")
 	}
@@ -190,7 +196,9 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, log logr.Logger, cfTask *
 	return cfApp, nil
 }
 
-func (r *CFTaskReconciler) getDroplet(ctx context.Context, log logr.Logger, cfTask *korifiv1alpha1.CFTask, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.CFBuild, error) {
+func (r *CFTaskReconciler) getDroplet(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.CFBuild, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("getDroplet").WithValues("dropletName", cfApp.Spec.CurrentDropletRef.Name)
+
 	cfDroplet := new(korifiv1alpha1.CFBuild)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{
 		Namespace: cfApp.Namespace,
@@ -200,13 +208,14 @@ func (r *CFTaskReconciler) getDroplet(ctx context.Context, log logr.Logger, cfTa
 		if k8serrors.IsNotFound(err) {
 			r.recorder.Eventf(cfTask, "Warning", "AppCurrentDropletNotFound", "Current droplet %s for app %s does not exist", cfApp.Spec.CurrentDropletRef.Name, cfTask.Spec.AppRef.Name)
 		} else {
-			r.logger.Info("error-getting-cfdroplet", "reason", err)
+			log.Info("error getting CFDroplet", "reason", err)
 		}
 
 		return nil, err
 	}
 
 	if cfDroplet.Status.Droplet == nil {
+		log.Info("droplet build status not set")
 		r.recorder.Eventf(cfTask, "Warning", "DropletBuildStatusNotSet", "Current droplet %s from app %s does not have a droplet image", cfApp.Spec.CurrentDropletRef.Name, cfTask.Spec.AppRef.Name)
 		return nil, errors.New("droplet build status not set")
 	}
@@ -223,6 +232,7 @@ func (r *CFTaskReconciler) getWebProcess(ctx context.Context, cfApp *korifiv1alp
 	if err != nil {
 		return korifiv1alpha1.CFProcess{}, fmt.Errorf("failed to list app processes: %w", err)
 	}
+
 	if len(processList.Items) != 1 {
 		return korifiv1alpha1.CFProcess{}, fmt.Errorf("expected exactly one web process, found %d", len(processList.Items))
 	}
@@ -230,7 +240,9 @@ func (r *CFTaskReconciler) getWebProcess(ctx context.Context, cfApp *korifiv1alp
 	return processList.Items[0], nil
 }
 
-func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, log logr.Logger, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess, env []corev1.EnvVar) (*korifiv1alpha1.TaskWorkload, error) {
+func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, cfTask *korifiv1alpha1.CFTask, cfDroplet *korifiv1alpha1.CFBuild, webProcess korifiv1alpha1.CFProcess, env []corev1.EnvVar) (*korifiv1alpha1.TaskWorkload, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchTaskWorkload")
+
 	taskWorkload := &korifiv1alpha1.TaskWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
@@ -242,6 +254,7 @@ func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, log lo
 		if taskWorkload.Labels == nil {
 			taskWorkload.Labels = map[string]string{}
 		}
+
 		taskWorkload.Labels[korifiv1alpha1.CFTaskGUIDLabelKey] = cfTask.Name
 
 		taskWorkload.Spec.Command = []string{LifecycleLauncherPath, cfTask.Spec.Command}
@@ -251,6 +264,7 @@ func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, log lo
 		if taskWorkload.Spec.Resources.Requests == nil {
 			taskWorkload.Spec.Resources.Requests = corev1.ResourceList{}
 		}
+
 		if taskWorkload.Spec.Resources.Limits == nil {
 			taskWorkload.Spec.Resources.Limits = corev1.ResourceList{}
 		}
@@ -263,14 +277,14 @@ func (r *CFTaskReconciler) createOrPatchTaskWorkload(ctx context.Context, log lo
 		taskWorkload.Spec.Env = env
 
 		if err := ctrl.SetControllerReference(cfTask, taskWorkload, r.scheme); err != nil {
-			r.logger.Info("failed to set owner ref", "reason", err)
+			log.Info("failed to set owner ref", "reason", err)
 			return err
 		}
 
 		return nil
 	})
 	if err != nil {
-		r.logger.Info("error-creating-or-patching-task-workload", "opResult", opResult, "reason", err)
+		log.Info("error-creating-or-patching-task-workload", "opResult", opResult, "reason", err)
 		return nil, err
 	}
 
@@ -286,10 +300,12 @@ func calculateDefaultCPURequestMillicores(memoryMiB int64) int64 {
 		cpuRequestRatio         int64 = 1024
 		cpuRequestMinMillicores int64 = 5
 	)
+
 	cpuMillicores := int64(100) * memoryMiB / cpuRequestRatio
 	if cpuMillicores < cpuRequestMinMillicores {
 		cpuMillicores = cpuRequestMinMillicores
 	}
+
 	return cpuMillicores
 }
 
@@ -303,7 +319,9 @@ func (r *CFTaskReconciler) initializeStatus(ctx context.Context, cfTask *korifiv
 	})
 }
 
-func (r *CFTaskReconciler) handleCancelation(ctx context.Context, log logr.Logger, cfTask *korifiv1alpha1.CFTask) error {
+func (r *CFTaskReconciler) handleCancelation(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("handleCancelation")
+
 	taskWorkload := &korifiv1alpha1.TaskWorkload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfTask.Name,
@@ -312,7 +330,7 @@ func (r *CFTaskReconciler) handleCancelation(ctx context.Context, log logr.Logge
 	}
 	err := r.k8sClient.Delete(ctx, taskWorkload)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.logger.Info("error-deleting-task-workload", "reason", err)
+		log.Info("error-deleting-task-workload", "reason", err)
 		return err
 	}
 
