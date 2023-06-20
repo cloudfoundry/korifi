@@ -79,6 +79,21 @@ var _ = Describe("NameRegistry", func() {
 				Expect(err).To(MatchError(ContainSubstring("creating a lease failed")))
 			})
 		})
+
+		When("in a dry-run request context", func() {
+			BeforeEach(func() {
+				ctx = admission.NewContextWithRequest(ctx, admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						DryRun: tools.PtrTo(true),
+					},
+				})
+			})
+
+			It("does not create a lease", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client.CreateCallCount()).To(BeZero())
+			})
+		})
 	})
 
 	Describe("DeregisterName", func() {
@@ -117,6 +132,21 @@ var _ = Describe("NameRegistry", func() {
 					ContainSubstring("boom!"),
 					ContainSubstring("deleting a lease failed"),
 				)))
+			})
+		})
+
+		When("in a dry-run request context", func() {
+			BeforeEach(func() {
+				ctx = admission.NewContextWithRequest(ctx, admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						DryRun: tools.PtrTo(true),
+					},
+				})
+			})
+
+			It("does not delete the lease", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client.DeleteCallCount()).To(BeZero())
 			})
 		})
 	})
@@ -169,6 +199,21 @@ var _ = Describe("NameRegistry", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
+
+		When("in a dry-run request context", func() {
+			BeforeEach(func() {
+				ctx = admission.NewContextWithRequest(ctx, admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						DryRun: tools.PtrTo(true),
+					},
+				})
+			})
+
+			It("does not patch the lease", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client.PatchCallCount()).To(BeZero())
+			})
+		})
 	})
 
 	Describe("UnlockName", func() {
@@ -206,6 +251,21 @@ var _ = Describe("NameRegistry", func() {
 					ContainSubstring("boom!"),
 					ContainSubstring("failed to release lock on lease"),
 				)))
+			})
+		})
+
+		When("in a dry-run request context", func() {
+			BeforeEach(func() {
+				ctx = admission.NewContextWithRequest(ctx, admission.Request{
+					AdmissionRequest: admissionv1.AdmissionRequest{
+						DryRun: tools.PtrTo(true),
+					},
+				})
+			})
+
+			It("does not patch the lease", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client.PatchCallCount()).To(BeZero())
 			})
 		})
 	})
