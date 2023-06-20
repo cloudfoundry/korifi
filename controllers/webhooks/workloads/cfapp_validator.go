@@ -3,7 +3,6 @@ package workloads
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -17,9 +16,8 @@ import (
 )
 
 const (
-	AppEntityType                = "app"
-	AppDecodingErrorType         = "AppDecodingError"
-	duplicateAppNameErrorMessage = "App with the name '%s' already exists."
+	AppEntityType        = "app"
+	AppDecodingErrorType = "AppDecodingError"
 )
 
 var cfapplog = logf.Log.WithName("cfapp-validate")
@@ -51,8 +49,7 @@ func (v *CFAppValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName), duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, app)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -75,8 +72,7 @@ func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateAppNameErrorMessage, app.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, strings.ToLower(oldApp.Spec.DisplayName), strings.ToLower(app.Spec.DisplayName), duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, oldApp, app)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -90,7 +86,7 @@ func (v *CFAppValidator) ValidateDelete(ctx context.Context, obj runtime.Object)
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, strings.ToLower(app.Spec.DisplayName))
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, app)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}

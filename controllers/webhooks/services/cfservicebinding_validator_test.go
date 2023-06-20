@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -75,23 +74,24 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 		It("tries to create a lock for the service binding", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-			_, _, actualNamespace, lock, _ := duplicateValidator.ValidateCreateArgsForCall(0)
+			_, _, actualNamespace, actualResource := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualNamespace).To(Equal(defaultNamespace))
-			Expect(lock).To(Equal(fmt.Sprintf("sb::%s::%s::%s", appGUID, defaultNamespace, serviceInstanceGUID)))
+			Expect(actualResource).To(Equal(serviceBinding))
+			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("Service binding already exists: App: " + appGUID + " Service Instance: " + serviceInstanceGUID))
 		})
 
 		When("a duplicate service binding already exists", func() {
 			BeforeEach(func() {
 				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Service binding already exists: App: " + appGUID + " Service Instance: " + serviceInstanceGUID,
+					Message: "foo",
 				})
 			})
 
 			It("prevents the creation of the duplicate service binding", func() {
 				Expect(retErr).To(matchers.BeValidationError(
 					webhooks.DuplicateNameErrorType,
-					Equal("Service binding already exists: App: "+appGUID+" Service Instance: "+serviceInstanceGUID),
+					Equal("foo"),
 				))
 			})
 		})
@@ -182,9 +182,9 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 		It("tries to delete the lock for the service binding", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-			_, _, actualNamespace, lock := duplicateValidator.ValidateDeleteArgsForCall(0)
+			_, _, actualNamespace, actualResource := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualNamespace).To(Equal(defaultNamespace))
-			Expect(lock).To(Equal(fmt.Sprintf("sb::%s::%s::%s", appGUID, defaultNamespace, serviceInstanceGUID)))
+			Expect(actualResource).To(Equal(serviceBinding))
 		})
 
 		When("the lock resource cannot be deleted", func() {

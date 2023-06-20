@@ -17,8 +17,6 @@ import (
 
 const (
 	ServiceInstanceEntityType = "serviceinstance"
-	// Note: the cf cli expects the specific text 'The service instance name is taken'
-	duplicateServiceInstanceNameErrorMessage = "The service instance name is taken: %s"
 )
 
 var cfserviceinstancelog = logf.Log.WithName("cfserviceinstance-validate")
@@ -50,8 +48,7 @@ func (v *CFServiceInstanceValidator) ValidateCreate(ctx context.Context, obj run
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance.Spec.DisplayName, duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -74,8 +71,7 @@ func (v *CFServiceInstanceValidator) ValidateUpdate(ctx context.Context, oldObj,
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", oldObj))
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, serviceInstance.Namespace, oldServiceInstance.Spec.DisplayName, serviceInstance.Spec.DisplayName, duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, serviceInstance.Namespace, oldServiceInstance, serviceInstance)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -89,7 +85,7 @@ func (v *CFServiceInstanceValidator) ValidateDelete(ctx context.Context, obj run
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance.Spec.DisplayName)
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}

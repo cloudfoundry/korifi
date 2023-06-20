@@ -66,24 +66,25 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, name, _ := duplicateValidator.ValidateCreateArgsForCall(0)
+			actualContext, _, actualNamespace, actualResource := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(serviceInstance.Namespace))
-			Expect(name).To(Equal(serviceInstance.Spec.DisplayName))
+			Expect(actualResource).To(Equal(serviceInstance))
+			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("The service instance name is taken: " + serviceInstance.Spec.DisplayName))
 		})
 
 		When("the serviceInstance name is a duplicate", func() {
 			BeforeEach(func() {
 				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
-					Message: `The service instance name is taken: ` + serviceInstance.Spec.DisplayName,
+					Message: "foo",
 				})
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.BeValidationError(
 					webhooks.DuplicateNameErrorType,
-					Equal(`The service instance name is taken: `+serviceInstance.Spec.DisplayName),
+					Equal("foo"),
 				))
 			})
 		})
@@ -123,11 +124,11 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, oldName, newName, _ := duplicateValidator.ValidateUpdateArgsForCall(0)
+			actualContext, _, actualNamespace, oldResource, newResource := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(serviceInstance.Namespace))
-			Expect(oldName).To(Equal(serviceInstance.Spec.DisplayName))
-			Expect(newName).To(Equal(updatedServiceInstance.Spec.DisplayName))
+			Expect(oldResource).To(Equal(serviceInstance))
+			Expect(newResource).To(Equal(updatedServiceInstance))
 		})
 
 		When("the service instance is being deleted", func() {
@@ -144,14 +145,14 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 			BeforeEach(func() {
 				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
-					Message: `The service instance name is taken: ` + updatedServiceInstance.Spec.DisplayName,
+					Message: "foo",
 				})
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.BeValidationError(
 					webhooks.DuplicateNameErrorType,
-					Equal("The service instance name is taken: "+updatedServiceInstance.Spec.DisplayName),
+					Equal("foo"),
 				))
 			})
 		})
@@ -184,10 +185,10 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
+			actualContext, _, actualNamespace, actualResource := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(serviceInstance.Namespace))
-			Expect(name).To(Equal(serviceInstance.Spec.DisplayName))
+			Expect(actualResource).To(Equal(serviceInstance))
 		})
 
 		When("delete validation fails", func() {

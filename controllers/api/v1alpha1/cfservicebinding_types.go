@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -73,6 +75,14 @@ type CFServiceBindingList struct {
 
 func (b CFServiceBinding) StatusConditions() []metav1.Condition {
 	return b.Status.Conditions
+}
+
+func (b CFServiceBinding) UniqueName() string {
+	return fmt.Sprintf("sb::%s::%s::%s", b.Spec.AppRef.Name, b.Spec.Service.Namespace, b.Spec.Service.Name)
+}
+
+func (b CFServiceBinding) UniqueValidationErrorMessage() string {
+	return fmt.Sprintf("Service binding already exists: App: %s Service Instance: %s", b.Spec.AppRef.Name, b.Spec.Service.Name)
 }
 
 func init() {

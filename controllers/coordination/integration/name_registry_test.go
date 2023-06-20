@@ -35,39 +35,39 @@ var _ = Describe("Name Registry", func() {
 		})
 
 		It("can register a unique name in a namespace", func() {
-			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 		})
 
 		It("can register the same name in two namespaces", func() {
-			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
-			Expect(nameRegistry.RegisterName(ctx, ns2.Name, name)).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns2.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 		})
 
 		It("can register the same name for different entity types in the same namespace", func() {
 			anotherNameRegistry := coordination.NewNameRegistry(k8sClient, "something-else")
-			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
-			Expect(anotherNameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
+			Expect(anotherNameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 		})
 
 		When("a name is already registered", func() {
 			BeforeEach(func() {
-				Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+				Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 			})
 
 			It("returns an already exists error when trying to register that name again", func() {
-				err := nameRegistry.RegisterName(ctx, ns1.Name, name)
+				err := nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")
 				Expect(k8serrors.IsAlreadyExists(err)).To(BeTrue())
 			})
 		})
 
 		When("a name is already registered but using a different registry with the same type", func() {
 			BeforeEach(func() {
-				Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+				Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 			})
 
 			It("returns an already exists error when trying to register that name again", func() {
 				anotherNameRegistry := coordination.NewNameRegistry(k8sClient, "my-entity")
-				err := anotherNameRegistry.RegisterName(ctx, ns1.Name, name)
+				err := anotherNameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")
 				Expect(k8serrors.IsAlreadyExists(err)).To(BeTrue())
 			})
 		})
@@ -75,7 +75,7 @@ var _ = Describe("Name Registry", func() {
 
 	Describe("Deregistering a name", func() {
 		BeforeEach(func() {
-			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 		})
 
 		It("can delete a registered name", func() {
@@ -84,7 +84,7 @@ var _ = Describe("Name Registry", func() {
 
 		It("can re-register a deleted name", func() {
 			Expect(nameRegistry.DeregisterName(ctx, ns1.Name, name)).To(Succeed())
-			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 		})
 
 		When("the name is locked", func() {
@@ -107,7 +107,7 @@ var _ = Describe("Name Registry", func() {
 
 	Describe("locking a name", func() {
 		BeforeEach(func() {
-			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 		})
 
 		It("can lock an unlocked name", func() {
@@ -128,7 +128,7 @@ var _ = Describe("Name Registry", func() {
 
 	Describe("unlocking a name", func() {
 		BeforeEach(func() {
-			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name)).To(Succeed())
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 			Expect(nameRegistry.TryLockName(ctx, ns1.Name, name)).To(Succeed())
 		})
 

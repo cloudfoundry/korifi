@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -20,9 +19,7 @@ import (
 const (
 	CFOrgEntityType      = "cforg"
 	OrgDecodingErrorType = "OrgDecodingError"
-	// Note: the cf cli expects the specfic text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
-	duplicateOrgNameErrorMessage = "Organization '%s' already exists."
-	maxLabelLength               = 63
+	maxLabelLength       = 63
 )
 
 var cfOrgLog = logf.Log.WithName("cforg-validate")
@@ -66,8 +63,7 @@ func (v *CFOrgValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 		return nil, err.ExportJSONError()
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateOrgNameErrorMessage, org.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfOrgLog, org.Namespace, strings.ToLower(org.Spec.DisplayName), duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfOrgLog, org.Namespace, org)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -90,8 +86,7 @@ func (v *CFOrgValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateOrgNameErrorMessage, org.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfOrgLog, org.Namespace, strings.ToLower(oldOrg.Spec.DisplayName), strings.ToLower(org.Spec.DisplayName), duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfOrgLog, org.Namespace, oldOrg, org)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -105,7 +100,7 @@ func (v *CFOrgValidator) ValidateDelete(ctx context.Context, obj runtime.Object)
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfOrgLog, org.Namespace, strings.ToLower(org.Spec.DisplayName))
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfOrgLog, org.Namespace, org)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}

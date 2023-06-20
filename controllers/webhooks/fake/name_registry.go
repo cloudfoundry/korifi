@@ -22,12 +22,14 @@ type NameRegistry struct {
 	deregisterNameReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RegisterNameStub        func(context.Context, string, string) error
+	RegisterNameStub        func(context.Context, string, string, string, string) error
 	registerNameMutex       sync.RWMutex
 	registerNameArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
+		arg4 string
+		arg5 string
 	}
 	registerNameReturns struct {
 		result1 error
@@ -128,20 +130,22 @@ func (fake *NameRegistry) DeregisterNameReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *NameRegistry) RegisterName(arg1 context.Context, arg2 string, arg3 string) error {
+func (fake *NameRegistry) RegisterName(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string) error {
 	fake.registerNameMutex.Lock()
 	ret, specificReturn := fake.registerNameReturnsOnCall[len(fake.registerNameArgsForCall)]
 	fake.registerNameArgsForCall = append(fake.registerNameArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-	}{arg1, arg2, arg3})
+		arg4 string
+		arg5 string
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.RegisterNameStub
 	fakeReturns := fake.registerNameReturns
-	fake.recordInvocation("RegisterName", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("RegisterName", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.registerNameMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1
@@ -155,17 +159,17 @@ func (fake *NameRegistry) RegisterNameCallCount() int {
 	return len(fake.registerNameArgsForCall)
 }
 
-func (fake *NameRegistry) RegisterNameCalls(stub func(context.Context, string, string) error) {
+func (fake *NameRegistry) RegisterNameCalls(stub func(context.Context, string, string, string, string) error) {
 	fake.registerNameMutex.Lock()
 	defer fake.registerNameMutex.Unlock()
 	fake.RegisterNameStub = stub
 }
 
-func (fake *NameRegistry) RegisterNameArgsForCall(i int) (context.Context, string, string) {
+func (fake *NameRegistry) RegisterNameArgsForCall(i int) (context.Context, string, string, string, string) {
 	fake.registerNameMutex.RLock()
 	defer fake.registerNameMutex.RUnlock()
 	argsForCall := fake.registerNameArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *NameRegistry) RegisterNameReturns(result1 error) {
