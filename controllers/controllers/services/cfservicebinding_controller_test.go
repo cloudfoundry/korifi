@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -189,6 +190,10 @@ var _ = Describe("CFServiceBinding", func() {
 			g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceBinding), cfServiceBinding)).To(Succeed())
 			g.Expect(cfServiceBinding.Status.ObservedGeneration).To(Equal(cfServiceBinding.Generation))
 		}).Should(Succeed())
+	})
+
+	It("writes a log message", func() {
+		Eventually(logOutput).Should(gbytes.Say("set observed generation"))
 	})
 
 	When("the CFServiceBinding has a displayName set", func() {

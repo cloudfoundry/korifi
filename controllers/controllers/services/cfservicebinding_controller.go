@@ -23,7 +23,9 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	"github.com/go-logr/logr"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -71,7 +73,8 @@ func (r *CFServiceBindingReconciler) SetupWithManager(mgr ctrl.Manager) *builder
 //+kubebuilder:rbac:groups=servicebinding.io,resources=servicebindings,verbs=get;list;create;update;patch;watch
 
 func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfServiceBinding.Namespace, "name", cfServiceBinding.Name)
+	log := shared.ObjectLogger(r.log, cfServiceBinding)
+	ctx = logr.NewContext(ctx, log)
 
 	cfServiceBinding.Status.ObservedGeneration = cfServiceBinding.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceBinding.Status.ObservedGeneration)
@@ -224,13 +227,16 @@ func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.S
 			Name:       cfServiceBinding.Name,
 		},
 	}
+
 	secretType, ok := secret.Data["type"]
 	if ok && len(secretType) > 0 {
 		desiredServiceBinding.Spec.Type = string(secretType)
 	}
+
 	secretProvider, ok := secret.Data["provider"]
 	if ok {
 		desiredServiceBinding.Spec.Provider = string(secretProvider)
 	}
+
 	return &desiredServiceBinding
 }
