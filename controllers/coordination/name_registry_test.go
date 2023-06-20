@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,26 +24,18 @@ var _ = Describe("NameRegistry", func() {
 		nameRegistry coordination.NameRegistry
 		client       *fake.Client
 		ctx          context.Context
-
-		entityType string
-		namespace  string
-		name       string
-		err        error
+		err          error
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		client = new(fake.Client)
-		entityType = "my-type"
-		nameRegistry = coordination.NewNameRegistry(client, entityType)
-
-		namespace = "my-namespace"
-		name = "my-name"
+		nameRegistry = coordination.NewNameRegistry(client, "my-type")
 	})
 
 	Describe("RegisterName", func() {
 		JustBeforeEach(func() {
-			err = nameRegistry.RegisterName(ctx, namespace, name)
+			err = nameRegistry.RegisterName(ctx, "the-namespace", "the-name", "the-owner-namespace", "the-owner-name")
 		})
 
 		It("creates a lease", func() {
@@ -52,23 +45,16 @@ var _ = Describe("NameRegistry", func() {
 			_, obj, _ := client.CreateArgsForCall(0)
 			Expect(obj).To(BeAssignableToTypeOf(&coordinationv1.Lease{}))
 			lease := obj.(*coordinationv1.Lease)
-			Expect(lease.Namespace).To(Equal(namespace))
+
+			Expect(lease.Namespace).To(Equal("the-namespace"))
 			Expect(lease.Name).To(HavePrefix("n-"))
-			none := "none"
-			Expect(lease.Spec.HolderIdentity).To(Equal(&none))
-		})
-
-		It("annotates the lease with the parameters from the registration", func() {
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(client.CreateCallCount()).To(Equal(1))
-			_, obj, _ := client.CreateArgsForCall(0)
-			Expect(obj).To(BeAssignableToTypeOf(&coordinationv1.Lease{}))
-			lease := obj.(*coordinationv1.Lease)
+			Expect(lease.Spec.HolderIdentity).To(gstruct.PointTo(Equal("none")))
 			Expect(lease.Annotations).To(SatisfyAll(
 				HaveKeyWithValue("coordination.cloudfoundry.org/entity-type", "my-type"),
-				HaveKeyWithValue("coordination.cloudfoundry.org/namespace", "my-namespace"),
-				HaveKeyWithValue("coordination.cloudfoundry.org/name", "my-name"),
+				HaveKeyWithValue("coordination.cloudfoundry.org/namespace", "the-namespace"),
+				HaveKeyWithValue("coordination.cloudfoundry.org/name", "the-name"),
+				HaveKeyWithValue("coordination.cloudfoundry.org/owner-namespace", "the-owner-namespace"),
+				HaveKeyWithValue("coordination.cloudfoundry.org/owner-name", "the-owner-name"),
 			))
 		})
 
@@ -101,7 +87,7 @@ var _ = Describe("NameRegistry", func() {
 
 	Describe("DeregisterName", func() {
 		JustBeforeEach(func() {
-			err = nameRegistry.DeregisterName(ctx, namespace, name)
+			err = nameRegistry.DeregisterName(ctx, "the-namespace", "the-name")
 		})
 
 		It("deletes the lease", func() {
@@ -111,7 +97,7 @@ var _ = Describe("NameRegistry", func() {
 			_, obj, _ := client.DeleteArgsForCall(0)
 			Expect(obj).To(BeAssignableToTypeOf(&coordinationv1.Lease{}))
 			lease := obj.(*coordinationv1.Lease)
-			Expect(lease.Namespace).To(Equal(namespace))
+			Expect(lease.Namespace).To(Equal("the-namespace"))
 			Expect(lease.Name).To(HavePrefix("n-"))
 		})
 
@@ -156,7 +142,7 @@ var _ = Describe("NameRegistry", func() {
 
 	Describe("TryLockName", func() {
 		JustBeforeEach(func() {
-			err = nameRegistry.TryLockName(ctx, namespace, name)
+			err = nameRegistry.TryLockName(ctx, "the-namespace", "the-name")
 		})
 
 		It("acquires the lock atomically using test and replace patching", func() {
@@ -166,7 +152,7 @@ var _ = Describe("NameRegistry", func() {
 			_, obj, patch, _ := client.PatchArgsForCall(0)
 			Expect(obj).To(BeAssignableToTypeOf(&coordinationv1.Lease{}))
 			lease := obj.(*coordinationv1.Lease)
-			Expect(lease.Namespace).To(Equal(namespace))
+			Expect(lease.Namespace).To(Equal("the-namespace"))
 			Expect(lease.Name).To(HavePrefix("n-"))
 
 			Expect(patch.Type()).To(Equal(types.JSONPatchType))
@@ -210,7 +196,7 @@ var _ = Describe("NameRegistry", func() {
 
 	Describe("UnlockName", func() {
 		JustBeforeEach(func() {
-			err = nameRegistry.UnlockName(ctx, namespace, name)
+			err = nameRegistry.UnlockName(ctx, "the-namespace", "the-name")
 		})
 
 		It("patches the lease to reset the holder identity", func() {
@@ -220,7 +206,7 @@ var _ = Describe("NameRegistry", func() {
 			_, obj, patch, _ := client.PatchArgsForCall(0)
 			Expect(obj).To(BeAssignableToTypeOf(&coordinationv1.Lease{}))
 			lease := obj.(*coordinationv1.Lease)
-			Expect(lease.Namespace).To(Equal(namespace))
+			Expect(lease.Namespace).To(Equal("the-namespace"))
 			Expect(lease.Name).To(HavePrefix("n-"))
 
 			Expect(patch.Type()).To(Equal(types.JSONPatchType))

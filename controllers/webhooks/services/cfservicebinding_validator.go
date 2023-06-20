@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	ServiceBindingEntityType            = "servicebinding"
-	ServiceBindingErrorType             = "ServiceBindingValidationError"
-	duplicateServiceBindingErrorMessage = "Service binding already exists: App: %s Service Instance: %s"
+	ServiceBindingEntityType = "servicebinding"
+	ServiceBindingErrorType  = "ServiceBindingValidationError"
 )
 
 // log is for logging in this package.
@@ -51,10 +50,7 @@ func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runt
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}
 
-	lockName := generateServiceBindingLock(serviceBinding)
-
-	duplicateErrorMessage := fmt.Sprintf(duplicateServiceBindingErrorMessage, serviceBinding.Spec.AppRef.Name, serviceBinding.Spec.Service.Name)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName, duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, serviceBinding)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -98,16 +94,10 @@ func (v *CFServiceBindingValidator) ValidateDelete(ctx context.Context, obj runt
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}
 
-	lockName := generateServiceBindingLock(serviceBinding)
-
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName)
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, serviceBinding)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
 
 	return nil, nil
-}
-
-func generateServiceBindingLock(serviceBinding *korifiv1alpha1.CFServiceBinding) string {
-	return fmt.Sprintf("sb::%s::%s::%s", serviceBinding.Spec.AppRef.Name, serviceBinding.Spec.Service.Namespace, serviceBinding.Spec.Service.Name)
 }

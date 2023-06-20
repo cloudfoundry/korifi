@@ -11,9 +11,9 @@ import (
 //counterfeiter:generate -o fake -fake-name NameValidator . NameValidator
 
 type NameValidator interface {
-	ValidateCreate(ctx context.Context, logger logr.Logger, namespace, newName, duplicateNameError string) *ValidationError
-	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName, duplicateNameError string) *ValidationError
-	ValidateDelete(ctx context.Context, logger logr.Logger, namespace, oldName string) *ValidationError
+	ValidateCreate(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) *ValidationError
+	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace string, oldObj, newObj UniqueClientObject) *ValidationError
+	ValidateDelete(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) *ValidationError
 }
 
 //counterfeiter:generate -o fake -fake-name NamespaceValidator . NamespaceValidator

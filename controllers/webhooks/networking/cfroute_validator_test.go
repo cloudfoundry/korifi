@@ -112,10 +112,11 @@ var _ = Describe("CFRouteValidator", func() {
 
 		It("invokes the duplicate validator correctly", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, name, _ := duplicateValidator.ValidateCreateArgsForCall(0)
+			actualContext, _, actualNamespace, actualResource := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(rootNamespace))
-			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			Expect(actualResource).To(Equal(cfRoute))
+			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'."))
 		})
 
 		When("the host is '*'", func() {
@@ -145,14 +146,14 @@ var _ = Describe("CFRouteValidator", func() {
 			BeforeEach(func() {
 				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
 					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
+					Message: "foo",
 				})
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.BeValidationError(
 					webhooks.DuplicateNameErrorType,
-					Equal("Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'."),
+					Equal("foo"),
 				))
 			})
 		})
@@ -321,10 +322,11 @@ var _ = Describe("CFRouteValidator", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, oldName, _, _ := duplicateValidator.ValidateUpdateArgsForCall(0)
+			actualContext, _, actualNamespace, oldResource, newResource := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(rootNamespace))
-			Expect(oldName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			Expect(oldResource).To(Equal(cfRoute))
+			Expect(newResource).To(Equal(updatedCFRoute))
 		})
 
 		When("the route is being deleted", func() {
@@ -459,10 +461,10 @@ var _ = Describe("CFRouteValidator", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
+			actualContext, _, actualNamespace, actualResource := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(rootNamespace))
-			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			Expect(actualResource).To(Equal(cfRoute))
 		})
 
 		When("delete validation fails", func() {

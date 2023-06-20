@@ -10,14 +10,13 @@ import (
 )
 
 type NameValidator struct {
-	ValidateCreateStub        func(context.Context, logr.Logger, string, string, string) *webhooks.ValidationError
+	ValidateCreateStub        func(context.Context, logr.Logger, string, webhooks.UniqueClientObject) *webhooks.ValidationError
 	validateCreateMutex       sync.RWMutex
 	validateCreateArgsForCall []struct {
 		arg1 context.Context
 		arg2 logr.Logger
 		arg3 string
-		arg4 string
-		arg5 string
+		arg4 webhooks.UniqueClientObject
 	}
 	validateCreateReturns struct {
 		result1 *webhooks.ValidationError
@@ -25,13 +24,13 @@ type NameValidator struct {
 	validateCreateReturnsOnCall map[int]struct {
 		result1 *webhooks.ValidationError
 	}
-	ValidateDeleteStub        func(context.Context, logr.Logger, string, string) *webhooks.ValidationError
+	ValidateDeleteStub        func(context.Context, logr.Logger, string, webhooks.UniqueClientObject) *webhooks.ValidationError
 	validateDeleteMutex       sync.RWMutex
 	validateDeleteArgsForCall []struct {
 		arg1 context.Context
 		arg2 logr.Logger
 		arg3 string
-		arg4 string
+		arg4 webhooks.UniqueClientObject
 	}
 	validateDeleteReturns struct {
 		result1 *webhooks.ValidationError
@@ -39,15 +38,14 @@ type NameValidator struct {
 	validateDeleteReturnsOnCall map[int]struct {
 		result1 *webhooks.ValidationError
 	}
-	ValidateUpdateStub        func(context.Context, logr.Logger, string, string, string, string) *webhooks.ValidationError
+	ValidateUpdateStub        func(context.Context, logr.Logger, string, webhooks.UniqueClientObject, webhooks.UniqueClientObject) *webhooks.ValidationError
 	validateUpdateMutex       sync.RWMutex
 	validateUpdateArgsForCall []struct {
 		arg1 context.Context
 		arg2 logr.Logger
 		arg3 string
-		arg4 string
-		arg5 string
-		arg6 string
+		arg4 webhooks.UniqueClientObject
+		arg5 webhooks.UniqueClientObject
 	}
 	validateUpdateReturns struct {
 		result1 *webhooks.ValidationError
@@ -59,22 +57,21 @@ type NameValidator struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *NameValidator) ValidateCreate(arg1 context.Context, arg2 logr.Logger, arg3 string, arg4 string, arg5 string) *webhooks.ValidationError {
+func (fake *NameValidator) ValidateCreate(arg1 context.Context, arg2 logr.Logger, arg3 string, arg4 webhooks.UniqueClientObject) *webhooks.ValidationError {
 	fake.validateCreateMutex.Lock()
 	ret, specificReturn := fake.validateCreateReturnsOnCall[len(fake.validateCreateArgsForCall)]
 	fake.validateCreateArgsForCall = append(fake.validateCreateArgsForCall, struct {
 		arg1 context.Context
 		arg2 logr.Logger
 		arg3 string
-		arg4 string
-		arg5 string
-	}{arg1, arg2, arg3, arg4, arg5})
+		arg4 webhooks.UniqueClientObject
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.ValidateCreateStub
 	fakeReturns := fake.validateCreateReturns
-	fake.recordInvocation("ValidateCreate", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.recordInvocation("ValidateCreate", []interface{}{arg1, arg2, arg3, arg4})
 	fake.validateCreateMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1
@@ -88,17 +85,17 @@ func (fake *NameValidator) ValidateCreateCallCount() int {
 	return len(fake.validateCreateArgsForCall)
 }
 
-func (fake *NameValidator) ValidateCreateCalls(stub func(context.Context, logr.Logger, string, string, string) *webhooks.ValidationError) {
+func (fake *NameValidator) ValidateCreateCalls(stub func(context.Context, logr.Logger, string, webhooks.UniqueClientObject) *webhooks.ValidationError) {
 	fake.validateCreateMutex.Lock()
 	defer fake.validateCreateMutex.Unlock()
 	fake.ValidateCreateStub = stub
 }
 
-func (fake *NameValidator) ValidateCreateArgsForCall(i int) (context.Context, logr.Logger, string, string, string) {
+func (fake *NameValidator) ValidateCreateArgsForCall(i int) (context.Context, logr.Logger, string, webhooks.UniqueClientObject) {
 	fake.validateCreateMutex.RLock()
 	defer fake.validateCreateMutex.RUnlock()
 	argsForCall := fake.validateCreateArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *NameValidator) ValidateCreateReturns(result1 *webhooks.ValidationError) {
@@ -124,14 +121,14 @@ func (fake *NameValidator) ValidateCreateReturnsOnCall(i int, result1 *webhooks.
 	}{result1}
 }
 
-func (fake *NameValidator) ValidateDelete(arg1 context.Context, arg2 logr.Logger, arg3 string, arg4 string) *webhooks.ValidationError {
+func (fake *NameValidator) ValidateDelete(arg1 context.Context, arg2 logr.Logger, arg3 string, arg4 webhooks.UniqueClientObject) *webhooks.ValidationError {
 	fake.validateDeleteMutex.Lock()
 	ret, specificReturn := fake.validateDeleteReturnsOnCall[len(fake.validateDeleteArgsForCall)]
 	fake.validateDeleteArgsForCall = append(fake.validateDeleteArgsForCall, struct {
 		arg1 context.Context
 		arg2 logr.Logger
 		arg3 string
-		arg4 string
+		arg4 webhooks.UniqueClientObject
 	}{arg1, arg2, arg3, arg4})
 	stub := fake.ValidateDeleteStub
 	fakeReturns := fake.validateDeleteReturns
@@ -152,13 +149,13 @@ func (fake *NameValidator) ValidateDeleteCallCount() int {
 	return len(fake.validateDeleteArgsForCall)
 }
 
-func (fake *NameValidator) ValidateDeleteCalls(stub func(context.Context, logr.Logger, string, string) *webhooks.ValidationError) {
+func (fake *NameValidator) ValidateDeleteCalls(stub func(context.Context, logr.Logger, string, webhooks.UniqueClientObject) *webhooks.ValidationError) {
 	fake.validateDeleteMutex.Lock()
 	defer fake.validateDeleteMutex.Unlock()
 	fake.ValidateDeleteStub = stub
 }
 
-func (fake *NameValidator) ValidateDeleteArgsForCall(i int) (context.Context, logr.Logger, string, string) {
+func (fake *NameValidator) ValidateDeleteArgsForCall(i int) (context.Context, logr.Logger, string, webhooks.UniqueClientObject) {
 	fake.validateDeleteMutex.RLock()
 	defer fake.validateDeleteMutex.RUnlock()
 	argsForCall := fake.validateDeleteArgsForCall[i]
@@ -188,23 +185,22 @@ func (fake *NameValidator) ValidateDeleteReturnsOnCall(i int, result1 *webhooks.
 	}{result1}
 }
 
-func (fake *NameValidator) ValidateUpdate(arg1 context.Context, arg2 logr.Logger, arg3 string, arg4 string, arg5 string, arg6 string) *webhooks.ValidationError {
+func (fake *NameValidator) ValidateUpdate(arg1 context.Context, arg2 logr.Logger, arg3 string, arg4 webhooks.UniqueClientObject, arg5 webhooks.UniqueClientObject) *webhooks.ValidationError {
 	fake.validateUpdateMutex.Lock()
 	ret, specificReturn := fake.validateUpdateReturnsOnCall[len(fake.validateUpdateArgsForCall)]
 	fake.validateUpdateArgsForCall = append(fake.validateUpdateArgsForCall, struct {
 		arg1 context.Context
 		arg2 logr.Logger
 		arg3 string
-		arg4 string
-		arg5 string
-		arg6 string
-	}{arg1, arg2, arg3, arg4, arg5, arg6})
+		arg4 webhooks.UniqueClientObject
+		arg5 webhooks.UniqueClientObject
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.ValidateUpdateStub
 	fakeReturns := fake.validateUpdateReturns
-	fake.recordInvocation("ValidateUpdate", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
+	fake.recordInvocation("ValidateUpdate", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.validateUpdateMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1
@@ -218,17 +214,17 @@ func (fake *NameValidator) ValidateUpdateCallCount() int {
 	return len(fake.validateUpdateArgsForCall)
 }
 
-func (fake *NameValidator) ValidateUpdateCalls(stub func(context.Context, logr.Logger, string, string, string, string) *webhooks.ValidationError) {
+func (fake *NameValidator) ValidateUpdateCalls(stub func(context.Context, logr.Logger, string, webhooks.UniqueClientObject, webhooks.UniqueClientObject) *webhooks.ValidationError) {
 	fake.validateUpdateMutex.Lock()
 	defer fake.validateUpdateMutex.Unlock()
 	fake.ValidateUpdateStub = stub
 }
 
-func (fake *NameValidator) ValidateUpdateArgsForCall(i int) (context.Context, logr.Logger, string, string, string, string) {
+func (fake *NameValidator) ValidateUpdateArgsForCall(i int) (context.Context, logr.Logger, string, webhooks.UniqueClientObject, webhooks.UniqueClientObject) {
 	fake.validateUpdateMutex.RLock()
 	defer fake.validateUpdateMutex.RUnlock()
 	argsForCall := fake.validateUpdateArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *NameValidator) ValidateUpdateReturns(result1 *webhooks.ValidationError) {

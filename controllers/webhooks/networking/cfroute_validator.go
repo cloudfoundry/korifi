@@ -79,13 +79,14 @@ func (v *CFRouteValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected nil, a CFRoute but got a %T", obj))
 	}
 
-	domain, err := v.validateRoute(ctx, route)
+	cfDomain, err := v.validateRoute(ctx, route)
 	if err != nil {
 		return nil, err
 	}
 
-	duplicateErrorMessage := generateDuplicateErrorMessage(route, domain)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(*route), duplicateErrorMessage)
+	route.Status.FQDN = cfDomain.Spec.Name
+
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, route)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -132,13 +133,12 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return nil, immutableError.ExportJSONError()
 	}
 
-	domain, err := v.validateDestinations(ctx, route)
+	_, err := v.validateDestinations(ctx, route)
 	if err != nil {
 		return nil, err
 	}
 
-	duplicateErrorMessage := generateDuplicateErrorMessage(route, domain)
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(*oldRoute), uniqueName(*route), duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, oldRoute, route)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -152,7 +152,7 @@ func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, uniqueName(*route))
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, route)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -211,21 +211,6 @@ func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *kori
 		return domain, validationErr.ExportJSONError()
 	}
 	return domain, nil
-}
-
-func generateDuplicateErrorMessage(route *korifiv1alpha1.CFRoute, domain *korifiv1alpha1.CFDomain) string {
-	pathDetails := ""
-
-	if route.Spec.Path != "" {
-		pathDetails = fmt.Sprintf(" and path '%s'", route.Spec.Path)
-	}
-
-	return fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
-		route.Spec.Host, pathDetails, domain.Spec.Name)
-}
-
-func uniqueName(route korifiv1alpha1.CFRoute) string {
-	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
 }
 
 func validateFQDN(host, domain string) error {

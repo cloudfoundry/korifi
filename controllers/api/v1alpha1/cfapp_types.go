@@ -17,6 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -96,4 +99,12 @@ func init() {
 
 func (a CFApp) StatusConditions() []metav1.Condition {
 	return a.Status.Conditions
+}
+
+func (a CFApp) UniqueName() string {
+	return strings.ToLower(a.Spec.DisplayName)
+}
+
+func (a CFApp) UniqueValidationErrorMessage() string {
+	return fmt.Sprintf("App with the name '%s' already exists.", a.Spec.DisplayName)
 }

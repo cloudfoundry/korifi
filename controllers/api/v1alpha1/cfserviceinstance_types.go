@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -76,6 +78,15 @@ type CFServiceInstance struct {
 	Spec CFServiceInstanceSpec `json:"spec,omitempty"`
 
 	Status CFServiceInstanceStatus `json:"status,omitempty"`
+}
+
+func (si CFServiceInstance) UniqueName() string {
+	return si.Spec.DisplayName
+}
+
+func (si CFServiceInstance) UniqueValidationErrorMessage() string {
+	// Note: the cf cli expects the specific text 'The service instance name is taken'
+	return fmt.Sprintf("The service instance name is taken: %s", si.Spec.DisplayName)
 }
 
 //+kubebuilder:object:root=true

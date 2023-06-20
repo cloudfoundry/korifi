@@ -17,6 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -57,6 +60,15 @@ type CFSpace struct {
 
 	Spec   CFSpaceSpec   `json:"spec,omitempty"`
 	Status CFSpaceStatus `json:"status,omitempty"`
+}
+
+func (s CFSpace) UniqueValidationErrorMessage() string {
+	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
+	return fmt.Sprintf("Space '%s' already exists. Name must be unique per organization.", s.Spec.DisplayName)
+}
+
+func (s CFSpace) UniqueName() string {
+	return strings.ToLower(s.Spec.DisplayName)
 }
 
 //+kubebuilder:object:root=true

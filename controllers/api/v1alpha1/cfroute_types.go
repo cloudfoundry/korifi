@@ -17,6 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -111,4 +114,18 @@ type CFRouteList struct {
 
 func init() {
 	SchemeBuilder.Register(&CFRoute{}, &CFRouteList{})
+}
+
+func (r CFRoute) UniqueName() string {
+	return strings.Join([]string{strings.ToLower(r.Spec.Host), r.Spec.DomainRef.Namespace, r.Spec.DomainRef.Name, r.Spec.Path}, "::")
+}
+
+func (r CFRoute) UniqueValidationErrorMessage() string {
+	pathDetails := ""
+
+	if r.Spec.Path != "" {
+		pathDetails = fmt.Sprintf(" and path '%s'", r.Spec.Path)
+	}
+
+	return fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.", r.Spec.Host, pathDetails, r.Status.FQDN)
 }

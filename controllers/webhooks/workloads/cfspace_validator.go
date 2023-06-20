@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -19,8 +18,6 @@ import (
 
 const (
 	CFSpaceEntityType = "cfspace"
-	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
-	duplicateSpaceNameErrorMessage = "Space '%s' already exists. Name must be unique per organization."
 )
 
 var spaceLogger = logf.Log.WithName("cfspace-validate")
@@ -58,8 +55,7 @@ func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 		return nil, errors.New("space name cannot be longer than 63 chars")
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, strings.ToLower(space.Spec.DisplayName), duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, space)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -87,8 +83,7 @@ func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateSpaceNameErrorMessage, space.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, strings.ToLower(oldSpace.Spec.DisplayName), strings.ToLower(space.Spec.DisplayName), duplicateErrorMessage)
+	validationErr := v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, oldSpace, space)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}
@@ -102,7 +97,7 @@ func (v *CFSpaceValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space.Spec.DisplayName)
+	validationErr := v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space)
 	if validationErr != nil {
 		return nil, validationErr.ExportJSONError()
 	}

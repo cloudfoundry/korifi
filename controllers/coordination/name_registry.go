@@ -18,9 +18,11 @@ import (
 const (
 	hashedNamePrefix = "n-"
 
-	EntityTypeAnnotation = "coordination.cloudfoundry.org/entity-type"
-	NamespaceAnnotation  = "coordination.cloudfoundry.org/namespace"
-	NameAnnotation       = "coordination.cloudfoundry.org/name"
+	EntityTypeAnnotation     = "coordination.cloudfoundry.org/entity-type"
+	NamespaceAnnotation      = "coordination.cloudfoundry.org/namespace"
+	NameAnnotation           = "coordination.cloudfoundry.org/name"
+	OwnerNamespaceAnnotation = "coordination.cloudfoundry.org/owner-namespace"
+	OwnerNameAnnotation      = "coordination.cloudfoundry.org/owner-name"
 )
 
 var (
@@ -44,7 +46,7 @@ func NewNameRegistry(client client.Client, entityType string) NameRegistry {
 	}
 }
 
-func (r NameRegistry) RegisterName(ctx context.Context, namespace, name string) error {
+func (r NameRegistry) RegisterName(ctx context.Context, namespace, name, ownerNamespace, ownerName string) error {
 	logger := r.logger.WithName("register-name").WithValues("namespace", namespace, "name", name)
 
 	if isDryRun(ctx, logger) {
@@ -58,9 +60,11 @@ func (r NameRegistry) RegisterName(ctx context.Context, namespace, name string) 
 			Name:      hashedName,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				EntityTypeAnnotation: r.entityType,
-				NamespaceAnnotation:  namespace,
-				NameAnnotation:       name,
+				EntityTypeAnnotation:     r.entityType,
+				NamespaceAnnotation:      namespace,
+				NameAnnotation:           name,
+				OwnerNamespaceAnnotation: ownerNamespace,
+				OwnerNameAnnotation:      ownerName,
 			},
 		},
 		Spec: coordinationv1.LeaseSpec{

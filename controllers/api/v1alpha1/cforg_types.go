@@ -17,6 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -70,4 +73,13 @@ type CFOrgList struct {
 
 func init() {
 	SchemeBuilder.Register(&CFOrg{}, &CFOrgList{})
+}
+
+func (o CFOrg) UniqueName() string {
+	return strings.ToLower(o.Spec.DisplayName)
+}
+
+func (o CFOrg) UniqueValidationErrorMessage() string {
+	// Note: the cf cli expects the specific text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
+	return fmt.Sprintf("Organization '%s' already exists.", o.Spec.DisplayName)
 }
