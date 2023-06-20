@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +39,7 @@ var (
 	cancel    context.CancelFunc
 	testEnv   *envtest.Environment
 	k8sClient client.Client
+	logOutput *gbytes.Buffer
 )
 
 func TestNetworkingControllers(t *testing.T) {
@@ -49,6 +51,8 @@ func TestNetworkingControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	logOutput = gbytes.NewBuffer()
+	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	var ctx context.Context

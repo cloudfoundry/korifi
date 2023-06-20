@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -340,6 +341,10 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Namespace: testNamespace,
 					}))
 				}).Should(Succeed())
+			})
+
+			It("writes a log message", func() {
+				Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
 			})
 		})
 	})
