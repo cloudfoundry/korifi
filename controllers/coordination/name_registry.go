@@ -6,14 +6,10 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/go-logr/logr"
-
 	coordinationv1 "k8s.io/api/coordination/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -124,15 +120,8 @@ func (r NameRegistry) TryLockName(ctx context.Context, namespace, name string) e
     {"op":"replace", "path":"/spec/holderIdentity", "value": "%s"}
     ]`, unlockedIdentity, lockedIdentity)
 
-	if err := retry.OnError(k8s.NewDefaultBackoff(),
-		func(err error) bool { return k8serrors.IsNotFound(err) },
-		func() error {
-			err := r.client.Patch(ctx, lease, client.RawPatch(types.JSONPatchType, []byte(jsonPatch)))
-			if err != nil {
-				logger.Info("failed-to-patch-existing-lease", "reason", err)
-			}
-			return err
-		}); err != nil {
+	if err := r.client.Patch(ctx, lease, client.RawPatch(types.JSONPatchType, []byte(jsonPatch))); err != nil {
+		logger.Info("failed-to-patch-existing-lease", "reason", err)
 		return fmt.Errorf("failed to acquire lock on lease: %w", err)
 	}
 
