@@ -56,16 +56,17 @@ func (v DuplicateValidator) ValidateCreate(ctx context.Context, logger logr.Logg
 }
 
 func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logger, namespace, oldName, newName, duplicateNameError string) *ValidationError {
-	logger = logger.WithName("duplicateValidator.ValidateUpdate")
 	if oldName == newName {
 		return nil
 	}
 
+	logger = logger.
+		WithName("duplicateValidator.ValidateUpdate").
+		WithValues("namespace", namespace, "oldName", oldName, "newName", newName)
+
 	err := v.nameRegistry.TryLockName(ctx, namespace, oldName)
 	if err != nil {
 		logger.Info("failed to acquire lock on old name",
-			"name", oldName,
-			"namespace", namespace,
 			"reason", err,
 		)
 
@@ -74,6 +75,8 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 			Message: UnknownErrorMessage,
 		}
 	}
+
+	logger.V(1).Info("locked-old-name")
 
 	err = v.nameRegistry.RegisterName(ctx, namespace, newName)
 	if err != nil {
@@ -106,6 +109,7 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 			Message: UnknownErrorMessage,
 		}
 	}
+	logger.V(1).Info("registered-new-name")
 
 	err = v.nameRegistry.DeregisterName(ctx, namespace, oldName)
 	if err != nil {
@@ -116,6 +120,7 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 			"reason", err,
 		)
 	}
+	logger.V(1).Info("deregistered-old-name")
 
 	return nil
 }
