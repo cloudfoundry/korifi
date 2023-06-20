@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -50,6 +51,10 @@ func NewNameRegistry(client client.Client, entityType string) NameRegistry {
 func (r NameRegistry) RegisterName(ctx context.Context, namespace, name string) error {
 	logger := r.logger.WithName("register-name").WithValues("namespace", namespace, "name", name)
 
+	if isDryRun(ctx, logger) {
+		return nil
+	}
+
 	hashedName := hashName(r.entityType, name)
 
 	lease := &coordinationv1.Lease{
@@ -80,6 +85,10 @@ func (r NameRegistry) RegisterName(ctx context.Context, namespace, name string) 
 func (r NameRegistry) DeregisterName(ctx context.Context, namespace, name string) error {
 	logger := r.logger.WithName("deregister-name").WithValues("namespace", namespace, "name", name)
 
+	if isDryRun(ctx, logger) {
+		return nil
+	}
+
 	hashedName := hashName(r.entityType, name)
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -99,6 +108,10 @@ func (r NameRegistry) DeregisterName(ctx context.Context, namespace, name string
 
 func (r NameRegistry) TryLockName(ctx context.Context, namespace, name string) error {
 	logger := r.logger.WithName("try-lock-name").WithValues("namespace", namespace, "name", name)
+
+	if isDryRun(ctx, logger) {
+		return nil
+	}
 
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -129,6 +142,10 @@ func (r NameRegistry) TryLockName(ctx context.Context, namespace, name string) e
 func (r NameRegistry) UnlockName(ctx context.Context, namespace, name string) error {
 	logger := r.logger.WithName("try-lock-name").WithValues("namespace", namespace, "name", name)
 
+	if isDryRun(ctx, logger) {
+		return nil
+	}
+
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hashName(r.entityType, name),
@@ -151,6 +168,20 @@ func (r NameRegistry) UnlockName(ctx context.Context, namespace, name string) er
 func hashName(entityType, name string) string {
 	input := fmt.Sprintf("%s::%s", entityType, name)
 	return fmt.Sprintf("%s%x", hashedNamePrefix, sha1.Sum([]byte(input)))
+}
+
+func isDryRun(ctx context.Context, logger logr.Logger) bool {
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return false
+	}
+
+	result := req.DryRun != nil && *req.DryRun
+	if result {
+		logger.V(1).Info("skipping dry-run requests")
+	}
+
+	return result
 }
 
 // check we implement the interface
