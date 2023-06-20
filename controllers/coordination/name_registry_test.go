@@ -6,9 +6,12 @@ import (
 
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -178,7 +181,7 @@ var _ = Describe("NameRegistry", func() {
 
 		When("patching fails", func() {
 			BeforeEach(func() {
-				client.PatchReturnsOnCall(0, errors.New("boom!"))
+				client.PatchReturns(errors.New("boom!"))
 			})
 
 			It("returns the error", func() {
@@ -186,17 +189,6 @@ var _ = Describe("NameRegistry", func() {
 					ContainSubstring("boom!"),
 					ContainSubstring("failed to acquire lock"),
 				)))
-			})
-		})
-
-		When("patching fails with NotFound but eventually succeeds", func() {
-			BeforeEach(func() {
-				client.PatchReturns(k8serrors.NewNotFound(schema.GroupResource{}, "boom!"))
-				client.PatchReturnsOnCall(5, nil)
-			})
-
-			It("succeeds", func() {
-				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 
