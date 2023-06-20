@@ -23,6 +23,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -74,12 +75,13 @@ func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfRoute.Namespace, "name", cfRoute.Name)
+	log := shared.ObjectLogger(r.log, cfRoute)
+	ctx = logr.NewContext(ctx, log)
 
 	var err error
 
 	if !cfRoute.GetDeletionTimestamp().IsZero() {
-		err = r.finalizeCFRoute(ctx, log, cfRoute)
+		err = r.finalizeCFRoute(ctx, cfRoute)
 		if err != nil {
 			log.Info("failed to finalize cf route", "reason", err)
 		}
@@ -97,25 +99,25 @@ func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *kori
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchServices(ctx, log, cfRoute)
+	err = r.createOrPatchServices(ctx, cfRoute)
 	if err != nil {
 		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching services", "CreatePatchServices", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchRouteProxy(ctx, log, cfRoute)
+	err = r.createOrPatchRouteProxy(ctx, cfRoute)
 	if err != nil {
 		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching Route Proxy", "CreatePatchRouteProxy", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchFQDNProxy(ctx, log, cfRoute, cfDomain)
+	err = r.createOrPatchFQDNProxy(ctx, cfRoute, cfDomain)
 	if err != nil {
 		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching FQDN Proxy", "CreatePatchFQDNProxy", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	err = r.deleteOrphanedServices(ctx, log, cfRoute)
+	err = r.deleteOrphanedServices(ctx, cfRoute)
 	if err != nil {
 		// technically, failing to delete the orphaned services does not make the CFRoute invalid so we don't mess with the cfRoute status here
 		return ctrl.Result{}, err
@@ -169,15 +171,15 @@ func createInvalidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, 
 	return cfRouteStatus
 }
 
-func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) error {
-	log = log.WithName("finalizeCRRoute")
+func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCRRoute")
 
 	if !controllerutil.ContainsFinalizer(cfRoute, korifiv1alpha1.CFRouteFinalizerName) {
 		return nil
 	}
 
 	if cfRoute.Status.FQDN != "" {
-		fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, log, cfRoute.Status.FQDN, cfRoute.Namespace, false)
+		fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, cfRoute.Status.FQDN, cfRoute.Namespace, false)
 		if err != nil {
 			return err
 		}
@@ -185,7 +187,7 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger
 		// Cleanup the FQDN HTTPProxy on delete
 		if foundFQDNProxy {
 			log.V(1).Info("found FQDN proxy", "fqdn", cfRoute.Status.FQDN)
-			err := r.finalizeFQDNProxy(ctx, log, cfRoute.Name, fqdnHTTPProxy)
+			err := r.finalizeFQDNProxy(ctx, cfRoute.Name, fqdnHTTPProxy)
 			if err != nil {
 				return err
 			}
@@ -199,7 +201,9 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger
 	return nil
 }
 
-func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, log logr.Logger, cfRouteName string, fqdnProxy *contourv1.HTTPProxy) error {
+func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, cfRouteName string, fqdnProxy *contourv1.HTTPProxy) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeFQDNProxy")
+
 	return k8s.PatchResource(ctx, r.client, fqdnProxy, func() {
 		var retainedIncludes []contourv1.Include
 		for _, include := range fqdnProxy.Spec.Includes {
@@ -213,8 +217,8 @@ func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, log logr.Logg
 	})
 }
 
-func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) error {
-	log = log.WithName("createOrPatchServices")
+func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchServices")
 
 	for i, destination := range cfRoute.Spec.Destinations {
 		serviceName := generateServiceName(&cfRoute.Spec.Destinations[i])
@@ -260,8 +264,8 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, log logr.
 	return nil
 }
 
-func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) error {
-	log = log.WithName("createOrPatchRouteProxy").WithValues("httpProxyNamespace", cfRoute.Namespace, "httpProxyName", cfRoute.Name)
+func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchRouteProxy").WithValues("httpProxyNamespace", cfRoute.Namespace, "httpProxyName", cfRoute.Name)
 
 	services := make([]contourv1.Service, 0, len(cfRoute.Spec.Destinations))
 
@@ -311,12 +315,12 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, log log
 	return nil
 }
 
-func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
+func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
 	fqdn := buildFQDN(cfRoute, cfDomain)
 
-	log = log.WithName("createOrPatchFQDNProxy").WithValues("fqdn", fqdn)
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchFQDNProxy").WithValues("fqdn", fqdn)
 
-	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, log, fqdn, cfRoute.Namespace, true)
+	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, fqdn, cfRoute.Namespace, true)
 	if err != nil {
 		return err
 	}
@@ -371,8 +375,8 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, log logr
 	return nil
 }
 
-func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, log logr.Logger, fqdn, namespace string, checkAllNamespaces bool) (*contourv1.HTTPProxy, bool, error) {
-	log = log.WithName("getFQDNProxy")
+func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, fqdn, namespace string, checkAllNamespaces bool) (*contourv1.HTTPProxy, bool, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("getFQDNProxy")
 
 	var fqdnHTTPProxy contourv1.HTTPProxy
 
@@ -409,14 +413,14 @@ func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, log logr.Logger, f
 	return &fqdnHTTPProxy, found, nil
 }
 
-func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) error {
-	log = log.WithName("deleteOrphanedServices")
+func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("deleteOrphanedServices")
 
 	matchingLabelSet := map[string]string{
 		korifiv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 	}
 
-	serviceList, err := r.fetchServicesByMatchingLabels(ctx, log, matchingLabelSet, cfRoute.Namespace)
+	serviceList, err := r.fetchServicesByMatchingLabels(ctx, matchingLabelSet, cfRoute.Namespace)
 	if err != nil {
 		log.Info("failed to fetch services using label", "label", korifiv1alpha1.CFRouteGUIDLabelKey, "value", cfRoute.Name, "reason", err)
 		return err
@@ -432,6 +436,7 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr
 				break
 			}
 		}
+
 		if isOrphan {
 			err = r.client.Delete(ctx, &serviceList.Items[i])
 			if err != nil {
@@ -444,7 +449,9 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr
 	return nil
 }
 
-func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, log logr.Logger, labelSet map[string]string, namespace string) (*corev1.ServiceList, error) {
+func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, labelSet map[string]string, namespace string) (*corev1.ServiceList, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("fetchServicesByMatchingLabels")
+
 	selector, err := labels.ValidatedSelectorFromSet(labelSet)
 	if err != nil {
 		log.Info("error initializing label selector", "reason", err)

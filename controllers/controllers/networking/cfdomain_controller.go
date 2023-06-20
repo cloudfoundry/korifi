@@ -59,10 +59,11 @@ func (r *CFDomainReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update
 
 func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfDomain.Namespace, "name", cfDomain.Name)
+	log := shared.ObjectLogger(r.log, cfDomain)
+	ctx = logr.NewContext(ctx, log)
 
 	if !cfDomain.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFDomain(ctx, log, cfDomain)
+		return r.finalizeCFDomain(ctx, cfDomain)
 	}
 
 	cfDomain.Status.ObservedGeneration = cfDomain.Generation
@@ -79,8 +80,8 @@ func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *ko
 	return ctrl.Result{}, nil
 }
 
-func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logger, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
-	log = log.WithName("finalizeCFDomain")
+func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFDomain")
 
 	if !controllerutil.ContainsFinalizer(cfDomain, korifiv1alpha1.CFDomainFinalizerName) {
 		return ctrl.Result{}, nil
