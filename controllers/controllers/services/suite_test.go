@@ -29,6 +29,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,6 +48,7 @@ var (
 	cancel    context.CancelFunc
 	testEnv   *envtest.Environment
 	k8sClient client.Client
+	logOutput *gbytes.Buffer
 )
 
 func TestAPIs(t *testing.T) {
@@ -58,6 +60,8 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	logOutput = gbytes.NewBuffer()
+	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel = context.WithCancel(context.TODO())

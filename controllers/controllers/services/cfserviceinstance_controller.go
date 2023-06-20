@@ -21,6 +21,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -61,8 +62,11 @@ func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builde
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
 
 func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+	log := shared.ObjectLogger(r.log, cfServiceInstance)
+	ctx = logr.NewContext(ctx, log)
+
 	cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
-	r.log.V(1).Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
+	log.V(1).Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
 
 	secret := new(corev1.Secret)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: cfServiceInstance.Namespace}, secret)
@@ -72,6 +76,7 @@ func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfS
 			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 
+		log.Info("failed to get secret", "reason", err)
 		cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "UnknownError", "Error occurred while fetching secret: "+err.Error())
 		return ctrl.Result{}, err
 	}
