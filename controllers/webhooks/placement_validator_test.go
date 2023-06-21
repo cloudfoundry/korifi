@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +20,7 @@ var _ = Describe("CFPlacementValidation", func() {
 	var (
 		fakeClient         *fake.Client
 		placementValidator *webhooks.PlacementValidator
-		validationErr      *webhooks.ValidationError
+		validationErr      error
 		rootNamespace      string
 
 		space korifiv1alpha1.CFSpace
@@ -65,10 +66,10 @@ var _ = Describe("CFPlacementValidation", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.OrgPlacementErrorType,
-					Message: fmt.Sprintf(webhooks.OrgPlacementErrorMessage, org.Spec.DisplayName),
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.OrgPlacementErrorType,
+					Equal(fmt.Sprintf(webhooks.OrgPlacementErrorMessage, org.Spec.DisplayName)),
+				))
 			})
 		})
 	})
@@ -100,10 +101,10 @@ var _ = Describe("CFPlacementValidation", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.SpacePlacementErrorType,
-					Message: fmt.Sprintf(webhooks.SpacePlacementErrorMessage, "org-ns", space.Spec.DisplayName),
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.SpacePlacementErrorType,
+					Equal(fmt.Sprintf(webhooks.SpacePlacementErrorMessage, "org-ns", space.Spec.DisplayName)),
+				))
 			})
 		})
 	})

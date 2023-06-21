@@ -86,12 +86,7 @@ func (v *CFRouteValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 
 	route.Status.FQDN = cfDomain.Spec.Name
 
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, route)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, route)
 }
 
 func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
@@ -138,12 +133,7 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return nil, err
 	}
 
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, oldRoute, route)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, oldRoute, route)
 }
 
 func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -152,12 +142,7 @@ func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, route)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, route)
 }
 
 func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {

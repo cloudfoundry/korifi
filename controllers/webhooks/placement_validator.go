@@ -26,26 +26,26 @@ func NewPlacementValidator(client client.Client, rootNamespace string) *Placemen
 	return &PlacementValidator{client: client, rootNamespace: rootNamespace}
 }
 
-func (v PlacementValidator) ValidateOrgCreate(org korifiv1alpha1.CFOrg) *ValidationError {
+func (v PlacementValidator) ValidateOrgCreate(org korifiv1alpha1.CFOrg) error {
 	if org.Namespace != v.rootNamespace {
-		return &ValidationError{
+		return ValidationError{
 			Type:    OrgPlacementErrorType,
 			Message: fmt.Sprintf(OrgPlacementErrorMessage, org.Spec.DisplayName),
-		}
+		}.ExportJSONError()
 	}
 
 	return nil
 }
 
-func (v PlacementValidator) ValidateSpaceCreate(space korifiv1alpha1.CFSpace) *ValidationError {
+func (v PlacementValidator) ValidateSpaceCreate(space korifiv1alpha1.CFSpace) error {
 	cfOrg := korifiv1alpha1.CFOrg{}
 
 	err := v.client.Get(context.Background(), types.NamespacedName{Name: space.Namespace, Namespace: v.rootNamespace}, &cfOrg)
 	if err != nil {
-		return &ValidationError{
+		return ValidationError{
 			Type:    SpacePlacementErrorType,
 			Message: fmt.Sprintf(SpacePlacementErrorMessage, space.Namespace, space.Spec.DisplayName),
-		}
+		}.ExportJSONError()
 	}
 
 	return nil

@@ -49,12 +49,7 @@ func (v *CFAppValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, app)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, app)
 }
 
 func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
@@ -72,12 +67,7 @@ func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, oldApp, app)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, oldApp, app)
 }
 
 func (v *CFAppValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -86,10 +76,5 @@ func (v *CFAppValidator) ValidateDelete(ctx context.Context, obj runtime.Object)
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, app)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, app)
 }

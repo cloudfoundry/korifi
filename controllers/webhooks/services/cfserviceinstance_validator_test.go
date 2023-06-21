@@ -2,13 +2,12 @@ package services_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
-	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -75,33 +74,11 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		When("the serviceInstance name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "foo",
-				})
+				duplicateValidator.ValidateCreateReturns(errors.New("foo"))
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.DuplicateNameErrorType,
-					Equal("foo"),
-				))
-			})
-		})
-
-		When("validating the serviceInstance name fails", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 	})
@@ -143,33 +120,11 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		When("the new serviceInstance name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "foo",
-				})
+				duplicateValidator.ValidateUpdateReturns(errors.New("foo"))
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.DuplicateNameErrorType,
-					Equal("foo"),
-				))
-			})
-		})
-
-		When("the update validation fails for another reason", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 	})
@@ -193,17 +148,11 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 		When("delete validation fails", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateDeleteReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
+				duplicateValidator.ValidateDeleteReturns(errors.New("foo"))
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 	})

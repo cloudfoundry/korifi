@@ -2,13 +2,12 @@ package services_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
-	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -82,33 +81,11 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 		When("a duplicate service binding already exists", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "foo",
-				})
+				duplicateValidator.ValidateCreateReturns(errors.New("foo"))
 			})
 
 			It("prevents the creation of the duplicate service binding", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.DuplicateNameErrorType,
-					Equal("foo"),
-				))
-			})
-		})
-
-		When("validating the service binding fails", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 	})
@@ -189,17 +166,11 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 		When("the lock resource cannot be deleted", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateDeleteReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
+				duplicateValidator.ValidateDeleteReturns(errors.New("foo"))
 			})
 
 			It("prevents the deletion of the service binding", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 	})

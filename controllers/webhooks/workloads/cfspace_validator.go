@@ -55,17 +55,12 @@ func (v *CFSpaceValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 		return nil, errors.New("space name cannot be longer than 63 chars")
 	}
 
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, space)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	err := v.placementValidator.ValidateSpaceCreate(*space)
+	err := v.duplicateValidator.ValidateCreate(ctx, spaceLogger, space.Namespace, space)
 	if err != nil {
-		return nil, err.ExportJSONError()
+		return nil, err
 	}
 
-	return nil, nil
+	return nil, v.placementValidator.ValidateSpaceCreate(*space)
 }
 
 func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
@@ -83,12 +78,7 @@ func (v *CFSpaceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, oldSpace, space)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, oldSpace, space)
 }
 
 func (v *CFSpaceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -97,10 +87,5 @@ func (v *CFSpaceValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space)
 }

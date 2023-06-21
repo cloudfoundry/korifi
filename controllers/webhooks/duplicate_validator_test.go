@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -23,7 +24,7 @@ var _ = Describe("DuplicateValidator", func() {
 		nameRegistry       *fake.NameRegistry
 		logger             logr.Logger
 		duplicateValidator *webhooks.DuplicateValidator
-		validationErr      *webhooks.ValidationError
+		validationErr      error
 		uniqueClientObj    *fake.UniqueClientObject
 	)
 
@@ -68,10 +69,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "uniqueness-error",
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("uniqueness-error"),
+				))
 			})
 		})
 
@@ -81,10 +82,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("returns the error", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
@@ -144,10 +145,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 
 			It("does not register the new name", func() {
@@ -161,10 +162,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "new-uniqueness-error",
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("new-uniqueness-error"),
+				))
 			})
 		})
 
@@ -174,10 +175,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 
 			It("releases the lock on the old name", func() {
@@ -193,10 +194,10 @@ var _ = Describe("DuplicateValidator", func() {
 				})
 
 				It("fails with the register error", func() {
-					Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-						Type:    webhooks.UnknownErrorType,
-						Message: webhooks.UnknownErrorMessage,
-					}))
+					Expect(validationErr).To(matchers.BeValidationError(
+						webhooks.UnknownErrorType,
+						Equal(webhooks.UnknownErrorMessage),
+					))
 				})
 			})
 		})
@@ -244,10 +245,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
