@@ -92,6 +92,7 @@ kpackImageBuilder:
 
   clusterBuilderName: ""
   builderReadinessTimeout: 30s
+  clusterStackID: io.buildpacks.stacks.jammy
   clusterStackBuildImage: paketobuildpacks/build-jammy-full
   clusterStackRunImage: paketobuildpacks/run-jammy-full
   builderRepository: ""

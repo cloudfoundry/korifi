@@ -377,12 +377,16 @@
           "description": "The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.",
           "type": "string"
         },
+        "clusterStackID": {
+          "description": "The ID of the `ClusterStack`. Used when `clusterBuilderName` is blank.",
+          "type": "string"
+        },
         "clusterStackBuildImage": {
-          "description": "The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.",
+          "description": "The image to use for building defined in the `ClusterStack`. Used when `clusterBuilderName` is blank.",
           "type": "string"
         },
         "clusterStackRunImage": {
-          "description": "The image to use for running defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.",
+          "description": "The image to use for running defined in the `ClusterStack`. Used when `clusterBuilderName` is blank.",
           "type": "string"
         },
         "builderRepository": {
