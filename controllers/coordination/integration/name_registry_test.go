@@ -157,6 +157,56 @@ var _ = Describe("Name Registry", func() {
 			})
 		})
 	})
+
+	Describe("checking ownership", func() {
+		var (
+			ok             bool
+			err            error
+			ownerNamespace string
+			ownerName      string
+		)
+
+		BeforeEach(func() {
+			ok = false
+			err = nil
+
+			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
+
+			ownerNamespace = "owner-namespace"
+			ownerName = "owner-name"
+		})
+
+		JustBeforeEach(func() {
+			ok, err = nameRegistry.CheckNameOwnership(ctx, ns1.Name, name, ownerNamespace, ownerName)
+		})
+
+		It("returns true with the right owner values", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		})
+
+		When("owner namespace is wrong", func() {
+			BeforeEach(func() {
+				ownerNamespace = "bob"
+			})
+
+			It("returns false", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ok).To(BeFalse())
+			})
+		})
+
+		When("owner name is wrong", func() {
+			BeforeEach(func() {
+				ownerName = "bob"
+			})
+
+			It("returns false", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ok).To(BeFalse())
+			})
+		})
+	})
 })
 
 func createNamespace(ctx context.Context, name string) *corev1.Namespace {
