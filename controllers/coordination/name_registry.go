@@ -53,7 +53,7 @@ func (r NameRegistry) RegisterName(ctx context.Context, namespace, name, ownerNa
 		return nil
 	}
 
-	hashedName := hashName(r.entityType, name)
+	hashedName := r.hashName(name)
 
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -89,7 +89,7 @@ func (r NameRegistry) DeregisterName(ctx context.Context, namespace, name string
 		return nil
 	}
 
-	hashedName := hashName(r.entityType, name)
+	hashedName := r.hashName(name)
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hashedName,
@@ -115,7 +115,7 @@ func (r NameRegistry) TryLockName(ctx context.Context, namespace, name string) e
 
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      hashName(r.entityType, name),
+			Name:      r.hashName(name),
 			Namespace: namespace,
 		},
 	}
@@ -141,7 +141,7 @@ func (r NameRegistry) UnlockName(ctx context.Context, namespace, name string) er
 
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      hashName(r.entityType, name),
+			Name:      r.hashName(name),
 			Namespace: namespace,
 		},
 	}
@@ -158,8 +158,20 @@ func (r NameRegistry) UnlockName(ctx context.Context, namespace, name string) er
 	return nil
 }
 
-func hashName(entityType, name string) string {
-	input := fmt.Sprintf("%s::%s", entityType, name)
+func (r NameRegistry) CheckNameOwnership(ctx context.Context, namespace, name, ownerNamespace, ownerName string) (bool, error) {
+	r.logger.V(1).Info("checking-name-ownership")
+
+	var lease coordinationv1.Lease
+	err := r.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: r.hashName(name)}, &lease)
+	if err != nil {
+		return false, err
+	}
+
+	return lease.Annotations[OwnerNamespaceAnnotation] == ownerNamespace && lease.Annotations[OwnerNameAnnotation] == ownerName, nil
+}
+
+func (r NameRegistry) hashName(name string) string {
+	input := fmt.Sprintf("%s::%s", r.entityType, name)
 	return fmt.Sprintf("%s%x", hashedNamePrefix, sha1.Sum([]byte(input)))
 }
 

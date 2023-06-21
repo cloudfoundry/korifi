@@ -3,6 +3,7 @@ package webhooks_test
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -140,19 +141,67 @@ var _ = Describe("DuplicateValidator", func() {
 		})
 
 		When("taking the lock on the old name fails", func() {
-			BeforeEach(func() {
-				nameRegistry.TryLockNameReturns(errors.New("nope"))
+			When("for a generic error", func() {
+				BeforeEach(func() {
+					nameRegistry.TryLockNameReturns(errors.New("nope"))
+				})
+
+				It("fails", func() {
+					Expect(validationErr).To(matchers.BeValidationError(
+						webhooks.UnknownErrorType,
+						Equal(webhooks.UnknownErrorMessage),
+					))
+					Expect(nameRegistry.RegisterNameCallCount()).To(Equal(0))
+				})
 			})
 
-			It("fails", func() {
-				Expect(validationErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
-			})
+			When("for a not found error", func() {
+				BeforeEach(func() {
+					nameRegistry.TryLockNameReturns(fmt.Errorf("wrapped not found error: %w", k8serrors.NewNotFound(schema.GroupResource{}, "nope")))
+				})
 
-			It("does not register the new name", func() {
-				Expect(nameRegistry.RegisterNameCallCount()).To(Equal(0))
+				When("the new name is registered to the resource", func() {
+					BeforeEach(func() {
+						nameRegistry.CheckNameOwnershipReturns(true, nil)
+					})
+
+					It("checks the new name is registered to the resource and allows the request", func() {
+						Expect(nameRegistry.CheckNameOwnershipCallCount()).To(Equal(1))
+						_, namespace, name, ownerNamespace, ownerName := nameRegistry.CheckNameOwnershipArgsForCall(0)
+						Expect(namespace).To(Equal("uniqueness-namespace"))
+						Expect(name).To(Equal("new-unique-name"))
+						Expect(ownerNamespace).To(Equal("test-resource-namespace"))
+						Expect(ownerName).To(Equal("test-resource-name"))
+
+						Expect(validationErr).NotTo(HaveOccurred())
+					})
+				})
+
+				When("the new name is not registered", func() {
+					BeforeEach(func() {
+						nameRegistry.CheckNameOwnershipReturns(false, nil)
+					})
+
+					It("rejects the request", func() {
+						Expect(validationErr).To(matchers.BeValidationError(
+							webhooks.UnknownErrorType,
+							Equal(webhooks.UnknownErrorMessage),
+						))
+					})
+				})
+
+				When("checking name ownership fails", func() {
+					BeforeEach(func() {
+						nameRegistry.CheckNameOwnershipReturns(false, errors.New("foo"))
+					})
+
+					It("rejects the request", func() {
+						Expect(validationErr).To(matchers.BeValidationError(
+							webhooks.UnknownErrorType,
+							Equal(webhooks.UnknownErrorMessage),
+						))
+					})
+				})
 			})
 		})
 

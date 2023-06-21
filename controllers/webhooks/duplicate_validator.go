@@ -18,6 +18,7 @@ type NameRegistry interface {
 	DeregisterName(ctx context.Context, namespace, name string) error
 	TryLockName(ctx context.Context, namespace, name string) error
 	UnlockName(ctx context.Context, namespace, name string) error
+	CheckNameOwnership(ctx context.Context, namespace, name, ownerNamespace, ownerName string) (bool, error)
 }
 
 //counterfeiter:generate -o fake -fake-name UniqueClientObject . UniqueClientObject
@@ -49,16 +50,10 @@ func (v DuplicateValidator) ValidateCreate(ctx context.Context, logger logr.Logg
 		)
 
 		if k8serrors.IsAlreadyExists(err) {
-			return ValidationError{
-				Type:    DuplicateNameErrorType,
-				Message: obj.UniqueValidationErrorMessage(),
-			}.ExportJSONError()
+			return duplicateError(obj)
 		}
 
-		return ValidationError{
-			Type:    UnknownErrorType,
-			Message: UnknownErrorMessage,
-		}.ExportJSONError()
+		return unknownError()
 	}
 
 	return nil
@@ -75,16 +70,21 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 
 	err := v.nameRegistry.TryLockName(ctx, namespace, oldObj.UniqueName())
 	if err != nil {
-		logger.Info("failed to acquire lock on old name",
-			"reason", err,
-		)
+		logger.Info("failed to acquire lock on old name", "reason", err)
 
-		v.nameRegistry.CheckNameOwnership(ctx, namespace, obj.UniqueName(), obj.GetNamespace(), obj.GetName())
+		if k8serrors.IsNotFound(err) {
+			isOwned, ownershipErr := v.nameRegistry.CheckNameOwnership(ctx, namespace, obj.UniqueName(), obj.GetNamespace(), obj.GetName())
+			if ownershipErr != nil {
+				logger.Error(ownershipErr, "failed to check ownership on new name")
+				return unknownError()
+			}
 
-		return ValidationError{
-			Type:    UnknownErrorType,
-			Message: UnknownErrorMessage,
-		}.ExportJSONError()
+			if isOwned {
+				return nil
+			}
+		}
+
+		return unknownError()
 	}
 
 	logger.V(1).Info("locked-old-name")
@@ -105,16 +105,10 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 		)
 
 		if k8serrors.IsAlreadyExists(err) {
-			return ValidationError{
-				Type:    DuplicateNameErrorType,
-				Message: obj.UniqueValidationErrorMessage(),
-			}.ExportJSONError()
+			return duplicateError(obj)
 		}
 
-		return ValidationError{
-			Type:    UnknownErrorType,
-			Message: UnknownErrorMessage,
-		}.ExportJSONError()
+		return unknownError()
 	}
 	logger.V(1).Info("registered-new-name")
 
@@ -144,13 +138,24 @@ func (v DuplicateValidator) ValidateDelete(ctx context.Context, logger logr.Logg
 			return nil
 		}
 
-		return ValidationError{
-			Type:    UnknownErrorType,
-			Message: UnknownErrorMessage,
-		}.ExportJSONError()
+		return unknownError()
 	}
 
 	return nil
+}
+
+func duplicateError(obj UniqueClientObject) error {
+	return ValidationError{
+		Type:    DuplicateNameErrorType,
+		Message: obj.UniqueValidationErrorMessage(),
+	}.ExportJSONError()
+}
+
+func unknownError() error {
+	return ValidationError{
+		Type:    UnknownErrorType,
+		Message: UnknownErrorMessage,
+	}.ExportJSONError()
 }
 
 // check interface is implemented correctly
