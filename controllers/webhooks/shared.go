@@ -11,14 +11,14 @@ import (
 //counterfeiter:generate -o fake -fake-name NameValidator . NameValidator
 
 type NameValidator interface {
-	ValidateCreate(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) *ValidationError
-	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace string, oldObj, newObj UniqueClientObject) *ValidationError
-	ValidateDelete(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) *ValidationError
+	ValidateCreate(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) error
+	ValidateUpdate(ctx context.Context, logger logr.Logger, namespace string, oldObj, newObj UniqueClientObject) error
+	ValidateDelete(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) error
 }
 
 //counterfeiter:generate -o fake -fake-name NamespaceValidator . NamespaceValidator
 
 type NamespaceValidator interface {
-	ValidateOrgCreate(org korifiv1alpha1.CFOrg) *ValidationError
-	ValidateSpaceCreate(space korifiv1alpha1.CFSpace) *ValidationError
+	ValidateOrgCreate(org korifiv1alpha1.CFOrg) error
+	ValidateSpaceCreate(space korifiv1alpha1.CFSpace) error
 }

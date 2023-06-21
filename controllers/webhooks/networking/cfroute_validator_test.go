@@ -144,33 +144,11 @@ var _ = Describe("CFRouteValidator", func() {
 
 		When("the route name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "foo",
-				})
+				duplicateValidator.ValidateCreateReturns(errors.New("foo"))
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.DuplicateNameErrorType,
-					Equal("foo"),
-				))
-			})
-		})
-
-		When("validating the app name fails", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 
@@ -354,33 +332,11 @@ var _ = Describe("CFRouteValidator", func() {
 
 		When("the new route name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'.",
-				})
+				duplicateValidator.ValidateUpdateReturns(errors.New("foo"))
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.DuplicateNameErrorType,
-					Equal("Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'."),
-				))
-			})
-		})
-
-		When("the update validation fails for another reason", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 
@@ -469,17 +425,11 @@ var _ = Describe("CFRouteValidator", func() {
 
 		When("delete validation fails", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateDeleteReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
+				duplicateValidator.ValidateDeleteReturns(errors.New("foo"))
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 	})

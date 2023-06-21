@@ -50,12 +50,7 @@ func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runt
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, serviceBinding)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, serviceBinding)
 }
 
 func (v *CFServiceBindingValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
@@ -94,10 +89,5 @@ func (v *CFServiceBindingValidator) ValidateDelete(ctx context.Context, obj runt
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, serviceBinding)
-	if validationErr != nil {
-		return nil, validationErr.ExportJSONError()
-	}
-
-	return nil, nil
+	return nil, v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, serviceBinding)
 }

@@ -38,7 +38,7 @@ func NewDuplicateValidator(nameRegistry NameRegistry) *DuplicateValidator {
 	}
 }
 
-func (v DuplicateValidator) ValidateCreate(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) *ValidationError {
+func (v DuplicateValidator) ValidateCreate(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) error {
 	logger = logger.WithName("duplicateValidator.ValidateCreate")
 	err := v.nameRegistry.RegisterName(ctx, namespace, obj.UniqueName(), obj.GetNamespace(), obj.GetName())
 	if err != nil {
@@ -49,22 +49,22 @@ func (v DuplicateValidator) ValidateCreate(ctx context.Context, logger logr.Logg
 		)
 
 		if k8serrors.IsAlreadyExists(err) {
-			return &ValidationError{
+			return ValidationError{
 				Type:    DuplicateNameErrorType,
 				Message: obj.UniqueValidationErrorMessage(),
-			}
+			}.ExportJSONError()
 		}
 
-		return &ValidationError{
+		return ValidationError{
 			Type:    UnknownErrorType,
 			Message: UnknownErrorMessage,
-		}
+		}.ExportJSONError()
 	}
 
 	return nil
 }
 
-func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logger, namespace string, oldObj, obj UniqueClientObject) *ValidationError {
+func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logger, namespace string, oldObj, obj UniqueClientObject) error {
 	if oldObj.UniqueName() == obj.UniqueName() {
 		return nil
 	}
@@ -79,10 +79,12 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 			"reason", err,
 		)
 
-		return &ValidationError{
+		v.nameRegistry.CheckNameOwnership(ctx, namespace, obj.UniqueName(), obj.GetNamespace(), obj.GetName())
+
+		return ValidationError{
 			Type:    UnknownErrorType,
 			Message: UnknownErrorMessage,
-		}
+		}.ExportJSONError()
 	}
 
 	logger.V(1).Info("locked-old-name")
@@ -103,16 +105,16 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 		)
 
 		if k8serrors.IsAlreadyExists(err) {
-			return &ValidationError{
+			return ValidationError{
 				Type:    DuplicateNameErrorType,
 				Message: obj.UniqueValidationErrorMessage(),
-			}
+			}.ExportJSONError()
 		}
 
-		return &ValidationError{
+		return ValidationError{
 			Type:    UnknownErrorType,
 			Message: UnknownErrorMessage,
-		}
+		}.ExportJSONError()
 	}
 	logger.V(1).Info("registered-new-name")
 
@@ -128,7 +130,7 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 	return nil
 }
 
-func (v DuplicateValidator) ValidateDelete(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) *ValidationError {
+func (v DuplicateValidator) ValidateDelete(ctx context.Context, logger logr.Logger, namespace string, obj UniqueClientObject) error {
 	logger = logger.WithName("duplicateValidator.ValidateDelete")
 	err := v.nameRegistry.DeregisterName(ctx, namespace, obj.UniqueName())
 	if err != nil {
@@ -142,10 +144,10 @@ func (v DuplicateValidator) ValidateDelete(ctx context.Context, logger logr.Logg
 			return nil
 		}
 
-		return &ValidationError{
+		return ValidationError{
 			Type:    UnknownErrorType,
 			Message: UnknownErrorMessage,
-		}
+		}.ExportJSONError()
 	}
 
 	return nil
