@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -9,8 +10,10 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,10 +22,11 @@ import (
 
 var _ = Describe("Org", func() {
 	var (
-		apiHandler *handlers.Org
-		orgRepo    *fake.OrgRepository
-		now        string
-		domainRepo *fake.CFDomainRepository
+		apiHandler       *handlers.Org
+		orgRepo          *fake.OrgRepository
+		now              string
+		domainRepo       *fake.CFDomainRepository
+		requestValidator *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
@@ -30,10 +34,9 @@ var _ = Describe("Org", func() {
 
 		orgRepo = new(fake.OrgRepository)
 		domainRepo = new(fake.CFDomainRepository)
-		decoderValidator, err := handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		requestValidator = new(fake.RequestValidator)
 
-		apiHandler = handlers.NewOrg(*serverURL, orgRepo, domainRepo, decoderValidator, time.Hour, "the-default.domain")
+		apiHandler = handlers.NewOrg(*serverURL, orgRepo, domainRepo, requestValidator, time.Hour, "the-default.domain")
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
@@ -49,6 +52,19 @@ var _ = Describe("Org", func() {
 					"annotations": {"bar": "baz"}
 				}
 			}`
+
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.OrgCreate{
+				Name:      "the-org",
+				Suspended: true,
+				Metadata: payloads.Metadata{
+					Annotations: map[string]string{
+						"bar": "baz",
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+			})
 
 			orgRepo.CreateOrgReturns(repositories.OrgRecord{
 				Name:      "new-org",
@@ -72,6 +88,12 @@ var _ = Describe("Org", func() {
 		})
 
 		It("creates the org", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			bodyBytes, err := io.ReadAll(actualReq.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bodyBytes)).To(Equal(req))
+
 			Expect(orgRepo.CreateOrgCallCount()).To(Equal(1))
 			_, info, orgRecord := orgRepo.CreateOrgArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
@@ -98,43 +120,13 @@ var _ = Describe("Org", func() {
 			})
 		})
 
-		When("the request body is invalid json", func() {
+		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				req = `{`
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			It("returns a status 400 with appropriate error JSON", func() {
-				expectBadRequestError()
-			})
-		})
-
-		When("the request body has an unknown field", func() {
-			BeforeEach(func() {
-				req = `{"description" : "Invalid Request"}`
-			})
-
-			It("returns a status 422 with appropriate error JSON", func() {
-				expectUnprocessableEntityError(`invalid request body: json: unknown field "description"`)
-			})
-		})
-
-		When("the request body is invalid with invalid app name", func() {
-			BeforeEach(func() {
-				req = `{"name": 12345}`
-			})
-
-			It("returns a status 422 with appropriate error JSON", func() {
-				expectUnprocessableEntityError("Name must be a string")
-			})
-		})
-
-		When("the request body is invalid with missing required name field", func() {
-			BeforeEach(func() {
-				req = `{"metadata": {"labels": {"foo": "bar"}}}`
-			})
-
-			It("returns a status 422 with appropriate error message json", func() {
-				expectUnprocessableEntityError("Name is a required field")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -143,7 +135,7 @@ var _ = Describe("Org", func() {
 		var path string
 
 		BeforeEach(func() {
-			path = "/v3/organizations"
+			path = "/v3/organizations?names=a,b"
 			orgRepo.ListOrgsReturns([]repositories.OrgRecord{
 				{
 					Name:      "alice",
@@ -167,6 +159,10 @@ var _ = Describe("Org", func() {
 		})
 
 		It("returns the org list", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(Equal(path))
+
 			Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
 			_, info, message := orgRepo.ListOrgsArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
@@ -175,7 +171,7 @@ var _ = Describe("Org", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/organizations"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/organizations?names=a,b"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "a-l-i-c-e"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/organizations/a-l-i-c-e"),
@@ -185,7 +181,11 @@ var _ = Describe("Org", func() {
 
 		When("names are specified", func() {
 			BeforeEach(func() {
-				path += "?names=foo,bar"
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(
+					&payloads.OrgList{
+						Names: "foo,bar",
+					},
+				)
 			})
 
 			It("filters by them", func() {
@@ -247,9 +247,28 @@ var _ = Describe("Org", func() {
 					}
 				  }
 			    }`
+
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.OrgPatch{
+				Metadata: payloads.MetadataPatch{
+					Annotations: map[string]*string{
+						"hello":                       tools.PtrTo("there"),
+						"foo.example.com/lorem-ipsum": tools.PtrTo("Lorem ipsum."),
+					},
+					Labels: map[string]*string{
+						"env":                           tools.PtrTo("production"),
+						"foo.example.com/my-identifier": tools.PtrTo("aruba"),
+					},
+				},
+			})
 		})
 
 		It("patches the org", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			bodyBytes, err := io.ReadAll(actualReq.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bodyBytes)).To(Equal(requestBody))
+
 			Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(1))
 			_, _, msg := orgRepo.PatchOrgMetadataArgsForCall(0)
 			Expect(msg.GUID).To(Equal("org-guid"))
@@ -310,71 +329,13 @@ var _ = Describe("Org", func() {
 			})
 		})
 
-		When("a label is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"labels": {
-								"cloudfoundry.org/test": "production"
-							}
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
+		When("the request body is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"labels": {
-								"korifi.cloudfoundry.org/test": "production"
-							}
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-		})
-
-		When("an annotation is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"annotations": {
-								"cloudfoundry.org/test": "production"
-							}
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"annotations": {
-								"korifi.cloudfoundry.org/test": "production"
-							}
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -445,6 +406,10 @@ var _ = Describe("Org", func() {
 		})
 
 		It("lists the org domains", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix(requestURL))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -485,13 +450,13 @@ var _ = Describe("Org", func() {
 			})
 		})
 
-		When("invalid query parameters are provided", func() {
+		When("the request is invalid", func() {
 			BeforeEach(func() {
-				requestURL += "?foo=bar"
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("oops"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})

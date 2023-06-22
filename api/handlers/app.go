@@ -142,12 +142,8 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	appListFilter := new(payloads.AppList)
-	err := payloads.Decode(appListFilter, r.Form)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, appListFilter)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}

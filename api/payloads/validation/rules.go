@@ -40,3 +40,18 @@ func (r strictlyRequiredRule) Validate(value interface{}) error {
 
 	return nil
 }
+
+func OneOf(allowed ...any) validation.Rule {
+	var errorMsg strings.Builder
+	errorMsg.WriteString("value must be one of: ")
+
+	for i, a := range allowed {
+		comma := ", "
+		if i == len(allowed)-1 {
+			comma = ""
+		}
+		errorMsg.WriteString(fmt.Sprintf("%v%s", a, comma))
+	}
+
+	return validation.In(allowed...).Error(errorMsg.String())
+}

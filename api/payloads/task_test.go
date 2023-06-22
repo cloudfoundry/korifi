@@ -1,7 +1,7 @@
 package payloads_test
 
 import (
-	"net/url"
+	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
@@ -14,13 +14,13 @@ import (
 )
 
 var _ = Describe("TaskList", func() {
-	DescribeTable("DecodeFromURLValues",
+	DescribeTable("decodes from url values",
 		func(query string, taskList payloads.TaskList, err string) {
 			actualTaskList := payloads.TaskList{}
-			values, parseErr := url.ParseQuery(query)
-			Expect(parseErr).NotTo(HaveOccurred())
+			req, reqErr := http.NewRequest("GET", "http://foo.com/?"+query, nil)
+			Expect(reqErr).NotTo(HaveOccurred())
 
-			decodeErr := actualTaskList.DecodeFromURLValues(values)
+			decodeErr := validator.DecodeAndValidateURLValues(req, &actualTaskList)
 
 			if err == "" {
 				Expect(decodeErr).NotTo(HaveOccurred())

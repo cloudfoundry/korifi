@@ -1,7 +1,7 @@
 package payloads_test
 
 import (
-	"net/url"
+	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -184,12 +184,12 @@ var _ = Describe("DomainUpdate", func() {
 })
 
 var _ = Describe("DomainList", func() {
-	Describe("DecodeFromURLValues", func() {
+	Describe("decodes from url values", func() {
 		It("succeeds", func() {
 			domainList := payloads.DomainList{}
-			err := domainList.DecodeFromURLValues(url.Values{
-				"names": []string{"foo,bar"},
-			})
+			req, err := http.NewRequest("GET", "http://foo.com/bar?names=foo,bar", nil)
+			Expect(err).NotTo(HaveOccurred())
+			err = validator.DecodeAndValidateURLValues(req, &domainList)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(domainList.Names).To(Equal("foo,bar"))

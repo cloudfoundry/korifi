@@ -39,17 +39,17 @@ type Org struct {
 	apiBaseURL                               url.URL
 	orgRepo                                  CFOrgRepository
 	domainRepo                               CFDomainRepository
-	decoderValidator                         *DecoderValidator
+	requestValidator                         RequestValidator
 	userCertificateExpirationWarningDuration time.Duration
 	defaultDomainName                        string
 }
 
-func NewOrg(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator, userCertificateExpirationWarningDuration time.Duration, defaultDomainName string) *Org {
+func NewOrg(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, requestValidator RequestValidator, userCertificateExpirationWarningDuration time.Duration, defaultDomainName string) *Org {
 	return &Org{
 		apiBaseURL:                               apiBaseURL,
 		orgRepo:                                  orgRepo,
 		domainRepo:                               domainRepo,
-		decoderValidator:                         decoderValidator,
+		requestValidator:                         requestValidator,
 		userCertificateExpirationWarningDuration: userCertificateExpirationWarningDuration,
 		defaultDomainName:                        defaultDomainName,
 	}
@@ -60,7 +60,7 @@ func (h *Org) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.create")
 
 	var payload payloads.OrgCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "invalid-payload-for-create-org")
 	}
 
@@ -85,7 +85,7 @@ func (h *Org) update(r *http.Request) (*routing.Response, error) {
 	}
 
 	var payload payloads.OrgPatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -118,9 +118,13 @@ func (h *Org) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.list")
 
-	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
+	listFilter := &payloads.OrgList{}
+	err := h.requestValidator.DecodeAndValidateURLValues(r, listFilter)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
 
-	orgs, err := h.orgRepo.ListOrgs(r.Context(), authInfo, repositories.ListOrgsMessage{Names: names})
+	orgs, err := h.orgRepo.ListOrgs(r.Context(), authInfo, listFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to fetch orgs")
 	}
@@ -145,14 +149,9 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
 	}
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	domainListFilter := new(payloads.DomainList)
-	err := payloads.Decode(domainListFilter, r.Form)
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, domainListFilter); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	domainList, err := h.domainRepo.ListDomains(r.Context(), authInfo, domainListFilter.ToMessage())

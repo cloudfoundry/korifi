@@ -1,7 +1,7 @@
 package payloads_test
 
 import (
-	"net/url"
+	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	. "github.com/onsi/ginkgo/v2"
@@ -9,19 +9,19 @@ import (
 )
 
 var _ = Describe("ServiceBindingList", func() {
-	Describe("DecodeFromURLValues", func() {
-		serviceBindingList := payloads.ServiceBindingList{}
-		err := serviceBindingList.DecodeFromURLValues(url.Values{
-			"app_guids":              []string{"app_guid"},
-			"service_instance_guids": []string{"service_instance_guid"},
-			"include":                []string{"include"},
-		})
+	Describe("decode from url values", func() {
+		It("succeeds", func() {
+			serviceBindingList := payloads.ServiceBindingList{}
+			req, err := http.NewRequest("GET", "http://foo.com/bar?app_guids=app_guid&service_instance_guids=service_instance_guid&include=include", nil)
+			Expect(err).NotTo(HaveOccurred())
+			err = validator.DecodeAndValidateURLValues(req, &serviceBindingList)
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(serviceBindingList).To(Equal(payloads.ServiceBindingList{
-			AppGUIDs:             "app_guid",
-			ServiceInstanceGUIDs: "service_instance_guid",
-			Include:              "include",
-		}))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(serviceBindingList).To(Equal(payloads.ServiceBindingList{
+				AppGUIDs:             "app_guid",
+				ServiceInstanceGUIDs: "service_instance_guid",
+				Include:              "include",
+			}))
+		})
 	})
 })

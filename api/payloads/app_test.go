@@ -1,9 +1,8 @@
 package payloads_test
 
 import (
-	"net/url"
+	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,34 +11,25 @@ import (
 )
 
 var _ = Describe("AppList", func() {
-	Describe("DecodeFromURLValues", func() {
-		appList := payloads.AppList{}
-		err := appList.DecodeFromURLValues(url.Values{
-			"names":       []string{"name"},
-			"guids":       []string{"guid"},
-			"space_guids": []string{"space_guid"},
-		})
+	Describe("decode from url values", func() {
+		It("succeeds", func() {
+			var appList payloads.AppList
+			req, err := http.NewRequest("GET", "http://foo.com/bar?names=name&guids=guid&space_guids=space_guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+			err = validator.DecodeAndValidateURLValues(req, &appList)
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(appList).To(Equal(payloads.AppList{
-			Names:      "name",
-			GUIDs:      "guid",
-			SpaceGuids: "space_guid",
-		}))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appList).To(Equal(payloads.AppList{
+				Names:      "name",
+				GUIDs:      "guid",
+				SpaceGuids: "space_guid",
+			}))
+		})
 	})
 })
 
 var _ = Describe("App payload validation", func() {
-	var (
-		decoderValidator *handlers.DecoderValidator
-		validatorErr     error
-	)
-
-	BeforeEach(func() {
-		var err error
-		decoderValidator, err = handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
-	})
+	var validatorErr error
 
 	Describe("AppCreate", func() {
 		var (
@@ -63,7 +53,7 @@ var _ = Describe("App payload validation", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = decoderValidator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {
@@ -138,7 +128,7 @@ var _ = Describe("App payload validation", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = decoderValidator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {
@@ -180,7 +170,7 @@ var _ = Describe("App payload validation", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = decoderValidator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {
@@ -216,7 +206,7 @@ var _ = Describe("App payload validation", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = decoderValidator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {

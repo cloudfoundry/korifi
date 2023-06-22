@@ -53,7 +53,7 @@ var _ = Describe("Validator", func() {
 				Expect(decodeErr).To(HaveOccurred())
 				invalidRequestErr, ok := decodeErr.(apierrors.MessageParseError)
 				Expect(ok).To(BeTrue())
-				Expect(invalidRequestErr.Detail()).To(ContainSubstring(`invalid request body`))
+				Expect(invalidRequestErr.Detail()).To(ContainSubstring("invalid request body"))
 				Expect(invalidRequestErr.Title()).To(Equal("CF-MessageParseError"))
 				Expect(invalidRequestErr.Code()).To(Equal(1001))
 				Expect(invalidRequestErr.HttpStatus()).To(Equal(http.StatusBadRequest))
@@ -65,8 +65,14 @@ var _ = Describe("Validator", func() {
 				requestUrl = "http://foo.com?key=-3"
 			})
 
-			It("returns an error", func() {
-				Expect(decodeErr).To(MatchError(ContainSubstring("must be no less than 0")))
+			It("returns an unprocessable entity error", func() {
+				Expect(decodeErr).To(HaveOccurred())
+				unprocessableEntityErr, ok := decodeErr.(apierrors.UnprocessableEntityError)
+				Expect(ok).To(BeTrue())
+				Expect(unprocessableEntityErr.Detail()).To(ContainSubstring("must be no less than 0"))
+				Expect(unprocessableEntityErr.Title()).To(Equal("CF-UnprocessableEntity"))
+				Expect(unprocessableEntityErr.Code()).To(Equal(10008))
+				Expect(unprocessableEntityErr.HttpStatus()).To(Equal(http.StatusUnprocessableEntity))
 			})
 		})
 

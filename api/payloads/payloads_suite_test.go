@@ -39,3 +39,18 @@ func createRequest(payload any) *http.Request {
 	Expect(err).NotTo(HaveOccurred())
 	return req
 }
+
+type keyedPayload[T any] interface {
+	handlers.KeyedPayload
+	*T
+}
+
+func decodeQuery[T any, PT keyedPayload[T]](query string) (PT, error) {
+	req, err := http.NewRequest("GET", "http://foo.bar/?"+query, nil)
+	Expect(err).NotTo(HaveOccurred())
+
+	var actual PT = new(T)
+	decodeErr := validator.DecodeAndValidateURLValues(req, actual)
+
+	return actual, decodeErr
+}

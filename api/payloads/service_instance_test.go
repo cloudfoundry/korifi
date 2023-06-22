@@ -2,7 +2,7 @@ package payloads_test
 
 import (
 	"encoding/json"
-	"net/url"
+	"net/http"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -13,13 +13,11 @@ import (
 )
 
 var _ = Describe("ServiceInstanceList", func() {
-	Describe("DecodeFromURLValues", func() {
+	It("Decodes from URL values", func() {
 		serviceInstanceList := payloads.ServiceInstanceList{}
-		err := serviceInstanceList.DecodeFromURLValues(url.Values{
-			"names":       []string{"name"},
-			"space_guids": []string{"space_guid"},
-			"order_by":    []string{"order"},
-		})
+		req, err := http.NewRequest("GET", "http://foo.com/bar?names=name&space_guids=space_guid&order_by=order", nil)
+		Expect(err).NotTo(HaveOccurred())
+		err = validator.DecodeAndValidateURLValues(req, &serviceInstanceList)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(serviceInstanceList).To(Equal(payloads.ServiceInstanceList{
