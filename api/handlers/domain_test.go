@@ -282,12 +282,25 @@ var _ = Describe("Domain", func() {
 			}
 			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
 
+			payload := &payloads.DomainList{Names: "bob,alice"}
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
+
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/domains", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns the list of domains", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL).To(Equal(req.URL))
+
+			Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
+			_, _, listMessage := domainRepo.ListDomainsArgsForCall(0)
+			Expect(listMessage).To(Equal(repositories.ListDomainsMessage{
+				Names: []string{"bob", "alice"},
+			}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(

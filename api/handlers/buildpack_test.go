@@ -1,11 +1,13 @@
 package handlers_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
@@ -15,14 +17,16 @@ import (
 
 var _ = Describe("Buildpack", func() {
 	var (
-		buildpackRepo *fake.BuildpackRepository
-		req           *http.Request
+		buildpackRepo    *fake.BuildpackRepository
+		req              *http.Request
+		requestValidator *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
 		buildpackRepo = new(fake.BuildpackRepository)
 
-		apiHandler := NewBuildpack(*serverURL, buildpackRepo)
+		requestValidator = new(fake.RequestValidator)
+		apiHandler := NewBuildpack(*serverURL, buildpackRepo, requestValidator)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
@@ -46,6 +50,12 @@ var _ = Describe("Buildpack", func() {
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/buildpacks", nil)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("validates the request", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL).To(Equal(req.URL))
 		})
 
 		It("returns the buildpacks for the default builder", func() {
@@ -85,7 +95,10 @@ var _ = Describe("Buildpack", func() {
 			})
 
 			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
-				req = createHttpRequest("GET", "/v3/buildpacks?order_by="+orderBy, nil)
+				req = createHttpRequest("GET", "/v3/buildpacks?order_by=not-used", nil)
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.BuildpackList{
+					OrderBy: orderBy,
+				})
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
 				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].position", expectedOrder)))
@@ -97,27 +110,15 @@ var _ = Describe("Buildpack", func() {
 				Entry("position ASC", "position", 1.0, 2.0, 3.0),
 				Entry("position DESC", "-position", 3.0, 2.0, 1.0),
 			)
-
-			When("order_by is not a valid field", func() {
-				BeforeEach(func() {
-					req = createHttpRequest("GET", "/v3/buildpacks?order_by=not_valid", nil)
-				})
-
-				It("returns an Unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Order by can only be: .*")
-				})
-			})
 		})
 
-		When("invalid query parameters are provided", func() {
+		When("request is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/buildpacks?foo=bar", nil)
-				Expect(err).NotTo(HaveOccurred())
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("foo"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
+			It("returns an Unknown error", func() {
+				expectUnknownError()
 			})
 		})
 	})

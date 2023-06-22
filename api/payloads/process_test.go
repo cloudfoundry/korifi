@@ -1,7 +1,7 @@
 package payloads_test
 
 import (
-	"net/url"
+	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -12,16 +12,18 @@ import (
 )
 
 var _ = Describe("ProcessList", func() {
-	Describe("DecodeFromURLValues", func() {
-		processList := payloads.ProcessList{}
-		err := processList.DecodeFromURLValues(url.Values{
-			"app_guids": []string{"app_guid"},
-		})
+	Describe("decodes from url values", func() {
+		It("succeeds", func() {
+			processList := payloads.ProcessList{}
+			req, err := http.NewRequest("GET", "http://foo.com/bar?app_guids=app_guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+			err = validator.DecodeAndValidateURLValues(req, &processList)
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(processList).To(Equal(payloads.ProcessList{
-			AppGUIDs: "app_guid",
-		}))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(processList).To(Equal(payloads.ProcessList{
+				AppGUIDs: "app_guid",
+			}))
+		})
 	})
 })
 

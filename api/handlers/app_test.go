@@ -298,20 +298,36 @@ var _ = Describe("App", func() {
 		})
 
 		When("filtering query params are provided", func() {
+			var payload *payloads.AppList
+
 			BeforeEach(func() {
-				req = createHttpRequest("GET", "/v3/apps?names=app1,app2&space_guids=space1,space2", nil)
+				req = createHttpRequest("GET", "/v3/apps?names=app1,app2&space_guids=space1,space2&guids=guid1,guid2", nil)
+				payload = &payloads.AppList{
+					Names:      "a1,a2",
+					GUIDs:      "g1,g2",
+					SpaceGuids: "s1,s2",
+				}
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
+			})
+
+			It("validates the url values", func() {
+				Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+				actualReq, actualPayload := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+				Expect(actualReq.URL).To(Equal(req.URL))
+				Expect(actualPayload).To(Equal(payload))
 			})
 
 			It("passes them to the repository", func() {
 				Expect(appRepo.ListAppsCallCount()).To(Equal(1))
 				_, _, message := appRepo.ListAppsArgsForCall(0)
 
-				Expect(message.Names).To(ConsistOf("app1", "app2"))
-				Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
+				Expect(message.Names).To(ConsistOf("a1", "a2"))
+				Expect(message.SpaceGuids).To(ConsistOf("s1", "s2"))
+				Expect(message.Guids).To(ConsistOf("g1", "g2"))
 			})
 
 			It("correctly sets query parameters in response pagination links", func() {
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2")))
+				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2&guids=guid1,guid2")))
 			})
 		})
 
@@ -403,7 +419,7 @@ var _ = Describe("App", func() {
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("GET", "/v3/apps?foo=bar", nil)
+				requestValidator.DecodeAndValidateURLValuesReturns(apierrors.NewUnknownKeyError(nil, []string{"foo"}))
 			})
 
 			It("returns an Unknown key error", func() {

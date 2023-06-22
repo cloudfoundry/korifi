@@ -115,13 +115,8 @@ func (h *Domain) list(r *http.Request) (*routing.Response, error) { //nolint:dup
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	domainListFilter := new(payloads.DomainList)
-	err := payloads.Decode(domainListFilter, r.Form)
-	if err != nil {
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, domainListFilter); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 

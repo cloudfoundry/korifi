@@ -1,14 +1,14 @@
 package payloads
 
 import (
-	"fmt"
 	"net/url"
 	"strconv"
 
-	"github.com/jellydator/validation"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
-var allowedEnvelopeTypes = []string{"LOG", "COUNTER", "GAUGE", "TIMER", "EVENT"}
+var allowedEnvelopeTypes = []any{"LOG", "COUNTER", "GAUGE", "TIMER", "EVENT"}
 
 type LogRead struct {
 	StartTime     int64
@@ -18,8 +18,10 @@ type LogRead struct {
 }
 
 func (l LogRead) Validate() error {
-	return validation.ValidateStruct(&l,
-		validation.Field(&l.EnvelopeTypes, validation.Each(validation.StringIn(true, allowedEnvelopeTypes...).Error(fmt.Sprintf("value must be one of %q", allowedEnvelopeTypes)))),
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.EnvelopeTypes,
+			jellidation.Each(validation.OneOf(allowedEnvelopeTypes...)),
+		),
 	)
 }
 

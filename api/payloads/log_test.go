@@ -1,38 +1,19 @@
 package payloads_test
 
 import (
-	"net/http"
-	"net/url"
-
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("LogRead", func() {
-})
-
-var _ = Describe("LogRead", func() {
-	decodeQuery := func(query string) (payloads.LogRead, error) {
-		requestValidator, err := handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
-
-		parsedUrl, err := url.Parse("http://foo.bar/?" + query)
-		Expect(err).NotTo(HaveOccurred())
-
-		actualLogRead := payloads.LogRead{}
-		decodeErr := requestValidator.DecodeAndValidateURLValues(&http.Request{URL: parsedUrl}, &actualLogRead)
-		return actualLogRead, decodeErr
-	}
-
 	Describe("Validation", func() {
 		DescribeTable("valid query",
 			func(query string, expectedLogRead payloads.LogRead) {
-				actualLogRead, decodeErr := decodeQuery(query)
+				actualLogRead, decodeErr := decodeQuery[payloads.LogRead](query)
 
 				Expect(decodeErr).NotTo(HaveOccurred())
-				Expect(actualLogRead).To(Equal(expectedLogRead))
+				Expect(*actualLogRead).To(Equal(expectedLogRead))
 			},
 			Entry("all fields valid", "start_time=123&envelope_types=LOG&envelope_types=COUNTER&limit=456&descending=true", payloads.LogRead{
 				StartTime:     123,
@@ -55,7 +36,7 @@ var _ = Describe("LogRead", func() {
 
 		DescribeTable("invalid query",
 			func(query string, expectedErrMsg string) {
-				_, decodeErr := decodeQuery(query)
+				_, decodeErr := decodeQuery[payloads.LogRead](query)
 				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 			},
 			Entry("invalid start_time", "start_time=foo", "invalid syntax"),
