@@ -17,8 +17,8 @@ var _ = Describe("Validator", func() {
 		var (
 			requestValidator *handlers.DecoderValidator
 			decoded          DecodeTestPayload
-			urlValues        map[string][]string
 			decodeErr        error
+			requestUrl       string
 		)
 
 		BeforeEach(func() {
@@ -26,15 +26,16 @@ var _ = Describe("Validator", func() {
 			requestValidator, err = handlers.NewDefaultDecoderValidator()
 			Expect(err).NotTo(HaveOccurred())
 
+			requestUrl = "http://foo.com?key=3"
+
 			decoded = DecodeTestPayload{}
-			urlValues = map[string][]string{
-				"key": {"3"},
-			}
 		})
 
 		JustBeforeEach(func() {
+			url, err := url.Parse(requestUrl)
+			Expect(err).NotTo(HaveOccurred())
 			decodeErr = requestValidator.DecodeAndValidateURLValues(&http.Request{
-				Form: urlValues,
+				URL: url,
 			}, &decoded)
 		})
 
@@ -45,9 +46,7 @@ var _ = Describe("Validator", func() {
 
 		When("the input cannot be converted", func() {
 			BeforeEach(func() {
-				urlValues = map[string][]string{
-					"key": {"asd"},
-				}
+				requestUrl = "http://foo.com?key=asd"
 			})
 
 			It("returns a message parse error", func() {
@@ -63,9 +62,7 @@ var _ = Describe("Validator", func() {
 
 		When("the input is invalid", func() {
 			BeforeEach(func() {
-				urlValues = map[string][]string{
-					"key": {"-3"},
-				}
+				requestUrl = "http://foo.com?key=-3"
 			})
 
 			It("returns an error", func() {
@@ -75,9 +72,7 @@ var _ = Describe("Validator", func() {
 
 		When("the payload input contains unsupported key", func() {
 			BeforeEach(func() {
-				urlValues = map[string][]string{
-					"foo": {"bar"},
-				}
+				requestUrl = "http://foo.com?foo=bar"
 			})
 
 			It("returns an unsupported key error", func() {

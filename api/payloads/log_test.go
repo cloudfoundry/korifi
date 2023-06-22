@@ -18,10 +18,11 @@ var _ = Describe("LogRead", func() {
 		requestValidator, err := handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 
+		parsedUrl, err := url.Parse("http://foo.bar/?" + query)
+		Expect(err).NotTo(HaveOccurred())
+
 		actualLogRead := payloads.LogRead{}
-		decodeErr := requestValidator.DecodeAndValidateURLValues(&http.Request{
-			Form: parseQuery(query),
-		}, &actualLogRead)
+		decodeErr := requestValidator.DecodeAndValidateURLValues(&http.Request{URL: parsedUrl}, &actualLogRead)
 		return actualLogRead, decodeErr
 	}
 
@@ -64,9 +65,3 @@ var _ = Describe("LogRead", func() {
 		)
 	})
 })
-
-func parseQuery(query string) url.Values {
-	values, parseErr := url.ParseQuery(query)
-	Expect(parseErr).NotTo(HaveOccurred())
-	return values
-}

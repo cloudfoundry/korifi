@@ -88,6 +88,9 @@ func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object
 }
 
 func (dv *DecoderValidator) DecodeAndValidateURLValues(r *http.Request, object KeyedPayload) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
 	if err := checkKeysAreSupported(object, r.Form); err != nil {
 		return apierrors.NewUnknownKeyError(err, object.SupportedKeys())
 	}
