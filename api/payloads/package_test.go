@@ -1,8 +1,6 @@
 package payloads_test
 
 import (
-	"net/url"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -207,18 +205,28 @@ var _ = Describe("PackageUpdate", func() {
 	})
 })
 
-var _ = Describe("PackageListQueryParameters", func() {
-	Describe("DecodeFromURLValues", func() {
-		packageList := payloads.PackageListQueryParameters{}
-		err := packageList.DecodeFromURLValues(url.Values{
-			"app_guids": []string{"app_guid"},
-			"states":    []string{"state"},
-		})
+var _ = Describe("PackageList", func() {
+	DescribeTable("valid query",
+		func(query string, expectedPackageListQueryParameters payloads.PackageList) {
+			actualPackageListQueryParameters, decodeErr := decodeQuery[payloads.PackageList](query)
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(packageList).To(Equal(payloads.PackageListQueryParameters{
-			AppGUIDs: "app_guid",
-			States:   "state",
-		}))
-	})
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualPackageListQueryParameters).To(Equal(expectedPackageListQueryParameters))
+		},
+		Entry("app_guids", "app_guids=g1,g2", payloads.PackageList{AppGUIDs: "g1,g2"}),
+		Entry("states", "states=s1,s2", payloads.PackageList{States: "s1,s2"}),
+		Entry("created_at", "order_by=created_at", payloads.PackageList{OrderBy: "created_at"}),
+		Entry("-created_at", "order_by=-created_at", payloads.PackageList{OrderBy: "-created_at"}),
+		Entry("updated_at", "order_by=updated_at", payloads.PackageList{OrderBy: "updated_at"}),
+		Entry("-updated_at", "order_by=-updated_at", payloads.PackageList{OrderBy: "-updated_at"}),
+		Entry("empty", "order_by=", payloads.PackageList{OrderBy: ""}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.PackageList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+	)
 })

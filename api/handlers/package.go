@@ -88,22 +88,18 @@ func (h Package) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
-	packageListQueryParameters := new(payloads.PackageListQueryParameters)
-	err := payloads.Decode(packageListQueryParameters, r.Form)
+	packageList := new(payloads.PackageList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, packageList)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageListQueryParameters.ToMessage())
+	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageList.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository")
 	}
 
-	if err := h.sortList(records, r.FormValue("order_by")); err != nil {
+	if err := h.sortList(records, packageList.OrderBy); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
 	}
 
@@ -224,23 +220,17 @@ func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.list-droplets")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
-	packageListDropletsQueryParams := new(payloads.PackageListDropletsQueryParameters)
-	err := payloads.Decode(packageListDropletsQueryParams, r.Form)
-	if err != nil {
+	packageListDroplets := new(payloads.PackageListDroplets)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, packageListDroplets); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	packageGUID := routing.URLParam(r, "guid")
-	_, err = h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
-	if err != nil {
+	if _, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
 	}
 
-	dropletListMessage := packageListDropletsQueryParams.ToMessage([]string{packageGUID})
+	dropletListMessage := packageListDroplets.ToMessage([]string{packageGUID})
 
 	dropletList, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, dropletListMessage)
 	if err != nil {
