@@ -21,22 +21,6 @@ const (
 	RolePath  = RolesPath + "/{guid}"
 )
 
-type RoleName string
-
-const (
-	RoleAdmin                      RoleName = "admin"
-	RoleAdminReadOnly              RoleName = "admin_read_only"
-	RoleGlobalAuditor              RoleName = "global_auditor"
-	RoleOrganizationAuditor        RoleName = "organization_auditor"
-	RoleOrganizationBillingManager RoleName = "organization_billing_manager"
-	RoleOrganizationManager        RoleName = "organization_manager"
-	RoleOrganizationUser           RoleName = "organization_user"
-	RoleSpaceAuditor               RoleName = "space_auditor"
-	RoleSpaceDeveloper             RoleName = "space_developer"
-	RoleSpaceManager               RoleName = "space_manager"
-	RoleSpaceSupporter             RoleName = "space_supporter"
-)
-
 //counterfeiter:generate -o fake -fake-name CFRoleRepository . CFRoleRepository
 
 type CFRoleRepository interface {
@@ -49,14 +33,14 @@ type CFRoleRepository interface {
 type Role struct {
 	apiBaseURL       url.URL
 	roleRepo         CFRoleRepository
-	decoderValidator RequestValidator
+	requestValidator RequestValidator
 }
 
-func NewRole(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator RequestValidator) *Role {
+func NewRole(apiBaseURL url.URL, roleRepo CFRoleRepository, requestValidator RequestValidator) *Role {
 	return &Role{
 		apiBaseURL:       apiBaseURL,
 		roleRepo:         roleRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -65,7 +49,7 @@ func (h *Role) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.role.create")
 
 	var payload payloads.RoleCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -84,12 +68,8 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.role.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
-	roleListFilter := new(payloads.RoleListFilter)
-	err := payloads.Decode(roleListFilter, r.Form)
+	roleListFilter := new(payloads.RoleList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, roleListFilter)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
@@ -101,14 +81,14 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 
 	filteredRoles := filterRoles(roleListFilter, roles)
 
-	if err := h.sortList(filteredRoles, r.FormValue("order_by")); err != nil {
+	if err := h.sortList(filteredRoles, roleListFilter.OrderBy); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRole, filteredRoles, h.apiBaseURL, *r.URL)), nil
 }
 
-func filterRoles(roleListFilter *payloads.RoleListFilter, roles []repositories.RoleRecord) []repositories.RoleRecord {
+func filterRoles(roleListFilter *payloads.RoleList, roles []repositories.RoleRecord) []repositories.RoleRecord {
 	var filteredRoles []repositories.RoleRecord
 	for _, role := range roles {
 		if match(roleListFilter.GUIDs, role.GUID) &&

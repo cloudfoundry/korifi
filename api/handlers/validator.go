@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/payloads"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -227,28 +226,6 @@ func wireValidator() (*validator.Validate, ut.Translator, error) {
 		return nil, nil, err
 	}
 
-	v.RegisterStructValidation(checkRoleTypeAndOrgSpace, payloads.RoleCreate{})
-
-	err = v.RegisterTranslation("cannot_have_both_org_and_space_set", trans, func(ut ut.Translator) error {
-		return ut.Add("cannot_have_both_org_and_space_set", "Cannot pass both 'organization' and 'space' in a create role request", false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("cannot_have_both_org_and_space_set", fe.Field())
-		return t
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = v.RegisterTranslation("valid_role", trans, func(ut ut.Translator) error {
-		return ut.Add("valid_role", "{0} is not a valid role", false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("valid_role", fmt.Sprintf("%v", fe.Value()))
-		return t
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return v, trans, nil
 }
 
@@ -263,43 +240,6 @@ func registerDefaultTranslator(v *validator.Validate) (ut.Translator, error) {
 	}
 
 	return trans, nil
-}
-
-func checkRoleTypeAndOrgSpace(sl validator.StructLevel) {
-	roleCreate := sl.Current().Interface().(payloads.RoleCreate)
-
-	if roleCreate.Relationships.Organization != nil && roleCreate.Relationships.Space != nil {
-		sl.ReportError(roleCreate.Relationships.Organization, "relationships.organization", "Organization", "cannot_have_both_org_and_space_set", "")
-	}
-
-	roleType := RoleName(roleCreate.Type)
-
-	switch roleType {
-	case RoleSpaceManager:
-		fallthrough
-	case RoleSpaceAuditor:
-		fallthrough
-	case RoleSpaceDeveloper:
-		fallthrough
-	case RoleSpaceSupporter:
-		if roleCreate.Relationships.Space == nil {
-			sl.ReportError(roleCreate.Relationships.Space, "relationships.space", "Space", "required", "")
-		}
-	case RoleOrganizationUser:
-		fallthrough
-	case RoleOrganizationAuditor:
-		fallthrough
-	case RoleOrganizationManager:
-		fallthrough
-	case RoleOrganizationBillingManager:
-		if roleCreate.Relationships.Organization == nil {
-			sl.ReportError(roleCreate.Relationships.Organization, "relationships.organization", "Organization", "required", "")
-		}
-
-	case RoleName(""):
-	default:
-		sl.ReportError(roleCreate.Type, "type", "Role type", "valid_role", "")
-	}
 }
 
 func serviceInstanceTagLength(fl validator.FieldLevel) bool {

@@ -8,7 +8,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	"code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +28,7 @@ var _ = Describe("RoleCreate", func() {
 		createPayload = payloads.RoleCreate{
 			Type: "space_manager",
 			Relationships: payloads.RoleRelationships{
-				User: &payloads.UserRelationship{
+				User: payloads.UserRelationship{
 					Data: payloads.UserRelationshipData{
 						Username: "cf-service-account",
 					},
@@ -53,33 +52,15 @@ var _ = Describe("RoleCreate", func() {
 		Expect(roleCreate).To(PointTo(Equal(createPayload)))
 	})
 
-	When("the user name is missing", func() {
-		BeforeEach(func() {
-			createPayload.Relationships.User = nil
-		})
-
-		It("fails", func() {
-			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("User is a required field"))
-		})
-	})
-
 	When("the user name and GUID are missing", func() {
 		BeforeEach(func() {
-			createPayload.Relationships.User = &payloads.UserRelationship{
-				Data: payloads.UserRelationshipData{
-					Username: "",
-					GUID:     "",
-				},
-			}
+			createPayload.Relationships.User.Data.GUID = ""
+			createPayload.Relationships.User.Data.Username = ""
 		})
 
 		It("fails", func() {
 			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(SatisfyAll(
-				ContainSubstring("Field validation for 'GUID' failed"),
-				ContainSubstring("Field validation for 'Username' failed"),
-			))
+			Expect(apiError.Detail()).To(ContainSubstring("user cannot be blank"))
 		})
 	})
 
@@ -90,29 +71,7 @@ var _ = Describe("RoleCreate", func() {
 
 		It("fails", func() {
 			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("Type is a required field"))
-		})
-	})
-
-	When("a space role is missing a space relationship", func() {
-		BeforeEach(func() {
-			createPayload.Relationships.Space = nil
-		})
-
-		It("fails", func() {
-			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("relationships.space is a required field"))
-		})
-	})
-
-	When("an org role is missing an org relationship", func() {
-		BeforeEach(func() {
-			createPayload.Type = "organization_manager"
-		})
-
-		It("fails", func() {
-			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("relationships.organization is a required field"))
+			Expect(apiError.Detail()).To(ContainSubstring("type cannot be blank"))
 		})
 	})
 
@@ -127,7 +86,7 @@ var _ = Describe("RoleCreate", func() {
 
 		It("fails", func() {
 			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("Cannot pass both 'organization' and 'space' in a create role request"))
+			Expect(apiError.Detail()).To(ContainSubstring("cannot pass both 'organization' and 'space' in a create role request"))
 		})
 	})
 
@@ -198,23 +157,53 @@ var _ = DescribeTable("Role org / space combination validation",
 		}
 	},
 
-	Entry("org auditor w org", string(handlers.RoleOrganizationAuditor), "organization", true, ""),
-	Entry("org auditor w space", string(handlers.RoleOrganizationAuditor), "space", false, "relationships.organization is a required field"),
-	Entry("org billing manager w org", string(handlers.RoleOrganizationBillingManager), "organization", true, ""),
-	Entry("org billing manager w space", string(handlers.RoleOrganizationBillingManager), "space", false, "relationships.organization is a required field"),
-	Entry("org manager w org", string(handlers.RoleOrganizationManager), "organization", true, ""),
-	Entry("org manager w space", string(handlers.RoleOrganizationManager), "space", false, "relationships.organization is a required field"),
-	Entry("org user w org", string(handlers.RoleOrganizationUser), "organization", true, ""),
-	Entry("org user w space", string(handlers.RoleOrganizationUser), "space", false, "relationships.organization is a required field"),
+	Entry("org auditor w org", payloads.RoleOrganizationAuditor, "organization", true, ""),
+	Entry("org auditor w space", payloads.RoleOrganizationAuditor, "space", false, "relationships.organization is required"),
+	Entry("org billing manager w org", payloads.RoleOrganizationBillingManager, "organization", true, ""),
+	Entry("org billing manager w space", payloads.RoleOrganizationBillingManager, "space", false, "relationships.organization is required"),
+	Entry("org manager w org", payloads.RoleOrganizationManager, "organization", true, ""),
+	Entry("org manager w space", payloads.RoleOrganizationManager, "space", false, "relationships.organization is required"),
+	Entry("org user w org", payloads.RoleOrganizationUser, "organization", true, ""),
+	Entry("org user w space", payloads.RoleOrganizationUser, "space", false, "relationships.organization is required"),
 
-	Entry("space auditor w org", string(handlers.RoleSpaceAuditor), "organization", false, "relationships.space is a required field"),
-	Entry("space auditor w space", string(handlers.RoleSpaceAuditor), "space", true, ""),
-	Entry("space developer w org", string(handlers.RoleSpaceDeveloper), "organization", false, "relationships.space is a required field"),
-	Entry("space developer w space", string(handlers.RoleSpaceDeveloper), "space", true, ""),
-	Entry("space manager w org", string(handlers.RoleSpaceManager), "organization", false, "relationships.space is a required field"),
-	Entry("space manager w space", string(handlers.RoleSpaceManager), "space", true, ""),
-	Entry("space supporter w org", string(handlers.RoleSpaceSupporter), "organization", false, "relationships.space is a required field"),
-	Entry("space supporter w space", string(handlers.RoleSpaceSupporter), "space", true, ""),
+	Entry("space auditor w org", payloads.RoleSpaceAuditor, "organization", false, "relationships.space is required"),
+	Entry("space auditor w space", payloads.RoleSpaceAuditor, "space", true, ""),
+	Entry("space developer w org", payloads.RoleSpaceDeveloper, "organization", false, "relationships.space is required"),
+	Entry("space developer w space", payloads.RoleSpaceDeveloper, "space", true, ""),
+	Entry("space manager w org", payloads.RoleSpaceManager, "organization", false, "relationships.space is required"),
+	Entry("space manager w space", payloads.RoleSpaceManager, "space", true, ""),
+	Entry("space supporter w org", payloads.RoleSpaceSupporter, "organization", false, "relationships.space is required"),
+	Entry("space supporter w space", payloads.RoleSpaceSupporter, "space", true, ""),
 
-	Entry("invalid role name", "does-not-exist", "organization", false, "does-not-exist is not a valid role"),
+	Entry("invalid role name", "does-not-exist", "organization", false, "type value must be one of"),
 )
+
+var _ = Describe("role list", func() {
+	DescribeTable("valid query",
+		func(query string, expectedRoleListQueryParameters payloads.RoleList) {
+			actualRoleListQueryParameters, decodeErr := decodeQuery[payloads.RoleList](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualRoleListQueryParameters).To(Equal(expectedRoleListQueryParameters))
+		},
+
+		Entry("guids", "guids=g1,g2", payloads.RoleList{GUIDs: map[string]bool{"g1": true, "g2": true}}),
+		Entry("types", "types=g1,g2", payloads.RoleList{Types: map[string]bool{"g1": true, "g2": true}}),
+		Entry("space_guids", "space_guids=g1,g2", payloads.RoleList{SpaceGUIDs: map[string]bool{"g1": true, "g2": true}}),
+		Entry("organization_guids", "organization_guids=g1,g2", payloads.RoleList{OrgGUIDs: map[string]bool{"g1": true, "g2": true}}),
+		Entry("user_guids", "user_guids=g1,g2", payloads.RoleList{UserGUIDs: map[string]bool{"g1": true, "g2": true}}),
+		Entry("order_by1", "order_by=created_at", payloads.RoleList{OrderBy: "created_at"}),
+		Entry("order_by2", "order_by=-created_at", payloads.RoleList{OrderBy: "-created_at"}),
+		Entry("order_by3", "order_by=updated_at", payloads.RoleList{OrderBy: "updated_at"}),
+		Entry("order_by4", "order_by=-updated_at", payloads.RoleList{OrderBy: "-updated_at"}),
+		Entry("include", "include=foo", payloads.RoleList{}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.RoleList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+	)
+})

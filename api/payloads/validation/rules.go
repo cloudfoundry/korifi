@@ -26,7 +26,7 @@ type strictlyRequiredRule struct {
 	validation.RequiredRule
 }
 
-// We wrap tje original validation.RequiredRule in order to workaround
+// We wrap the original validation.RequiredRule in order to workaround
 // incorrect zero type check:
 // https://github.com/jellydator/validation/blob/44595f5c48dd0da8bbeff0f56ceaa581631e55b1/util.go#L151-L156
 func (r strictlyRequiredRule) Validate(value interface{}) error {
