@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +19,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("RoleRepository", func() {
@@ -58,8 +58,10 @@ var _ = Describe("RoleRepository", func() {
 	})
 
 	getTheRoleBinding := func(name, namespace string) rbacv1.RoleBinding {
+		GinkgoHelper()
+
 		roleBinding := rbacv1.RoleBinding{}
-		ExpectWithOffset(1, k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &roleBinding)).To(Succeed())
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &roleBinding)).To(Succeed())
 
 		return roleBinding
 	}

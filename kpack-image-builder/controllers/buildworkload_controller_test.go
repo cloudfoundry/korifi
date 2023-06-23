@@ -1014,8 +1014,10 @@ func buildWorkloadObject(buildWorkloadGUID string, namespace string, source kori
 }
 
 func mustHaveCondition(g Gomega, conditions []metav1.Condition, conditionType string) *metav1.Condition {
+	GinkgoHelper()
+
 	foundCondition := meta.FindStatusCondition(conditions, conditionType)
-	g.ExpectWithOffset(1, foundCondition).NotTo(BeNil())
+	g.Expect(foundCondition).NotTo(BeNil())
 	return foundCondition
 }
 

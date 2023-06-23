@@ -38,7 +38,9 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 	)
 
 	eventuallyBuildWorkloadShould := func(assertion func(*korifiv1alpha1.BuildWorkload, Gomega)) {
-		EventuallyWithOffset(1, func(g Gomega) {
+		GinkgoHelper()
+
+		Eventually(func(g Gomega) {
 			workload := new(korifiv1alpha1.BuildWorkload)
 			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
 			g.Expect(k8sClient.Get(context.Background(), lookupKey, workload)).To(Succeed())

@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools/k8s"
-
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +33,8 @@ var _ = Describe("TaskRepository", func() {
 	)
 
 	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
+		GinkgoHelper()
+
 		if task.Status.Conditions == nil {
 			task.Status.Conditions = []metav1.Condition{}
 		}
@@ -46,7 +48,7 @@ var _ = Describe("TaskRepository", func() {
 			})
 		}
 
-		ExpectWithOffset(1, k8sClient.Status().Update(ctx, task)).To(Succeed())
+		Expect(k8sClient.Status().Update(ctx, task)).To(Succeed())
 	}
 
 	defaultStatusValues := func(task *korifiv1alpha1.CFTask, seqId int64, dropletId string) *korifiv1alpha1.CFTask {
