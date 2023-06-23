@@ -22,9 +22,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	"gopkg.in/yaml.v3"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -342,8 +341,10 @@ var _ = BeforeEach(func() {
 })
 
 func mustHaveEnv(key string) string {
+	GinkgoHelper()
+
 	val, ok := os.LookupEnv(key)
-	ExpectWithOffset(1, ok).To(BeTrue(), "must set env var %q", key)
+	Expect(ok).To(BeTrue(), "must set env var %q", key)
 
 	return val
 }
@@ -358,6 +359,8 @@ func getEnv(key, defaultValue string) string {
 }
 
 func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
+	GinkgoHelper()
+
 	cert := os.Getenv(certEnvVar)
 	if cert != "" {
 		return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(cert).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
@@ -373,7 +376,9 @@ func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
 }
 
 func ensureServerIsUp() {
-	EventuallyWithOffset(1, func() (int, error) {
+	GinkgoHelper()
+
+	Eventually(func() (int, error) {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		resp, err := http.Get(apiServerRoot)
 		if err != nil {
@@ -393,14 +398,16 @@ func generateGUID(prefix string) string {
 }
 
 func deleteOrg(guid string) {
+	GinkgoHelper()
+
 	if guid == "" {
 		return
 	}
 
 	resp, err := adminClient.R().
 		Delete("/v3/organizations/" + guid)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func createOrgRaw(orgName string) (string, error) {
@@ -420,8 +427,10 @@ func createOrgRaw(orgName string) (string, error) {
 }
 
 func createOrg(orgName string) string {
+	GinkgoHelper()
+
 	orgGUID, err := createOrgRaw(orgName)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	return orgGUID
 }
@@ -463,24 +472,30 @@ func createSpaceRaw(spaceName, orgGUID string) (string, error) {
 }
 
 func deleteSpace(guid string) {
+	GinkgoHelper()
+
 	if guid == "" {
 		return
 	}
 
 	resp, err := adminClient.R().
 		Delete("/v3/spaces/" + guid)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func createSpace(spaceName, orgGUID string) string {
+	GinkgoHelper()
+
 	spaceGUID, err := createSpaceRaw(spaceName, orgGUID)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
+	Expect(err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
 
 	return spaceGUID
 }
 
 func applySpaceManifest(manifest manifestResource, spaceGUID string) {
+	GinkgoHelper()
+
 	manifestBytes, err := yaml.Marshal(manifest)
 	Expect(err).NotTo(HaveOccurred())
 	resp, err := adminClient.R().
@@ -508,6 +523,8 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
 func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
+	GinkgoHelper()
+
 	rolesURL := apiServerRoot + "/v3/roles"
 
 	payload := typedResource{
@@ -535,14 +552,20 @@ func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
 }
 
 func createOrgRole(roleName, userName, orgGUID string) string {
+	GinkgoHelper()
+
 	return createRole(roleName, "organization", userName, orgGUID)
 }
 
 func createSpaceRole(roleName, userName, spaceGUID string) string {
+	GinkgoHelper()
+
 	return createRole(roleName, "space", userName, spaceGUID)
 }
 
 func createApp(spaceGUID, name string) string {
+	GinkgoHelper()
+
 	var app resource
 
 	resp, err := adminClient.R().
@@ -555,8 +578,8 @@ func createApp(spaceGUID, name string) string {
 		SetResult(&app).
 		Post("/v3/apps")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 	Expect(app.GUID).NotTo(BeEmpty())
 	Expect(app.Name).To(Equal(name))
 	Expect(app.CreatedAt).NotTo(BeEmpty())
@@ -568,6 +591,8 @@ func createApp(spaceGUID, name string) string {
 }
 
 func setEnv(appName string, envVars map[string]interface{}) {
+	GinkgoHelper()
+
 	resp, err := adminClient.R().
 		SetBody(
 			struct {
@@ -578,26 +603,30 @@ func setEnv(appName string, envVars map[string]interface{}) {
 		).
 		SetPathParam("appName", appName).
 		Patch("/v3/apps/{appName}/environment_variables")
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func getAppEnv(appName string) map[string]interface{} {
+	GinkgoHelper()
+
 	var env map[string]interface{}
 
 	resp, err := adminClient.R().
 		SetResult(&env).
 		SetPathParam("appName", appName).
 		Get("/v3/apps/{appName}/env")
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 	return env
 }
 
 func getApp(appGUID string) appResource {
+	GinkgoHelper()
+
 	var app appResource
-	EventuallyWithOffset(1, func(g Gomega) {
+	Eventually(func(g Gomega) {
 		resp, err := adminClient.R().
 			SetResult(&app).
 			Get("/v3/apps/" + appGUID)
@@ -610,8 +639,10 @@ func getApp(appGUID string) appResource {
 }
 
 func getProcess(appGUID, processType string) processResource {
+	GinkgoHelper()
+
 	var process processResource
-	EventuallyWithOffset(1, func(g Gomega) {
+	Eventually(func(g Gomega) {
 		resp, err := adminClient.R().
 			SetResult(&process).
 			Get("/v3/apps/" + appGUID + "/processes/" + processType)
@@ -624,6 +655,8 @@ func getProcess(appGUID, processType string) processResource {
 }
 
 func createServiceInstance(spaceGUID, name string, credentials map[string]string) string {
+	GinkgoHelper()
+
 	var serviceInstance typedResource
 
 	resp, err := adminClient.R().
@@ -638,13 +671,15 @@ func createServiceInstance(spaceGUID, name string, credentials map[string]string
 		SetResult(&serviceInstance).
 		Post("/v3/service_instances")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
 
 	return serviceInstance.GUID
 }
 
 func listServiceInstances(names ...string) resourceList[serviceInstanceResource] {
+	GinkgoHelper()
+
 	var namesQuery string
 	if len(names) > 0 {
 		namesQuery = "?names=" + strings.Join(names, ",")
@@ -655,13 +690,15 @@ func listServiceInstances(names ...string) resourceList[serviceInstanceResource]
 		SetResult(&serviceInstances).
 		Get("/v3/service_instances" + namesQuery)
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
 
 	return serviceInstances
 }
 
 func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
+	GinkgoHelper()
+
 	var serviceCredentialBinding resource
 
 	resp, err := adminClient.R().
@@ -675,13 +712,15 @@ func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
 		SetResult(&serviceCredentialBinding).
 		Post("/v3/service_credential_bindings")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusCreated), string(resp.Body()))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated), string(resp.Body()))
 
 	return serviceCredentialBinding.GUID
 }
 
 func createPackage(appGUID string) string {
+	GinkgoHelper()
+
 	var pkg resource
 	resp, err := adminClient.R().
 		SetBody(typedResource{
@@ -695,13 +734,15 @@ func createPackage(appGUID string) string {
 		SetResult(&pkg).
 		Post("/v3/packages")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return pkg.GUID
 }
 
 func createBuild(packageGUID string) string {
+	GinkgoHelper()
+
 	var build resource
 
 	resp, err := adminClient.R().
@@ -709,13 +750,15 @@ func createBuild(packageGUID string) string {
 		SetResult(&build).
 		Post("/v3/builds")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return build.GUID
 }
 
 func createDeployment(appGUID string) string {
+	GinkgoHelper()
+
 	var deployment resource
 
 	resp, err := adminClient.R().
@@ -731,14 +774,16 @@ func createDeployment(appGUID string) string {
 		SetResult(&deployment).
 		Post("/v3/deployments")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return deployment.GUID
 }
 
 func waitForDroplet(buildGUID string) {
-	EventuallyWithOffset(1, func() (*resty.Response, error) {
+	GinkgoHelper()
+
+	Eventually(func() (*resty.Response, error) {
 		resp, err := adminClient.R().
 			Get("/v3/droplets/" + buildGUID)
 		return resp, err
@@ -746,32 +791,40 @@ func waitForDroplet(buildGUID string) {
 }
 
 func setCurrentDroplet(appGUID, dropletGUID string) {
+	GinkgoHelper()
+
 	resp, err := adminClient.R().
 		SetBody(dropletResource{Data: resource{GUID: dropletGUID}}).
 		Patch("/v3/apps/" + appGUID + "/relationships/current_droplet")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func startApp(appGUID string) {
+	GinkgoHelper()
+
 	resp, err := adminClient.R().
 		Post("/v3/apps/" + appGUID + "/actions/start")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func uploadTestApp(pkgGUID, appBitsFile string) {
+	GinkgoHelper()
+
 	resp, err := adminClient.R().
 		SetFiles(map[string]string{
 			"bits": appBitsFile,
 		}).Post("/v3/packages/" + pkgGUID + "/upload")
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func getAppGUIDFromName(appName string) string {
+	GinkgoHelper()
+
 	var appGUID string
 	Eventually(func(g Gomega) {
 		var result resourceList[resource]
@@ -786,6 +839,8 @@ func getAppGUIDFromName(appName string) string {
 }
 
 func createAppViaManifest(spaceGUID, appName string) string {
+	GinkgoHelper()
+
 	manifest := manifestResource{
 		Version: 1,
 		Applications: []applicationResource{{
@@ -800,11 +855,15 @@ func createAppViaManifest(spaceGUID, appName string) string {
 }
 
 func pushTestApp(spaceGUID, appBitsFile string) (string, string) {
+	GinkgoHelper()
+
 	appName := generateGUID("app")
 	return pushTestAppWithName(spaceGUID, appBitsFile, appName), appName
 }
 
 func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
+	GinkgoHelper()
+
 	appGUID := createAppViaManifest(spaceGUID, appName)
 	pkgGUID := createPackage(appGUID)
 	uploadTestApp(pkgGUID, appBitsFile)
@@ -817,6 +876,8 @@ func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
 }
 
 func getAppRoute(appGUID string) string {
+	GinkgoHelper()
+
 	var routes resourceList[routeResource]
 	resp, err := adminClient.R().
 		SetResult(&routes).
@@ -836,6 +897,8 @@ var skipSSLClient = http.Client{
 }
 
 func curlApp(appGUID, path string) []byte {
+	GinkgoHelper()
+
 	url := getAppRoute(appGUID)
 	var body []byte
 	Eventually(func(g Gomega) {
@@ -851,13 +914,15 @@ func curlApp(appGUID, path string) []byte {
 }
 
 func getDomainGUID(domainName string) string {
+	GinkgoHelper()
+
 	res := resourceList[bareResource]{}
 	resp, err := adminClient.R().
 		SetResult(&res).
 		Get("/v3/domains")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 	for _, d := range res.Resources {
 		if d.Name == domainName {
@@ -871,6 +936,8 @@ func getDomainGUID(domainName string) string {
 }
 
 func createRoute(host, path string, spaceGUID, domainGUID string) string {
+	GinkgoHelper()
+
 	var route resource
 
 	resp, err := adminClient.R().
@@ -887,13 +954,15 @@ func createRoute(host, path string, spaceGUID, domainGUID string) string {
 		SetResult(&route).
 		Post("/v3/routes")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return route.GUID
 }
 
 func addDestinationForRoute(appGUID, routeGUID string) []string {
+	GinkgoHelper()
+
 	var destinations destinationsResource
 
 	resp, err := adminClient.R().
@@ -905,8 +974,8 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 		SetResult(&destinations).
 		Post("/v3/routes/" + routeGUID + "/destinations")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 	var destinationGUIDs []string
 	for _, destination := range destinations.Destinations {
@@ -917,8 +986,10 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 }
 
 func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) {
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusNotFound))
-	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
+	GinkgoHelper()
+
+	Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
+	Expect(errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: resource + " not found. Ensure it exists and you have access to it.",
 			Title:  "CF-ResourceNotFound",
@@ -928,8 +999,10 @@ func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) 
 }
 
 func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusForbidden))
-	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
+	GinkgoHelper()
+
+	Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+	Expect(errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: "You are not authorized to perform the requested action",
 			Title:  "CF-NotAuthorized",
@@ -939,8 +1012,10 @@ func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
 }
 
 func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail string) {
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
+	GinkgoHelper()
+
+	Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+	Expect(errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: detail,
 			Title:  "CF-UnprocessableEntity",
@@ -978,6 +1053,8 @@ func commonTestSetup() {
 }
 
 func zipAsset(src string) string {
+	GinkgoHelper()
+
 	file, err := os.CreateTemp("", "*.zip")
 	if err != nil {
 		Expect(err).NotTo(HaveOccurred())

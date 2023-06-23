@@ -8,6 +8,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -26,12 +27,16 @@ func TestPayloads(t *testing.T) {
 }
 
 func expectUnprocessableEntityError(err error, detail string) {
-	ExpectWithOffset(1, err).To(HaveOccurred())
-	ExpectWithOffset(1, err).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-	ExpectWithOffset(1, err.(apierrors.UnprocessableEntityError).Detail()).To(ContainSubstring(detail))
+	GinkgoHelper()
+
+	Expect(err).To(HaveOccurred())
+	Expect(err).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+	Expect(err.(apierrors.UnprocessableEntityError).Detail()).To(ContainSubstring(detail))
 }
 
 func createRequest(payload any) *http.Request {
+	GinkgoHelper()
+
 	body, err := json.Marshal(payload)
 	Expect(err).NotTo(HaveOccurred())
 

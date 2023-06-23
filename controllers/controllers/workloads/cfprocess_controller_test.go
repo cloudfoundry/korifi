@@ -569,7 +569,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 })
 
 func eventuallyCreatedAppWorkloadShould(processGUID, namespace string, shouldFn func(Gomega, korifiv1alpha1.AppWorkload)) {
-	EventuallyWithOffset(1, func(g Gomega) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
 		var appWorkloads korifiv1alpha1.AppWorkloadList
 		err := k8sClient.List(context.Background(), &appWorkloads, client.InNamespace(namespace), client.MatchingLabels{
 			korifiv1alpha1.CFProcessGUIDLabelKey: processGUID,
