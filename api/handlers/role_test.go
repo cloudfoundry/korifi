@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -45,7 +46,7 @@ var _ = Describe("Role", func() {
 			roleCreate = &payloads.RoleCreate{
 				Type: "space_developer",
 				Relationships: payloads.RoleRelationships{
-					User: &payloads.UserRelationship{
+					User: payloads.UserRelationship{
 						Data: payloads.UserRelationshipData{
 							Username: "my-user",
 						},
@@ -62,12 +63,18 @@ var _ = Describe("Role", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "POST", rolesBase, strings.NewReader(""))
+			req, err := http.NewRequestWithContext(ctx, "POST", rolesBase, strings.NewReader("payload-data"))
 			Expect(err).NotTo(HaveOccurred())
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("creates the role", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			bodyBytes, err := io.ReadAll(req.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bodyBytes)).To(Equal("payload-data"))
+
 			Expect(roleRepo.CreateRoleCallCount()).To(Equal(1))
 			_, actualAuthInfo, roleMessage := roleRepo.CreateRoleArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -153,23 +160,25 @@ var _ = Describe("Role", func() {
 	})
 
 	Describe("List roles", func() {
-		var query string
-
 		BeforeEach(func() {
-			query = ""
 			roleRepo.ListRolesReturns([]repositories.RoleRecord{
 				{GUID: "role-1"},
 				{GUID: "role-2"},
 			}, nil)
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.RoleList{})
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+query, nil)
+			req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?foo=bar", nil)
 			Expect(err).NotTo(HaveOccurred())
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("lists roles", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			req, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(req.URL.String()).To(HaveSuffix(rolesBase + "?foo=bar"))
+
 			Expect(roleRepo.ListRolesCallCount()).To(Equal(1))
 			_, actualAuthInfo := roleRepo.ListRolesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -178,23 +187,12 @@ var _ = Describe("Role", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/roles"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/roles?foo=bar"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "role-1"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/roles/role-1"),
 				MatchJSONPath("$.resources[1].guid", "role-2"),
 			)))
-		})
-
-		When("include is specified", func() {
-			BeforeEach(func() {
-				query = "?include=user"
-			})
-
-			It("does not fail but has no effect on the result", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2))))
-			})
 		})
 
 		Describe("filtering and ordering", func() {
@@ -207,31 +205,35 @@ var _ = Describe("Role", func() {
 				}, nil)
 			})
 
-			DescribeTable("filtering", func(filter string, expectedGUIDs ...any) {
-				req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?"+filter, nil)
+			DescribeTable("filtering", func(filter payloads.RoleList, expectedGUIDs ...any) {
+				req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?foo=bar", nil)
 				Expect(err).NotTo(HaveOccurred())
+
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&filter)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
 
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedGUIDs)))
 			},
-				Entry("no filter", "", "1", "2", "3", "4"),
-				Entry("guids1", "guids=4", "4"),
-				Entry("guids2", "guids=1,3", "1", "3"),
-				Entry("types1", "types=a", "1"),
-				Entry("types2", "types=b,c", "2", "3", "4"),
-				Entry("space_guids1", "space_guids=space1", "1"),
-				Entry("space_guids2", "space_guids=space1,space2", "1", "2"),
-				Entry("organization_guids1", "organization_guids=org1", "3"),
-				Entry("organization_guids2", "organization_guids=org1,org2", "3", "4"),
-				Entry("user_guids1", "user_guids=user1", "1", "2", "3"),
-				Entry("user_guids2", "user_guids=user1,user2", "1", "2", "3", "4"),
+				Entry("no filter", payloads.RoleList{}, "1", "2", "3", "4"),
+				Entry("guids1", payloads.RoleList{GUIDs: map[string]bool{"4": true}}, "4"),
+				Entry("guids2", payloads.RoleList{GUIDs: map[string]bool{"1": true, "3": true}}, "1", "3"),
+				Entry("types1", payloads.RoleList{Types: map[string]bool{"a": true}}, "1"),
+				Entry("types2", payloads.RoleList{Types: map[string]bool{"b": true, "c": true}}, "2", "3", "4"),
+				Entry("space_guids1", payloads.RoleList{SpaceGUIDs: map[string]bool{"space1": true}}, "1"),
+				Entry("space_guids2", payloads.RoleList{SpaceGUIDs: map[string]bool{"space1": true, "space2": true}}, "1", "2"),
+				Entry("organization_guids1", payloads.RoleList{OrgGUIDs: map[string]bool{"org1": true}}, "3"),
+				Entry("organization_guids2", payloads.RoleList{OrgGUIDs: map[string]bool{"org1": true, "org2": true}}, "3", "4"),
+				Entry("user_guids1", payloads.RoleList{UserGUIDs: map[string]bool{"user1": true}}, "1", "2", "3"),
+				Entry("user_guids2", payloads.RoleList{UserGUIDs: map[string]bool{"user1": true, "user2": true}}, "1", "2", "3", "4"),
 			)
 
 			DescribeTable("ordering", func(order string, expectedGUIDs ...any) {
-				req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?order_by="+order, nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?order_by=not-used-in-test", nil)
 				Expect(err).NotTo(HaveOccurred())
+
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.RoleList{OrderBy: order})
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
 
@@ -245,13 +247,13 @@ var _ = Describe("Role", func() {
 			)
 		})
 
-		When("order_by is not a valid field", func() {
+		When("decoding the url values fails", func() {
 			BeforeEach(func() {
-				query = "?order_by=not_valid"
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Order by can only be: .*")
+			It("returns an Unknown error", func() {
+				expectUnknownError()
 			})
 		})
 
