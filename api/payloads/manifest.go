@@ -193,7 +193,7 @@ func (m Manifest) Validate() error {
 func (a ManifestApplication) Validate() error {
 	return validation.ValidateStruct(&a,
 		validation.Field(&a.Name, payload_validation.StrictlyRequired),
-		validation.Field(&a.DefaultRoute, validation.When(a.RandomRoute, validation.Nil.Error("and random-route may not be used together"))),
+		validation.Field(&a.DefaultRoute, validation.When(a.RandomRoute && a.DefaultRoute, validation.Nil.Error("and random-route may not be used together"))),
 		validation.Field(&a.DiskQuota, validation.By(validateAmountWithUnit), validation.When(a.AltDiskQuota != nil, validation.Nil.Error("and disk-quota may not be used together"))),
 		validation.Field(&a.AltDiskQuota, validation.By(validateAmountWithUnit)),
 		validation.Field(&a.Instances, validation.Min(0)),

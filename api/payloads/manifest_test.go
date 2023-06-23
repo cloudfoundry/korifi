@@ -198,6 +198,17 @@ var _ = Describe("Manifest payload", func() {
 					Expect(validateErr).To(MatchError("default-route: and random-route may not be used together."))
 				})
 			})
+
+			When("only the random-route flag is set", func() {
+				BeforeEach(func() {
+					testManifest.DefaultRoute = false
+					testManifest.RandomRoute = true
+				})
+
+				It("does not return a validation error", func() {
+					Expect(validateErr).NotTo(HaveOccurred())
+				})
+			})
 		})
 	})
 
