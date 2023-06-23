@@ -4,7 +4,9 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	jellidation "github.com/jellydator/validation"
 )
 
 type PackageCreate struct {
@@ -43,40 +45,54 @@ func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackage
 	}
 }
 
-type PackageListQueryParameters struct {
+type PackageList struct {
 	AppGUIDs string
 	States   string
+	OrderBy  string
 }
 
-func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessage {
+func (p *PackageList) ToMessage() repositories.ListPackagesMessage {
 	return repositories.ListPackagesMessage{
 		AppGUIDs: parse.ArrayParam(p.AppGUIDs),
 		States:   parse.ArrayParam(p.States),
 	}
 }
 
-func (p *PackageListQueryParameters) SupportedKeys() []string {
-	return []string{"app_guids", "order_by", "per_page", "states", "page"}
+func (p *PackageList) SupportedKeys() []string {
+	return []string{"app_guids", "states", "order_by", "per_page", "page"}
 }
 
-func (p *PackageListQueryParameters) DecodeFromURLValues(values url.Values) error {
+func (p *PackageList) DecodeFromURLValues(values url.Values) error {
 	p.AppGUIDs = values.Get("app_guids")
 	p.States = values.Get("states")
+	p.OrderBy = values.Get("order_by")
 	return nil
 }
 
-type PackageListDropletsQueryParameters struct{}
+func (p PackageList) Validate() error {
+	validOrderBys := []string{"created_at", "updated_at"}
+	var allowed []any
+	for _, a := range validOrderBys {
+		allowed = append(allowed, a, "-"+a)
+	}
 
-func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) repositories.ListDropletsMessage {
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.OrderBy, validation.OneOf(allowed...)),
+	)
+}
+
+type PackageListDroplets struct{}
+
+func (p *PackageListDroplets) ToMessage(packageGUIDs []string) repositories.ListDropletsMessage {
 	return repositories.ListDropletsMessage{
 		PackageGUIDs: packageGUIDs,
 	}
 }
 
-func (p *PackageListDropletsQueryParameters) SupportedKeys() []string {
+func (p *PackageListDroplets) SupportedKeys() []string {
 	return []string{"states", "per_page", "page"}
 }
 
-func (p *PackageListDropletsQueryParameters) DecodeFromURLValues(values url.Values) error {
+func (p *PackageListDroplets) DecodeFromURLValues(values url.Values) error {
 	return nil
 }

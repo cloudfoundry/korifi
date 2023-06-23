@@ -365,6 +365,7 @@ func main() {
 		handlers.NewBuildpack(
 			*serverURL,
 			buildpackRepo,
+			decoderValidator,
 		),
 		handlers.NewServiceInstance(
 			*serverURL,
