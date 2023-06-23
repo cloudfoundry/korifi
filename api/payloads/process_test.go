@@ -70,7 +70,7 @@ var _ = Describe("Process payload validation", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "Instances must be 0 or greater")
+				expectUnprocessableEntityError(validatorErr, "instances must be 0 or greater")
 			})
 		})
 
@@ -80,7 +80,7 @@ var _ = Describe("Process payload validation", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "MemoryMB must be greater than 0")
+				expectUnprocessableEntityError(validatorErr, "memory_in_mb must be greater than 0")
 			})
 		})
 
@@ -90,7 +90,7 @@ var _ = Describe("Process payload validation", func() {
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "DiskMB must be greater than 0")
+				expectUnprocessableEntityError(validatorErr, "disk_in_mb must be greater than 0")
 			})
 		})
 	})

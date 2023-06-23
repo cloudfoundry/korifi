@@ -2,14 +2,15 @@ package handlers_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/actions"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -20,21 +21,21 @@ import (
 
 var _ = Describe("Process", func() {
 	var (
-		processRepo  *fake.CFProcessRepository
-		processStats *fake.ProcessStats
+		processRepo      *fake.CFProcessRepository
+		processStats     *fake.ProcessStats
+		requestValidator *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
 		processStats = new(fake.ProcessStats)
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		requestValidator = new(fake.RequestValidator)
 
 		apiHandler := NewProcess(
 			*serverURL,
 			processRepo,
 			processStats,
-			decoderValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -151,6 +152,12 @@ var _ = Describe("Process", func() {
 				"memory_in_mb": 512,
 				"disk_in_mb": 256
 			}`
+
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ProcessScale{
+				Instances: tools.PtrTo(3),
+				MemoryMB:  tools.PtrTo[int64](512),
+				DiskMB:    tools.PtrTo[int64](256),
+			})
 		})
 
 		JustBeforeEach(func() {
@@ -160,6 +167,12 @@ var _ = Describe("Process", func() {
 		})
 
 		It("scales the process", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			reqBytes, err := io.ReadAll(req.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(reqBytes)).To(Equal(requestBody))
+
 			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualProcessGUID := processRepo.GetProcessArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -190,11 +203,11 @@ var _ = Describe("Process", func() {
 
 		When("the request JSON is invalid", func() {
 			BeforeEach(func() {
-				requestBody = `}`
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			It("has the expected error response body", func() {
-				expectBadRequestError()
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 
@@ -226,24 +239,6 @@ var _ = Describe("Process", func() {
 			It("returns an error", func() {
 				expectUnknownError()
 			})
-		})
-
-		When("validating scale parameters", func() {
-			DescribeTable("returns a validation decision",
-				func(requestBody string, status int) {
-					tableTestRecorder := httptest.NewRecorder()
-					req, err := http.NewRequestWithContext(ctx, "POST", "/v3/processes/process-guid/actions/scale", strings.NewReader(requestBody))
-					Expect(err).NotTo(HaveOccurred())
-					routerBuilder.Build().ServeHTTP(tableTestRecorder, req)
-					Expect(tableTestRecorder.Code).To(Equal(status))
-				},
-				Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),
-				Entry("memory is not a positive integer", `{"memory_in_mb":0}`, http.StatusUnprocessableEntity),
-				Entry("disk is not a positive integer", `{"disk_in_mb":0}`, http.StatusUnprocessableEntity),
-				Entry("instances is zero", `{"instances":0}`, http.StatusOK),
-				Entry("memory is a positive integer", `{"memory_in_mb":1024}`, http.StatusOK),
-				Entry("disk is a positive integer", `{"disk_in_mb":1024}`, http.StatusOK),
-			)
 		})
 	})
 
@@ -308,10 +303,8 @@ var _ = Describe("Process", func() {
 	})
 
 	Describe("the GET /v3/processes endpoint", func() {
-		var queryString string
-
 		BeforeEach(func() {
-			queryString = ""
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ProcessList{})
 			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
 				{
 					GUID: "process-guid",
@@ -320,12 +313,16 @@ var _ = Describe("Process", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/processes"+queryString, nil)
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/processes", nil)
 			Expect(err).NotTo(HaveOccurred())
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("returns the processes", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			req, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(req.URL.String()).To(HaveSuffix("/v3/processes"))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -335,9 +332,11 @@ var _ = Describe("Process", func() {
 			)))
 		})
 
-		When("Query Parameters are provided", func() {
+		When("app_guids query parameter is provided", func() {
 			BeforeEach(func() {
-				queryString = "?app_guids=my-app-guid"
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ProcessList{
+					AppGUIDs: "my-app-guid",
+				})
 			})
 
 			It("invokes process repository with correct args", func() {
@@ -349,13 +348,13 @@ var _ = Describe("Process", func() {
 			})
 		})
 
-		When("invalid query parameters are provided", func() {
+		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				queryString = "?foo=my-app-guid"
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boo"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 
@@ -397,6 +396,22 @@ var _ = Describe("Process", func() {
 			processRepo.PatchProcessReturns(repositories.ProcessRecord{
 				GUID: "process-guid",
 			}, nil)
+
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ProcessPatch{
+				Metadata: &payloads.MetadataPatch{
+					Labels: map[string]*string{
+						"foo": tools.PtrTo("value1"),
+					},
+				},
+				HealthCheck: &payloads.HealthCheck{
+					Type: tools.PtrTo("port"),
+					Data: &payloads.Data{
+						Timeout:           tools.PtrTo[int64](5),
+						Endpoint:          tools.PtrTo("http://myapp.com/health"),
+						InvocationTimeout: tools.PtrTo[int64](2),
+					},
+				},
+			})
 		})
 
 		JustBeforeEach(func() {
@@ -406,6 +421,12 @@ var _ = Describe("Process", func() {
 		})
 
 		It("updates the process", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			reqBytes, err := io.ReadAll(req.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(reqBytes)).To(Equal(requestBody))
+
 			Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualMsg := processRepo.PatchProcessArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -426,25 +447,11 @@ var _ = Describe("Process", func() {
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
-				requestBody = `{`
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			It("return an request malformed error", func() {
-				expectBadRequestError()
-			})
-		})
-
-		When("the request body is invalid with an unknown field", func() {
-			BeforeEach(func() {
-				requestBody = `{
-				  "health_check": {
-					"endpoint": "my-endpoint"
-				  }
-				}`
-			})
-
-			It("return an request malformed error", func() {
-				expectUnprocessableEntityError("invalid request body: json: unknown field \"endpoint\"")
+			It("return an error", func() {
+				expectUnknownError()
 			})
 		})
 
