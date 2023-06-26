@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -160,6 +161,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 					g.Expect(kpackImage.Spec.Builder.Kind).To(Equal("ClusterBuilder"))
 					g.Expect(kpackImage.Spec.Builder.Name).To(Equal("cf-kpack-builder"))
+					g.Expect(kpackImage.Spec.Cache.Volume.Size.Equal(resource.MustParse("1024Mi"))).To(BeTrue())
 				}).Should(Succeed())
 			})
 

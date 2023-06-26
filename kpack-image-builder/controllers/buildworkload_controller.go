@@ -39,6 +39,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -648,7 +649,12 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 		return err
 	}
 
-	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, &desiredKpackImage, func() error {
+	cacheSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", r.controllerConfig.BuildCacheMB))
+	if err != nil {
+		log.Error(err, "failed to parse image cache size")
+		return err
+	}
+	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &desiredKpackImage, func() error {
 		desiredKpackImage.Labels = map[string]string{
 			BuildWorkloadLabelKey: buildWorkload.Name,
 		}
@@ -671,6 +677,11 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 				Services: buildWorkload.Spec.Services,
 				Env:      buildWorkload.Spec.Env,
 			},
+			Cache: &buildv1alpha2.ImageCacheConfig{
+				Volume: &buildv1alpha2.ImagePersistentVolumeCache{
+					Size: &cacheSize,
+				},
+			},
 		}
 		if customBuilderName != "" {
 			desiredKpackImage.Spec.Builder.Kind = "Builder"
@@ -679,7 +690,7 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 		}
 
 		// Cannot use SetControllerReference here as multiple BuildWorkloads can "own" the same Image.
-		err := controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.scheme)
+		err = controllerutil.SetOwnerReference(buildWorkload, &desiredKpackImage, r.scheme)
 		if err != nil {
 			log.Info("failed to set OwnerRef on Kpack Image", "reason", err)
 			return err

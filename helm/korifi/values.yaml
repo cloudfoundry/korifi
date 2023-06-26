@@ -46,6 +46,7 @@ api:
     stagingRequirements:
       memoryMB: 1024
       diskMB: 1024
+      buildCacheMB: 2048
 
   builderName: kpack-image-builder
   userCertificateExpirationWarningDuration: 168h

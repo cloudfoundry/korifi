@@ -38,6 +38,7 @@ data:
     builderReadinessTimeout: {{ required "builderReadinessTimeout is required" .Values.kpackImageBuilder.builderReadinessTimeout }}
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     builderServiceAccount: kpack-service-account
+    buildCacheMB: {{ .Values.api.lifecycle.stagingRequirements.buildCacheMB }}
     {{- if .Values.global.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}
