@@ -76,7 +76,7 @@ var _ = Describe("DomainCreate", func() {
 			})
 
 			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "data cannot be blank")
+				expectUnprocessableEntityError(validatorErr, "data is required")
 			})
 		})
 	})

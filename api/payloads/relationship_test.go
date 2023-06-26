@@ -38,7 +38,7 @@ var _ = Describe("Relationship", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "data cannot be blank")
+			expectUnprocessableEntityError(validatorErr, "data is required")
 		})
 	})
 
