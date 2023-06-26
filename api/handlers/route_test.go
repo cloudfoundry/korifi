@@ -3,15 +3,17 @@ package handlers_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
-	"regexp"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,10 +22,11 @@ import (
 
 var _ = Describe("Route", func() {
 	var (
-		routeRepo  *fake.CFRouteRepository
-		domainRepo *fake.CFDomainRepository
-		appRepo    *fake.CFAppRepository
-		spaceRepo  *fake.SpaceRepository
+		routeRepo        *fake.CFRouteRepository
+		domainRepo       *fake.CFDomainRepository
+		appRepo          *fake.CFAppRepository
+		spaceRepo        *fake.SpaceRepository
+		requestValidator *fake.RequestValidator
 
 		requestMethod string
 		requestPath   string
@@ -66,8 +69,7 @@ var _ = Describe("Route", func() {
 			Name: "test-space-guid",
 		}, nil)
 
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		requestValidator = new(fake.RequestValidator)
 
 		apiHandler := NewRoute(
 			*serverURL,
@@ -75,7 +77,7 @@ var _ = Describe("Route", func() {
 			domainRepo,
 			appRepo,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -166,11 +168,17 @@ var _ = Describe("Route", func() {
 			}, nil)
 
 			requestMethod = http.MethodGet
-			requestPath = "/v3/routes"
+			requestPath = "/v3/routes?foo=bar"
 			requestBody = ""
+
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.RouteList{})
 		})
 
 		It("returns the routes list", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix("/v3/routes?foo=bar"))
+
 			Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 			_, actualAuthInfo, _ := routeRepo.ListRoutesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -184,6 +192,7 @@ var _ = Describe("Route", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/routes?foo=bar"),
 				MatchJSONPath("$.resources[0].guid", "test-route-guid"),
 				MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"),
 				MatchJSONPath("$.resources[1].guid", "other-test-route-guid"),
@@ -193,34 +202,24 @@ var _ = Describe("Route", func() {
 
 		When("query parameters are provided", func() {
 			BeforeEach(func() {
-				requestPath += "?app_guids=my-app-guid&" +
-					"space_guids=my-space-guid&" +
-					"domain_guids=my-domain-guid&" +
-					"hosts=my-host&" +
-					"paths=/some/path"
+				payload := &payloads.RouteList{
+					AppGUIDs:    "a1,a2",
+					SpaceGUIDs:  "s1,s2",
+					DomainGUIDs: "d1,d2",
+					Hosts:       "h1,h2",
+					Paths:       "p1,p2",
+				}
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
 			})
 
 			It("filters routes by that", func() {
 				Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 				_, _, message := routeRepo.ListRoutesArgsForCall(0)
-				Expect(message.AppGUIDs).To(ConsistOf("my-app-guid"))
-				Expect(message.SpaceGUIDs).To(ConsistOf("my-space-guid"))
-				Expect(message.DomainGUIDs).To(ConsistOf("my-domain-guid"))
-				Expect(message.Hosts).To(ConsistOf("my-host"))
-				Expect(message.Paths).To(ConsistOf("/some/path"))
-
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPBody(
-					MatchJSONPath(
-						"$.pagination.first.href",
-						"https://api.example.org/v3/routes?"+
-							"app_guids=my-app-guid&"+
-							"space_guids=my-space-guid&"+
-							"domain_guids=my-domain-guid&"+
-							"hosts=my-host&"+
-							"paths=/some/path",
-					),
-				))
+				Expect(message.AppGUIDs).To(ConsistOf("a1", "a2"))
+				Expect(message.SpaceGUIDs).To(ConsistOf("s1", "s2"))
+				Expect(message.DomainGUIDs).To(ConsistOf("d1", "d2"))
+				Expect(message.Hosts).To(ConsistOf("h1", "h2"))
+				Expect(message.Paths).To(ConsistOf("p1", "p2"))
 			})
 		})
 
@@ -246,11 +245,11 @@ var _ = Describe("Route", func() {
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				requestPath += "?foo=my-app-guid"
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom!"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -273,33 +272,34 @@ var _ = Describe("Route", func() {
 				UpdatedAt: "update-time",
 			}, nil)
 
-			requestBody = `{
-				"host": "test-route-host",
-				"path": "/test-route-path",
-				"relationships": {
-					"domain": {
-						"data": {
-							"guid": "test-domain-guid"
-						}
+			requestBody = `doesn't matter`
+
+			payload := payloads.RouteCreate{
+				Host: "test-route-host",
+				Path: "/test-route-path",
+				Relationships: &payloads.RouteRelationships{
+					Domain: payloads.Relationship{
+						Data: &payloads.RelationshipData{GUID: "test-domain-guid"},
 					},
-					"space": {
-						"data": {
-							"guid": "test-space-guid"
-						}
-					}
+					Space: payloads.Relationship{
+						Data: &payloads.RelationshipData{GUID: "test-space-guid"},
+					},
 				},
-				"metadata": {
-					"labels": {
-						"label-key": "label-val"
-					},
-					"annotations": {
-						"annotation-key": "annotation-val"
-					}
-				}
-			}`
+				Metadata: payloads.Metadata{
+					Labels:      map[string]string{"label-key": "label-val"},
+					Annotations: map[string]string{"annotation-key": "annotation-val"},
+				},
+			}
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
 		})
 
 		It("creates the route", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			bodyBytes, err := io.ReadAll(actualReq.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bodyBytes)).To(Equal(requestBody))
+
 			Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -330,78 +330,11 @@ var _ = Describe("Route", func() {
 
 		When("the request body is invalid JSON", func() {
 			BeforeEach(func() {
-				requestBody = `{`
-			})
-
-			It("returns a message parse erorr", func() {
-				expectBadRequestError()
-			})
-		})
-
-		When("the request body includes an unknown description field", func() {
-			BeforeEach(func() {
-				requestBody = `{"description" : "Invalid Request"}`
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError(`invalid request body: json: unknown field "description"`)
-			})
-		})
-
-		When("the host is not a string", func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"host": 12345,
-					"relationships": {
-						"space": {
-							"data": {
-								"guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
-							}
-						}
-					}
-				}`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Host must be a string")
-			})
-		})
-
-		When("the request body is missing the domain relationship", func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"host": "test-route-host",
-					"relationships": {
-						"space": {
-							"data": {
-								"guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						}
-					}
-				}`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Data is a required field")
-			})
-		})
-
-		When("the request body is missing the space relationship", func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"host": "test-route-host",
-					"relationships": {
-						"domain": {
-							"data": {
-								"guid": "0b78dd5d-c723-4f2e-b168-df3c3e1d0806"
-							}
-						}
-					}
-				}`
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError("Data is a required field")
+				expectUnknownError()
 			})
 		})
 
@@ -490,29 +423,30 @@ var _ = Describe("Route", func() {
 				},
 			}, nil)
 
-			requestBody = `{
-				"metadata": {
-					"labels": {
-						"env": "production",
-						"foo.example.com/my-identifier": "aruba"
-					},
-					"annotations": {
-						"hello": "there",
-						"foo.example.com/lorem-ipsum": "Lorem ipsum."
-					}
-				}
-			}`
+			requestBody = `doesn't matter`
+
+			payload := payloads.RoutePatch{
+				Metadata: payloads.MetadataPatch{
+					Annotations: map[string]*string{"a": tools.PtrTo("av")},
+					Labels:      map[string]*string{"l": tools.PtrTo("lv")},
+				},
+			}
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
 		})
 
 		It("patches the route", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			bodyBytes, err := io.ReadAll(actualReq.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bodyBytes)).To(Equal(requestBody))
+
 			Expect(routeRepo.PatchRouteMetadataCallCount()).To(Equal(1))
 			_, _, msg := routeRepo.PatchRouteMetadataArgsForCall(0)
 			Expect(msg.RouteGUID).To(Equal("test-route-guid"))
 			Expect(msg.SpaceGUID).To(Equal(spaceGUID))
-			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
-			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
-			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
-			Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+			Expect(msg.Annotations).To(HaveKeyWithValue("a", PointTo(Equal("av"))))
+			Expect(msg.Labels).To(HaveKeyWithValue("l", PointTo(Equal("lv"))))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -554,71 +488,13 @@ var _ = Describe("Route", func() {
 			})
 		})
 
-		When("a label is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"labels": {
-								"cloudfoundry.org/test": "production"
-							}
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
+		When("the request is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"labels": {
-								"korifi.cloudfoundry.org/test": "production"
-							}
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-		})
-
-		When("an annotation is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"annotations": {
-								"cloudfoundry.org/test": "there"
-							}
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-
-				When("the prefix is a subdomain of cloudfoundry.org", func() {
-					BeforeEach(func() {
-						requestBody = `{
-							"metadata": {
-								"annotations": {
-									"korifi.cloudfoundry.org/test": "there"
-								}
-							}
-						}`
-					})
-
-					It("returns an unprocessable entity error", func() {
-						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-					})
-				})
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -693,28 +569,37 @@ var _ = Describe("Route", func() {
 
 			requestMethod = http.MethodPost
 			requestPath = "/v3/routes/test-route-guid/destinations"
-			requestBody = `{
-				"destinations": [
+			requestBody = `doesn't matter`
+
+			payload := payloads.RouteDestinationCreate{
+				Destinations: []payloads.RouteDestination{
 					{
-						"app": {
-							"guid": "app-1-guid"
-						}
+						App: payloads.AppResource{
+							GUID: "app-1-guid",
+						},
 					},
 					{
-						"app": {
-							"guid": "app-2-guid",
-							"process": {
-								"type": "queue"
-							}
+						App: payloads.AppResource{
+							GUID: "app-2-guid",
+							Process: &payloads.DestinationAppProcess{
+								Type: "queue",
+							},
 						},
-						"port": 1234,
-						"protocol": "http1"
-					}
-				]
-			}`
+						Port:     tools.PtrTo(1234),
+						Protocol: tools.PtrTo("http1"),
+					},
+				},
+			}
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
 		})
 
 		It("adds the destinations to the route", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			bodyBytes, err := io.ReadAll(actualReq.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bodyBytes)).To(Equal(requestBody))
+
 			Expect(routeRepo.GetRouteCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualRouteGUID := routeRepo.GetRouteArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -797,86 +682,13 @@ var _ = Describe("Route", func() {
 			})
 		})
 
-		When("JSON is invalid", func() {
+		When("request is invalid", func() {
 			BeforeEach(func() {
-				requestBody = `{`
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
 			It("returns an error", func() {
-				expectBadRequestError()
-			})
-		})
-
-		When("app is missing", func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"destinations": [
-						{ "port": 9000, "protocol": "http1" }
-					]
-				}`
-			})
-
-			It("returns an error and doesn't add the destinations", func() {
-				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
-				expectUnprocessableEntityError("App is a required field")
-			})
-		})
-
-		When("app GUID is missing", func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"destinations": [
-						{ "app": {}, "port": 9000, "protocol": "http1" }
-					]
-				}`
-			})
-
-			It("returns an error and doesn't add the destinations", func() {
-				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
-				expectUnprocessableEntityError("GUID is a required field")
-			})
-		})
-
-		When("process type is missing", func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"destinations": [
-						{
-							"app": {
-								"guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f",
-								"process": {}
-							},
-							"port": 9000,
-							"protocol": "http1"
-						}
-					]
-				}`
-			})
-
-			It("returns an error and doesn't add the destinations", func() {
-				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
-				expectUnprocessableEntityError("Type is a required field")
-			})
-		})
-
-		When("destination protocol is not http1", func() {
-			BeforeEach(func() {
-				requestBody = `{
-							"destinations": [
-							  {
-								"app": {
-								  "guid": "01856e12-8ee8-11e9-98a5-bb397dbc818f"
-								},
-								"port": 9000,
-								"protocol": "http"
-							  }
-							]
-						}`
-			})
-
-			It("returns an error and doesn't add the destinations", func() {
-				expectUnprocessableEntityError(regexp.QuoteMeta("Protocol must be one of [http1]"))
-				Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(0))
+				expectUnknownError()
 			})
 		})
 	})
