@@ -315,8 +315,8 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			}).Should(BeFalse(), "timed out waiting for deletion timestamps to be set on namespace")
 		})
 
-		It("writes a log message", func() {
-			Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
+		It("writes some log message from the finalizer helper", func() {
+			Eventually(logOutput).Should(gbytes.Say("controllers.CFOrg.finalize"))
 		})
 	})
 })
