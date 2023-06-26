@@ -2,13 +2,14 @@ package handlers_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
-	"regexp"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -26,6 +27,7 @@ var _ = Describe("ServiceBinding", func() {
 		serviceBindingRepo  *fake.CFServiceBindingRepository
 		appRepo             *fake.CFAppRepository
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
+		requestValidator    *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
@@ -46,15 +48,14 @@ var _ = Describe("ServiceBinding", func() {
 			SpaceGUID: "space-guid",
 		}, nil)
 
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		requestValidator = new(fake.RequestValidator)
 
 		apiHandler := NewServiceBinding(
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,
 			serviceInstanceRepo,
-			decoderValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -67,31 +68,42 @@ var _ = Describe("ServiceBinding", func() {
 	})
 
 	Describe("POST /v3/service_credential_bindings", func() {
+		var payload payloads.ServiceBindingCreate
+
 		BeforeEach(func() {
 			requestMethod = http.MethodPost
 			requestPath = "/v3/service_credential_bindings"
-			requestBody = `{
-				"type": "app",
-				"relationships": {
-					"app": {
-						"data": {
-							"guid": "app-guid"
-						}
-					},
-					"service_instance": {
-						"data": {
-							"guid": "service-instance-guid"
-						}
-					}
-				}
-			}`
+			requestBody = "doesn't matter"
 
 			serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{
 				GUID: "service-binding-guid",
 			}, nil)
+
+			payload = payloads.ServiceBindingCreate{
+				Relationships: &payloads.ServiceBindingRelationships{
+					App: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: "app-guid",
+						},
+					},
+					ServiceInstance: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: "service-instance-guid",
+						},
+					},
+				},
+				Type: "app",
+			}
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
 		})
 
 		It("creates a service binding", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			bodyBytes, err := io.ReadAll(actualReq.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bodyBytes)).To(Equal(requestBody))
+
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -119,88 +131,11 @@ var _ = Describe("ServiceBinding", func() {
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
-				requestBody = "{"
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			It("returns an error and doesn't create the service binding", func() {
-				expectBadRequestError()
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When(`the type is "key"`, func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"type": "key",
-					"relationships": {
-						"app": {
-							"data": {
-								"guid": "app-guid"
-							}
-						},
-						"service_instance": {
-							"data": {
-								"guid": "service-instance-guid"
-							}
-						}
-					}
-				}`
-			})
-
-			It("returns an error and doesn't create the ServiceBinding", func() {
-				expectUnprocessableEntityError(regexp.QuoteMeta("Type must be one of [app]"))
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("all relationships are missing", func() {
-			BeforeEach(func() {
-				requestBody = `{ "type": "app" }`
-			})
-
-			It("returns an error and doesn't create the ServiceBinding", func() {
-				expectUnprocessableEntityError(`Relationships is a required field`)
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the app relationship is missing", func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"type": "app",
-					"relationships": {
-						"service_instance": {
-							"data": {
-								"guid": "service-instance-guid"
-							}
-						}
-					}
-				}`
-			})
-
-			It("returns an error and doesn't create the ServiceBinding", func() {
-				expectUnprocessableEntityError(`App is a required field`)
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the service_instance relationship is missing", func() {
-			BeforeEach(func() {
-				requestBody = `{
-					"type": "app",
-					"relationships": {
-						"app": {
-							"data": {
-								"guid": "app-guid"
-							}
-						}
-					}
-				}`
-			})
-
-			It("returns an error and doesn't create the ServiceBinding", func() {
-				expectUnprocessableEntityError("ServiceInstance is a required field")
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 
@@ -290,20 +225,35 @@ var _ = Describe("ServiceBinding", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodGet
 			requestBody = ""
-			requestPath = "/v3/service_credential_bindings"
+			requestPath = "/v3/service_credential_bindings?foo=bar"
 
 			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{
 				{GUID: "service-binding-guid", AppGUID: "app-guid"},
 			}, nil)
 			appRepo.ListAppsReturns([]repositories.AppRecord{{Name: "some-app-name"}}, nil)
+
+			payload := payloads.ServiceBindingList{
+				AppGUIDs:             "a1,a2",
+				ServiceInstanceGUIDs: "s1,s2",
+			}
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
 		})
 
 		It("returns the list of ServiceBindings", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix(requestPath))
+
+			Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
+			_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
+			Expect(message.AppGUIDs).To(ConsistOf([]string{"a1", "a2"}))
+			Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"s1", "s2"}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_credential_bindings"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_credential_bindings?foo=bar"),
 				MatchJSONPath("$.resources[0].guid", "service-binding-guid"),
 			)))
 		})
@@ -320,7 +270,10 @@ var _ = Describe("ServiceBinding", func() {
 
 		When("an include=app query parameter is specified", func() {
 			BeforeEach(func() {
-				requestPath += "?include=app"
+				payload := payloads.ServiceBindingList{
+					Include: "app",
+				}
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
 			})
 
 			It("includes app data in the response", func() {
@@ -332,47 +285,13 @@ var _ = Describe("ServiceBinding", func() {
 			})
 		})
 
-		When("an app_guids query parameter is provided", func() {
+		When("decoding URL params fails", func() {
 			BeforeEach(func() {
-				requestPath += "?app_guids=1,2,3"
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
 			})
 
-			It("passes the list of app GUIDs to the repository", func() {
-				Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
-				_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
-				Expect(message.AppGUIDs).To(ConsistOf([]string{"1", "2", "3"}))
-			})
-		})
-
-		When("a service_instance_guids query parameter is provided", func() {
-			BeforeEach(func() {
-				requestPath += "?service_instance_guids=1,2,3"
-			})
-
-			It("passes the list of service instance GUIDs to the repository", func() {
-				Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
-				_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
-				Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"1", "2", "3"}))
-			})
-		})
-
-		When("a type query parameter is provided", func() {
-			BeforeEach(func() {
-				requestPath += "?type=app"
-			})
-
-			It("returns success", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
-		})
-
-		When("invalid query parameters are provided", func() {
-			BeforeEach(func() {
-				requestPath += "?foo=bar"
-			})
-
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -397,19 +316,28 @@ var _ = Describe("ServiceBinding", func() {
 		BeforeEach(func() {
 			requestMethod = "PATCH"
 			requestPath = "/v3/service_credential_bindings/service-binding-guid"
-			requestBody = `{
-				"metadata": {
-					"labels": { "foo": "bar" },
-					"annotations": { "bar": "baz" }
-				}
-			}`
+			requestBody = "doesn't matter"
 
 			serviceBindingRepo.UpdateServiceBindingReturns(repositories.ServiceBindingRecord{
 				GUID: "service-binding-guid",
 			}, nil)
+
+			payload := payloads.ServiceBindingUpdate{
+				Metadata: payloads.MetadataPatch{
+					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+				},
+			}
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
 		})
 
 		It("updates the service binding", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			bodyBytes, err := io.ReadAll(actualReq.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bodyBytes)).To(Equal(requestBody))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -431,71 +359,11 @@ var _ = Describe("ServiceBinding", func() {
 
 		When("the payload cannot be decoded", func() {
 			BeforeEach(func() {
-				requestBody = `{"one":"two"}`
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
 			It("returns an error", func() {
-				expectUnprocessableEntityError("invalid request body: json: unknown field \"one\"")
-			})
-		})
-
-		When("a label is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"labels": { "cloudfoundry.org/test": "production" }
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"labels": { "korifi.cloudfoundry.org/test": "production" }
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-		})
-
-		When("an annotation is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"annotations": { "cloudfoundry.org/test": "production" }
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						"metadata": {
-							"annotations": { "korifi.cloudfoundry.org/test": "production" }
-						}
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
+				expectUnknownError()
 			})
 		})
 
