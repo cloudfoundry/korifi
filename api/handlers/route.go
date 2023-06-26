@@ -41,7 +41,7 @@ type Route struct {
 	domainRepo       CFDomainRepository
 	appRepo          CFAppRepository
 	spaceRepo        SpaceRepository
-	decoderValidator *DecoderValidator
+	requestValidator RequestValidator
 }
 
 func NewRoute(
@@ -50,7 +50,7 @@ func NewRoute(
 	domainRepo CFDomainRepository,
 	appRepo CFAppRepository,
 	spaceRepo SpaceRepository,
-	decoderValidator *DecoderValidator,
+	requestValidator RequestValidator,
 ) *Route {
 	return &Route{
 		serverURL:        serverURL,
@@ -58,7 +58,7 @@ func NewRoute(
 		domainRepo:       domainRepo,
 		appRepo:          appRepo,
 		spaceRepo:        spaceRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -80,13 +80,8 @@ func (h *Route) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	routeListFilter := new(payloads.RouteList)
-	err := payloads.Decode(routeListFilter, r.Form)
-	if err != nil {
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, routeListFilter); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
@@ -117,7 +112,7 @@ func (h *Route) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.create")
 
 	var payload payloads.RouteCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -166,8 +161,8 @@ func (h *Route) insertDestinations(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.insert-destinations")
 
-	var destinationCreatePayload payloads.DestinationListCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &destinationCreatePayload); err != nil {
+	var destinationCreatePayload payloads.RouteDestinationCreate
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &destinationCreatePayload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -236,23 +231,6 @@ func (h *Route) delete(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
 }
 
-func (h *Route) UnauthenticatedRoutes() []routing.Route {
-	return nil
-}
-
-func (h *Route) AuthenticatedRoutes() []routing.Route {
-	return []routing.Route{
-		{Method: "GET", Pattern: RoutePath, Handler: h.get},
-		{Method: "GET", Pattern: RoutesPath, Handler: h.list},
-		{Method: "GET", Pattern: RouteDestinationsPath, Handler: h.listDestinations},
-		{Method: "POST", Pattern: RoutesPath, Handler: h.create},
-		{Method: "DELETE", Pattern: RoutePath, Handler: h.delete},
-		{Method: "POST", Pattern: RouteDestinationsPath, Handler: h.insertDestinations},
-		{Method: "DELETE", Pattern: RouteDestinationPath, Handler: h.deleteDestination},
-		{Method: "PATCH", Pattern: RoutePath, Handler: h.update},
-	}
-}
-
 // Fetch Route and compose related Domain information within
 func (h *Route) lookupRouteAndDomain(ctx context.Context, logger logr.Logger, authInfo authorization.Info, routeGUID string) (repositories.RouteRecord, error) {
 	route, err := h.routeRepo.GetRoute(ctx, authInfo, routeGUID)
@@ -305,7 +283,7 @@ func (h *Route) update(r *http.Request) (*routing.Response, error) {
 	}
 
 	var payload payloads.RoutePatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -314,4 +292,21 @@ func (h *Route) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch route metadata", "RouteGUID", routeGUID)
 	}
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRoute(route, h.serverURL)), nil
+}
+
+func (h *Route) UnauthenticatedRoutes() []routing.Route {
+	return nil
+}
+
+func (h *Route) AuthenticatedRoutes() []routing.Route {
+	return []routing.Route{
+		{Method: "GET", Pattern: RoutePath, Handler: h.get},
+		{Method: "GET", Pattern: RoutesPath, Handler: h.list},
+		{Method: "GET", Pattern: RouteDestinationsPath, Handler: h.listDestinations},
+		{Method: "POST", Pattern: RoutesPath, Handler: h.create},
+		{Method: "DELETE", Pattern: RoutePath, Handler: h.delete},
+		{Method: "POST", Pattern: RouteDestinationsPath, Handler: h.insertDestinations},
+		{Method: "DELETE", Pattern: RouteDestinationPath, Handler: h.deleteDestination},
+		{Method: "PATCH", Pattern: RoutePath, Handler: h.update},
+	}
 }
