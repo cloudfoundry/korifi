@@ -45,6 +45,7 @@ var _ = Describe("LoadFromPath", func() {
 			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
+			BuildCacheMB:                     1024,
 		}
 	})
 
@@ -80,6 +81,7 @@ var _ = Describe("LoadFromPath", func() {
 			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
+			BuildCacheMB:                     1024,
 		}))
 	})
 
@@ -110,6 +112,16 @@ var _ = Describe("LoadFromPath", func() {
 
 		It("uses the default", func() {
 			Expect(retConfig.SpaceFinalizerAppDeletionTimeout).To(gstruct.PointTo(Equal(int64(60))))
+		})
+	})
+
+	When("the staging build cache size is not set", func() {
+		BeforeEach(func() {
+			cfg.BuildCacheMB = 0
+		})
+
+		It("uses the default", func() {
+			Expect(retConfig.BuildCacheMB).To(Equal(2048))
 		})
 	})
 })

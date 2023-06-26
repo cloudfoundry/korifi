@@ -41,6 +41,7 @@ type ControllerConfig struct {
 	BuilderReadinessTimeout   string `yaml:"builderReadinessTimeout"`
 	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType     string `yaml:"containerRegistryType"`
+	BuildCacheMB              int    `yaml:"buildCacheMB"`
 }
 
 type CFProcessDefaults struct {
@@ -50,9 +51,10 @@ type CFProcessDefaults struct {
 }
 
 const (
-	defaultTaskTTL       = 30 * 24 * time.Hour
-	defaultTimeout int64 = 60
-	defaultJobTTL        = 24 * time.Hour
+	defaultTaskTTL            = 30 * 24 * time.Hour
+	defaultTimeout      int64 = 60
+	defaultJobTTL             = 24 * time.Hour
+	defaultBuildCacheMB       = 2048
 )
 
 func LoadFromPath(path string) (*ControllerConfig, error) {
@@ -68,6 +70,10 @@ func LoadFromPath(path string) (*ControllerConfig, error) {
 
 	if config.SpaceFinalizerAppDeletionTimeout == nil {
 		config.SpaceFinalizerAppDeletionTimeout = tools.PtrTo(defaultTimeout)
+	}
+
+	if config.BuildCacheMB == 0 {
+		config.BuildCacheMB = defaultBuildCacheMB
 	}
 
 	return &config, nil
