@@ -29,13 +29,13 @@ var _ = Describe("ProcessList", func() {
 
 var _ = Describe("Process payload validation", func() {
 	var (
-		decoderValidator *handlers.DecoderValidator
+		decoderValidator handlers.DecoderValidator
 		validatorErr     error
 	)
 
 	BeforeEach(func() {
 		var err error
-		decoderValidator, err = handlers.NewDefaultDecoderValidator()
+		decoderValidator = handlers.NewDefaultDecoderValidator()
 		Expect(err).NotTo(HaveOccurred())
 	})
 

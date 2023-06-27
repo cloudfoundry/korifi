@@ -22,8 +22,8 @@ func (m BuildMetadata) Validate() error {
 }
 
 type Metadata struct {
-	Annotations map[string]string `json:"annotations" yaml:"annotations" validate:"metadatavalidator"`
-	Labels      map[string]string `json:"labels"      yaml:"labels"      validate:"metadatavalidator"`
+	Annotations map[string]string `json:"annotations" yaml:"annotations"`
+	Labels      map[string]string `json:"labels"      yaml:"labels"`
 }
 
 func (m Metadata) Validate() error {
@@ -34,8 +34,8 @@ func (m Metadata) Validate() error {
 }
 
 type MetadataPatch struct {
-	Annotations map[string]*string `json:"annotations" validate:"metadatavalidator"`
-	Labels      map[string]*string `json:"labels"      validate:"metadatavalidator"`
+	Annotations map[string]*string `json:"annotations"`
+	Labels      map[string]*string `json:"labels"`
 }
 
 func (p MetadataPatch) Validate() error {

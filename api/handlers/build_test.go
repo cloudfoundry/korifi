@@ -64,8 +64,7 @@ var _ = Describe("Build", func() {
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/builds/"+buildGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			decoderValidator, err := NewDefaultDecoderValidator()
-			Expect(err).NotTo(HaveOccurred())
+			decoderValidator := NewDefaultDecoderValidator()
 
 			apiHandler := NewBuild(
 				*serverURL,
@@ -315,18 +314,16 @@ var _ = Describe("Build", func() {
 
 	Describe("the PATCH /v3/builds endpoint", func() {
 		BeforeEach(func() {
-			decoderValidator, err := NewDefaultDecoderValidator()
-			Expect(err).NotTo(HaveOccurred())
-
 			apiHandler := NewBuild(
 				*serverURL,
 				new(fake.CFBuildRepository),
 				new(fake.CFPackageRepository),
 				new(fake.CFAppRepository),
-				decoderValidator,
+				NewDefaultDecoderValidator(),
 			)
 			routerBuilder.LoadRoutes(apiHandler)
 
+			var err error
 			req, err = http.NewRequestWithContext(context.Background(), "PATCH", "/v3/builds/build-guid", strings.NewReader(`{}`))
 			Expect(err).NotTo(HaveOccurred())
 		})

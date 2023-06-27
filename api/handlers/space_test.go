@@ -36,8 +36,7 @@ var _ = Describe("Space", func() {
 			OrganizationGUID: "the-org-guid",
 		}, nil)
 
-		decoderValidator, err := handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		decoderValidator := handlers.NewDefaultDecoderValidator()
 
 		apiHandler = handlers.NewSpace(
 			*serverURL,
@@ -149,7 +148,7 @@ var _ = Describe("Space", func() {
 			})
 
 			It("returns a bad request error", func() {
-				expectUnprocessableEntityError("Data is a required field")
+				expectUnprocessableEntityError("organization is required")
 			})
 		})
 	})
@@ -362,7 +361,7 @@ var _ = Describe("Space", func() {
 				})
 
 				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					expectUnprocessableEntityError("cannot use the cloudfoundry.org domain")
 				})
 			})
 
@@ -378,7 +377,7 @@ var _ = Describe("Space", func() {
 				})
 
 				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					expectUnprocessableEntityError("cannot use the cloudfoundry.org domain")
 				})
 			})
 		})
@@ -396,7 +395,7 @@ var _ = Describe("Space", func() {
 				})
 
 				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					expectUnprocessableEntityError("cannot use the cloudfoundry.org domain")
 				})
 			})
 
@@ -412,7 +411,7 @@ var _ = Describe("Space", func() {
 				})
 
 				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+					expectUnprocessableEntityError("cannot use the cloudfoundry.org domain")
 				})
 			})
 		})

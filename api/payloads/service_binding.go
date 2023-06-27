@@ -10,8 +10,8 @@ import (
 )
 
 type ServiceBindingCreate struct {
-	Relationships *ServiceBindingRelationships `json:"relationships" validate:"required"`
-	Type          string                       `json:"type" validate:"oneof=app"`
+	Relationships *ServiceBindingRelationships `json:"relationships"`
+	Type          string                       `json:"type"`
 	Name          *string                      `json:"name"`
 }
 

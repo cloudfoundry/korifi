@@ -10,15 +10,14 @@ import (
 
 var _ = Describe("Lifecycle", func() {
 	var (
-		decoderValidator *handlers.DecoderValidator
+		decoderValidator handlers.DecoderValidator
 		payload          payloads.Lifecycle
 		decodedPayload   *payloads.Lifecycle
 		validatorErr     error
 	)
 
 	BeforeEach(func() {
-		decoderValidator, validatorErr = handlers.NewDefaultDecoderValidator()
-		Expect(validatorErr).NotTo(HaveOccurred())
+		decoderValidator = handlers.NewDefaultDecoderValidator()
 
 		payload = payloads.Lifecycle{
 			Type: "buildpack",

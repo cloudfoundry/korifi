@@ -30,8 +30,7 @@ var _ = Describe("Deployment", func() {
 		runnerInfoRepo = new(fake.RunnerInfoRepository)
 		runnerName = "statefulset-runner"
 
-		decoderValidator, err := handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		decoderValidator := handlers.NewDefaultDecoderValidator()
 
 		apiHandler := handlers.NewDeployment(*serverURL, decoderValidator, deploymentsRepo, runnerInfoRepo, runnerName)
 		routerBuilder.LoadRoutes(apiHandler)

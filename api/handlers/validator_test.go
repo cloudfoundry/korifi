@@ -15,19 +15,15 @@ import (
 var _ = Describe("Validator", func() {
 	Describe("DecodeAndValidateURLValues", func() {
 		var (
-			requestValidator *handlers.DecoderValidator
+			requestValidator handlers.DecoderValidator
 			decoded          DecodeTestPayload
 			decodeErr        error
 			requestUrl       string
 		)
 
 		BeforeEach(func() {
-			var err error
-			requestValidator, err = handlers.NewDefaultDecoderValidator()
-			Expect(err).NotTo(HaveOccurred())
-
+			requestValidator = handlers.NewDefaultDecoderValidator()
 			requestUrl = "http://foo.com?key=3"
-
 			decoded = DecodeTestPayload{}
 		})
 

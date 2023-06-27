@@ -33,7 +33,7 @@ type SpaceManifest struct {
 	serverURL        url.URL
 	manifestApplier  ManifestApplier
 	spaceRepo        CFSpaceRepository
-	decoderValidator *DecoderValidator
+	decoderValidator DecoderValidator
 }
 
 //counterfeiter:generate -o fake -fake-name ManifestApplier . ManifestApplier
@@ -45,7 +45,7 @@ func NewSpaceManifest(
 	serverURL url.URL,
 	manifestApplier ManifestApplier,
 	spaceRepo CFSpaceRepository,
-	decoderValidator *DecoderValidator,
+	decoderValidator DecoderValidator,
 ) *SpaceManifest {
 	return &SpaceManifest{
 		serverURL:        serverURL,

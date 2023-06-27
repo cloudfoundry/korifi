@@ -151,6 +151,12 @@ type AppPatch struct {
 	Metadata MetadataPatch `json:"metadata"`
 }
 
+func (p AppPatch) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Metadata),
+	)
+}
+
 func (a *AppPatch) ToMessage(appGUID, spaceGUID string) repositories.PatchAppMetadataMessage {
 	return repositories.PatchAppMetadataMessage{
 		AppGUID:   appGUID,

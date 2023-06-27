@@ -34,10 +34,10 @@ type SpaceRepository interface {
 type Space struct {
 	spaceRepo        SpaceRepository
 	apiBaseURL       url.URL
-	decoderValidator *DecoderValidator
+	decoderValidator DecoderValidator
 }
 
-func NewSpace(apiBaseURL url.URL, spaceRepo SpaceRepository, decoderValidator *DecoderValidator) *Space {
+func NewSpace(apiBaseURL url.URL, spaceRepo SpaceRepository, decoderValidator DecoderValidator) *Space {
 	return &Space{
 		apiBaseURL:       apiBaseURL,
 		spaceRepo:        spaceRepo,

@@ -45,8 +45,8 @@ var _ = Describe("ServiceInstanceCreate", func() {
 				"username": "bob",
 				"password": "float",
 			},
-			Relationships: payloads.ServiceInstanceRelationships{
-				Space: payloads.Relationship{
+			Relationships: &payloads.ServiceInstanceRelationships{
+				Space: &payloads.Relationship{
 					Data: &payloads.RelationshipData{
 						GUID: "space-guid",
 					},
@@ -74,7 +74,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Name is a required field")
+			expectUnprocessableEntityError(validatorErr, "name cannot be blank")
 		})
 	})
 
@@ -84,7 +84,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Type is a required field")
+			expectUnprocessableEntityError(validatorErr, "type cannot be blank")
 		})
 	})
 
@@ -94,7 +94,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Type must be one of [user-provided]")
+			expectUnprocessableEntityError(validatorErr, "type value must be one of: user-provided")
 		})
 	})
 
@@ -104,7 +104,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Data is a required field")
+			expectUnprocessableEntityError(validatorErr, "data is required")
 		})
 	})
 
@@ -115,11 +115,11 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Key: 'ServiceInstanceCreate.Tags' Error:Field validation for 'Tags' failed on the 'serviceinstancetaglength' tag")
+			expectUnprocessableEntityError(validatorErr, "combined length of tags cannot exceed")
 		})
 	})
 
-	When("metadata.labels contains an invalid key", func() {
+	When("metadata is invalid", func() {
 		BeforeEach(func() {
 			createPayload.Metadata = payloads.Metadata{
 				Labels: map[string]string{
@@ -129,21 +129,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
-		})
-	})
-
-	When("metadata.annotations contains an invalid key", func() {
-		BeforeEach(func() {
-			createPayload.Metadata = payloads.Metadata{
-				Annotations: map[string]string{
-					"foo.cloudfoundry.org/bar": "jim",
-				},
-			}
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+			expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
 		})
 	})
 
@@ -259,6 +245,16 @@ var _ = Describe("ServiceInstancePatch", func() {
 		It("succeeds", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
 			Expect(serviceInstancePatch).To(PointTo(Equal(patchPayload)))
+		})
+	})
+
+	When("metadata is invalid", func() {
+		BeforeEach(func() {
+			patchPayload.Metadata.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
 		})
 	})
 
