@@ -182,9 +182,13 @@
                 "diskMB": {
                   "description": "Disk in MB for staging.",
                   "type": "integer"
+                },
+                "buildCacheMB": {
+                  "description": "Persistent disk in MB for caching staging artifacts across builds.",
+                  "type": "integer"
                 }
               },
-              "required": ["memoryMB", "diskMB"]
+              "required": ["memoryMB", "diskMB", "buildCacheMB"]
             }
           },
           "required": ["type", "stack", "stagingRequirements"]

@@ -42,6 +42,7 @@ Here are all the values that can be set for the chart:
   - `lifecycle`: Default lifecycle for apps.
     - `stack` (_String_): Stack.
     - `stagingRequirements`:
+      - `buildCacheMB` (_Integer_): Persistent disk in MB for caching staging artifacts across builds.
       - `diskMB` (_Integer_): Disk in MB for staging.
       - `memoryMB` (_Integer_): Memory in MB for staging.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).
