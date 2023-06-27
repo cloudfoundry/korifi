@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
+	"time"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
@@ -22,22 +25,26 @@ const (
 	spaceDeletePrefix  = "space.delete"
 	domainDeletePrefix = "domain.delete"
 	roleDeletePrefix   = "role.delete"
+
+	JobTimeoutDuration = 120.0
 )
 
 const JobResourceType = "Job"
 
 type Job struct {
 	serverURL url.URL
+	orgRepo   CFOrgRepository
 }
 
-func NewJob(serverURL url.URL) *Job {
+func NewJob(serverURL url.URL, orgRepo CFOrgRepository) *Job {
 	return &Job{
 		serverURL: serverURL,
+		orgRepo:   orgRepo,
 	}
 }
 
 func (h *Job) get(r *http.Request) (*routing.Response, error) {
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.job.get")
+	log := logr.FromContextOrDiscard(r.Context()).WithName("handlers.job.get")
 
 	jobGUID := routing.URLParam(r, "guid")
 
@@ -45,28 +52,105 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 
 	if !match {
 		return nil, apierrors.LogAndReturn(
-			logger,
+			log,
 			apierrors.NewNotFoundError(fmt.Errorf("invalid job guid: %s", jobGUID), JobResourceType),
 			"Invalid Job GUID",
 		)
 	}
 
-	var jobResponse presenter.JobResponse
+	var (
+		err         error
+		jobResponse presenter.JobResponse
+	)
 
 	switch jobType {
 	case syncSpacePrefix:
 		jobResponse = presenter.ForManifestApplyJob(jobGUID, resourceGUID, h.serverURL)
-	case appDeletePrefix, orgDeletePrefix, spaceDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
-		jobResponse = presenter.ForJob(jobGUID, jobType, h.serverURL)
+	case appDeletePrefix, spaceDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
+		jobResponse = presenter.ForJob(jobGUID, []presenter.JobResponseError{}, presenter.StateComplete, jobType, h.serverURL)
+	case orgDeletePrefix:
+		jobResponse, err = h.handleOrgDelete(r.Context(), resourceGUID, jobGUID)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, apierrors.LogAndReturn(
-			logger,
+			log,
 			apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", jobType), JobResourceType),
 			fmt.Sprintf("Invalid Job type: %s", jobType),
 		)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
+}
+
+func (h *Job) handleOrgDelete(ctx context.Context, resourceGUID, jobGUID string) (presenter.JobResponse, error) {
+	authInfo, _ := authorization.InfoFromContext(ctx)
+	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleOrgDelete")
+
+	org, err := h.orgRepo.GetOrg(ctx, authInfo, resourceGUID)
+	if err != nil {
+		switch err.(type) {
+		case apierrors.NotFoundError, apierrors.ForbiddenError:
+			return presenter.ForJob(
+				jobGUID,
+				[]presenter.JobResponseError{},
+				presenter.StateComplete,
+				orgDeletePrefix,
+				h.serverURL,
+			), nil
+		default:
+			return presenter.JobResponse{}, apierrors.LogAndReturn(
+				log,
+				apierrors.ForbiddenAsNotFound(err),
+				"failed to fetch org from Kubernetes",
+				"OrgGUID", resourceGUID,
+			)
+		}
+	}
+
+	// This logic can be refactored into a generic helper for all resource types.
+	if org.DeletedAt == "" {
+		return presenter.JobResponse{}, apierrors.LogAndReturn(
+			log,
+			apierrors.NewNotFoundError(fmt.Errorf("job %q not found", jobGUID), JobResourceType),
+			"org not marked for deletion",
+			"OrgGUID", resourceGUID,
+		)
+	}
+
+	deletionTime, err := time.Parse(time.RFC3339Nano, org.DeletedAt)
+	if err != nil {
+		return presenter.JobResponse{}, apierrors.LogAndReturn(
+			log,
+			err,
+			"failed to parse org deletion time",
+			"name", org.Name,
+			"timestamp", org.DeletedAt,
+		)
+	}
+
+	if time.Since(deletionTime).Seconds() < JobTimeoutDuration {
+		return presenter.ForJob(
+			jobGUID,
+			[]presenter.JobResponseError{},
+			presenter.StateProcessing,
+			orgDeletePrefix,
+			h.serverURL,
+		), nil
+	} else {
+		return presenter.ForJob(
+			jobGUID,
+			[]presenter.JobResponseError{{
+				Code:   10008,
+				Detail: fmt.Sprintf("CFOrg deletion timed out. Check for lingering resources in the %q namespace", org.GUID),
+				Title:  "CF-UnprocessableEntity",
+			}},
+			presenter.StateFailed,
+			orgDeletePrefix,
+			h.serverURL,
+		), nil
+	}
 }
 
 func (h *Job) UnauthenticatedRoutes() []routing.Route {

@@ -8,6 +8,10 @@ import (
 const (
 	JobGUIDDelimiter = "~"
 
+	StateComplete   = "COMPLETE"
+	StateFailed     = "FAILED"
+	StateProcessing = "PROCESSING"
+
 	AppDeleteOperation          = "app.delete"
 	OrgDeleteOperation          = "org.delete"
 	RouteDeleteOperation        = "route.delete"
@@ -17,15 +21,21 @@ const (
 	RoleDeleteOperation         = "role.delete"
 )
 
+type JobResponseError struct {
+	Detail string `json:"detail"`
+	Title  string `json:"title"`
+	Code   int    `json:"code"`
+}
+
 type JobResponse struct {
-	GUID      string   `json:"guid"`
-	Errors    *string  `json:"errors"`
-	Warnings  *string  `json:"warnings"`
-	Operation string   `json:"operation"`
-	State     string   `json:"state"`
-	CreatedAt string   `json:"created_at"`
-	UpdatedAt string   `json:"updated_at"`
-	Links     JobLinks `json:"links"`
+	GUID      string             `json:"guid"`
+	Errors    []JobResponseError `json:"errors"`
+	Warnings  *string            `json:"warnings"`
+	Operation string             `json:"operation"`
+	State     string             `json:"state"`
+	CreatedAt string             `json:"created_at"`
+	UpdatedAt string             `json:"updated_at"`
+	Links     JobLinks           `json:"links"`
 }
 
 type JobLinks struct {
@@ -34,20 +44,20 @@ type JobLinks struct {
 }
 
 func ForManifestApplyJob(jobGUID string, spaceGUID string, baseURL url.URL) JobResponse {
-	response := ForJob(jobGUID, SpaceApplyManifestOperation, baseURL)
+	response := ForJob(jobGUID, []JobResponseError{}, StateComplete, SpaceApplyManifestOperation, baseURL)
 	response.Links.Space = &Link{
 		HRef: buildURL(baseURL).appendPath("/v3/spaces", spaceGUID).build(),
 	}
 	return response
 }
 
-func ForJob(jobGUID string, operation string, baseURL url.URL) JobResponse {
+func ForJob(jobGUID string, errors []JobResponseError, state string, operation string, baseURL url.URL) JobResponse {
 	return JobResponse{
 		GUID:      jobGUID,
-		Errors:    nil,
+		Errors:    errors,
 		Warnings:  nil,
 		Operation: operation,
-		State:     "COMPLETE",
+		State:     state,
 		CreatedAt: "",
 		UpdatedAt: "",
 		Links: JobLinks{

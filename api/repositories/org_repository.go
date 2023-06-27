@@ -51,6 +51,7 @@ type OrgRecord struct {
 	Annotations map[string]string
 	CreatedAt   string
 	UpdatedAt   string
+	DeletedAt   string
 }
 
 type OrgRepo struct {

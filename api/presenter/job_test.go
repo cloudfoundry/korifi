@@ -32,7 +32,7 @@ var _ = Describe("", func() {
 		It("renders the job", func() {
 			Expect(output).To(MatchJSON(`{
 				"created_at": "",
-				"errors": null,
+				"errors": [],
 				"guid": "the-job-guid",
 				"links": {
 					"self": {
@@ -52,7 +52,11 @@ var _ = Describe("", func() {
 
 	Describe("ForDeleteJob", func() {
 		JustBeforeEach(func() {
-			response := presenter.ForJob("the-job-guid", "the.operation", *baseURL)
+			response := presenter.ForJob("the-job-guid", []presenter.JobResponseError{{
+				Detail: "error detail",
+				Title:  "CF-JobErrorTitle",
+				Code:   12345,
+			}}, "COMPLETE", "the.operation", *baseURL)
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())
@@ -61,7 +65,13 @@ var _ = Describe("", func() {
 		It("renders the job", func() {
 			Expect(output).To(MatchJSON(`{
 				"created_at": "",
-				"errors": null,
+				"errors": [
+					{
+						"code": 12345,
+						"detail": "error detail",
+						"title": "CF-JobErrorTitle"
+					}
+				],
 				"guid": "the-job-guid",
 				"links": {
 					"self": {
