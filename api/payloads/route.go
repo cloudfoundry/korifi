@@ -39,8 +39,8 @@ func (p RouteCreate) ToMessage(domainNamespace, domainName string) repositories.
 }
 
 type RouteRelationships struct {
-	Domain Relationship `json:"domain" validate:"required"`
-	Space  Relationship `json:"space" validate:"required"`
+	Domain Relationship `json:"domain"`
+	Space  Relationship `json:"space"`
 }
 
 func (r RouteRelationships) Validate() error {

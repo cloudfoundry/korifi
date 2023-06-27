@@ -40,8 +40,8 @@ var _ = Describe("App payload validation", func() {
 		BeforeEach(func() {
 			payload = payloads.AppCreate{
 				Name: "my-app",
-				Relationships: payloads.AppRelationships{
-					Space: payloads.Relationship{
+				Relationships: &payloads.AppRelationships{
+					Space: &payloads.Relationship{
 						Data: &payloads.RelationshipData{
 							GUID: "app-guid",
 						},
@@ -83,11 +83,21 @@ var _ = Describe("App payload validation", func() {
 
 		When("relationships are not set", func() {
 			BeforeEach(func() {
-				payload.Relationships = payloads.AppRelationships{}
+				payload.Relationships = nil
 			})
 
 			It("returns an unprocessable entity error", func() {
-				expectUnprocessableEntityError(validatorErr, "relationships cannot be blank")
+				expectUnprocessableEntityError(validatorErr, "relationships is required")
+			})
+		})
+
+		When("relationships space is not set", func() {
+			BeforeEach(func() {
+				payload.Relationships.Space = nil
+			})
+
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError(validatorErr, "relationships.space is required")
 			})
 		})
 

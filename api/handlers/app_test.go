@@ -140,8 +140,8 @@ var _ = Describe("App", func() {
 		BeforeEach(func() {
 			payload = &payloads.AppCreate{
 				Name: appName,
-				Relationships: payloads.AppRelationships{
-					Space: payloads.Relationship{
+				Relationships: &payloads.AppRelationships{
+					Space: &payloads.Relationship{
 						Data: &payloads.RelationshipData{
 							GUID: spaceGUID,
 						},
