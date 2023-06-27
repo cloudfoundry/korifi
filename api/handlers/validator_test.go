@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -87,6 +88,17 @@ var _ = Describe("Validator", func() {
 				Expect(unknownKeyErr.HttpStatus()).To(Equal(http.StatusBadRequest))
 			})
 		})
+
+		When("the payload input contains an ignored key", func() {
+			BeforeEach(func() {
+				requestUrl += "&fields[foo.com]=bar"
+			})
+
+			It("decodes into the payload object", func() {
+				Expect(decodeErr).NotTo(HaveOccurred())
+				Expect(decoded.Key).To(Equal(3))
+			})
+		})
 	})
 })
 
@@ -102,6 +114,12 @@ func (p DecodeTestPayload) Validate() error {
 
 func (p *DecodeTestPayload) SupportedKeys() []string {
 	return []string{"key"}
+}
+
+func (p *DecodeTestPayload) IgnoredKeys() []*regexp.Regexp {
+	return []*regexp.Regexp{
+		regexp.MustCompile(`fields\[.+\]`),
+	}
 }
 
 func (p *DecodeTestPayload) DecodeFromURLValues(values url.Values) error {
