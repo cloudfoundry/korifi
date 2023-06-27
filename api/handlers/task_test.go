@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 
@@ -55,7 +54,7 @@ var _ = Describe("Task", func() {
 	})
 
 	JustBeforeEach(func() {
-		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(`{"input": "json"}`))
+		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader("the-json-body"))
 		Expect(err).NotTo(HaveOccurred())
 		routerBuilder.Build().ServeHTTP(rr, req)
 	})
@@ -80,10 +79,8 @@ var _ = Describe("Task", func() {
 
 		It("creates a task", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			body, err := io.ReadAll(req.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(body).To(MatchJSON(`{"input": "json"}`))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(taskRepo.CreateTaskCallCount()).To(Equal(1))
 
@@ -480,10 +477,8 @@ var _ = Describe("Task", func() {
 
 		It("patches the task with the new labels and annotations", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			body, err := io.ReadAll(req.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(body).To(MatchJSON(`{"input": "json"}`))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(taskRepo.PatchTaskMetadataCallCount()).To(Equal(1))
 			_, _, msg := taskRepo.PatchTaskMetadataArgsForCall(0)

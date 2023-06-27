@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("Domain", func() {
@@ -70,14 +69,14 @@ var _ = Describe("Domain", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/domains", strings.NewReader("the-json-payload"))
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/domains", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("creates a domain", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			request, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Eventually(gbytes.BufferReader(request.Body)).Should(gbytes.Say("the-json-payload"))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(domainRepo.CreateDomainCallCount()).To(Equal(1))
 			_, actualAuthInfo, createMessage := domainRepo.CreateDomainArgsForCall(0)
@@ -210,14 +209,14 @@ var _ = Describe("Domain", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/domains/my-domain", strings.NewReader("the-json-payload"))
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/domains/my-domain", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("updates the domain", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			request, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Eventually(gbytes.BufferReader(request.Body)).Should(gbytes.Say("the-json-payload"))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(domainRepo.UpdateDomainCallCount()).To(Equal(1))
 			_, _, updateMessage := domainRepo.UpdateDomainArgsForCall(0)

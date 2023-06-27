@@ -2,7 +2,6 @@ package payloads_test
 
 import (
 	"encoding/json"
-	"net/http"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -13,19 +12,31 @@ import (
 )
 
 var _ = Describe("ServiceInstanceList", func() {
-	It("Decodes from URL values", func() {
-		serviceInstanceList := payloads.ServiceInstanceList{}
-		req, err := http.NewRequest("GET", "http://foo.com/bar?names=name&space_guids=space_guid&order_by=order", nil)
-		Expect(err).NotTo(HaveOccurred())
-		err = validator.DecodeAndValidateURLValues(req, &serviceInstanceList)
+	DescribeTable("valid query",
+		func(query string, expectedServiceInstanceList payloads.ServiceInstanceList) {
+			actualServiceInstanceList, decodeErr := decodeQuery[payloads.ServiceInstanceList](query)
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(serviceInstanceList).To(Equal(payloads.ServiceInstanceList{
-			Names:      "name",
-			SpaceGuids: "space_guid",
-			OrderBy:    "order",
-		}))
-	})
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualServiceInstanceList).To(Equal(expectedServiceInstanceList))
+		},
+		Entry("names", "names=name", payloads.ServiceInstanceList{Names: "name"}),
+		Entry("space_guids", "space_guids=space_guid", payloads.ServiceInstanceList{SpaceGuids: "space_guid"}),
+		Entry("created_at", "order_by=created_at", payloads.ServiceInstanceList{OrderBy: "created_at"}),
+		Entry("-created_at", "order_by=-created_at", payloads.ServiceInstanceList{OrderBy: "-created_at"}),
+		Entry("updated_at", "order_by=updated_at", payloads.ServiceInstanceList{OrderBy: "updated_at"}),
+		Entry("-updated_at", "order_by=-updated_at", payloads.ServiceInstanceList{OrderBy: "-updated_at"}),
+		Entry("name", "order_by=name", payloads.ServiceInstanceList{OrderBy: "name"}),
+		Entry("-name", "order_by=-name", payloads.ServiceInstanceList{OrderBy: "-name"}),
+		Entry("fields[xxx]", "fields[abc.d]=e", payloads.ServiceInstanceList{}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.ServiceInstanceList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+	)
 })
 
 var _ = Describe("ServiceInstanceCreate", func() {

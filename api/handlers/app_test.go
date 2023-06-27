@@ -17,7 +17,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 )
 
@@ -182,7 +181,7 @@ var _ = Describe("App", func() {
 		It("validates the payload", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 		})
 
 		When("creating the process fails", func() {
@@ -465,7 +464,7 @@ var _ = Describe("App", func() {
 		It("validates the payload", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 		})
 
 		It("returns the App in the response", func() {
@@ -588,7 +587,7 @@ var _ = Describe("App", func() {
 		It("validates the payload", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 		})
 
 		When("setting the current droplet fails", func() {
@@ -1052,7 +1051,7 @@ var _ = Describe("App", func() {
 		It("validates the payload", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 		})
 		When("the request body is invalid", func() {
 			BeforeEach(func() {
@@ -1542,7 +1541,7 @@ var _ = Describe("App", func() {
 		It("validates the payload", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 		})
 
 		When("the request body is invalid", func() {

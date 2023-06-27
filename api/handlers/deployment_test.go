@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
@@ -19,20 +19,20 @@ import (
 
 var _ = Describe("Deployment", func() {
 	var (
-		req             *http.Request
-		deploymentsRepo *fake.CFDeploymentRepository
-		runnerInfoRepo  *fake.RunnerInfoRepository
-		runnerName      string
+		requestValidator *fake.RequestValidator
+		req              *http.Request
+		deploymentsRepo  *fake.CFDeploymentRepository
+		runnerInfoRepo   *fake.RunnerInfoRepository
+		runnerName       string
 	)
 
 	BeforeEach(func() {
+		requestValidator = new(fake.RequestValidator)
 		deploymentsRepo = new(fake.CFDeploymentRepository)
 		runnerInfoRepo = new(fake.RunnerInfoRepository)
 		runnerName = "statefulset-runner"
 
-		decoderValidator := handlers.NewDefaultDecoderValidator()
-
-		apiHandler := handlers.NewDeployment(*serverURL, decoderValidator, deploymentsRepo, runnerInfoRepo, runnerName)
+		apiHandler := handlers.NewDeployment(*serverURL, requestValidator, deploymentsRepo, runnerInfoRepo, runnerName)
 		routerBuilder.LoadRoutes(apiHandler)
 
 		runnerInfoRepo.GetRunnerInfoReturns(repositories.RunnerInfoRecord{
@@ -60,18 +60,19 @@ var _ = Describe("Deployment", func() {
 				},
 			}, nil)
 
-			req = createHttpRequest("POST", "/v3/deployments", strings.NewReader(fmt.Sprintf(`{
-				  "droplet": {
-					"guid": "%s"
-				  },
-				  "relationships": {
-					"app": {
-					  "data": {
-						"guid": "%s"
-					  }
-					}
-				  }
-				}`, dropletGUID, appGUID)))
+			req = createHttpRequest("POST", "/v3/deployments", strings.NewReader("the-payload"))
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.DeploymentCreate{
+				Droplet: payloads.DropletGUID{
+					Guid: dropletGUID,
+				},
+				Relationships: &payloads.DeploymentRelationships{
+					App: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: appGUID,
+						},
+					},
+				},
+			})
 		})
 
 		When("runner is not capable of rolling deploy", func() {
@@ -105,6 +106,10 @@ var _ = Describe("Deployment", func() {
 		})
 
 		It("creates the deployment with the repository", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-payload"))
+
 			Expect(deploymentsRepo.CreateDeploymentCallCount()).To(Equal(1))
 			_, actualAuthInfo, createMessage := deploymentsRepo.CreateDeploymentArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -116,11 +121,11 @@ var _ = Describe("Deployment", func() {
 
 		When("the request payload is invalid", func() {
 			BeforeEach(func() {
-				req = createHttpRequest("POST", "/v3/deployments", strings.NewReader("invalid-payload"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			It("returns a bad request error", func() {
-				expectBadRequestError()
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 

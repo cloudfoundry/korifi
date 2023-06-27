@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
@@ -133,6 +134,12 @@ type ServiceInstanceList struct {
 	OrderBy    string
 }
 
+func (l ServiceInstanceList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.OrderBy, validation.OneOf("created_at", "-created_at", "name", "-name", "updated_at", "-updated_at")),
+	)
+}
+
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
 		Names:      parse.ArrayParam(l.Names),
@@ -141,7 +148,11 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "fields", "order_by", "per_page", "page"}
+	return []string{"names", "space_guids", "order_by", "per_page", "page"}
+}
+
+func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
+	return []*regexp.Regexp{regexp.MustCompile(`fields\[.+\]`)}
 }
 
 func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {

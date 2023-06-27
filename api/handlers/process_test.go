@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 
@@ -135,8 +134,6 @@ var _ = Describe("Process", func() {
 	})
 
 	Describe("the POST /v3/processes/:guid/actions/scale endpoint", func() {
-		var requestBody string
-
 		BeforeEach(func() {
 			processRepo.GetProcessReturns(repositories.ProcessRecord{
 				GUID:      "process-guid",
@@ -147,12 +144,6 @@ var _ = Describe("Process", func() {
 				GUID: "process-guid",
 			}, nil)
 
-			requestBody = `{
-				"instances": 3,
-				"memory_in_mb": 512,
-				"disk_in_mb": 256
-			}`
-
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ProcessScale{
 				Instances: tools.PtrTo(3),
 				MemoryMB:  tools.PtrTo[int64](512),
@@ -161,17 +152,15 @@ var _ = Describe("Process", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/processes/process-guid/actions/scale", strings.NewReader(requestBody))
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/processes/process-guid/actions/scale", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("scales the process", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			reqBytes, err := io.ReadAll(req.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(reqBytes)).To(Equal(requestBody))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualProcessGUID := processRepo.GetProcessArgsForCall(0)
@@ -370,25 +359,7 @@ var _ = Describe("Process", func() {
 	})
 
 	Describe("the PATCH /v3/processes/:guid endpoint", func() {
-		var requestBody string
-
 		BeforeEach(func() {
-			requestBody = `{
-				"health_check": {
-					"data": {
-						"invocation_timeout": 2,
-						"timeout": 5,
-						"endpoint": "http://myapp.com/health"
-					},
-					"type": "port"
-				},
-				"metadata": {
-					"labels": {
-						"foo": "value1"
-					}
-				}
-			}`
-
 			processRepo.GetProcessReturns(repositories.ProcessRecord{
 				GUID: "process-guid",
 			}, nil)
@@ -415,17 +386,15 @@ var _ = Describe("Process", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "PATCH", "/v3/processes/process-guid", strings.NewReader(requestBody))
+			req, err := http.NewRequestWithContext(ctx, "PATCH", "/v3/processes/process-guid", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("updates the process", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			reqBytes, err := io.ReadAll(req.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(reqBytes)).To(Equal(requestBody))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(processRepo.PatchProcessCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualMsg := processRepo.PatchProcessArgsForCall(0)

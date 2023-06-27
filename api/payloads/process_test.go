@@ -3,7 +3,6 @@ package payloads_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,16 +27,7 @@ var _ = Describe("ProcessList", func() {
 })
 
 var _ = Describe("Process payload validation", func() {
-	var (
-		decoderValidator handlers.DecoderValidator
-		validatorErr     error
-	)
-
-	BeforeEach(func() {
-		var err error
-		decoderValidator = handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
-	})
+	var validatorErr error
 
 	Describe("ProcessScale", func() {
 		var (
@@ -56,7 +46,7 @@ var _ = Describe("Process payload validation", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = decoderValidator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {

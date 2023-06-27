@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 
@@ -73,7 +72,7 @@ var _ = Describe("ServiceBinding", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodPost
 			requestPath = "/v3/service_credential_bindings"
-			requestBody = "doesn't matter"
+			requestBody = "the-json-body"
 
 			serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{
 				GUID: "service-binding-guid",
@@ -100,9 +99,7 @@ var _ = Describe("ServiceBinding", func() {
 		It("creates a service binding", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(actualReq.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(requestBody))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(appRepo.GetAppCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
@@ -316,7 +313,7 @@ var _ = Describe("ServiceBinding", func() {
 		BeforeEach(func() {
 			requestMethod = "PATCH"
 			requestPath = "/v3/service_credential_bindings/service-binding-guid"
-			requestBody = "doesn't matter"
+			requestBody = "the-json-body"
 
 			serviceBindingRepo.UpdateServiceBindingReturns(repositories.ServiceBindingRecord{
 				GUID: "service-binding-guid",
@@ -334,9 +331,7 @@ var _ = Describe("ServiceBinding", func() {
 		It("updates the service binding", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(actualReq.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(requestBody))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))

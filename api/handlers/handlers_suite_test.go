@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -139,4 +140,12 @@ func decodeAndValidateURLValuesStub[P any, I keyedPayloadImpl[P]](desiredPayload
 		*outputPtr = *desiredPayload
 		return nil
 	}
+}
+
+func bodyString(r *http.Request) string {
+	GinkgoHelper()
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	Expect(err).NotTo(HaveOccurred())
+	return string(bodyBytes)
 }

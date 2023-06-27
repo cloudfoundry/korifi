@@ -1,7 +1,6 @@
 package payloads_test
 
 import (
-	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,15 +9,12 @@ import (
 
 var _ = Describe("Lifecycle", func() {
 	var (
-		decoderValidator handlers.DecoderValidator
-		payload          payloads.Lifecycle
-		decodedPayload   *payloads.Lifecycle
-		validatorErr     error
+		payload        payloads.Lifecycle
+		decodedPayload *payloads.Lifecycle
+		validatorErr   error
 	)
 
 	BeforeEach(func() {
-		decoderValidator = handlers.NewDefaultDecoderValidator()
-
 		payload = payloads.Lifecycle{
 			Type: "buildpack",
 			Data: &payloads.LifecycleData{
@@ -31,7 +27,7 @@ var _ = Describe("Lifecycle", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = decoderValidator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 	})
 
 	It("succeeds", func() {
