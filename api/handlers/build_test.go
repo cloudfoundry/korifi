@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	. "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -18,7 +18,30 @@ import (
 )
 
 var _ = Describe("Build", func() {
-	var req *http.Request
+	var (
+		req              *http.Request
+		requestValidator *fake.RequestValidator
+		apiHandler       *handlers.Build
+		appRepo          *fake.CFAppRepository
+		buildRepo        *fake.CFBuildRepository
+		packageRepo      *fake.CFPackageRepository
+	)
+
+	BeforeEach(func() {
+		requestValidator = new(fake.RequestValidator)
+		appRepo = new(fake.CFAppRepository)
+		buildRepo = new(fake.CFBuildRepository)
+		packageRepo = new(fake.CFPackageRepository)
+
+		apiHandler = handlers.NewBuild(
+			*serverURL,
+			buildRepo,
+			packageRepo,
+			appRepo,
+			requestValidator,
+		)
+		routerBuilder.LoadRoutes(apiHandler)
+	})
 
 	JustBeforeEach(func() {
 		routerBuilder.Build().ServeHTTP(rr, req)
@@ -37,11 +60,7 @@ var _ = Describe("Build", func() {
 			updatedAt = "1906-04-18T13:12:01Z"
 		)
 
-		var buildRepo *fake.CFBuildRepository
-
-		// set up happy path defaults
 		BeforeEach(func() {
-			buildRepo = new(fake.CFBuildRepository)
 			buildRepo.GetBuildReturns(repositories.BuildRecord{
 				GUID:            buildGUID,
 				State:           "STAGING",
@@ -63,17 +82,6 @@ var _ = Describe("Build", func() {
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/builds/"+buildGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			decoderValidator := NewDefaultDecoderValidator()
-
-			apiHandler := NewBuild(
-				*serverURL,
-				buildRepo,
-				new(fake.CFPackageRepository),
-				new(fake.CFAppRepository),
-				decoderValidator,
-			)
-			routerBuilder.LoadRoutes(apiHandler)
 		})
 
 		It("returns the Build", func() {
@@ -108,13 +116,7 @@ var _ = Describe("Build", func() {
 	})
 
 	Describe("the POST /v3/builds endpoint", func() {
-		var (
-			packageRepo                 *fake.CFPackageRepository
-			appRepo                     *fake.CFAppRepository
-			buildRepo                   *fake.CFBuildRepository
-			requestValidator            *fake.RequestValidator
-			expectedLifecycleBuildpacks []string
-		)
+		var expectedLifecycleBuildpacks []string
 
 		const (
 			packageGUID = "the-package-guid"
@@ -132,7 +134,6 @@ var _ = Describe("Build", func() {
 		)
 
 		BeforeEach(func() {
-			requestValidator = new(fake.RequestValidator)
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.BuildCreate{
 				Package: &payloads.RelationshipData{
 					GUID: packageGUID,
@@ -141,7 +142,6 @@ var _ = Describe("Build", func() {
 
 			expectedLifecycleBuildpacks = []string{"buildpack-a", "buildpack-b"}
 
-			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.GetPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
 				AppGUID:   appGUID,
@@ -153,7 +153,6 @@ var _ = Describe("Build", func() {
 				UpdatedAt: updatedAt,
 			}, nil)
 
-			appRepo = new(fake.CFAppRepository)
 			appRepo.GetAppReturns(repositories.AppRecord{
 				GUID:      appGUID,
 				SpaceGUID: spaceGUID,
@@ -166,7 +165,6 @@ var _ = Describe("Build", func() {
 				},
 			}, nil)
 
-			buildRepo = new(fake.CFBuildRepository)
 			buildRepo.CreateBuildReturns(repositories.BuildRecord{
 				GUID:            buildGUID,
 				State:           "STAGING",
@@ -184,15 +182,6 @@ var _ = Describe("Build", func() {
 				PackageGUID: packageGUID,
 				AppGUID:     appGUID,
 			}, nil)
-
-			apiHandler := NewBuild(
-				*serverURL,
-				buildRepo,
-				packageRepo,
-				appRepo,
-				requestValidator,
-			)
-			routerBuilder.LoadRoutes(apiHandler)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(""))
@@ -314,22 +303,13 @@ var _ = Describe("Build", func() {
 
 	Describe("the PATCH /v3/builds endpoint", func() {
 		BeforeEach(func() {
-			apiHandler := NewBuild(
-				*serverURL,
-				new(fake.CFBuildRepository),
-				new(fake.CFPackageRepository),
-				new(fake.CFAppRepository),
-				NewDefaultDecoderValidator(),
-			)
-			routerBuilder.LoadRoutes(apiHandler)
-
 			var err error
 			req, err = http.NewRequestWithContext(context.Background(), "PATCH", "/v3/builds/build-guid", strings.NewReader(`{}`))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns an unprocessable entity error", func() {
-			expectUnprocessableEntityError(`Labels and annotations are not supported for builds.`)
+			expectUnprocessableEntityError("Labels and annotations are not supported for builds.")
 		})
 	})
 })

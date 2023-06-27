@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -63,17 +62,15 @@ var _ = Describe("Role", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "POST", rolesBase, strings.NewReader("payload-data"))
+			req, err := http.NewRequestWithContext(ctx, "POST", rolesBase, strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("creates the role", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(req.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal("payload-data"))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(roleRepo.CreateRoleCallCount()).To(Equal(1))
 			_, actualAuthInfo, roleMessage := roleRepo.CreateRoleArgsForCall(0)

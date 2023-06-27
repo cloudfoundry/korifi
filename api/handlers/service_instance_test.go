@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,7 +22,7 @@ var _ = Describe("ServiceInstance", func() {
 	var (
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
 		spaceRepo           *fake.SpaceRepository
-		decoderValidator    *fake.RequestValidator
+		requestValidator    *fake.RequestValidator
 
 		reqMethod string
 		reqPath   string
@@ -38,13 +37,13 @@ var _ = Describe("ServiceInstance", func() {
 
 		spaceRepo = new(fake.SpaceRepository)
 
-		decoderValidator = new(fake.RequestValidator)
+		requestValidator = new(fake.RequestValidator)
 
 		apiHandler := NewServiceInstance(
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 
@@ -53,7 +52,7 @@ var _ = Describe("ServiceInstance", func() {
 	})
 
 	JustBeforeEach(func() {
-		req, err := http.NewRequestWithContext(ctx, reqMethod, reqPath, strings.NewReader(`{"input": "json"}`))
+		req, err := http.NewRequestWithContext(ctx, reqMethod, reqPath, strings.NewReader("the-json-body"))
 		Expect(err).NotTo(HaveOccurred())
 		routerBuilder.Build().ServeHTTP(rr, req)
 	})
@@ -62,7 +61,7 @@ var _ = Describe("ServiceInstance", func() {
 		BeforeEach(func() {
 			reqMethod = http.MethodPost
 
-			decoderValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ServiceInstanceCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ServiceInstanceCreate{
 				Name: "service-instance-name",
 				Type: "user-provided",
 				Tags: []string{"foo", "bar"},
@@ -89,11 +88,9 @@ var _ = Describe("ServiceInstance", func() {
 		})
 
 		It("creates a CFServiceInstance", func() {
-			Expect(decoderValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := decoderValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			body, err := io.ReadAll(req.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(body).To(MatchJSON(`{"input": "json"}`))
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(serviceInstanceRepo.CreateServiceInstanceCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualCreate := serviceInstanceRepo.CreateServiceInstanceArgsForCall(0)
@@ -115,7 +112,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("the request body is not valid", func() {
 			BeforeEach(func() {
-				decoderValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))
 			})
 
 			It("returns an error", func() {
@@ -190,9 +187,16 @@ var _ = Describe("ServiceInstance", func() {
 					UpdatedAt:  "1906-04-18T13:12:01Z",
 				},
 			}, nil)
+
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{})
+			reqPath += "?foo=bar"
 		})
 
 		It("lists the service instances", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix("/v3/service_instances?foo=bar"))
+
 			Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualListMessage := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -203,7 +207,7 @@ var _ = Describe("ServiceInstance", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_instances"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_instances?foo=bar"),
 				MatchJSONPath("$.resources[0].guid", "service-inst-guid-1"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/service_instances/service-inst-guid-1"),
 				MatchJSONPath("$.resources[1].guid", "service-inst-guid-2"),
@@ -212,10 +216,10 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("filtering query parameters are provided", func() {
 			BeforeEach(func() {
-				reqPath += "?" +
-					"names=sc1,sc2&" +
-					"space_guids=space1,space2&" +
-					"fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname"
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{
+					Names:      "sc1,sc2",
+					SpaceGuids: "space1,space2",
+				})
 			})
 
 			It("passes them to the repository", func() {
@@ -227,7 +231,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("correctly sets query parameters in response pagination links", func() {
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_instances?names=sc1,sc2&space_guids=space1,space2&fields%5Bservice_plan.service_offering.service_broker%5D=guid%2Cname")))
+				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_instances?foo=bar")))
 			})
 		})
 
@@ -256,7 +260,8 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
-				req := createHttpRequest("GET", "/v3/service_instances?order_by="+orderBy, nil)
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{OrderBy: orderBy})
+				req := createHttpRequest("GET", "/v3/service_instances?order_by=not-used", nil)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
 				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedOrder)))
@@ -268,26 +273,6 @@ var _ = Describe("ServiceInstance", func() {
 				Entry("name ASC", "name", "1", "2", "3"),
 				Entry("name DESC", "-name", "3", "2", "1"),
 			)
-
-			When("order_by is not a valid field", func() {
-				BeforeEach(func() {
-					reqPath += "?order_by=foo"
-				})
-
-				It("returns an Unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Order by can only be: .*")
-				})
-			})
-		})
-
-		When("the per_page query parameter is provided", func() {
-			BeforeEach(func() {
-				reqPath += "?per_page=10"
-			})
-
-			It("correctly sets the query parameter in response pagination links", func() {
-				Expect(rr.Body.String()).To(ContainSubstring("/v3/service_instances?per_page=10"))
-			})
 		})
 
 		When("there is an error fetching service instances", func() {
@@ -300,20 +285,20 @@ var _ = Describe("ServiceInstance", func() {
 			})
 		})
 
-		When("invalid query parameters are provided", func() {
+		When("the query is invalid", func() {
 			BeforeEach(func() {
-				reqPath += "?foo=bar"
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
 
 	Describe("PATCH /v3/service_instances/:guid", func() {
 		BeforeEach(func() {
-			decoderValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ServiceInstancePatch{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ServiceInstancePatch{
 				Name:        tools.PtrTo("new-name"),
 				Tags:        &[]string{"alice", "bob"},
 				Credentials: &map[string]string{"foo": "bar"},
@@ -333,11 +318,9 @@ var _ = Describe("ServiceInstance", func() {
 		})
 
 		It("patches the service instance", func() {
-			Expect(decoderValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			req, _ := decoderValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			body, err := io.ReadAll(req.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(body).To(MatchJSON(`{"input": "json"}`))
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
@@ -370,7 +353,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("decoding the payload fails", func() {
 			BeforeEach(func() {
-				decoderValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))
 			})
 
 			It("returns an error", func() {

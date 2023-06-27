@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -113,18 +112,8 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
-	for k := range r.Form {
-		if strings.HasPrefix(k, "fields[") {
-			r.Form.Del(k)
-		}
-	}
-
 	listFilter := new(payloads.ServiceInstanceList)
-	err := payloads.Decode(listFilter, r.Form)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, listFilter)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
@@ -134,15 +123,13 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service instance")
 	}
 
-	if err := h.sortList(serviceInstanceList, r.FormValue("order_by")); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
-	}
+	h.sortList(serviceInstanceList, listFilter.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstanceList, h.serverURL, *r.URL)), nil
 }
 
 // nolint:dupl
-func (h *ServiceInstance) sortList(siList []repositories.ServiceInstanceRecord, order string) error {
+func (h *ServiceInstance) sortList(siList []repositories.ServiceInstanceRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
@@ -157,10 +144,7 @@ func (h *ServiceInstance) sortList(siList []repositories.ServiceInstanceRecord, 
 		sort.Slice(siList, func(i, j int) bool { return siList[i].Name < siList[j].Name })
 	case "-name":
 		sort.Slice(siList, func(i, j int) bool { return siList[i].Name > siList[j].Name })
-	default:
-		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at", "name")
 	}
-	return nil
 }
 
 func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {

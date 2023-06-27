@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("Droplet", func() {
@@ -190,7 +189,7 @@ var _ = Describe("Droplet", func() {
 		It("validates the payload", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Eventually(gbytes.BufferReader(actualReq.Body)).Should(gbytes.Say("the-json-body"))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 		})
 
 		It("updates the droplet", func() {

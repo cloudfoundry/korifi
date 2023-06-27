@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -41,18 +40,7 @@ var _ = Describe("Org", func() {
 	})
 
 	Describe("Create Org", func() {
-		var req string
-
 		BeforeEach(func() {
-			req = `{
-				"name": "the-org",
-				"suspended": true,
-				"metadata": {
-					"labels": {"foo": "bar"},
-					"annotations": {"bar": "baz"}
-				}
-			}`
-
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.OrgCreate{
 				Name:      "the-org",
 				Suspended: true,
@@ -82,7 +70,7 @@ var _ = Describe("Org", func() {
 		})
 
 		JustBeforeEach(func() {
-			request, err := http.NewRequestWithContext(ctx, "POST", "/v3/organizations", strings.NewReader(req))
+			request, err := http.NewRequestWithContext(ctx, "POST", "/v3/organizations", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 			routerBuilder.Build().ServeHTTP(rr, request)
 		})
@@ -90,9 +78,7 @@ var _ = Describe("Org", func() {
 		It("creates the org", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(actualReq.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(req))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(orgRepo.CreateOrgCallCount()).To(Equal(1))
 			_, info, orgRecord := orgRepo.CreateOrgArgsForCall(0)
@@ -235,18 +221,7 @@ var _ = Describe("Org", func() {
 				},
 			}, nil)
 
-			requestBody = `{
-				  "metadata": {
-					"labels": {
-						"env": "production",
-                        "foo.example.com/my-identifier": "aruba"
-					},
-					"annotations": {
-						"hello": "there",
-                        "foo.example.com/lorem-ipsum": "Lorem ipsum."
-					}
-				  }
-			    }`
+			requestBody = "the-json-body"
 
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.OrgPatch{
 				Metadata: payloads.MetadataPatch{
@@ -265,9 +240,7 @@ var _ = Describe("Org", func() {
 		It("patches the org", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(actualReq.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(requestBody))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(1))
 			_, _, msg := orgRepo.PatchOrgMetadataArgsForCall(0)

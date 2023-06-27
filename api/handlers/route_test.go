@@ -3,7 +3,6 @@ package handlers_test
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -272,7 +271,7 @@ var _ = Describe("Route", func() {
 				UpdatedAt: "update-time",
 			}, nil)
 
-			requestBody = `doesn't matter`
+			requestBody = "the-json-body"
 
 			payload := payloads.RouteCreate{
 				Host: "test-route-host",
@@ -296,9 +295,7 @@ var _ = Describe("Route", func() {
 		It("creates the route", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(actualReq.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(requestBody))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
@@ -423,7 +420,7 @@ var _ = Describe("Route", func() {
 				},
 			}, nil)
 
-			requestBody = `doesn't matter`
+			requestBody = "the-json-body"
 
 			payload := payloads.RoutePatch{
 				Metadata: payloads.MetadataPatch{
@@ -437,9 +434,7 @@ var _ = Describe("Route", func() {
 		It("patches the route", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(actualReq.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(requestBody))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(routeRepo.PatchRouteMetadataCallCount()).To(Equal(1))
 			_, _, msg := routeRepo.PatchRouteMetadataArgsForCall(0)
@@ -569,7 +564,7 @@ var _ = Describe("Route", func() {
 
 			requestMethod = http.MethodPost
 			requestPath = "/v3/routes/test-route-guid/destinations"
-			requestBody = `doesn't matter`
+			requestBody = "the-json-body"
 
 			payload := payloads.RouteDestinationCreate{
 				Destinations: []payloads.RouteDestination{
@@ -596,9 +591,7 @@ var _ = Describe("Route", func() {
 		It("adds the destinations to the route", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(actualReq.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(requestBody))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(routeRepo.GetRouteCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualRouteGUID := routeRepo.GetRouteArgsForCall(0)

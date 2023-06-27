@@ -340,7 +340,7 @@ var _ = Describe("Package", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader("payload"))
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 
 			routerBuilder.Build().ServeHTTP(rr, req)
@@ -349,9 +349,7 @@ var _ = Describe("Package", func() {
 		It("creates a CFPackage", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			bodyBytes, err := io.ReadAll(actualReq.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal("payload"))
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
 			Expect(packageRepo.CreatePackageCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualCreate := packageRepo.CreatePackageArgsForCall(0)
