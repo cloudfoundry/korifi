@@ -30,6 +30,10 @@ type KeyedPayload interface {
 	DecodeFromURLValues(url.Values) error
 }
 
+type IgnoredKeysPayload interface {
+	IgnoredKeys() []*regexp.Regexp
+}
+
 type DecoderValidator struct{}
 
 func NewDefaultDecoderValidator() DecoderValidator {
@@ -88,13 +92,29 @@ func checkKeysAreSupported(payloadObject KeyedPayload, values url.Values) error 
 	for _, key := range payloadObject.SupportedKeys() {
 		supportedKeys[key] = true
 	}
+
 	for key := range values {
-		if !supportedKeys[key] {
+		if !supportedKeys[key] && !isIgnored(payloadObject, key) {
 			return fmt.Errorf("unsupported query parameter: %s", key)
 		}
 	}
 
 	return nil
+}
+
+func isIgnored(payload KeyedPayload, key string) bool {
+	ignoredKeysPayload, ok := payload.(IgnoredKeysPayload)
+	if !ok {
+		return false
+	}
+
+	for _, re := range ignoredKeysPayload.IgnoredKeys() {
+		if re.MatchString(key) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (dv *DecoderValidator) validatePayload(object interface{}) error {
