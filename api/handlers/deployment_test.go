@@ -92,6 +92,18 @@ var _ = Describe("Deployment", func() {
 			})
 		})
 
+		When("runner is not capable of rolling deploy", func() {
+			BeforeEach(func() {
+				runnerInfoRepo.GetRunnerInfoReturns(repositories.RunnerInfoRecord{},
+					apierrors.NewNotFoundError(errors.New("not found"), "RunnerInfo"))
+			})
+
+			It("returns an error if the RunnerInfo indicates unable to rolling deploy", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
+				Expect(rr).To(HaveHTTPBody("{\"errors\":[{\"detail\":\"The configured runner 'statefulset-runner' does not support rolling deploys\",\"title\":\"CF-RollingDeployNotSupported\",\"code\":42000}]}\n"))
+			})
+		})
+
 		It("returns a HTTP 201 Created response", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
