@@ -17,8 +17,8 @@ var _ = Describe("DeploymentCreate", func() {
 			Droplet: payloads.DropletGUID{
 				Guid: "the-droplet",
 			},
-			Relationships: payloads.DeploymentRelationships{
-				App: payloads.Relationship{
+			Relationships: &payloads.DeploymentRelationships{
+				App: &payloads.Relationship{
 					Data: &payloads.RelationshipData{
 						GUID: "the-app",
 					},
@@ -57,13 +57,23 @@ var _ = Describe("DeploymentCreate", func() {
 			})
 		})
 
-		When("the app relationship is not specified", func() {
+		When("the relationship is not specified", func() {
 			BeforeEach(func() {
-				createDeployment.Relationships = payloads.DeploymentRelationships{}
+				createDeployment.Relationships = nil
 			})
 
-			It("says app data is required", func() {
-				expectUnprocessableEntityError(validatorErr, "Data is a required field")
+			It("says relationships is required", func() {
+				expectUnprocessableEntityError(validatorErr, "Relationships is a required field")
+			})
+		})
+
+		When("the relationship app is not specified", func() {
+			BeforeEach(func() {
+				createDeployment.Relationships.App = nil
+			})
+
+			It("says app is required", func() {
+				expectUnprocessableEntityError(validatorErr, "App is a required field")
 			})
 		})
 

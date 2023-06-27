@@ -22,7 +22,7 @@ var _ = Describe("Lifecycle", func() {
 
 		payload = payloads.Lifecycle{
 			Type: "buildpack",
-			Data: payloads.LifecycleData{
+			Data: &payloads.LifecycleData{
 				Buildpacks: []string{"foo", "bar"},
 				Stack:      "baz",
 			},
@@ -50,6 +50,16 @@ var _ = Describe("Lifecycle", func() {
 		})
 	})
 
+	When("lifecycle data is not set", func() {
+		BeforeEach(func() {
+			payload.Data = nil
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "data is required")
+		})
+	})
+
 	When("stack is not set", func() {
 		BeforeEach(func() {
 			payload.Data.Stack = ""
@@ -57,16 +67,6 @@ var _ = Describe("Lifecycle", func() {
 
 		It("returns an appropriate error", func() {
 			expectUnprocessableEntityError(validatorErr, "data.stack cannot be blank")
-		})
-	})
-
-	When("buildpacks are not set", func() {
-		BeforeEach(func() {
-			payload.Data.Buildpacks = nil
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "data.buildpacks cannot be blank")
 		})
 	})
 })

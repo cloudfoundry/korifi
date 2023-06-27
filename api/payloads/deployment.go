@@ -9,12 +9,12 @@ type DropletGUID struct {
 }
 
 type DeploymentCreate struct {
-	Droplet       DropletGUID             `json:"droplet"`
-	Relationships DeploymentRelationships `json:"relationships" validate:"required"`
+	Droplet       DropletGUID              `json:"droplet"`
+	Relationships *DeploymentRelationships `json:"relationships" validate:"required"`
 }
 
 type DeploymentRelationships struct {
-	App Relationship `json:"app" validate:"required"`
+	App *Relationship `json:"app" validate:"required"`
 }
 
 func (c *DeploymentCreate) ToMessage() repositories.CreateDeploymentMessage {

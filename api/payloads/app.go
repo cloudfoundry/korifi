@@ -22,7 +22,7 @@ var DefaultLifecycleConfig = config.DefaultLifecycleConfig{
 type AppCreate struct {
 	Name                 string            `json:"name"`
 	EnvironmentVariables map[string]string `json:"environment_variables"`
-	Relationships        AppRelationships  `json:"relationships"`
+	Relationships        *AppRelationships `json:"relationships"`
 	Lifecycle            *Lifecycle        `json:"lifecycle"`
 	Metadata             Metadata          `json:"metadata"`
 }
@@ -30,19 +30,19 @@ type AppCreate struct {
 func (c AppCreate) Validate() error {
 	return validation.ValidateStruct(&c,
 		validation.Field(&c.Name, payload_validation.StrictlyRequired),
-		validation.Field(&c.Relationships, payload_validation.StrictlyRequired),
+		validation.Field(&c.Relationships, validation.NotNil),
 		validation.Field(&c.Lifecycle),
 		validation.Field(&c.Metadata),
 	)
 }
 
 type AppRelationships struct {
-	Space Relationship `json:"space"`
+	Space *Relationship `json:"space"`
 }
 
 func (r AppRelationships) Validate() error {
 	return validation.ValidateStruct(&r,
-		validation.Field(&r.Space, payload_validation.StrictlyRequired),
+		validation.Field(&r.Space, validation.NotNil),
 	)
 }
 
