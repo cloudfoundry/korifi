@@ -148,7 +148,7 @@ var _ = Describe("Reconcile", func() {
 		})
 
 		It("returns the error", func() {
-			Expect(err).To(MatchError("patch-object-error"))
+			Expect(err).To(MatchError(errors.New("patch-object-error")))
 		})
 	})
 
@@ -166,7 +166,7 @@ var _ = Describe("Reconcile", func() {
 		})
 
 		It("returns the error", func() {
-			Expect(err).To(MatchError("patch-status-error"))
+			Expect(err).To(MatchError(errors.New("patch-status-error")))
 		})
 	})
 
