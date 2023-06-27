@@ -236,10 +236,7 @@ func main() {
 	)
 	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 
-	decoderValidator, err := handlers.NewDefaultDecoderValidator()
-	if err != nil {
-		panic(fmt.Sprintf("could not wire validator: %v", err))
-	}
+	decoderValidator := handlers.NewDefaultDecoderValidator()
 
 	routerBuilder := routing.NewRouterBuilder()
 	routerBuilder.UseMiddleware(

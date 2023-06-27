@@ -63,7 +63,7 @@ var _ = Describe("DeploymentCreate", func() {
 			})
 
 			It("says relationships is required", func() {
-				expectUnprocessableEntityError(validatorErr, "Relationships is a required field")
+				expectUnprocessableEntityError(validatorErr, "relationships is required")
 			})
 		})
 
@@ -73,7 +73,7 @@ var _ = Describe("DeploymentCreate", func() {
 			})
 
 			It("says app is required", func() {
-				expectUnprocessableEntityError(validatorErr, "App is a required field")
+				expectUnprocessableEntityError(validatorErr, "app is required")
 			})
 		})
 
@@ -83,7 +83,7 @@ var _ = Describe("DeploymentCreate", func() {
 			})
 
 			It("says app guid is required", func() {
-				expectUnprocessableEntityError(validatorErr, "GUID is a required field")
+				expectUnprocessableEntityError(validatorErr, "guid cannot be blank")
 			})
 		})
 	})

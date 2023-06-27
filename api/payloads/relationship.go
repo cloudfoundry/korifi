@@ -5,7 +5,7 @@ import (
 )
 
 type Relationship struct {
-	Data *RelationshipData `json:"data" validate:"required"`
+	Data *RelationshipData `json:"data"`
 }
 
 func (r Relationship) Validate() error {
@@ -15,7 +15,7 @@ func (r Relationship) Validate() error {
 }
 
 type RelationshipData struct {
-	GUID string `json:"guid" validate:"required"`
+	GUID string `json:"guid"`
 }
 
 func (r RelationshipData) Validate() error {

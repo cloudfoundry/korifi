@@ -92,7 +92,7 @@ func (r RoleRelationships) ValidateWithContext(ctx context.Context) error {
 		jellidation.Field(&r.User, validation.StrictlyRequired),
 
 		jellidation.Field(&r.Space,
-			jellidation.When(r.Organization != nil && r.Organization.Data != nil && r.Organization.Data.GUID != "",
+			jellidation.When(r.Organization != nil,
 				jellidation.Nil.Error("cannot pass both 'organization' and 'space' in a create role request"))),
 
 		jellidation.Field(&r.Space,
@@ -100,7 +100,6 @@ func (r RoleRelationships) ValidateWithContext(ctx context.Context) error {
 				roleType == RoleSpaceAuditor || roleType == RoleSpaceDeveloper ||
 					roleType == RoleSpaceManager || roleType == RoleSpaceSupporter,
 				jellidation.NotNil,
-				validation.StrictlyRequired,
 			)),
 
 		jellidation.Field(&r.Organization,
@@ -108,7 +107,6 @@ func (r RoleRelationships) ValidateWithContext(ctx context.Context) error {
 				roleType == RoleOrganizationAuditor || roleType == RoleOrganizationBillingManager ||
 					roleType == RoleOrganizationManager || roleType == RoleOrganizationUser,
 				jellidation.NotNil,
-				validation.StrictlyRequired,
 			)),
 	)
 }

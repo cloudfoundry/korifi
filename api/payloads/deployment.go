@@ -2,6 +2,7 @@ package payloads
 
 import (
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/jellydator/validation"
 )
 
 type DropletGUID struct {
@@ -10,11 +11,12 @@ type DropletGUID struct {
 
 type DeploymentCreate struct {
 	Droplet       DropletGUID              `json:"droplet"`
-	Relationships *DeploymentRelationships `json:"relationships" validate:"required"`
+	Relationships *DeploymentRelationships `json:"relationships"`
 }
 
-type DeploymentRelationships struct {
-	App *Relationship `json:"app" validate:"required"`
+func (c DeploymentCreate) Validate() error {
+	return validation.ValidateStruct(&c,
+		validation.Field(&c.Relationships, validation.NotNil))
 }
 
 func (c *DeploymentCreate) ToMessage() repositories.CreateDeploymentMessage {
@@ -22,4 +24,13 @@ func (c *DeploymentCreate) ToMessage() repositories.CreateDeploymentMessage {
 		AppGUID:     c.Relationships.App.Data.GUID,
 		DropletGUID: c.Droplet.Guid,
 	}
+}
+
+type DeploymentRelationships struct {
+	App *Relationship `json:"app"`
+}
+
+func (r DeploymentRelationships) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.App, validation.NotNil))
 }

@@ -10,29 +10,48 @@ import (
 )
 
 type PackageCreate struct {
-	Type          string                `json:"type" validate:"required,oneof='bits'"`
-	Relationships *PackageRelationships `json:"relationships" validate:"required"`
+	Type          string                `json:"type"`
+	Relationships *PackageRelationships `json:"relationships"`
 	Metadata      Metadata              `json:"metadata"`
 }
 
-type PackageRelationships struct {
-	App *Relationship `json:"app" validate:"required"`
+func (c PackageCreate) Validate() error {
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Type, validation.OneOf("bits"), jellidation.Required),
+		jellidation.Field(&c.Relationships, jellidation.NotNil),
+		jellidation.Field(&c.Metadata),
+	)
 }
 
-func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.CreatePackageMessage {
+func (c PackageCreate) ToMessage(record repositories.AppRecord) repositories.CreatePackageMessage {
 	return repositories.CreatePackageMessage{
-		Type:      m.Type,
+		Type:      c.Type,
 		AppGUID:   record.GUID,
 		SpaceGUID: record.SpaceGUID,
 		Metadata: repositories.Metadata{
-			Annotations: m.Metadata.Annotations,
-			Labels:      m.Metadata.Labels,
+			Annotations: c.Metadata.Annotations,
+			Labels:      c.Metadata.Labels,
 		},
 	}
 }
 
+type PackageRelationships struct {
+	App *Relationship `json:"app"`
+}
+
+func (r PackageRelationships) Validate() error {
+	return jellidation.ValidateStruct(&r,
+		jellidation.Field(&r.App, jellidation.NotNil))
+}
+
 type PackageUpdate struct {
 	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (p PackageUpdate) Validate() error {
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Metadata),
+	)
 }
 
 func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackageMessage {

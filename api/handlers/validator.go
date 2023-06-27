@@ -12,12 +12,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 
-	"github.com/go-playground/locales/en"
-	ut "github.com/go-playground/universal-translator"
-	"github.com/go-playground/validator/v10"
-	en_translations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/jellydator/validation"
-	"golang.org/x/exp/maps"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
@@ -35,24 +30,13 @@ type KeyedPayload interface {
 	DecodeFromURLValues(url.Values) error
 }
 
-type DecoderValidator struct {
-	validator  *validator.Validate
-	translator ut.Translator
+type DecoderValidator struct{}
+
+func NewDefaultDecoderValidator() DecoderValidator {
+	return DecoderValidator{}
 }
 
-func NewDefaultDecoderValidator() (*DecoderValidator, error) {
-	validator, translator, err := wireValidator()
-	if err != nil {
-		return nil, err
-	}
-
-	return &DecoderValidator{
-		validator:  validator,
-		translator: translator,
-	}, nil
-}
-
-func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error {
+func (dv DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error {
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	decoder.DisallowUnknownFields()
@@ -74,7 +58,7 @@ func (dv *DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object
 	return dv.validatePayload(object)
 }
 
-func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object interface{}) error {
+func (dv DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object interface{}) error {
 	decoder := yaml.NewDecoder(r.Body)
 	defer r.Body.Close()
 	decoder.KnownFields(false) // TODO: change this to true once we've added all manifest fields to payloads.Manifest
@@ -86,7 +70,7 @@ func (dv *DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object
 	return dv.validatePayload(object)
 }
 
-func (dv *DecoderValidator) DecodeAndValidateURLValues(r *http.Request, object KeyedPayload) error {
+func (dv DecoderValidator) DecodeAndValidateURLValues(r *http.Request, object KeyedPayload) error {
 	if err := r.ParseForm(); err != nil {
 		return err
 	}
@@ -114,34 +98,13 @@ func checkKeysAreSupported(payloadObject KeyedPayload, values url.Values) error 
 }
 
 func (dv *DecoderValidator) validatePayload(object interface{}) error {
-	// New validation library for which we have implemented manifest payload validation
 	t, ok := object.(validation.Validatable)
-	if ok {
-		err := t.Validate()
-		if err != nil {
-			return apierrors.NewUnprocessableEntityError(err, strings.Join(errorMessages(err), ", "))
-		}
+	if !ok {
 		return nil
 	}
 
-	// Existing validation library for payloads that have not yet implemented validation.Validatable
-	err := dv.validator.Struct(object)
-	if err != nil {
-		errorMessage := err.Error()
-
-		var typedErr validator.ValidationErrors
-		if errors.As(err, &typedErr) {
-			errorMap := typedErr.Translate(dv.translator)
-			var errorMessages []string
-			for _, msg := range errorMap {
-				errorMessages = append(errorMessages, msg)
-			}
-
-			if len(errorMessages) > 0 {
-				errorMessage = strings.Join(errorMessages, ",")
-			}
-		}
-		return apierrors.NewUnprocessableEntityError(err, errorMessage)
+	if err := t.Validate(); err != nil {
+		return apierrors.NewUnprocessableEntityError(err, strings.Join(errorMessages(err), ", "))
 	}
 
 	return nil
@@ -183,114 +146,4 @@ func prefixedErrorMessages(field string, err error) []string {
 	}
 
 	return messages
-}
-
-func wireValidator() (*validator.Validate, ut.Translator, error) {
-	v := validator.New()
-
-	trans, err := registerDefaultTranslator(v)
-	if err != nil {
-		return nil, nil, err
-	}
-	// Register custom validators
-	err = v.RegisterValidation("serviceinstancetaglength", serviceInstanceTagLength)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = v.RegisterValidation("metadatavalidator", metadataValidator)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = v.RegisterTranslation("metadatavalidator", trans, func(ut ut.Translator) error {
-		return ut.Add("metadatavalidator", `Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`, false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("metadatavalidator", fe.Field())
-		return t
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = v.RegisterValidation("buildmetadatavalidator", buildMetadataValidator)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = v.RegisterTranslation("buildmetadatavalidator", trans, func(ut ut.Translator) error {
-		return ut.Add("buildmetadatavalidator", `Labels and annotations are not supported for builds`, false)
-	}, func(ut ut.Translator, fe validator.FieldError) string {
-		t, _ := ut.T("buildmetadatavalidator", fe.Field())
-		return t
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return v, trans, nil
-}
-
-func registerDefaultTranslator(v *validator.Validate) (ut.Translator, error) {
-	en := en.New()
-	uni := ut.New(en, en)
-	trans, _ := uni.GetTranslator("en")
-
-	err := en_translations.RegisterDefaultTranslations(v, trans)
-	if err != nil {
-		return nil, err
-	}
-
-	return trans, nil
-}
-
-func serviceInstanceTagLength(fl validator.FieldLevel) bool {
-	tags, ok := fl.Field().Interface().([]string)
-	if !ok {
-		return true // the value is optional, and is set to nil
-	}
-
-	tagLen := 0
-	for _, tag := range tags {
-		tagLen += len(tag)
-	}
-
-	return tagLen < 2048
-}
-
-func metadataValidator(fl validator.FieldLevel) bool {
-	metadata, isMeta := fl.Field().Interface().(map[string]string)
-	if isMeta {
-		return validateMetadataKeys(maps.Keys(metadata))
-	}
-
-	metadataPatch, isMetaPatch := fl.Field().Interface().(map[string]*string)
-	if isMetaPatch {
-		return validateMetadataKeys(maps.Keys(metadataPatch))
-	}
-
-	return true
-}
-
-func buildMetadataValidator(fl validator.FieldLevel) bool {
-	metadata, isMeta := fl.Field().Interface().(map[string]string)
-	if isMeta {
-		if len(metadata) > 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func validateMetadataKeys(metaKeys []string) bool {
-	for _, key := range metaKeys {
-		u, err := url.ParseRequestURI("https://" + key) // without the scheme, the hostname will be parsed as a path
-		if err != nil {
-			continue
-		}
-
-		if strings.HasSuffix(u.Hostname(), "cloudfoundry.org") {
-			return false
-		}
-	}
-
-	return true
 }

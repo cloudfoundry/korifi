@@ -33,8 +33,7 @@ var _ = Describe("SpaceManifest", func() {
 		manifestApplier = new(fake.ManifestApplier)
 		spaceRepo = new(fake.CFSpaceRepository)
 
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		decoderValidator := NewDefaultDecoderValidator()
 
 		apiHandler := NewSpaceManifest(
 			*serverURL,

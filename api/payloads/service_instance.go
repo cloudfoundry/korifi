@@ -2,23 +2,52 @@ package payloads
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	jellidation "github.com/jellydator/validation"
 )
 
 type ServiceInstanceCreate struct {
-	Name          string                       `json:"name" validate:"required"`
-	Type          string                       `json:"type" validate:"required,oneof=user-provided"`
-	Tags          []string                     `json:"tags" validate:"serviceinstancetaglength"`
-	Credentials   map[string]string            `json:"credentials"`
-	Relationships ServiceInstanceRelationships `json:"relationships" validate:"required"`
-	Metadata      Metadata                     `json:"metadata"`
+	Name          string                        `json:"name"`
+	Type          string                        `json:"type"`
+	Tags          []string                      `json:"tags"`
+	Credentials   map[string]string             `json:"credentials"`
+	Relationships *ServiceInstanceRelationships `json:"relationships"`
+	Metadata      Metadata                      `json:"metadata"`
 }
 
-type ServiceInstanceRelationships struct {
-	Space Relationship `json:"space" validate:"required"`
+const maxTagsLength = 2048
+
+func validateTagLength(tags any) error {
+	tagSlice, ok := tags.([]string)
+	if !ok {
+		return errors.New("wrong input")
+	}
+
+	l := 0
+	for _, t := range tagSlice {
+		l += len(t)
+		if l >= maxTagsLength {
+			return fmt.Errorf("combined length of tags cannot exceed %d", maxTagsLength)
+		}
+	}
+
+	return nil
+}
+
+func (c ServiceInstanceCreate) Validate() error {
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Name, jellidation.Required),
+		jellidation.Field(&c.Type, jellidation.Required, validation.OneOf("user-provided")),
+		jellidation.Field(&c.Tags, jellidation.By(validateTagLength)),
+		jellidation.Field(&c.Relationships, jellidation.NotNil),
+		jellidation.Field(&c.Metadata),
+	)
 }
 
 func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.CreateServiceInstanceMessage {
@@ -33,11 +62,27 @@ func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.Cre
 	}
 }
 
+type ServiceInstanceRelationships struct {
+	Space *Relationship `json:"space"`
+}
+
+func (r ServiceInstanceRelationships) Validate() error {
+	return jellidation.ValidateStruct(&r,
+		jellidation.Field(&r.Space, jellidation.NotNil),
+	)
+}
+
 type ServiceInstancePatch struct {
 	Name        *string            `json:"name,omitempty"`
 	Tags        *[]string          `json:"tags,omitempty"`
 	Credentials *map[string]string `json:"credentials,omitempty"`
 	Metadata    MetadataPatch      `json:"metadata"`
+}
+
+func (p ServiceInstancePatch) Validate() error {
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Metadata),
+	)
 }
 
 func (p ServiceInstancePatch) ToServiceInstancePatchMessage(spaceGUID, appGUID string) repositories.PatchServiceInstanceMessage {

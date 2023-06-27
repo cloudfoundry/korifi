@@ -2,16 +2,21 @@ package payloads
 
 import (
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/jellydator/validation"
 )
 
 type SpaceCreate struct {
-	Name          string             `json:"name" validate:"required"`
-	Relationships SpaceRelationships `json:"relationships" validate:"required"`
-	Metadata      Metadata           `json:"metadata"`
+	Name          string              `json:"name"`
+	Relationships *SpaceRelationships `json:"relationships"`
+	Metadata      Metadata            `json:"metadata"`
 }
 
-type SpaceRelationships struct {
-	Org Relationship `json:"organization" validate:"required"`
+func (c SpaceCreate) Validate() error {
+	return validation.ValidateStruct(&c,
+		validation.Field(&c.Name, validation.Required),
+		validation.Field(&c.Relationships, validation.NotNil),
+		validation.Field(&c.Metadata),
+	)
 }
 
 func (p SpaceCreate) ToMessage() repositories.CreateSpaceMessage {
@@ -21,8 +26,24 @@ func (p SpaceCreate) ToMessage() repositories.CreateSpaceMessage {
 	}
 }
 
+type SpaceRelationships struct {
+	Org *Relationship `json:"organization"`
+}
+
+func (r SpaceRelationships) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.Org, validation.NotNil),
+	)
+}
+
 type SpacePatch struct {
 	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (p SpacePatch) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Metadata),
+	)
 }
 
 func (p SpacePatch) ToMessage(spaceGUID, orgGUID string) repositories.PatchSpaceMetadataMessage {

@@ -66,8 +66,8 @@ var _ = Describe("ServiceInstance", func() {
 				Name: "service-instance-name",
 				Type: "user-provided",
 				Tags: []string{"foo", "bar"},
-				Relationships: payloads.ServiceInstanceRelationships{
-					Space: payloads.Relationship{
+				Relationships: &payloads.ServiceInstanceRelationships{
+					Space: &payloads.Relationship{
 						Data: &payloads.RelationshipData{
 							GUID: "space-guid",
 						},

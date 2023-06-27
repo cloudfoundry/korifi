@@ -52,7 +52,7 @@ var _ = Describe("PackageCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Type is a required field")
+			expectUnprocessableEntityError(validatorErr, "type cannot be blank")
 		})
 	})
 
@@ -62,7 +62,7 @@ var _ = Describe("PackageCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Type must be one of ['bits']")
+			expectUnprocessableEntityError(validatorErr, "type value must be one of: bits")
 		})
 	})
 
@@ -72,7 +72,7 @@ var _ = Describe("PackageCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Relationships is a required field")
+			expectUnprocessableEntityError(validatorErr, "relationships is required")
 		})
 	})
 
@@ -82,31 +82,21 @@ var _ = Describe("PackageCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "App is a required field")
+			expectUnprocessableEntityError(validatorErr, "app is required")
 		})
 	})
 
-	When("relationships.app.data is not set", func() {
-		BeforeEach(func() {
-			createPayload.Relationships.App.Data = nil
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Data is a required field")
-		})
-	})
-
-	When("relationships.app.data.guid is not set", func() {
+	When("relationships.app is invalid", func() {
 		BeforeEach(func() {
 			createPayload.Relationships.App.Data.GUID = ""
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "GUID is a required field")
+			expectUnprocessableEntityError(validatorErr, "guid cannot be blank")
 		})
 	})
 
-	When("metadata.labels contains an invalid key", func() {
+	When("metadata is invalid", func() {
 		BeforeEach(func() {
 			createPayload.Metadata = payloads.Metadata{
 				Labels: map[string]string{
@@ -116,35 +106,16 @@ var _ = Describe("PackageCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
-		})
-	})
-
-	When("metadata.annotations contains an invalid key", func() {
-		BeforeEach(func() {
-			createPayload.Metadata = payloads.Metadata{
-				Annotations: map[string]string{
-					"foo.cloudfoundry.org/bar": "jim",
-				},
-			}
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+			expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
 		})
 	})
 })
 
 var _ = Describe("PackageUpdate", func() {
-	var (
-		updatePayload payloads.PackageUpdate
-		packageUpdate *payloads.PackageUpdate
-		validatorErr  error
-	)
+	var payload payloads.PackageUpdate
 
 	BeforeEach(func() {
-		packageUpdate = new(payloads.PackageUpdate)
-		updatePayload = payloads.PackageUpdate{
+		payload = payloads.PackageUpdate{
 			Metadata: payloads.MetadataPatch{
 				Labels: map[string]*string{
 					"foo": tools.PtrTo("bar"),
@@ -157,46 +128,40 @@ var _ = Describe("PackageUpdate", func() {
 		}
 	})
 
-	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(updatePayload), packageUpdate)
-	})
+	Describe("Validation", func() {
+		var (
+			decodedPayload *payloads.PackageUpdate
+			validatorErr   error
+		)
 
-	It("succeeds", func() {
-		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(packageUpdate).To(gstruct.PointTo(Equal(updatePayload)))
-	})
-
-	When("metadata.labels contains an invalid key", func() {
-		BeforeEach(func() {
-			updatePayload.Metadata = payloads.MetadataPatch{
-				Labels: map[string]*string{
-					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-				},
-			}
+		JustBeforeEach(func() {
+			decodedPayload = new(payloads.PackageUpdate)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
-		})
-	})
-
-	When("metadata.annotations contains an invalid key", func() {
-		BeforeEach(func() {
-			updatePayload.Metadata = payloads.MetadataPatch{
-				Annotations: map[string]*string{
-					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-				},
-			}
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+		When("metadata is invalid", func() {
+			BeforeEach(func() {
+				payload.Metadata = payloads.MetadataPatch{
+					Labels: map[string]*string{
+						"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+					},
+				}
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+			})
 		})
 	})
 
-	Context("toMessage", func() {
+	Describe("ToMessage", func() {
 		It("converts to repo message correctly", func() {
-			msg := packageUpdate.ToMessage("foo")
+			msg := payload.ToMessage("foo")
 			Expect(msg.MetadataPatch.Labels).To(Equal(map[string]*string{
 				"foo": tools.PtrTo("bar"),
 				"bar": nil,

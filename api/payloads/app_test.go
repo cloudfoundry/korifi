@@ -156,7 +156,7 @@ var _ = Describe("App payload validation", func() {
 			})
 
 			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, `Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
+				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
 			})
 		})
 	})

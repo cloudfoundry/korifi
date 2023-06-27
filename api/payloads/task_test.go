@@ -38,15 +38,10 @@ var _ = Describe("TaskList", func() {
 })
 
 var _ = Describe("TaskCreate", func() {
-	var (
-		createPayload payloads.TaskCreate
-		taskCreate    *payloads.TaskCreate
-		validatorErr  error
-	)
+	var payload payloads.TaskCreate
 
 	BeforeEach(func() {
-		taskCreate = new(payloads.TaskCreate)
-		createPayload = payloads.TaskCreate{
+		payload = payloads.TaskCreate{
 			Command: "sleep 9000",
 			Metadata: payloads.Metadata{
 				Labels: map[string]string{
@@ -60,56 +55,50 @@ var _ = Describe("TaskCreate", func() {
 		}
 	})
 
-	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), taskCreate)
-	})
+	Describe("Validate", func() {
+		var (
+			decodedPayload *payloads.TaskCreate
+			validatorErr   error
+		)
 
-	It("succeeds", func() {
-		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(taskCreate).To(gstruct.PointTo(Equal(createPayload)))
-	})
-
-	When("no command is set", func() {
-		BeforeEach(func() {
-			createPayload.Command = ""
+		JustBeforeEach(func() {
+			decodedPayload = new(payloads.TaskCreate)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Command is a required field")
-		})
-	})
-
-	When("metadata.labels contains an invalid key", func() {
-		BeforeEach(func() {
-			createPayload.Metadata = payloads.Metadata{
-				Labels: map[string]string{
-					"foo.cloudfoundry.org/bar": "jim",
-				},
-			}
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
-		})
-	})
+		When("no command is set", func() {
+			BeforeEach(func() {
+				payload.Command = ""
+			})
 
-	When("metadata.annotations contains an invalid key", func() {
-		BeforeEach(func() {
-			createPayload.Metadata = payloads.Metadata{
-				Annotations: map[string]string{
-					"foo.cloudfoundry.org/bar": "jim",
-				},
-			}
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "command cannot be blank")
+			})
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+		When("metadata is invalid", func() {
+			BeforeEach(func() {
+				payload.Metadata = payloads.Metadata{
+					Labels: map[string]string{
+						"foo.cloudfoundry.org/bar": "jim",
+					},
+				}
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+			})
 		})
 	})
 
-	Context("ToMessage()", func() {
+	Describe("ToMessage()", func() {
 		It("converts to repo message correctly", func() {
-			msg := taskCreate.ToMessage(repositories.AppRecord{GUID: "appGUID", SpaceGUID: "spaceGUID"})
+			msg := payload.ToMessage(repositories.AppRecord{GUID: "appGUID", SpaceGUID: "spaceGUID"})
 			Expect(msg.AppGUID).To(Equal("appGUID"))
 			Expect(msg.SpaceGUID).To(Equal("spaceGUID"))
 			Expect(msg.Metadata.Labels).To(Equal(map[string]string{
@@ -124,15 +113,10 @@ var _ = Describe("TaskCreate", func() {
 })
 
 var _ = Describe("TaskUpdate", func() {
-	var (
-		updatePayload payloads.TaskUpdate
-		taskUpdate    *payloads.TaskUpdate
-		validatorErr  error
-	)
+	var payload payloads.TaskUpdate
 
 	BeforeEach(func() {
-		taskUpdate = new(payloads.TaskUpdate)
-		updatePayload = payloads.TaskUpdate{
+		payload = payloads.TaskUpdate{
 			Metadata: payloads.MetadataPatch{
 				Labels: map[string]*string{
 					"foo": tools.PtrTo("bar"),
@@ -145,46 +129,40 @@ var _ = Describe("TaskUpdate", func() {
 		}
 	})
 
-	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(updatePayload), taskUpdate)
-	})
+	Describe("Validate", func() {
+		var (
+			decodedPayload *payloads.TaskUpdate
+			validatorErr   error
+		)
 
-	It("succeeds", func() {
-		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(taskUpdate).To(gstruct.PointTo(Equal(updatePayload)))
-	})
-
-	When("metadata.labels contains an invalid key", func() {
-		BeforeEach(func() {
-			updatePayload.Metadata = payloads.MetadataPatch{
-				Labels: map[string]*string{
-					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-				},
-			}
+		JustBeforeEach(func() {
+			decodedPayload = new(payloads.TaskUpdate)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
-		})
-	})
-
-	When("metadata.annotations contains an invalid key", func() {
-		BeforeEach(func() {
-			updatePayload.Metadata = payloads.MetadataPatch{
-				Annotations: map[string]*string{
-					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-				},
-			}
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+		When("metadata is invalid", func() {
+			BeforeEach(func() {
+				payload.Metadata = payloads.MetadataPatch{
+					Labels: map[string]*string{
+						"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+					},
+				}
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+			})
 		})
 	})
 
-	Context("toMessage()", func() {
+	Describe("ToMessage()", func() {
 		It("converts to repo message correctly", func() {
-			msg := taskUpdate.ToMessage("taskGUID", "spaceGUID")
+			msg := payload.ToMessage("taskGUID", "spaceGUID")
 			Expect(msg.TaskGUID).To(Equal("taskGUID"))
 			Expect(msg.SpaceGUID).To(Equal("spaceGUID"))
 			Expect(msg.MetadataPatch.Labels).To(Equal(map[string]*string{
