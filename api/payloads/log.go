@@ -8,8 +8,6 @@ import (
 	jellidation "github.com/jellydator/validation"
 )
 
-var allowedEnvelopeTypes = []any{"LOG", "COUNTER", "GAUGE", "TIMER", "EVENT"}
-
 type LogRead struct {
 	StartTime     int64
 	EnvelopeTypes []string
@@ -20,7 +18,7 @@ type LogRead struct {
 func (l LogRead) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.EnvelopeTypes,
-			jellidation.Each(validation.OneOf(allowedEnvelopeTypes...)),
+			jellidation.Each(validation.OneOf("LOG", "COUNTER", "GAUGE", "TIMER", "EVENT")),
 		),
 	)
 }

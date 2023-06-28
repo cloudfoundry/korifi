@@ -55,3 +55,12 @@ func OneOf(allowed ...any) validation.Rule {
 
 	return validation.In(allowed...).Error(errorMsg.String())
 }
+
+func OneOfOrderBy(orderBys ...string) validation.Rule {
+	var allAllowed []any
+	for _, a := range orderBys {
+		allAllowed = append(allAllowed, a, "-"+a)
+	}
+
+	return OneOf(allAllowed...)
+}

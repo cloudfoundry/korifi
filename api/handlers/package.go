@@ -99,14 +99,12 @@ func (h Package) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository")
 	}
 
-	if err := h.sortList(records, packageList.OrderBy); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
-	}
+	h.sortList(records, packageList.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForPackage, records, h.serverURL, *r.URL)), nil
 }
 
-func (h Package) sortList(records []repositories.PackageRecord, order string) error {
+func (h Package) sortList(records []repositories.PackageRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
@@ -117,10 +115,7 @@ func (h Package) sortList(records []repositories.PackageRecord, order string) er
 		sort.Slice(records, func(i, j int) bool { return records[i].UpdatedAt < records[j].UpdatedAt })
 	case "-updated_at":
 		sort.Slice(records, func(i, j int) bool { return records[i].UpdatedAt > records[j].UpdatedAt })
-	default:
-		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at")
 	}
-	return nil
 }
 
 func (h Package) create(r *http.Request) (*routing.Response, error) {

@@ -1,9 +1,8 @@
 package payloads_test
 
 import (
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -11,18 +10,49 @@ import (
 )
 
 var _ = Describe("AppList", func() {
-	Describe("decode from url values", func() {
-		It("succeeds", func() {
-			var appList payloads.AppList
-			req, err := http.NewRequest("GET", "http://foo.com/bar?names=name&guids=guid&space_guids=space_guid", nil)
-			Expect(err).NotTo(HaveOccurred())
-			err = validator.DecodeAndValidateURLValues(req, &appList)
+	Describe("Validation", func() {
+		DescribeTable("valid query",
+			func(query string, expectedAppList payloads.AppList) {
+				actualAppList, decodeErr := decodeQuery[payloads.AppList](query)
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(appList).To(Equal(payloads.AppList{
-				Names:      "name",
-				GUIDs:      "guid",
-				SpaceGuids: "space_guid",
+				Expect(decodeErr).NotTo(HaveOccurred())
+				Expect(*actualAppList).To(Equal(expectedAppList))
+			},
+
+			Entry("names", "names=name", payloads.AppList{Names: "name"}),
+			Entry("guids", "guids=guid", payloads.AppList{GUIDs: "guid"}),
+			Entry("space_guids", "space_guids=space_guid", payloads.AppList{SpaceGuids: "space_guid"}),
+			Entry("order_by created_at", "order_by=created_at", payloads.AppList{OrderBy: "created_at"}),
+			Entry("order_by -created_at", "order_by=-created_at", payloads.AppList{OrderBy: "-created_at"}),
+			Entry("order_by updated_at", "order_by=updated_at", payloads.AppList{OrderBy: "updated_at"}),
+			Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppList{OrderBy: "-updated_at"}),
+			Entry("order_by name", "order_by=name", payloads.AppList{OrderBy: "name"}),
+			Entry("order_by -name", "order_by=-name", payloads.AppList{OrderBy: "-name"}),
+			Entry("order_by state", "order_by=state", payloads.AppList{OrderBy: "state"}),
+			Entry("order_by -state", "order_by=-state", payloads.AppList{OrderBy: "-state"}),
+		)
+
+		DescribeTable("invalid query",
+			func(query string, expectedErrMsg string) {
+				_, decodeErr := decodeQuery[payloads.AppList](query)
+				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+			},
+			Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		)
+	})
+
+	Describe("ToMessage", func() {
+		It("translates to repository message", func() {
+			appList := payloads.AppList{
+				Names:      "n1,n2",
+				GUIDs:      "g1,g2",
+				SpaceGuids: "s1,s2",
+				OrderBy:    "created_at",
+			}
+			Expect(appList.ToMessage()).To(Equal(repositories.ListAppsMessage{
+				Names:      []string{"n1", "n2"},
+				Guids:      []string{"g1", "g2"},
+				SpaceGuids: []string{"s1", "s2"},
 			}))
 		})
 	})

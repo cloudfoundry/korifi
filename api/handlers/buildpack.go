@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -58,15 +57,13 @@ func (h *Buildpack) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch buildpacks from Kubernetes")
 	}
 
-	if err := h.sortList(buildpacks, buildpackListFilter.OrderBy); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
-	}
+	h.sortList(buildpacks, buildpackListFilter.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForBuildpack, buildpacks, h.serverURL, *r.URL)), nil
 }
 
 // nolint:dupl
-func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string) error {
+func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
@@ -81,10 +78,7 @@ func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string
 		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position < bpList[j].Position })
 	case "-position":
 		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position > bpList[j].Position })
-	default:
-		return fmt.Errorf("unexpected order_by value %q", order)
 	}
-	return nil
 }
 
 func (h *Buildpack) UnauthenticatedRoutes() []routing.Route {
