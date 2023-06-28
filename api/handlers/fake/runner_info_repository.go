@@ -8,21 +8,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
 type RunnerInfoRepository struct {
-	GetCapabilitiesStub        func(repositories.RunnerInfoRecord) v1alpha1.RunnerInfoCapabilities
-	getCapabilitiesMutex       sync.RWMutex
-	getCapabilitiesArgsForCall []struct {
-		arg1 repositories.RunnerInfoRecord
-	}
-	getCapabilitiesReturns struct {
-		result1 v1alpha1.RunnerInfoCapabilities
-	}
-	getCapabilitiesReturnsOnCall map[int]struct {
-		result1 v1alpha1.RunnerInfoCapabilities
-	}
 	GetRunnerInfoStub        func(context.Context, authorization.Info, string) (repositories.RunnerInfoRecord, error)
 	getRunnerInfoMutex       sync.RWMutex
 	getRunnerInfoArgsForCall []struct {
@@ -40,67 +28,6 @@ type RunnerInfoRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *RunnerInfoRepository) GetCapabilities(arg1 repositories.RunnerInfoRecord) v1alpha1.RunnerInfoCapabilities {
-	fake.getCapabilitiesMutex.Lock()
-	ret, specificReturn := fake.getCapabilitiesReturnsOnCall[len(fake.getCapabilitiesArgsForCall)]
-	fake.getCapabilitiesArgsForCall = append(fake.getCapabilitiesArgsForCall, struct {
-		arg1 repositories.RunnerInfoRecord
-	}{arg1})
-	stub := fake.GetCapabilitiesStub
-	fakeReturns := fake.getCapabilitiesReturns
-	fake.recordInvocation("GetCapabilities", []interface{}{arg1})
-	fake.getCapabilitiesMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *RunnerInfoRepository) GetCapabilitiesCallCount() int {
-	fake.getCapabilitiesMutex.RLock()
-	defer fake.getCapabilitiesMutex.RUnlock()
-	return len(fake.getCapabilitiesArgsForCall)
-}
-
-func (fake *RunnerInfoRepository) GetCapabilitiesCalls(stub func(repositories.RunnerInfoRecord) v1alpha1.RunnerInfoCapabilities) {
-	fake.getCapabilitiesMutex.Lock()
-	defer fake.getCapabilitiesMutex.Unlock()
-	fake.GetCapabilitiesStub = stub
-}
-
-func (fake *RunnerInfoRepository) GetCapabilitiesArgsForCall(i int) repositories.RunnerInfoRecord {
-	fake.getCapabilitiesMutex.RLock()
-	defer fake.getCapabilitiesMutex.RUnlock()
-	argsForCall := fake.getCapabilitiesArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *RunnerInfoRepository) GetCapabilitiesReturns(result1 v1alpha1.RunnerInfoCapabilities) {
-	fake.getCapabilitiesMutex.Lock()
-	defer fake.getCapabilitiesMutex.Unlock()
-	fake.GetCapabilitiesStub = nil
-	fake.getCapabilitiesReturns = struct {
-		result1 v1alpha1.RunnerInfoCapabilities
-	}{result1}
-}
-
-func (fake *RunnerInfoRepository) GetCapabilitiesReturnsOnCall(i int, result1 v1alpha1.RunnerInfoCapabilities) {
-	fake.getCapabilitiesMutex.Lock()
-	defer fake.getCapabilitiesMutex.Unlock()
-	fake.GetCapabilitiesStub = nil
-	if fake.getCapabilitiesReturnsOnCall == nil {
-		fake.getCapabilitiesReturnsOnCall = make(map[int]struct {
-			result1 v1alpha1.RunnerInfoCapabilities
-		})
-	}
-	fake.getCapabilitiesReturnsOnCall[i] = struct {
-		result1 v1alpha1.RunnerInfoCapabilities
-	}{result1}
 }
 
 func (fake *RunnerInfoRepository) GetRunnerInfo(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.RunnerInfoRecord, error) {
@@ -172,8 +99,6 @@ func (fake *RunnerInfoRepository) GetRunnerInfoReturnsOnCall(i int, result1 repo
 func (fake *RunnerInfoRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getCapabilitiesMutex.RLock()
-	defer fake.getCapabilitiesMutex.RUnlock()
 	fake.getRunnerInfoMutex.RLock()
 	defer fake.getRunnerInfoMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
