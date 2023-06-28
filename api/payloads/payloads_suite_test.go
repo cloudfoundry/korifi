@@ -7,18 +7,18 @@ import (
 	"testing"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"gopkg.in/yaml.v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var validator handlers.DecoderValidator
+var validator validation.DecoderValidator
 
 var _ = BeforeEach(func() {
 	var err error
-	validator = handlers.NewDefaultDecoderValidator()
+	validator = validation.NewDefaultDecoderValidator()
 	Expect(err).NotTo(HaveOccurred())
 })
 
@@ -58,7 +58,7 @@ func createYAMLRequest(payload any) *http.Request {
 }
 
 type keyedPayload[T any] interface {
-	handlers.KeyedPayload
+	validation.KeyedPayload
 	*T
 }
 

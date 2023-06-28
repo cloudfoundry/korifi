@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/routing"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
@@ -126,12 +126,12 @@ func decodeAndValidatePayloadStub[T any](desiredPayload *T) func(_ *http.Request
 }
 
 type keyedPayloadImpl[P any] interface {
-	handlers.KeyedPayload
+	validation.KeyedPayload
 	*P
 }
 
-func decodeAndValidateURLValuesStub[P any, I keyedPayloadImpl[P]](desiredPayload I) func(*http.Request, handlers.KeyedPayload) error {
-	return func(_ *http.Request, output handlers.KeyedPayload) error {
+func decodeAndValidateURLValuesStub[P any, I keyedPayloadImpl[P]](desiredPayload I) func(*http.Request, validation.KeyedPayload) error {
+	return func(_ *http.Request, output validation.KeyedPayload) error {
 		GinkgoHelper()
 
 		outputPtr, ok := output.(I)

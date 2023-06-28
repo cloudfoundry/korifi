@@ -1,4 +1,4 @@
-package handlers_test
+package validation_test
 
 import (
 	"net/http"
@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/handlers"
-	"github.com/jellydator/validation"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
+	jellidation "github.com/jellydator/validation"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -16,14 +16,14 @@ import (
 var _ = Describe("Validator", func() {
 	Describe("DecodeAndValidateURLValues", func() {
 		var (
-			requestValidator handlers.DecoderValidator
+			requestValidator validation.DecoderValidator
 			decoded          DecodeTestPayload
 			decodeErr        error
 			requestUrl       string
 		)
 
 		BeforeEach(func() {
-			requestValidator = handlers.NewDefaultDecoderValidator()
+			requestValidator = validation.NewDefaultDecoderValidator()
 			requestUrl = "http://foo.com?key=3"
 			decoded = DecodeTestPayload{}
 		})
@@ -107,8 +107,8 @@ type DecodeTestPayload struct {
 }
 
 func (p DecodeTestPayload) Validate() error {
-	return validation.ValidateStruct(&p,
-		validation.Field(&p.Key, validation.Min(0)),
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Key, jellidation.Min(0)),
 	)
 }
 

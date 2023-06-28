@@ -18,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/middleware"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/routing"
@@ -236,7 +237,7 @@ func main() {
 	)
 	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 
-	decoderValidator := handlers.NewDefaultDecoderValidator()
+	requestValidator := validation.NewDefaultDecoderValidator()
 
 	routerBuilder := routing.NewRouterBuilder()
 	routerBuilder.UseMiddleware(
@@ -272,7 +273,7 @@ func main() {
 			domainRepo,
 			spaceRepo,
 			packageRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewRoute(
 			*serverURL,
@@ -280,7 +281,7 @@ func main() {
 			domainRepo,
 			appRepo,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewServiceRouteBinding(
 			*serverURL,
@@ -291,7 +292,7 @@ func main() {
 			appRepo,
 			dropletRepo,
 			imageRepo,
-			decoderValidator,
+			requestValidator,
 			cfg.PackageRegistrySecretName,
 		),
 		handlers.NewBuild(
@@ -299,27 +300,27 @@ func main() {
 			buildRepo,
 			packageRepo,
 			appRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewDroplet(
 			*serverURL,
 			dropletRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewProcess(
 			*serverURL,
 			processRepo,
 			processStats,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewDomain(
 			*serverURL,
-			decoderValidator,
+			requestValidator,
 			domainRepo,
 		),
 		handlers.NewDeployment(
 			*serverURL,
-			decoderValidator,
+			requestValidator,
 			deploymentRepo,
 			runnerInfoRepo,
 			cfg.RunnerName,
@@ -331,57 +332,57 @@ func main() {
 			appRepo,
 			buildRepo,
 			appLogs,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewOrg(
 			*serverURL,
 			orgRepo,
 			domainRepo,
-			decoderValidator,
+			requestValidator,
 			cfg.GetUserCertificateDuration(),
 			cfg.DefaultDomainName,
 		),
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewSpaceManifest(
 			*serverURL,
 			manifest,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewRole(
 			*serverURL,
 			roleRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
 		handlers.NewUser(*serverURL),
 		handlers.NewBuildpack(
 			*serverURL,
 			buildpackRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewServiceInstance(
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewServiceBinding(
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,
 			serviceInstanceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewTask(
 			*serverURL,
 			appRepo,
 			taskRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewOAuth(
 			*serverURL,

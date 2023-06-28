@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 )
 
 type RequestValidator struct {
@@ -21,11 +22,11 @@ type RequestValidator struct {
 	decodeAndValidateJSONPayloadReturnsOnCall map[int]struct {
 		result1 error
 	}
-	DecodeAndValidateURLValuesStub        func(*http.Request, handlers.KeyedPayload) error
+	DecodeAndValidateURLValuesStub        func(*http.Request, validation.KeyedPayload) error
 	decodeAndValidateURLValuesMutex       sync.RWMutex
 	decodeAndValidateURLValuesArgsForCall []struct {
 		arg1 *http.Request
-		arg2 handlers.KeyedPayload
+		arg2 validation.KeyedPayload
 	}
 	decodeAndValidateURLValuesReturns struct {
 		result1 error
@@ -111,12 +112,12 @@ func (fake *RequestValidator) DecodeAndValidateJSONPayloadReturnsOnCall(i int, r
 	}{result1}
 }
 
-func (fake *RequestValidator) DecodeAndValidateURLValues(arg1 *http.Request, arg2 handlers.KeyedPayload) error {
+func (fake *RequestValidator) DecodeAndValidateURLValues(arg1 *http.Request, arg2 validation.KeyedPayload) error {
 	fake.decodeAndValidateURLValuesMutex.Lock()
 	ret, specificReturn := fake.decodeAndValidateURLValuesReturnsOnCall[len(fake.decodeAndValidateURLValuesArgsForCall)]
 	fake.decodeAndValidateURLValuesArgsForCall = append(fake.decodeAndValidateURLValuesArgsForCall, struct {
 		arg1 *http.Request
-		arg2 handlers.KeyedPayload
+		arg2 validation.KeyedPayload
 	}{arg1, arg2})
 	stub := fake.DecodeAndValidateURLValuesStub
 	fakeReturns := fake.decodeAndValidateURLValuesReturns
@@ -137,13 +138,13 @@ func (fake *RequestValidator) DecodeAndValidateURLValuesCallCount() int {
 	return len(fake.decodeAndValidateURLValuesArgsForCall)
 }
 
-func (fake *RequestValidator) DecodeAndValidateURLValuesCalls(stub func(*http.Request, handlers.KeyedPayload) error) {
+func (fake *RequestValidator) DecodeAndValidateURLValuesCalls(stub func(*http.Request, validation.KeyedPayload) error) {
 	fake.decodeAndValidateURLValuesMutex.Lock()
 	defer fake.decodeAndValidateURLValuesMutex.Unlock()
 	fake.DecodeAndValidateURLValuesStub = stub
 }
 
-func (fake *RequestValidator) DecodeAndValidateURLValuesArgsForCall(i int) (*http.Request, handlers.KeyedPayload) {
+func (fake *RequestValidator) DecodeAndValidateURLValuesArgsForCall(i int) (*http.Request, validation.KeyedPayload) {
 	fake.decodeAndValidateURLValuesMutex.RLock()
 	defer fake.decodeAndValidateURLValuesMutex.RUnlock()
 	argsForCall := fake.decodeAndValidateURLValuesArgsForCall[i]
