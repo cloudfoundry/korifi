@@ -1,6 +1,9 @@
 package payloads
 
 import (
+	"net/url"
+
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"github.com/jellydator/validation"
 )
@@ -55,4 +58,26 @@ func (p SpacePatch) ToMessage(spaceGUID, orgGUID string) repositories.PatchSpace
 			Annotations: p.Metadata.Annotations,
 		},
 	}
+}
+
+type SpaceList struct {
+	Names             string
+	OrganizationGUIDs string
+}
+
+func (l *SpaceList) ToMessage() repositories.ListSpacesMessage {
+	return repositories.ListSpacesMessage{
+		Names:             parse.ArrayParam(l.Names),
+		OrganizationGUIDs: parse.ArrayParam(l.OrganizationGUIDs),
+	}
+}
+
+func (l *SpaceList) SupportedKeys() []string {
+	return []string{"names", "organization_guids", "order_by", "per_page", "page"}
+}
+
+func (l *SpaceList) DecodeFromURLValues(values url.Values) error {
+	l.Names = values.Get("names")
+	l.OrganizationGUIDs = values.Get("organization_guids")
+	return nil
 }

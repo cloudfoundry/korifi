@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/go-logr/logr"
 
@@ -34,14 +33,14 @@ type SpaceRepository interface {
 type Space struct {
 	spaceRepo        SpaceRepository
 	apiBaseURL       url.URL
-	decoderValidator DecoderValidator
+	requestValidator RequestValidator
 }
 
-func NewSpace(apiBaseURL url.URL, spaceRepo SpaceRepository, decoderValidator DecoderValidator) *Space {
+func NewSpace(apiBaseURL url.URL, spaceRepo SpaceRepository, requestValidator RequestValidator) *Space {
 	return &Space{
 		apiBaseURL:       apiBaseURL,
 		spaceRepo:        spaceRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -50,7 +49,7 @@ func (h *Space) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.create")
 
 	var payload payloads.SpaceCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate payload")
 	}
 
@@ -72,19 +71,17 @@ func (h *Space) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.list")
 
-	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"))
-	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
+	spaceList := new(payloads.SpaceList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, spaceList); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate request values")
+	}
 
-	spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, repositories.ListSpacesMessage{
-		OrganizationGUIDs: orgUIDs,
-		Names:             names,
-	})
+	spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, spaceList.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch spaces")
 	}
 
-	spaceList := presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL)
-	return routing.NewResponse(http.StatusOK).WithBody(spaceList), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL)), nil
 }
 
 //nolint:dupl
@@ -100,7 +97,7 @@ func (h *Space) update(r *http.Request) (*routing.Response, error) {
 	}
 
 	var payload payloads.SpacePatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -146,15 +143,4 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: SpacePath, Handler: h.update},
 		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
 	}
-}
-
-func parseCommaSeparatedList(list string) []string {
-	var elements []string
-	for _, element := range strings.Split(list, ",") {
-		if element != "" {
-			elements = append(elements, element)
-		}
-	}
-
-	return elements
 }
