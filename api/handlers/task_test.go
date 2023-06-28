@@ -162,6 +162,16 @@ var _ = Describe("Task", func() {
 				expectUnknownError()
 			})
 		})
+
+		When("the request payload is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
 	})
 
 	Describe("listing tasks", func() {
@@ -203,10 +213,16 @@ var _ = Describe("Task", func() {
 
 		Describe("GET /v3/apps/{app-guid}/tasks", func() {
 			BeforeEach(func() {
-				requestPath = "/v3/apps/the-app-guid/tasks"
+				requestPath = "/v3/apps/the-app-guid/tasks?foo=bar"
+
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.TaskList{})
 			})
 
 			It("lists the tasks", func() {
+				Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+				actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+				Expect(actualReq.URL.String()).To(HaveSuffix(requestPath))
+
 				Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
 				_, info, listMsg := taskRepo.ListTasksArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
@@ -216,7 +232,7 @@ var _ = Describe("Task", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/the-app-guid/tasks"),
+					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/the-app-guid/tasks?foo=bar"),
 					MatchJSONPath("$.resources", HaveLen(2)),
 					MatchJSONPath("$.resources[0].guid", "guid-1"),
 					MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/tasks/guid-1"),
@@ -256,7 +272,9 @@ var _ = Describe("Task", func() {
 
 			When("filtering tasks by sequence ID", func() {
 				BeforeEach(func() {
-					requestPath = "/v3/apps/the-app-guid/tasks?sequence_ids=1,2"
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.TaskList{
+						SequenceIDs: []int64{1, 2},
+					})
 				})
 
 				It("provides a list task message with the sequence ids to the repository", func() {
@@ -264,25 +282,15 @@ var _ = Describe("Task", func() {
 					_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
 					Expect(listMsg.SequenceIDs).To(ConsistOf(int64(1), int64(2)))
 				})
-
-				When("the sequence_ids parameter cannot be parsed to ints", func() {
-					BeforeEach(func() {
-						requestPath = "/v3/apps/the-app-guid/tasks?sequence_ids=asdf"
-					})
-
-					It("returns a bad request error", func() {
-						expectBadRequestError()
-					})
-				})
 			})
 
-			When("the query string contains unsupported keys", func() {
+			When("the request is invalid", func() {
 				BeforeEach(func() {
-					requestPath = "/v3/apps/the-app-guid/tasks?whatever=1"
+					requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
 				})
 
-				It("returns an unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
+				It("returns an error", func() {
+					expectUnknownError()
 				})
 			})
 
@@ -523,6 +531,16 @@ var _ = Describe("Task", func() {
 		When("patching the task errors", func() {
 			BeforeEach(func() {
 				taskRepo.PatchTaskMetadataReturns(repositories.TaskRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the request payload is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
 			It("returns an error", func() {

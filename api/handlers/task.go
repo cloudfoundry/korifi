@@ -117,19 +117,12 @@ func (h *Task) listForApp(r *http.Request) (*routing.Response, error) {
 
 	appGUID := routing.URLParam(r, "appGUID")
 
-	if err := r.ParseForm(); err != nil {
-		logger.Info("unable to parse request query parameters", "reason", err)
-		return nil, err
-	}
-
-	_, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
-	if err != nil {
+	if _, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding app", "appGUID", appGUID)
 	}
 
 	taskListFilter := new(payloads.TaskList)
-	err = payloads.Decode(taskListFilter, r.Form)
-	if err != nil {
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, taskListFilter); err != nil {
 		logger.Info("unable to decode request query parameters", "reason", err)
 		return nil, err
 	}
