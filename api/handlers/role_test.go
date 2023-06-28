@@ -58,7 +58,7 @@ var _ = Describe("Role", func() {
 				},
 			}
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(roleCreate)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(roleCreate)
 		})
 
 		JustBeforeEach(func() {

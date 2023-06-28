@@ -8,6 +8,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
+	"gopkg.in/yaml.v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,10 +35,21 @@ func expectUnprocessableEntityError(err error, detail string) {
 	Expect(err.(apierrors.UnprocessableEntityError).Detail()).To(ContainSubstring(detail))
 }
 
-func createRequest(payload any) *http.Request {
+func createJSONRequest(payload any) *http.Request {
 	GinkgoHelper()
 
 	body, err := json.Marshal(payload)
+	Expect(err).NotTo(HaveOccurred())
+
+	req, err := http.NewRequest("", "", bytes.NewReader(body))
+	Expect(err).NotTo(HaveOccurred())
+	return req
+}
+
+func createYAMLRequest(payload any) *http.Request {
+	GinkgoHelper()
+
+	body, err := yaml.Marshal(payload)
 	Expect(err).NotTo(HaveOccurred())
 
 	req, err := http.NewRequest("", "", bytes.NewReader(body))

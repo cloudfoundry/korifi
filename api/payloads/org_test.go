@@ -36,7 +36,7 @@ var _ = Describe("Org", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {
@@ -78,7 +78,7 @@ var _ = Describe("Org", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {

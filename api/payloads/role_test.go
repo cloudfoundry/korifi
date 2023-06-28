@@ -43,7 +43,7 @@ var _ = Describe("RoleCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), roleCreate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), roleCreate)
 		apiError, _ = validatorErr.(errors.ApiError)
 	})
 

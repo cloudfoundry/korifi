@@ -147,7 +147,7 @@ var _ = Describe("App", func() {
 					},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 			appRepo.CreateAppReturns(appRecord, nil)
 			req = createHttpRequest("POST", "/v3/apps", strings.NewReader("the-json-body"))
 		})
@@ -444,7 +444,7 @@ var _ = Describe("App", func() {
 					},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
 			appRepo.PatchAppMetadataReturns(appRecord, nil)
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader("the-json-body"))
@@ -548,7 +548,7 @@ var _ = Describe("App", func() {
 					},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/relationships/current_droplet", strings.NewReader("the-json-body"))
 		})
@@ -1000,7 +1000,7 @@ var _ = Describe("App", func() {
 				MemoryMB:  tools.PtrTo[int64](256),
 				DiskMB:    tools.PtrTo[int64](1024),
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
 			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/processes/web/actions/scale", strings.NewReader("the-json-body"))
 		})
@@ -1510,7 +1510,7 @@ var _ = Describe("App", func() {
 					"KEY2": "VAL2",
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID+"/environment_variables", strings.NewReader("the-json-body"))
 		})

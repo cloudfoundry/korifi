@@ -3,13 +3,14 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
-	"regexp"
 	"strings"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,34 +19,32 @@ import (
 
 var _ = Describe("SpaceManifest", func() {
 	var (
-		manifestApplier *fake.ManifestApplier
-		spaceRepo       *fake.CFSpaceRepository
-		requestMethod   string
-		requestPath     string
-		requestBody     string
+		manifestApplier  *fake.ManifestApplier
+		spaceRepo        *fake.CFSpaceRepository
+		requestValidator *fake.RequestValidator
+		requestMethod    string
+		requestPath      string
 	)
 
 	BeforeEach(func() {
 		requestMethod = "POST"
 		requestPath = ""
-		requestBody = ""
 
 		manifestApplier = new(fake.ManifestApplier)
 		spaceRepo = new(fake.CFSpaceRepository)
-
-		decoderValidator := NewDefaultDecoderValidator()
+		requestValidator = new(fake.RequestValidator)
 
 		apiHandler := NewSpaceManifest(
 			*serverURL,
 			manifestApplier,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(requestBody))
+		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader("the-yaml-body"))
 		Expect(err).NotTo(HaveOccurred())
 		req.Header.Add("Content-type", "application/x-yaml")
 		routerBuilder.Build().ServeHTTP(rr, req)
@@ -54,28 +53,35 @@ var _ = Describe("SpaceManifest", func() {
 	Describe("POST /v3/spaces/{spaceGUID}/actions/apply_manifest", func() {
 		BeforeEach(func() {
 			requestPath = "/v3/spaces/test-space-guid/actions/apply_manifest"
-			requestBody = `---
-                version: 1
-                applications:
-                - name: app1
-                  default-route: true
-                  memory: 128M
-                  disk_quota: 256M
-                  processes:
-                  - type: web
-                    command: start-web.sh
-                    disk_quota: 512M
-                    health-check-http-endpoint: /healthcheck
-                    health-check-invocation-timeout: 5
-                    health-check-type: http
-                    instances: 1
-                    memory: 256M
-                    timeout: 10`
+			requestValidator.DecodeAndValidateYAMLPayloadStub = decodeAndValidatePayloadStub(&payloads.Manifest{
+				Version: 1,
+				Applications: []payloads.ManifestApplication{{
+					Name:         "app1",
+					DefaultRoute: true,
+					Memory:       tools.PtrTo("128M"),
+					DiskQuota:    tools.PtrTo("256M"),
+					Processes: []payloads.ManifestApplicationProcess{{
+						Type:                         "web",
+						Command:                      tools.PtrTo("start-web.sh"),
+						DiskQuota:                    tools.PtrTo("512M"),
+						HealthCheckHTTPEndpoint:      tools.PtrTo("/healthcheck"),
+						HealthCheckInvocationTimeout: tools.PtrTo[int64](5),
+						HealthCheckType:              tools.PtrTo("http"),
+						Instances:                    tools.PtrTo(1),
+						Memory:                       tools.PtrTo("256M"),
+						Timeout:                      tools.PtrTo[int64](10),
+					}},
+				}},
+			})
 		})
 
 		It("applies the manifest", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Location", ContainSubstring("space.apply_manifest~"+spaceGUID)))
+
+			Expect(requestValidator.DecodeAndValidateYAMLPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateYAMLPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-yaml-body"))
 
 			Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
 			_, actualAuthInfo, _, payload := manifestApplier.ApplyArgsForCall(0)
@@ -102,49 +108,11 @@ var _ = Describe("SpaceManifest", func() {
 
 		When("the manifest is invalid", func() {
 			BeforeEach(func() {
-				requestBody = `---
-                version: 1
-                applications:
-                - name: app1
-                  default-route: true
-                  memory: "128"
-                  disk_quota: 256M
-                  processes:
-                  - type: web
-                    command: start-web.sh
-                    disk_quota: 512M
-                    health-check-http-endpoint: /healthcheck
-                    health-check-invocation-timeout: 5
-                    health-check-type: httpppp
-                    instances: 1
-                    memory: 256M
-                    timeout: 1
-                  routes:
-                  - route: "ssh://1.2.3.4"`
+				requestValidator.DecodeAndValidateYAMLPayloadReturns(errors.New("boom"))
 			})
 
-			It("response with an unprocessable entity error listing all the errors", func() {
-				expectUnprocessableEntityError(regexp.QuoteMeta("applications[0].memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB), applications[0].processes[0].health-check-type must be a valid value, applications[0].routes[0].route is not a valid route"))
-			})
-		})
-
-		When("the manifest contains unsupported fields", func() {
-			BeforeEach(func() {
-				requestBody = `---
-                version: 1
-                applications:
-                - name: app1
-                  metadata:
-                    annotations:
-                      contact: "bob@example.com jane@example.com"
-                    labels:
-                      sensitive: true`
-			})
-
-			It("calls applyManifestAction and passes it the authInfo from the context", func() {
-				Expect(manifestApplier.ApplyCallCount()).To(Equal(1))
-				_, actualAuthInfo, _, _ := manifestApplier.ApplyArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -152,10 +120,6 @@ var _ = Describe("SpaceManifest", func() {
 	Describe("POST /v3/spaces/{spaceGUID}/manifest_diff", func() {
 		BeforeEach(func() {
 			requestPath = "/v3/spaces/test-space-guid/manifest_diff"
-			requestBody = `---
-			version: 1
-			applications:
-				- name: app1`
 		})
 
 		It("returns 202 with an empty diff", func() {

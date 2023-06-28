@@ -61,7 +61,7 @@ var _ = Describe("Task", func() {
 
 	Describe("POST /v3/apps/:app-guid/tasks", func() {
 		BeforeEach(func() {
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.TaskCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.TaskCreate{
 				Command: "echo hello",
 				Metadata: payloads.Metadata{
 					Labels:      map[string]string{"env": "production"},
@@ -453,7 +453,7 @@ var _ = Describe("Task", func() {
 
 	Describe("PATCH /v3/tasks/:guid", func() {
 		BeforeEach(func() {
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.TaskUpdate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.TaskUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"env":                           tools.PtrTo("production"),

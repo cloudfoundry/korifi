@@ -63,7 +63,7 @@ var _ = Describe("Space", func() {
 				OrganizationGUID: "the-org-guid",
 			}, nil)
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.SpaceCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.SpaceCreate{
 				Name: "the-space",
 				Relationships: &payloads.SpaceRelationships{
 					Org: &payloads.Relationship{
@@ -264,7 +264,7 @@ var _ = Describe("Space", func() {
 				OrganizationGUID: "the-org-guid",
 			}, nil)
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.SpacePatch{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.SpacePatch{
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{
 						"hello":                       tools.PtrTo("there"),

@@ -61,7 +61,7 @@ var _ = Describe("Deployment", func() {
 			}, nil)
 
 			req = createHttpRequest("POST", "/v3/deployments", strings.NewReader("the-payload"))
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.DeploymentCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.DeploymentCreate{
 				Droplet: payloads.DropletGUID{
 					Guid: dropletGUID,
 				},

@@ -46,7 +46,7 @@ var _ = Describe("Process payload validation", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {

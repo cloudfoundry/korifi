@@ -134,7 +134,7 @@ var _ = Describe("Build", func() {
 		)
 
 		BeforeEach(func() {
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.BuildCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.BuildCreate{
 				Package: &payloads.RelationshipData{
 					GUID: packageGUID,
 				},

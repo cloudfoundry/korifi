@@ -33,7 +33,7 @@ type SpaceManifest struct {
 	serverURL        url.URL
 	manifestApplier  ManifestApplier
 	spaceRepo        CFSpaceRepository
-	decoderValidator DecoderValidator
+	requestValidator RequestValidator
 }
 
 //counterfeiter:generate -o fake -fake-name ManifestApplier . ManifestApplier
@@ -45,13 +45,13 @@ func NewSpaceManifest(
 	serverURL url.URL,
 	manifestApplier ManifestApplier,
 	spaceRepo CFSpaceRepository,
-	decoderValidator DecoderValidator,
+	requestValidator RequestValidator,
 ) *SpaceManifest {
 	return &SpaceManifest{
 		serverURL:        serverURL,
 		manifestApplier:  manifestApplier,
 		spaceRepo:        spaceRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -72,7 +72,7 @@ func (h *SpaceManifest) apply(r *http.Request) (*routing.Response, error) {
 
 	spaceGUID := routing.URLParam(r, "spaceGUID")
 	var manifest payloads.Manifest
-	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
+	if err := h.requestValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 

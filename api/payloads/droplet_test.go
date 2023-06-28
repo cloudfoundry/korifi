@@ -32,7 +32,7 @@ var _ = Describe("DropletUpdate", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(updatePayload), decodedDropletPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(updatePayload), decodedDropletPayload)
 		})
 
 		It("succeeds", func() {

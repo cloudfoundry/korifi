@@ -183,7 +183,7 @@ var _ = Describe("Droplet", func() {
 				},
 			}
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 		})
 
 		It("validates the payload", func() {
