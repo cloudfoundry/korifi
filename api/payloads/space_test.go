@@ -1,6 +1,8 @@
 package payloads_test
 
 import (
+	"net/http"
+
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -130,6 +132,32 @@ var _ = Describe("Space", func() {
 					validatorErr,
 					"label/annotation key cannot use the cloudfoundry.org domain",
 				)
+			})
+		})
+	})
+
+	Describe("SpaceList", func() {
+		Describe("decoding from url values", func() {
+			It("gets the names and organization_guids param and allows order_by", func() {
+				spaceList := payloads.SpaceList{}
+				req, err := http.NewRequest("GET", "http://foo.com/bar?names=foo,bar&organization_guids=o1,o2&order_by=name", nil)
+				Expect(err).NotTo(HaveOccurred())
+				err = validator.DecodeAndValidateURLValues(req, &spaceList)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(spaceList.Names).To(Equal("foo,bar"))
+				Expect(spaceList.OrganizationGUIDs).To(Equal("o1,o2"))
+			})
+		})
+
+		Describe("ToMessage", func() {
+			It("splits names to strings", func() {
+				spaceList := payloads.SpaceList{
+					Names:             "foo,bar",
+					OrganizationGUIDs: "org1,org2",
+				}
+				Expect(spaceList.ToMessage().Names).To(ConsistOf("foo", "bar"))
+				Expect(spaceList.ToMessage().OrganizationGUIDs).To(ConsistOf("org1", "org2"))
 			})
 		})
 	})

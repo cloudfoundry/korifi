@@ -8,7 +8,9 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,17 +20,17 @@ import (
 
 var _ = Describe("Space", func() {
 	var (
-		apiHandler    *handlers.Space
-		spaceRepo     *fake.SpaceRepository
-		requestMethod string
-		requestBody   string
-		requestPath   string
+		apiHandler       *handlers.Space
+		spaceRepo        *fake.SpaceRepository
+		requestValidator *fake.RequestValidator
+		requestMethod    string
+		requestPath      string
 	)
 
 	BeforeEach(func() {
-		requestBody = ""
 		requestPath = "/v3/spaces"
 
+		requestValidator = new(fake.RequestValidator)
 		spaceRepo = new(fake.SpaceRepository)
 		spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
 			Name:             "the-space",
@@ -36,18 +38,16 @@ var _ = Describe("Space", func() {
 			OrganizationGUID: "the-org-guid",
 		}, nil)
 
-		decoderValidator := handlers.NewDefaultDecoderValidator()
-
 		apiHandler = handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(requestBody))
+		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader("the-json-body"))
 		Expect(err).NotTo(HaveOccurred())
 
 		routerBuilder.Build().ServeHTTP(rr, req)
@@ -63,19 +63,23 @@ var _ = Describe("Space", func() {
 				OrganizationGUID: "the-org-guid",
 			}, nil)
 
-			requestBody = `{
-                "name": "the-space",
-                "relationships": {
-                    "organization": {
-                        "data": {
-                            "guid": "[org-guid]"
-                        }
-                    }
-                }
-            }`
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.SpaceCreate{
+				Name: "the-space",
+				Relationships: &payloads.SpaceRelationships{
+					Org: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: "org-guid",
+						},
+					},
+				},
+			})
 		})
 
 		It("creates the space", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
+
 			Expect(spaceRepo.CreateSpaceCallCount()).To(Equal(1))
 			_, info, spaceRecord := spaceRepo.CreateSpaceArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
@@ -109,46 +113,13 @@ var _ = Describe("Space", func() {
 			})
 		})
 
-		When("a field in the request has invalid value", func() {
+		When("the request is invalid", func() {
 			BeforeEach(func() {
-				requestBody = `{
-                    "name": 123,
-                    "relationships": {
-                        "organization": {
-                            "data": {
-                                "guid": "[org-guid]"
-                            }
-                        }
-                    }
-                }`
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			It("returns a bad request error", func() {
-				expectUnprocessableEntityError("Name must be a string")
-			})
-		})
-
-		When("the request body is invalid json", func() {
-			BeforeEach(func() {
-				requestBody = `{"definitely not valid json`
-			})
-
-			It("returns a bad request error", func() {
-				expectBadRequestError()
-			})
-		})
-
-		When("when a required field is not provided", func() {
-			BeforeEach(func() {
-				requestBody = `{
-                    "name": "the-name",
-                    "relationships": {
-                    }
-                }`
-			})
-
-			It("returns a bad request error", func() {
-				expectUnprocessableEntityError("organization is required")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -156,6 +127,7 @@ var _ = Describe("Space", func() {
 	Describe("Listing Spaces", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodGet
+			requestPath += "?foo=bar"
 			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
 				{
 					Name:             "test-space-1",
@@ -168,9 +140,14 @@ var _ = Describe("Space", func() {
 					OrganizationGUID: "test-org-2-guid",
 				},
 			}, nil)
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{})
 		})
 
 		It("returns a list of spaces", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix(requestPath))
+
 			Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
 			_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
@@ -180,7 +157,7 @@ var _ = Describe("Space", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/spaces"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/spaces?foo=bar"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "test-space-1-guid"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/spaces/test-space-1-guid"),
@@ -200,29 +177,33 @@ var _ = Describe("Space", func() {
 
 		When("organization_guids are provided as a comma-separated list", func() {
 			BeforeEach(func() {
-				requestPath += "?organization_guids=foo,,bar,"
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{
+					OrganizationGUIDs: "org1,org2",
+				})
 			})
 
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
 				_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(message.OrganizationGUIDs).To(ConsistOf("foo", "bar"))
+				Expect(message.OrganizationGUIDs).To(ConsistOf("org1", "org2"))
 				Expect(message.Names).To(BeEmpty())
 			})
 		})
 
 		When("names are provided as a comma-separated list", func() {
 			BeforeEach(func() {
-				requestPath += "?organization_guids=org1&names=foo,,bar,"
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{
+					Names: "name1,name2",
+				})
 			})
 
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
 				_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(message.OrganizationGUIDs).To(ConsistOf("org1"))
-				Expect(message.Names).To(ConsistOf("foo", "bar"))
+				Expect(message.OrganizationGUIDs).To(BeEmpty())
+				Expect(message.Names).To(ConsistOf("name1", "name2"))
 			})
 		})
 	})
@@ -283,21 +264,25 @@ var _ = Describe("Space", func() {
 				OrganizationGUID: "the-org-guid",
 			}, nil)
 
-			requestBody = `{
-				"metadata": {
-					"labels": {
-						"env": "production",
-						"foo.example.com/my-identifier": "aruba"
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.SpacePatch{
+				Metadata: payloads.MetadataPatch{
+					Annotations: map[string]*string{
+						"hello":                       tools.PtrTo("there"),
+						"foo.example.com/lorem-ipsum": tools.PtrTo("Lorem ipsum."),
 					},
-					"annotations": {
-						"hello": "there",
-						"foo.example.com/lorem-ipsum": "Lorem ipsum."
-					}
-				}
-			}`
+					Labels: map[string]*string{
+						"env":                           tools.PtrTo("production"),
+						"foo.example.com/my-identifier": tools.PtrTo("aruba"),
+					},
+				},
+			})
 		})
 
 		It("updates the space", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
+
 			Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(1))
 			_, _, msg := spaceRepo.PatchSpaceMetadataArgsForCall(0)
 			Expect(msg.GUID).To(Equal("the-space-guid"))
@@ -348,71 +333,13 @@ var _ = Describe("Space", func() {
 			})
 		})
 
-		When("a label is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-					  "metadata": {
-						"labels": {
-						  "cloudfoundry.org/test": "production"
-					    }
-        		     }
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError("cannot use the cloudfoundry.org domain")
-				})
+		When("the request is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-					  "metadata": {
-						"labels": {
-						  "korifi.cloudfoundry.org/test": "production"
-					    }
-    		         }
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError("cannot use the cloudfoundry.org domain")
-				})
-			})
-		})
-
-		When("an annotation is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-					  "metadata": {
-						"annotations": {
-						  "cloudfoundry.org/test": "there"
-						}
-					  }
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError("cannot use the cloudfoundry.org domain")
-				})
-			})
-
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-						  "metadata": {
-							"annotations": {
-							  "korifi.cloudfoundry.org/test": "there"
-							}
-						  }
-						}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError("cannot use the cloudfoundry.org domain")
-				})
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
