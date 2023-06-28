@@ -80,10 +80,7 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 	}
 
 	filteredRoles := filterRoles(roleListFilter, roles)
-
-	if err := h.sortList(filteredRoles, roleListFilter.OrderBy); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
-	}
+	h.sortList(filteredRoles, roleListFilter.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRole, filteredRoles, h.apiBaseURL, *r.URL)), nil
 }
@@ -106,7 +103,7 @@ func match(allowedValues map[string]bool, val string) bool {
 	return len(allowedValues) == 0 || allowedValues[val]
 }
 
-func (h *Role) sortList(roles []repositories.RoleRecord, order string) error {
+func (h *Role) sortList(roles []repositories.RoleRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
@@ -117,10 +114,7 @@ func (h *Role) sortList(roles []repositories.RoleRecord, order string) error {
 		sort.Slice(roles, func(i, j int) bool { return roles[i].UpdatedAt < roles[j].UpdatedAt })
 	case "-updated_at":
 		sort.Slice(roles, func(i, j int) bool { return roles[i].UpdatedAt > roles[j].UpdatedAt })
-	default:
-		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at")
 	}
-	return nil
 }
 
 func (h *Role) delete(r *http.Request) (*routing.Response, error) {

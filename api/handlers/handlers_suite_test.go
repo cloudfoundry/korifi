@@ -88,22 +88,10 @@ func expectUnprocessableEntityError(detail string) {
 	expectErrorResponse(http.StatusUnprocessableEntity, "CF-UnprocessableEntity", detail, 10008)
 }
 
-func expectBadRequestError() {
-	GinkgoHelper()
-
-	expectErrorResponse(http.StatusBadRequest, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
-}
-
 func expectBlobstoreUnavailableError() {
 	GinkgoHelper()
 
 	expectErrorResponse(http.StatusBadGateway, "CF-BlobstoreUnavailable", "Error uploading source package to the container registry", 150006)
-}
-
-func expectUnknownKeyError(detail string) {
-	GinkgoHelper()
-
-	expectErrorResponse(http.StatusBadRequest, "CF-BadQueryParameter", detail, 10005)
 }
 
 func generateGUID(prefix string) string {

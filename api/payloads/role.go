@@ -145,7 +145,7 @@ func (r *RoleList) DecodeFromURLValues(values url.Values) error {
 
 func (r RoleList) Validate() error {
 	return jellidation.ValidateStruct(&r,
-		jellidation.Field(&r.OrderBy, validation.OneOf("created_at", "updated_at", "-created_at", "-updated_at")),
+		jellidation.Field(&r.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
 	)
 }
 

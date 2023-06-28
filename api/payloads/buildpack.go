@@ -21,13 +21,7 @@ func (d *BuildpackList) DecodeFromURLValues(values url.Values) error {
 }
 
 func (d BuildpackList) Validate() error {
-	validOrderBys := []string{"created_at", "updated_at", "position"}
-	var allowed []any
-	for _, a := range validOrderBys {
-		allowed = append(allowed, a, "-"+a)
-	}
-
 	return jellidation.ValidateStruct(&d,
-		jellidation.Field(&d.OrderBy, validation.OneOf(allowed...)),
+		jellidation.Field(&d.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "position")),
 	)
 }

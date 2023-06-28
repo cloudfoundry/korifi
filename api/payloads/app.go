@@ -6,9 +6,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
-	payload_validation "code.cloudfoundry.org/korifi/api/payloads/validation"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/jellydator/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
 // DefaultLifecycleConfig is overwritten by main.go
@@ -28,11 +28,11 @@ type AppCreate struct {
 }
 
 func (c AppCreate) Validate() error {
-	return validation.ValidateStruct(&c,
-		validation.Field(&c.Name, payload_validation.StrictlyRequired),
-		validation.Field(&c.Relationships, validation.NotNil),
-		validation.Field(&c.Lifecycle),
-		validation.Field(&c.Metadata),
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Name, validation.StrictlyRequired),
+		jellidation.Field(&c.Relationships, jellidation.NotNil),
+		jellidation.Field(&c.Lifecycle),
+		jellidation.Field(&c.Metadata),
 	)
 }
 
@@ -41,8 +41,8 @@ type AppRelationships struct {
 }
 
 func (r AppRelationships) Validate() error {
-	return validation.ValidateStruct(&r,
-		validation.Field(&r.Space, validation.NotNil),
+	return jellidation.ValidateStruct(&r,
+		jellidation.Field(&r.Space, jellidation.NotNil),
 	)
 }
 
@@ -73,8 +73,8 @@ type AppSetCurrentDroplet struct {
 }
 
 func (d AppSetCurrentDroplet) Validate() error {
-	return validation.ValidateStruct(&d,
-		validation.Field(&d.Relationship, payload_validation.StrictlyRequired),
+	return jellidation.ValidateStruct(&d,
+		jellidation.Field(&d.Relationship, validation.StrictlyRequired),
 	)
 }
 
@@ -82,6 +82,13 @@ type AppList struct {
 	Names      string
 	GUIDs      string
 	SpaceGuids string
+	OrderBy    string
+}
+
+func (a AppList) Validate() error {
+	return jellidation.ValidateStruct(&a,
+		jellidation.Field(&a.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "name", "state")),
+	)
 }
 
 func (a *AppList) ToMessage() repositories.ListAppsMessage {
@@ -100,6 +107,7 @@ func (a *AppList) DecodeFromURLValues(values url.Values) error {
 	a.Names = values.Get("names")
 	a.GUIDs = values.Get("guids")
 	a.SpaceGuids = values.Get("space_guids")
+	a.OrderBy = values.Get("order_by")
 	return nil
 }
 
@@ -108,13 +116,13 @@ type AppPatchEnvVars struct {
 }
 
 func (p AppPatchEnvVars) Validate() error {
-	return validation.ValidateStruct(&p,
-		validation.Field(&p.Var,
-			payload_validation.StrictlyRequired,
-			validation.Map().Keys(
-				payload_validation.NotStartWith("VCAP_"),
-				payload_validation.NotStartWith("VMC_"),
-				payload_validation.NotEqual("PORT"),
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Var,
+			validation.StrictlyRequired,
+			jellidation.Map().Keys(
+				validation.NotStartWith("VCAP_"),
+				validation.NotStartWith("VMC_"),
+				validation.NotEqual("PORT"),
 			).AllowExtraKeys(),
 		))
 }
@@ -152,8 +160,8 @@ type AppPatch struct {
 }
 
 func (p AppPatch) Validate() error {
-	return validation.ValidateStruct(&p,
-		validation.Field(&p.Metadata),
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Metadata),
 	)
 }
 

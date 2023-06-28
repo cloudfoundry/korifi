@@ -277,10 +277,14 @@ var _ = Describe("App", func() {
 				},
 			}, nil)
 
-			req = createHttpRequest("GET", "/v3/apps", nil)
+			req = createHttpRequest("GET", "/v3/apps?foo=bar", nil)
 		})
 
 		It("returns the list of apps", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix("foo=bar"))
+
 			Expect(appRepo.ListAppsCallCount()).To(Equal(1))
 			_, actualAuthInfo, _ := appRepo.ListAppsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -288,7 +292,7 @@ var _ = Describe("App", func() {
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps?foo=bar"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "first-test-app-guid"),
 				MatchJSONPath("$.resources[0].state", "STOPPED"),
@@ -297,23 +301,12 @@ var _ = Describe("App", func() {
 		})
 
 		When("filtering query params are provided", func() {
-			var payload *payloads.AppList
-
 			BeforeEach(func() {
-				req = createHttpRequest("GET", "/v3/apps?names=app1,app2&space_guids=space1,space2&guids=guid1,guid2", nil)
-				payload = &payloads.AppList{
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppList{
 					Names:      "a1,a2",
 					GUIDs:      "g1,g2",
 					SpaceGuids: "s1,s2",
-				}
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
-			})
-
-			It("validates the url values", func() {
-				Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
-				actualReq, actualPayload := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
-				Expect(actualReq.URL).To(Equal(req.URL))
-				Expect(actualPayload).To(Equal(payload))
+				})
 			})
 
 			It("passes them to the repository", func() {
@@ -323,10 +316,6 @@ var _ = Describe("App", func() {
 				Expect(message.Names).To(ConsistOf("a1", "a2"))
 				Expect(message.SpaceGuids).To(ConsistOf("s1", "s2"))
 				Expect(message.Guids).To(ConsistOf("g1", "g2"))
-			})
-
-			It("correctly sets query parameters in response pagination links", func() {
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps?names=app1,app2&space_guids=space1,space2&guids=guid1,guid2")))
 			})
 		})
 
@@ -365,7 +354,10 @@ var _ = Describe("App", func() {
 			})
 
 			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
-				req = createHttpRequest("GET", "/v3/apps?order_by="+orderBy, nil)
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppList{
+					OrderBy: orderBy,
+				})
+				req = createHttpRequest("GET", "/v3/apps?order_by=whatever", nil)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
 				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedOrder)))
@@ -379,16 +371,6 @@ var _ = Describe("App", func() {
 				Entry("state ASC", "state", "2", "4", "3", "1"),
 				Entry("state DESC", "-state", "1", "3", "4", "2"),
 			)
-
-			When("order_by is not a valid field", func() {
-				BeforeEach(func() {
-					req = createHttpRequest("GET", "/v3/apps?order_by=not_valid", nil)
-				})
-
-				It("returns an Unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Order by can only be: .*")
-				})
-			})
 		})
 
 		When("no apps can be found", func() {
@@ -418,11 +400,11 @@ var _ = Describe("App", func() {
 
 		When("invalid query parameters are provided", func() {
 			BeforeEach(func() {
-				requestValidator.DecodeAndValidateURLValuesReturns(apierrors.NewUnknownKeyError(nil, []string{"foo"}))
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: .*")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})

@@ -136,7 +136,7 @@ type ServiceInstanceList struct {
 
 func (l ServiceInstanceList) Validate() error {
 	return jellidation.ValidateStruct(&l,
-		jellidation.Field(&l.OrderBy, validation.OneOf("created_at", "-created_at", "name", "-name", "updated_at", "-updated_at")),
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "name", "updated_at")),
 	)
 }
 
