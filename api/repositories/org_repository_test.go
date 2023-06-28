@@ -140,6 +140,7 @@ var _ = Describe("OrgRepository", func() {
 				updatedAt, err := time.Parse(time.RFC3339, org.UpdatedAt)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(org.DeletedAt).To(BeEmpty())
 				Expect(org.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
 				Expect(org.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
