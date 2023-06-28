@@ -9,11 +9,11 @@ import (
 )
 
 type RequestValidator struct {
-	DecodeAndValidateJSONPayloadStub        func(*http.Request, interface{}) error
+	DecodeAndValidateJSONPayloadStub        func(*http.Request, any) error
 	decodeAndValidateJSONPayloadMutex       sync.RWMutex
 	decodeAndValidateJSONPayloadArgsForCall []struct {
 		arg1 *http.Request
-		arg2 interface{}
+		arg2 any
 	}
 	decodeAndValidateJSONPayloadReturns struct {
 		result1 error
@@ -33,16 +33,28 @@ type RequestValidator struct {
 	decodeAndValidateURLValuesReturnsOnCall map[int]struct {
 		result1 error
 	}
+	DecodeAndValidateYAMLPayloadStub        func(*http.Request, any) error
+	decodeAndValidateYAMLPayloadMutex       sync.RWMutex
+	decodeAndValidateYAMLPayloadArgsForCall []struct {
+		arg1 *http.Request
+		arg2 any
+	}
+	decodeAndValidateYAMLPayloadReturns struct {
+		result1 error
+	}
+	decodeAndValidateYAMLPayloadReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *RequestValidator) DecodeAndValidateJSONPayload(arg1 *http.Request, arg2 interface{}) error {
+func (fake *RequestValidator) DecodeAndValidateJSONPayload(arg1 *http.Request, arg2 any) error {
 	fake.decodeAndValidateJSONPayloadMutex.Lock()
 	ret, specificReturn := fake.decodeAndValidateJSONPayloadReturnsOnCall[len(fake.decodeAndValidateJSONPayloadArgsForCall)]
 	fake.decodeAndValidateJSONPayloadArgsForCall = append(fake.decodeAndValidateJSONPayloadArgsForCall, struct {
 		arg1 *http.Request
-		arg2 interface{}
+		arg2 any
 	}{arg1, arg2})
 	stub := fake.DecodeAndValidateJSONPayloadStub
 	fakeReturns := fake.decodeAndValidateJSONPayloadReturns
@@ -63,13 +75,13 @@ func (fake *RequestValidator) DecodeAndValidateJSONPayloadCallCount() int {
 	return len(fake.decodeAndValidateJSONPayloadArgsForCall)
 }
 
-func (fake *RequestValidator) DecodeAndValidateJSONPayloadCalls(stub func(*http.Request, interface{}) error) {
+func (fake *RequestValidator) DecodeAndValidateJSONPayloadCalls(stub func(*http.Request, any) error) {
 	fake.decodeAndValidateJSONPayloadMutex.Lock()
 	defer fake.decodeAndValidateJSONPayloadMutex.Unlock()
 	fake.DecodeAndValidateJSONPayloadStub = stub
 }
 
-func (fake *RequestValidator) DecodeAndValidateJSONPayloadArgsForCall(i int) (*http.Request, interface{}) {
+func (fake *RequestValidator) DecodeAndValidateJSONPayloadArgsForCall(i int) (*http.Request, any) {
 	fake.decodeAndValidateJSONPayloadMutex.RLock()
 	defer fake.decodeAndValidateJSONPayloadMutex.RUnlock()
 	argsForCall := fake.decodeAndValidateJSONPayloadArgsForCall[i]
@@ -161,6 +173,68 @@ func (fake *RequestValidator) DecodeAndValidateURLValuesReturnsOnCall(i int, res
 	}{result1}
 }
 
+func (fake *RequestValidator) DecodeAndValidateYAMLPayload(arg1 *http.Request, arg2 any) error {
+	fake.decodeAndValidateYAMLPayloadMutex.Lock()
+	ret, specificReturn := fake.decodeAndValidateYAMLPayloadReturnsOnCall[len(fake.decodeAndValidateYAMLPayloadArgsForCall)]
+	fake.decodeAndValidateYAMLPayloadArgsForCall = append(fake.decodeAndValidateYAMLPayloadArgsForCall, struct {
+		arg1 *http.Request
+		arg2 any
+	}{arg1, arg2})
+	stub := fake.DecodeAndValidateYAMLPayloadStub
+	fakeReturns := fake.decodeAndValidateYAMLPayloadReturns
+	fake.recordInvocation("DecodeAndValidateYAMLPayload", []interface{}{arg1, arg2})
+	fake.decodeAndValidateYAMLPayloadMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *RequestValidator) DecodeAndValidateYAMLPayloadCallCount() int {
+	fake.decodeAndValidateYAMLPayloadMutex.RLock()
+	defer fake.decodeAndValidateYAMLPayloadMutex.RUnlock()
+	return len(fake.decodeAndValidateYAMLPayloadArgsForCall)
+}
+
+func (fake *RequestValidator) DecodeAndValidateYAMLPayloadCalls(stub func(*http.Request, any) error) {
+	fake.decodeAndValidateYAMLPayloadMutex.Lock()
+	defer fake.decodeAndValidateYAMLPayloadMutex.Unlock()
+	fake.DecodeAndValidateYAMLPayloadStub = stub
+}
+
+func (fake *RequestValidator) DecodeAndValidateYAMLPayloadArgsForCall(i int) (*http.Request, any) {
+	fake.decodeAndValidateYAMLPayloadMutex.RLock()
+	defer fake.decodeAndValidateYAMLPayloadMutex.RUnlock()
+	argsForCall := fake.decodeAndValidateYAMLPayloadArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *RequestValidator) DecodeAndValidateYAMLPayloadReturns(result1 error) {
+	fake.decodeAndValidateYAMLPayloadMutex.Lock()
+	defer fake.decodeAndValidateYAMLPayloadMutex.Unlock()
+	fake.DecodeAndValidateYAMLPayloadStub = nil
+	fake.decodeAndValidateYAMLPayloadReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *RequestValidator) DecodeAndValidateYAMLPayloadReturnsOnCall(i int, result1 error) {
+	fake.decodeAndValidateYAMLPayloadMutex.Lock()
+	defer fake.decodeAndValidateYAMLPayloadMutex.Unlock()
+	fake.DecodeAndValidateYAMLPayloadStub = nil
+	if fake.decodeAndValidateYAMLPayloadReturnsOnCall == nil {
+		fake.decodeAndValidateYAMLPayloadReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.decodeAndValidateYAMLPayloadReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *RequestValidator) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -168,6 +242,8 @@ func (fake *RequestValidator) Invocations() map[string][][]interface{} {
 	defer fake.decodeAndValidateJSONPayloadMutex.RUnlock()
 	fake.decodeAndValidateURLValuesMutex.RLock()
 	defer fake.decodeAndValidateURLValuesMutex.RUnlock()
+	fake.decodeAndValidateYAMLPayloadMutex.RLock()
+	defer fake.decodeAndValidateYAMLPayloadMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

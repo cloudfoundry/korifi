@@ -28,7 +28,7 @@ var _ = Describe("Metadata", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(metadataPayload), decodedMetadataPayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(metadataPayload), decodedMetadataPayload)
 	})
 
 	It("succeeds", func() {
@@ -77,7 +77,7 @@ var _ = Describe("MetadataPatch", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(metadataPatchPayload), decodedMetadataPatchPayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(metadataPatchPayload), decodedMetadataPatchPayload)
 	})
 
 	It("succeeds", func() {

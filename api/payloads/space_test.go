@@ -42,7 +42,7 @@ var _ = Describe("Space", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {
@@ -114,7 +114,7 @@ var _ = Describe("Space", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {

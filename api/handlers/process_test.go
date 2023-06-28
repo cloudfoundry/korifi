@@ -144,7 +144,7 @@ var _ = Describe("Process", func() {
 				GUID: "process-guid",
 			}, nil)
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ProcessScale{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ProcessScale{
 				Instances: tools.PtrTo(3),
 				MemoryMB:  tools.PtrTo[int64](512),
 				DiskMB:    tools.PtrTo[int64](256),
@@ -368,7 +368,7 @@ var _ = Describe("Process", func() {
 				GUID: "process-guid",
 			}, nil)
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ProcessPatch{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ProcessPatch{
 				Metadata: &payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"foo": tools.PtrTo("value1"),

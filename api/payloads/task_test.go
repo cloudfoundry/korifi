@@ -63,7 +63,7 @@ var _ = Describe("TaskCreate", func() {
 
 		JustBeforeEach(func() {
 			decodedPayload = new(payloads.TaskCreate)
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {
@@ -137,7 +137,7 @@ var _ = Describe("TaskUpdate", func() {
 
 		JustBeforeEach(func() {
 			decodedPayload = new(payloads.TaskUpdate)
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 		})
 
 		It("succeeds", func() {

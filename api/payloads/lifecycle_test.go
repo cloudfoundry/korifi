@@ -27,7 +27,7 @@ var _ = Describe("Lifecycle", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(payload), decodedPayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 	})
 
 	It("succeeds", func() {

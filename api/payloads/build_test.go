@@ -26,7 +26,7 @@ var _ = Describe("BuildCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), decodedBuildPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), decodedBuildPayload)
 		})
 
 		It("succeeds", func() {

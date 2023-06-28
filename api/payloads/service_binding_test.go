@@ -57,7 +57,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), serviceBindingCreate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), serviceBindingCreate)
 		apiError, _ = validatorErr.(errors.ApiError)
 	})
 
@@ -152,7 +152,7 @@ var _ = Describe("ServiceBindingUpdate", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(patchPayload), serviceBindingPatch)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(patchPayload), serviceBindingPatch)
 		apiError, _ = validatorErr.(errors.ApiError)
 	})
 

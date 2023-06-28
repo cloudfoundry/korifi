@@ -21,8 +21,9 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 type RequestValidator interface {
-	DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error
+	DecodeAndValidateJSONPayload(r *http.Request, object any) error
 	DecodeAndValidateURLValues(r *http.Request, payloadObject KeyedPayload) error
+	DecodeAndValidateYAMLPayload(r *http.Request, object any) error
 }
 
 type KeyedPayload interface {
@@ -40,7 +41,7 @@ func NewDefaultDecoderValidator() DecoderValidator {
 	return DecoderValidator{}
 }
 
-func (dv DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error {
+func (dv DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object any) error {
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	decoder.DisallowUnknownFields()
@@ -62,7 +63,7 @@ func (dv DecoderValidator) DecodeAndValidateJSONPayload(r *http.Request, object 
 	return dv.validatePayload(object)
 }
 
-func (dv DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object interface{}) error {
+func (dv DecoderValidator) DecodeAndValidateYAMLPayload(r *http.Request, object any) error {
 	decoder := yaml.NewDecoder(r.Body)
 	defer r.Body.Close()
 	decoder.KnownFields(false) // TODO: change this to true once we've added all manifest fields to payloads.Manifest
@@ -117,7 +118,7 @@ func isIgnored(payload KeyedPayload, key string) bool {
 	return false
 }
 
-func (dv *DecoderValidator) validatePayload(object interface{}) error {
+func (dv *DecoderValidator) validatePayload(object any) error {
 	t, ok := object.(validation.Validatable)
 	if !ok {
 		return nil

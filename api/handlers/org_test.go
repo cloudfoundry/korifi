@@ -41,7 +41,7 @@ var _ = Describe("Org", func() {
 
 	Describe("Create Org", func() {
 		BeforeEach(func() {
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.OrgCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.OrgCreate{
 				Name:      "the-org",
 				Suspended: true,
 				Metadata: payloads.Metadata{
@@ -223,7 +223,7 @@ var _ = Describe("Org", func() {
 
 			requestBody = "the-json-body"
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.OrgPatch{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.OrgPatch{
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{
 						"hello":                       tools.PtrTo("there"),

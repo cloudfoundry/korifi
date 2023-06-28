@@ -56,7 +56,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
 			domainRepo.CreateDomainReturns(repositories.DomainRecord{
 				Name:        "my.domain",
@@ -196,7 +196,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
 			domainRepo.UpdateDomainReturns(repositories.DomainRecord{
 				Name:        "my.domain",

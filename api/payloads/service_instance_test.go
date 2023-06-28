@@ -71,7 +71,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), serviceInstanceCreate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), serviceInstanceCreate)
 	})
 
 	It("succeeds", func() {
@@ -240,7 +240,7 @@ var _ = Describe("ServiceInstancePatch", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(patchPayload), serviceInstancePatch)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(patchPayload), serviceInstancePatch)
 	})
 
 	It("succeeds", func() {

@@ -24,7 +24,7 @@ var _ = Describe("Relationship", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(relationshipPayload), decodedRelationshipPayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(relationshipPayload), decodedRelationshipPayload)
 	})
 
 	It("succeeds", func() {

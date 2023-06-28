@@ -301,7 +301,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			appUID = "appUID"
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.PackageCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.PackageCreate{
 				Type: "bits",
 				Relationships: &payloads.PackageRelationships{
 					App: &payloads.Relationship{
@@ -445,7 +445,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			packageGUID = generateGUID("package")
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.PackageUpdate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.PackageUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"bob": tools.PtrTo("foo"),

@@ -289,7 +289,7 @@ var _ = Describe("Route", func() {
 					Annotations: map[string]string{"annotation-key": "annotation-val"},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 		})
 
 		It("creates the route", func() {
@@ -428,7 +428,7 @@ var _ = Describe("Route", func() {
 					Labels:      map[string]*string{"l": tools.PtrTo("lv")},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 		})
 
 		It("patches the route", func() {
@@ -585,7 +585,7 @@ var _ = Describe("Route", func() {
 					},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 		})
 
 		It("adds the destinations to the route", func() {

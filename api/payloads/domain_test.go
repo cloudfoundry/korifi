@@ -36,7 +36,7 @@ var _ = Describe("DomainCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), decodedDomainPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), decodedDomainPayload)
 		})
 
 		It("succeeds", func() {
@@ -160,7 +160,7 @@ var _ = Describe("DomainUpdate", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(updatePayload), decodedUpdatePayload)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(updatePayload), decodedUpdatePayload)
 	})
 
 	It("succeeds", func() {

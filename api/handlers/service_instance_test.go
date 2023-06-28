@@ -61,7 +61,7 @@ var _ = Describe("ServiceInstance", func() {
 		BeforeEach(func() {
 			reqMethod = http.MethodPost
 
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ServiceInstanceCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstanceCreate{
 				Name: "service-instance-name",
 				Type: "user-provided",
 				Tags: []string{"foo", "bar"},
@@ -298,7 +298,7 @@ var _ = Describe("ServiceInstance", func() {
 
 	Describe("PATCH /v3/service_instances/:guid", func() {
 		BeforeEach(func() {
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payloads.ServiceInstancePatch{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstancePatch{
 				Name:        tools.PtrTo("new-name"),
 				Tags:        &[]string{"alice", "bob"},
 				Credentials: &map[string]string{"foo": "bar"},

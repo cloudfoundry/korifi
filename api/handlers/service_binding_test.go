@@ -93,7 +93,7 @@ var _ = Describe("ServiceBinding", func() {
 				},
 				Type: "app",
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 		})
 
 		It("creates a service binding", func() {
@@ -325,7 +325,7 @@ var _ = Describe("ServiceBinding", func() {
 					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
 				},
 			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidateJSONPayloadStub(&payload)
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 		})
 
 		It("updates the service binding", func() {

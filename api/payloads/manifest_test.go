@@ -32,20 +32,31 @@ var _ = Describe("Manifest payload", func() {
 			})
 
 			JustBeforeEach(func() {
-				validateErr = testSpaceManifest.Validate()
+				validateErr = validator.DecodeAndValidateYAMLPayload(createYAMLRequest(testSpaceManifest), &Manifest{})
 			})
 
 			It("validates the struct", func() {
 				Expect(validateErr).NotTo(HaveOccurred())
 			})
 
-			When("Name is empty", func() {
+			When("an application yaml is invalid", func() {
 				BeforeEach(func() {
 					testSpaceManifest.Applications[0].Memory = tools.PtrTo("badmemory")
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("applications: (0: (memory: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB).).)."))
+					expectUnprocessableEntityError(validateErr, "applications[0].memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+				})
+
+				When("there is more than one error", func() {
+					BeforeEach(func() {
+						testSpaceManifest.Applications[0].DiskQuota = tools.PtrTo("baddisk")
+					})
+
+					It("returns both errors", func() {
+						expectUnprocessableEntityError(validateErr, "applications[0].disk_quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+						expectUnprocessableEntityError(validateErr, "applications[0].memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+					})
 				})
 			})
 		})
@@ -66,7 +77,7 @@ var _ = Describe("Manifest payload", func() {
 			})
 
 			JustBeforeEach(func() {
-				validateErr = testManifest.Validate()
+				validateErr = validator.DecodeAndValidateYAMLPayload(createYAMLRequest(testManifest), &ManifestApplication{})
 			})
 
 			It("validates the struct", func() {
@@ -77,8 +88,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifest.Name = ""
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("name: cannot be blank."))
+					expectUnprocessableEntityError(validateErr, "name cannot be blank")
 				})
 			})
 
@@ -86,8 +98,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifest.Instances = tools.PtrTo(-1)
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("instances: must be no less than 0."))
+					expectUnprocessableEntityError(validateErr, "instances must be no less than 0")
 				})
 			})
 
@@ -97,7 +110,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					expectUnprocessableEntityError(validateErr, "disk_quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
 				})
 			})
 
@@ -107,7 +120,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: must be greater than 0MB."))
+					expectUnprocessableEntityError(validateErr, "disk_quota must be greater than 0MB")
 				})
 			})
 
@@ -117,7 +130,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk-quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					expectUnprocessableEntityError(validateErr, "disk-quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
 				})
 			})
 
@@ -127,7 +140,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk-quota: must be greater than 0MB."))
+					expectUnprocessableEntityError(validateErr, "disk-quota must be greater than 0MB")
 				})
 			})
 
@@ -138,7 +151,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("response with an unprocessable entity error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: and disk-quota may not be used together."))
+					expectUnprocessableEntityError(validateErr, "disk_quota and disk-quota may not be used together")
 				})
 			})
 
@@ -146,8 +159,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifest.HealthCheckInvocationTimeout = tools.PtrTo(int64(0))
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("health-check-invocation-timeout: must be no less than 1."))
+					expectUnprocessableEntityError(validateErr, "health-check-invocation-timeout must be no less than 1")
 				})
 			})
 
@@ -155,8 +169,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifest.HealthCheckType = tools.PtrTo("FakeHealthcheckType")
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("health-check-type: must be a valid value."))
+					expectUnprocessableEntityError(validateErr, "health-check-type must be a valid value")
 				})
 			})
 
@@ -164,8 +179,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifest.Timeout = tools.PtrTo(int64(0))
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("timeout: must be no less than 1."))
+					expectUnprocessableEntityError(validateErr, "timeout must be no less than 1")
 				})
 			})
 
@@ -173,8 +189,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifest.Memory = tools.PtrTo("5CUPS")
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("memory: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					expectUnprocessableEntityError(validateErr, "memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
 				})
 			})
 
@@ -184,7 +201,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("memory: must be greater than 0MB."))
+					expectUnprocessableEntityError(validateErr, "memory must be greater than 0MB")
 				})
 			})
 
@@ -195,7 +212,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("response with an unprocessable entity error", func() {
-					Expect(validateErr).To(MatchError("default-route: and random-route may not be used together."))
+					expectUnprocessableEntityError(validateErr, "default-route and random-route may not be used together")
 				})
 			})
 
@@ -226,7 +243,7 @@ var _ = Describe("Manifest payload", func() {
 			})
 
 			JustBeforeEach(func() {
-				validateErr = testManifestProcess.Validate()
+				validateErr = validator.DecodeAndValidateYAMLPayload(createYAMLRequest(testManifestProcess), &ManifestApplicationProcess{})
 			})
 
 			It("Validates the struct", func() {
@@ -239,7 +256,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("type: cannot be blank."))
+					expectUnprocessableEntityError(validateErr, "type cannot be blank")
 				})
 			})
 
@@ -249,7 +266,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					expectUnprocessableEntityError(validateErr, "disk_quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
 				})
 			})
 
@@ -259,7 +276,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: must be greater than 0MB."))
+					expectUnprocessableEntityError(validateErr, "disk_quota must be greater than 0MB")
 				})
 			})
 
@@ -269,7 +286,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk-quota: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					expectUnprocessableEntityError(validateErr, "disk-quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
 				})
 			})
 
@@ -279,7 +296,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("disk-quota: must be greater than 0MB."))
+					expectUnprocessableEntityError(validateErr, "disk-quota must be greater than 0MB")
 				})
 			})
 
@@ -290,7 +307,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("response with an unprocessable entity error", func() {
-					Expect(validateErr).To(MatchError("disk_quota: and disk-quota may not be used together."))
+					expectUnprocessableEntityError(validateErr, "disk_quota and disk-quota may not be used together")
 				})
 			})
 
@@ -298,8 +315,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifestProcess.HealthCheckInvocationTimeout = tools.PtrTo(int64(0))
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("health-check-invocation-timeout: must be no less than 1."))
+					expectUnprocessableEntityError(validateErr, "health-check-invocation-timeout must be no less than 1")
 				})
 			})
 
@@ -307,8 +325,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifestProcess.HealthCheckType = tools.PtrTo("FakeHealthcheckType")
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("health-check-type: must be a valid value."))
+					expectUnprocessableEntityError(validateErr, "health-check-type must be a valid value")
 				})
 			})
 
@@ -316,8 +335,9 @@ var _ = Describe("Manifest payload", func() {
 				BeforeEach(func() {
 					testManifestProcess.Instances = tools.PtrTo(-1)
 				})
+
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("instances: must be no less than 0."))
+					expectUnprocessableEntityError(validateErr, "instances must be no less than 0")
 				})
 			})
 
@@ -327,7 +347,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("memory: must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)."))
+					expectUnprocessableEntityError(validateErr, "memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
 				})
 			})
 
@@ -337,7 +357,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("memory: must be greater than 0MB."))
+					expectUnprocessableEntityError(validateErr, "memory must be greater than 0MB")
 				})
 			})
 
@@ -347,7 +367,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					Expect(validateErr).To(MatchError("timeout: must be no less than 1."))
+					expectUnprocessableEntityError(validateErr, "timeout must be no less than 1")
 				})
 			})
 		})
@@ -547,7 +567,7 @@ var _ = Describe("Manifest payload", func() {
 			testManifestRoute = ManifestRoute{}
 		})
 		JustBeforeEach(func() {
-			validateErr = testManifestRoute.Validate()
+			validateErr = validator.DecodeAndValidateYAMLPayload(createYAMLRequest(testManifestRoute), &ManifestRoute{})
 		})
 		It("validates the struct", func() {
 			Expect(validateErr).NotTo(HaveOccurred())
@@ -559,7 +579,7 @@ var _ = Describe("Manifest payload", func() {
 			})
 
 			It("returns a validation error", func() {
-				Expect(validateErr).To(MatchError("route: is not a valid route."))
+				expectUnprocessableEntityError(validateErr, "route is not a valid route")
 			})
 		})
 	})

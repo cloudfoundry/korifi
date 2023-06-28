@@ -38,7 +38,7 @@ var _ = Describe("DeploymentCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createDeployment), decodedDeploymentPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createDeployment), decodedDeploymentPayload)
 		})
 
 		It("succeeds", func() {

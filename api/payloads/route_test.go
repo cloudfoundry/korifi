@@ -86,7 +86,7 @@ var _ = Describe("RouteCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(createPayload), routeCreate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), routeCreate)
 		apiError, _ = validatorErr.(errors.ApiError)
 	})
 
@@ -170,7 +170,7 @@ var _ = Describe("RoutePatch", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(patchPayload), routePatch)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(patchPayload), routePatch)
 		apiError, _ = validatorErr.(errors.ApiError)
 	})
 
@@ -223,7 +223,7 @@ var _ = Describe("Add destination", func() {
 	})
 
 	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createRequest(addPayload), destinationAdd)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(addPayload), destinationAdd)
 		apiError, _ = validatorErr.(errors.ApiError)
 	})
 
