@@ -1,4 +1,4 @@
-package handlers
+package validation
 
 import (
 	"encoding/json"
@@ -17,14 +17,6 @@ import (
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
-
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
-
-type RequestValidator interface {
-	DecodeAndValidateJSONPayload(r *http.Request, object any) error
-	DecodeAndValidateURLValues(r *http.Request, payloadObject KeyedPayload) error
-	DecodeAndValidateYAMLPayload(r *http.Request, object any) error
-}
 
 type KeyedPayload interface {
 	SupportedKeys() []string
