@@ -287,30 +287,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	bs, err := json.Marshal(sharedData)
 	Expect(err).NotTo(HaveOccurred())
 
-	SetDefaultEventuallyTimeout(240 * time.Second)
-	SetDefaultEventuallyPollingInterval(2 * time.Second)
-
-	if os.Getenv("CLUSTER_TYPE") == "GKE" {
-		fmt.Print("Pushing apps to prevent BLOB_UNKNOWN error on GAR...")
-		t1 := time.Now()
-		blobsFlakeMitigationSpaceGUID := createSpace("blob-flake-mitigation", commonTestOrgGUID)
-		var wg sync.WaitGroup
-		apps := []string{
-			sharedData.DefaultAppBitsFile,
-			sharedData.MultiProcessAppBitsFile,
-		}
-		wg.Add(len(apps))
-		for _, app := range apps {
-			go func(appBits string) {
-				defer GinkgoRecover()
-				pushTestApp(blobsFlakeMitigationSpaceGUID, appBits)
-				wg.Done()
-			}(app)
-		}
-		wg.Wait()
-		fmt.Printf(" done in %v\n", time.Since(t1))
-	}
-
 	return bs
 }, func(bs []byte) {
 	var sharedSetup sharedSetupData
