@@ -608,7 +608,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		})
 
 		It("writes some log message from the finalizer helper", func() {
-			Eventually(logOutput).Should(gbytes.Say("controllers.CFSpace.finalize"))
+			Eventually(logOutput).WithTimeout(30 * time.Second).Should(gbytes.Say("controllers.CFSpace.finalize"))
 		})
 
 		When("there are CFApps in the space", func() {

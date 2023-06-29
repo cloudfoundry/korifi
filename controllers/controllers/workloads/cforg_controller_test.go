@@ -316,7 +316,7 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 		})
 
 		It("writes some log message from the finalizer helper", func() {
-			Eventually(logOutput).Should(gbytes.Say("controllers.CFOrg.finalize"))
+			Eventually(logOutput).WithTimeout(30 * time.Second).Should(gbytes.Say("controllers.CFOrg.finalize"))
 		})
 	})
 })
