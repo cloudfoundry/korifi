@@ -328,6 +328,7 @@ func main() {
 		handlers.NewJob(
 			*serverURL,
 			orgRepo,
+			spaceRepo,
 		),
 		handlers.NewLogCache(
 			appRepo,

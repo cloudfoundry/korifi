@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-logr/logr"
@@ -34,12 +35,14 @@ const JobResourceType = "Job"
 type Job struct {
 	serverURL url.URL
 	orgRepo   CFOrgRepository
+	spaceRepo CFSpaceRepository
 }
 
-func NewJob(serverURL url.URL, orgRepo CFOrgRepository) *Job {
+func NewJob(serverURL url.URL, orgRepo CFOrgRepository, spaceRepo CFSpaceRepository) *Job {
 	return &Job{
 		serverURL: serverURL,
 		orgRepo:   orgRepo,
+		spaceRepo: spaceRepo,
 	}
 }
 
@@ -66,10 +69,10 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	switch jobType {
 	case syncSpacePrefix:
 		jobResponse = presenter.ForManifestApplyJob(jobGUID, resourceGUID, h.serverURL)
-	case appDeletePrefix, spaceDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
+	case appDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
 		jobResponse = presenter.ForJob(jobGUID, []presenter.JobResponseError{}, presenter.StateComplete, jobType, h.serverURL)
-	case orgDeletePrefix:
-		jobResponse, err = h.handleOrgDelete(r.Context(), resourceGUID, jobGUID)
+	case orgDeletePrefix, spaceDeletePrefix:
+		jobResponse, err = h.handleDeleteJob(r.Context(), resourceGUID, jobGUID, jobType)
 		if err != nil {
 			return nil, err
 		}
@@ -84,11 +87,32 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
-func (h *Job) handleOrgDelete(ctx context.Context, resourceGUID, jobGUID string) (presenter.JobResponse, error) {
+func (h *Job) handleDeleteJob(ctx context.Context, resourceGUID, jobGUID, jobType string) (presenter.JobResponse, error) {
 	authInfo, _ := authorization.InfoFromContext(ctx)
-	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleOrgDelete")
+	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJob")
 
-	org, err := h.orgRepo.GetOrg(ctx, authInfo, resourceGUID)
+	var (
+		org          repositories.OrgRecord
+		space        repositories.SpaceRecord
+		err          error
+		resourceName string
+		resourceType string
+		deletedAt    string
+	)
+
+	switch jobType {
+	case orgDeletePrefix:
+		org, err = h.orgRepo.GetOrg(ctx, authInfo, resourceGUID)
+		resourceName = org.Name
+		resourceType = "Org"
+		deletedAt = org.DeletedAt
+	case spaceDeletePrefix:
+		space, err = h.spaceRepo.GetSpace(ctx, authInfo, resourceGUID)
+		resourceName = space.Name
+		resourceType = "Space"
+		deletedAt = space.DeletedAt
+	}
+
 	if err != nil {
 		switch err.(type) {
 		case apierrors.NotFoundError, apierrors.ForbiddenError:
@@ -96,37 +120,36 @@ func (h *Job) handleOrgDelete(ctx context.Context, resourceGUID, jobGUID string)
 				jobGUID,
 				[]presenter.JobResponseError{},
 				presenter.StateComplete,
-				orgDeletePrefix,
+				jobType,
 				h.serverURL,
 			), nil
 		default:
 			return presenter.JobResponse{}, apierrors.LogAndReturn(
 				log,
-				apierrors.ForbiddenAsNotFound(err),
-				"failed to fetch org from Kubernetes",
-				"OrgGUID", resourceGUID,
+				err,
+				"failed to fetch "+resourceType+" from Kubernetes",
+				resourceType+"GUID", resourceGUID,
 			)
 		}
 	}
 
-	// This logic can be refactored into a generic helper for all resource types.
-	if org.DeletedAt == "" {
+	if deletedAt == "" {
 		return presenter.JobResponse{}, apierrors.LogAndReturn(
 			log,
 			apierrors.NewNotFoundError(fmt.Errorf("job %q not found", jobGUID), JobResourceType),
-			"org not marked for deletion",
-			"OrgGUID", resourceGUID,
+			resourceType+" not marked for deletion",
+			resourceType+"GUID", resourceGUID,
 		)
 	}
 
-	deletionTime, err := time.Parse(time.RFC3339Nano, org.DeletedAt)
+	deletionTime, err := time.Parse(time.RFC3339Nano, deletedAt)
 	if err != nil {
 		return presenter.JobResponse{}, apierrors.LogAndReturn(
 			log,
 			err,
-			"failed to parse org deletion time",
-			"name", org.Name,
-			"timestamp", org.DeletedAt,
+			"failed to parse "+resourceType+" deletion time",
+			"name", resourceName,
+			"timestamp", deletedAt,
 		)
 	}
 
@@ -135,7 +158,7 @@ func (h *Job) handleOrgDelete(ctx context.Context, resourceGUID, jobGUID string)
 			jobGUID,
 			[]presenter.JobResponseError{},
 			presenter.StateProcessing,
-			orgDeletePrefix,
+			jobType,
 			h.serverURL,
 		), nil
 	} else {
@@ -143,11 +166,11 @@ func (h *Job) handleOrgDelete(ctx context.Context, resourceGUID, jobGUID string)
 			jobGUID,
 			[]presenter.JobResponseError{{
 				Code:   10008,
-				Detail: fmt.Sprintf("CFOrg deletion timed out. Check for lingering resources in the %q namespace", org.GUID),
+				Detail: fmt.Sprintf("%s deletion timed out. Check for remaining resources in the %q namespace", resourceType, resourceGUID),
 				Title:  "CF-UnprocessableEntity",
 			}},
 			presenter.StateFailed,
-			orgDeletePrefix,
+			jobType,
 			h.serverURL,
 		), nil
 	}
