@@ -24,13 +24,15 @@ var _ = Describe("Job", func() {
 			jobGUID   string
 			req       *http.Request
 			orgRepo   *fake.OrgRepository
+			spaceRepo *fake.SpaceRepository
 		)
 
 		BeforeEach(func() {
 			spaceGUID = uuid.NewString()
 
 			orgRepo = new(fake.OrgRepository)
-			apiHandler := handlers.NewJob(*serverURL, orgRepo)
+			spaceRepo = new(fake.SpaceRepository)
+			apiHandler := handlers.NewJob(*serverURL, orgRepo, spaceRepo)
 			routerBuilder.LoadRoutes(apiHandler)
 		})
 
@@ -73,7 +75,6 @@ var _ = Describe("Job", func() {
 			)))
 		},
 			Entry("app delete", "app.delete", "cf-app-guid"),
-			Entry("space delete", "space.delete", "cf-space-guid"),
 			Entry("route delete", "route.delete", "cf-route-guid"),
 			Entry("domain delete", "domain.delete", "cf-domain-guid"),
 			Entry("role delete", "role.delete", "cf-role-guid"),
@@ -150,7 +151,7 @@ var _ = Describe("Job", func() {
 						MatchJSONPath("$.state", "FAILED"),
 						MatchJSONPath("$.errors", ConsistOf(map[string]interface{}{
 							"code":   float64(10008),
-							"detail": fmt.Sprintf("CFOrg deletion timed out. Check for lingering resources in the %q namespace", resourceGUID),
+							"detail": fmt.Sprintf("Org deletion timed out. Check for remaining resources in the %q namespace", resourceGUID),
 							"title":  "CF-UnprocessableEntity",
 						})),
 					)))
@@ -176,6 +177,108 @@ var _ = Describe("Job", func() {
 			When("the org has not been marked for deletion", func() {
 				BeforeEach(func() {
 					orgRepo.GetOrgReturns(repositories.OrgRecord{
+						GUID: resourceGUID,
+					}, nil)
+				})
+
+				It("returns a not found error", func() {
+					Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.errors[0].code", float64(10010)),
+						MatchJSONPath("$.errors[0].detail", "Job not found. Ensure it exists and you have access to it."),
+						MatchJSONPath("$.errors[0].title", "CF-ResourceNotFound"),
+					)))
+				})
+			})
+		})
+
+		Describe("space delete", func() {
+			const (
+				operation    = "space.delete"
+				resourceGUID = "cf-space-guid"
+			)
+
+			BeforeEach(func() {
+				jobGUID = operation + "~" + resourceGUID
+			})
+
+			When("the space deletion is in progress", func() {
+				BeforeEach(func() {
+					spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
+						GUID:      "cf-space-guid",
+						DeletedAt: time.Now().Format(time.RFC3339Nano),
+					}, nil)
+				})
+
+				It("returns a processing status", func() {
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", jobGUID),
+						MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+						MatchJSONPath("$.operation", operation),
+						MatchJSONPath("$.state", "PROCESSING"),
+						MatchJSONPath("$.errors", BeEmpty()),
+					)))
+				})
+			})
+
+			When("the space does not exist", func() {
+				BeforeEach(func() {
+					spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewNotFoundError(nil, repositories.SpaceResourceType))
+				})
+
+				It("returns a complete status", func() {
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", jobGUID),
+						MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+						MatchJSONPath("$.operation", operation),
+						MatchJSONPath("$.state", "COMPLETE"),
+						MatchJSONPath("$.errors", BeEmpty()),
+					)))
+				})
+			})
+
+			When("the space deletion times out", func() {
+				BeforeEach(func() {
+					spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
+						GUID:      "cf-space-guid",
+						DeletedAt: (time.Now().Add(-180 * time.Second)).Format(time.RFC3339Nano),
+					}, nil)
+				})
+
+				It("returns a failed status", func() {
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", jobGUID),
+						MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+						MatchJSONPath("$.operation", operation),
+						MatchJSONPath("$.state", "FAILED"),
+						MatchJSONPath("$.errors", ConsistOf(map[string]interface{}{
+							"code":   float64(10008),
+							"detail": fmt.Sprintf("Space deletion timed out. Check for remaining resources in the %q namespace", resourceGUID),
+							"title":  "CF-UnprocessableEntity",
+						})),
+					)))
+				})
+			})
+
+			When("the user does not have permission to see the space", func() {
+				BeforeEach(func() {
+					spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(nil, repositories.SpaceResourceType))
+				})
+
+				It("returns a complete status", func() {
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", jobGUID),
+						MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+						MatchJSONPath("$.operation", operation),
+						MatchJSONPath("$.state", "COMPLETE"),
+						MatchJSONPath("$.errors", BeEmpty()),
+					)))
+				})
+			})
+
+			When("the space has not been marked for deletion", func() {
+				BeforeEach(func() {
+					spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
 						GUID: resourceGUID,
 					}, nil)
 				})
