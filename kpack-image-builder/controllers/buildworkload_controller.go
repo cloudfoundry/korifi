@@ -466,7 +466,7 @@ func (r *BuildWorkloadReconciler) ensureKpackBuilder(ctx context.Context, log lo
 		},
 	}
 	_, err = ctrl.CreateOrUpdate(ctx, r.k8sClient, builder, func() error {
-		if err = controllerutil.SetControllerReference(buildWorkload, builder, r.scheme); err != nil {
+		if err = controllerutil.SetOwnerReference(buildWorkload, builder, r.scheme); err != nil {
 			log.Info("unable to set owner reference on Builder", "reason", err)
 			return err
 		}

@@ -258,6 +258,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(builder), builder)).To(Succeed())
 					g.Expect(builder.OwnerReferences).To(HaveLen(1))
 					g.Expect(builder.OwnerReferences[0].Name).To(Equal(buildWorkload.Name))
+					g.Expect(builder.OwnerReferences[0].Controller).To(BeNil())
 
 					g.Expect(builder.Spec.Tag).To(Equal("my.repository/my-prefix/builders-" + builderName))
 					g.Expect(builder.Spec.Stack).To(Equal(clusterBuilder.Spec.Stack))
@@ -284,6 +285,41 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(kpackImage.Spec.Builder.Namespace).To(Equal(buildWorkload.Namespace))
 					g.Expect(kpackImage.Spec.Builder.Kind).To(Equal("Builder"))
 				}).Should(Succeed())
+			})
+
+			When("there is another buildworkload referencing the same buildpacks", func() {
+				var (
+					anotherBuildworkloadGUID string
+					sharedBuilder            *buildv1alpha2.Builder
+				)
+
+				BeforeEach(func() {
+					anotherBuildworkloadGUID = PrefixedGUID("another-buildworkload-")
+					anotherBuildWorkload := buildWorkloadObject(anotherBuildworkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+					Expect(k8sClient.Create(ctx, anotherBuildWorkload)).To(Succeed())
+
+					sharedBuilder = &buildv1alpha2.Builder{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      controllers.ComputeBuilderName(anotherBuildWorkload.Spec.Buildpacks),
+							Namespace: namespaceGUID,
+						},
+					}
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(sharedBuilder), sharedBuilder)).To(Succeed())
+					}).Should(Succeed())
+				})
+
+				It("shares the kpack builder", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(sharedBuilder), sharedBuilder)).To(Succeed())
+						g.Expect(sharedBuilder.OwnerReferences).To(HaveLen(2))
+						g.Expect(
+							[]string{sharedBuilder.OwnerReferences[0].Name, sharedBuilder.OwnerReferences[1].Name},
+						).To(ConsistOf(
+							[]string{anotherBuildworkloadGUID, buildWorkloadGUID},
+						))
+					}).Should(Succeed())
+				})
 			})
 
 			When("a buildpack isn't in the default ClusterBuilder", func() {
