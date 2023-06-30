@@ -61,7 +61,7 @@ type App struct {
 	processRepo      CFProcessRepository
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
-	spaceRepo        SpaceRepository
+	spaceRepo        CFSpaceRepository
 	packageRepo      CFPackageRepository
 	requestValidator RequestValidator
 }
@@ -73,7 +73,7 @@ func NewApp(
 	processRepo CFProcessRepository,
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
-	spaceRepo SpaceRepository,
+	spaceRepo CFSpaceRepository,
 	packageRepo CFPackageRepository,
 	requestValidator RequestValidator,
 ) *App {

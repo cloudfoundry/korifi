@@ -5,29 +5,19 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-logr/logr"
-
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+
+	"github.com/go-logr/logr"
 )
 
 const (
 	SpaceManifestApplyPath = "/v3/spaces/{spaceGUID}/actions/apply_manifest"
 	SpaceManifestDiffPath  = "/v3/spaces/{spaceGUID}/manifest_diff"
 )
-
-//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
-
-type CFSpaceRepository interface {
-	CreateSpace(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
-	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
-	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
-	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
-}
 
 type SpaceManifest struct {
 	serverURL        url.URL

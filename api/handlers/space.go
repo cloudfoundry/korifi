@@ -5,14 +5,14 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-logr/logr"
-
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+
+	"github.com/go-logr/logr"
 )
 
 const (
@@ -20,9 +20,9 @@ const (
 	SpacePath  = "/v3/spaces/{guid}"
 )
 
-//counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
+//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
-type SpaceRepository interface {
+type CFSpaceRepository interface {
 	CreateSpace(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
 	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
 	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
@@ -31,12 +31,12 @@ type SpaceRepository interface {
 }
 
 type Space struct {
-	spaceRepo        SpaceRepository
+	spaceRepo        CFSpaceRepository
 	apiBaseURL       url.URL
 	requestValidator RequestValidator
 }
 
-func NewSpace(apiBaseURL url.URL, spaceRepo SpaceRepository, requestValidator RequestValidator) *Space {
+func NewSpace(apiBaseURL url.URL, spaceRepo CFSpaceRepository, requestValidator RequestValidator) *Space {
 	return &Space{
 		apiBaseURL:       apiBaseURL,
 		spaceRepo:        spaceRepo,

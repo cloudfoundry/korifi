@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
-type OrgRepository struct {
+type CFOrgRepository struct {
 	CreateOrgStub        func(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
 	createOrgMutex       sync.RWMutex
 	createOrgArgsForCall []struct {
@@ -54,6 +54,21 @@ type OrgRepository struct {
 		result1 repositories.OrgRecord
 		result2 error
 	}
+	GetOrgUnfilteredStub        func(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
+	getOrgUnfilteredMutex       sync.RWMutex
+	getOrgUnfilteredArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getOrgUnfilteredReturns struct {
+		result1 repositories.OrgRecord
+		result2 error
+	}
+	getOrgUnfilteredReturnsOnCall map[int]struct {
+		result1 repositories.OrgRecord
+		result2 error
+	}
 	ListOrgsStub        func(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	listOrgsMutex       sync.RWMutex
 	listOrgsArgsForCall []struct {
@@ -88,7 +103,7 @@ type OrgRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *OrgRepository) CreateOrg(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateOrgMessage) (repositories.OrgRecord, error) {
+func (fake *CFOrgRepository) CreateOrg(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateOrgMessage) (repositories.OrgRecord, error) {
 	fake.createOrgMutex.Lock()
 	ret, specificReturn := fake.createOrgReturnsOnCall[len(fake.createOrgArgsForCall)]
 	fake.createOrgArgsForCall = append(fake.createOrgArgsForCall, struct {
@@ -109,26 +124,26 @@ func (fake *OrgRepository) CreateOrg(arg1 context.Context, arg2 authorization.In
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *OrgRepository) CreateOrgCallCount() int {
+func (fake *CFOrgRepository) CreateOrgCallCount() int {
 	fake.createOrgMutex.RLock()
 	defer fake.createOrgMutex.RUnlock()
 	return len(fake.createOrgArgsForCall)
 }
 
-func (fake *OrgRepository) CreateOrgCalls(stub func(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)) {
+func (fake *CFOrgRepository) CreateOrgCalls(stub func(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)) {
 	fake.createOrgMutex.Lock()
 	defer fake.createOrgMutex.Unlock()
 	fake.CreateOrgStub = stub
 }
 
-func (fake *OrgRepository) CreateOrgArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateOrgMessage) {
+func (fake *CFOrgRepository) CreateOrgArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateOrgMessage) {
 	fake.createOrgMutex.RLock()
 	defer fake.createOrgMutex.RUnlock()
 	argsForCall := fake.createOrgArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *OrgRepository) CreateOrgReturns(result1 repositories.OrgRecord, result2 error) {
+func (fake *CFOrgRepository) CreateOrgReturns(result1 repositories.OrgRecord, result2 error) {
 	fake.createOrgMutex.Lock()
 	defer fake.createOrgMutex.Unlock()
 	fake.CreateOrgStub = nil
@@ -138,7 +153,7 @@ func (fake *OrgRepository) CreateOrgReturns(result1 repositories.OrgRecord, resu
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) CreateOrgReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
+func (fake *CFOrgRepository) CreateOrgReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
 	fake.createOrgMutex.Lock()
 	defer fake.createOrgMutex.Unlock()
 	fake.CreateOrgStub = nil
@@ -154,7 +169,7 @@ func (fake *OrgRepository) CreateOrgReturnsOnCall(i int, result1 repositories.Or
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) DeleteOrg(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteOrgMessage) error {
+func (fake *CFOrgRepository) DeleteOrg(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteOrgMessage) error {
 	fake.deleteOrgMutex.Lock()
 	ret, specificReturn := fake.deleteOrgReturnsOnCall[len(fake.deleteOrgArgsForCall)]
 	fake.deleteOrgArgsForCall = append(fake.deleteOrgArgsForCall, struct {
@@ -175,26 +190,26 @@ func (fake *OrgRepository) DeleteOrg(arg1 context.Context, arg2 authorization.In
 	return fakeReturns.result1
 }
 
-func (fake *OrgRepository) DeleteOrgCallCount() int {
+func (fake *CFOrgRepository) DeleteOrgCallCount() int {
 	fake.deleteOrgMutex.RLock()
 	defer fake.deleteOrgMutex.RUnlock()
 	return len(fake.deleteOrgArgsForCall)
 }
 
-func (fake *OrgRepository) DeleteOrgCalls(stub func(context.Context, authorization.Info, repositories.DeleteOrgMessage) error) {
+func (fake *CFOrgRepository) DeleteOrgCalls(stub func(context.Context, authorization.Info, repositories.DeleteOrgMessage) error) {
 	fake.deleteOrgMutex.Lock()
 	defer fake.deleteOrgMutex.Unlock()
 	fake.DeleteOrgStub = stub
 }
 
-func (fake *OrgRepository) DeleteOrgArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteOrgMessage) {
+func (fake *CFOrgRepository) DeleteOrgArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteOrgMessage) {
 	fake.deleteOrgMutex.RLock()
 	defer fake.deleteOrgMutex.RUnlock()
 	argsForCall := fake.deleteOrgArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *OrgRepository) DeleteOrgReturns(result1 error) {
+func (fake *CFOrgRepository) DeleteOrgReturns(result1 error) {
 	fake.deleteOrgMutex.Lock()
 	defer fake.deleteOrgMutex.Unlock()
 	fake.DeleteOrgStub = nil
@@ -203,7 +218,7 @@ func (fake *OrgRepository) DeleteOrgReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *OrgRepository) DeleteOrgReturnsOnCall(i int, result1 error) {
+func (fake *CFOrgRepository) DeleteOrgReturnsOnCall(i int, result1 error) {
 	fake.deleteOrgMutex.Lock()
 	defer fake.deleteOrgMutex.Unlock()
 	fake.DeleteOrgStub = nil
@@ -217,7 +232,7 @@ func (fake *OrgRepository) DeleteOrgReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *OrgRepository) GetOrg(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.OrgRecord, error) {
+func (fake *CFOrgRepository) GetOrg(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.OrgRecord, error) {
 	fake.getOrgMutex.Lock()
 	ret, specificReturn := fake.getOrgReturnsOnCall[len(fake.getOrgArgsForCall)]
 	fake.getOrgArgsForCall = append(fake.getOrgArgsForCall, struct {
@@ -238,26 +253,26 @@ func (fake *OrgRepository) GetOrg(arg1 context.Context, arg2 authorization.Info,
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *OrgRepository) GetOrgCallCount() int {
+func (fake *CFOrgRepository) GetOrgCallCount() int {
 	fake.getOrgMutex.RLock()
 	defer fake.getOrgMutex.RUnlock()
 	return len(fake.getOrgArgsForCall)
 }
 
-func (fake *OrgRepository) GetOrgCalls(stub func(context.Context, authorization.Info, string) (repositories.OrgRecord, error)) {
+func (fake *CFOrgRepository) GetOrgCalls(stub func(context.Context, authorization.Info, string) (repositories.OrgRecord, error)) {
 	fake.getOrgMutex.Lock()
 	defer fake.getOrgMutex.Unlock()
 	fake.GetOrgStub = stub
 }
 
-func (fake *OrgRepository) GetOrgArgsForCall(i int) (context.Context, authorization.Info, string) {
+func (fake *CFOrgRepository) GetOrgArgsForCall(i int) (context.Context, authorization.Info, string) {
 	fake.getOrgMutex.RLock()
 	defer fake.getOrgMutex.RUnlock()
 	argsForCall := fake.getOrgArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *OrgRepository) GetOrgReturns(result1 repositories.OrgRecord, result2 error) {
+func (fake *CFOrgRepository) GetOrgReturns(result1 repositories.OrgRecord, result2 error) {
 	fake.getOrgMutex.Lock()
 	defer fake.getOrgMutex.Unlock()
 	fake.GetOrgStub = nil
@@ -267,7 +282,7 @@ func (fake *OrgRepository) GetOrgReturns(result1 repositories.OrgRecord, result2
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) GetOrgReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
+func (fake *CFOrgRepository) GetOrgReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
 	fake.getOrgMutex.Lock()
 	defer fake.getOrgMutex.Unlock()
 	fake.GetOrgStub = nil
@@ -283,7 +298,73 @@ func (fake *OrgRepository) GetOrgReturnsOnCall(i int, result1 repositories.OrgRe
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) ListOrgs(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListOrgsMessage) ([]repositories.OrgRecord, error) {
+func (fake *CFOrgRepository) GetOrgUnfiltered(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.OrgRecord, error) {
+	fake.getOrgUnfilteredMutex.Lock()
+	ret, specificReturn := fake.getOrgUnfilteredReturnsOnCall[len(fake.getOrgUnfilteredArgsForCall)]
+	fake.getOrgUnfilteredArgsForCall = append(fake.getOrgUnfilteredArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetOrgUnfilteredStub
+	fakeReturns := fake.getOrgUnfilteredReturns
+	fake.recordInvocation("GetOrgUnfiltered", []interface{}{arg1, arg2, arg3})
+	fake.getOrgUnfilteredMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFOrgRepository) GetOrgUnfilteredCallCount() int {
+	fake.getOrgUnfilteredMutex.RLock()
+	defer fake.getOrgUnfilteredMutex.RUnlock()
+	return len(fake.getOrgUnfilteredArgsForCall)
+}
+
+func (fake *CFOrgRepository) GetOrgUnfilteredCalls(stub func(context.Context, authorization.Info, string) (repositories.OrgRecord, error)) {
+	fake.getOrgUnfilteredMutex.Lock()
+	defer fake.getOrgUnfilteredMutex.Unlock()
+	fake.GetOrgUnfilteredStub = stub
+}
+
+func (fake *CFOrgRepository) GetOrgUnfilteredArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getOrgUnfilteredMutex.RLock()
+	defer fake.getOrgUnfilteredMutex.RUnlock()
+	argsForCall := fake.getOrgUnfilteredArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFOrgRepository) GetOrgUnfilteredReturns(result1 repositories.OrgRecord, result2 error) {
+	fake.getOrgUnfilteredMutex.Lock()
+	defer fake.getOrgUnfilteredMutex.Unlock()
+	fake.GetOrgUnfilteredStub = nil
+	fake.getOrgUnfilteredReturns = struct {
+		result1 repositories.OrgRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFOrgRepository) GetOrgUnfilteredReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
+	fake.getOrgUnfilteredMutex.Lock()
+	defer fake.getOrgUnfilteredMutex.Unlock()
+	fake.GetOrgUnfilteredStub = nil
+	if fake.getOrgUnfilteredReturnsOnCall == nil {
+		fake.getOrgUnfilteredReturnsOnCall = make(map[int]struct {
+			result1 repositories.OrgRecord
+			result2 error
+		})
+	}
+	fake.getOrgUnfilteredReturnsOnCall[i] = struct {
+		result1 repositories.OrgRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFOrgRepository) ListOrgs(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListOrgsMessage) ([]repositories.OrgRecord, error) {
 	fake.listOrgsMutex.Lock()
 	ret, specificReturn := fake.listOrgsReturnsOnCall[len(fake.listOrgsArgsForCall)]
 	fake.listOrgsArgsForCall = append(fake.listOrgsArgsForCall, struct {
@@ -304,26 +385,26 @@ func (fake *OrgRepository) ListOrgs(arg1 context.Context, arg2 authorization.Inf
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *OrgRepository) ListOrgsCallCount() int {
+func (fake *CFOrgRepository) ListOrgsCallCount() int {
 	fake.listOrgsMutex.RLock()
 	defer fake.listOrgsMutex.RUnlock()
 	return len(fake.listOrgsArgsForCall)
 }
 
-func (fake *OrgRepository) ListOrgsCalls(stub func(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)) {
+func (fake *CFOrgRepository) ListOrgsCalls(stub func(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)) {
 	fake.listOrgsMutex.Lock()
 	defer fake.listOrgsMutex.Unlock()
 	fake.ListOrgsStub = stub
 }
 
-func (fake *OrgRepository) ListOrgsArgsForCall(i int) (context.Context, authorization.Info, repositories.ListOrgsMessage) {
+func (fake *CFOrgRepository) ListOrgsArgsForCall(i int) (context.Context, authorization.Info, repositories.ListOrgsMessage) {
 	fake.listOrgsMutex.RLock()
 	defer fake.listOrgsMutex.RUnlock()
 	argsForCall := fake.listOrgsArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *OrgRepository) ListOrgsReturns(result1 []repositories.OrgRecord, result2 error) {
+func (fake *CFOrgRepository) ListOrgsReturns(result1 []repositories.OrgRecord, result2 error) {
 	fake.listOrgsMutex.Lock()
 	defer fake.listOrgsMutex.Unlock()
 	fake.ListOrgsStub = nil
@@ -333,7 +414,7 @@ func (fake *OrgRepository) ListOrgsReturns(result1 []repositories.OrgRecord, res
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) ListOrgsReturnsOnCall(i int, result1 []repositories.OrgRecord, result2 error) {
+func (fake *CFOrgRepository) ListOrgsReturnsOnCall(i int, result1 []repositories.OrgRecord, result2 error) {
 	fake.listOrgsMutex.Lock()
 	defer fake.listOrgsMutex.Unlock()
 	fake.ListOrgsStub = nil
@@ -349,7 +430,7 @@ func (fake *OrgRepository) ListOrgsReturnsOnCall(i int, result1 []repositories.O
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) PatchOrgMetadata(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error) {
+func (fake *CFOrgRepository) PatchOrgMetadata(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error) {
 	fake.patchOrgMetadataMutex.Lock()
 	ret, specificReturn := fake.patchOrgMetadataReturnsOnCall[len(fake.patchOrgMetadataArgsForCall)]
 	fake.patchOrgMetadataArgsForCall = append(fake.patchOrgMetadataArgsForCall, struct {
@@ -370,26 +451,26 @@ func (fake *OrgRepository) PatchOrgMetadata(arg1 context.Context, arg2 authoriza
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *OrgRepository) PatchOrgMetadataCallCount() int {
+func (fake *CFOrgRepository) PatchOrgMetadataCallCount() int {
 	fake.patchOrgMetadataMutex.RLock()
 	defer fake.patchOrgMetadataMutex.RUnlock()
 	return len(fake.patchOrgMetadataArgsForCall)
 }
 
-func (fake *OrgRepository) PatchOrgMetadataCalls(stub func(context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error)) {
+func (fake *CFOrgRepository) PatchOrgMetadataCalls(stub func(context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error)) {
 	fake.patchOrgMetadataMutex.Lock()
 	defer fake.patchOrgMetadataMutex.Unlock()
 	fake.PatchOrgMetadataStub = stub
 }
 
-func (fake *OrgRepository) PatchOrgMetadataArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) {
+func (fake *CFOrgRepository) PatchOrgMetadataArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) {
 	fake.patchOrgMetadataMutex.RLock()
 	defer fake.patchOrgMetadataMutex.RUnlock()
 	argsForCall := fake.patchOrgMetadataArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *OrgRepository) PatchOrgMetadataReturns(result1 repositories.OrgRecord, result2 error) {
+func (fake *CFOrgRepository) PatchOrgMetadataReturns(result1 repositories.OrgRecord, result2 error) {
 	fake.patchOrgMetadataMutex.Lock()
 	defer fake.patchOrgMetadataMutex.Unlock()
 	fake.PatchOrgMetadataStub = nil
@@ -399,7 +480,7 @@ func (fake *OrgRepository) PatchOrgMetadataReturns(result1 repositories.OrgRecor
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) PatchOrgMetadataReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
+func (fake *CFOrgRepository) PatchOrgMetadataReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
 	fake.patchOrgMetadataMutex.Lock()
 	defer fake.patchOrgMetadataMutex.Unlock()
 	fake.PatchOrgMetadataStub = nil
@@ -415,7 +496,7 @@ func (fake *OrgRepository) PatchOrgMetadataReturnsOnCall(i int, result1 reposito
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) Invocations() map[string][][]interface{} {
+func (fake *CFOrgRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.createOrgMutex.RLock()
@@ -424,6 +505,8 @@ func (fake *OrgRepository) Invocations() map[string][][]interface{} {
 	defer fake.deleteOrgMutex.RUnlock()
 	fake.getOrgMutex.RLock()
 	defer fake.getOrgMutex.RUnlock()
+	fake.getOrgUnfilteredMutex.RLock()
+	defer fake.getOrgUnfilteredMutex.RUnlock()
 	fake.listOrgsMutex.RLock()
 	defer fake.listOrgsMutex.RUnlock()
 	fake.patchOrgMetadataMutex.RLock()
@@ -435,7 +518,7 @@ func (fake *OrgRepository) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *OrgRepository) recordInvocation(key string, args []interface{}) {
+func (fake *CFOrgRepository) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -447,4 +530,4 @@ func (fake *OrgRepository) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ handlers.CFOrgRepository = new(OrgRepository)
+var _ handlers.CFOrgRepository = new(CFOrgRepository)

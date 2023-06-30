@@ -24,7 +24,7 @@ var _ = Describe("Route", func() {
 		routeRepo        *fake.CFRouteRepository
 		domainRepo       *fake.CFDomainRepository
 		appRepo          *fake.CFAppRepository
-		spaceRepo        *fake.SpaceRepository
+		spaceRepo        *fake.CFSpaceRepository
 		requestValidator *fake.RequestValidator
 
 		requestMethod string
@@ -63,7 +63,7 @@ var _ = Describe("Route", func() {
 
 		appRepo = new(fake.CFAppRepository)
 
-		spaceRepo = new(fake.SpaceRepository)
+		spaceRepo = new(fake.CFSpaceRepository)
 		spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
 			Name: "test-space-guid",
 		}, nil)

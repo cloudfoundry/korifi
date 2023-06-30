@@ -343,9 +343,53 @@ var _ = Describe("OrgRepository", func() {
 			})
 		})
 
+		When("the user does not have a role binding in the org", func() {
+			It("errors", func() {
+				_, err := orgRepo.GetOrg(ctx, authInfo, "the-org")
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
 		When("the org isn't found", func() {
 			It("errors", func() {
 				_, err := orgRepo.GetOrg(ctx, authInfo, "non-existent-org")
+				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
+
+	Describe("GetOrgUnfiltered", func() {
+		var cfOrg *korifiv1alpha1.CFOrg
+
+		BeforeEach(func() {
+			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("the-org"))
+			Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
+				cfOrg.Labels = map[string]string{
+					"test-label-key": "test-label-val",
+				}
+				cfOrg.Annotations = map[string]string{
+					"test-annotation-key": "test-annotation-val",
+				}
+			})).To(Succeed())
+		})
+
+		When("the org exists", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+			})
+
+			It("gets the org", func() {
+				orgRecord, err := orgRepo.GetOrgUnfiltered(ctx, authInfo, cfOrg.Name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(orgRecord.Name).To(Equal(cfOrg.Spec.DisplayName))
+				Expect(orgRecord.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
+			})
+		})
+
+		When("the org isn't found", func() {
+			It("errors", func() {
+				_, err := orgRepo.GetOrgUnfiltered(ctx, authInfo, "non-existent-org")
 				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})

@@ -34,7 +34,7 @@ var _ = Describe("App", func() {
 		processRepo      *fake.CFProcessRepository
 		routeRepo        *fake.CFRouteRepository
 		domainRepo       *fake.CFDomainRepository
-		spaceRepo        *fake.SpaceRepository
+		spaceRepo        *fake.CFSpaceRepository
 		packageRepo      *fake.CFPackageRepository
 		requestValidator *fake.RequestValidator
 		req              *http.Request
@@ -48,7 +48,7 @@ var _ = Describe("App", func() {
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
-		spaceRepo = new(fake.SpaceRepository)
+		spaceRepo = new(fake.CFSpaceRepository)
 		packageRepo = new(fake.CFPackageRepository)
 		requestValidator = new(fake.RequestValidator)
 

@@ -72,7 +72,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	case appDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
 		jobResponse = presenter.ForJob(jobGUID, []presenter.JobResponseError{}, presenter.StateComplete, jobType, h.serverURL)
 	case orgDeletePrefix, spaceDeletePrefix:
-		jobResponse, err = h.handleDeleteJob(r.Context(), resourceGUID, jobGUID, jobType)
+		jobResponse, err = h.handleDeleteJob(r.Context(), jobType, resourceGUID)
 		if err != nil {
 			return nil, err
 		}
@@ -87,51 +87,64 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
-func (h *Job) handleDeleteJob(ctx context.Context, resourceGUID, jobGUID, jobType string) (presenter.JobResponse, error) {
+func (h *Job) handleDeleteJob(ctx context.Context, jobType, resourceGUID string) (presenter.JobResponse, error) {
 	authInfo, _ := authorization.InfoFromContext(ctx)
+	jobGUID := jobType + presenter.JobGUIDDelimiter + resourceGUID
 	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJob")
 
 	var (
 		org          repositories.OrgRecord
 		space        repositories.SpaceRecord
 		err          error
-		resourceName string
 		resourceType string
 		deletedAt    string
 	)
 
-	switch jobType {
-	case orgDeletePrefix:
-		org, err = h.orgRepo.GetOrg(ctx, authInfo, resourceGUID)
-		resourceName = org.Name
-		resourceType = "Org"
-		deletedAt = org.DeletedAt
-	case spaceDeletePrefix:
-		space, err = h.spaceRepo.GetSpace(ctx, authInfo, resourceGUID)
-		resourceName = space.Name
-		resourceType = "Space"
-		deletedAt = space.DeletedAt
+	for retries := 0; retries < 40; retries++ {
+		switch jobType {
+		case orgDeletePrefix:
+			org, err = h.orgRepo.GetOrgUnfiltered(ctx, authInfo, resourceGUID)
+			resourceType = "Org"
+			deletedAt = org.DeletedAt
+		case spaceDeletePrefix:
+			space, err = h.spaceRepo.GetSpace(ctx, authInfo, resourceGUID)
+			resourceType = "Space"
+			deletedAt = space.DeletedAt
+		}
+
+		if err != nil {
+			switch err.(type) {
+			case apierrors.NotFoundError, apierrors.ForbiddenError:
+				return presenter.ForJob(jobGUID,
+					[]presenter.JobResponseError{},
+					presenter.StateComplete,
+					jobType,
+					h.serverURL,
+				), nil
+			default:
+				return presenter.JobResponse{}, apierrors.LogAndReturn(
+					log,
+					err,
+					"failed to fetch "+resourceType+" from Kubernetes",
+					resourceType+"GUID", resourceGUID,
+				)
+			}
+		}
+
+		if deletedAt != "" {
+			break
+		}
+
+		log.V(1).Info("Waiting for deletion timestamp", resourceType+"GUID", resourceGUID)
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	if err != nil {
-		switch err.(type) {
-		case apierrors.NotFoundError, apierrors.ForbiddenError:
-			return presenter.ForJob(
-				jobGUID,
-				[]presenter.JobResponseError{},
-				presenter.StateComplete,
-				jobType,
-				h.serverURL,
-			), nil
-		default:
-			return presenter.JobResponse{}, apierrors.LogAndReturn(
-				log,
-				err,
-				"failed to fetch "+resourceType+" from Kubernetes",
-				resourceType+"GUID", resourceGUID,
-			)
-		}
-	}
+	return h.handleDeleteJobResponse(ctx, deletedAt, jobType, resourceGUID, resourceType)
+}
+
+func (h *Job) handleDeleteJobResponse(ctx context.Context, deletedAt, jobType, resourceGUID, resourceType string) (presenter.JobResponse, error) {
+	jobGUID := jobType + presenter.JobGUIDDelimiter + resourceGUID
+	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJobResponse")
 
 	if deletedAt == "" {
 		return presenter.JobResponse{}, apierrors.LogAndReturn(
@@ -147,8 +160,8 @@ func (h *Job) handleDeleteJob(ctx context.Context, resourceGUID, jobGUID, jobTyp
 		return presenter.JobResponse{}, apierrors.LogAndReturn(
 			log,
 			err,
-			"failed to parse "+resourceType+" deletion time",
-			"name", resourceName,
+			"failed to parse deletion time",
+			resourceType+"GUID", resourceGUID,
 			"timestamp", deletedAt,
 		)
 	}
@@ -161,19 +174,19 @@ func (h *Job) handleDeleteJob(ctx context.Context, resourceGUID, jobGUID, jobTyp
 			jobType,
 			h.serverURL,
 		), nil
-	} else {
-		return presenter.ForJob(
-			jobGUID,
-			[]presenter.JobResponseError{{
-				Code:   10008,
-				Detail: fmt.Sprintf("%s deletion timed out. Check for remaining resources in the %q namespace", resourceType, resourceGUID),
-				Title:  "CF-UnprocessableEntity",
-			}},
-			presenter.StateFailed,
-			jobType,
-			h.serverURL,
-		), nil
 	}
+
+	return presenter.ForJob(
+		jobGUID,
+		[]presenter.JobResponseError{{
+			Code:   10008,
+			Detail: fmt.Sprintf("%s deletion timed out. Check for remaining resources in the %q namespace", resourceType, resourceGUID),
+			Title:  "CF-UnprocessableEntity",
+		}},
+		presenter.StateFailed,
+		jobType,
+		h.serverURL,
+	), nil
 }
 
 func (h *Job) UnauthenticatedRoutes() []routing.Route {
