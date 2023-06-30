@@ -22,7 +22,7 @@ import (
 var _ = Describe("Org", func() {
 	var (
 		apiHandler       *handlers.Org
-		orgRepo          *fake.OrgRepository
+		orgRepo          *fake.CFOrgRepository
 		now              string
 		domainRepo       *fake.CFDomainRepository
 		requestValidator *fake.RequestValidator
@@ -31,7 +31,7 @@ var _ = Describe("Org", func() {
 	BeforeEach(func() {
 		now = time.Unix(1631892190, 0).UTC().Format(time.RFC3339) // 2021-09-17T15:23:10Z
 
-		orgRepo = new(fake.OrgRepository)
+		orgRepo = new(fake.CFOrgRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		requestValidator = new(fake.RequestValidator)
 

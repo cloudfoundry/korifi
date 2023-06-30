@@ -40,7 +40,7 @@ type Route struct {
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
 	appRepo          CFAppRepository
-	spaceRepo        SpaceRepository
+	spaceRepo        CFSpaceRepository
 	requestValidator RequestValidator
 }
 
@@ -49,7 +49,7 @@ func NewRoute(
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	appRepo CFAppRepository,
-	spaceRepo SpaceRepository,
+	spaceRepo CFSpaceRepository,
 	requestValidator RequestValidator,
 ) *Route {
 	return &Route{

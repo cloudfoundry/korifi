@@ -26,12 +26,13 @@ const (
 	OrgDefaultDomainPath = "/v3/organizations/{guid}/domains/default"
 )
 
-//counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
+//counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 type CFOrgRepository interface {
 	CreateOrg(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
 	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
 	GetOrg(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
+	GetOrgUnfiltered(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
 	PatchOrgMetadata(context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error)
 }
 

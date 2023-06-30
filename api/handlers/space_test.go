@@ -21,7 +21,7 @@ import (
 var _ = Describe("Space", func() {
 	var (
 		apiHandler       *handlers.Space
-		spaceRepo        *fake.SpaceRepository
+		spaceRepo        *fake.CFSpaceRepository
 		requestValidator *fake.RequestValidator
 		requestMethod    string
 		requestPath      string
@@ -31,7 +31,7 @@ var _ = Describe("Space", func() {
 		requestPath = "/v3/spaces"
 
 		requestValidator = new(fake.RequestValidator)
-		spaceRepo = new(fake.SpaceRepository)
+		spaceRepo = new(fake.CFSpaceRepository)
 		spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
 			Name:             "the-space",
 			GUID:             "the-space-guid",

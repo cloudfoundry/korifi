@@ -36,14 +36,14 @@ type CFServiceInstanceRepository interface {
 type ServiceInstance struct {
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
-	spaceRepo           SpaceRepository
+	spaceRepo           CFSpaceRepository
 	requestValidator    RequestValidator
 }
 
 func NewServiceInstance(
 	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
-	spaceRepo SpaceRepository,
+	spaceRepo CFSpaceRepository,
 	requestValidator RequestValidator,
 ) *ServiceInstance {
 	return &ServiceInstance{

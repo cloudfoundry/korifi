@@ -21,7 +21,7 @@ import (
 var _ = Describe("ServiceInstance", func() {
 	var (
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
-		spaceRepo           *fake.SpaceRepository
+		spaceRepo           *fake.CFSpaceRepository
 		requestValidator    *fake.RequestValidator
 
 		reqMethod string
@@ -35,7 +35,7 @@ var _ = Describe("ServiceInstance", func() {
 			SpaceGUID: "space-guid",
 		}, nil)
 
-		spaceRepo = new(fake.SpaceRepository)
+		spaceRepo = new(fake.CFSpaceRepository)
 
 		requestValidator = new(fake.RequestValidator)
 

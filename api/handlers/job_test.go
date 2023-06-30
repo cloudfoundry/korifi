@@ -23,15 +23,15 @@ var _ = Describe("Job", func() {
 			spaceGUID string
 			jobGUID   string
 			req       *http.Request
-			orgRepo   *fake.OrgRepository
-			spaceRepo *fake.SpaceRepository
+			orgRepo   *fake.CFOrgRepository
+			spaceRepo *fake.CFSpaceRepository
 		)
 
 		BeforeEach(func() {
 			spaceGUID = uuid.NewString()
 
-			orgRepo = new(fake.OrgRepository)
-			spaceRepo = new(fake.SpaceRepository)
+			orgRepo = new(fake.CFOrgRepository)
+			spaceRepo = new(fake.CFSpaceRepository)
 			apiHandler := handlers.NewJob(*serverURL, orgRepo, spaceRepo)
 			routerBuilder.LoadRoutes(apiHandler)
 		})
@@ -102,7 +102,7 @@ var _ = Describe("Job", func() {
 
 			When("the org deletion is in progress", func() {
 				BeforeEach(func() {
-					orgRepo.GetOrgReturns(repositories.OrgRecord{
+					orgRepo.GetOrgUnfilteredReturns(repositories.OrgRecord{
 						GUID:      "cf-org-guid",
 						DeletedAt: time.Now().Format(time.RFC3339Nano),
 					}, nil)
@@ -121,7 +121,7 @@ var _ = Describe("Job", func() {
 
 			When("the org does not exist", func() {
 				BeforeEach(func() {
-					orgRepo.GetOrgReturns(repositories.OrgRecord{}, apierrors.NewNotFoundError(nil, repositories.OrgResourceType))
+					orgRepo.GetOrgUnfilteredReturns(repositories.OrgRecord{}, apierrors.NewNotFoundError(nil, repositories.OrgResourceType))
 				})
 
 				It("returns a complete status", func() {
@@ -137,7 +137,7 @@ var _ = Describe("Job", func() {
 
 			When("the org deletion times out", func() {
 				BeforeEach(func() {
-					orgRepo.GetOrgReturns(repositories.OrgRecord{
+					orgRepo.GetOrgUnfilteredReturns(repositories.OrgRecord{
 						GUID:      "cf-org-guid",
 						DeletedAt: (time.Now().Add(-180 * time.Second)).Format(time.RFC3339Nano),
 					}, nil)
@@ -160,7 +160,7 @@ var _ = Describe("Job", func() {
 
 			When("the user does not have permission to see the org", func() {
 				BeforeEach(func() {
-					orgRepo.GetOrgReturns(repositories.OrgRecord{}, apierrors.NewForbiddenError(nil, repositories.OrgResourceType))
+					orgRepo.GetOrgUnfilteredReturns(repositories.OrgRecord{}, apierrors.NewForbiddenError(nil, repositories.OrgResourceType))
 				})
 
 				It("returns a complete status", func() {
@@ -176,7 +176,7 @@ var _ = Describe("Job", func() {
 
 			When("the org has not been marked for deletion", func() {
 				BeforeEach(func() {
-					orgRepo.GetOrgReturns(repositories.OrgRecord{
+					orgRepo.GetOrgUnfilteredReturns(repositories.OrgRecord{
 						GUID: resourceGUID,
 					}, nil)
 				})

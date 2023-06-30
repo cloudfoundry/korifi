@@ -205,6 +205,21 @@ func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID s
 	return orgRecords[0], nil
 }
 
+func (r *OrgRepo) GetOrgUnfiltered(ctx context.Context, info authorization.Info, orgGUID string) (OrgRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(info)
+	if err != nil {
+		return OrgRecord{}, fmt.Errorf("get-org failed to build user client: %w", err)
+	}
+
+	cfOrg := new(korifiv1alpha1.CFOrg)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: orgGUID}, cfOrg)
+	if err != nil {
+		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
+	}
+
+	return cfOrgToOrgRecord(*cfOrg), nil
+}
+
 func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, message DeleteOrgMessage) error {
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {

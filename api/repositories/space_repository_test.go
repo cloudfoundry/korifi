@@ -412,14 +412,26 @@ var _ = Describe("SpaceRepository", func() {
 			cfOrg = createOrgWithCleanup(ctx, "the-org")
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
 			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, "the-space")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 		})
 
-		It("gets the space resource", func() {
-			spaceRecord, err := spaceRepo.GetSpace(ctx, authInfo, cfSpace.Name)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(spaceRecord.Name).To(Equal("the-space"))
-			Expect(spaceRecord.OrganizationGUID).To(Equal(cfOrg.Name))
+		When("the user has a role binding in the space", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+			})
+
+			It("gets the space resource", func() {
+				spaceRecord, err := spaceRepo.GetSpace(ctx, authInfo, cfSpace.Name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(spaceRecord.Name).To(Equal("the-space"))
+				Expect(spaceRecord.OrganizationGUID).To(Equal(cfOrg.Name))
+			})
+		})
+
+		When("the user does not have a role binding in the space", func() {
+			It("errors", func() {
+				_, err := spaceRepo.GetSpace(ctx, authInfo, "the-space")
+				Expect(err).To(MatchError(ContainSubstring("not found")))
+			})
 		})
 
 		When("the space doesn't exist", func() {
