@@ -37,6 +37,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -163,6 +164,8 @@ func filterBuildWorkloads(object client.Object) bool {
 //+kubebuilder:rbac:groups=kpack.io,resources=images/status,verbs=get;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=builds,verbs=deletecollection
 //+kubebuilder:rbac:groups=kpack.io,resources=builders,verbs=get;list;watch;create;patch;update
+
+//+kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=list;watch
 
 //+kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
@@ -651,10 +654,33 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 
 	cacheSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", r.controllerConfig.BuildCacheMB))
 	if err != nil {
-		log.Error(err, "failed to parse image cache size")
+		log.Info("failed to parse image cache size", "reason", err)
 		return err
 	}
+
+	recreateImage := false
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &desiredKpackImage, func() error {
+		if desiredKpackImage.Spec.Cache != nil &&
+			desiredKpackImage.Spec.Cache.Volume != nil &&
+			desiredKpackImage.Spec.Cache.Volume.Size != nil &&
+			!desiredKpackImage.Spec.Cache.Volume.Size.Equal(cacheSize) {
+			// Our new request wants to resize the PV on the existing Image. Fetch the storage class to see if that is allowed.
+			scName := desiredKpackImage.Spec.Cache.Volume.StorageClassName
+			scResizable, err2 := r.isResizable(ctx, log, scName)
+			if err2 != nil {
+				return err2
+			}
+			if !scResizable {
+				// Signal to recreate the Image with an error
+				log.V(1).Info("WARNING: storage class does not support PVC resize. Recreating.",
+					"storageClassName", scName,
+					"desiredSize", cacheSize.String(),
+					"actualSize", desiredKpackImage.Spec.Cache.Volume.Size.String())
+				recreateImage = true
+				return nil
+			}
+		}
+
 		desiredKpackImage.Labels = map[string]string{
 			BuildWorkloadLabelKey: buildWorkload.Name,
 		}
@@ -703,6 +729,17 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 		return err
 	}
 
+	if recreateImage {
+		// note: we don't need to explicitly requeue because we have a watch on the Image, so deleting it will trigger a requeue of its owner
+		log.V(1).Info("removing kpack image and re-reconciling", "imageName", desiredKpackImage.Name, "imageNamespace", desiredKpackImage.Namespace)
+		err = r.k8sClient.Delete(ctx, &desiredKpackImage)
+		if err != nil {
+			log.Info("failed to delete kpack image on cache resize", "reason", err)
+			return err
+		}
+		return nil
+	}
+
 	meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
 		Type:               korifiv1alpha1.SucceededConditionType,
 		Status:             metav1.ConditionUnknown,
@@ -714,6 +751,26 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 	buildWorkload.Labels[ImageGenerationKey] = strconv.FormatInt(desiredKpackImage.Generation, 10)
 
 	return nil
+}
+
+func (r *BuildWorkloadReconciler) isResizable(ctx context.Context, log logr.Logger, scName string) (bool, error) {
+	scList := storagev1.StorageClassList{}
+	if listErr := r.k8sClient.List(ctx, &scList); listErr != nil {
+		log.Info("unable to list storage classes", "reason", listErr)
+		return false, listErr
+	}
+	for _, sc := range scList.Items {
+		defaultVal, exists := sc.Annotations["storageclass.kubernetes.io/is-default-class"]
+		if sc.Name == scName || (scName == "" && exists && defaultVal == "true") {
+			if sc.AllowVolumeExpansion == nil {
+				return false, nil
+			}
+			return *sc.AllowVolumeExpansion, nil
+		}
+	}
+
+	log.Info("unable to locate matching or default storage class", "storageClassName", scName)
+	return false, nil
 }
 
 func (r *BuildWorkloadReconciler) generateDropletStatus(ctx context.Context, kpackBuild *buildv1alpha2.Build, imagePullSecrets []corev1.LocalObjectReference) (*korifiv1alpha1.BuildDropletStatus, error) {
@@ -781,20 +838,20 @@ func (r *BuildWorkloadReconciler) finalize(ctx context.Context, log logr.Logger,
 
 	lastBuildWorkload, err := r.isLastBuildWorkload(ctx, buildWorkload)
 	if err != nil {
-		log.Error(err, "failed to check for last build workloads")
+		log.Info("failed to check for last build workloads", "reason", err)
 		return ctrl.Result{}, err
 	}
 
 	if lastBuildWorkload {
 		err = r.deleteBuildsForBuildWorkload(ctx, buildWorkload)
 		if err != nil {
-			log.Error(err, "failed to delete builds for build workload")
+			log.Info("failed to delete builds for build workload", "reason", err)
 			return ctrl.Result{}, err
 		}
 
 		hasRemainingBuilds, err := r.hasRemainingBuilds(ctx, buildWorkload)
 		if err != nil {
-			log.Error(err, "failed to check for remaining builds for build workload")
+			log.Info("failed to check for remaining builds for build workload", "reason", err)
 			return ctrl.Result{}, err
 		}
 

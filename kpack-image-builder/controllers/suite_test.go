@@ -22,10 +22,20 @@ import (
 	"testing"
 	"time"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,13 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -176,6 +179,15 @@ var _ = BeforeSuite(func() {
 		err = k8sManager.Start(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	}()
+
+	// create a test storage class that can't be resized
+	Expect(k8sClient.Create(ctx, &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "non-resizable-class",
+		},
+		Provisioner:          "some-fancy-provisioner",
+		AllowVolumeExpansion: tools.PtrTo(false),
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {
