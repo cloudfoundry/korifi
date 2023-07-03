@@ -43,9 +43,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		reconcilerName            string
 		buildpacks                []string
 		imageRepoCreatorCallCount int
+		expectedCacheVolumeSize   string
 	)
 
 	BeforeEach(func() {
+		expectedCacheVolumeSize = "1024Mi"
 		reconcilerName = "kpack-image-builder"
 		namespaceGUID = PrefixedGUID("namespace")
 		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}})).To(Succeed())
@@ -149,6 +151,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		})
 
 		CheckInitialization := func() {
+			GinkgoHelper()
+
 			It("reconciles the kpack.Image", func() {
 				Eventually(func(g Gomega) {
 					kpackImage := new(buildv1alpha2.Image)
@@ -161,7 +165,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 					g.Expect(kpackImage.Spec.Builder.Kind).To(Equal("ClusterBuilder"))
 					g.Expect(kpackImage.Spec.Builder.Name).To(Equal("cf-kpack-builder"))
-					g.Expect(kpackImage.Spec.Cache.Volume.Size.Equal(resource.MustParse("1024Mi"))).To(BeTrue())
+					g.Expect(kpackImage.Spec.Cache.Volume.Size.Equal(resource.MustParse(expectedCacheVolumeSize))).To(BeTrue())
 				}).Should(Succeed())
 			})
 
@@ -215,6 +219,54 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			CheckInitialization()
 		})
 
+		When("kpack image exists with a different cache size and the storage class doesn't allow resize", func() {
+			var originalImageUID types.UID
+			BeforeEach(func() {
+				oldSize := resource.MustParse("512Mi")
+				Expect(k8sClient.Create(ctx, &buildv1alpha2.Image{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-guid",
+						Namespace: namespaceGUID,
+						Labels: map[string]string{
+							controllers.BuildWorkloadLabelKey: buildWorkloadGUID,
+						},
+					},
+					Spec: buildv1alpha2.ImageSpec{
+						Tag: "my-tag-string",
+						Builder: corev1.ObjectReference{
+							Name: "my-builder",
+						},
+						ServiceAccountName: "my-service-account",
+						Source: corev1alpha1.SourceConfig{
+							Registry: &corev1alpha1.Registry{
+								Image:            "not-an-image",
+								ImagePullSecrets: nil,
+							},
+						},
+						Cache: &buildv1alpha2.ImageCacheConfig{
+							Volume: &buildv1alpha2.ImagePersistentVolumeCache{Size: &oldSize, StorageClassName: "non-resizable-class"},
+						},
+					},
+				})).To(Succeed())
+				Eventually(func(g Gomega) {
+					kpackImage := new(buildv1alpha2.Image)
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}, kpackImage)).To(Succeed())
+					originalImageUID = kpackImage.UID
+					g.Expect(originalImageUID).NotTo(BeEmpty())
+				}).Should(Succeed())
+
+			})
+
+			It("deletes the kpack image and recreates it", func() {
+				Eventually(func(g Gomega) {
+					kpackImage := new(buildv1alpha2.Image)
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "app-guid", Namespace: namespaceGUID}, kpackImage)).To(Succeed())
+					g.Expect(kpackImage.UID).NotTo(Equal(originalImageUID))
+				}).Should(Succeed())
+			})
+
+			CheckInitialization()
+		})
 		When("the source image pull secret doesn't exist", func() {
 			var nonExistentSecret string
 
