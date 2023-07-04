@@ -42,8 +42,11 @@ fmt: install-gofumpt install-shfmt
 vet: ## Run go vet against code.
 	go vet ./...
 
-lint: fmt vet
+lint: fmt vet gosec
 	golangci-lint run -v
+
+gosec: install-gosec
+	$(GOSEC) --exclude=G101,G304,G401,G404,G505 --exclude-dir=tests ./...
 
 test: lint
 	@for comp in $(COMPONENTS); do make -C $$comp test; done
@@ -71,6 +74,10 @@ install-shfmt:
 VENDIR = $(shell go env GOPATH)/bin/vendir
 install-vendir:
 	go install github.com/vmware-tanzu/carvel-vendir/cmd/vendir@latest
+
+GOSEC = $(shell go env GOPATH)/bin/gosec
+install-gosec:
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
 
 vendir-update-dependencies: install-vendir
 	$(VENDIR) sync --chdir tests
