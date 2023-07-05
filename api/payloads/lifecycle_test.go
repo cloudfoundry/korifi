@@ -65,3 +65,62 @@ var _ = Describe("Lifecycle", func() {
 		})
 	})
 })
+
+var _ = Describe("LifecyclePatch", func() {
+	var (
+		payload        payloads.LifecyclePatch
+		decodedPayload *payloads.LifecyclePatch
+		validatorErr   error
+	)
+
+	BeforeEach(func() {
+		payload = payloads.LifecyclePatch{
+			Type: "buildpack",
+			Data: &payloads.LifecycleDataPatch{
+				Buildpacks: &[]string{"foo", "bar"},
+			},
+		}
+
+		decodedPayload = new(payloads.LifecyclePatch)
+	})
+
+	JustBeforeEach(func() {
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
+	})
+
+	It("succeeds", func() {
+		Expect(validatorErr).NotTo(HaveOccurred())
+		Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
+	})
+
+	When("lifecycle data is not set", func() {
+		BeforeEach(func() {
+			payload.Data = nil
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "data is required")
+		})
+	})
+
+	When("lifecycle.type is not buildpack", func() {
+		BeforeEach(func() {
+			payload.Type = "not-buildpack"
+		})
+
+		It("returns an error", func() {
+			expectUnprocessableEntityError(validatorErr, "type value must be one of: buildpack")
+		})
+	})
+
+	When("lifecycle.type is empty", func() {
+		BeforeEach(func() {
+			payload.Type = ""
+		})
+
+		It("does not default it", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(decodedPayload.Type).To(BeEmpty())
+		})
+	})
+})

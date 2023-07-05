@@ -51,7 +51,7 @@ type CFAppRepository interface {
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 	DeleteApp(context.Context, authorization.Info, repositories.DeleteAppMessage) error
 	GetAppEnv(context.Context, authorization.Info, string) (repositories.AppEnvRecord, error)
-	PatchAppMetadata(context.Context, authorization.Info, repositories.PatchAppMetadataMessage) (repositories.AppRecord, error)
+	PatchApp(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
 }
 
 type App struct {
@@ -582,9 +582,9 @@ func (h *App) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	app, err = h.appRepo.PatchAppMetadata(r.Context(), authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
+	app, err = h.appRepo.PatchApp(r.Context(), authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch app metadata", "AppGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch app", "AppGUID", appGUID)
 	}
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }

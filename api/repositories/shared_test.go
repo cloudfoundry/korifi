@@ -244,14 +244,17 @@ func initializeAppPatchMessage(appName, appGUID, spaceGUID string) PatchAppMessa
 		Name:      appName,
 		AppGUID:   appGUID,
 		SpaceGUID: spaceGUID,
-		Lifecycle: Lifecycle{
-			Type: "buildpack",
-			Data: LifecycleData{
-				Buildpacks: []string{
+		Lifecycle: &LifecyclePatch{
+			Data: &LifecycleDataPatch{
+				Buildpacks: &[]string{
 					"some-buildpack",
 				},
 				Stack: "cflinuxfs3",
 			},
+		},
+		MetadataPatch: MetadataPatch{
+			Labels:      map[string]*string{"l": tools.PtrTo("lv")},
+			Annotations: map[string]*string{"a": tools.PtrTo("av")},
 		},
 	}
 }

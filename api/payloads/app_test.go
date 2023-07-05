@@ -101,6 +101,16 @@ var _ = Describe("App payload validation", func() {
 			})
 		})
 
+		When("name is invalid", func() {
+			BeforeEach(func() {
+				payload.Name = "!@#"
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(validatorErr, "name must consist only of letters, numbers, underscores and dashes")
+			})
+		})
+
 		When("lifecycle is invalid", func() {
 			BeforeEach(func() {
 				payload.Lifecycle = &payloads.Lifecycle{}
@@ -154,6 +164,14 @@ var _ = Describe("App payload validation", func() {
 
 		BeforeEach(func() {
 			payload = payloads.AppPatch{
+				Name: "bob",
+				Lifecycle: &payloads.LifecyclePatch{
+					Type: "buildpack",
+					Data: &payloads.LifecycleDataPatch{
+						Buildpacks: &[]string{"buildpack"},
+						Stack:      "mystack",
+					},
+				},
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"foo": tools.PtrTo("bar"),
@@ -167,26 +185,129 @@ var _ = Describe("App payload validation", func() {
 			decodedPayload = new(payloads.AppPatch)
 		})
 
-		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
-		})
-
-		It("succeeds", func() {
-			Expect(validatorErr).NotTo(HaveOccurred())
-			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
-		})
-
-		When("metadata is invalid", func() {
-			BeforeEach(func() {
-				payload.Metadata = payloads.MetadataPatch{
-					Labels: map[string]*string{
-						"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-					},
-				}
+		Describe("validation", func() {
+			JustBeforeEach(func() {
+				validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 			})
 
-			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+			It("succeeds", func() {
+				Expect(validatorErr).NotTo(HaveOccurred())
+				Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
+			})
+
+			When("metadata is invalid", func() {
+				BeforeEach(func() {
+					payload.Metadata = payloads.MetadataPatch{
+						Labels: map[string]*string{
+							"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
+						},
+					}
+				})
+
+				It("returns an appropriate error", func() {
+					expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+				})
+			})
+
+			When("name is invalid", func() {
+				BeforeEach(func() {
+					payload.Name = "!@#"
+				})
+
+				It("returns an error", func() {
+					expectUnprocessableEntityError(validatorErr, "name must consist only of letters, numbers, underscores and dashes")
+				})
+			})
+
+			When("lifecycle data is not set", func() {
+				BeforeEach(func() {
+					payload.Lifecycle.Data = nil
+				})
+
+				It("returns an error", func() {
+					expectUnprocessableEntityError(validatorErr, "lifecycle.data is required")
+				})
+			})
+		})
+
+		Describe("To Message", func() {
+			var msg repositories.PatchAppMessage
+
+			JustBeforeEach(func() {
+				msg = payload.ToMessage("app-guid", "space-guid")
+			})
+
+			It("creates the right message", func() {
+				Expect(msg).To(Equal(repositories.PatchAppMessage{
+					Name:      "bob",
+					AppGUID:   "app-guid",
+					SpaceGUID: "space-guid",
+					Lifecycle: &repositories.LifecyclePatch{
+						Data: &repositories.LifecycleDataPatch{
+							Buildpacks: &[]string{"buildpack"},
+							Stack:      "mystack",
+						},
+					},
+					EnvironmentVariables: nil,
+					MetadataPatch: repositories.MetadataPatch{
+						Annotations: map[string]*string{"example.org/jim": tools.PtrTo("hello")},
+						Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+					},
+				}))
+			})
+
+			When("lifecycle is not set", func() {
+				BeforeEach(func() {
+					payload.Lifecycle = nil
+				})
+
+				It("has lifecycle as nil", func() {
+					Expect(msg.Lifecycle).To(BeNil())
+				})
+			})
+
+			When("lifecycle.data is not set", func() {
+				BeforeEach(func() {
+					payload.Lifecycle.Data = nil
+				})
+
+				It("has lifecycle.data as nil", func() {
+					Expect(msg.Lifecycle.Data).To(BeNil())
+				})
+			})
+
+			When("lifecycle.data is empty", func() {
+				BeforeEach(func() {
+					payload.Lifecycle.Data = &payloads.LifecycleDataPatch{}
+				})
+
+				It("has empty lifecycle.data", func() {
+					Expect(*msg.Lifecycle.Data).To(BeZero())
+				})
+			})
+
+			When("only buildpacks are set", func() {
+				BeforeEach(func() {
+					payload.Lifecycle.Data = &payloads.LifecycleDataPatch{
+						Buildpacks: &[]string{"mystack"},
+					}
+				})
+
+				It("has stack empty", func() {
+					Expect(msg.Lifecycle.Data.Stack).To(BeEmpty())
+				})
+			})
+
+			When("only stack is set", func() {
+				BeforeEach(func() {
+					payload.Lifecycle.Data = &payloads.LifecycleDataPatch{
+						Stack: "mystack",
+					}
+				})
+
+				It("has buildpacks nil", func() {
+					Expect(msg.Lifecycle.Data.Buildpacks).To(BeNil())
+				})
 			})
 		})
 	})
@@ -224,7 +345,7 @@ var _ = Describe("App payload validation", func() {
 			})
 
 			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "Relationship cannot be blank")
+				expectUnprocessableEntityError(validatorErr, "data is required")
 			})
 		})
 	})

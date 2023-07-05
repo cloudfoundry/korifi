@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -688,7 +689,8 @@ var _ = Describe("Apps", func() {
 
 			It("eventually increments the app-rev annotation", func() {
 				Eventually(func(g Gomega) {
-					resp, err := certClient.R().
+					var err error
+					resp, err = certClient.R().
 						SetResult(&result).
 						Get("/v3/apps/" + appGUID)
 					g.Expect(err).NotTo(HaveOccurred())
@@ -701,7 +703,8 @@ var _ = Describe("Apps", func() {
 				}).Should(Succeed())
 
 				Consistently(func(g Gomega) {
-					resp, err := certClient.R().
+					var err error
+					resp, err = certClient.R().
 						SetResult(&result).
 						Get("/v3/apps/" + appGUID)
 					g.Expect(err).NotTo(HaveOccurred())
@@ -817,7 +820,8 @@ var _ = Describe("Apps", func() {
 
 		JustBeforeEach(func() {
 			Eventually(func(g Gomega) {
-				resp, err := certClient.R().
+				var err error
+				resp, err = certClient.R().
 					SetResult(&result).
 					Get("/v3/apps/" + appGUID + "/env")
 				g.Expect(err).NotTo(HaveOccurred())
@@ -911,6 +915,54 @@ var _ = Describe("Apps", func() {
 					})))
 				}).Should(Succeed())
 			})
+		})
+	})
+
+	Describe("update an app", func() {
+		var (
+			newAppName string
+			result     appResource
+		)
+
+		BeforeEach(func() {
+			newAppName = generateGUID("another-app-name-")
+			createSpaceRole("space_developer", certUserName, space1GUID)
+			appGUID = createApp(space1GUID, generateGUID("app1"))
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			body := appUpdateResource{
+				Metadata: &metadataPatch{
+					Annotations: &map[string]string{
+						"annkey": "annvalue",
+					},
+					Labels: &map[string]string{
+						"labelkey": "labelvalue",
+					},
+				},
+				Lifecycle: &lifecycle{
+					Type: "buildpack",
+					Data: lifecycleData{
+						Buildpacks: []string{"my-buildpack"},
+					},
+				},
+				Name: tools.PtrTo(newAppName),
+			}
+
+			resp, err = certClient.R().
+				SetBody(body).
+				SetResult(&result).
+				Patch("/v3/apps/" + appGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns 200", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Name).To(Equal(newAppName))
+			Expect(result.Lifecycle.Data.Buildpacks).To(ConsistOf("my-buildpack"))
+			Expect(result.Metadata.Labels).To(HaveKeyWithValue("labelkey", "labelvalue"))
+			Expect(result.Metadata.Annotations).To(HaveKeyWithValue("annkey", "annvalue"))
 		})
 	})
 })

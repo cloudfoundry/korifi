@@ -425,22 +425,35 @@ var _ = Describe("App", func() {
 						"foo.example.com/my-identifier": tools.PtrTo("aruba"),
 					},
 				},
+				Lifecycle: &payloads.LifecyclePatch{
+					Type: "buildpack",
+					Data: &payloads.LifecycleDataPatch{
+						Buildpacks: &[]string{"my-buildpack"},
+						Stack:      "cflinuxfs3",
+					},
+				},
 			}
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
-			appRepo.PatchAppMetadataReturns(appRecord, nil)
+			appRepo.PatchAppReturns(appRecord, nil)
 			req = createHttpRequest("PATCH", "/v3/apps/"+appGUID, strings.NewReader("the-json-body"))
 		})
 
-		It("patches the app with the new labels and annotations", func() {
-			Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(1))
-			_, _, msg := appRepo.PatchAppMetadataArgsForCall(0)
+		It("patches the app", func() {
+			Expect(appRepo.PatchAppCallCount()).To(Equal(1))
+			_, _, msg := appRepo.PatchAppArgsForCall(0)
 			Expect(msg.AppGUID).To(Equal(appGUID))
 			Expect(msg.SpaceGUID).To(Equal(spaceGUID))
 			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
 			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
 			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
 			Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
+			Expect(*msg.Lifecycle).To(Equal(repositories.LifecyclePatch{
+				Data: &repositories.LifecycleDataPatch{
+					Buildpacks: &[]string{"my-buildpack"},
+					Stack:      "cflinuxfs3",
+				},
+			}))
 		})
 
 		It("validates the payload", func() {
@@ -469,7 +482,7 @@ var _ = Describe("App", func() {
 			})
 
 			It("does not call patch", func() {
-				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(0))
+				Expect(appRepo.PatchAppCallCount()).To(Equal(0))
 			})
 		})
 
@@ -483,13 +496,13 @@ var _ = Describe("App", func() {
 			})
 
 			It("does not call patch", func() {
-				Expect(appRepo.PatchAppMetadataCallCount()).To(Equal(0))
+				Expect(appRepo.PatchAppCallCount()).To(Equal(0))
 			})
 		})
 
 		When("patching the App errors", func() {
 			BeforeEach(func() {
-				appRepo.PatchAppMetadataReturns(repositories.AppRecord{}, errors.New("boom"))
+				appRepo.PatchAppReturns(repositories.AppRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
@@ -744,7 +757,7 @@ var _ = Describe("App", func() {
 			updatedAppRecord := appRecord
 			updatedAppRecord.State = "STOPPED"
 			appRepo.SetAppDesiredStateReturns(updatedAppRecord, nil)
-			appRepo.PatchAppMetadataReturns(updatedAppRecord, nil)
+			appRepo.PatchAppReturns(updatedAppRecord, nil)
 
 			req = createHttpRequest("POST", "/v3/apps/"+appGUID+"/actions/stop", nil)
 		})
