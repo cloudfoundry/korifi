@@ -43,19 +43,21 @@ func procValIfSet[T any](appVal, procVal *T) *T {
 
 func fixDeprecatedFields(appInfo *payloads.ManifestApplication) {
 	if appInfo.DiskQuota == nil {
-		//nolint:staticcheck
+		//lint:ignore SA1019 we have to deal with this deprecation
 		appInfo.DiskQuota = appInfo.AltDiskQuota
 	}
 
 	for i := range appInfo.Processes {
 		if appInfo.Processes[i].DiskQuota == nil {
-			//nolint:staticcheck
+			//lint:ignore SA1019 we have to deal with this deprecation
 			appInfo.Processes[i].DiskQuota = appInfo.Processes[i].AltDiskQuota
 		}
 	}
 
-	if hasBuildpackSet(appInfo.Buildpack) { // nolint: staticcheck
-		appInfo.Buildpacks = append(appInfo.Buildpacks, appInfo.Buildpack) // nolint: staticcheck
+	//lint:ignore SA1019 we have to deal with this deprecation
+	if hasBuildpackSet(appInfo.Buildpack) {
+		//lint:ignore SA1019 we have to deal with this deprecation
+		appInfo.Buildpacks = append(appInfo.Buildpacks, appInfo.Buildpack)
 	}
 }
 

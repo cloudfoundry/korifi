@@ -108,7 +108,7 @@ func (c *APIConfig) validate() error {
 
 	if c.UserCertificateExpirationWarningDuration != "" {
 		if _, err := time.ParseDuration(c.UserCertificateExpirationWarningDuration); err != nil {
-			return errors.New(`Invalid duration format for userCertificateExpirationWarningDuration. Use a format like "48h"`)
+			return errors.New(`invalid duration format for userCertificateExpirationWarningDuration. Use a format like "48h"`)
 		}
 	}
 

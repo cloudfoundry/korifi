@@ -173,7 +173,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(loadErr).To(MatchError(ContainSubstring("Invalid duration format")))
+			Expect(loadErr).To(MatchError(ContainSubstring("invalid duration format")))
 		})
 	})
 

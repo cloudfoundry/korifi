@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega" //lint:ignore ST1001 this is a test file
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
 )

@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -74,15 +73,13 @@ func (h *Deployment) create(r *http.Request) (*routing.Response, error) {
 		var notFoundErr apierrors.NotFoundError
 		if errors.As(err, &notFoundErr) {
 			logger.Info("Could not find RunnerInfo", "runner", h.runnerName, "error", err)
-			ret := fmt.Errorf("The configured runner '%s' does not support rolling deploys", h.runnerName)
-			return nil, apierrors.NewRollingDeployNotSupportedError(ret)
+			return nil, apierrors.NewRollingDeployNotSupportedError(h.runnerName)
 		}
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error getting runner info in repository")
 	}
 
 	if !runnerInfo.Capabilities.RollingDeploy {
-		err = fmt.Errorf("The configured runner '%s' does not support rolling deploys", h.runnerName)
-		return nil, apierrors.LogAndReturn(logger, apierrors.NewRollingDeployNotSupportedError(err), "runner does not support rolling deploys", "name", h.runnerName)
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewRollingDeployNotSupportedError(h.runnerName), "runner does not support rolling deploys", "name", h.runnerName)
 	}
 
 	deploymentCreateMessage := payload.ToMessage()

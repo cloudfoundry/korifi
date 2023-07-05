@@ -42,17 +42,19 @@ fmt: install-gofumpt install-shfmt
 vet: ## Run go vet against code.
 	go vet ./...
 
-lint: fmt vet gosec
+lint: fmt vet gosec staticcheck
 	golangci-lint run -v
 
 gosec: install-gosec
 	$(GOSEC) --exclude=G101,G304,G401,G404,G505 --exclude-dir=tests ./...
 
+staticcheck: install-staticcheck
+	$(STATICCHECK) ./...
+
 test: lint
 	@for comp in $(COMPONENTS); do make -C $$comp test; done
 	make test-tools
 	make test-e2e
-
 
 test-tools:
 	./scripts/run-tests.sh tools
@@ -78,6 +80,10 @@ install-vendir:
 GOSEC = $(shell go env GOPATH)/bin/gosec
 install-gosec:
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+STATICCHECK = $(shell go env GOPATH)/bin/staticcheck
+install-staticcheck:
+	go install honnef.co/go/tools/cmd/staticcheck@latest
 
 vendir-update-dependencies: install-vendir
 	$(VENDIR) sync --chdir tests
