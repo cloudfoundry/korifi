@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"golang.org/x/exp/maps"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func printDocForSchema(schema map[string]any, indentLevel int) {
@@ -34,8 +36,7 @@ func printDocForSchema(schema map[string]any, indentLevel int) {
 		if typeStr == "object" {
 			typeStr = ""
 		} else {
-			// nolint:staticcheck
-			typeStr = " (_" + strings.Title(typeStr) + "_)"
+			typeStr = " (_" + cases.Title(language.AmericanEnglish).String(typeStr) + "_)"
 		}
 
 		fmt.Printf("%s- `%s`%s:%s\n", indentStr, name, typeStr, desc)

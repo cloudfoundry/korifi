@@ -10,7 +10,7 @@ import (
 	"math/big"
 	"time"
 
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega" //lint:ignore ST1001 this is a test file
 )
 
 func CreateCertificatePEM() []byte {

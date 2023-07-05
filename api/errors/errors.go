@@ -338,12 +338,12 @@ type RollingDeployNotSupportedError struct {
 	apiError
 }
 
-func NewRollingDeployNotSupportedError(cause error) RollingDeployNotSupportedError {
+func NewRollingDeployNotSupportedError(runnerName string) RollingDeployNotSupportedError {
+	detail := fmt.Sprintf("The configured runner '%s' does not support rolling deploys", runnerName)
 	return RollingDeployNotSupportedError{
 		apiError: apiError{
-			cause:      cause,
 			title:      "CF-RollingDeployNotSupported",
-			detail:     cause.Error(),
+			detail:     detail,
 			code:       42000,
 			httpStatus: http.StatusBadRequest,
 		},

@@ -3,8 +3,8 @@ package helpers
 import (
 	"context"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
+	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
