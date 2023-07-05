@@ -90,6 +90,15 @@ type LifecycleData struct {
 	Stack      string
 }
 
+type LifecyclePatch struct {
+	Data *LifecycleDataPatch
+}
+
+type LifecycleDataPatch struct {
+	Buildpacks *[]string
+	Stack      string
+}
+
 type AppEnvVarsRecord struct {
 	Name                 string
 	AppGUID              string
@@ -120,11 +129,10 @@ type CreateAppMessage struct {
 }
 
 type PatchAppMessage struct {
-	Name                 string
 	AppGUID              string
 	SpaceGUID            string
-	State                DesiredState
-	Lifecycle            Lifecycle
+	Name                 string
+	Lifecycle            *LifecyclePatch
 	EnvironmentVariables map[string]string
 	MetadataPatch
 }
@@ -145,12 +153,6 @@ type PatchAppEnvVarsMessage struct {
 	AppGUID              string
 	SpaceGUID            string
 	EnvironmentVariables map[string]*string
-}
-
-type PatchAppMetadataMessage struct {
-	MetadataPatch
-	AppGUID   string
-	SpaceGUID string
 }
 
 type SetCurrentDropletMessage struct {
@@ -400,28 +402,6 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 	return appEnvVarsSecretToRecord(secretObj), nil
 }
 
-func (f *AppRepo) PatchAppMetadata(ctx context.Context, authInfo authorization.Info, message PatchAppMetadataMessage) (AppRecord, error) {
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	app := new(korifiv1alpha1.CFApp)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: message.SpaceGUID, Name: message.AppGUID}, app)
-	if err != nil {
-		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
-	}
-
-	err = k8s.PatchResource(ctx, userClient, app, func() {
-		message.Apply(app)
-	})
-	if err != nil {
-		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
-	}
-
-	return cfAppToAppRecord(*app), nil
-}
-
 func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.Info, message SetCurrentDropletMessage) (CurrentDropletRecord, error) {
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -622,13 +602,20 @@ func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
 }
 
 func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
-	app.Spec.Lifecycle = korifiv1alpha1.Lifecycle{
-		Type: korifiv1alpha1.LifecycleType(m.Lifecycle.Type),
-		Data: korifiv1alpha1.LifecycleData{
-			Buildpacks: m.Lifecycle.Data.Buildpacks,
-			Stack:      m.Lifecycle.Data.Stack,
-		},
+	if m.Name != "" {
+		app.Spec.DisplayName = m.Name
 	}
+
+	if m.Lifecycle != nil {
+		if m.Lifecycle.Data.Buildpacks != nil {
+			app.Spec.Lifecycle.Data.Buildpacks = *m.Lifecycle.Data.Buildpacks
+		}
+
+		if m.Lifecycle.Data.Stack != "" {
+			app.Spec.Lifecycle.Data.Stack = m.Lifecycle.Data.Stack
+		}
+	}
+
 	m.MetadataPatch.Apply(app)
 }
 

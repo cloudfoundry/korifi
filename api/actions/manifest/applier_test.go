@@ -115,7 +115,7 @@ var _ = Describe("Applier", func() {
 				Expect(appRepo.PatchAppCallCount()).To(Equal(1))
 				_, _, patchAppMsg := appRepo.PatchAppArgsForCall(0)
 				Expect(patchAppMsg.AppGUID).To(Equal("my-guid"))
-				Expect(patchAppMsg.Lifecycle.Data.Buildpacks).To(Equal([]string{"buildpack-a"}))
+				Expect(*patchAppMsg.Lifecycle.Data.Buildpacks).To(Equal([]string{"buildpack-a"}))
 
 				Expect(patchAppMsg.Labels).To(MatchAllKeys(Keys{
 					"foo":      PointTo(Equal("FOO")),
