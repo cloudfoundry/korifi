@@ -1,0 +1,48 @@
+version: "2"         # required to adjust maintainability checks
+
+checks:
+  argument-count:
+    enabled: true
+    config:
+      threshold: 5
+  file-lines:
+    enabled: true
+    config:
+      threshold: 500
+  method-count:
+    enabled: true
+    config:
+      threshold: 20
+  method-lines:
+    enabled: true
+    config:
+      threshold: 50
+  return-statements:
+    enabled: true
+    config:
+      threshold: 8
+  similar-code:
+    enabled: true
+    config:
+      threshold: 400
+  identical-code:
+    enabled: true
+    config:
+      threshold: 100
+
+exclude_patterns:
+- "config/"
+- "db/"
+- "dist/"
+- "features/"
+- "**/node_modules/"
+- "script/"
+- "**/spec/"
+- "**/test/"
+- "**/tests/"
+- "Tests/"
+- "**/vendor/"
+- "**/*_test.go"
+- "**/*.d.ts"
+- "**/fake/*.go"
+- "**/*generated*.go"
