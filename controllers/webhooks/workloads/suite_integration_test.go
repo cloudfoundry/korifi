@@ -23,6 +23,7 @@ import (
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,21 +66,28 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	cfg, err := testEnv.Start()
+	adminConfig, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	Expect(adminConfig).NotTo(BeNil())
 
 	scheme := runtime.NewScheme()
 	Expect(korifiv1alpha1.AddToScheme(scheme)).To(Succeed())
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 	Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
+	Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
+
+	k8sClient = helpers.NewCacheSyncingClientFromConfig(adminConfig, client.Options{Scheme: scheme})
+
+	controllersUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: "envtest-controller"}, adminConfig)
+	Expect(err).NotTo(HaveOccurred())
+	helpers.BindUserToControllersRole(k8sClient, "envtest-controller")
 
 	//+kubebuilder:scaffold:scheme
 
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+	mgr, err := ctrl.NewManager(controllersUser.Config(), ctrl.Options{
 		Scheme:             scheme,
 		Host:               webhookInstallOptions.LocalServingHost,
 		Port:               webhookInstallOptions.LocalServingPort,
@@ -88,8 +96,6 @@ var _ = BeforeSuite(func() {
 		MetricsBindAddress: "0",
 	})
 	Expect(err).NotTo(HaveOccurred())
-
-	k8sClient = helpers.NewCacheSyncingClient(mgr.GetClient())
 
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 

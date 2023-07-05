@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -17,6 +18,13 @@ func NewCacheSyncingClient(client client.Client) *CacheSyncingClient {
 	return &CacheSyncingClient{
 		Client: client,
 	}
+}
+
+func NewCacheSyncingClientFromConfig(config *rest.Config, options client.Options) *CacheSyncingClient {
+	k8sClient, err := client.New(config, options)
+	Expect(err).NotTo(HaveOccurred())
+
+	return NewCacheSyncingClient(k8sClient)
 }
 
 func (c *CacheSyncingClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {

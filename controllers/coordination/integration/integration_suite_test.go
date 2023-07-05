@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -22,8 +23,9 @@ func TestIntegration(t *testing.T) {
 }
 
 var (
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	testEnv           *envtest.Environment
+	k8sClient         client.Client
+	controllersClient client.Client
 )
 
 var _ = BeforeSuite(func() {
@@ -31,13 +33,21 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{}
 
-	cfg, err := testEnv.Start()
+	adminConfig, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.New(adminConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+
+	controllersUser, err := testEnv.ControlPlane.AddUser(envtest.User{Name: "envtest-controller"}, adminConfig)
+	Expect(err).NotTo(HaveOccurred())
+	helpers.BindUserToControllersRole(k8sClient, "envtest-controller")
+
+	controllersClient, err = client.New(
+		controllersUser.Config(),
+		client.Options{Scheme: scheme.Scheme},
+	)
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

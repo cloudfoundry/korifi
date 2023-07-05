@@ -6,11 +6,14 @@ import (
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -150,6 +153,37 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 					reuseOldNameApp := makeCFApp(uuid.NewString(), namespace1, app1Name)
 					Expect(k8sClient.Create(ctx, reuseOldNameApp)).To(Succeed())
+				})
+			})
+
+			When("the new name is already owned by the updated app", func() {
+				BeforeEach(func() {
+					Expect(k8sClient.Delete(ctx, &coordinationv1.Lease{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: namespace1,
+							Name:      coordination.HashName(workloads.AppEntityType, app1Name),
+						},
+					})).To(Succeed())
+					Expect(k8sClient.Create(ctx, &coordinationv1.Lease{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      coordination.HashName(workloads.AppEntityType, newName),
+							Namespace: namespace1,
+							Labels:    map[string]string{},
+							Annotations: map[string]string{
+								coordination.OwnerNamespaceAnnotation: namespace1,
+								coordination.OwnerNameAnnotation:      app1.Name,
+							},
+						},
+						Spec: coordinationv1.LeaseSpec{},
+					})).To(Succeed())
+				})
+
+				It("succeeds", func() {
+					Expect(updateErr).NotTo(HaveOccurred())
+
+					app1Actual := korifiv1alpha1.CFApp{}
+					Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(app1), &app1Actual)).To(Succeed())
+					Expect(app1Actual.Spec.DisplayName).To(Equal(newName))
 				})
 			})
 		})

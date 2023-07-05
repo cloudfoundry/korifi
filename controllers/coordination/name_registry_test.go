@@ -47,7 +47,7 @@ var _ = Describe("NameRegistry", func() {
 			lease := obj.(*coordinationv1.Lease)
 
 			Expect(lease.Namespace).To(Equal("the-namespace"))
-			Expect(lease.Name).To(HavePrefix("n-"))
+			Expect(lease.Name).To(Equal("n-23d52b682183ce677443e399507b80c921c68a69"))
 			Expect(lease.Spec.HolderIdentity).To(gstruct.PointTo(Equal("none")))
 			Expect(lease.Annotations).To(SatisfyAll(
 				HaveKeyWithValue("coordination.cloudfoundry.org/entity-type", "my-type"),
@@ -98,7 +98,7 @@ var _ = Describe("NameRegistry", func() {
 			Expect(obj).To(BeAssignableToTypeOf(&coordinationv1.Lease{}))
 			lease := obj.(*coordinationv1.Lease)
 			Expect(lease.Namespace).To(Equal("the-namespace"))
-			Expect(lease.Name).To(HavePrefix("n-"))
+			Expect(lease.Name).To(Equal("n-23d52b682183ce677443e399507b80c921c68a69"))
 		})
 
 		When("the lease does not exist", func() {
@@ -153,7 +153,7 @@ var _ = Describe("NameRegistry", func() {
 			Expect(obj).To(BeAssignableToTypeOf(&coordinationv1.Lease{}))
 			lease := obj.(*coordinationv1.Lease)
 			Expect(lease.Namespace).To(Equal("the-namespace"))
-			Expect(lease.Name).To(HavePrefix("n-"))
+			Expect(lease.Name).To(Equal("n-23d52b682183ce677443e399507b80c921c68a69"))
 
 			Expect(patch.Type()).To(Equal(types.JSONPatchType))
 			data, dataErr := patch.Data(nil)
@@ -207,7 +207,7 @@ var _ = Describe("NameRegistry", func() {
 			Expect(obj).To(BeAssignableToTypeOf(&coordinationv1.Lease{}))
 			lease := obj.(*coordinationv1.Lease)
 			Expect(lease.Namespace).To(Equal("the-namespace"))
-			Expect(lease.Name).To(HavePrefix("n-"))
+			Expect(lease.Name).To(Equal("n-23d52b682183ce677443e399507b80c921c68a69"))
 
 			Expect(patch.Type()).To(Equal(types.JSONPatchType))
 			data, dataErr := patch.Data(nil)

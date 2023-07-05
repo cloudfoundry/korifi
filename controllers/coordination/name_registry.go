@@ -2,7 +2,6 @@ package coordination
 
 import (
 	"context"
-	"crypto/sha1"
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
@@ -16,8 +15,6 @@ import (
 )
 
 const (
-	hashedNamePrefix = "n-"
-
 	EntityTypeAnnotation     = "coordination.cloudfoundry.org/entity-type"
 	NamespaceAnnotation      = "coordination.cloudfoundry.org/namespace"
 	NameAnnotation           = "coordination.cloudfoundry.org/name"
@@ -30,7 +27,7 @@ var (
 	lockedIdentity   = "locked"
 )
 
-//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;patch;delete
+//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;create;patch;delete;list;watch
 
 type NameRegistry struct {
 	client     client.Client
@@ -53,7 +50,7 @@ func (r NameRegistry) RegisterName(ctx context.Context, namespace, name, ownerNa
 		return nil
 	}
 
-	hashedName := r.hashName(name)
+	hashedName := HashName(r.entityType, name)
 
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -89,7 +86,7 @@ func (r NameRegistry) DeregisterName(ctx context.Context, namespace, name string
 		return nil
 	}
 
-	hashedName := r.hashName(name)
+	hashedName := HashName(r.entityType, name)
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hashedName,
@@ -115,10 +112,11 @@ func (r NameRegistry) TryLockName(ctx context.Context, namespace, name string) e
 
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.hashName(name),
+			Name:      HashName(r.entityType, name),
 			Namespace: namespace,
 		},
 	}
+
 	jsonPatch := fmt.Sprintf(`[
     {"op":"test", "path":"/spec/holderIdentity", "value": "%s"},
     {"op":"replace", "path":"/spec/holderIdentity", "value": "%s"}
@@ -141,7 +139,7 @@ func (r NameRegistry) UnlockName(ctx context.Context, namespace, name string) er
 
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.hashName(name),
+			Name:      HashName(r.entityType, name),
 			Namespace: namespace,
 		},
 	}
@@ -162,17 +160,12 @@ func (r NameRegistry) CheckNameOwnership(ctx context.Context, namespace, name, o
 	r.logger.V(1).Info("checking-name-ownership")
 
 	var lease coordinationv1.Lease
-	err := r.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: r.hashName(name)}, &lease)
+	err := r.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: HashName(r.entityType, name)}, &lease)
 	if err != nil {
 		return false, err
 	}
 
 	return lease.Annotations[OwnerNamespaceAnnotation] == ownerNamespace && lease.Annotations[OwnerNameAnnotation] == ownerName, nil
-}
-
-func (r NameRegistry) hashName(name string) string {
-	input := fmt.Sprintf("%s::%s", r.entityType, name)
-	return fmt.Sprintf("%s%x", hashedNamePrefix, sha1.Sum([]byte(input)))
 }
 
 func isDryRun(ctx context.Context, logger logr.Logger) bool {

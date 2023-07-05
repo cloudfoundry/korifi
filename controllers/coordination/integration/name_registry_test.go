@@ -21,7 +21,7 @@ var _ = Describe("Name Registry", func() {
 	)
 
 	BeforeEach(func() {
-		nameRegistry = coordination.NewNameRegistry(k8sClient, "my-entity")
+		nameRegistry = coordination.NewNameRegistry(controllersClient, "my-entity")
 		ctx = context.Background()
 		ns1 = createNamespace(ctx, uuid.NewString())
 		name = uuid.NewString()

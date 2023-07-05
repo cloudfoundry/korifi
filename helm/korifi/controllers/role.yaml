@@ -95,7 +95,10 @@ rules:
   verbs:
   - create
   - delete
+  - get
+  - list
   - patch
+  - watch
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
