@@ -99,8 +99,9 @@ type bareResource struct {
 }
 
 type appResource struct {
-	resource `json:",inline"`
-	State    string `json:"state,omitempty"`
+	resource  `json:",inline"`
+	Lifecycle *lifecycle `json:"lifecycle,omitempty"`
+	State     string     `json:"state,omitempty"`
 }
 
 type taskResource struct {
@@ -219,6 +220,21 @@ type appLogResource struct {
 
 type appLogResourceEnvelopes struct {
 	Batch []loggregator_v2.Envelope `json:"batch"`
+}
+
+type appUpdateResource struct {
+	Metadata  *metadataPatch `json:"metadata,omitempty"`
+	Lifecycle *lifecycle     `json:"lifecycle,omitempty"`
+	Name      *string        `json:"name,omitempty"`
+}
+
+type lifecycle struct {
+	Type string        `json:"type"`
+	Data lifecycleData `json:"data"`
+}
+
+type lifecycleData struct {
+	Buildpacks []string `json:"buildpacks"`
 }
 
 type cfErrs struct {

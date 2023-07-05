@@ -103,10 +103,9 @@ func (a ManifestApplication) ToAppPatchMessage(appGUID, spaceGUID string) reposi
 		Name:      a.Name,
 		AppGUID:   appGUID,
 		SpaceGUID: spaceGUID,
-		Lifecycle: repositories.Lifecycle{
-			Type: string(korifiv1alpha1.BuildpackLifecycle),
-			Data: repositories.LifecycleData{
-				Buildpacks: a.Buildpacks,
+		Lifecycle: &repositories.LifecyclePatch{
+			Data: &repositories.LifecycleDataPatch{
+				Buildpacks: &a.Buildpacks,
 			},
 		},
 		EnvironmentVariables: a.Env,

@@ -1,7 +1,8 @@
 package payloads
 
 import (
-	"github.com/jellydator/validation"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
 type Lifecycle struct {
@@ -10,9 +11,9 @@ type Lifecycle struct {
 }
 
 func (l Lifecycle) Validate() error {
-	return validation.ValidateStruct(&l,
-		validation.Field(&l.Type, validation.Required),
-		validation.Field(&l.Data, validation.NotNil),
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.Type, jellidation.Required),
+		jellidation.Field(&l.Data, jellidation.NotNil),
 	)
 }
 
@@ -22,7 +23,24 @@ type LifecycleData struct {
 }
 
 func (d LifecycleData) Validate() error {
-	return validation.ValidateStruct(&d,
-		validation.Field(&d.Stack, validation.Required),
+	return jellidation.ValidateStruct(&d,
+		jellidation.Field(&d.Stack, jellidation.Required),
 	)
+}
+
+type LifecyclePatch struct {
+	Type string              `json:"type"`
+	Data *LifecycleDataPatch `json:"data"`
+}
+
+func (p LifecyclePatch) Validate() error {
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Type, validation.OneOf("buildpack")),
+		jellidation.Field(&p.Data, jellidation.NotNil),
+	)
+}
+
+type LifecycleDataPatch struct {
+	Buildpacks *[]string `json:"buildpacks"`
+	Stack      string    `json:"stack"`
 }

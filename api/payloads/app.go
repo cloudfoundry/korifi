@@ -3,6 +3,7 @@ package payloads
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
@@ -27,9 +28,11 @@ type AppCreate struct {
 	Metadata             Metadata          `json:"metadata"`
 }
 
+var appNameRegex = regexp.MustCompile(`^[-\w]+$`)
+
 func (c AppCreate) Validate() error {
 	return jellidation.ValidateStruct(&c,
-		jellidation.Field(&c.Name, validation.StrictlyRequired),
+		jellidation.Field(&c.Name, jellidation.Required, jellidation.Match(appNameRegex).Error("name must consist only of letters, numbers, underscores and dashes")),
 		jellidation.Field(&c.Relationships, jellidation.NotNil),
 		jellidation.Field(&c.Lifecycle),
 		jellidation.Field(&c.Metadata),
@@ -74,7 +77,7 @@ type AppSetCurrentDroplet struct {
 
 func (d AppSetCurrentDroplet) Validate() error {
 	return jellidation.ValidateStruct(&d,
-		jellidation.Field(&d.Relationship, validation.StrictlyRequired),
+		jellidation.Field(&d.Relationship, jellidation.NotNil),
 	)
 }
 
@@ -156,22 +159,40 @@ func (a *AppPatchEnvVars) ToMessage(appGUID, spaceGUID string) repositories.Patc
 }
 
 type AppPatch struct {
-	Metadata MetadataPatch `json:"metadata"`
+	Name      string          `json:"name"`
+	Metadata  MetadataPatch   `json:"metadata"`
+	Lifecycle *LifecyclePatch `json:"lifecycle"`
 }
 
 func (p AppPatch) Validate() error {
 	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Name, jellidation.Match(appNameRegex).Error("name must consist only of letters, numbers, underscores and dashes")),
 		jellidation.Field(&p.Metadata),
+		jellidation.Field(&p.Lifecycle),
 	)
 }
 
-func (a *AppPatch) ToMessage(appGUID, spaceGUID string) repositories.PatchAppMetadataMessage {
-	return repositories.PatchAppMetadataMessage{
+func (a *AppPatch) ToMessage(appGUID, spaceGUID string) repositories.PatchAppMessage {
+	msg := repositories.PatchAppMessage{
 		AppGUID:   appGUID,
 		SpaceGUID: spaceGUID,
+		Name:      a.Name,
 		MetadataPatch: repositories.MetadataPatch{
 			Annotations: a.Metadata.Annotations,
 			Labels:      a.Metadata.Labels,
 		},
 	}
+
+	if a.Lifecycle != nil {
+		msg.Lifecycle = &repositories.LifecyclePatch{}
+
+		if a.Lifecycle.Data != nil {
+			msg.Lifecycle.Data = &repositories.LifecycleDataPatch{
+				Stack:      a.Lifecycle.Data.Stack,
+				Buildpacks: a.Lifecycle.Data.Buildpacks,
+			}
+		}
+	}
+
+	return msg
 }
