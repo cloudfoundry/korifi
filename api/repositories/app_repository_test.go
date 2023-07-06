@@ -9,7 +9,6 @@ import (
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -646,7 +645,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("does not change the app lifecyle", func() {
-						Expect(patchedAppRecord.Lifecycle).To(Equal(repositories.Lifecycle{
+						Expect(patchedAppRecord.Lifecycle).To(Equal(Lifecycle{
 							Type: string(originalCFApp.Spec.Lifecycle.Type),
 							Data: LifecycleData{
 								Buildpacks: originalCFApp.Spec.Lifecycle.Data.Buildpacks,

@@ -23,8 +23,9 @@ import (
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -65,22 +66,22 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	cfg, err := testEnv.Start()
+	adminConfig, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	Expect(adminConfig).NotTo(BeNil())
 
-	scheme := runtime.NewScheme()
-	Expect(korifiv1alpha1.AddToScheme(scheme)).To(Succeed())
-	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
-	Expect(corev1.AddToScheme(scheme)).To(Succeed())
-	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(admissionv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(coordinationv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(rbacv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
 
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
+	mgr, err := ctrl.NewManager(helpers.SetupControllersUser(testEnv), ctrl.Options{
+		Scheme:             scheme.Scheme,
 		Host:               webhookInstallOptions.LocalServingHost,
 		Port:               webhookInstallOptions.LocalServingPort,
 		CertDir:            webhookInstallOptions.LocalServingCertDir,
@@ -89,7 +90,8 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient = helpers.NewCacheSyncingClient(mgr.GetClient())
+	k8sClient, err = client.New(adminConfig, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
 
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr)).To(Succeed())
 

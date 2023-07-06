@@ -80,6 +80,11 @@ func (v DuplicateValidator) ValidateUpdate(ctx context.Context, logger logr.Logg
 			}
 
 			if isOwned {
+				logger.Info("unique name is already owned by updated object",
+					"name", obj.UniqueName(),
+					"updatedObjectKind", obj.GetObjectKind(),
+					"object", client.ObjectKeyFromObject(obj),
+				)
 				return nil
 			}
 		}
