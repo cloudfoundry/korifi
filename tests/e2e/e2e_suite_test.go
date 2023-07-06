@@ -1074,7 +1074,12 @@ func zipAsset(src string) string {
 			return err
 		}
 
-		f, err := w.Create(rel)
+		fh := &zip.FileHeader{
+			Name: rel,
+		}
+		fh.SetMode(info.Mode())
+
+		f, err := w.CreateHeader(fh)
 		if err != nil {
 			return err
 		}
