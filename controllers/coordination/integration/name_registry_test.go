@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"time"
 
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"github.com/google/uuid"
@@ -16,15 +17,20 @@ var _ = Describe("Name Registry", func() {
 	var (
 		ns1          *corev1.Namespace
 		ctx          context.Context
+		cancelCtx    context.CancelFunc
 		nameRegistry coordination.NameRegistry
 		name         string
 	)
 
 	BeforeEach(func() {
-		nameRegistry = coordination.NewNameRegistry(k8sClient, "my-entity")
-		ctx = context.Background()
+		nameRegistry = coordination.NewNameRegistry(controllersClient, "my-entity")
+		ctx, cancelCtx = context.WithTimeout(context.Background(), 10*time.Second)
 		ns1 = createNamespace(ctx, uuid.NewString())
 		name = uuid.NewString()
+	})
+
+	AfterEach(func() {
+		cancelCtx()
 	})
 
 	Describe("Registering a Name", func() {

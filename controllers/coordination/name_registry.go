@@ -30,7 +30,7 @@ var (
 	lockedIdentity   = "locked"
 )
 
-//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;patch;delete
+//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;create;patch;delete;list;watch
 
 type NameRegistry struct {
 	client     client.Client

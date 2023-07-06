@@ -1,12 +1,15 @@
 package integration_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,8 +25,10 @@ func TestIntegration(t *testing.T) {
 }
 
 var (
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	testEnv           *envtest.Environment
+	k8sClient         client.Client
+	controllersClient client.Client
+	cacheStop         context.CancelFunc
 )
 
 var _ = BeforeSuite(func() {
@@ -31,15 +36,37 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{}
 
-	cfg, err := testEnv.Start()
+	adminConfig, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.New(adminConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+
+	controllersConf := helpers.SetupControllersUser(testEnv)
+	userCache, err := cache.New(controllersConf, cache.Options{})
+	Expect(err).NotTo(HaveOccurred())
+
+	var cacheCtx context.Context
+	cacheCtx, cacheStop = context.WithCancel(context.Background())
+	go func() {
+		GinkgoRecover()
+		Expect(userCache.Start(cacheCtx)).To(Succeed())
+	}()
+	userCache.WaitForCacheSync(cacheCtx)
+
+	controllersClient, err = client.New(
+		controllersConf,
+		client.Options{
+			Scheme: scheme.Scheme,
+			Cache: &client.CacheOptions{
+				Reader: userCache,
+			},
+		},
+	)
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
+	cacheStop()
 	Expect(testEnv.Stop()).To(Succeed())
 })

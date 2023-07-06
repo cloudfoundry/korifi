@@ -254,7 +254,6 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					originalImageUID = kpackImage.UID
 					g.Expect(originalImageUID).NotTo(BeEmpty())
 				}).Should(Succeed())
-
 			})
 
 			It("deletes the kpack image and recreates it", func() {
