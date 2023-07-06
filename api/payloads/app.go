@@ -17,7 +17,6 @@ var DefaultLifecycleConfig = config.DefaultLifecycleConfig{
 	Type:            "buildpack",
 	Stack:           "cflinuxfs3",
 	StagingMemoryMB: 1024,
-	StagingDiskMB:   1024,
 }
 
 type AppCreate struct {

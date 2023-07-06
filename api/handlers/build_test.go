@@ -200,7 +200,6 @@ var _ = Describe("Build", func() {
 			Expect(actualCreate.AppGUID).To(Equal(appGUID))
 			Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
 			Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
-			Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
 			Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
 			Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal(expectedLifecycleBuildpacks))
 			Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))

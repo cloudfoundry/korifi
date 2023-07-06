@@ -42,6 +42,7 @@ type ControllerConfig struct {
 	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType     string `yaml:"containerRegistryType"`
 	BuildCacheMB              int    `yaml:"buildCacheMB"`
+	DiskMB                    int    `yaml:"diskMB"`
 }
 
 type CFProcessDefaults struct {

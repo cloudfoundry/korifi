@@ -702,6 +702,11 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 			Build: &buildv1alpha2.ImageBuild{
 				Services: buildWorkload.Spec.Services,
 				Env:      buildWorkload.Spec.Env,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(int64(r.controllerConfig.DiskMB), resource.Mega),
+					},
+				},
 			},
 			Cache: &buildv1alpha2.ImageCacheConfig{
 				Volume: &buildv1alpha2.ImagePersistentVolumeCache{
