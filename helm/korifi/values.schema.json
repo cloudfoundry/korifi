@@ -180,7 +180,7 @@
                   "type": "integer"
                 },
                 "diskMB": {
-                  "description": "Disk in MB for staging.",
+                  "description": "Ephemeral Disk limit in MB for staging apps.",
                   "type": "integer"
                 },
                 "buildCacheMB": {

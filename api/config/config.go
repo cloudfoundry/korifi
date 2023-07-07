@@ -60,7 +60,6 @@ type (
 		Type            string `yaml:"type"`
 		Stack           string `yaml:"stack"`
 		StagingMemoryMB int    `yaml:"stagingMemoryMB"`
-		StagingDiskMB   int    `yaml:"stagingDiskMB"`
 	}
 )
 

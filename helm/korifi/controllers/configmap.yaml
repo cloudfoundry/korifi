@@ -39,6 +39,7 @@ data:
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     builderServiceAccount: kpack-service-account
     buildCacheMB: {{ .Values.api.lifecycle.stagingRequirements.buildCacheMB }}
+    diskMB: {{ .Values.api.lifecycle.stagingRequirements.diskMB }}
     {{- if .Values.global.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}

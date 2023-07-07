@@ -27,7 +27,6 @@ func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord) repositories.C
 		PackageGUID:     c.Package.GUID,
 		SpaceGUID:       appRecord.SpaceGUID,
 		StagingMemoryMB: DefaultLifecycleConfig.StagingMemoryMB,
-		StagingDiskMB:   DefaultLifecycleConfig.StagingDiskMB,
 		Lifecycle:       appRecord.Lifecycle,
 		Labels:          c.Metadata.Labels,
 		Annotations:     c.Metadata.Annotations,

@@ -45,7 +45,6 @@ var _ = Describe("Config", func() {
 				Type:            "lc-type",
 				Stack:           "lc-stack",
 				StagingMemoryMB: 10,
-				StagingDiskMB:   20,
 			},
 		}
 	})
@@ -87,7 +86,6 @@ var _ = Describe("Config", func() {
 			Type:            "lc-type",
 			Stack:           "lc-stack",
 			StagingMemoryMB: 10,
-			StagingDiskMB:   20,
 		}))
 		Expect(cfg.ContainerRegistryType).To(BeEmpty())
 	})

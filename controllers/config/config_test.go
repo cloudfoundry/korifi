@@ -46,6 +46,7 @@ var _ = Describe("LoadFromPath", func() {
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
 			BuildCacheMB:                     1024,
+			DiskMB:                           512,
 		}
 	})
 
@@ -82,6 +83,7 @@ var _ = Describe("LoadFromPath", func() {
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
 			BuildCacheMB:                     1024,
+			DiskMB:                           512,
 		}))
 	})
 

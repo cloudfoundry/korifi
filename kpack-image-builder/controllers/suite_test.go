@@ -128,6 +128,7 @@ var _ = BeforeSuite(func() {
 		ContainerRepositoryPrefix: "image/registry/tag",
 		BuilderServiceAccount:     "builder-service-account",
 		BuildCacheMB:              1024,
+		DiskMB:                    2048,
 	}
 
 	imageRepoCreator = new(fake.RepositoryCreator)
