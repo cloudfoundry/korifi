@@ -19,7 +19,7 @@ type ControllerConfig struct {
 	// core controllers
 	CFProcessDefaults                CFProcessDefaults `yaml:"cfProcessDefaults"`
 	CFRootNamespace                  string            `yaml:"cfRootNamespace"`
-	ContainerRegistrySecretName      string            `yaml:"containerRegistrySecretName"`
+	ContainerRegistrySecretNames     []string          `yaml:"containerRegistrySecretNames"`
 	TaskTTL                          string            `yaml:"taskTTL"`
 	WorkloadsTLSSecretName           string            `yaml:"workloads_tls_secret_name"`
 	WorkloadsTLSSecretNamespace      string            `yaml:"workloads_tls_secret_namespace"`

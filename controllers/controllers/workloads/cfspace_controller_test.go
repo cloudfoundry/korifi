@@ -105,40 +105,50 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			}))
 		})
 
-		It("propagates the image-registry-credentials to CFSpace", func() {
-			var createdSecret corev1.Secret
+		It("propagates the image-registry-credentials secrets to CFSpace", func() {
+			var createdSecret1, createdSecret2 corev1.Secret
 
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Name, Name: imageRegistrySecret.Name}, &createdSecret)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Name, Name: imageRegistrySecret1.Name}, &createdSecret1)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Name, Name: imageRegistrySecret2.Name}, &createdSecret2)).To(Succeed())
 			}).Should(Succeed())
 
-			Expect(createdSecret.Data).To(Equal(imageRegistrySecret.Data))
-			Expect(createdSecret.Immutable).To(Equal(imageRegistrySecret.Immutable))
-			Expect(createdSecret.StringData).To(Equal(imageRegistrySecret.StringData))
-			Expect(createdSecret.Type).To(Equal(imageRegistrySecret.Type))
+			Expect(createdSecret1.Data).To(Equal(imageRegistrySecret1.Data))
+			Expect(createdSecret1.Immutable).To(Equal(imageRegistrySecret1.Immutable))
+			Expect(createdSecret1.StringData).To(Equal(imageRegistrySecret1.StringData))
+			Expect(createdSecret1.Type).To(Equal(imageRegistrySecret1.Type))
+
+			Expect(createdSecret2.Data).To(Equal(imageRegistrySecret2.Data))
+			Expect(createdSecret2.Immutable).To(Equal(imageRegistrySecret2.Immutable))
+			Expect(createdSecret2.StringData).To(Equal(imageRegistrySecret2.StringData))
+			Expect(createdSecret2.Type).To(Equal(imageRegistrySecret2.Type))
 
 			By("omitting annotations from deployment tools", func() {
-				Expect(maps.Keys(imageRegistrySecret.Annotations)).To(ConsistOf("bar", "kapp.k14s.io/foo", "meta.helm.sh/baz"))
-				Expect(maps.Keys(createdSecret.Annotations)).To(ConsistOf("bar"))
-				Expect(createdSecret.Annotations["bar"]).To(Equal(imageRegistrySecret.Annotations["bar"]))
+				Expect(maps.Keys(imageRegistrySecret1.Annotations)).To(ConsistOf("bar", "kapp.k14s.io/foo", "meta.helm.sh/baz"))
+				Expect(maps.Keys(createdSecret1.Annotations)).To(ConsistOf("bar"))
+				Expect(createdSecret1.Annotations["bar"]).To(Equal(imageRegistrySecret1.Annotations["bar"]))
+
+				Expect(maps.Keys(imageRegistrySecret2.Annotations)).To(ConsistOf("bar", "kapp.k14s.io/foo", "meta.helm.sh/baz"))
+				Expect(maps.Keys(createdSecret2.Annotations)).To(ConsistOf("bar"))
+				Expect(createdSecret2.Annotations["bar"]).To(Equal(imageRegistrySecret2.Annotations["bar"]))
 			})
 		})
 
 		When("the image-registry-credentials secret does not exist in the org namespace", Serial, func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, imageRegistrySecret)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, imageRegistrySecret1)).To(Succeed())
 
 				var orgSecret corev1.Secret
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &orgSecret)).To(Succeed())
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret1.Name}, &orgSecret)).To(Succeed())
 				Expect(k8sClient.Delete(ctx, &orgSecret)).To(Succeed())
 			})
 
 			AfterEach(func() {
-				imageRegistrySecret = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
+				imageRegistrySecret1 = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
 
 				Eventually(func(g Gomega) {
-					var createdSecret corev1.Secret
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &createdSecret)).To(Succeed())
+					var createdSecret1 corev1.Secret
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret1.Name}, &createdSecret1)).To(Succeed())
 				}).Should(Succeed())
 			})
 
@@ -153,7 +163,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 					g.Expect(readyCondition).NotTo(BeNil())
 					g.Expect(readyCondition.Message).To(ContainSubstring(fmt.Sprintf(
 						"error fetching secret %q from namespace %q",
-						imageRegistrySecret.Name,
+						imageRegistrySecret1.Name,
 						cfOrg.Name,
 					)))
 					g.Expect(readyCondition.Reason).To(Equal("RegistrySecretPropagation"))
@@ -214,7 +224,10 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 							"Name": Equal(serviceAccount.Name),
 						}),
-						"Secrets": ConsistOf(MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)})),
+						"Secrets": ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"Name": Equal(packageRegistrySecretName)}),
+							MatchFields(IgnoreExtras, Fields{"Name": Equal(otherRegistrySecretName)}),
+						),
 					}),
 				))
 			}).Should(Succeed())
@@ -416,11 +429,13 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 					corev1.ObjectReference{Name: tokenSecretName},
 					corev1.ObjectReference{Name: dockercfgSecretName},
 					corev1.ObjectReference{Name: packageRegistrySecretName},
+					corev1.ObjectReference{Name: otherRegistrySecretName},
 				))
 
 				g.Expect(updatedPropagatedServiceAccount.ImagePullSecrets).To(ConsistOf(
 					corev1.LocalObjectReference{Name: dockercfgSecretName},
 					corev1.LocalObjectReference{Name: packageRegistrySecretName},
+					corev1.LocalObjectReference{Name: otherRegistrySecretName},
 				))
 			}).Should(Succeed())
 		})

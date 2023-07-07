@@ -171,7 +171,7 @@ func main() {
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 			image.NewClient(k8sClient),
 			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
-			controllerConfig.ContainerRegistrySecretName,
+			controllerConfig.ContainerRegistrySecretNames,
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
 			os.Exit(1)
@@ -217,7 +217,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFOrg"),
-			controllerConfig.ContainerRegistrySecretName,
+			controllerConfig.ContainerRegistrySecretNames,
 			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFOrg")
@@ -228,7 +228,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
-			controllerConfig.ContainerRegistrySecretName,
+			controllerConfig.ContainerRegistrySecretNames,
 			controllerConfig.CFRootNamespace,
 			*controllerConfig.SpaceFinalizerAppDeletionTimeout,
 			labelCompiler,

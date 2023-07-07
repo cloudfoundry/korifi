@@ -35,7 +35,7 @@ type (
 		RunnerName                               string                 `yaml:"runnerName"`
 		ContainerRepositoryPrefix                string                 `yaml:"containerRepositoryPrefix"`
 		ContainerRegistryType                    string                 `yaml:"containerRegistryType"`
-		PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
+		PackageRegistrySecretNames               []string               `yaml:"packageRegistrySecretNames"`
 		DefaultDomainName                        string                 `yaml:"defaultDomainName"`
 		UserCertificateExpirationWarningDuration string                 `yaml:"userCertificateExpirationWarningDuration"`
 		DefaultLifecycleConfig                   DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`

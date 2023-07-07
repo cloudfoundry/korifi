@@ -29,9 +29,9 @@ type Client struct {
 
 type Creds struct {
 	Namespace string
-	// At most one of SecretName and ServiceAccountName should be set.
+	// At most one of SecretNames and ServiceAccountName should be set.
 	// If both unset, the fallback auth approach will be used.
-	SecretName         string
+	SecretNames        []string
 	ServiceAccountName string
 }
 
@@ -250,10 +250,10 @@ func (c Client) authOpt(ctx context.Context, creds Creds) (remote.Option, error)
 	var keychain authn.Keychain
 	var err error
 
-	if creds.SecretName != "" {
+	if len(creds.SecretNames) > 0 {
 		keychain, err = k8schain.New(ctx, c.k8sClient, k8schain.Options{
 			Namespace:        creds.Namespace,
-			ImagePullSecrets: []string{creds.SecretName},
+			ImagePullSecrets: creds.SecretNames,
 		})
 	} else if creds.ServiceAccountName != "" {
 		keychain, err = k8schain.New(ctx, c.k8sClient, k8schain.Options{

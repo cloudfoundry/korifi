@@ -91,25 +91,32 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			}))
 		})
 
-		It("propagates the image-registry-credentials from root-ns to org namespace", func() {
-			Eventually(func(g Gomega) {
-				var createdSecret v1.Secret
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret.Name}, &createdSecret)).To(Succeed())
+		It("propagates the image-registry-credentials secrets from root-ns to org namespace", func() {
+			var createdSecret1, createdSecret2 v1.Secret
 
-				g.Expect(createdSecret.Data).To(Equal(imageRegistrySecret.Data))
-				g.Expect(createdSecret.Immutable).To(Equal(imageRegistrySecret.Immutable))
-				g.Expect(createdSecret.StringData).To(Equal(imageRegistrySecret.StringData))
-				g.Expect(createdSecret.Type).To(Equal(imageRegistrySecret.Type))
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret1.Name}, &createdSecret1)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfOrg.Name, Name: imageRegistrySecret2.Name}, &createdSecret2)).To(Succeed())
 			}).Should(Succeed())
+
+			Expect(createdSecret1.Data).To(Equal(imageRegistrySecret1.Data))
+			Expect(createdSecret1.Immutable).To(Equal(imageRegistrySecret1.Immutable))
+			Expect(createdSecret1.StringData).To(Equal(imageRegistrySecret1.StringData))
+			Expect(createdSecret1.Type).To(Equal(imageRegistrySecret1.Type))
+
+			Expect(createdSecret2.Data).To(Equal(imageRegistrySecret2.Data))
+			Expect(createdSecret2.Immutable).To(Equal(imageRegistrySecret2.Immutable))
+			Expect(createdSecret2.StringData).To(Equal(imageRegistrySecret2.StringData))
+			Expect(createdSecret2.Type).To(Equal(imageRegistrySecret2.Type))
 		})
 
 		When("the image-registry-credentials secret does not exist in the root-ns", Serial, func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, imageRegistrySecret)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, imageRegistrySecret1)).To(Succeed())
 			})
 
 			AfterEach(func() {
-				imageRegistrySecret = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
+				imageRegistrySecret1 = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
 			})
 
 			It("sets the CFOrg's Ready condition to 'False'", func() {
@@ -123,8 +130,8 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 					g.Expect(readyCondition).NotTo(BeNil())
 					g.Expect(readyCondition.Message).To(ContainSubstring(fmt.Sprintf(
 						"error fetching secret %q from namespace %q",
-						imageRegistrySecret.Name,
-						imageRegistrySecret.Namespace,
+						imageRegistrySecret1.Name,
+						imageRegistrySecret1.Namespace,
 					)))
 					g.Expect(readyCondition.Reason).To(Equal("RegistrySecretPropagation"))
 					g.Expect(readyCondition.ObservedGeneration).To(Equal(createdOrg.Generation))

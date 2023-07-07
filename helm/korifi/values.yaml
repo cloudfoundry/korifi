@@ -4,7 +4,8 @@ global:
   logLevel: info
   defaultAppDomainName:
   generateIngressCertificates: false
-  containerRegistrySecret: image-registry-credentials
+  containerRegistrySecrets:
+  - image-registry-credentials
   eksContainerRegistryRoleARN: ""
   containerRegistryCACertSecret:
 

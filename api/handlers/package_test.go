@@ -27,12 +27,12 @@ import (
 
 var _ = Describe("Package", func() {
 	var (
-		packageRepo                *fake.CFPackageRepository
-		appRepo                    *fake.CFAppRepository
-		dropletRepo                *fake.CFDropletRepository
-		imageRepo                  *fake.ImageRepository
-		requestValidator           *fake.RequestValidator
-		packageImagePullSecretName string
+		packageRepo                 *fake.CFPackageRepository
+		appRepo                     *fake.CFAppRepository
+		dropletRepo                 *fake.CFDropletRepository
+		imageRepo                   *fake.ImageRepository
+		requestValidator            *fake.RequestValidator
+		packageImagePullSecretNames []string
 
 		packageGUID string
 		appGUID     string
@@ -47,7 +47,7 @@ var _ = Describe("Package", func() {
 		dropletRepo = new(fake.CFDropletRepository)
 		imageRepo = new(fake.ImageRepository)
 		requestValidator = new(fake.RequestValidator)
-		packageImagePullSecretName = "package-image-pull-secret"
+		packageImagePullSecretNames = []string{"package-image-pull-secret"}
 
 		packageGUID = generateGUID("package")
 		appGUID = generateGUID("app")
@@ -62,7 +62,7 @@ var _ = Describe("Package", func() {
 			dropletRepo,
 			imageRepo,
 			requestValidator,
-			packageImagePullSecretName,
+			packageImagePullSecretNames,
 		)
 
 		routerBuilder.LoadRoutes(apiHandler)
@@ -606,7 +606,7 @@ var _ = Describe("Package", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(message.GUID).To(Equal(packageGUID))
 			Expect(message.ImageRef).To(Equal(imageRefWithDigest))
-			Expect(message.RegistrySecretName).To(Equal(packageImagePullSecretName))
+			Expect(message.RegistrySecretNames).To(ConsistOf(packageImagePullSecretNames))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))

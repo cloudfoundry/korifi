@@ -39,8 +39,8 @@ var _ = Describe("Client", func() {
 
 		imgClient = image.NewClient(k8sClientset)
 		creds = image.Creds{
-			Namespace:  "default",
-			SecretName: secretName,
+			Namespace:   "default",
+			SecretNames: []string{secretName},
 		}
 	})
 
@@ -84,7 +84,7 @@ var _ = Describe("Client", func() {
 
 		When("the secret doesn't exist", func() {
 			BeforeEach(func() {
-				creds.SecretName = "not-a-secret"
+				creds.SecretNames = []string{"not-a-secret"}
 			})
 
 			It("fails to authenticate", func() {
@@ -94,7 +94,7 @@ var _ = Describe("Client", func() {
 
 		When("using a service account for secrets", func() {
 			BeforeEach(func() {
-				creds.SecretName = ""
+				creds.SecretNames = []string{}
 				creds.ServiceAccountName = serviceAccountName
 			})
 
@@ -155,7 +155,7 @@ var _ = Describe("Client", func() {
 
 		When("the secret doesn't exist", func() {
 			BeforeEach(func() {
-				creds.SecretName = "not-a-secret"
+				creds.SecretNames = []string{"not-a-secret"}
 			})
 
 			It("fails to authenticate", func() {
@@ -165,7 +165,7 @@ var _ = Describe("Client", func() {
 
 		When("using a service account for secrets", func() {
 			BeforeEach(func() {
-				creds.SecretName = ""
+				creds.SecretNames = []string{}
 				creds.ServiceAccountName = serviceAccountName
 			})
 
@@ -246,7 +246,7 @@ var _ = Describe("Client", func() {
 
 		When("the secret doesn't exist", func() {
 			BeforeEach(func() {
-				creds.SecretName = "not-a-secret"
+				creds.SecretNames = []string{"not-a-secret"}
 			})
 
 			It("fails to authenticate", func() {
@@ -256,7 +256,7 @@ var _ = Describe("Client", func() {
 
 		When("using a service account for secrets", func() {
 			BeforeEach(func() {
-				creds.SecretName = ""
+				creds.SecretNames = []string{}
 				creds.ServiceAccountName = serviceAccountName
 			})
 
@@ -274,7 +274,7 @@ var _ = Describe("Client", func() {
 				_, err := zipFile.Seek(0, 0)
 				Expect(err).NotTo(HaveOccurred())
 
-				creds.SecretName = ""
+				creds.SecretNames = []string{}
 				imgRef, err = imgClient.Push(ctx, creds, pushRef, zipFile)
 				Expect(err).NotTo(HaveOccurred())
 			})

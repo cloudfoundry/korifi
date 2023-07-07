@@ -16,7 +16,15 @@ data:
       diskQuotaMB: {{ .Values.controllers.processDefaults.diskQuotaMB }}
     cfRootNamespace: {{ .Values.global.rootNamespace }}
     {{- if not .Values.global.eksContainerRegistryRoleARN }}
-    containerRegistrySecretName: {{ .Values.global.containerRegistrySecret | quote }}
+    {{- if .Values.global.containerRegistrySecrets }}
+    containerRegistrySecretNames:
+    {{- range .Values.global.containerRegistrySecrets }}
+    - {{ . | quote }}
+    {{- end }}
+    {{- else }}
+    containerRegistrySecretNames:
+    - {{ .Values.global.containerRegistrySecret | quote }}
+    {{- end }}
     {{- end }}
     taskTTL: {{ .Values.controllers.taskTTL }}
     workloads_tls_secret_name: {{ .Values.controllers.workloadsTLSSecret }}

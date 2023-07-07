@@ -216,7 +216,7 @@ func main() {
 		privilegedK8sClient,
 		userClientFactory,
 		imageClient,
-		cfg.PackageRegistrySecretName,
+		cfg.PackageRegistrySecretNames,
 		cfg.RootNamespace,
 	)
 	taskRepo := repositories.NewTaskRepo(
@@ -293,7 +293,7 @@ func main() {
 			dropletRepo,
 			imageRepo,
 			requestValidator,
-			cfg.PackageRegistrySecretName,
+			cfg.PackageRegistrySecretNames,
 		),
 		handlers.NewBuild(
 			*serverURL,

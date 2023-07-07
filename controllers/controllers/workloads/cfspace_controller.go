@@ -47,32 +47,32 @@ import (
 
 // CFSpaceReconciler reconciles a CFSpace object
 type CFSpaceReconciler struct {
-	client                      client.Client
-	scheme                      *runtime.Scheme
-	log                         logr.Logger
-	containerRegistrySecretName string
-	rootNamespace               string
-	appDeletionTimeout          int64
-	labelCompiler               labels.Compiler
+	client                       client.Client
+	scheme                       *runtime.Scheme
+	log                          logr.Logger
+	containerRegistrySecretNames []string
+	rootNamespace                string
+	appDeletionTimeout           int64
+	labelCompiler                labels.Compiler
 }
 
 func NewCFSpaceReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	containerRegistrySecretName string,
+	containerRegistrySecretNames []string,
 	rootNamespace string,
 	appDeletionTimeout int64,
 	labelCompiler labels.Compiler,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace] {
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](log, client, &CFSpaceReconciler{
-		client:                      client,
-		scheme:                      scheme,
-		log:                         log,
-		containerRegistrySecretName: containerRegistrySecretName,
-		rootNamespace:               rootNamespace,
-		appDeletionTimeout:          appDeletionTimeout,
-		labelCompiler:               labelCompiler,
+		client:                       client,
+		scheme:                       scheme,
+		log:                          log,
+		containerRegistrySecretNames: containerRegistrySecretNames,
+		rootNamespace:                rootNamespace,
+		appDeletionTimeout:           appDeletionTimeout,
+		labelCompiler:                labelCompiler,
 	})
 }
 
@@ -166,7 +166,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = propagateSecret(ctx, r.client, cfSpace, r.containerRegistrySecretName)
+	err = propagateSecrets(ctx, r.client, cfSpace, r.containerRegistrySecretNames)
 	if err != nil {
 		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfSpace.Status.Conditions, "RegistrySecretPropagation", cfSpace.Generation)
 	}
@@ -217,20 +217,22 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 				},
 			}
 
-			var rootPackageRegistrySecret *corev1.ObjectReference
-			var rootPackageRegistryImagePullSecret *corev1.LocalObjectReference
+			var rootPackageRegistrySecrets []corev1.ObjectReference
+			var rootPackageRegistryImagePullSecrets []corev1.LocalObjectReference
 
 			// Some versions of K8s will add their own secret/imagepullsecret references which will not be available in the new namespace, so we will only reference the package registry secret we explicitly propagate.
-			for i := range rootServiceAccount.Secrets {
-				if rootServiceAccount.Secrets[i].Name == r.containerRegistrySecretName {
-					rootPackageRegistrySecret = &rootServiceAccount.Secrets[i]
-					break
+			for _, secretName := range r.containerRegistrySecretNames {
+				for _, secret := range rootServiceAccount.Secrets {
+					if secret.Name == secretName {
+						rootPackageRegistrySecrets = append(rootPackageRegistrySecrets, secret)
+						break
+					}
 				}
-			}
-			for i := range rootServiceAccount.ImagePullSecrets {
-				if rootServiceAccount.ImagePullSecrets[i].Name == r.containerRegistrySecretName {
-					rootPackageRegistryImagePullSecret = &rootServiceAccount.ImagePullSecrets[i]
-					break
+				for _, secret := range rootServiceAccount.ImagePullSecrets {
+					if secret.Name == secretName {
+						rootPackageRegistryImagePullSecrets = append(rootPackageRegistryImagePullSecrets, secret)
+						break
+					}
 				}
 			}
 
@@ -244,14 +246,10 @@ func (r *CFSpaceReconciler) reconcileServiceAccounts(ctx context.Context, space 
 				spaceServiceAccount.Labels[korifiv1alpha1.PropagatedFromLabel] = r.rootNamespace
 
 				spaceServiceAccount.Secrets = keepSecrets(spaceServiceAccount.Name, spaceServiceAccount.Secrets)
-				if rootPackageRegistrySecret != nil {
-					spaceServiceAccount.Secrets = append(spaceServiceAccount.Secrets, *rootPackageRegistrySecret)
-				}
+				spaceServiceAccount.Secrets = append(spaceServiceAccount.Secrets, rootPackageRegistrySecrets...)
 
 				spaceServiceAccount.ImagePullSecrets = keepImagePullSecrets(spaceServiceAccount.Name, spaceServiceAccount.ImagePullSecrets)
-				if rootPackageRegistrySecret != nil {
-					spaceServiceAccount.ImagePullSecrets = append(spaceServiceAccount.ImagePullSecrets, *rootPackageRegistryImagePullSecret)
-				}
+				spaceServiceAccount.ImagePullSecrets = append(spaceServiceAccount.ImagePullSecrets, rootPackageRegistryImagePullSecrets...)
 
 				return nil
 			})

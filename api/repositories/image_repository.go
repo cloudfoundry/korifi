@@ -30,7 +30,7 @@ type ImageRepository struct {
 	privilegedK8sClient k8sclient.Interface
 	userClientFactory   authorization.UserK8sClientFactory
 	pusher              ImagePusher
-	pushSecretName      string
+	pushSecretNames     []string
 	pushSecretNamespace string
 }
 
@@ -38,14 +38,14 @@ func NewImageRepository(
 	privilegedK8sClient k8sclient.Interface,
 	userClientFactory authorization.UserK8sClientFactory,
 	pusher ImagePusher,
-	pushSecretName string,
+	pushSecretNames []string,
 	pushSecretNamespace string,
 ) *ImageRepository {
 	return &ImageRepository{
 		privilegedK8sClient: privilegedK8sClient,
 		userClientFactory:   userClientFactory,
 		pusher:              pusher,
-		pushSecretName:      pushSecretName,
+		pushSecretNames:     pushSecretNames,
 		pushSecretNamespace: pushSecretNamespace,
 	}
 }
@@ -66,8 +66,8 @@ func (r *ImageRepository) UploadSourceImage(ctx context.Context, authInfo author
 	}
 
 	pushedRef, err := r.pusher.Push(ctx, image.Creds{
-		Namespace:  r.pushSecretNamespace,
-		SecretName: r.pushSecretName,
+		Namespace:   r.pushSecretNamespace,
+		SecretNames: r.pushSecretNames,
 	}, imageRef, srcReader, tags...)
 	if err != nil {
 		return "", apierrors.NewBlobstoreUnavailableError(fmt.Errorf("pushing image ref '%s' failed: %w", imageRef, err))
