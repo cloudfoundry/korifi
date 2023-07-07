@@ -3,36 +3,34 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Buildpacks", func() {
 	var (
-		baseURL *url.URL
-		output  []byte
-		record  repositories.BuildpackRecord
+		output []byte
+		record repositories.BuildpackRecord
 	)
 
 	BeforeEach(func() {
-		var err error
-		baseURL, err = url.Parse("https://api.example.org")
-		Expect(err).NotTo(HaveOccurred())
 		record = repositories.BuildpackRecord{
 			Name:      "paketo-foopacks/bar",
 			Position:  1,
 			Stack:     "waffle-house",
 			Version:   "1.0.0",
-			CreatedAt: "2016-03-18T23:26:46Z",
-			UpdatedAt: "2016-10-17T20:00:42Z",
+			CreatedAt: time.UnixMilli(1000),
+			UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 		}
 	})
 
 	JustBeforeEach(func() {
-		response := presenter.ForBuildpack(record, *baseURL)
+		response := presenter.ForBuildpack(record, url.URL{})
 		var err error
 		output, err = json.Marshal(response)
 		Expect(err).NotTo(HaveOccurred())
@@ -41,8 +39,8 @@ var _ = Describe("Buildpacks", func() {
 	It("produces expected build json", func() {
 		Expect(output).To(MatchJSON(`{
 			"guid": "",
-			"created_at": "2016-03-18T23:26:46Z",
-			"updated_at": "2016-10-17T20:00:42Z",
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
 			"name": "paketo-foopacks/bar",
 			"filename": "paketo-foopacks/bar@1.0.0",
 			"stack": "waffle-house",

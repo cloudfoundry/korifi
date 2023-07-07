@@ -3,10 +3,12 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -29,8 +31,8 @@ var _ = Describe("Service Instance", func() {
 			SecretName: "secret-name",
 			Tags:       []string{"foo", "bar"},
 			Type:       "user-provided",
-			CreatedAt:  "then",
-			UpdatedAt:  "now",
+			CreatedAt:  time.UnixMilli(1000),
+			UpdatedAt:  tools.PtrTo(time.UnixMilli(2000)),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
@@ -70,11 +72,11 @@ var _ = Describe("Service Instance", func() {
 				}
 			},
 			"last_operation": {
-				"created_at": "then",
+				"created_at": "1970-01-01T00:00:01Z",
+				"updated_at": "1970-01-01T00:00:02Z",
 				"description": "Operation succeeded",
 				"state": "succeeded",
-				"type": "update",
-				"updated_at": "now"
+				"type": "update"
 			},
 			"metadata": {
 				"annotations": {
@@ -97,14 +99,14 @@ var _ = Describe("Service Instance", func() {
 				"foo",
 				"bar"
 			],
-			"created_at": "then",
-			"updated_at": "now"
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z"
 		}`))
 	})
 
 	When("create and update times are the same", func() {
 		BeforeEach(func() {
-			record.UpdatedAt = "then"
+			record.UpdatedAt = &record.CreatedAt
 		})
 
 		It("sets last operation type to create", func() {

@@ -32,7 +32,6 @@ const (
 
 	Kind               string = "CFApp"
 	APIVersion         string = "korifi.cloudfoundry.org/v1alpha1"
-	TimestampFormat    string = time.RFC3339
 	CFAppGUIDLabel     string = "korifi.cloudfoundry.org/app-guid"
 	AppResourceType    string = "App"
 	AppEnvResourceType string = "App Env"
@@ -70,8 +69,8 @@ type AppRecord struct {
 	Annotations           map[string]string
 	State                 DesiredState
 	Lifecycle             Lifecycle
-	CreatedAt             string
-	UpdatedAt             string
+	CreatedAt             time.Time
+	UpdatedAt             *time.Time
 	IsStaged              bool
 	envSecretName         string
 	vcapServiceSecretName string
@@ -620,8 +619,6 @@ func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
 }
 
 func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfApp.ObjectMeta)
-
 	return AppRecord{
 		GUID:        cfApp.Name,
 		EtcdUID:     cfApp.GetUID(),
@@ -639,8 +636,8 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 				Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		CreatedAt:             cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:             updatedAtTime,
+		CreatedAt:             cfApp.CreationTimestamp.Time,
+		UpdatedAt:             getLastUpdatedTime(&cfApp),
 		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady),
 		envSecretName:         cfApp.Spec.EnvSecretName,
 		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,

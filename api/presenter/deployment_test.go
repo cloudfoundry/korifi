@@ -24,8 +24,6 @@ var _ = Describe("Deployments", func() {
 		Expect(err).NotTo(HaveOccurred())
 		record = repositories.DeploymentRecord{
 			GUID:        "app-guid",
-			CreatedAt:   "created-at",
-			UpdatedAt:   "updated-at",
 			DropletGUID: "droplet-guid",
 			Status: repositories.DeploymentStatus{
 				Value:  "deployment-status-value",

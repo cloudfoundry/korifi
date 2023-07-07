@@ -23,13 +23,13 @@ var _ = Describe("Org", func() {
 	var (
 		apiHandler       *handlers.Org
 		orgRepo          *fake.CFOrgRepository
-		now              string
+		now              time.Time
 		domainRepo       *fake.CFDomainRepository
 		requestValidator *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
-		now = time.Unix(1631892190, 0).UTC().Format(time.RFC3339) // 2021-09-17T15:23:10Z
+		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
 
 		orgRepo = new(fake.CFOrgRepository)
 		domainRepo = new(fake.CFDomainRepository)
@@ -64,8 +64,8 @@ var _ = Describe("Org", func() {
 				Annotations: map[string]string{
 					"annotation-key": "annotation-val",
 				},
-				CreatedAt: "then",
-				UpdatedAt: "later",
+				CreatedAt: time.UnixMilli(1),
+				UpdatedAt: tools.PtrTo(time.UnixMilli(2)),
 			}, nil)
 		})
 
@@ -127,13 +127,13 @@ var _ = Describe("Org", func() {
 					Name:      "alice",
 					GUID:      "a-l-i-c-e",
 					CreatedAt: now,
-					UpdatedAt: now,
+					UpdatedAt: &now,
 				},
 				{
 					Name:      "bob",
 					GUID:      "b-o-b",
 					CreatedAt: now,
-					UpdatedAt: now,
+					UpdatedAt: &now,
 				},
 			}, nil)
 		})
@@ -365,8 +365,6 @@ var _ = Describe("Org", func() {
 				Name:        "example.org",
 				Labels:      nil,
 				Annotations: nil,
-				CreatedAt:   "2019-05-10T17:17:48Z",
-				UpdatedAt:   "2019-05-10T17:17:48Z",
 			}
 			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
 			requestURL = "/v3/organizations/org-guid/domains"

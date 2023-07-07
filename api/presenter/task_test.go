@@ -3,10 +3,12 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,8 +35,8 @@ var _ = Describe("Task", func() {
 			Labels:        map[string]string{"l": "l1"},
 			Annotations:   map[string]string{"a": "a1"},
 			SequenceID:    4,
-			CreatedAt:     "then",
-			UpdatedAt:     "now",
+			CreatedAt:     time.UnixMilli(1000),
+			UpdatedAt:     tools.PtrTo(time.UnixMilli(2000)),
 			MemoryMB:      100,
 			DiskMB:        200,
 			State:         "ok",
@@ -55,8 +57,8 @@ var _ = Describe("Task", func() {
 			"guid": "task-guid",
 			"command": "sleep 10000",
 			"sequence_id": 4,
-			"created_at": "then",
-			"updated_at": "now",
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
 			"memory_in_mb": 100,
 			"disk_in_mb": 200,
 			"droplet_guid": "droplet-guid",

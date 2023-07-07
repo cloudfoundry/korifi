@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,7 +33,7 @@ var _ = Describe("Job", func() {
 
 			orgRepo = new(fake.CFOrgRepository)
 			spaceRepo = new(fake.CFSpaceRepository)
-			apiHandler := handlers.NewJob(*serverURL, orgRepo, spaceRepo)
+			apiHandler := handlers.NewJob(*serverURL, orgRepo, spaceRepo, 0)
 			routerBuilder.LoadRoutes(apiHandler)
 		})
 
@@ -104,7 +105,7 @@ var _ = Describe("Job", func() {
 				BeforeEach(func() {
 					orgRepo.GetOrgUnfilteredReturns(repositories.OrgRecord{
 						GUID:      "cf-org-guid",
-						DeletedAt: time.Now().Format(time.RFC3339Nano),
+						DeletedAt: tools.PtrTo(time.Now()),
 					}, nil)
 				})
 
@@ -139,7 +140,7 @@ var _ = Describe("Job", func() {
 				BeforeEach(func() {
 					orgRepo.GetOrgUnfilteredReturns(repositories.OrgRecord{
 						GUID:      "cf-org-guid",
-						DeletedAt: (time.Now().Add(-180 * time.Second)).Format(time.RFC3339Nano),
+						DeletedAt: tools.PtrTo(time.Now().Add(-180 * time.Second)),
 					}, nil)
 				})
 
@@ -206,7 +207,7 @@ var _ = Describe("Job", func() {
 				BeforeEach(func() {
 					spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
 						GUID:      "cf-space-guid",
-						DeletedAt: time.Now().Format(time.RFC3339Nano),
+						DeletedAt: tools.PtrTo(time.Now()),
 					}, nil)
 				})
 
@@ -241,7 +242,7 @@ var _ = Describe("Job", func() {
 				BeforeEach(func() {
 					spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
 						GUID:      "cf-space-guid",
-						DeletedAt: (time.Now().Add(-180 * time.Second)).Format(time.RFC3339Nano),
+						DeletedAt: tools.PtrTo(time.Now().Add(-180 * time.Second)),
 					}, nil)
 				})
 

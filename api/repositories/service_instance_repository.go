@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -93,8 +94,8 @@ type ServiceInstanceRecord struct {
 	Type        string
 	Labels      map[string]string
 	Annotations map[string]string
-	CreatedAt   string
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 }
 
 func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateServiceInstanceMessage) (ServiceInstanceRecord, error) {
@@ -281,8 +282,6 @@ func (m CreateServiceInstanceMessage) toCFServiceInstance() korifiv1alpha1.CFSer
 }
 
 func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfServiceInstance.ObjectMeta)
-
 	return ServiceInstanceRecord{
 		Name:        cfServiceInstance.Spec.DisplayName,
 		GUID:        cfServiceInstance.Name,
@@ -292,8 +291,8 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.C
 		Type:        string(cfServiceInstance.Spec.Type),
 		Labels:      cfServiceInstance.Labels,
 		Annotations: cfServiceInstance.Annotations,
-		CreatedAt:   cfServiceInstance.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(&cfServiceInstance),
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("DeploymentRepository", func() {
@@ -79,11 +80,8 @@ var _ = Describe("DeploymentRepository", func() {
 				Expect(deployment.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 				Expect(deployment.Status.Value).To(Equal(repositories.DeploymentStatusValueActive))
 				Expect(deployment.Status.Reason).To(Equal(repositories.DeploymentStatusReasonDeploying))
-
-				_, err := time.Parse(repositories.TimestampFormat, deployment.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				_, err = time.Parse(repositories.TimestampFormat, deployment.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(deployment.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			When("the app is ready", func() {
@@ -151,11 +149,8 @@ var _ = Describe("DeploymentRepository", func() {
 				Expect(deployment.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 				Expect(deployment.Status.Value).To(Equal(repositories.DeploymentStatusValueActive))
 				Expect(deployment.Status.Reason).To(Equal(repositories.DeploymentStatusReasonDeploying))
-
-				_, err := time.Parse(repositories.TimestampFormat, deployment.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				_, err = time.Parse(repositories.TimestampFormat, deployment.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(deployment.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(deployment.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			It("bumps the app-rev annotation on the app", func() {

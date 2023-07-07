@@ -438,13 +438,8 @@ var _ = Describe("AppRepository", func() {
 				Expect(createdAppRecord.Name).To(Equal(testAppName))
 				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
 
-				recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-
-				recordUpdatedTime, err := time.Parse(TimestampFormat, createdAppRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(createdAppRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdAppRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			When("no environment variables are given", func() {

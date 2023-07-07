@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -38,8 +39,8 @@ type TaskRecord struct {
 	Labels        map[string]string
 	Annotations   map[string]string
 	SequenceID    int64
-	CreatedAt     string
-	UpdatedAt     string
+	CreatedAt     time.Time
+	UpdatedAt     *time.Time
 	MemoryMB      int64
 	DiskMB        int64
 	State         string
@@ -251,7 +252,6 @@ func (r *TaskRepo) PatchTaskMetadata(ctx context.Context, authInfo authorization
 }
 
 func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&task.ObjectMeta)
 	taskRecord := TaskRecord{
 		Name:        task.Name,
 		GUID:        task.Name,
@@ -259,8 +259,8 @@ func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 		Command:     task.Spec.Command,
 		AppGUID:     task.Spec.AppRef.Name,
 		SequenceID:  task.Status.SequenceID,
-		CreatedAt:   formatTimestamp(task.CreationTimestamp),
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   task.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(task),
 		MemoryMB:    task.Status.MemoryMB,
 		DiskMB:      task.Status.DiskQuotaMB,
 		DropletGUID: task.Status.DropletRef.Name,

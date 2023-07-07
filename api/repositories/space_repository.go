@@ -51,9 +51,9 @@ type SpaceRecord struct {
 	OrganizationGUID string
 	Labels           map[string]string
 	Annotations      map[string]string
-	CreatedAt        string
-	UpdatedAt        string
-	DeletedAt        string
+	CreatedAt        time.Time
+	UpdatedAt        *time.Time
+	DeletedAt        *time.Time
 }
 
 type SpaceRepo struct {
@@ -236,21 +236,15 @@ func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, space
 }
 
 func cfSpaceToSpaceRecord(cfSpace korifiv1alpha1.CFSpace) SpaceRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfSpace.ObjectMeta)
-	deletedAtTime := ""
-	if cfSpace.DeletionTimestamp != nil {
-		deletedAtTime = formatTimestamp(*cfSpace.DeletionTimestamp)
-	}
-
 	return SpaceRecord{
 		Name:             cfSpace.Spec.DisplayName,
 		GUID:             cfSpace.Name,
 		OrganizationGUID: cfSpace.Namespace,
 		Annotations:      cfSpace.Annotations,
 		Labels:           cfSpace.Labels,
-		CreatedAt:        formatTimestamp(cfSpace.CreationTimestamp),
-		UpdatedAt:        updatedAtTime,
-		DeletedAt:        deletedAtTime,
+		CreatedAt:        cfSpace.CreationTimestamp.Time,
+		UpdatedAt:        getLastUpdatedTime(&cfSpace),
+		DeletedAt:        golangTime(cfSpace.DeletionTimestamp),
 	}
 }
 

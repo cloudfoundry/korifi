@@ -30,8 +30,8 @@ func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse 
 	return SpaceResponse{
 		Name:      space.Name,
 		GUID:      space.GUID,
-		CreatedAt: space.CreatedAt,
-		UpdatedAt: space.UpdatedAt,
+		CreatedAt: formatTimestamp(&space.CreatedAt),
+		UpdatedAt: formatTimestamp(space.UpdatedAt),
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(space.Labels),
 			Annotations: emptyMapIfNil(space.Annotations),

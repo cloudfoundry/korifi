@@ -329,6 +329,7 @@ func main() {
 			*serverURL,
 			orgRepo,
 			spaceRepo,
+			500*time.Millisecond,
 		),
 		handlers.NewLogCache(
 			appRepo,

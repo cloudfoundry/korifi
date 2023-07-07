@@ -67,13 +67,13 @@ func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].CreatedAt < bpList[j].CreatedAt })
+		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(&bpList[j].CreatedAt, &bpList[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].CreatedAt > bpList[j].CreatedAt })
+		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(&bpList[i].CreatedAt, &bpList[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].UpdatedAt < bpList[j].UpdatedAt })
+		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(bpList[j].UpdatedAt, bpList[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].UpdatedAt > bpList[j].UpdatedAt })
+		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(bpList[i].UpdatedAt, bpList[j].UpdatedAt) })
 	case "position":
 		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position < bpList[j].Position })
 	case "-position":

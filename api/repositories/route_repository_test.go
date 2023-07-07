@@ -55,8 +55,9 @@ var _ = Describe("RouteRepository", func() {
 				},
 			}))
 
-			validateTimestamp(route.CreatedAt, timeCheckThreshold*time.Second)
-			validateTimestamp(route.UpdatedAt, timeCheckThreshold*time.Second)
+			Expect(route.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+			Expect(route.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+			Expect(route.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 		})
 	}
 
@@ -184,8 +185,8 @@ var _ = Describe("RouteRepository", func() {
 				})
 
 				By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
-					validateTimestamp(route.CreatedAt, timeCheckThreshold*time.Second)
-					validateTimestamp(route.UpdatedAt, timeCheckThreshold*time.Second)
+					Expect(route.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+					Expect(route.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				})
 
 				Expect(route.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
@@ -541,8 +542,8 @@ var _ = Describe("RouteRepository", func() {
 						})
 
 						By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
-							validateTimestamp(route.CreatedAt, timeCheckThreshold*time.Second)
-							validateTimestamp(route.UpdatedAt, timeCheckThreshold*time.Second)
+							Expect(route.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+							Expect(route.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 						})
 					})
 				})
@@ -611,8 +612,8 @@ var _ = Describe("RouteRepository", func() {
 				Expect(createdRouteRecord.SpaceGUID).To(Equal(space.Name), "Route Space GUID in record did not match input")
 				Expect(createdRouteRecord.Domain).To(Equal(DomainRecord{GUID: domainGUID}), "Route Domain in record did not match created domain")
 
-				validateTimestamp(createdRouteRecord.CreatedAt, 2*time.Second)
-				validateTimestamp(createdRouteRecord.UpdatedAt, 2*time.Second)
+				Expect(createdRouteRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdRouteRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			When("target namespace isn't set", func() {
@@ -758,8 +759,8 @@ var _ = Describe("RouteRepository", func() {
 				Expect(routeRecord.SpaceGUID).To(Equal(space.Name), "Route Space GUID in record did not match input")
 				Expect(routeRecord.Domain).To(Equal(DomainRecord{GUID: domainGUID}), "Route Domain in record did not match created domain")
 
-				validateTimestamp(routeRecord.CreatedAt, 2*time.Second)
-				validateTimestamp(routeRecord.UpdatedAt, 2*time.Second)
+				Expect(routeRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(routeRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			When("the route already exists", func() {
@@ -1595,10 +1596,4 @@ func cleanupRoute(k8sClient client.Client, ctx context.Context, routeGUID, route
 			Namespace: routeNamespace,
 		},
 	})
-}
-
-func validateTimestamp(timestamp string, interval time.Duration) {
-	recordCreatedTime, err := time.Parse(TimestampFormat, timestamp)
-	Expect(err).NotTo(HaveOccurred(), "There was an error converting the createRouteRecord CreatedTime to string")
-	Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), interval))
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
@@ -12,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,6 +21,9 @@ import (
 
 var _ = Describe("Build", func() {
 	var (
+		createdAt = time.UnixMilli(1000)
+		updatedAt = tools.PtrTo(time.UnixMilli(2000))
+
 		req              *http.Request
 		requestValidator *fake.RequestValidator
 		apiHandler       *handlers.Build
@@ -55,9 +60,6 @@ var _ = Describe("Build", func() {
 
 			stagingMem  = 1024
 			stagingDisk = 2048
-
-			createdAt = "1906-04-18T13:12:00Z"
-			updatedAt = "1906-04-18T13:12:01Z"
 		)
 
 		BeforeEach(func() {
@@ -129,8 +131,6 @@ var _ = Describe("Build", func() {
 			expectedLifecycleType  = "buildpack"
 			expectedLifecycleStack = "cflinuxfs3d"
 			spaceGUID              = "the-space-guid"
-			createdAt              = "1906-04-18T13:12:00Z"
-			updatedAt              = "1906-04-18T13:12:01Z"
 		)
 
 		BeforeEach(func() {

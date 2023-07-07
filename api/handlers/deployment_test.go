@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
@@ -166,8 +165,6 @@ var _ = Describe("Deployment", func() {
 		BeforeEach(func() {
 			deploymentsRepo.GetDeploymentReturns(repositories.DeploymentRecord{
 				GUID:        appGUID,
-				CreatedAt:   time.Now().Format(repositories.TimestampFormat),
-				UpdatedAt:   time.Now().Format(repositories.TimestampFormat),
 				DropletGUID: dropletGUID,
 				Status: repositories.DeploymentStatus{
 					Value:  "deployment-status-value",

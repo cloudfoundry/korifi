@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -23,10 +24,11 @@ var _ = Describe("Droplet", func() {
 		packageGUID = "test-package-guid"
 		dropletGUID = "test-build-guid" // same as build guid
 
-		createdAt = "1906-04-18T13:12:00Z"
-		updatedAt = "1906-04-18T13:12:01Z"
 	)
 	var (
+		createdAt = time.UnixMilli(2000)
+		updatedAt = tools.PtrTo(time.UnixMilli(2000))
+
 		requestValidator *fake.RequestValidator
 		dropletRepo      *fake.CFDropletRepository
 		req              *http.Request

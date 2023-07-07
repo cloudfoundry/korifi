@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -148,15 +149,11 @@ var _ = Describe("DropletRepository", func() {
 					Expect(dropletRecord.State).To(Equal("STAGED"))
 
 					By("returning a record with a CreatedAt field from the CR", func() {
-						createdAt, err := time.Parse(time.RFC3339, dropletRecord.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						Expect(dropletRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 					})
 
 					By("returning a record with a UpdatedAt field from the CR", func() {
-						updatedAt, err := time.Parse(time.RFC3339, dropletRecord.UpdatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						Expect(dropletRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 					})
 
 					By("returning a record with stack field matching the CR", func() {
@@ -498,15 +495,11 @@ var _ = Describe("DropletRepository", func() {
 					Expect(dropletRecord.State).To(Equal("STAGED"))
 
 					By("returning a record with a CreatedAt field from the CR", func() {
-						createdAt, err := time.Parse(time.RFC3339, dropletRecord.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						Expect(dropletRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 					})
 
 					By("returning a record with a UpdatedAt field from the CR", func() {
-						updatedAt, err := time.Parse(time.RFC3339, dropletRecord.UpdatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						Expect(dropletRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 					})
 
 					By("returning a record with stack field matching the CR", func() {

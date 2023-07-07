@@ -29,8 +29,8 @@ type RoleLinks struct {
 func ForRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
 	resp := RoleResponse{
 		GUID:      role.GUID,
-		CreatedAt: role.CreatedAt,
-		UpdatedAt: role.CreatedAt,
+		CreatedAt: formatTimestamp(&role.CreatedAt),
+		UpdatedAt: formatTimestamp(role.UpdatedAt),
 		Type:      role.Type,
 		Relationships: Relationships{
 			"user":         Relationship{Data: &RelationshipData{GUID: role.User}},

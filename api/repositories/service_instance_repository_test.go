@@ -88,13 +88,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(createdServiceInstanceRecord.Type).To(Equal("user-provided"), "Type in record did not match input")
 				Expect(createdServiceInstanceRecord.Tags).To(ConsistOf([]string{"foo", "bar"}), "Tags in record did not match input")
 
-				recordCreatedTime, err := time.Parse(repositories.TimestampFormat, createdServiceInstanceRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-
-				recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, createdServiceInstanceRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(createdServiceInstanceRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdServiceInstanceRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			When("ServiceInstance credentials are NOT provided", func() {

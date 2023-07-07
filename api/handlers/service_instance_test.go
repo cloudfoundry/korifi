@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -75,16 +76,7 @@ var _ = Describe("ServiceInstance", func() {
 				Metadata: payloads.Metadata{},
 			})
 
-			serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{
-				Name:       "service-instance-name",
-				GUID:       "service-instance-guid",
-				SpaceGUID:  "space-guid",
-				SecretName: "secret-name",
-				Tags:       []string{"foo", "bar"},
-				Type:       "user-provided",
-				CreatedAt:  "then",
-				UpdatedAt:  "now",
-			}, nil)
+			serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{GUID: "service-instance-guid"}, nil)
 		})
 
 		It("creates a CFServiceInstance", func() {
@@ -160,32 +152,8 @@ var _ = Describe("ServiceInstance", func() {
 	Describe("GET /v3/service_instances", func() {
 		BeforeEach(func() {
 			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-				{
-					Name:       "service-inst-name-1",
-					GUID:       "service-inst-guid-1",
-					SpaceGUID:  "space-guid",
-					SecretName: "secret-name-1",
-					Tags:       []string{"foo", "bar"},
-					Type:       "user-provided",
-					Labels: map[string]string{
-						"a-label": "a-label-value",
-					},
-					Annotations: map[string]string{
-						"an-annotation": "an-annotation-value",
-					},
-					CreatedAt: "1906-04-18T13:12:00Z",
-					UpdatedAt: "1906-04-18T13:12:00Z",
-				},
-				{
-					Name:       "service-inst-name-2",
-					GUID:       "service-inst-guid-2",
-					SpaceGUID:  "space-guid",
-					SecretName: "secret-name-2",
-					Tags:       nil,
-					Type:       "user-provided",
-					CreatedAt:  "1906-04-18T13:12:00Z",
-					UpdatedAt:  "1906-04-18T13:12:01Z",
-				},
+				{GUID: "service-inst-guid-1"},
+				{GUID: "service-inst-guid-2"},
 			}, nil)
 
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{})
@@ -241,20 +209,20 @@ var _ = Describe("ServiceInstance", func() {
 					{
 						GUID:      "1",
 						Name:      "first-test-si",
-						CreatedAt: "2023-01-17T14:58:32Z",
-						UpdatedAt: "2023-01-18T14:58:32Z",
+						CreatedAt: time.UnixMilli(3000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(4000)),
 					},
 					{
 						GUID:      "2",
 						Name:      "second-test-si",
-						CreatedAt: "2023-01-17T14:57:32Z",
-						UpdatedAt: "2023-01-19T14:57:32Z",
+						CreatedAt: time.UnixMilli(2000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
 					},
 					{
 						GUID:      "3",
 						Name:      "third-test-si",
-						CreatedAt: "2023-01-16T14:57:32Z",
-						UpdatedAt: "2023-01-20:57:32Z",
+						CreatedAt: time.UnixMilli(1000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(6000)),
 					},
 				}, nil)
 			})

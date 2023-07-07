@@ -64,8 +64,6 @@ var _ = Describe("Domain", func() {
 				Labels:      map[string]string{"foo": "bar"},
 				Annotations: map[string]string{"bar": "baz"},
 				Namespace:   "my-ns",
-				CreatedAt:   "created-on",
-				UpdatedAt:   "updated-on",
 			}, nil)
 
 			var err error
@@ -137,8 +135,6 @@ var _ = Describe("Domain", func() {
 				Labels:      map[string]string{"foo": "bar"},
 				Annotations: map[string]string{"bar": "baz"},
 				Namespace:   "my-ns",
-				CreatedAt:   "created-on",
-				UpdatedAt:   "updated-on",
 			}, nil)
 
 			var err error
@@ -204,8 +200,6 @@ var _ = Describe("Domain", func() {
 				Labels:      map[string]string{"foo": "bar"},
 				Annotations: map[string]string{"bar": "baz"},
 				Namespace:   "my-ns",
-				CreatedAt:   "created-on",
-				UpdatedAt:   "updated-on",
 			}, nil)
 
 			var err error
@@ -276,8 +270,6 @@ var _ = Describe("Domain", func() {
 				Name:        "example.org",
 				Labels:      nil,
 				Annotations: nil,
-				CreatedAt:   "2019-05-10T17:17:48Z",
-				UpdatedAt:   "2019-05-10T17:17:48Z",
 			}
 			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
 

@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"errors"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,16 +26,15 @@ type ConditionAwaiter[T runtime.Object] interface {
 	AwaitCondition(ctx context.Context, userClient client.WithWatch, object client.Object, conditionType string) (T, error)
 }
 
-// getTimeLastUpdatedTimestamp takes the ObjectMeta from a CR and extracts the last updated time from its list of ManagedFields
-// Returns an error if the list is empty or the time could not be extracted
-func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
-	if len(metadata.ManagedFields) == 0 {
-		return "", errors.New("error, metadata.ManagedFields was empty")
+func getLastUpdatedTime(obj client.Object) *time.Time {
+	managedFields := obj.GetManagedFields()
+	if len(managedFields) == 0 {
+		return nil
 	}
 
-	latestTime := metadata.ManagedFields[0].Time
-	for i := 1; i < len(metadata.ManagedFields); i++ {
-		currentTime := metadata.ManagedFields[i].Time
+	var latestTime *metav1.Time
+	for _, managedField := range managedFields {
+		currentTime := managedField.Time
 		if latestTime == nil {
 			latestTime = currentTime
 		} else if currentTime != nil {
@@ -44,16 +43,14 @@ func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
 			}
 		}
 	}
-
-	if latestTime == nil {
-		return "", errors.New("error, could not find a time in metadata.ManagedFields")
-	}
-
-	return formatTimestamp(*latestTime), nil
+	return golangTime(latestTime)
 }
 
-func formatTimestamp(time metav1.Time) string {
-	return time.UTC().Format(TimestampFormat)
+func golangTime(t *metav1.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	return &t.Time
 }
 
 // getConditionValue is a helper function that retrieves the value of the provided conditionType, like "Succeeded" and returns the value: "True", "False", or "Unknown"

@@ -178,8 +178,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(record.AppGUID).To(Equal(appGUID))
 				Expect(record.ServiceInstanceGUID).To(Equal(serviceInstanceGUID))
 				Expect(record.SpaceGUID).To(Equal(space.Name))
-				Expect(record.CreatedAt).NotTo(BeEmpty())
-				Expect(record.UpdatedAt).NotTo(BeEmpty())
+				Expect(record.CreatedAt).NotTo(BeZero())
+				Expect(record.UpdatedAt).NotTo(BeNil())
 
 				Expect(record.LastOperation.Type).To(Equal("create"))
 				Expect(record.LastOperation.State).To(Equal("succeeded"))

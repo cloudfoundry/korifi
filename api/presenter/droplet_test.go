@@ -3,10 +3,12 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,8 +28,8 @@ var _ = Describe("Droplet", func() {
 		record = repositories.DropletRecord{
 			GUID:      "the-droplet-guid",
 			State:     "STAGED",
-			CreatedAt: "2019-05-10T17:17:48Z",
-			UpdatedAt: "2019-05-10T17:17:48Z",
+			CreatedAt: time.UnixMilli(1000),
+			UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 			Lifecycle: repositories.Lifecycle{
 				Type: "buildpack",
 			},
@@ -71,8 +73,8 @@ var _ = Describe("Droplet", func() {
 			"buildpacks": [],
 			"stack": "cflinuxfs3",
 			"image": null,
-			"created_at": "2019-05-10T17:17:48Z",
-			"updated_at": "2019-05-10T17:17:48Z",
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
 			"relationships": {
 				"app": {
 					"data": {

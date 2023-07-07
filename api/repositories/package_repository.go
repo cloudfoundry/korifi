@@ -65,8 +65,8 @@ type PackageRecord struct {
 	AppGUID     string
 	SpaceGUID   string
 	State       string
-	CreatedAt   string // Can we also just use date objects directly here?
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 	Labels      map[string]string
 	Annotations map[string]string
 	ImageRef    string
@@ -260,7 +260,6 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 }
 
 func (r *PackageRepo) cfPackageToPackageRecord(cfPackage *korifiv1alpha1.CFPackage) PackageRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfPackage.ObjectMeta)
 	state := PackageStateAwaitingUpload
 	if meta.IsStatusConditionTrue(cfPackage.Status.Conditions, shared.StatusConditionReady) {
 		state = PackageStateReady
@@ -272,8 +271,8 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage *korifiv1alpha1.CFPacka
 		Type:        string(cfPackage.Spec.Type),
 		AppGUID:     cfPackage.Spec.AppRef.Name,
 		State:       state,
-		CreatedAt:   formatTimestamp(cfPackage.CreationTimestamp),
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   cfPackage.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(cfPackage),
 		Labels:      cfPackage.Labels,
 		Annotations: cfPackage.Annotations,
 		ImageRef:    r.repositoryRef(cfPackage.Spec.AppRef.Name),

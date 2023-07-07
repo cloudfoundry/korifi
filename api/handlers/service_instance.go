@@ -133,13 +133,13 @@ func (h *ServiceInstance) sortList(siList []repositories.ServiceInstanceRecord, 
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(siList, func(i, j int) bool { return siList[i].CreatedAt < siList[j].CreatedAt })
+		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(&siList[j].CreatedAt, &siList[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(siList, func(i, j int) bool { return siList[i].CreatedAt > siList[j].CreatedAt })
+		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(&siList[i].CreatedAt, &siList[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(siList, func(i, j int) bool { return siList[i].UpdatedAt < siList[j].UpdatedAt })
+		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(siList[j].UpdatedAt, siList[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(siList, func(i, j int) bool { return siList[i].UpdatedAt > siList[j].UpdatedAt })
+		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(siList[i].UpdatedAt, siList[j].UpdatedAt) })
 	case "name":
 		sort.Slice(siList, func(i, j int) bool { return siList[i].Name < siList[j].Name })
 	case "-name":

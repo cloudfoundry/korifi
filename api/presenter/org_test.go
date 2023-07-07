@@ -3,10 +3,12 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,8 +35,8 @@ var _ = Describe("Org", func() {
 			Annotations: map[string]string{
 				"annotation-key": "annotation-val",
 			},
-			CreatedAt: "then",
-			UpdatedAt: "later",
+			CreatedAt: time.UnixMilli(1000),
+			UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 		}
 	})
 
@@ -49,8 +51,8 @@ var _ = Describe("Org", func() {
 		Expect(output).To(MatchJSON(`{
 			"guid": "org-guid",
 			"name": "new-org",
-			"created_at": "then",
-			"updated_at": "later",
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
 			"suspended": false,
 			"metadata": {
 				"labels": {

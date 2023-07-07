@@ -3,6 +3,7 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -36,14 +37,14 @@ var _ = Describe("Service Binding", func() {
 			Annotations: map[string]string{
 				"annotation-key": "annotation-key",
 			},
-			CreatedAt: "then",
-			UpdatedAt: "now",
+			CreatedAt: time.UnixMilli(1000),
+			UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 			LastOperation: repositories.ServiceBindingLastOperation{
 				Type:        "hernia",
 				State:       "ruptured",
 				Description: tools.PtrTo("bad"),
-				CreatedAt:   "yesterday",
-				UpdatedAt:   "later",
+				CreatedAt:   time.UnixMilli(3000),
+				UpdatedAt:   tools.PtrTo(time.UnixMilli(4000)),
 			},
 		}
 	})
@@ -61,14 +62,14 @@ var _ = Describe("Service Binding", func() {
 				"guid": "binding-guid",
 				"type": "user-provided",
 				"name": "binding-name",
-				"created_at": "then",
-				"updated_at": "now",
+				"created_at": "1970-01-01T00:00:01Z",
+				"updated_at": "1970-01-01T00:00:02Z",
 				"last_operation": {
 					"type": "hernia",
 					"state": "ruptured",
 					"description": "bad",
-					"created_at": "yesterday",
-					"updated_at": "later"
+					"created_at": "1970-01-01T00:00:03Z",
+					"updated_at": "1970-01-01T00:00:04Z"
 				},
 				"relationships": {
 					"app": {

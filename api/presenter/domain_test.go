@@ -3,10 +3,12 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,8 +31,8 @@ var _ = Describe("Domains", func() {
 			Labels:      map[string]string{"foo": "bar"},
 			Annotations: map[string]string{"bar": "baz"},
 			Namespace:   "my-ns",
-			CreatedAt:   "created-on",
-			UpdatedAt:   "updated-on",
+			CreatedAt:   time.UnixMilli(1000),
+			UpdatedAt:   tools.PtrTo(time.UnixMilli(2000)),
 		}
 	})
 
@@ -50,8 +52,8 @@ var _ = Describe("Domains", func() {
 			"supported_protocols": [
 				"http"
 			],
-			"created_at": "created-on",
-			"updated_at": "updated-on",
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
 			"metadata": {
 				"labels": {
 					"foo": "bar"

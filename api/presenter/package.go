@@ -36,8 +36,8 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageRespo
 		GUID:      record.GUID,
 		Type:      record.Type,
 		State:     record.State,
-		CreatedAt: record.CreatedAt,
-		UpdatedAt: record.UpdatedAt,
+		CreatedAt: formatTimestamp(&record.CreatedAt),
+		UpdatedAt: formatTimestamp(record.UpdatedAt),
 		Relationships: Relationships{
 			"app": Relationship{
 				Data: &RelationshipData{

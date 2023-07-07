@@ -124,8 +124,8 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 			Labels:      responseProcess.Labels,
 			Annotations: responseProcess.Annotations,
 		},
-		CreatedAt: responseProcess.CreatedAt,
-		UpdatedAt: responseProcess.UpdatedAt,
+		CreatedAt: formatTimestamp(&responseProcess.CreatedAt),
+		UpdatedAt: formatTimestamp(responseProcess.UpdatedAt),
 		Links: ProcessLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID).build(),

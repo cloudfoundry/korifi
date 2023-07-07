@@ -47,10 +47,6 @@ var _ = Describe("Route", func() {
 				{GUID: "dest-1-guid"},
 				{GUID: "dest-2-guid"},
 			},
-			Labels:      nil,
-			Annotations: nil,
-			CreatedAt:   "2019-05-10T17:17:48Z",
-			UpdatedAt:   "2019-05-10T17:17:48Z",
 		}
 		routeRepo = new(fake.CFRouteRepository)
 		routeRepo.GetRouteReturns(routeRecord, nil)
@@ -264,11 +260,9 @@ var _ = Describe("Route", func() {
 				Domain: repositories.DomainRecord{
 					GUID: "test-domain-guid",
 				},
-				Host:      "test-route-host",
-				Path:      "/test-route-path",
-				Protocol:  "http",
-				CreatedAt: "create-time",
-				UpdatedAt: "update-time",
+				Host:     "test-route-host",
+				Path:     "/test-route-path",
+				Protocol: "http",
 			}, nil)
 
 			requestBody = "the-json-body"

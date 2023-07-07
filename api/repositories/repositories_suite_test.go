@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
@@ -34,7 +35,7 @@ import (
 )
 
 const (
-	timeCheckThreshold = 3
+	timeCheckThreshold = 3 * time.Second
 )
 
 func TestRepositories(t *testing.T) {

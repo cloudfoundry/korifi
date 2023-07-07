@@ -126,13 +126,8 @@ var _ = Describe("DomainRepository", func() {
 				Expect(createdDomain.Labels).To(HaveKeyWithValue("foo", "bar"))
 				Expect(createdDomain.Annotations).To(HaveKeyWithValue("bar", "baz"))
 
-				createdAt, err := time.Parse(time.RFC3339, createdDomain.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-				updatedAt, err := time.Parse(time.RFC3339, createdDomain.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(createdDomain.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdDomain.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				domainNSName := types.NamespacedName{Name: createdDomainGUID, Namespace: rootNamespace}
 				createdCFDomain := new(korifiv1alpha1.CFDomain)
@@ -259,11 +254,7 @@ var _ = Describe("DomainRepository", func() {
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID1)}),
 			))
 
-			firstDomainCreatedAt, err := time.Parse(time.RFC3339, domainRecords[0].CreatedAt)
-			Expect(err).NotTo(HaveOccurred())
-			secondDomainCreatedAt, err := time.Parse(time.RFC3339, domainRecords[1].CreatedAt)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(firstDomainCreatedAt).To(BeTemporally("<=", secondDomainCreatedAt))
+			Expect(domainRecords[0].CreatedAt).To(BeTemporally("<=", domainRecords[1].CreatedAt))
 		})
 
 		When("no CFDomains exist", func() {
