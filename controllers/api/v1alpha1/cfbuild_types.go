@@ -30,7 +30,7 @@ type CFBuildSpec struct {
 
 	// The memory limit for the pod that will stage the image
 	StagingMemoryMB int `json:"stagingMemoryMB"`
-	// The ephemeral-disk size request for the pod that will stage the image
+	// Unimplemented: StagingDiskMB is the ephemeral-disk size request for the pod that will stage the image
 	StagingDiskMB int `json:"stagingDiskMB"`
 
 	// Specifies the buildpacks and stack for the build

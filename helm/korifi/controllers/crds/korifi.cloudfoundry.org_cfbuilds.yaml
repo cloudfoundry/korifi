@@ -94,8 +94,8 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               stagingDiskMB:
-                description: The ephemeral-disk size request for the pod that will
-                  stage the image
+                description: 'Unimplemented: StagingDiskMB is the ephemeral-disk size
+                  request for the pod that will stage the image'
                 type: integer
               stagingMemoryMB:
                 description: The memory limit for the pod that will stage the image
