@@ -49,9 +49,9 @@ type OrgRecord struct {
 	Suspended   bool
 	Labels      map[string]string
 	Annotations map[string]string
-	CreatedAt   string
-	UpdatedAt   string
-	DeletedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
+	DeletedAt   *time.Time
 }
 
 type OrgRepo struct {
@@ -258,20 +258,14 @@ func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.I
 }
 
 func cfOrgToOrgRecord(cfOrg korifiv1alpha1.CFOrg) OrgRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfOrg.ObjectMeta)
-	deletedAtTime := ""
-	if cfOrg.DeletionTimestamp != nil {
-		deletedAtTime = formatTimestamp(*cfOrg.DeletionTimestamp)
-	}
-
 	return OrgRecord{
 		GUID:        cfOrg.Name,
 		Name:        cfOrg.Spec.DisplayName,
 		Suspended:   false,
 		Labels:      cfOrg.Labels,
 		Annotations: cfOrg.Annotations,
-		CreatedAt:   formatTimestamp(cfOrg.CreationTimestamp),
-		UpdatedAt:   updatedAtTime,
-		DeletedAt:   deletedAtTime,
+		CreatedAt:   cfOrg.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(&cfOrg),
+		DeletedAt:   golangTime(cfOrg.DeletionTimestamp),
 	}
 }

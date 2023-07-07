@@ -141,6 +141,9 @@ var _ = Describe("SpaceRepository", func() {
 
 				Expect(space.Name).To(Equal(spaceName))
 				Expect(space.GUID).To(HavePrefix("cf-space-"))
+				Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(space.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(space.DeletedAt).To(BeNil())
 			})
 
 			When("the org does not exist", func() {

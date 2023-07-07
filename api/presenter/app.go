@@ -44,8 +44,8 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 		Name:      responseApp.Name,
 		GUID:      responseApp.GUID,
 		State:     string(responseApp.State),
-		CreatedAt: responseApp.CreatedAt,
-		UpdatedAt: responseApp.UpdatedAt,
+		CreatedAt: formatTimestamp(&responseApp.CreatedAt),
+		UpdatedAt: formatTimestamp(responseApp.UpdatedAt),
 		Relationships: Relationships{
 			"space": Relationship{
 				Data: &RelationshipData{

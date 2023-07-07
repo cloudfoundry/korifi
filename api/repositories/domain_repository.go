@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -44,8 +45,8 @@ type DomainRecord struct {
 	Labels      map[string]string
 	Annotations map[string]string
 	Namespace   string
-	CreatedAt   string
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 }
 
 type CreateDomainMessage struct {
@@ -207,13 +208,12 @@ func returnDomainList(domainList []korifiv1alpha1.CFDomain) []DomainRecord {
 }
 
 func cfDomainToDomainRecord(cfDomain *korifiv1alpha1.CFDomain) DomainRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfDomain.ObjectMeta)
 	return DomainRecord{
 		Name:        cfDomain.Spec.Name,
 		GUID:        cfDomain.Name,
 		Namespace:   cfDomain.Namespace,
-		CreatedAt:   cfDomain.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   cfDomain.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(cfDomain),
 		Labels:      cfDomain.Labels,
 		Annotations: cfDomain.Annotations,
 	}

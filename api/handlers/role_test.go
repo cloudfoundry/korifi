@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
@@ -12,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -195,10 +197,10 @@ var _ = Describe("Role", func() {
 		Describe("filtering and ordering", func() {
 			BeforeEach(func() {
 				roleRepo.ListRolesReturns([]repositories.RoleRecord{
-					{GUID: "1", CreatedAt: "2022-01-23T17:08:22", UpdatedAt: "2022-01-22T17:09:00", Type: "a", Space: "space1", Org: "", User: "user1"},
-					{GUID: "2", CreatedAt: "2022-01-24T17:08:22", UpdatedAt: "2022-01-21T17:09:00", Type: "b", Space: "space2", Org: "", User: "user1"},
-					{GUID: "3", CreatedAt: "2022-01-22T17:08:22", UpdatedAt: "2022-01-24T17:09:00", Type: "c", Space: "", Org: "org1", User: "user1"},
-					{GUID: "4", CreatedAt: "2022-01-21T17:08:22", UpdatedAt: "2022-01-23T17:09:00", Type: "c", Space: "", Org: "org2", User: "user2"},
+					{GUID: "1", CreatedAt: time.UnixMilli(5000), UpdatedAt: tools.PtrTo(time.UnixMilli(4000)), Type: "a", Space: "space1", Org: "", User: "user1"},
+					{GUID: "2", CreatedAt: time.UnixMilli(7000), UpdatedAt: tools.PtrTo(time.UnixMilli(2000)), Type: "b", Space: "space2", Org: "", User: "user1"},
+					{GUID: "3", CreatedAt: time.UnixMilli(3000), UpdatedAt: tools.PtrTo(time.UnixMilli(8000)), Type: "c", Space: "", Org: "org1", User: "user1"},
+					{GUID: "4", CreatedAt: time.UnixMilli(1000), UpdatedAt: tools.PtrTo(time.UnixMilli(6000)), Type: "c", Space: "", Org: "org2", User: "user2"},
 				}, nil)
 			})
 

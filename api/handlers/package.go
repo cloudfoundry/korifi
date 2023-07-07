@@ -108,13 +108,13 @@ func (h Package) sortList(records []repositories.PackageRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(records, func(i, j int) bool { return records[i].CreatedAt < records[j].CreatedAt })
+		sort.Slice(records, func(i, j int) bool { return timePtrAfter(&records[j].CreatedAt, &records[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(records, func(i, j int) bool { return records[i].CreatedAt > records[j].CreatedAt })
+		sort.Slice(records, func(i, j int) bool { return timePtrAfter(&records[i].CreatedAt, &records[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(records, func(i, j int) bool { return records[i].UpdatedAt < records[j].UpdatedAt })
+		sort.Slice(records, func(i, j int) bool { return timePtrAfter(records[j].UpdatedAt, records[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(records, func(i, j int) bool { return records[i].UpdatedAt > records[j].UpdatedAt })
+		sort.Slice(records, func(i, j int) bool { return timePtrAfter(records[i].UpdatedAt, records[j].UpdatedAt) })
 	}
 }
 

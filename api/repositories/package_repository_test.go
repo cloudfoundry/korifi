@@ -133,13 +133,9 @@ var _ = Describe("PackageRepository", func() {
 				Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
 				Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
 
-				createdAt, err := time.Parse(time.RFC3339, createdPackage.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(createdPackage.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 
-				updatedAt, err := time.Parse(time.RFC3339, createdPackage.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
 				createdCFPackage := new(korifiv1alpha1.CFPackage)
@@ -205,13 +201,8 @@ var _ = Describe("PackageRepository", func() {
 				Expect(packageRecord.Annotations).To(HaveKeyWithValue("bar", "the-original-value"))
 				Expect(packageRecord.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
 
-				createdAt, err := time.Parse(time.RFC3339, packageRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-				updatedAt, err := time.Parse(time.RFC3339, packageRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(packageRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(packageRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			Describe("State field", func() {
@@ -473,13 +464,8 @@ var _ = Describe("PackageRepository", func() {
 				Expect(returnedPackageRecord.SpaceGUID).To(Equal(existingCFPackage.Namespace))
 				Expect(returnedPackageRecord.State).To(Equal("READY"))
 
-				createdAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-				updatedAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(returnedPackageRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(returnedPackageRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				Expect(updatedCFPackage.Name).To(Equal(existingCFPackage.Name))
 				Expect(updatedCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))

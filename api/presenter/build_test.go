@@ -3,10 +3,12 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -25,8 +27,8 @@ var _ = Describe("Build", func() {
 		record = repositories.BuildRecord{
 			GUID:            "build-guid",
 			State:           "STAGING",
-			CreatedAt:       "2023-03-29T15:42:12Z",
-			UpdatedAt:       "2023-03-29T15:42:13Z",
+			CreatedAt:       time.UnixMilli(1000),
+			UpdatedAt:       tools.PtrTo(time.UnixMilli(2000)),
 			StagingMemoryMB: 128,
 			StagingDiskMB:   512,
 			Lifecycle: repositories.Lifecycle{
@@ -57,8 +59,8 @@ var _ = Describe("Build", func() {
 	It("produces expected build json", func() {
 		Expect(output).To(MatchJSON(`{
 			"guid": "build-guid",
-			"created_at": "2023-03-29T15:42:12Z",
-			"updated_at": "2023-03-29T15:42:13Z",
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
 			"created_by": {},
 			"state": "STAGING",
 			"staging_memory_in_mb": 128,

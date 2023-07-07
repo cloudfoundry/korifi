@@ -20,11 +20,11 @@ type BuildpackResponse struct {
 	Links     map[string]Link `json:"links"`
 }
 
-func ForBuildpack(buildpackRecord repositories.BuildpackRecord, baseURL url.URL) BuildpackResponse {
+func ForBuildpack(buildpackRecord repositories.BuildpackRecord, _ url.URL) BuildpackResponse {
 	toReturn := BuildpackResponse{
 		GUID:      "",
-		CreatedAt: buildpackRecord.CreatedAt,
-		UpdatedAt: buildpackRecord.UpdatedAt,
+		CreatedAt: formatTimestamp(&buildpackRecord.CreatedAt),
+		UpdatedAt: formatTimestamp(buildpackRecord.UpdatedAt),
 		Name:      buildpackRecord.Name,
 		Filename:  buildpackRecord.Name + "@" + buildpackRecord.Version,
 		Stack:     buildpackRecord.Stack,

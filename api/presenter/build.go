@@ -31,8 +31,8 @@ type BuildResponse struct {
 func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildResponse {
 	toReturn := BuildResponse{
 		GUID:            buildRecord.GUID,
-		CreatedAt:       buildRecord.CreatedAt,
-		UpdatedAt:       buildRecord.UpdatedAt,
+		CreatedAt:       formatTimestamp(&buildRecord.CreatedAt),
+		UpdatedAt:       formatTimestamp(buildRecord.UpdatedAt),
 		CreatedBy:       make(map[string]interface{}),
 		State:           buildRecord.State,
 		StagingMemoryMB: buildRecord.StagingMemoryMB,

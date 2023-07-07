@@ -39,8 +39,8 @@ type BuildpackData struct {
 func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) DropletResponse {
 	toReturn := DropletResponse{
 		GUID:      dropletRecord.GUID,
-		CreatedAt: dropletRecord.CreatedAt,
-		UpdatedAt: dropletRecord.UpdatedAt,
+		CreatedAt: formatTimestamp(&dropletRecord.CreatedAt),
+		UpdatedAt: formatTimestamp(dropletRecord.UpdatedAt),
 		State:     dropletRecord.State,
 		Lifecycle: Lifecycle{
 			Type: dropletRecord.Lifecycle.Type,

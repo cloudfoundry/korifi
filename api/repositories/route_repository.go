@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -54,8 +55,8 @@ type RouteRecord struct {
 	Destinations []DestinationRecord
 	Labels       map[string]string
 	Annotations  map[string]string
-	CreatedAt    string
-	UpdatedAt    string
+	CreatedAt    time.Time
+	UpdatedAt    *time.Time
 }
 
 type AddDestinationsToRouteMessage struct {
@@ -262,7 +263,6 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 	for _, destination := range cfRoute.Spec.Destinations {
 		destinations = append(destinations, cfRouteDestinationToDestination(destination))
 	}
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfRoute.ObjectMeta)
 	return RouteRecord{
 		GUID:      cfRoute.Name,
 		SpaceGUID: cfRoute.Namespace,
@@ -273,8 +273,8 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 		Path:         cfRoute.Spec.Path,
 		Protocol:     "http", // TODO: Create a mutating webhook to set this default on the CFRoute
 		Destinations: destinations,
-		CreatedAt:    cfRoute.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:    updatedAtTime,
+		CreatedAt:    cfRoute.CreationTimestamp.Time,
+		UpdatedAt:    getLastUpdatedTime(&cfRoute),
 		Labels:       cfRoute.Labels,
 		Annotations:  cfRoute.Annotations,
 	}

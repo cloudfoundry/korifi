@@ -4,12 +4,14 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,8 +44,8 @@ var _ = Describe("Buildpack", func() {
 					Position:  1,
 					Stack:     "waffle-house",
 					Version:   "1.0.0",
-					CreatedAt: "2016-03-18T23:26:46Z",
-					UpdatedAt: "2016-10-17T20:00:42Z",
+					CreatedAt: time.UnixMilli(1000),
+					UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 				},
 			}, nil)
 
@@ -77,18 +79,18 @@ var _ = Describe("Buildpack", func() {
 			BeforeEach(func() {
 				buildpackRepo.ListBuildpacksReturns([]repositories.BuildpackRecord{
 					{
-						CreatedAt: "2023-01-14T14:58:32Z",
-						UpdatedAt: "2023-01-19T14:58:32Z",
+						CreatedAt: time.UnixMilli(1000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
 						Position:  1,
 					},
 					{
-						CreatedAt: "2023-01-17T14:57:32Z",
-						UpdatedAt: "2023-01-18:57:32Z",
+						CreatedAt: time.UnixMilli(3000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(4000)),
 						Position:  2,
 					},
 					{
-						CreatedAt: "2023-01-16T14:57:32Z",
-						UpdatedAt: "2023-01-20:57:32Z",
+						CreatedAt: time.UnixMilli(2000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(6000)),
 						Position:  3,
 					},
 				}, nil)

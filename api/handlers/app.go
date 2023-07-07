@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -158,17 +159,25 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForApp, appList, h.serverURL, *r.URL)), nil
 }
 
+func timePtrAfter(t1, t2 *time.Time) bool {
+	if t1 == nil || t2 == nil {
+		return false
+	}
+
+	return (*t1).After(*t2)
+}
+
 func (h *App) sortList(appList []repositories.AppRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].CreatedAt < appList[j].CreatedAt })
+		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(&appList[j].CreatedAt, &appList[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].CreatedAt > appList[j].CreatedAt })
+		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(&appList[i].CreatedAt, &appList[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].UpdatedAt < appList[j].UpdatedAt })
+		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(appList[j].UpdatedAt, appList[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].UpdatedAt > appList[j].UpdatedAt })
+		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(appList[i].UpdatedAt, appList[j].UpdatedAt) })
 	case "name":
 		sort.Slice(appList, func(i, j int) bool { return appList[i].Name < appList[j].Name })
 	case "-name":

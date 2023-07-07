@@ -37,8 +37,8 @@ var _ = Describe("Package", func() {
 		packageGUID string
 		appGUID     string
 		spaceGUID   string
-		createdAt   string
-		updatedAt   string
+		createdAt   time.Time
+		updatedAt   *time.Time
 	)
 
 	BeforeEach(func() {
@@ -52,8 +52,8 @@ var _ = Describe("Package", func() {
 		packageGUID = generateGUID("package")
 		appGUID = generateGUID("app")
 		spaceGUID = generateGUID("space")
-		createdAt = time.Now().Format(time.RFC3339)
-		updatedAt = time.Now().Format(time.RFC3339)
+		createdAt = time.Now()
+		updatedAt = tools.PtrTo(time.Now())
 
 		apiHandler := NewPackage(
 			*serverURL,
@@ -205,18 +205,18 @@ var _ = Describe("Package", func() {
 				packageRepo.ListPackagesReturns([]repositories.PackageRecord{
 					{
 						GUID:      "1",
-						CreatedAt: "2023-01-17T14:58:32Z",
-						UpdatedAt: "2023-01-18T14:58:32Z",
+						CreatedAt: time.UnixMilli(3000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(4000)),
 					},
 					{
 						GUID:      "2",
-						CreatedAt: "2023-01-17T14:57:32Z",
-						UpdatedAt: "2023-01-17T14:57:32Z",
+						CreatedAt: time.UnixMilli(2000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 					},
 					{
 						GUID:      "3",
-						CreatedAt: "2023-01-16T14:57:32Z",
-						UpdatedAt: "2023-01-20:57:32Z",
+						CreatedAt: time.UnixMilli(1000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
 					},
 				}, nil)
 			})

@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -56,8 +57,8 @@ type ServiceBindingRecord struct {
 	SpaceGUID           string
 	Labels              map[string]string
 	Annotations         map[string]string
-	CreatedAt           string
-	UpdatedAt           string
+	CreatedAt           time.Time
+	UpdatedAt           *time.Time
 	LastOperation       ServiceBindingLastOperation
 }
 
@@ -65,8 +66,8 @@ type ServiceBindingLastOperation struct {
 	Type        string
 	State       string
 	Description *string
-	CreatedAt   string
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 }
 
 type CreateServiceBindingMessage struct {
@@ -228,8 +229,6 @@ func (r *ServiceBindingRepo) UpdateServiceBinding(ctx context.Context, authInfo 
 }
 
 func cfServiceBindingToRecord(binding *korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {
-	createdAt := binding.CreationTimestamp.UTC().Format(TimestampFormat)
-	updatedAt, _ := getTimeLastUpdatedTimestamp(&binding.ObjectMeta)
 	return ServiceBindingRecord{
 		GUID:                binding.Name,
 		Type:                ServiceBindingTypeApp,
@@ -239,14 +238,14 @@ func cfServiceBindingToRecord(binding *korifiv1alpha1.CFServiceBinding) ServiceB
 		SpaceGUID:           binding.Namespace,
 		Labels:              binding.Labels,
 		Annotations:         binding.Annotations,
-		CreatedAt:           createdAt,
-		UpdatedAt:           updatedAt,
+		CreatedAt:           binding.CreationTimestamp.Time,
+		UpdatedAt:           getLastUpdatedTime(binding),
 		LastOperation: ServiceBindingLastOperation{
 			Type:        "create",
 			State:       "succeeded",
 			Description: nil,
-			CreatedAt:   createdAt,
-			UpdatedAt:   updatedAt,
+			CreatedAt:   binding.CreationTimestamp.Time,
+			UpdatedAt:   getLastUpdatedTime(binding),
 		},
 	}
 }

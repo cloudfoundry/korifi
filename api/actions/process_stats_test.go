@@ -113,7 +113,7 @@ var _ = Describe("ProcessStats", func() {
 		Expect(responseRecords[0].State).To(Equal("RUNNING"))
 
 		Expect(responseRecords[0].Usage.Time).NotTo(BeNil())
-		usageTime, err := time.Parse(repositories.TimestampFormat, *responseRecords[0].Usage.Time)
+		usageTime, err := time.Parse(time.RFC3339, *responseRecords[0].Usage.Time)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(usageTime).To(BeTemporally("~", time.Now(), 2*time.Second))
 
@@ -128,7 +128,7 @@ var _ = Describe("ProcessStats", func() {
 		Expect(responseRecords[1].State).To(Equal("RUNNING"))
 
 		Expect(responseRecords[1].Usage.Time).NotTo(BeNil())
-		usageTime, err = time.Parse(repositories.TimestampFormat, *responseRecords[1].Usage.Time)
+		usageTime, err = time.Parse(time.RFC3339, *responseRecords[1].Usage.Time)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(usageTime).To(BeTemporally("~", time.Now(), 2*time.Second))
 

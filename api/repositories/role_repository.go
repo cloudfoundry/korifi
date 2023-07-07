@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -49,8 +50,8 @@ type DeleteRoleMessage struct {
 
 type RoleRecord struct {
 	GUID      string
-	CreatedAt string
-	UpdatedAt string
+	CreatedAt time.Time
+	UpdatedAt *time.Time
 	Type      string
 	Space     string
 	Org       string
@@ -155,8 +156,8 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 
 	roleRecord := RoleRecord{
 		GUID:      role.GUID,
-		CreatedAt: roleBinding.CreationTimestamp.Time.UTC().Format(TimestampFormat),
-		UpdatedAt: roleBinding.CreationTimestamp.Time.UTC().Format(TimestampFormat),
+		CreatedAt: roleBinding.CreationTimestamp.Time,
+		UpdatedAt: &roleBinding.CreationTimestamp.Time,
 		Type:      role.Type,
 		Space:     role.Space,
 		Org:       role.Org,
@@ -335,12 +336,10 @@ func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, 
 }
 
 func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName string) RoleRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&roleBinding.ObjectMeta)
-
 	record := RoleRecord{
 		GUID:      roleBinding.Labels[RoleGuidLabel],
-		CreatedAt: roleBinding.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		CreatedAt: roleBinding.CreationTimestamp.Time,
+		UpdatedAt: getLastUpdatedTime(&roleBinding),
 		Type:      cfRoleName,
 		User:      roleBinding.Subjects[0].Name,
 		Kind:      roleBinding.Subjects[0].Kind,

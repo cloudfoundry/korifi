@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -26,8 +27,8 @@ type DeploymentRepo struct {
 
 type DeploymentRecord struct {
 	GUID        string
-	CreatedAt   string
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 	DropletGUID string
 	Status      DeploymentStatus
 }
@@ -143,11 +144,10 @@ func bumpAppRev(appRev string) (string, error) {
 }
 
 func appToDeploymentRecord(cfApp *korifiv1alpha1.CFApp) DeploymentRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfApp.ObjectMeta)
 	deploymentRecord := DeploymentRecord{
 		GUID:        cfApp.Name,
-		CreatedAt:   updatedAtTime,
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   cfApp.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(cfApp),
 		DropletGUID: cfApp.Spec.CurrentDropletRef.Name,
 		Status: DeploymentStatus{
 			Value:  DeploymentStatusValueActive,

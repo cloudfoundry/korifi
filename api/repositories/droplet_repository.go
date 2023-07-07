@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -42,8 +43,8 @@ func NewDropletRepo(
 type DropletRecord struct {
 	GUID            string
 	State           string
-	CreatedAt       string
-	UpdatedAt       string
+	CreatedAt       time.Time
+	UpdatedAt       *time.Time
 	DropletErrorMsg string
 	Lifecycle       Lifecycle
 	Stack           string
@@ -98,7 +99,6 @@ func returnDroplet(cfBuild korifiv1alpha1.CFBuild) (DropletRecord, error) {
 }
 
 func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 	processTypesMap := make(map[string]string)
 	processTypesArrayObject := cfBuild.Status.Droplet.ProcessTypes
 	for index := range processTypesArrayObject {
@@ -108,8 +108,8 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 	return DropletRecord{
 		GUID:      cfBuild.Name,
 		State:     "STAGED",
-		CreatedAt: formatTimestamp(cfBuild.CreationTimestamp),
-		UpdatedAt: updatedAtTime,
+		CreatedAt: cfBuild.CreationTimestamp.Time,
+		UpdatedAt: getLastUpdatedTime(&cfBuild),
 		Lifecycle: Lifecycle{
 			Type: string(cfBuild.Spec.Lifecycle.Type),
 			Data: LifecycleData{

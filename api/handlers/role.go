@@ -107,13 +107,13 @@ func (h *Role) sortList(roles []repositories.RoleRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(roles, func(i, j int) bool { return roles[i].CreatedAt < roles[j].CreatedAt })
+		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(&roles[j].CreatedAt, &roles[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(roles, func(i, j int) bool { return roles[i].CreatedAt > roles[j].CreatedAt })
+		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(&roles[i].CreatedAt, &roles[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(roles, func(i, j int) bool { return roles[i].UpdatedAt < roles[j].UpdatedAt })
+		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(roles[j].UpdatedAt, roles[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(roles, func(i, j int) bool { return roles[i].UpdatedAt > roles[j].UpdatedAt })
+		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(roles[i].UpdatedAt, roles[j].UpdatedAt) })
 	}
 }
 

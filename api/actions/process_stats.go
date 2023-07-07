@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -145,7 +146,7 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 			records[index].Usage.Disk = &value
 		}
 
-		time := m.Metrics.Timestamp.UTC().Format(repositories.TimestampFormat)
+		time := m.Metrics.Timestamp.UTC().Format(time.RFC3339)
 		records[index].Usage.Time = &time
 
 		records[index].MemQuota = tools.PtrTo(megabytesToBytes(processRecord.MemoryMB))

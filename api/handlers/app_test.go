@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -326,29 +327,29 @@ var _ = Describe("App", func() {
 						GUID:      "1",
 						Name:      "first-test-app",
 						State:     "STOPPED",
-						CreatedAt: "2023-01-17T14:58:32Z",
-						UpdatedAt: "2023-01-18T14:58:32Z",
+						CreatedAt: time.UnixMilli(4000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
 					},
 					{
 						GUID:      "2",
 						Name:      "second-test-app",
 						State:     "BROKEN",
-						CreatedAt: "2023-01-17T14:57:32Z",
-						UpdatedAt: "2023-01-19T14:57:32Z",
+						CreatedAt: time.UnixMilli(3000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(6000)),
 					},
 					{
 						GUID:      "3",
 						Name:      "third-test-app",
 						State:     "STARTED",
-						CreatedAt: "2023-01-16T14:57:32Z",
-						UpdatedAt: "2023-01-20:57:32Z",
+						CreatedAt: time.UnixMilli(1000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(8000)),
 					},
 					{
 						GUID:      "4",
 						Name:      "fourth-test-app",
 						State:     "FIXED",
-						CreatedAt: "2023-01-17T13:57:32Z",
-						UpdatedAt: "2023-01-19T14:58:32Z",
+						CreatedAt: time.UnixMilli(2000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(7000)),
 					},
 				}, nil)
 			})
@@ -811,22 +812,8 @@ var _ = Describe("App", func() {
 
 		BeforeEach(func() {
 			processRecord := repositories.ProcessRecord{
-				GUID:             "process-1-guid",
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
-				Type:             "web",
-				Command:          "rackup",
-				DesiredInstances: 5,
-				MemoryMB:         256,
-				DiskQuotaMB:      1024,
-				Ports:            []int32{8080},
-				HealthCheck: repositories.HealthCheck{
-					Type: "port",
-				},
-				Labels:      map[string]string{},
-				Annotations: map[string]string{},
-				CreatedAt:   "2016-03-23T18:48:22Z",
-				UpdatedAt:   "2016-03-23T18:48:42Z",
+				GUID:    "process-1-guid",
+				Command: "rackup",
 			}
 
 			process1Record = processRecord
@@ -834,8 +821,6 @@ var _ = Describe("App", func() {
 			process2Record = processRecord
 			process2Record.GUID = "process-2-guid"
 			process2Record.Type = "worker"
-			process2Record.DesiredInstances = 1
-			process2Record.HealthCheck.Type = "process"
 
 			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
 				process1Record,
@@ -892,22 +877,8 @@ var _ = Describe("App", func() {
 	Describe("GET /v3/apps/:guid/processes/{type}", func() {
 		BeforeEach(func() {
 			processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{
-				GUID:             "process-1-guid",
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
-				Type:             "web",
-				Command:          "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-				DesiredInstances: 1,
-				MemoryMB:         256,
-				DiskQuotaMB:      1024,
-				Ports:            []int32{8080},
-				HealthCheck: repositories.HealthCheck{
-					Type: "port",
-				},
-				Labels:      map[string]string{},
-				Annotations: map[string]string{},
-				CreatedAt:   "1906-04-18T13:12:00Z",
-				UpdatedAt:   "1906-04-18T13:12:01Z",
+				GUID:    "process-1-guid",
+				Command: "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
 			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes/web", nil)
@@ -973,21 +944,8 @@ var _ = Describe("App", func() {
 
 			processRepo.ScaleProcessReturns(repositories.ProcessRecord{
 				GUID:             "process-1-guid",
-				SpaceGUID:        spaceGUID,
-				AppGUID:          appGUID,
-				Type:             "web",
 				Command:          "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
 				DesiredInstances: 5,
-				MemoryMB:         256,
-				DiskQuotaMB:      1024,
-				Ports:            []int32{8080},
-				HealthCheck: repositories.HealthCheck{
-					Type: "port",
-				},
-				Labels:      map[string]string{},
-				Annotations: map[string]string{},
-				CreatedAt:   "1906-04-18T13:12:00Z",
-				UpdatedAt:   "1906-04-18T13:12:01Z",
 			}, nil)
 
 			payload = &payloads.ProcessScale{
@@ -1113,20 +1071,10 @@ var _ = Describe("App", func() {
 		BeforeEach(func() {
 			routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{
 				{
-					GUID:      "test-route-guid",
-					SpaceGUID: "test-space-guid",
-					Domain: repositories.DomainRecord{
-						GUID: "test-domain-guid",
-					},
-
-					Host:         "test-route-host",
-					Path:         "/some_path",
-					Protocol:     "http",
-					Destinations: nil,
-					Labels:       nil,
-					Annotations:  nil,
-					CreatedAt:    "2019-05-10T17:17:48Z",
-					UpdatedAt:    "2019-05-10T17:17:48Z",
+					GUID:     "test-route-guid",
+					Host:     "test-route-host",
+					Path:     "/some_path",
+					Protocol: "http",
 				},
 			}, nil)
 
@@ -1198,24 +1146,8 @@ var _ = Describe("App", func() {
 	Describe("GET /v3/apps/:guid/droplets/current", func() {
 		BeforeEach(func() {
 			dropletRepo.GetDropletReturns(repositories.DropletRecord{
-				GUID:      dropletGUID,
-				State:     "STAGED",
-				CreatedAt: "2019-05-10T17:17:48Z",
-				UpdatedAt: "2019-05-10T17:17:48Z",
-				Lifecycle: repositories.Lifecycle{
-					Type: "buildpack",
-					Data: repositories.LifecycleData{
-						Buildpacks: []string{},
-						Stack:      "",
-					},
-				},
-				Stack: "cflinuxfs3",
-				ProcessTypes: map[string]string{
-					"rake": "bundle exec rake",
-					"web":  "bundle exec rackup config.ru -p $PORT",
-				},
-				AppGUID:     appGUID,
-				PackageGUID: "test-package-guid",
+				GUID:  dropletGUID,
+				State: "STAGED",
 			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/droplets/current", nil)
@@ -1584,8 +1516,8 @@ var _ = Describe("App", func() {
 				AppGUID:     appGUID,
 				SpaceGUID:   spaceGUID,
 				State:       "AWAITING_UPLOAD",
-				CreatedAt:   "2017-04-21T18:48:22Z",
-				UpdatedAt:   "2017-04-21T18:48:42Z",
+				CreatedAt:   time.UnixMilli(1000),
+				UpdatedAt:   tools.PtrTo(time.UnixMilli(2000)),
 				Labels:      map[string]string{},
 				Annotations: map[string]string{},
 				ImageRef:    "registry.repo/foo",

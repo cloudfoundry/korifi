@@ -3,9 +3,11 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -45,8 +47,8 @@ var _ = Describe("Process", func() {
 				Annotations: map[string]string{
 					"annotation-key": "annotation-val",
 				},
-				CreatedAt: "2016-03-23T18:48:22Z",
-				UpdatedAt: "2016-03-23T18:48:42Z",
+				CreatedAt: time.UnixMilli(1000),
+				UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 			}
 		})
 
@@ -87,8 +89,8 @@ var _ = Describe("Process", func() {
 						"annotation-key": "annotation-val"
 					}
 				},
-				"created_at": "2016-03-23T18:48:22Z",
-				"updated_at": "2016-03-23T18:48:42Z",
+				"created_at": "1970-01-01T00:00:01Z",
+				"updated_at": "1970-01-01T00:00:02Z",
 				"links": {
 					"self": {
 						"href": "https://api.example.org/v3/processes/process-guid"

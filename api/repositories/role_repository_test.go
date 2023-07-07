@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -128,9 +129,9 @@ var _ = Describe("RoleRepository", func() {
 			})
 
 			It("updated the create/updated timestamps", func() {
-				Expect(time.Parse(time.RFC3339, createdRole.CreatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(time.Parse(time.RFC3339, createdRole.UpdatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
+				Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdRole.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(createdRole.UpdatedAt).To(PointTo(Equal(createdRole.CreatedAt)))
 			})
 
 			Describe("Role propagation", func() {
@@ -289,9 +290,9 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		It("updated the create/updated timestamps", func() {
-			Expect(time.Parse(time.RFC3339, createdRole.CreatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
-			Expect(time.Parse(time.RFC3339, createdRole.UpdatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
-			Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
+			Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+			Expect(createdRole.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+			Expect(createdRole.UpdatedAt).To(PointTo(Equal(createdRole.CreatedAt)))
 		})
 
 		When("using service accounts", func() {
@@ -614,8 +615,8 @@ var _ = Describe("RoleRepository", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 				Expect(roleRecord).To(Equal(repositories.RoleRecord{
 					GUID:      guid,
-					CreatedAt: roleBinding.CreationTimestamp.UTC().Format(time.RFC3339),
-					UpdatedAt: roleBinding.CreationTimestamp.UTC().Format(time.RFC3339),
+					CreatedAt: roleBinding.CreationTimestamp.Time,
+					UpdatedAt: tools.PtrTo(roleBinding.CreationTimestamp.Time),
 					Type:      "organization_manager",
 					Space:     "",
 					Org:       cfOrg.Name,

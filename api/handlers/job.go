@@ -33,16 +33,18 @@ const (
 const JobResourceType = "Job"
 
 type Job struct {
-	serverURL url.URL
-	orgRepo   CFOrgRepository
-	spaceRepo CFSpaceRepository
+	serverURL       url.URL
+	orgRepo         CFOrgRepository
+	spaceRepo       CFSpaceRepository
+	pollingInterval time.Duration
 }
 
-func NewJob(serverURL url.URL, orgRepo CFOrgRepository, spaceRepo CFSpaceRepository) *Job {
+func NewJob(serverURL url.URL, orgRepo CFOrgRepository, spaceRepo CFSpaceRepository, pollingInterval time.Duration) *Job {
 	return &Job{
-		serverURL: serverURL,
-		orgRepo:   orgRepo,
-		spaceRepo: spaceRepo,
+		serverURL:       serverURL,
+		orgRepo:         orgRepo,
+		spaceRepo:       spaceRepo,
+		pollingInterval: pollingInterval,
 	}
 }
 
@@ -97,7 +99,7 @@ func (h *Job) handleDeleteJob(ctx context.Context, jobType, resourceGUID string)
 		space        repositories.SpaceRecord
 		err          error
 		resourceType string
-		deletedAt    string
+		deletedAt    *time.Time
 	)
 
 	for retries := 0; retries < 40; retries++ {
@@ -131,22 +133,22 @@ func (h *Job) handleDeleteJob(ctx context.Context, jobType, resourceGUID string)
 			}
 		}
 
-		if deletedAt != "" {
+		if deletedAt != nil {
 			break
 		}
 
 		log.V(1).Info("Waiting for deletion timestamp", resourceType+"GUID", resourceGUID)
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(h.pollingInterval)
 	}
 
 	return h.handleDeleteJobResponse(ctx, deletedAt, jobType, resourceGUID, resourceType)
 }
 
-func (h *Job) handleDeleteJobResponse(ctx context.Context, deletedAt, jobType, resourceGUID, resourceType string) (presenter.JobResponse, error) {
+func (h *Job) handleDeleteJobResponse(ctx context.Context, deletedAt *time.Time, jobType, resourceGUID, resourceType string) (presenter.JobResponse, error) {
 	jobGUID := jobType + presenter.JobGUIDDelimiter + resourceGUID
 	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJobResponse")
 
-	if deletedAt == "" {
+	if deletedAt == nil {
 		return presenter.JobResponse{}, apierrors.LogAndReturn(
 			log,
 			apierrors.NewNotFoundError(fmt.Errorf("job %q not found", jobGUID), JobResourceType),
@@ -155,18 +157,7 @@ func (h *Job) handleDeleteJobResponse(ctx context.Context, deletedAt, jobType, r
 		)
 	}
 
-	deletionTime, err := time.Parse(time.RFC3339Nano, deletedAt)
-	if err != nil {
-		return presenter.JobResponse{}, apierrors.LogAndReturn(
-			log,
-			err,
-			"failed to parse deletion time",
-			resourceType+"GUID", resourceGUID,
-			"timestamp", deletedAt,
-		)
-	}
-
-	if time.Since(deletionTime).Seconds() < JobTimeoutDuration {
+	if time.Since(*deletedAt).Seconds() < JobTimeoutDuration {
 		return presenter.ForJob(
 			jobGUID,
 			[]presenter.JobResponseError{},
@@ -199,11 +190,14 @@ func (h *Job) AuthenticatedRoutes() []routing.Route {
 	}
 }
 
+var (
+	jobOperationPattern       = `([a-z_\-]+\.[a-z_]+)` // (e.g. app.delete, space.apply_manifest, etc.)
+	resourceIdentifierPattern = `([A-Za-z0-9\-\.]+)`   // (e.g. cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649, CUSTOM_ORG_ID, etc.)
+	jobRegexp                 = regexp.MustCompile(jobOperationPattern + presenter.JobGUIDDelimiter + resourceIdentifierPattern)
+)
+
 func parseJobGUID(jobGUID string) (string, string, bool) {
 	// Parse the job identifier and capture the job operation and resource name for later use
-	jobOperationPattern := `([a-z_\-]+[\.][a-z_]+)`   // (e.g. app.delete, space.apply_manifest, etc.)
-	resourceIdentifierPattern := `([A-Za-z0-9\-\.]+)` // (e.g. cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649, CUSTOM_ORG_ID, etc.)
-	jobRegexp := regexp.MustCompile(jobOperationPattern + presenter.JobGUIDDelimiter + resourceIdentifierPattern)
 	matches := jobRegexp.FindStringSubmatch(jobGUID)
 
 	if len(matches) != 3 {

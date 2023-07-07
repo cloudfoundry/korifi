@@ -437,8 +437,8 @@ var _ = Describe("ProcessRepo", func() {
 					}),
 					"Labels":      HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", app1GUID),
 					"Annotations": BeEmpty(),
-					"CreatedAt":   Not(BeEmpty()),
-					"UpdatedAt":   Not(BeEmpty()),
+					"CreatedAt":   BeTemporally("~", time.Now(), timeCheckThreshold),
+					"UpdatedAt":   PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)),
 				}))
 			})
 

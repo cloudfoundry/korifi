@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -47,8 +48,8 @@ type ProcessRecord struct {
 	HealthCheck      HealthCheck
 	Labels           map[string]string
 	Annotations      map[string]string
-	CreatedAt        string
-	UpdatedAt        string
+	CreatedAt        time.Time
+	UpdatedAt        *time.Time
 }
 
 type HealthCheck struct {
@@ -313,8 +314,6 @@ func returnProcesses(processes []korifiv1alpha1.CFProcess) ([]ProcessRecord, err
 }
 
 func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfProcess.ObjectMeta)
-
 	cmd := cfProcess.Spec.Command
 	if cmd == "" {
 		cmd = cfProcess.Spec.DetectedCommand
@@ -340,7 +339,7 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		},
 		Labels:      cfProcess.Labels,
 		Annotations: cfProcess.Annotations,
-		CreatedAt:   cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   cfProcess.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(&cfProcess),
 	}
 }

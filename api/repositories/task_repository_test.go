@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,13 +156,8 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).NotTo(BeZero())
 
-				recordCreatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
-
-				recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+				Expect(taskRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(taskRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
@@ -255,13 +251,8 @@ var _ = Describe("TaskRepository", func() {
 					Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 					Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
 
-					recordCreatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.CreatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
-
-					recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.UpdatedAt)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+					Expect(taskRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+					Expect(taskRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 					Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 					Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
@@ -558,13 +549,8 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
 
-				recordCreatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
-
-				recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, taskRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 5*time.Second))
+				Expect(taskRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(taskRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
