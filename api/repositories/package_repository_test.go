@@ -68,7 +68,7 @@ var _ = Describe("PackageRepository", func() {
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 			image.NewClient(k8sInterface),
 			cleanup.NewPackageCleaner(k8sClient, 5),
-			"package-repo-secret-name",
+			[]string{"package-repo-secret-name"},
 		)).SetupWithManager(k8sManager)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -435,10 +435,10 @@ var _ = Describe("PackageRepository", func() {
 			}
 
 			updateMessage = repositories.UpdatePackageSourceMessage{
-				GUID:               packageGUID,
-				SpaceGUID:          space.Name,
-				ImageRef:           packageSourceImageRef,
-				RegistrySecretName: "image-pull-secret",
+				GUID:                packageGUID,
+				SpaceGUID:           space.Name,
+				ImageRef:            packageSourceImageRef,
+				RegistrySecretNames: []string{"image-pull-secret"},
 			}
 		})
 
@@ -479,7 +479,7 @@ var _ = Describe("PackageRepository", func() {
 
 			When("the package registry secret is not specified on the message", func() {
 				BeforeEach(func() {
-					updateMessage.RegistrySecretName = ""
+					updateMessage.RegistrySecretNames = []string{}
 				})
 
 				It("does not populate package registry secrets", func() {

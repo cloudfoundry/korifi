@@ -35,8 +35,16 @@
           "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*/?$"
         },
         "containerRegistrySecret": {
-          "description": "Name of the `Secret` to use when pushing or pulling from package, droplet and kpack-build repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.",
+          "deprecated": true,
+          "description": "Deprecated in favor of containerRegistrySecrets.",
           "type": "string"
+        },
+        "containerRegistrySecrets": {
+          "description": "List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "eksContainerRegistryRoleARN": {
           "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",

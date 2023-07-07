@@ -43,26 +43,26 @@ import (
 
 // CFOrgReconciler reconciles a CFOrg object
 type CFOrgReconciler struct {
-	client                      client.Client
-	scheme                      *runtime.Scheme
-	log                         logr.Logger
-	containerRegistrySecretName string
-	labelCompiler               labels.Compiler
+	client                       client.Client
+	scheme                       *runtime.Scheme
+	log                          logr.Logger
+	containerRegistrySecretNames []string
+	labelCompiler                labels.Compiler
 }
 
 func NewCFOrgReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	containerRegistrySecretName string,
+	containerRegistrySecretNames []string,
 	labelCompiler labels.Compiler,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg] {
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](log, client, &CFOrgReconciler{
-		client:                      client,
-		scheme:                      scheme,
-		log:                         log,
-		containerRegistrySecretName: containerRegistrySecretName,
-		labelCompiler:               labelCompiler,
+		client:                       client,
+		scheme:                       scheme,
+		log:                          log,
+		containerRegistrySecretNames: containerRegistrySecretNames,
+		labelCompiler:                labelCompiler,
 	})
 }
 
@@ -151,7 +151,7 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = propagateSecret(ctx, r.client, cfOrg, r.containerRegistrySecretName)
+	err = propagateSecrets(ctx, r.client, cfOrg, r.containerRegistrySecretNames)
 	if err != nil {
 		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfOrg.Status.Conditions, "RegistrySecretPropagation", cfOrg.Generation)
 	}

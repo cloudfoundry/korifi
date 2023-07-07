@@ -38,7 +38,7 @@ var _ = Describe("Config", func() {
 			"rootNamespace":                            "root-ns",
 			"builderName":                              "my-builder",
 			"containerRepositoryPrefix":                "container.registry/my-prefix",
-			"packageRegistrySecretName":                "package-registry-secret",
+			"packageRegistrySecretNames":               []string{"package-registry-secret"},
 			"defaultDomainName":                        "default.domain",
 			"userCertificateExpirationWarningDuration": "10s",
 			"defaultLifecycleConfig": config.DefaultLifecycleConfig{
@@ -79,7 +79,7 @@ var _ = Describe("Config", func() {
 		Expect(cfg.RootNamespace).To(Equal("root-ns"))
 		Expect(cfg.BuilderName).To(Equal("my-builder"))
 		Expect(cfg.ContainerRepositoryPrefix).To(Equal("container.registry/my-prefix"))
-		Expect(cfg.PackageRegistrySecretName).To(Equal("package-registry-secret"))
+		Expect(cfg.PackageRegistrySecretNames).To(ConsistOf("package-registry-secret"))
 		Expect(cfg.DefaultDomainName).To(Equal("default.domain"))
 		Expect(cfg.UserCertificateExpirationWarningDuration).To(Equal("10s"))
 		Expect(cfg.DefaultLifecycleConfig).To(Equal(config.DefaultLifecycleConfig{

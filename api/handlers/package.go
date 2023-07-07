@@ -41,13 +41,13 @@ type ImageRepository interface {
 }
 
 type Package struct {
-	serverURL          url.URL
-	packageRepo        CFPackageRepository
-	appRepo            CFAppRepository
-	dropletRepo        CFDropletRepository
-	imageRepo          ImageRepository
-	requestValidator   RequestValidator
-	registrySecretName string
+	serverURL           url.URL
+	packageRepo         CFPackageRepository
+	appRepo             CFAppRepository
+	dropletRepo         CFDropletRepository
+	imageRepo           ImageRepository
+	requestValidator    RequestValidator
+	registrySecretNames []string
 }
 
 func NewPackage(
@@ -57,16 +57,16 @@ func NewPackage(
 	dropletRepo CFDropletRepository,
 	imageRepo ImageRepository,
 	requestValidator RequestValidator,
-	registrySecretName string,
+	registrySecretNames []string,
 ) *Package {
 	return &Package{
-		serverURL:          serverURL,
-		packageRepo:        packageRepo,
-		appRepo:            appRepo,
-		dropletRepo:        dropletRepo,
-		imageRepo:          imageRepo,
-		registrySecretName: registrySecretName,
-		requestValidator:   requestValidator,
+		serverURL:           serverURL,
+		packageRepo:         packageRepo,
+		appRepo:             appRepo,
+		dropletRepo:         dropletRepo,
+		imageRepo:           imageRepo,
+		registrySecretNames: registrySecretNames,
+		requestValidator:    requestValidator,
 	}
 }
 
@@ -199,10 +199,10 @@ func (h Package) upload(r *http.Request) (*routing.Response, error) {
 	}
 
 	record, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.UpdatePackageSourceMessage{
-		GUID:               packageGUID,
-		SpaceGUID:          record.SpaceGUID,
-		ImageRef:           uploadedImageRef,
-		RegistrySecretName: h.registrySecretName,
+		GUID:                packageGUID,
+		SpaceGUID:           record.SpaceGUID,
+		ImageRef:            uploadedImageRef,
+		RegistrySecretNames: h.registrySecretNames,
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling UpdatePackageSource")

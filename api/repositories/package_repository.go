@@ -114,10 +114,10 @@ type UpdatePackageMessage struct {
 }
 
 type UpdatePackageSourceMessage struct {
-	GUID               string
-	SpaceGUID          string
-	ImageRef           string
-	RegistrySecretName string
+	GUID                string
+	SpaceGUID           string
+	ImageRef            string
+	RegistrySecretNames []string
 }
 
 func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message CreatePackageMessage) (PackageRecord, error) {
@@ -242,8 +242,8 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 	if err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
 		cfPackage.Spec.Source.Registry.Image = message.ImageRef
 		imagePullSecrets := []corev1.LocalObjectReference{}
-		if message.RegistrySecretName != "" {
-			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: message.RegistrySecretName})
+		for _, secret := range message.RegistrySecretNames {
+			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: secret})
 		}
 		cfPackage.Spec.Source.Registry.ImagePullSecrets = imagePullSecrets
 	}); err != nil {

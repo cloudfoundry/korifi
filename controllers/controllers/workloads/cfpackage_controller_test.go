@@ -146,7 +146,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 			_, creds, ref, tagsToDelete := imageDeleter.DeleteArgsForCall(deleteCount)
 			Expect(creds.Namespace).To(Equal(cfSpace.Status.GUID))
-			Expect(creds.SecretName).To(Equal("package-repo-secret-name"))
+			Expect(creds.SecretNames).To(ConsistOf("package-repo-secret-name"))
 			Expect(ref).To(Equal(imageRef))
 			Expect(tagsToDelete).To(ConsistOf(cfPackage.Name))
 

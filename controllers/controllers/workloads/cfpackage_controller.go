@@ -53,12 +53,12 @@ type PackageCleaner interface {
 
 // CFPackageReconciler reconciles a CFPackage object
 type CFPackageReconciler struct {
-	k8sClient             client.Client
-	scheme                *runtime.Scheme
-	imageDeleter          ImageDeleter
-	packageCleaner        PackageCleaner
-	packageRepoSecretName string
-	log                   logr.Logger
+	k8sClient              client.Client
+	scheme                 *runtime.Scheme
+	imageDeleter           ImageDeleter
+	packageCleaner         PackageCleaner
+	packageRepoSecretNames []string
+	log                    logr.Logger
 }
 
 func NewCFPackageReconciler(
@@ -67,15 +67,15 @@ func NewCFPackageReconciler(
 	log logr.Logger,
 	imageDeleter ImageDeleter,
 	packageCleaner PackageCleaner,
-	packageRepoSecretName string,
+	packageRepoSecretNames []string,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage] {
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage](log, client, &CFPackageReconciler{
-		k8sClient:             client,
-		scheme:                scheme,
-		log:                   log,
-		imageDeleter:          imageDeleter,
-		packageCleaner:        packageCleaner,
-		packageRepoSecretName: packageRepoSecretName,
+		k8sClient:              client,
+		scheme:                 scheme,
+		log:                    log,
+		imageDeleter:           imageDeleter,
+		packageCleaner:         packageCleaner,
+		packageRepoSecretNames: packageRepoSecretNames,
 	})
 }
 
@@ -151,8 +151,8 @@ func (r *CFPackageReconciler) finalize(ctx context.Context, cfPackage *korifiv1a
 
 	if cfPackage.Spec.Source.Registry.Image != "" {
 		if err := r.imageDeleter.Delete(ctx, image.Creds{
-			Namespace:  cfPackage.Namespace,
-			SecretName: r.packageRepoSecretName,
+			Namespace:   cfPackage.Namespace,
+			SecretNames: r.packageRepoSecretNames,
 		}, cfPackage.Spec.Source.Registry.Image, cfPackage.Name); err != nil {
 			log.Info("failed to delete image", "reason", err)
 		}

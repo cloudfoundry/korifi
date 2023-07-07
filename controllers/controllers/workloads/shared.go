@@ -54,43 +54,49 @@ func updateMap(dest *map[string]string, values map[string]string) {
 	}
 }
 
-func propagateSecret(ctx context.Context, client client.Client, orgOrSpace client.Object, secretName string) error {
-	if secretName == "" {
+func propagateSecrets(ctx context.Context, client client.Client, orgOrSpace client.Object, secretNames []string) error {
+	if len(secretNames) == 0 {
 		// we are operating in service account role association mode for registry permissions.
 		// only tested implicity in EKS e2es
 		return nil
 	}
 
 	log := logr.FromContextOrDiscard(ctx).WithName("propagateSecret").
-		WithValues("secretName", secretName, "parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
+		WithValues("parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
 
-	secret := new(corev1.Secret)
-	err := client.Get(ctx, types.NamespacedName{Namespace: orgOrSpace.GetNamespace(), Name: secretName}, secret)
-	if err != nil {
-		return fmt.Errorf("error fetching secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
+	for _, secretName := range secretNames {
+		looplog := log.WithValues("secretName", secretName)
+
+		secret := new(corev1.Secret)
+		err := client.Get(ctx, types.NamespacedName{Namespace: orgOrSpace.GetNamespace(), Name: secretName}, secret)
+		if err != nil {
+			return fmt.Errorf("error fetching secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
+		}
+
+		newSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret.Name,
+				Namespace: orgOrSpace.GetName(),
+			},
+		}
+
+		result, err := controllerutil.CreateOrPatch(ctx, client, newSecret, func() error {
+			newSecret.Annotations = shared.RemovePackageManagerKeys(secret.Annotations, looplog)
+			newSecret.Labels = shared.RemovePackageManagerKeys(secret.Labels, looplog)
+			newSecret.Immutable = secret.Immutable
+			newSecret.Data = secret.Data
+			newSecret.StringData = secret.StringData
+			newSecret.Type = secret.Type
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("error creating/patching secret: %w", err)
+		}
+
+		looplog.V(1).Info("Secret propagated", "operation", result)
 	}
 
-	newSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secret.Name,
-			Namespace: orgOrSpace.GetName(),
-		},
-	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, client, newSecret, func() error {
-		newSecret.Annotations = shared.RemovePackageManagerKeys(secret.Annotations, log)
-		newSecret.Labels = shared.RemovePackageManagerKeys(secret.Labels, log)
-		newSecret.Immutable = secret.Immutable
-		newSecret.Data = secret.Data
-		newSecret.StringData = secret.StringData
-		newSecret.Type = secret.Type
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("error creating/patching secret: %w", err)
-	}
-
-	log.V(1).Info("Secret propagated", "operation", result)
+	log.V(1).Info("All secrets propagated")
 
 	return nil
 }

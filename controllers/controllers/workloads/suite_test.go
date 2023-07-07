@@ -46,18 +46,19 @@ import (
 )
 
 var (
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	testEnv             *envtest.Environment
-	k8sClient           client.Client
-	cfRootNamespace     string
-	cfOrg               *korifiv1alpha1.CFOrg
-	imageRegistrySecret *corev1.Secret
-	imageDeleter        *fake.ImageDeleter
-	packageCleaner      *fake.PackageCleaner
-	eventRecorder       *controllerfake.EventRecorder
-	buildCleaner        *fake.BuildCleaner
-	logOutput           *gbytes.Buffer
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	testEnv              *envtest.Environment
+	k8sClient            client.Client
+	cfRootNamespace      string
+	cfOrg                *korifiv1alpha1.CFOrg
+	imageRegistrySecret1 *corev1.Secret
+	imageRegistrySecret2 *corev1.Secret
+	imageDeleter         *fake.ImageDeleter
+	packageCleaner       *fake.PackageCleaner
+	eventRecorder        *controllerfake.EventRecorder
+	buildCleaner         *fake.BuildCleaner
+	logOutput            *gbytes.Buffer
 )
 
 const (
@@ -66,6 +67,7 @@ const (
 	defaultTimeout     = 60
 
 	packageRegistrySecretName = "test-package-registry-secret"
+	otherRegistrySecretName   = "some-other-registry-secret"
 )
 
 func TestWorkloadsControllers(t *testing.T) {
@@ -124,7 +126,7 @@ var _ = BeforeSuite(func() {
 			DiskQuotaMB: 512,
 		},
 		CFRootNamespace:                  cfRootNamespace,
-		ContainerRegistrySecretName:      packageRegistrySecretName,
+		ContainerRegistrySecretNames:     []string{packageRegistrySecretName, otherRegistrySecretName},
 		WorkloadsTLSSecretName:           "korifi-workloads-ingress-cert",
 		WorkloadsTLSSecretNamespace:      "korifi-controllers-system",
 		SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(2)),
@@ -174,7 +176,7 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("controllers").WithName("CFPackage"),
 		imageDeleter,
 		packageCleaner,
-		"package-repo-secret-name",
+		[]string{"package-repo-secret-name"},
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -187,7 +189,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFOrg"),
-		controllerConfig.ContainerRegistrySecretName,
+		controllerConfig.ContainerRegistrySecretNames,
 		labelCompiler,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -196,7 +198,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
-		controllerConfig.ContainerRegistrySecretName,
+		controllerConfig.ContainerRegistrySecretNames,
 		controllerConfig.CFRootNamespace,
 		*controllerConfig.SpaceFinalizerAppDeletionTimeout,
 		labelCompiler,
@@ -266,7 +268,8 @@ var _ = BeforeSuite(func() {
 	}()
 
 	createNamespace(cfRootNamespace)
-	imageRegistrySecret = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
+	imageRegistrySecret1 = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
+	imageRegistrySecret2 = createImageRegistrySecret(ctx, k8sClient, otherRegistrySecretName, cfRootNamespace)
 	cfOrg = createOrg(cfRootNamespace)
 })
 
@@ -361,10 +364,12 @@ func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceA
 			{Name: serviceAccountName + "-token-someguid"},
 			{Name: serviceAccountName + "-dockercfg-someguid"},
 			{Name: packageRegistrySecretName},
+			{Name: otherRegistrySecretName},
 		},
 		ImagePullSecrets: []corev1.LocalObjectReference{
 			{Name: serviceAccountName + "-dockercfg-someguid"},
 			{Name: packageRegistrySecretName},
+			{Name: otherRegistrySecretName},
 		},
 	}
 	Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())

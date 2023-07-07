@@ -21,7 +21,17 @@ data:
       stagingMemoryMB: {{ .Values.api.lifecycle.stagingRequirements.memoryMB }}
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     {{- if not .Values.global.eksContainerRegistryRoleARN }}
-    packageRegistrySecretName: {{ required "global.containerRegistrySecret is required when global.eksContainerRegistryRoleARN is not set" .Values.global.containerRegistrySecret }}
+    {{- if .Values.global.containerRegistrySecrets }}
+    packageRegistrySecretNames:
+    {{- range .Values.global.containerRegistrySecrets }}
+    - {{ . | quote }}
+    {{- end }}
+    {{- else if .Values.global.containerRegistrySecret }}
+    packageRegistrySecretNames:
+    - {{ .Values.global.containerRegistrySecret | quote }}
+    {{- else }}
+    {{ required "global.containerRegistrySecrets is required when global.eksContainerRegistryRoleARN is not set" .Values.global.containerRegistrySecrets }}
+    {{- end }}
     {{- end }}
     defaultDomainName: {{ .Values.global.defaultAppDomainName }}
     userCertificateExpirationWarningDuration: {{ .Values.api.userCertificateExpirationWarningDuration }}
