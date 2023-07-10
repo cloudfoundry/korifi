@@ -205,21 +205,6 @@ func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID s
 	return orgRecords[0], nil
 }
 
-func (r *OrgRepo) GetOrgUnfiltered(ctx context.Context, info authorization.Info, orgGUID string) (OrgRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(info)
-	if err != nil {
-		return OrgRecord{}, fmt.Errorf("get-org failed to build user client: %w", err)
-	}
-
-	cfOrg := new(korifiv1alpha1.CFOrg)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: orgGUID}, cfOrg)
-	if err != nil {
-		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
-	}
-
-	return cfOrgToOrgRecord(*cfOrg), nil
-}
-
 func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, message DeleteOrgMessage) error {
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
@@ -255,6 +240,21 @@ func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.I
 	}
 
 	return cfOrgToOrgRecord(*cfOrg), nil
+}
+
+func (r *OrgRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, orgGUID string) (*time.Time, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("get-deleted-at failed to build user client: %w", err)
+	}
+
+	cfOrg := new(korifiv1alpha1.CFOrg)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: orgGUID}, cfOrg)
+	if err != nil {
+		return nil, apierrors.FromK8sError(err, OrgResourceType)
+	}
+
+	return cfOrgToOrgRecord(*cfOrg).DeletedAt, nil
 }
 
 func cfOrgToOrgRecord(cfOrg korifiv1alpha1.CFOrg) OrgRecord {

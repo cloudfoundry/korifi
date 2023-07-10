@@ -285,3 +285,11 @@ func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorizati
 
 	return cfSpaceToSpaceRecord(*cfSpace), nil
 }
+
+func (r *SpaceRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, spaceGUID string) (*time.Time, error) {
+	space, err := r.GetSpace(ctx, authInfo, spaceGUID)
+	if err != nil {
+		return nil, err
+	}
+	return space.DeletedAt, nil
+}

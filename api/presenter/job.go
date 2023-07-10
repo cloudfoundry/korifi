@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
-	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -45,7 +47,7 @@ func JobFromGUID(guid string) (Job, bool) {
 		return Job{
 			GUID:         guid,
 			Type:         matches[1],
-			ResourceType: strings.Title(matches[2]),
+			ResourceType: cases.Title(language.AmericanEnglish).String(matches[2]),
 			ResourceGUID: matches[4],
 		}, true
 	}

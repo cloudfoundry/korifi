@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -28,6 +29,7 @@ type CFSpaceRepository interface {
 	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
 	PatchSpaceMetadata(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)
+	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
 }
 
 type Space struct {

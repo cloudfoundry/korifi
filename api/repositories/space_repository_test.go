@@ -719,4 +719,52 @@ var _ = Describe("SpaceRepository", func() {
 			})
 		})
 	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			cfSpace      *korifiv1alpha1.CFSpace
+			deletionTime *time.Time
+			getErr       error
+		)
+
+		BeforeEach(func() {
+			cfOrg := createOrgWithCleanup(ctx, "the-org")
+			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, "the-space")
+		})
+
+		JustBeforeEach(func() {
+			deletionTime, getErr = spaceRepo.GetDeletedAt(ctx, authInfo, cfSpace.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the space is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfSpace, func() {
+					cfSpace.Finalizers = append(cfSpace.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfSpace)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the space isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfSpace)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
 })

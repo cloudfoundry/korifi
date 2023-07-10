@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-logr/logr"
@@ -31,18 +30,28 @@ const (
 
 const JobResourceType = "Job"
 
+//counterfeiter:generate -o fake -fake-name DeletionRepository . DeletionRepository
+type DeletionRepository interface {
+	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
+}
+
+func DefaultDeletionRepositories(orgRepo DeletionRepository, spaceRepo DeletionRepository) map[string]DeletionRepository {
+	return map[string]DeletionRepository{
+		orgDeletePrefix:   orgRepo,
+		spaceDeletePrefix: spaceRepo,
+	}
+}
+
 type Job struct {
 	serverURL       url.URL
-	orgRepo         CFOrgRepository
-	spaceRepo       CFSpaceRepository
+	repositories    map[string]DeletionRepository
 	pollingInterval time.Duration
 }
 
-func NewJob(serverURL url.URL, orgRepo CFOrgRepository, spaceRepo CFSpaceRepository, pollingInterval time.Duration) *Job {
+func NewJob(serverURL url.URL, repositories map[string]DeletionRepository, pollingInterval time.Duration) *Job {
 	return &Job{
 		serverURL:       serverURL,
-		orgRepo:         orgRepo,
-		spaceRepo:       spaceRepo,
+		repositories:    repositories,
 		pollingInterval: pollingInterval,
 	}
 }
@@ -71,42 +80,36 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 		jobResponse = presenter.ForManifestApplyJob(job, h.serverURL)
 	case appDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
 		jobResponse = presenter.ForJob(job, []presenter.JobResponseError{}, presenter.StateComplete, h.serverURL)
-	case orgDeletePrefix, spaceDeletePrefix:
-		jobResponse, err = h.handleDeleteJob(r.Context(), job)
+	default:
+		repository, ok := h.repositories[job.Type]
+		if !ok {
+			return nil, apierrors.LogAndReturn(
+				log,
+				apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", job.Type), JobResourceType),
+				fmt.Sprintf("Invalid Job type: %s", job.Type),
+			)
+		}
+
+		jobResponse, err = h.handleDeleteJob(r.Context(), repository, job)
 		if err != nil {
 			return nil, err
 		}
-	default:
-		return nil, apierrors.LogAndReturn(
-			log,
-			apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", job.Type), JobResourceType),
-			fmt.Sprintf("Invalid Job type: %s", job.Type),
-		)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
-func (h *Job) handleDeleteJob(ctx context.Context, job presenter.Job) (presenter.JobResponse, error) {
+func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository, job presenter.Job) (presenter.JobResponse, error) {
 	authInfo, _ := authorization.InfoFromContext(ctx)
 	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJob")
 
 	var (
-		org       repositories.OrgRecord
-		space     repositories.SpaceRecord
 		err       error
 		deletedAt *time.Time
 	)
 
 	for retries := 0; retries < 40; retries++ {
-		switch job.Type {
-		case orgDeletePrefix:
-			org, err = h.orgRepo.GetOrgUnfiltered(ctx, authInfo, job.ResourceGUID)
-			deletedAt = org.DeletedAt
-		case spaceDeletePrefix:
-			space, err = h.spaceRepo.GetSpace(ctx, authInfo, job.ResourceGUID)
-			deletedAt = space.DeletedAt
-		}
+		deletedAt, err = repository.GetDeletedAt(ctx, authInfo, job.ResourceGUID)
 
 		if err != nil {
 			switch err.(type) {
@@ -134,12 +137,6 @@ func (h *Job) handleDeleteJob(ctx context.Context, job presenter.Job) (presenter
 		time.Sleep(h.pollingInterval)
 	}
 
-	return h.handleDeleteJobResponse(ctx, deletedAt, job)
-}
-
-func (h *Job) handleDeleteJobResponse(ctx context.Context, deletedAt *time.Time, job presenter.Job) (presenter.JobResponse, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJobResponse")
-
 	if deletedAt == nil {
 		return presenter.JobResponse{}, apierrors.LogAndReturn(
 			log,
@@ -162,7 +159,7 @@ func (h *Job) handleDeleteJobResponse(ctx context.Context, deletedAt *time.Time,
 		job,
 		[]presenter.JobResponseError{{
 			Code:   10008,
-			Detail: fmt.Sprintf("%s deletion timed out. Check for remaining resources in the %q namespace", job.ResourceType, job.ResourceGUID),
+			Detail: fmt.Sprintf("%s deletion timed out, check the remaining %q resource", job.ResourceType, job.ResourceGUID),
 			Title:  "CF-UnprocessableEntity",
 		}},
 		presenter.StateFailed,
