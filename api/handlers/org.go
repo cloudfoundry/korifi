@@ -32,8 +32,8 @@ type CFOrgRepository interface {
 	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
 	GetOrg(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
-	GetOrgUnfiltered(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
 	PatchOrgMetadata(context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error)
+	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
 }
 
 type Org struct {

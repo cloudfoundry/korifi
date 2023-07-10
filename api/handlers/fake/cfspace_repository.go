@@ -4,6 +4,7 @@ package fake
 import (
 	"context"
 	"sync"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/handlers"
@@ -38,6 +39,21 @@ type CFSpaceRepository struct {
 	}
 	deleteSpaceReturnsOnCall map[int]struct {
 		result1 error
+	}
+	GetDeletedAtStub        func(context.Context, authorization.Info, string) (*time.Time, error)
+	getDeletedAtMutex       sync.RWMutex
+	getDeletedAtArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getDeletedAtReturns struct {
+		result1 *time.Time
+		result2 error
+	}
+	getDeletedAtReturnsOnCall map[int]struct {
+		result1 *time.Time
+		result2 error
 	}
 	GetSpaceStub        func(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	getSpaceMutex       sync.RWMutex
@@ -215,6 +231,72 @@ func (fake *CFSpaceRepository) DeleteSpaceReturnsOnCall(i int, result1 error) {
 	fake.deleteSpaceReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
+}
+
+func (fake *CFSpaceRepository) GetDeletedAt(arg1 context.Context, arg2 authorization.Info, arg3 string) (*time.Time, error) {
+	fake.getDeletedAtMutex.Lock()
+	ret, specificReturn := fake.getDeletedAtReturnsOnCall[len(fake.getDeletedAtArgsForCall)]
+	fake.getDeletedAtArgsForCall = append(fake.getDeletedAtArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetDeletedAtStub
+	fakeReturns := fake.getDeletedAtReturns
+	fake.recordInvocation("GetDeletedAt", []interface{}{arg1, arg2, arg3})
+	fake.getDeletedAtMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFSpaceRepository) GetDeletedAtCallCount() int {
+	fake.getDeletedAtMutex.RLock()
+	defer fake.getDeletedAtMutex.RUnlock()
+	return len(fake.getDeletedAtArgsForCall)
+}
+
+func (fake *CFSpaceRepository) GetDeletedAtCalls(stub func(context.Context, authorization.Info, string) (*time.Time, error)) {
+	fake.getDeletedAtMutex.Lock()
+	defer fake.getDeletedAtMutex.Unlock()
+	fake.GetDeletedAtStub = stub
+}
+
+func (fake *CFSpaceRepository) GetDeletedAtArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getDeletedAtMutex.RLock()
+	defer fake.getDeletedAtMutex.RUnlock()
+	argsForCall := fake.getDeletedAtArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFSpaceRepository) GetDeletedAtReturns(result1 *time.Time, result2 error) {
+	fake.getDeletedAtMutex.Lock()
+	defer fake.getDeletedAtMutex.Unlock()
+	fake.GetDeletedAtStub = nil
+	fake.getDeletedAtReturns = struct {
+		result1 *time.Time
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFSpaceRepository) GetDeletedAtReturnsOnCall(i int, result1 *time.Time, result2 error) {
+	fake.getDeletedAtMutex.Lock()
+	defer fake.getDeletedAtMutex.Unlock()
+	fake.GetDeletedAtStub = nil
+	if fake.getDeletedAtReturnsOnCall == nil {
+		fake.getDeletedAtReturnsOnCall = make(map[int]struct {
+			result1 *time.Time
+			result2 error
+		})
+	}
+	fake.getDeletedAtReturnsOnCall[i] = struct {
+		result1 *time.Time
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *CFSpaceRepository) GetSpace(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.SpaceRecord, error) {
@@ -422,6 +504,8 @@ func (fake *CFSpaceRepository) Invocations() map[string][][]interface{} {
 	defer fake.createSpaceMutex.RUnlock()
 	fake.deleteSpaceMutex.RLock()
 	defer fake.deleteSpaceMutex.RUnlock()
+	fake.getDeletedAtMutex.RLock()
+	defer fake.getDeletedAtMutex.RUnlock()
 	fake.getSpaceMutex.RLock()
 	defer fake.getSpaceMutex.RUnlock()
 	fake.listSpacesMutex.RLock()

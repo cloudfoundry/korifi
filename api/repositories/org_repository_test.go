@@ -354,39 +354,48 @@ var _ = Describe("OrgRepository", func() {
 		})
 	})
 
-	Describe("GetOrgUnfiltered", func() {
-		var cfOrg *korifiv1alpha1.CFOrg
+	Describe("GetDeletedAt", func() {
+		var (
+			cfOrg        *korifiv1alpha1.CFOrg
+			deletionTime *time.Time
+			getErr       error
+		)
 
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("the-org"))
-			Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
-				cfOrg.Labels = map[string]string{
-					"test-label-key": "test-label-val",
-				}
-				cfOrg.Annotations = map[string]string{
-					"test-annotation-key": "test-annotation-val",
-				}
-			})).To(Succeed())
 		})
 
-		When("the org exists", func() {
+		JustBeforeEach(func() {
+			deletionTime, getErr = orgRepo.GetDeletedAt(ctx, authInfo, cfOrg.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the org is being deleted", func() {
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+				Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
+					cfOrg.Finalizers = append(cfOrg.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfOrg)).To(Succeed())
 			})
 
-			It("gets the org", func() {
-				orgRecord, err := orgRepo.GetOrgUnfiltered(ctx, authInfo, cfOrg.Name)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(orgRecord.Name).To(Equal(cfOrg.Spec.DisplayName))
-				Expect(orgRecord.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
-				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
 			})
 		})
 
 		When("the org isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfOrg)).To(Succeed())
+			})
+
 			It("errors", func() {
-				_, err := orgRepo.GetOrgUnfiltered(ctx, authInfo, "non-existent-org")
-				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
