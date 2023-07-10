@@ -3,6 +3,8 @@ package presenter
 import (
 	"fmt"
 	"net/url"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -20,6 +22,34 @@ const (
 	DomainDeleteOperation       = "domain.delete"
 	RoleDeleteOperation         = "role.delete"
 )
+
+var (
+	jobOperationPattern       = `(([a-z_\-]+)\.([a-z_]+))` // (e.g. app.delete, space.apply_manifest, etc.)
+	resourceIdentifierPattern = `([A-Za-z0-9\-\.]+)`       // (e.g. cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649, CUSTOM_ORG_ID, etc.)
+	jobRegexp                 = regexp.MustCompile(jobOperationPattern + JobGUIDDelimiter + resourceIdentifierPattern)
+)
+
+type Job struct {
+	GUID         string
+	Type         string
+	ResourceGUID string
+	ResourceType string
+}
+
+func JobFromGUID(guid string) (Job, bool) {
+	matches := jobRegexp.FindStringSubmatch(guid)
+
+	if len(matches) != 5 {
+		return Job{}, false
+	} else {
+		return Job{
+			GUID:         guid,
+			Type:         matches[1],
+			ResourceType: strings.Title(matches[2]),
+			ResourceGUID: matches[4],
+		}, true
+	}
+}
 
 type JobResponseError struct {
 	Detail string `json:"detail"`
@@ -43,26 +73,26 @@ type JobLinks struct {
 	Space *Link `json:"space,omitempty"`
 }
 
-func ForManifestApplyJob(jobGUID string, spaceGUID string, baseURL url.URL) JobResponse {
-	response := ForJob(jobGUID, []JobResponseError{}, StateComplete, SpaceApplyManifestOperation, baseURL)
+func ForManifestApplyJob(job Job, baseURL url.URL) JobResponse {
+	response := ForJob(job, []JobResponseError{}, StateComplete, baseURL)
 	response.Links.Space = &Link{
-		HRef: buildURL(baseURL).appendPath("/v3/spaces", spaceGUID).build(),
+		HRef: buildURL(baseURL).appendPath("/v3/spaces", job.ResourceGUID).build(),
 	}
 	return response
 }
 
-func ForJob(jobGUID string, errors []JobResponseError, state string, operation string, baseURL url.URL) JobResponse {
+func ForJob(job Job, errors []JobResponseError, state string, baseURL url.URL) JobResponse {
 	return JobResponse{
-		GUID:      jobGUID,
+		GUID:      job.GUID,
 		Errors:    errors,
 		Warnings:  nil,
-		Operation: operation,
+		Operation: job.Type,
 		State:     state,
 		CreatedAt: "",
 		UpdatedAt: "",
 		Links: JobLinks{
 			Self: Link{
-				HRef: buildURL(baseURL).appendPath("/v3/jobs", jobGUID).build(),
+				HRef: buildURL(baseURL).appendPath("/v3/jobs", job.GUID).build(),
 			},
 		},
 	}

@@ -21,9 +21,39 @@ var _ = Describe("", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	Describe("JobFromGUID", func() {
+		var (
+			job   presenter.Job
+			match bool
+			guid  string
+		)
+
+		BeforeEach(func() {
+			guid = "resource.operation~guid"
+		})
+
+		JustBeforeEach(func() {
+			job, match = presenter.JobFromGUID(guid)
+		})
+
+		It("parses a job GUID into a Job struct", func() {
+			Expect(match).To(BeTrue())
+			Expect(job).To(Equal(presenter.Job{
+				GUID:         "resource.operation~guid",
+				Type:         "resource.operation",
+				ResourceGUID: "guid",
+				ResourceType: "Resource",
+			}))
+		})
+	})
+
 	Describe("ForManifestApplyJob", func() {
 		JustBeforeEach(func() {
-			response := presenter.ForManifestApplyJob("the-job-guid", "the-space-guid", *baseURL)
+			response := presenter.ForManifestApplyJob(presenter.Job{
+				GUID:         "the-job-guid",
+				Type:         presenter.SpaceApplyManifestOperation,
+				ResourceGUID: "the-space-guid",
+			}, *baseURL)
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())
@@ -50,13 +80,16 @@ var _ = Describe("", func() {
 		})
 	})
 
-	Describe("ForDeleteJob", func() {
+	Describe("ForJob", func() {
 		JustBeforeEach(func() {
-			response := presenter.ForJob("the-job-guid", []presenter.JobResponseError{{
+			response := presenter.ForJob(presenter.Job{
+				GUID: "the-job-guid",
+				Type: "the.operation",
+			}, []presenter.JobResponseError{{
 				Detail: "error detail",
 				Title:  "CF-JobErrorTitle",
 				Code:   12345,
-			}}, "COMPLETE", "the.operation", *baseURL)
+			}}, "COMPLETE", *baseURL)
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())

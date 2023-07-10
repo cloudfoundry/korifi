@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -53,8 +52,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 
 	jobGUID := routing.URLParam(r, "guid")
 
-	jobType, resourceGUID, match := parseJobGUID(jobGUID)
-
+	job, match := presenter.JobFromGUID(jobGUID)
 	if !match {
 		return nil, apierrors.LogAndReturn(
 			log,
@@ -68,67 +66,62 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 		jobResponse presenter.JobResponse
 	)
 
-	switch jobType {
+	switch job.Type {
 	case syncSpacePrefix:
-		jobResponse = presenter.ForManifestApplyJob(jobGUID, resourceGUID, h.serverURL)
+		jobResponse = presenter.ForManifestApplyJob(job, h.serverURL)
 	case appDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
-		jobResponse = presenter.ForJob(jobGUID, []presenter.JobResponseError{}, presenter.StateComplete, jobType, h.serverURL)
+		jobResponse = presenter.ForJob(job, []presenter.JobResponseError{}, presenter.StateComplete, h.serverURL)
 	case orgDeletePrefix, spaceDeletePrefix:
-		jobResponse, err = h.handleDeleteJob(r.Context(), jobType, resourceGUID)
+		jobResponse, err = h.handleDeleteJob(r.Context(), job)
 		if err != nil {
 			return nil, err
 		}
 	default:
 		return nil, apierrors.LogAndReturn(
 			log,
-			apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", jobType), JobResourceType),
-			fmt.Sprintf("Invalid Job type: %s", jobType),
+			apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", job.Type), JobResourceType),
+			fmt.Sprintf("Invalid Job type: %s", job.Type),
 		)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
-func (h *Job) handleDeleteJob(ctx context.Context, jobType, resourceGUID string) (presenter.JobResponse, error) {
+func (h *Job) handleDeleteJob(ctx context.Context, job presenter.Job) (presenter.JobResponse, error) {
 	authInfo, _ := authorization.InfoFromContext(ctx)
-	jobGUID := jobType + presenter.JobGUIDDelimiter + resourceGUID
 	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJob")
 
 	var (
-		org          repositories.OrgRecord
-		space        repositories.SpaceRecord
-		err          error
-		resourceType string
-		deletedAt    *time.Time
+		org       repositories.OrgRecord
+		space     repositories.SpaceRecord
+		err       error
+		deletedAt *time.Time
 	)
 
 	for retries := 0; retries < 40; retries++ {
-		switch jobType {
+		switch job.Type {
 		case orgDeletePrefix:
-			org, err = h.orgRepo.GetOrgUnfiltered(ctx, authInfo, resourceGUID)
-			resourceType = "Org"
+			org, err = h.orgRepo.GetOrgUnfiltered(ctx, authInfo, job.ResourceGUID)
 			deletedAt = org.DeletedAt
 		case spaceDeletePrefix:
-			space, err = h.spaceRepo.GetSpace(ctx, authInfo, resourceGUID)
-			resourceType = "Space"
+			space, err = h.spaceRepo.GetSpace(ctx, authInfo, job.ResourceGUID)
 			deletedAt = space.DeletedAt
 		}
 
 		if err != nil {
 			switch err.(type) {
 			case apierrors.NotFoundError, apierrors.ForbiddenError:
-				return presenter.ForJob(jobGUID,
+				return presenter.ForJob(job,
 					[]presenter.JobResponseError{},
 					presenter.StateComplete,
-					jobType,
 					h.serverURL,
 				), nil
 			default:
 				return presenter.JobResponse{}, apierrors.LogAndReturn(
 					log,
 					err,
-					"failed to fetch "+resourceType+" from Kubernetes",
-					resourceType+"GUID", resourceGUID,
+					"failed to fetch "+job.ResourceType+" from Kubernetes",
+					job.ResourceType+"GUID", job.ResourceGUID,
 				)
 			}
 		}
@@ -137,45 +130,42 @@ func (h *Job) handleDeleteJob(ctx context.Context, jobType, resourceGUID string)
 			break
 		}
 
-		log.V(1).Info("Waiting for deletion timestamp", resourceType+"GUID", resourceGUID)
+		log.V(1).Info("Waiting for deletion timestamp", job.ResourceType+"GUID", job.ResourceGUID)
 		time.Sleep(h.pollingInterval)
 	}
 
-	return h.handleDeleteJobResponse(ctx, deletedAt, jobType, resourceGUID, resourceType)
+	return h.handleDeleteJobResponse(ctx, deletedAt, job)
 }
 
-func (h *Job) handleDeleteJobResponse(ctx context.Context, deletedAt *time.Time, jobType, resourceGUID, resourceType string) (presenter.JobResponse, error) {
-	jobGUID := jobType + presenter.JobGUIDDelimiter + resourceGUID
+func (h *Job) handleDeleteJobResponse(ctx context.Context, deletedAt *time.Time, job presenter.Job) (presenter.JobResponse, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJobResponse")
 
 	if deletedAt == nil {
 		return presenter.JobResponse{}, apierrors.LogAndReturn(
 			log,
-			apierrors.NewNotFoundError(fmt.Errorf("job %q not found", jobGUID), JobResourceType),
-			resourceType+" not marked for deletion",
-			resourceType+"GUID", resourceGUID,
+			apierrors.NewNotFoundError(fmt.Errorf("job %q not found", job.GUID), JobResourceType),
+			job.ResourceType+" not marked for deletion",
+			job.ResourceType+"GUID", job.GUID,
 		)
 	}
 
 	if time.Since(*deletedAt).Seconds() < JobTimeoutDuration {
 		return presenter.ForJob(
-			jobGUID,
+			job,
 			[]presenter.JobResponseError{},
 			presenter.StateProcessing,
-			jobType,
 			h.serverURL,
 		), nil
 	}
 
 	return presenter.ForJob(
-		jobGUID,
+		job,
 		[]presenter.JobResponseError{{
 			Code:   10008,
-			Detail: fmt.Sprintf("%s deletion timed out. Check for remaining resources in the %q namespace", resourceType, resourceGUID),
+			Detail: fmt.Sprintf("%s deletion timed out. Check for remaining resources in the %q namespace", job.ResourceType, job.ResourceGUID),
 			Title:  "CF-UnprocessableEntity",
 		}},
 		presenter.StateFailed,
-		jobType,
 		h.serverURL,
 	), nil
 }
@@ -187,22 +177,5 @@ func (h *Job) UnauthenticatedRoutes() []routing.Route {
 func (h *Job) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: JobPath, Handler: h.get},
-	}
-}
-
-var (
-	jobOperationPattern       = `([a-z_\-]+\.[a-z_]+)` // (e.g. app.delete, space.apply_manifest, etc.)
-	resourceIdentifierPattern = `([A-Za-z0-9\-\.]+)`   // (e.g. cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649, CUSTOM_ORG_ID, etc.)
-	jobRegexp                 = regexp.MustCompile(jobOperationPattern + presenter.JobGUIDDelimiter + resourceIdentifierPattern)
-)
-
-func parseJobGUID(jobGUID string) (string, string, bool) {
-	// Parse the job identifier and capture the job operation and resource name for later use
-	matches := jobRegexp.FindStringSubmatch(jobGUID)
-
-	if len(matches) != 3 {
-		return "", "", false
-	} else {
-		return matches[1], matches[2], true
 	}
 }
