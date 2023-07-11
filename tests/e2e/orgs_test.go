@@ -240,6 +240,10 @@ var _ = Describe("Orgs", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
+
+			orgResp, err := restyClient.R().Get("/v3/organizations/" + orgGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(orgResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 
 		When("the org contains a space", func() {
@@ -259,6 +263,10 @@ var _ = Describe("Orgs", func() {
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 				}).Should(Succeed())
+
+				orgResp, err := restyClient.R().Get("/v3/organizations/" + orgGUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(orgResp).To(HaveRestyStatusCode(http.StatusNotFound))
 			})
 		})
 
