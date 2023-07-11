@@ -99,41 +99,25 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 }
 
 func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository, job presenter.Job) (presenter.JobResponse, error) {
-	authInfo, _ := authorization.InfoFromContext(ctx)
 	ctx, log := logger.FromContext(ctx, "handleDeleteJob")
 
-	var (
-		err       error
-		deletedAt *time.Time
-	)
-
-	for retries := 0; retries < 40; retries++ {
-		deletedAt, err = repository.GetDeletedAt(ctx, authInfo, job.ResourceGUID)
-
-		if err != nil {
-			switch err.(type) {
-			case apierrors.NotFoundError, apierrors.ForbiddenError:
-				return presenter.ForJob(job,
-					[]presenter.JobResponseError{},
-					presenter.StateComplete,
-					h.serverURL,
-				), nil
-			default:
-				return presenter.JobResponse{}, apierrors.LogAndReturn(
-					log,
-					err,
-					"failed to fetch "+job.ResourceType+" from Kubernetes",
-					job.ResourceType+"GUID", job.ResourceGUID,
-				)
-			}
+	deletedAt, err := h.retryGetDeletedAt(ctx, repository, job)
+	if err != nil {
+		switch err.(type) {
+		case apierrors.NotFoundError, apierrors.ForbiddenError:
+			return presenter.ForJob(job,
+				[]presenter.JobResponseError{},
+				presenter.StateComplete,
+				h.serverURL,
+			), nil
+		default:
+			return presenter.JobResponse{}, apierrors.LogAndReturn(
+				log,
+				err,
+				"failed to fetch "+job.ResourceType+" from Kubernetes",
+				job.ResourceType+"GUID", job.ResourceGUID,
+			)
 		}
-
-		if deletedAt != nil {
-			break
-		}
-
-		log.V(1).Info("Waiting for deletion timestamp", job.ResourceType+"GUID", job.ResourceGUID)
-		time.Sleep(h.pollingInterval)
 	}
 
 	if deletedAt == nil {
@@ -164,6 +148,32 @@ func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository
 		presenter.StateFailed,
 		h.serverURL,
 	), nil
+}
+
+func (h *Job) retryGetDeletedAt(ctx context.Context, repository DeletionRepository, job presenter.Job) (*time.Time, error) {
+	ctx, log := logger.FromContext(ctx, "retryGetDeletedAt")
+	authInfo, _ := authorization.InfoFromContext(ctx)
+
+	var (
+		deletedAt *time.Time
+		err       error
+	)
+
+	for retries := 0; retries < 40; retries++ {
+		deletedAt, err = repository.GetDeletedAt(ctx, authInfo, job.ResourceGUID)
+		if err != nil {
+			return nil, err
+		}
+
+		if deletedAt != nil {
+			return deletedAt, nil
+		}
+
+		log.V(1).Info("Waiting for deletion timestamp", job.ResourceType+"GUID", job.ResourceGUID)
+		time.Sleep(h.pollingInterval)
+	}
+
+	return nil, nil
 }
 
 func (h *Job) UnauthenticatedRoutes() []routing.Route {
