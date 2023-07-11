@@ -327,7 +327,10 @@ func main() {
 		),
 		handlers.NewJob(
 			*serverURL,
-			handlers.DefaultDeletionRepositories(orgRepo, spaceRepo),
+			map[string]handlers.DeletionRepository{
+				handlers.OrgDeleteJobType:   orgRepo,
+				handlers.SpaceDeleteJobType: spaceRepo,
+			},
 			500*time.Millisecond,
 		),
 		handlers.NewLogCache(

@@ -15,14 +15,14 @@ import (
 )
 
 const (
-	JobPath            = "/v3/jobs/{guid}"
-	syncSpacePrefix    = "space.apply_manifest"
-	appDeletePrefix    = "app.delete"
-	orgDeletePrefix    = "org.delete"
-	routeDeletePrefix  = "route.delete"
-	spaceDeletePrefix  = "space.delete"
-	domainDeletePrefix = "domain.delete"
-	roleDeletePrefix   = "role.delete"
+	JobPath             = "/v3/jobs/{guid}"
+	syncSpaceJobType    = "space.apply_manifest"
+	AppDeleteJobType    = "app.delete"
+	OrgDeleteJobType    = "org.delete"
+	RouteDeleteJobType  = "route.delete"
+	SpaceDeleteJobType  = "space.delete"
+	DomainDeleteJobType = "domain.delete"
+	RoleDeleteJobType   = "role.delete"
 
 	JobTimeoutDuration = 120.0
 )
@@ -32,13 +32,6 @@ const JobResourceType = "Job"
 //counterfeiter:generate -o fake -fake-name DeletionRepository . DeletionRepository
 type DeletionRepository interface {
 	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
-}
-
-func DefaultDeletionRepositories(orgRepo DeletionRepository, spaceRepo DeletionRepository) map[string]DeletionRepository {
-	return map[string]DeletionRepository{
-		orgDeletePrefix:   orgRepo,
-		spaceDeletePrefix: spaceRepo,
-	}
 }
 
 type Job struct {
@@ -75,9 +68,9 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	)
 
 	switch job.Type {
-	case syncSpacePrefix:
+	case syncSpaceJobType:
 		jobResponse = presenter.ForManifestApplyJob(job, h.serverURL)
-	case appDeletePrefix, routeDeletePrefix, domainDeletePrefix, roleDeletePrefix:
+	case AppDeleteJobType, RouteDeleteJobType, DomainDeleteJobType, RoleDeleteJobType:
 		jobResponse = presenter.ForJob(job, []presenter.JobResponseError{}, presenter.StateComplete, h.serverURL)
 	default:
 		repository, ok := h.repositories[job.Type]
