@@ -70,7 +70,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	switch job.Type {
 	case syncSpaceJobType:
 		jobResponse = presenter.ForManifestApplyJob(job, h.serverURL)
-	case AppDeleteJobType, RouteDeleteJobType, DomainDeleteJobType, RoleDeleteJobType:
+	case RouteDeleteJobType, DomainDeleteJobType, RoleDeleteJobType:
 		jobResponse = presenter.ForJob(job, []presenter.JobResponseError{}, presenter.StateComplete, h.serverURL)
 	default:
 		repository, ok := h.repositories[job.Type]

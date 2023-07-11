@@ -71,6 +71,7 @@ type AppRecord struct {
 	Lifecycle             Lifecycle
 	CreatedAt             time.Time
 	UpdatedAt             *time.Time
+	DeletedAt             *time.Time
 	IsStaged              bool
 	envSecretName         string
 	vcapServiceSecretName string
@@ -515,6 +516,14 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 	return appEnvRecord, nil
 }
 
+func (f *AppRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, appGUID string) (*time.Time, error) {
+	app, err := f.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return nil, err
+	}
+	return app.DeletedAt, nil
+}
+
 func getSystemEnv(ctx context.Context, userClient client.Client, app AppRecord) (map[string]any, error) {
 	systemEnvMap := map[string]any{}
 	if app.vcapServiceSecretName != "" {
@@ -638,6 +647,7 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 		},
 		CreatedAt:             cfApp.CreationTimestamp.Time,
 		UpdatedAt:             getLastUpdatedTime(&cfApp),
+		DeletedAt:             golangTime(cfApp.DeletionTimestamp),
 		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady),
 		envSecretName:         cfApp.Spec.EnvSecretName,
 		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,

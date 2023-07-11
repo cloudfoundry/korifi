@@ -248,35 +248,25 @@ var _ = Describe("Apps", func() {
 			Eventually(func(g Gomega) {
 				resp, err = certClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(string(resp.Body())).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
-		})
-
-		It("successfully deletes the app and associated child resources", func() {
-			var result resource
-			Eventually(func(g Gomega) {
-				resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID)
-				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-				g.Expect(err).NotTo(HaveOccurred())
+				jobRespBody := string(resp.Body())
+				g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			Eventually(func(g Gomega) {
-				resp, err = certClient.R().SetResult(&result).Get("/v3/packages/" + pkgGUID)
-				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-				g.Expect(err).NotTo(HaveOccurred())
-			}).Should(Succeed())
+			resp, err = certClient.R().Get("/v3/apps/" + appGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 
-			Eventually(func(g Gomega) {
-				resp, err = certClient.R().SetResult(&result).Get("/v3/builds/" + buildGUID)
-				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-				g.Expect(err).NotTo(HaveOccurred())
-			}).Should(Succeed())
+			resp, err = certClient.R().Get("/v3/packages/" + pkgGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 
-			Eventually(func(g Gomega) {
-				resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes/" + processType)
-				g.Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-				g.Expect(err).NotTo(HaveOccurred())
-			}).Should(Succeed())
+			resp, err = certClient.R().Get("/v3/builds/" + buildGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
+
+			resp, err = certClient.R().Get("/v3/apps/" + appGUID + "/processes/" + processType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 	})
 
