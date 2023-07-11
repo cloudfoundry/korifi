@@ -344,6 +344,10 @@ var _ = Describe("Spaces", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
+
+			spaceResp, err := restyClient.R().Get("/v3/spaces/" + spaceGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(spaceResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 
 		When("the space does not exist", func() {
