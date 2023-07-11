@@ -102,11 +102,14 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 
 		It("cleans up older builds and droplets", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(buildCleaner.CleanCallCount()).To(BeNumerically(">", cleanCallCount))
+				for i := cleanCallCount; i < buildCleaner.CleanCallCount(); i++ {
+					_, app := buildCleaner.CleanArgsForCall(i)
+					if app.Name == cfAppGUID && app.Namespace == cfSpace.Status.GUID {
+						return
+					}
+				}
+				g.Expect(errors.New("Clean() has not been invoked with expected args")).NotTo(HaveOccurred())
 			}).Should(Succeed())
-			_, app := buildCleaner.CleanArgsForCall(buildCleaner.CleanCallCount() - 1)
-			Expect(app.Name).To(Equal(cfAppGUID))
-			Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
 		})
 
 		It("reconciles to set the owner reference on the CFBuild", func() {

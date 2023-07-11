@@ -12,7 +12,6 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -359,7 +358,8 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
 			}).Should(Succeed())
 
-			Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+			Expect(k8s.Patch(ctx, adminClient, cfTask, func() {
+				cfTask.Annotations = map[string]string{"trigger-the": "reconciler"}
 				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
 					Type:               korifiv1alpha1.TaskSucceededConditionType,
 					Status:             metav1.ConditionTrue,
@@ -378,9 +378,9 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			task := new(korifiv1alpha1.CFTask)
 
 			Eventually(func(g Gomega) {
-				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), task)
-				g.Expect(err).To(HaveOccurred(), "Task has not been deleted")
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				err := adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), task)
+				g.Expect(err).To(HaveOccurred(), "%#v", task.Status)
+				g.Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred())
 			}).Should(Succeed())
 		})
 	})
