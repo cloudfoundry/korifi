@@ -51,7 +51,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 	})
 
 	JustBeforeEach(func() {
-		createErr = k8sClient.Create(context.Background(), taskWorkload)
+		createErr = adminClient.Create(context.Background(), taskWorkload)
 	})
 
 	It("creates a job owned by the task workload", func() {
@@ -59,7 +59,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 
 		jobList := &batchv1.JobList{}
 		Eventually(func(g Gomega) {
-			g.Expect(k8sClient.List(context.Background(), jobList, client.InNamespace(testNamespace.Name))).To(Succeed())
+			g.Expect(adminClient.List(context.Background(), jobList, client.InNamespace(testNamespace.Name))).To(Succeed())
 			g.Expect(jobList.Items).To(HaveLen(1))
 		}).Should(Succeed())
 
@@ -100,7 +100,7 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 
 	It("sets the initialized condition on the task workload status", func() {
 		Eventually(func(g Gomega) {
-			g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
+			g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
 			g.Expect(meta.IsStatusConditionTrue(taskWorkload.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
 		}).Should(Succeed())
 	})

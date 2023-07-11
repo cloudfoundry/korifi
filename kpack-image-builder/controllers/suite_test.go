@@ -27,17 +27,17 @@ import (
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -55,9 +55,9 @@ const (
 
 var (
 	ctx                     context.Context
-	cancel                  context.CancelFunc
-	cfg                     *rest.Config
-	k8sClient               client.Client
+	stopManager             context.CancelFunc
+	stopClientCache         context.CancelFunc
+	adminClient             client.Client
 	testEnv                 *envtest.Environment
 	fakeImageConfigGetter   *fake.ImageConfigGetter
 	fakeImageDeleter        *fake.ImageDeleter
@@ -79,10 +79,8 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	ctx = context.Background()
 
-	ctx, cancel = context.WithCancel(context.Background())
-
-	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "helm", "korifi", "controllers", "crds"),
@@ -96,29 +94,14 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 	}
 
-	var err error
-	cfg, err = testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
-
-	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	err = buildv1alpha2.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	k8sClient = k8sManager.GetClient()
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "kpack-image-builder", "role.yaml"))
+	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 
@@ -169,23 +152,17 @@ var _ = BeforeSuite(func() {
 	err = kpackBuildReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	stopManager = helpers.StartK8sManager(k8sManager)
 
 	rootNamespace = &v1.Namespace{
 		ObjectMeta: ctrl.ObjectMeta{
 			Name: controllerConfig.CFRootNamespace,
 		},
 	}
-	Expect(k8sClient.Create(ctx, rootNamespace)).To(Succeed())
-
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	Expect(adminClient.Create(ctx, rootNamespace)).To(Succeed())
 
 	// create a test storage class that can't be resized
-	Expect(k8sClient.Create(ctx, &storagev1.StorageClass{
+	Expect(adminClient.Create(ctx, &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "non-resizable-class",
 		},
@@ -195,7 +172,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
+	stopClientCache()
+	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })

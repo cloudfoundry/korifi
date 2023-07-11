@@ -9,17 +9,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type CacheSyncingClient struct {
+type SyncClient struct {
 	client.Client
 }
 
-func NewCacheSyncingClient(client client.Client) *CacheSyncingClient {
-	return &CacheSyncingClient{
-		Client: client,
+func NewSyncClient(k8sClient client.Client) *SyncClient {
+	return &SyncClient{
+		Client: k8sClient,
 	}
 }
 
-func (c *CacheSyncingClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+func (c *SyncClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	GinkgoHelper()
 
 	if err := c.Client.Create(ctx, obj, opts...); err != nil {
@@ -32,7 +32,7 @@ func (c *CacheSyncingClient) Create(ctx context.Context, obj client.Object, opts
 	return nil
 }
 
-func (c *CacheSyncingClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, _ ...client.PatchOption) error {
+func (c *SyncClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, _ ...client.PatchOption) error {
 	GinkgoHelper()
 
 	err := c.Client.Patch(ctx, obj, patch)
@@ -50,7 +50,7 @@ func (c *CacheSyncingClient) Patch(ctx context.Context, obj client.Object, patch
 	return nil
 }
 
-func (c *CacheSyncingClient) Status() client.SubResourceWriter {
+func (c *SyncClient) Status() client.SubResourceWriter {
 	GinkgoHelper()
 
 	return &syncStatusWriter{
@@ -75,14 +75,13 @@ func (w *syncStatusWriter) Patch(ctx context.Context, obj client.Object, patch c
 	dryRunClient := client.NewDryRunClient(w.client)
 	Eventually(func(g Gomega) {
 		g.Expect(w.client.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+
 		currentStatus, err := getStatus(obj)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		objCopy, ok := obj.DeepCopyObject().(client.Object)
-		g.Expect(ok).To(BeTrue())
-
-		g.Expect(dryRunClient.Status().Patch(ctx, objCopy, patch, opts...)).To(Succeed())
-		patchedStatus, err := getStatus(objCopy)
+		err = dryRunClient.Status().Patch(ctx, obj, patch, opts...)
+		g.Expect(err).NotTo(HaveOccurred())
+		patchedStatus, err := getStatus(obj)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Expect(patchedStatus).To(Equal(currentStatus))
@@ -94,7 +93,7 @@ func (w *syncStatusWriter) Patch(ctx context.Context, obj client.Object, patch c
 func getStatus(obj runtime.Object) (any, error) {
 	GinkgoHelper()
 
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj.DeepCopyObject())
 	if err != nil {
 		return nil, err
 	}

@@ -24,7 +24,7 @@ var _ = Describe("Builder", func() {
 	)
 
 	BeforeEach(func() {
-		builder = env.NewVCAPServicesEnvValueBuilder(k8sClient)
+		builder = env.NewVCAPServicesEnvValueBuilder(controllersClient)
 
 		serviceInstance = &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -146,6 +146,8 @@ var _ = Describe("Builder", func() {
 		})
 
 		It("returns the service info", func() {
+			Expect(buildVCAPServicesEnvValueErr).NotTo(HaveOccurred())
+
 			Expect(extractServiceInfo(vcapServices, "user-provided", 1)).To(ContainElements(
 				SatisfyAll(
 					HaveLen(10),
@@ -232,10 +234,10 @@ var _ = Describe("Builder", func() {
 
 		When("there are no service bindings for the app", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.DeleteAllOf(ctx, &korifiv1alpha1.CFServiceBinding{}, client.InNamespace(cfSpace.Status.GUID))).To(Succeed())
+				Expect(adminClient.DeleteAllOf(ctx, &korifiv1alpha1.CFServiceBinding{}, client.InNamespace(cfSpace.Status.GUID))).To(Succeed())
 				Eventually(func(g Gomega) {
 					sbList := &korifiv1alpha1.CFServiceBindingList{}
-					g.Expect(k8sClient.List(ctx, sbList, client.InNamespace(cfSpace.Status.GUID))).To(Succeed())
+					g.Expect(controllersClient.List(ctx, sbList, client.InNamespace(cfSpace.Status.GUID))).To(Succeed())
 					g.Expect(sbList.Items).To(BeEmpty())
 				}).Should(Succeed())
 			})

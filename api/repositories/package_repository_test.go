@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -12,6 +13,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
@@ -26,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var _ = Describe("PackageRepository", func() {
@@ -36,7 +37,7 @@ var _ = Describe("PackageRepository", func() {
 		org         *korifiv1alpha1.CFOrg
 		space       *korifiv1alpha1.CFSpace
 		app         *korifiv1alpha1.CFApp
-		mgrCancel   context.CancelFunc
+		stopManager context.CancelFunc
 	)
 
 	BeforeEach(func() {
@@ -53,13 +54,9 @@ var _ = Describe("PackageRepository", func() {
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 		app = createApp(space.Name)
 
-		k8sManager, err := ctrl.NewManager(k8sConfig, ctrl.Options{
-			Scheme:             scheme.Scheme,
-			MetricsBindAddress: "0",
-		})
-		Expect(err).NotTo(HaveOccurred())
+		k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 
-		k8sInterface, err := kubernetes.NewForConfig(k8sConfig)
+		k8sInterface, err := kubernetes.NewForConfig(k8sManager.GetConfig())
 		Expect(err).NotTo(HaveOccurred())
 
 		err = (workloads.NewCFPackageReconciler(
@@ -72,17 +69,11 @@ var _ = Describe("PackageRepository", func() {
 		)).SetupWithManager(k8sManager)
 		Expect(err).NotTo(HaveOccurred())
 
-		var mgrCtx context.Context
-		mgrCtx, mgrCancel = context.WithCancel(ctx)
-		go func() {
-			defer GinkgoRecover()
-			err = k8sManager.Start(mgrCtx)
-			Expect(err).NotTo(HaveOccurred())
-		}()
+		stopManager = helpers.StartK8sManager(k8sManager)
 	})
 
 	AfterEach(func() {
-		mgrCancel()
+		stopManager()
 	})
 
 	Describe("CreatePackage", func() {

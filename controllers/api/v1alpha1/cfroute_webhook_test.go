@@ -33,7 +33,7 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 					Name: "a" + uuid.NewString() + ".com",
 				},
 			}
-			Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfDomain)).To(Succeed())
 
 			cfRoute = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -52,12 +52,12 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 		})
 
 		JustBeforeEach(func() {
-			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfRoute)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(ctx, cfRoute)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
+			Expect(adminClient.Delete(ctx, cfRoute)).To(Succeed())
+			Expect(adminClient.Delete(ctx, cfDomain)).To(Succeed())
 		})
 
 		It("adds labels with guids of the domain and route", func() {

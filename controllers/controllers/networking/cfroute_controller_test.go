@@ -46,7 +46,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				Name: testNamespace,
 			},
 		}
-		Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+		Expect(adminClient.Create(ctx, ns)).To(Succeed())
 
 		testDomainGUID = GenerateGUID()
 		testRouteGUID = GenerateGUID()
@@ -61,7 +61,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				Name: "a" + GenerateGUID() + ".com",
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfDomain)).To(Succeed())
 
 		cfApp := &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -76,7 +76,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				DisplayName:  testAppGUID,
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 
 		cfRoute = &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
@@ -100,17 +100,17 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	}
 
 	AfterEach(func() {
-		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, ns))).To(Succeed())
+		Expect(client.IgnoreNotFound(adminClient.Delete(ctx, ns))).To(Succeed())
 	})
 
 	JustBeforeEach(func() {
-		Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfRoute)).To(Succeed())
 	})
 
 	It("reconciles the CFRoute to a root Contour HTTPProxy which includes a proxy for a route destination", func() {
 		Eventually(func(g Gomega) {
 			var proxy contourv1.HTTPProxy
-			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
 
 			g.Expect(proxy.Spec.VirtualHost.Fqdn).To(Equal(fqdnProxyName()))
 			g.Expect(proxy.Spec.VirtualHost.TLS.SecretName).To(Equal("korifi-controllers-system/korifi-workloads-ingress-cert"))
@@ -131,7 +131,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	It("reconciles the CFRoute to a child proxy with no routes", func() {
 		Eventually(func(g Gomega) {
 			var proxy contourv1.HTTPProxy
-			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)).To(Succeed())
 			g.Expect(proxy.Spec.VirtualHost).To(BeNil())
 			g.Expect(proxy.Spec.Routes).To(BeEmpty())
 			g.Expect(proxy.ObjectMeta.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
@@ -147,7 +147,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 	It("sets the ObservedGeneration status field", func() {
 		Eventually(func(g Gomega) {
-			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
 			g.Expect(cfRoute.Status.ObservedGeneration).To(Equal(cfRoute.Generation))
 		}).Should(Succeed())
 	})
@@ -170,7 +170,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		It("reconciles the CFRoute to a root Contour HTTPProxy which includes a proxy for a route destination", func() {
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
 				g.Expect(proxy.Spec.Includes).To(ConsistOf(contourv1.Include{
 					Name:      testRouteGUID,
 					Namespace: testNamespace,
@@ -181,7 +181,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		It("reconciles the CFRoute to a child proxy with a route", func() {
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)).To(Succeed())
 				g.Expect(proxy.Spec.Routes).To(ConsistOf(contourv1.Route{
 					Conditions: []contourv1.MatchCondition{
 						{
@@ -204,7 +204,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var svc corev1.Service
 
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)).To(Succeed())
 				g.Expect(svc.Labels).To(SatisfyAll(
 					HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", cfRoute.Spec.Destinations[0].AppRef.Name),
 					HaveKeyWithValue("korifi.cloudfoundry.org/route-guid", cfRoute.Name),
@@ -227,7 +227,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 		It("adds the FQDN and URI status fields to the CFRoute", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
 				g.Expect(cfRoute.Status.FQDN).To(Equal(fqdnProxyName()))
 				g.Expect(cfRoute.Status.URI).To(Equal(fqdnProxyName() + "/test/path"))
 			}).Should(Succeed())
@@ -235,7 +235,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 		It("adds the Destinations status field to the CFRoute", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
 				g.Expect(cfRoute.Status.Destinations).To(Equal(cfRoute.Spec.Destinations))
 			}).Should(Succeed())
 		})
@@ -275,18 +275,18 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(ctx, anotherRoute)).To(Succeed())
+			Expect(adminClient.Create(ctx, anotherRoute)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
 			}).Should(Succeed())
 		})
 
 		It("adds another include to the contour FQDN proxy", func() {
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
 				g.Expect(proxy.Spec.Includes).To(ConsistOf([]contourv1.Include{
 					{
 						Name:      testRouteGUID,
@@ -303,7 +303,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		It("reconciles them to a child contour proxy with a route", func() {
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: anotherRouteGUID, Namespace: testNamespace}, &proxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: anotherRouteGUID, Namespace: testNamespace}, &proxy)).To(Succeed())
 				g.Expect(proxy.Spec.VirtualHost).To(BeNil())
 				g.Expect(proxy.Spec.Routes).To(ConsistOf(contourv1.Route{
 					Conditions: []contourv1.MatchCondition{
@@ -326,16 +326,16 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			JustBeforeEach(func() {
 				Eventually(func(g Gomega) {
 					var proxy contourv1.HTTPProxy
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
+					g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
 					g.Expect(proxy.Spec.Includes).To(HaveLen(2))
 				}).Should(Succeed())
-				Expect(k8sClient.Delete(ctx, anotherRoute)).To(Succeed())
+				Expect(adminClient.Delete(ctx, anotherRoute)).To(Succeed())
 			})
 
 			It("removes it from the FQDN proxy includes list", func() {
 				Eventually(func(g Gomega) {
 					var proxy contourv1.HTTPProxy
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
+					g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
 					g.Expect(proxy.Spec.Includes).To(ConsistOf(contourv1.Include{
 						Name:      testRouteGUID,
 						Namespace: testNamespace,
@@ -367,10 +367,10 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		JustBeforeEach(func() {
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
 			}).Should(Succeed())
 
-			Expect(k8s.Patch(ctx, k8sClient, cfRoute, func() {
+			Expect(k8s.Patch(ctx, adminClient, cfRoute, func() {
 				cfRoute.Spec.Destinations = append(cfRoute.Spec.Destinations, korifiv1alpha1.Destination{
 					GUID: GenerateGUID(),
 					AppRef: corev1.LocalObjectReference{
@@ -386,7 +386,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		It("reconciles the CFRoute to a child proxy with a route", func() {
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &proxy)).To(Succeed())
 				g.Expect(proxy.Spec.Routes).To(ConsistOf([]contourv1.Route{
 					{
 						Conditions: []contourv1.MatchCondition{{Prefix: "/test/path"}},
@@ -411,7 +411,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			Eventually(func(g Gomega) {
 				var svc corev1.Service
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)).To(Succeed())
 				g.Expect(svc.Labels).To(SatisfyAll(
 					HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", cfRoute.Spec.Destinations[1].AppRef.Name),
 					HaveKeyWithValue("korifi.cloudfoundry.org/route-guid", cfRoute.Name),
@@ -455,19 +455,19 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		JustBeforeEach(func() {
 			Eventually(func(g Gomega) {
 				var proxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, &proxy)).To(Succeed())
 
 				var routeProxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &routeProxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &routeProxy)).To(Succeed())
 				g.Expect(routeProxy.Spec.Routes).To(HaveLen(1))
 				g.Expect(routeProxy.Spec.Routes[0].Services).To(HaveLen(1))
 
 				serviceName = routeProxy.Spec.Routes[0].Services[0].Name
 				var svc corev1.Service
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)).To(Succeed())
 			}).Should(Succeed())
 
-			Expect(k8s.Patch(ctx, k8sClient, cfRoute, func() {
+			Expect(k8s.Patch(ctx, adminClient, cfRoute, func() {
 				cfRoute.Spec.Destinations = []korifiv1alpha1.Destination{}
 			})).To(Succeed())
 		})
@@ -475,21 +475,21 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		It("deletes the Route on the HTTP proxy", func() {
 			Eventually(func(g Gomega) {
 				var routeProxy contourv1.HTTPProxy
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &routeProxy)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, &routeProxy)).To(Succeed())
 				g.Expect(routeProxy.Spec.Routes).To(BeEmpty())
 			}).Should(Succeed())
 		})
 
 		It("deletes the corresponding service", func() {
 			Eventually(func(g Gomega) {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, new(corev1.Service))
+				err := adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, new(corev1.Service))
 				g.Expect(errors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 		})
 
 		It("does not delete the FQDN proxy", func() {
 			Consistently(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, new(contourv1.HTTPProxy))).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: fqdnProxyName(), Namespace: testNamespace}, new(contourv1.HTTPProxy))).To(Succeed())
 			}).Should(Succeed())
 		})
 	})

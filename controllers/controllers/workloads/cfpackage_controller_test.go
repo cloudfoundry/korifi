@@ -36,7 +36,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 		cfApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
 
-		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+		Expect(adminClient.Create(context.Background(), cfApp)).To(Succeed())
 	})
 
 	When("a new CFPackage resource is created", func() {
@@ -47,13 +47,13 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			cfPackage.Spec.Source = korifiv1alpha1.PackageSource{}
-			Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), cfPackage)).To(Succeed())
 		})
 
 		It("initializes it", func() {
 			var createdCFPackage korifiv1alpha1.CFPackage
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, workloads.InitializedConditionType)).To(BeTrue())
 			}).Should(Succeed())
 
@@ -85,7 +85,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 		It("sets the ObservedGeneration status field", func() {
 			var createdCFPackage korifiv1alpha1.CFPackage
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
 
 				g.Expect(createdCFPackage.Status.ObservedGeneration).To(Equal(createdCFPackage.Generation))
 			}).Should(Succeed())
@@ -96,20 +96,20 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 			BeforeEach(func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, workloads.InitializedConditionType)).To(BeTrue())
 				}).Should(Succeed())
 			})
 
 			JustBeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, k8sClient, &createdCFPackage, func() {
+				Expect(k8s.PatchResource(ctx, adminClient, &createdCFPackage, func() {
 					createdCFPackage.Spec.Source.Registry.Image = "hello"
 				})).To(Succeed())
 			})
 
 			It("sets the ready condition to true", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 				}).Should(Succeed())
 			})
@@ -129,14 +129,14 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 		})
 
 		JustBeforeEach(func() {
-			Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), cfPackage)).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(cfPackage.Status.Conditions, workloads.InitializedConditionType)).To(BeTrue())
 			}).Should(Succeed())
 
-			Expect(k8sClient.Delete(context.Background(), cfPackage)).To(Succeed())
+			Expect(adminClient.Delete(context.Background(), cfPackage)).To(Succeed())
 		})
 
 		It("deletes itself and the corresponding source image", func() {
@@ -151,7 +151,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 			Expect(tagsToDelete).To(ConsistOf(cfPackage.Name))
 
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
 			}).Should(Succeed())
 		})
 
@@ -178,7 +178,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 			It("ignores the errors and finishes finalization", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
 				}).Should(Succeed())
 			})
 		})

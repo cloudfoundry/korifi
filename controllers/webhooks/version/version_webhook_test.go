@@ -25,13 +25,13 @@ var _ = Describe("Setting the version annotation", func() {
 	Describe("create", func() {
 		var testObjects []client.Object
 		createObject := func(obj client.Object) client.Object {
-			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), obj)).To(Succeed())
 			return obj
 		}
 
 		BeforeEach(func() {
 			orgNamespace := "test-org-" + uuid.NewString()
-			Expect(k8sClient.Create(context.Background(), &corev1.Namespace{
+			Expect(adminClient.Create(context.Background(), &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   orgNamespace,
 					Labels: map[string]string{korifiv1alpha1.OrgNameKey: orgNamespace},
@@ -199,16 +199,16 @@ var _ = Describe("Setting the version annotation", func() {
 				},
 				Spec: korifiv1alpha1.TaskWorkloadSpec{Command: []string{"foo"}},
 			}
-			Expect(k8sClient.Create(context.Background(), taskWorkload)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), taskWorkload)).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
 				g.Expect(taskWorkload.Annotations).To(HaveKeyWithValue(version.KorifiCreationVersionKey, "some-version"))
 			}).Should(Succeed())
 		})
 
 		When("unsetting the version", func() {
 			JustBeforeEach(func() {
-				Expect(k8s.Patch(context.Background(), k8sClient, taskWorkload, func() {
+				Expect(k8s.Patch(context.Background(), adminClient, taskWorkload, func() {
 					delete(taskWorkload.Annotations, version.KorifiCreationVersionKey)
 					taskWorkload.Spec.Command = []string{"bar"}
 				})).To(Succeed())
@@ -216,7 +216,7 @@ var _ = Describe("Setting the version annotation", func() {
 
 			It("restores it", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
 					g.Expect(taskWorkload.Annotations).To(HaveKeyWithValue(version.KorifiCreationVersionKey, "some-version"))
 					g.Expect(taskWorkload.Spec.Command).To(ConsistOf("bar"))
 				}).Should(Succeed())
@@ -225,14 +225,14 @@ var _ = Describe("Setting the version annotation", func() {
 
 		When("updating the version", func() {
 			JustBeforeEach(func() {
-				Expect(k8s.Patch(context.Background(), k8sClient, taskWorkload, func() {
+				Expect(k8s.Patch(context.Background(), adminClient, taskWorkload, func() {
 					taskWorkload.Annotations[version.KorifiCreationVersionKey] = "foo"
 				})).To(Succeed())
 			})
 
 			It("leaves the new version", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(taskWorkload), taskWorkload)).To(Succeed())
 					g.Expect(taskWorkload.Annotations).To(HaveKeyWithValue(version.KorifiCreationVersionKey, "foo"))
 				}).Should(Succeed())
 			})

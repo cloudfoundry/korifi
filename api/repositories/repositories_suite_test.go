@@ -49,7 +49,6 @@ var (
 	k8sClient             client.WithWatch
 	namespaceRetriever    repositories.NamespaceRetriever
 	userClientFactory     authorization.UserK8sClientFactory
-	k8sConfig             *rest.Config
 	userName              string
 	authInfo              authorization.Info
 	rootNamespace         string
@@ -78,7 +77,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	var err error
-	k8sConfig, err = testEnv.Start()
+	_, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
 	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
@@ -86,11 +85,11 @@ var _ = BeforeSuite(func() {
 	err = buildv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	dynamicClient, err := dynamic.NewForConfig(k8sConfig)
+	dynamicClient, err := dynamic.NewForConfig(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(dynamicClient).NotTo(BeNil())
 	namespaceRetriever = repositories.NewNamespaceRetriever(dynamicClient)
@@ -118,16 +117,16 @@ var _ = BeforeEach(func() {
 	builderName = "kpack-image-builder"
 	runnerName = "statefulset-runner"
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
-	certInspector := authorization.NewCertInspector(k8sConfig)
+	certInspector := authorization.NewCertInspector(testEnv.Config)
 	baseIDProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
 	idProvider = authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
 	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider)
 
-	httpClient, err := rest.HTTPClientFor(k8sConfig)
+	httpClient, err := rest.HTTPClientFor(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
-	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig, httpClient)
+	mapper, err := apiutil.NewDynamicRESTMapper(testEnv.Config, httpClient)
 	Expect(err).NotTo(HaveOccurred())
-	userClientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, k8s.NewDefaultBackoff())
+	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8s.NewDefaultBackoff())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

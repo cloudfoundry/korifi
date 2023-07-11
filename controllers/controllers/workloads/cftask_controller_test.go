@@ -45,7 +45,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				},
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfPackage)).To(Succeed())
 
 		cfDroplet = &korifiv1alpha1.CFBuild{
 			ObjectMeta: metav1.ObjectMeta{
@@ -62,7 +62,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfDroplet)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfDroplet)).To(Succeed())
 
 		cfDropletCopy := cfDroplet.DeepCopy()
 		cfDropletCopy.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
@@ -83,7 +83,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Status: "Unknown",
 			Reason: "reason",
 		})
-		Expect(k8sClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
+		Expect(adminClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
 
 		envSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -96,7 +96,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			},
 			Type: corev1.SecretTypeOpaque,
 		}
-		Expect(k8sClient.Create(ctx, envSecret)).To(Succeed())
+		Expect(adminClient.Create(ctx, envSecret)).To(Succeed())
 
 		cfProcess := &korifiv1alpha1.CFProcess{
 			ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +120,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Ports: []int32{8080},
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
 
 		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -137,7 +137,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				EnvSecretName: envSecret.Name,
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 
 		cfTask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
@@ -163,7 +163,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			task = &korifiv1alpha1.CFTask{}
 			Eventually(func(g Gomega) {
 				app := new(korifiv1alpha1.CFApp)
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfApp.Name}, app)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfApp.Name}, app)).To(Succeed())
 
 				readyCondition := meta.FindStatusCondition(app.Status.Conditions, "Ready")
 				g.Expect(readyCondition).NotTo(BeNil())
@@ -174,10 +174,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		})
 
 		JustBeforeEach(func() {
-			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfTask)).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
 				initializedStatusCondition := meta.FindStatusCondition(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)
 				g.Expect(initializedStatusCondition).NotTo(BeNil())
 				g.Expect(initializedStatusCondition.Status).To(Equal(metav1.ConditionTrue), "task did not become initialized")
@@ -208,7 +208,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var taskWorkloads korifiv1alpha1.TaskWorkloadList
 
-				g.Expect(k8sClient.List(ctx, &taskWorkloads,
+				g.Expect(adminClient.List(ctx, &taskWorkloads,
 					client.InNamespace(cfSpace.Status.GUID),
 					client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
 				)).To(Succeed())
@@ -231,7 +231,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			}).Should(Succeed())
 
 			// Refresh the VCAPServicesSecretName
-			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+			Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 
 			Expect(taskWorkload.Spec.Env).To(ConsistOf(
 				corev1.EnvVar{
@@ -297,14 +297,14 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Eventually(func(g Gomega) {
 					var taskWorkloads korifiv1alpha1.TaskWorkloadList
 
-					g.Expect(k8sClient.List(ctx, &taskWorkloads,
+					g.Expect(adminClient.List(ctx, &taskWorkloads,
 						client.InNamespace(cfSpace.Status.GUID),
 						client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
 					)).To(Succeed())
 					g.Expect(taskWorkloads.Items).To(HaveLen(1))
 
 					modifiedTaskWorkload := taskWorkloads.Items[0].DeepCopy()
-					g.Expect(k8s.Patch(ctx, k8sClient, modifiedTaskWorkload, func() {
+					g.Expect(k8s.Patch(ctx, adminClient, modifiedTaskWorkload, func() {
 						meta.SetStatusCondition(&modifiedTaskWorkload.Status.Conditions, metav1.Condition{
 							Type:    korifiv1alpha1.TaskStartedConditionType,
 							Status:  metav1.ConditionTrue,
@@ -317,7 +317,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 			It("reflects the status in the korifi task", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
+					g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskStartedConditionType)).To(BeTrue())
 				}).Should(Succeed())
 			})
@@ -326,19 +326,19 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 	Describe("CFTask Cancellation", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfTask)).To(Succeed())
 		})
 
 		When("spec.canceled is set to true", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, k8sClient, cfTask, func() {
+				Expect(k8s.PatchResource(ctx, adminClient, cfTask, func() {
 					cfTask.Spec.Canceled = true
 				})).To(Succeed())
 			})
 
 			It("sets the canceled status condition", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
 					canceledStatusCondition := meta.FindStatusCondition(cfTask.Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)
 					g.Expect(canceledStatusCondition).NotTo(BeNil())
 					g.Expect(canceledStatusCondition.Status).To(Equal(metav1.ConditionTrue))
@@ -351,11 +351,11 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 	Describe("CFTask TTL", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfTask)).To(Succeed())
 
 			// wait for reconciler to set initialized condition to avoid it overwriting the succeeded condition
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+				g.Expect(controllersClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
 			}).Should(Succeed())
 
@@ -371,7 +371,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		})
 
 		It("it can get the task shortly after completion", func() {
-			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+			Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
 		})
 
 		It("deletes the task after it expires", func() {

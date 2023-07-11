@@ -26,7 +26,7 @@ var _ = Describe("BuildCleaner", func() {
 	)
 
 	BeforeEach(func() {
-		cleaner = cleanup.NewBuildCleaner(k8sClient, 1)
+		cleaner = cleanup.NewBuildCleaner(controllersClient, 1)
 
 		namespace = GenerateGUID()
 		Expect(k8sClient.Create(ctx, &corev1.Namespace{

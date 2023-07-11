@@ -28,9 +28,9 @@ var _ = Describe("CF Space", func() {
 					DisplayName: uuid.NewString(),
 				},
 			}
-			Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfOrg)).To(Succeed())
 
-			Expect(k8sClient.Create(ctx, &corev1.Namespace{
+			Expect(adminClient.Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: cfOrg.Name},
 			})).To(Succeed())
 
@@ -46,7 +46,7 @@ var _ = Describe("CF Space", func() {
 		})
 
 		JustBeforeEach(func() {
-			createErr = k8sClient.Create(ctx, cfSpace)
+			createErr = adminClient.Create(ctx, cfSpace)
 		})
 
 		It("accepts a valid name", func() {
@@ -55,7 +55,7 @@ var _ = Describe("CF Space", func() {
 
 		When("a space with the same display name already exists", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFSpace{
+				Expect(adminClient.Create(ctx, &korifiv1alpha1.CFSpace{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: cfOrg.Name,
 						Name:      uuid.NewString(),

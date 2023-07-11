@@ -42,7 +42,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		})
 
 		JustBeforeEach(func() {
-			createErr = k8sClient.Create(ctx, org1)
+			createErr = adminClient.Create(ctx, org1)
 		})
 
 		It("should succeed", func() {
@@ -72,7 +72,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		When("another CFOrg exists with a different name in the same namespace", func() {
 			BeforeEach(func() {
 				org2 := makeCFOrg(org2Guid, rootNamespace, org2Name)
-				Expect(k8sClient.Create(ctx, org2)).To(Succeed())
+				Expect(adminClient.Create(ctx, org2)).To(Succeed())
 			})
 
 			It("should succeed", func() {
@@ -83,7 +83,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		When("another CFOrg exists with the same name in the same namespace", func() {
 			BeforeEach(func() {
 				org2 := makeCFOrg(org2Guid, rootNamespace, org1Name)
-				Expect(k8sClient.Create(ctx, org2)).To(Succeed())
+				Expect(adminClient.Create(ctx, org2)).To(Succeed())
 			})
 
 			It("should fail", func() {
@@ -95,7 +95,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			BeforeEach(func() {
 				org2 := makeCFOrg(org2Guid, rootNamespace, strings.ToUpper(org1Name))
 				Expect(
-					k8sClient.Create(ctx, org2),
+					adminClient.Create(ctx, org2),
 				).To(Succeed())
 			})
 
@@ -113,12 +113,12 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 		BeforeEach(func() {
 			org1 = makeCFOrg(org1Guid, rootNamespace, org1Name)
-			Expect(k8sClient.Create(ctx, org1)).To(Succeed())
+			Expect(adminClient.Create(ctx, org1)).To(Succeed())
 			originalOrg1 = org1.DeepCopy()
 		})
 
 		JustBeforeEach(func() {
-			updateErr = k8sClient.Patch(context.Background(), org1, client.MergeFrom(originalOrg1))
+			updateErr = adminClient.Patch(context.Background(), org1, client.MergeFrom(originalOrg1))
 		})
 
 		When("changing the name", func() {
@@ -132,7 +132,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			It("should succeed", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 				org1Actual := korifiv1alpha1.CFOrg{}
-				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(org1), &org1Actual)).To(Succeed())
+				Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(org1), &org1Actual)).To(Succeed())
 				Expect(org1Actual.Spec.DisplayName).To(Equal(newName))
 			})
 
@@ -141,7 +141,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 					Expect(updateErr).NotTo(HaveOccurred())
 
 					reuseOldNameOrg := makeCFOrg(uuid.NewString(), rootNamespace, org1Name)
-					Expect(k8sClient.Create(ctx, reuseOldNameOrg)).To(Succeed())
+					Expect(adminClient.Create(ctx, reuseOldNameOrg)).To(Succeed())
 				})
 			})
 		})
@@ -150,7 +150,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			It("should succeed", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 				org1Actual := korifiv1alpha1.CFOrg{}
-				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(org1), &org1Actual)).To(Succeed())
+				Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(org1), &org1Actual)).To(Succeed())
 			})
 		})
 
@@ -158,7 +158,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 			BeforeEach(func() {
 				org2 := makeCFOrg(org2Guid, rootNamespace, org2Name)
 				org1.Spec.DisplayName = org2Name
-				Expect(k8sClient.Create(ctx, org2)).To(Succeed())
+				Expect(adminClient.Create(ctx, org2)).To(Succeed())
 			})
 
 			It("should fail", func() {
@@ -172,11 +172,11 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 
 		BeforeEach(func() {
 			org1 = makeCFOrg(org1Guid, rootNamespace, org1Name)
-			Expect(k8sClient.Create(ctx, org1)).To(Succeed())
+			Expect(adminClient.Create(ctx, org1)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = k8sClient.Delete(ctx, org1)
+			deleteErr = adminClient.Delete(ctx, org1)
 		})
 
 		It("succeeds", func() {

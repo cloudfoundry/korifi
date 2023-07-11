@@ -36,10 +36,11 @@ import (
 const rootNamespace = "cf"
 
 var (
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	k8sClient client.Client
-	logOutput *gbytes.Buffer
+	stopManager     context.CancelFunc
+	stopClientCache context.CancelFunc
+	testEnv         *envtest.Environment
+	adminClient     client.Client
+	logOutput       *gbytes.Buffer
 )
 
 func TestNetworkingControllers(t *testing.T) {
@@ -55,12 +56,7 @@ var _ = BeforeSuite(func() {
 	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	var ctx context.Context
-	ctx, cancel = context.WithCancel(context.TODO())
-
-	// TODO: Add directory path for Contour CRDs
 	testEnv = &envtest.Environment{
-		// TODO: Reconcile with CRDInstallOptions
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
 			filepath.Join("..", "..", "..", "tests", "vendor", "contour"),
@@ -71,25 +67,16 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 	}
 
-	cfg, err := testEnv.Start()
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(contourv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
-	Expect(err).ToNot(HaveOccurred())
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
-	k8sClient = helpers.NewCacheSyncingClient(k8sManager.GetClient())
+	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	err = (NewCFRouteReconciler(
 		k8sManager.GetClient(),
@@ -127,23 +114,17 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	err = shared.SetupIndexWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred())
-	}()
-
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+	Expect(adminClient.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: rootNamespace,
 		},
 	})).To(Succeed())
+
+	stopManager = helpers.StartK8sManager(k8sManager)
 })
 
 var _ = AfterSuite(func() {
-	cancel()
+	stopClientCache()
+	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })

@@ -8,7 +8,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
@@ -35,7 +35,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,9 +46,11 @@ import (
 
 var (
 	ctx                  context.Context
-	cancel               context.CancelFunc
+	stopManager          context.CancelFunc
+	stopClientCache      context.CancelFunc
 	testEnv              *envtest.Environment
-	k8sClient            client.Client
+	adminClient          client.Client
+	controllersClient    client.Client
 	cfRootNamespace      string
 	cfOrg                *korifiv1alpha1.CFOrg
 	imageRegistrySecret1 *corev1.Secret
@@ -83,7 +84,7 @@ var _ = BeforeSuite(func() {
 	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
 
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx = context.Background()
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -95,28 +96,18 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 	}
 
-	cfg, err := testEnv.Start()
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	//+kubebuilder:scaffold:scheme
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	k8sClient = helpers.NewCacheSyncingClient(k8sManager.GetClient())
+	controllersClient = k8sManager.GetClient()
+	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	cfRootNamespace = testutils.PrefixedGUID("root-namespace")
 
@@ -142,10 +133,6 @@ var _ = BeforeSuite(func() {
 		env.NewVCAPApplicationEnvValueBuilder(k8sManager.GetClient(), nil),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
-
-	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(registryAuthFetcherClient).NotTo(BeNil())
 
 	buildCleaner = new(fake.BuildCleaner)
 	cfBuildReconciler := NewCFBuildReconciler(
@@ -257,24 +244,18 @@ var _ = BeforeSuite(func() {
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), services.ServiceBindingEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	// Setup index for manager
-	err = SetupIndexWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	stopManager = helpers.StartK8sManager(k8sManager)
 
 	createNamespace(cfRootNamespace)
-	imageRegistrySecret1 = createImageRegistrySecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
-	imageRegistrySecret2 = createImageRegistrySecret(ctx, k8sClient, otherRegistrySecretName, cfRootNamespace)
+	imageRegistrySecret1 = createImageRegistrySecret(ctx, adminClient, packageRegistrySecretName, cfRootNamespace)
+	imageRegistrySecret2 = createImageRegistrySecret(ctx, adminClient, otherRegistrySecretName, cfRootNamespace)
+
 	cfOrg = createOrg(cfRootNamespace)
 })
 
 var _ = AfterSuite(func() {
-	cancel()
+	stopManager()
+	stopClientCache()
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
@@ -298,7 +279,7 @@ func createNamespace(name string) *corev1.Namespace {
 		},
 	}
 	Expect(
-		k8sClient.Create(ctx, ns)).To(Succeed())
+		adminClient.Create(ctx, ns)).To(Succeed())
 	return ns
 }
 
@@ -372,7 +353,7 @@ func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceA
 			{Name: otherRegistrySecretName},
 		},
 	}
-	Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
+	Expect(adminClient.Create(ctx, serviceAccount)).To(Succeed())
 	return serviceAccount
 }
 
@@ -399,10 +380,10 @@ func createOrg(rootNamespace string) *korifiv1alpha1.CFOrg {
 			DisplayName: testutils.PrefixedGUID("org"),
 		},
 	}
-	Expect(k8sClient.Create(ctx, org)).To(Succeed())
+	Expect(adminClient.Create(ctx, org)).To(Succeed())
 	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(org), org)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(org.Status.Conditions, StatusConditionReady)).To(BeTrue())
+		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(org), org)).To(Succeed())
+		g.Expect(meta.IsStatusConditionTrue(org.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 	return org
 }
@@ -417,10 +398,10 @@ func createSpace(org *korifiv1alpha1.CFOrg) *korifiv1alpha1.CFSpace {
 			DisplayName: testutils.PrefixedGUID("space"),
 		},
 	}
-	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+	Expect(adminClient.Create(ctx, cfSpace)).To(Succeed())
 	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, StatusConditionReady)).To(BeTrue())
+		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
+		g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 	return cfSpace
 }

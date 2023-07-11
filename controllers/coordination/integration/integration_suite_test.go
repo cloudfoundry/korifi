@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ func TestIntegration(t *testing.T) {
 
 var (
 	testEnv           *envtest.Environment
-	k8sClient         client.Client
+	adminClient       client.Client
 	controllersClient client.Client
 	cacheStop         context.CancelFunc
 )
@@ -39,10 +40,10 @@ var _ = BeforeSuite(func() {
 	adminConfig, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.New(adminConfig, client.Options{Scheme: scheme.Scheme})
+	adminClient, err = client.New(adminConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
-	controllersConf := helpers.SetupControllersUser(testEnv)
+	controllersConf := helpers.SetupTestEnvUser(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	userCache, err := cache.New(controllersConf, cache.Options{})
 	Expect(err).NotTo(HaveOccurred())
 
