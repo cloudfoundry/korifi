@@ -11,8 +11,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
-
-	"github.com/go-logr/logr"
+	"code.cloudfoundry.org/korifi/tools/logger"
 )
 
 const (
@@ -57,7 +56,7 @@ func NewJob(serverURL url.URL, repositories map[string]DeletionRepository, polli
 }
 
 func (h *Job) get(r *http.Request) (*routing.Response, error) {
-	log := logr.FromContextOrDiscard(r.Context()).WithName("handlers.job.get")
+	ctx, log := logger.FromContext(r.Context(), "handlers.job.get")
 
 	jobGUID := routing.URLParam(r, "guid")
 
@@ -90,7 +89,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 			)
 		}
 
-		jobResponse, err = h.handleDeleteJob(r.Context(), repository, job)
+		jobResponse, err = h.handleDeleteJob(ctx, repository, job)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +100,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 
 func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository, job presenter.Job) (presenter.JobResponse, error) {
 	authInfo, _ := authorization.InfoFromContext(ctx)
-	log := logr.FromContextOrDiscard(ctx).WithName("handlers.job.get.handleDeleteJob")
+	ctx, log := logger.FromContext(ctx, "handleDeleteJob")
 
 	var (
 		err       error
