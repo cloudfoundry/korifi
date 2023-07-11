@@ -330,6 +330,7 @@ func main() {
 			map[string]handlers.DeletionRepository{
 				handlers.OrgDeleteJobType:   orgRepo,
 				handlers.SpaceDeleteJobType: spaceRepo,
+				handlers.AppDeleteJobType:   appRepo,
 			},
 			500*time.Millisecond,
 		),

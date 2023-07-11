@@ -92,6 +92,7 @@ var _ = Describe("AppRepository", func() {
 					},
 				}))
 				Expect(app.IsStaged).To(BeFalse())
+				Expect(app.DeletedAt).To(BeNil())
 			})
 
 			When("the app has staged condition true", func() {
@@ -1447,6 +1448,52 @@ var _ = Describe("AppRepository", func() {
 			It("returns an error", func() {
 				Expect(getAppEnvErr).To(HaveOccurred())
 				Expect(getAppEnvErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			deletionTime *time.Time
+			getErr       error
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+		})
+
+		JustBeforeEach(func() {
+			deletionTime, getErr = appRepo.GetDeletedAt(ctx, authInfo, cfApp.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the app is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+					cfApp.Finalizers = append(cfApp.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the app isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
