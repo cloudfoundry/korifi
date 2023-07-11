@@ -24,6 +24,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -36,16 +37,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	//+kubebuilder:scaffold:imports
 )
 
-// These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-
 var (
-	cancel    context.CancelFunc
-	k8sClient client.Client
-	testEnv   *envtest.Environment
+	stopManager     context.CancelFunc
+	stopClientCache context.CancelFunc
+	k8sClient       client.Client
+	testEnv         *envtest.Environment
 )
 
 func TestAppWorkloadsController(t *testing.T) {
@@ -60,10 +58,6 @@ func TestAppWorkloadsController(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	ctx, cancelFunc := context.WithCancel(context.TODO())
-	cancel = cancelFunc
-
-	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
@@ -71,25 +65,13 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 	}
 
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
-
-	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
-	Expect(err).NotTo(HaveOccurred())
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "statefulset-runner", "role.yaml"))
+	k8sClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	logger := ctrl.Log.WithName("statefulset-runner").WithName("AppWorkload")
 	appWorkloadReconciler := NewAppWorkloadReconciler(
@@ -110,20 +92,12 @@ var _ = BeforeSuite(func() {
 	err = (runnerInfoReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
-
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	stopManager = helpers.StartK8sManager(k8sManager)
 })
 
 var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
+	stopClientCache()
+	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })
 

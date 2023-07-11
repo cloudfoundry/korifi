@@ -2,6 +2,7 @@ package workloads_test
 
 import (
 	"context"
+	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -43,7 +44,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		Eventually(func(g Gomega) {
 			workload := new(korifiv1alpha1.BuildWorkload)
 			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
-			g.Expect(k8sClient.Get(context.Background(), lookupKey, workload)).To(Succeed())
+			g.Expect(adminClient.Get(context.Background(), lookupKey, workload)).To(Succeed())
 			assertion(workload, g)
 		}).Should(Succeed())
 	}
@@ -56,11 +57,11 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		beforeCtx := context.Background()
 
 		desiredCFApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
-		Expect(k8sClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
+		Expect(adminClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
 
 		Eventually(func(g Gomega) {
 			actualCFApp := &korifiv1alpha1.CFApp{}
-			g.Expect(k8sClient.Get(beforeCtx, types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, actualCFApp)).To(Succeed())
+			g.Expect(adminClient.Get(beforeCtx, types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, actualCFApp)).To(Succeed())
 			g.Expect(actualCFApp.Status.VCAPServicesSecretName).NotTo(BeEmpty())
 		}).Should(Succeed())
 
@@ -68,14 +69,14 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			"a_key": "a-val",
 			"b_key": "b-val",
 		})
-		Expect(k8sClient.Create(context.Background(), envVarSecret)).To(Succeed())
+		Expect(adminClient.Create(context.Background(), envVarSecret)).To(Succeed())
 
 		dockerRegistrySecret := BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, cfSpace.Status.GUID)
-		Expect(k8sClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
+		Expect(adminClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
 
 		registryServiceAccountName := "kpack-service-account"
 		registryServiceAccount := BuildServiceAccount(registryServiceAccountName, cfSpace.Status.GUID, wellFormedRegistryCredentialsSecret)
-		Expect(k8sClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
+		Expect(adminClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
 
 		desiredBuildpacks = []string{"first-buildpack", "second-buildpack"}
 	})
@@ -86,17 +87,17 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			cleanCallCount = buildCleaner.CleanCallCount()
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
-			Expect(k8sClient.Create(ctx, desiredCFPackage)).To(Succeed())
+			Expect(adminClient.Create(ctx, desiredCFPackage)).To(Succeed())
 
 			kpackSecret := BuildDockerRegistrySecret("source-registry-image-pull-secret", cfSpace.Status.GUID)
-			Expect(k8sClient.Create(ctx, kpackSecret)).To(Succeed())
+			Expect(adminClient.Create(ctx, kpackSecret)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
 			cfBuildGUID = PrefixedGUID("cf-build")
 			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
 			desiredCFBuild.Spec.Lifecycle.Data.Buildpacks = desiredBuildpacks
-			Expect(k8sClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
 		})
 
 		It("cleans up older builds and droplets", func() {
@@ -112,7 +113,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdCFBuild korifiv1alpha1.CFBuild
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
-				g.Expect(k8sClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
+				g.Expect(adminClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
 				g.Expect(createdCFBuild.GetOwnerReferences()).To(ConsistOf(
 					metav1.OwnerReference{
 						APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
@@ -130,14 +131,14 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var createdCFBuild korifiv1alpha1.CFBuild
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
-				g.Expect(k8sClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
+				g.Expect(adminClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
 				g.Expect(createdCFBuild.Status.ObservedGeneration).To(Equal(createdCFBuild.Generation))
 			}).Should(Succeed())
 		})
 
 		It("creates a BuildWorkload with the buildRef, source, env, and buildpacks set", func() {
 			createdCFApp := &korifiv1alpha1.CFApp{}
-			Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, createdCFApp)).To(Succeed())
+			Expect(adminClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, createdCFApp)).To(Succeed())
 
 			eventuallyBuildWorkloadShould(func(workload *korifiv1alpha1.BuildWorkload, g Gomega) {
 				g.Expect(workload.Spec.BuildRef.Name).To(Equal(cfBuildGUID))
@@ -197,7 +198,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
 				Eventually(func(g Gomega) {
 					createdWorkload := new(korifiv1alpha1.BuildWorkload)
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdWorkload)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), lookupKey, createdWorkload)).To(Succeed())
 					g.Expect(createdWorkload.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
 						UID:                desiredCFBuild.UID,
 						Kind:               "CFBuild",
@@ -213,7 +214,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
 				Eventually(func(g Gomega) {
 					createdCFBuild := new(korifiv1alpha1.CFBuild)
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
 
 					stagingCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, stagingConditionType)
 					g.Expect(stagingCondition).NotTo(BeNil())
@@ -251,7 +252,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					StringData: secret1Data,
 				}
 				Expect(
-					k8sClient.Create(ctx, secret1),
+					adminClient.Create(ctx, secret1),
 				).To(Succeed())
 
 				serviceInstance1 = &korifiv1alpha1.CFServiceInstance{
@@ -270,7 +271,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					},
 				}
 				Expect(
-					k8sClient.Create(ctx, serviceInstance1),
+					adminClient.Create(ctx, serviceInstance1),
 				).To(Succeed())
 
 				serviceBinding1Name := "service-binding-1-name"
@@ -295,7 +296,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					},
 				}
 				Expect(
-					k8sClient.Create(ctx, serviceBinding1),
+					adminClient.Create(ctx, serviceBinding1),
 				).To(Succeed())
 
 				secret2Data := map[string]string{
@@ -310,7 +311,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					StringData: secret2Data,
 				}
 				Expect(
-					k8sClient.Create(ctx, secret2),
+					adminClient.Create(ctx, secret2),
 				).To(Succeed())
 
 				serviceInstance2 = &korifiv1alpha1.CFServiceInstance{
@@ -326,7 +327,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					},
 				}
 				Expect(
-					k8sClient.Create(ctx, serviceInstance2),
+					adminClient.Create(ctx, serviceInstance2),
 				).To(Succeed())
 
 				serviceBinding2Name := "service-binding-2-name"
@@ -351,7 +352,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					},
 				}
 				Expect(
-					k8sClient.Create(ctx, serviceBinding2),
+					adminClient.Create(ctx, serviceBinding2),
 				).To(Succeed())
 
 				createdServiceBinding1 := serviceBinding1.DeepCopy()
@@ -362,7 +363,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					Reason:  "SecretFound",
 					Message: "",
 				})
-				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding1, client.MergeFrom(serviceBinding1))).To(Succeed())
+				Expect(adminClient.Status().Patch(ctx, createdServiceBinding1, client.MergeFrom(serviceBinding1))).To(Succeed())
 
 				createdServiceBinding2 := serviceBinding2.DeepCopy()
 				createdServiceBinding2.Status.Binding.Name = secret2.Name
@@ -372,7 +373,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 					Reason:  "SecretFound",
 					Message: "",
 				})
-				Expect(k8sClient.Status().Patch(ctx, createdServiceBinding2, client.MergeFrom(serviceBinding2))).To(Succeed())
+				Expect(adminClient.Status().Patch(ctx, createdServiceBinding2, client.MergeFrom(serviceBinding2))).To(Succeed())
 			})
 
 			It("creates a BuildWorkload with the underlying secret mapped onto it", func() {
@@ -394,7 +395,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 
 			It("sets the VCAP_SERVICES env var in the image", func() {
 				createdCFApp := &korifiv1alpha1.CFApp{}
-				Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, createdCFApp)).To(Succeed())
+				Expect(adminClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, createdCFApp)).To(Succeed())
 
 				eventuallyBuildWorkloadShould(func(workload *korifiv1alpha1.BuildWorkload, g Gomega) {
 					g.Expect(workload.Spec.Env).To(ContainElements(
@@ -439,15 +440,15 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				}
 				newCFBuild = BuildCFBuildObject(newCFBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
 
-				Expect(k8sClient.Create(ctx, existingBuildWorkload)).To(Succeed())
-				Expect(k8sClient.Create(ctx, newCFBuild)).To(Succeed())
+				Expect(adminClient.Create(ctx, existingBuildWorkload)).To(Succeed())
+				Expect(adminClient.Create(ctx, newCFBuild)).To(Succeed())
 			})
 
 			It("sets the status conditions on CFBuild", func() {
 				lookupKey := types.NamespacedName{Name: newCFBuildGUID, Namespace: cfSpace.Status.GUID}
 				Eventually(func(g Gomega) {
 					createdCFBuild := new(korifiv1alpha1.CFBuild)
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
 
 					stagingCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, stagingConditionType)
 					g.Expect(stagingCondition).NotTo(BeNil())
@@ -472,11 +473,11 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
 			desiredCFPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: wellFormedRegistryCredentialsSecret}}
-			Expect(k8sClient.Create(context.Background(), desiredCFPackage)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), desiredCFPackage)).To(Succeed())
 
 			cfBuildGUID = PrefixedGUID("cf-build")
 			desiredCFBuild = BuildCFBuildObject(cfBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
-			Expect(k8sClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
 		})
 
 		When("the BuildWorkload failed", func() {
@@ -485,8 +486,8 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
 				Eventually(func(g Gomega) {
 					workload := new(korifiv1alpha1.BuildWorkload)
-					g.Expect(k8sClient.Get(testCtx, lookupKey, workload)).To(Succeed())
-					g.Expect(k8s.Patch(testCtx, k8sClient, workload, func() {
+					g.Expect(adminClient.Get(testCtx, lookupKey, workload)).To(Succeed())
+					g.Expect(k8s.Patch(testCtx, adminClient, workload, func() {
 						setBuildWorkloadStatus(workload, succeededConditionType, metav1.ConditionFalse)
 					})).To(Succeed())
 				}).Should(Succeed())
@@ -496,7 +497,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
 				createdCFBuild := new(korifiv1alpha1.CFBuild)
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
 
 					stagingStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, stagingConditionType)
 					g.Expect(stagingStatusCondition).NotTo(BeNil())
@@ -537,8 +538,8 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
 				Eventually(func(g Gomega) {
 					workload := new(korifiv1alpha1.BuildWorkload)
-					g.Expect(k8sClient.Get(ctx, lookupKey, workload)).To(Succeed())
-					g.Expect(k8s.Patch(ctx, k8sClient, workload, func() {
+					g.Expect(adminClient.Get(ctx, lookupKey, workload)).To(Succeed())
+					g.Expect(k8s.Patch(ctx, adminClient, workload, func() {
 						setBuildWorkloadStatus(workload, succeededConditionType, "True")
 						workload.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 							Registry: korifiv1alpha1.Registry{
@@ -558,7 +559,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				createdCFBuild := new(korifiv1alpha1.CFBuild)
 
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
 					stagingStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, stagingConditionType)
 					g.Expect(stagingStatusCondition).NotTo(BeNil())
 					g.Expect(stagingStatusCondition.Status).To(Equal(metav1.ConditionFalse))
@@ -577,7 +578,7 @@ var _ = Describe("CFBuildReconciler Integration Tests", func() {
 				lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
 				Eventually(func(g Gomega) {
 					createdCFBuild := new(korifiv1alpha1.CFBuild)
-					g.Expect(k8sClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
 					g.Expect(createdCFBuild.Status.Droplet).NotTo(BeNil())
 					g.Expect(createdCFBuild.Status.Droplet.Registry.Image).To(Equal(buildImageRef))
 					g.Expect(createdCFBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imagePullSecretName}))

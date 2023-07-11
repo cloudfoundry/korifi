@@ -33,12 +33,12 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		namespace1 = "ns-1-" + uuid.NewString()
 		namespace2 = "ns-2-" + uuid.NewString()
 
-		Expect(k8sClient.Create(ctx, &v1.Namespace{
+		Expect(adminClient.Create(ctx, &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace1,
 			},
 		})).To(Succeed())
-		Expect(k8sClient.Create(ctx, &v1.Namespace{
+		Expect(adminClient.Create(ctx, &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace2,
 			},
@@ -58,7 +58,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		})
 
 		JustBeforeEach(func() {
-			createErr = k8sClient.Create(ctx, app1)
+			createErr = adminClient.Create(ctx, app1)
 		})
 
 		It("should succeed", func() {
@@ -68,7 +68,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		When("another CFApp exists with a different name in the same namespace", func() {
 			BeforeEach(func() {
 				app2 := makeCFApp(app2Guid, namespace1, app2Name)
-				Expect(k8sClient.Create(ctx, app2)).To(Succeed())
+				Expect(adminClient.Create(ctx, app2)).To(Succeed())
 			})
 
 			It("should succeed", func() {
@@ -79,7 +79,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		When("another CFApp exists with the same name in a different namespace", func() {
 			BeforeEach(func() {
 				app2 := makeCFApp(app2Guid, namespace2, app1Name)
-				Expect(k8sClient.Create(ctx, app2)).To(Succeed())
+				Expect(adminClient.Create(ctx, app2)).To(Succeed())
 			})
 
 			It("should succeed", func() {
@@ -90,7 +90,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		When("another CFApp exists with the same name in the same namespace", func() {
 			BeforeEach(func() {
 				app2 := makeCFApp(app2Guid, namespace1, app1Name)
-				Expect(k8sClient.Create(ctx, app2)).To(Succeed())
+				Expect(adminClient.Create(ctx, app2)).To(Succeed())
 			})
 
 			It("should fail", func() {
@@ -102,7 +102,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			BeforeEach(func() {
 				app2 := makeCFApp(app2Guid, namespace1, strings.ToUpper(app1Name))
 				Expect(
-					k8sClient.Create(ctx, app2),
+					adminClient.Create(ctx, app2),
 				).To(Succeed())
 			})
 
@@ -120,12 +120,12 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 		BeforeEach(func() {
 			app1 = makeCFApp(app1Guid, namespace1, app1Name)
-			Expect(k8sClient.Create(ctx, app1)).To(Succeed())
+			Expect(adminClient.Create(ctx, app1)).To(Succeed())
 			originalApp1 = app1.DeepCopy()
 		})
 
 		JustBeforeEach(func() {
-			updateErr = k8sClient.Patch(context.Background(), app1, client.MergeFrom(originalApp1))
+			updateErr = adminClient.Patch(context.Background(), app1, client.MergeFrom(originalApp1))
 		})
 
 		When("changing the name", func() {
@@ -140,7 +140,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 
 				app1Actual := korifiv1alpha1.CFApp{}
-				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(app1), &app1Actual)).To(Succeed())
+				Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(app1), &app1Actual)).To(Succeed())
 				Expect(app1Actual.Spec.DisplayName).To(Equal(newName))
 			})
 
@@ -149,7 +149,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 					Expect(updateErr).NotTo(HaveOccurred())
 
 					reuseOldNameApp := makeCFApp(uuid.NewString(), namespace1, app1Name)
-					Expect(k8sClient.Create(ctx, reuseOldNameApp)).To(Succeed())
+					Expect(adminClient.Create(ctx, reuseOldNameApp)).To(Succeed())
 				})
 			})
 		})
@@ -163,7 +163,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 
 				app1Actual := korifiv1alpha1.CFApp{}
-				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(app1), &app1Actual)).To(Succeed())
+				Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(app1), &app1Actual)).To(Succeed())
 				Expect(app1Actual.Spec.DesiredState).To(Equal(korifiv1alpha1.StartedState))
 			})
 		})
@@ -172,7 +172,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			BeforeEach(func() {
 				app2 := makeCFApp(app2Guid, namespace1, app2Name)
 				app1.Spec.DisplayName = app2Name
-				Expect(k8sClient.Create(ctx, app2)).To(Succeed())
+				Expect(adminClient.Create(ctx, app2)).To(Succeed())
 			})
 
 			It("should fail", func() {
@@ -186,11 +186,11 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 
 		BeforeEach(func() {
 			app1 = makeCFApp(app1Guid, namespace1, app1Name)
-			Expect(k8sClient.Create(ctx, app1)).To(Succeed())
+			Expect(adminClient.Create(ctx, app1)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = k8sClient.Delete(ctx, app1)
+			deleteErr = adminClient.Delete(ctx, app1)
 		})
 
 		It("succeeds", func() {

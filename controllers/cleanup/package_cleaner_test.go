@@ -28,7 +28,7 @@ var _ = Describe("PackageCleaner", func() {
 	)
 
 	BeforeEach(func() {
-		cleaner = cleanup.NewPackageCleaner(k8sClient, 1)
+		cleaner = cleanup.NewPackageCleaner(controllersClient, 1)
 
 		namespace = GenerateGUID()
 		Expect(k8sClient.Create(ctx, &corev1.Namespace{

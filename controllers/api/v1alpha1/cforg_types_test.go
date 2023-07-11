@@ -28,7 +28,7 @@ var _ = Describe("CF Org", func() {
 		})
 
 		JustBeforeEach(func() {
-			createErr = k8sClient.Create(ctx, cfOrg)
+			createErr = adminClient.Create(ctx, cfOrg)
 		})
 
 		It("accepts a valid name", func() {
@@ -37,7 +37,7 @@ var _ = Describe("CF Org", func() {
 
 		When("an org with the same display name already exists", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFOrg{
+				Expect(adminClient.Create(ctx, &korifiv1alpha1.CFOrg{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: namespace,
 						Name:      uuid.NewString(),

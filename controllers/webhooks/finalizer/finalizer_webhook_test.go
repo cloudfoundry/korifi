@@ -16,7 +16,7 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 	DescribeTable("Adding finalizers",
 		func(obj client.Object, expectedFinalizers ...string) {
 			if obj.GetNamespace() != rootNamespace {
-				Expect(k8sClient.Create(context.Background(), &korifiv1alpha1.CFOrg{
+				Expect(adminClient.Create(context.Background(), &korifiv1alpha1.CFOrg{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      obj.GetNamespace(),
 						Namespace: rootNamespace,
@@ -26,7 +26,7 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 					},
 				})).To(Succeed())
 
-				Expect(k8sClient.Create(context.Background(), &corev1.Namespace{
+				Expect(adminClient.Create(context.Background(), &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   obj.GetNamespace(),
 						Labels: map[string]string{korifiv1alpha1.OrgNameKey: obj.GetNamespace()},
@@ -34,7 +34,7 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 				})).To(Succeed())
 			}
 
-			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), obj)).To(Succeed())
 			Expect(obj.GetFinalizers()).To(ConsistOf(expectedFinalizers))
 		},
 		Entry("cfapp",

@@ -50,7 +50,7 @@ var _ = Describe("Name Registry", func() {
 		})
 
 		It("can register the same name for different entity types in the same namespace", func() {
-			anotherNameRegistry := coordination.NewNameRegistry(k8sClient, "something-else")
+			anotherNameRegistry := coordination.NewNameRegistry(controllersClient, "something-else")
 			Expect(nameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 			Expect(anotherNameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")).To(Succeed())
 		})
@@ -72,7 +72,7 @@ var _ = Describe("Name Registry", func() {
 			})
 
 			It("returns an already exists error when trying to register that name again", func() {
-				anotherNameRegistry := coordination.NewNameRegistry(k8sClient, "my-entity")
+				anotherNameRegistry := coordination.NewNameRegistry(controllersClient, "my-entity")
 				err := anotherNameRegistry.RegisterName(ctx, ns1.Name, name, "owner-namespace", "owner-name")
 				Expect(k8serrors.IsAlreadyExists(err)).To(BeTrue())
 			})
@@ -221,7 +221,7 @@ func createNamespace(ctx context.Context, name string) *corev1.Namespace {
 			Name: name,
 		},
 	}
-	Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+	Expect(adminClient.Create(ctx, ns)).To(Succeed())
 
 	return ns
 }

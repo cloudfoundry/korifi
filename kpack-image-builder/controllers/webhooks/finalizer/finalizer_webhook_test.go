@@ -16,7 +16,7 @@ import (
 var _ = Describe("KpackImageBuilder Finalizers Webhook", func() {
 	DescribeTable("Adding finalizers",
 		func(obj client.Object, expectedFinalizers []string) {
-			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), obj)).To(Succeed())
 			Expect(obj.GetFinalizers()).To(Equal(expectedFinalizers))
 		},
 		Entry("kpack-image-builder-buildworkload",

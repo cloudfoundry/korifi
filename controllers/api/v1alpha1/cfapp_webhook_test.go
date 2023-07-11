@@ -40,7 +40,7 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 	})
 
 	JustBeforeEach(func() {
-		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 	})
 
 	It("adds a label matching metadata.name", func() {

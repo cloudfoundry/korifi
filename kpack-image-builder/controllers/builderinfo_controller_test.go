@@ -41,10 +41,10 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 
 	AfterEach(func() {
 		if info != nil {
-			Expect(k8sClient.Delete(context.Background(), info)).To(Succeed())
+			Expect(adminClient.Delete(context.Background(), info)).To(Succeed())
 		}
 		if clusterBuilder != nil {
-			Expect(k8sClient.Delete(context.Background(), clusterBuilder)).To(Succeed())
+			Expect(adminClient.Delete(context.Background(), clusterBuilder)).To(Succeed())
 		}
 	})
 
@@ -56,7 +56,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 				},
 			}
 
-			Expect(k8sClient.Create(context.Background(), clusterBuilder)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), clusterBuilder)).To(Succeed())
 
 			clusterBuilder.Status = buildv1alpha2.BuilderStatus{
 				Order: []corev1alpha1.OrderEntry{
@@ -78,7 +78,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 				Type:   "Ready",
 				Status: "True",
 			})
-			Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
+			Expect(adminClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 		})
 
 		When("the BuilderInfo is first created", func() {
@@ -89,12 +89,12 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						Namespace: rootNamespace.Name,
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), info)).To(Succeed())
+				Expect(adminClient.Create(context.Background(), info)).To(Succeed())
 			})
 
 			It("sets the buildpacks on the BuilderInfo", func() {
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
 
@@ -117,7 +117,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 
 			It("sets the stacks on the BuilderInfo", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					g.Expect(info.Status.Stacks).To(HaveLen(1))
 				}).Should(Succeed())
 
@@ -126,7 +126,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 
 			It("marks the BuilderInfo as ready", func() {
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
 
@@ -140,7 +140,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 
 			It("sets the ObservedGeneration status field", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					g.Expect(info.Status.ObservedGeneration).To(Equal(info.Generation))
 				}).Should(Succeed())
 			})
@@ -157,12 +157,12 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						}
 					}
 					Expect(ok).To(BeTrue())
-					Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
+					Expect(adminClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 				})
 
 				It("marks the BuilderInfo as not ready", func() {
 					Eventually(func(g Gomega) {
-						g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+						g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 						readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
 						g.Expect(readyCondition).NotTo(BeNil())
 						g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
@@ -185,12 +185,12 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						}
 					}
 					Expect(ok).To(BeTrue())
-					Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
+					Expect(adminClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 				})
 
 				It("marks the BuilderInfo as not ready", func() {
 					Eventually(func(g Gomega) {
-						g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+						g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 						readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
 						g.Expect(readyCondition).NotTo(BeNil())
 						g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
@@ -216,10 +216,10 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						Namespace: rootNamespace.Name,
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), info)).To(Succeed())
+				Expect(adminClient.Create(context.Background(), info)).To(Succeed())
 
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
 			})
@@ -250,12 +250,12 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						}},
 					},
 				}
-				Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
+				Expect(adminClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 			})
 
 			It("updates the buildpacks on the BuilderInfo", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					g.Expect(info.Status.Buildpacks).To(HaveLen(4))
 				}).Should(Succeed())
 
@@ -284,7 +284,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 
 			It("updates the stacks on the BuilderInfo", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					g.Expect(info.Status.Stacks).To(ConsistOf(HaveField("Name", newStack)))
 				}).Should(Succeed())
 			})
@@ -298,16 +298,16 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						Namespace: rootNamespace.Name,
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), info)).To(Succeed())
+				Expect(adminClient.Create(context.Background(), info)).To(Succeed())
 			})
 
 			It("doesn't modify that resource", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 				}).Should(Succeed())
 
 				Consistently(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					g.Expect(info.Status.Buildpacks).To(BeEmpty())
 				}).Should(Succeed())
 			})
@@ -320,7 +320,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						Name: PrefixedGUID("wrong-namespace"),
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), wrongNamespace)).To(Succeed())
+				Expect(adminClient.Create(context.Background(), wrongNamespace)).To(Succeed())
 
 				info = &v1alpha1.BuilderInfo{
 					ObjectMeta: metav1.ObjectMeta{
@@ -328,16 +328,16 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						Namespace: wrongNamespace.Name,
 					},
 				}
-				Expect(k8sClient.Create(context.Background(), info)).To(Succeed())
+				Expect(adminClient.Create(context.Background(), info)).To(Succeed())
 			})
 
 			It("doesn't modify that resource", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 				}).Should(Succeed())
 
 				Consistently(func(g Gomega) {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					g.Expect(info.Status.Buildpacks).To(BeEmpty())
 				}).Should(Succeed())
 			})
@@ -354,7 +354,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					Namespace: rootNamespace.Name,
 				},
 			}
-			Expect(k8sClient.Create(context.Background(), info)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), info)).To(Succeed())
 
 			wrongClusterBuilder = &buildv1alpha2.ClusterBuilder{
 				ObjectMeta: metav1.ObjectMeta{
@@ -362,7 +362,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 				},
 			}
 
-			Expect(k8sClient.Create(context.Background(), wrongClusterBuilder)).To(Succeed())
+			Expect(adminClient.Create(context.Background(), wrongClusterBuilder)).To(Succeed())
 
 			wrongClusterBuilder.Status = buildv1alpha2.BuilderStatus{
 				Order: []corev1alpha1.OrderEntry{
@@ -374,16 +374,16 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					ID: stack,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.Background(), wrongClusterBuilder)).To(Succeed())
+			Expect(adminClient.Status().Update(context.Background(), wrongClusterBuilder)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.Background(), wrongClusterBuilder)).To(Succeed())
+			Expect(adminClient.Delete(context.Background(), wrongClusterBuilder)).To(Succeed())
 		})
 
 		It("doesn't set the buildpacks on the BuilderInfo", func() {
 			Consistently(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-				g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 				return info.Status.Buildpacks
 			}).Should(BeEmpty())
 
@@ -404,7 +404,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					},
 				}
 
-				Expect(k8sClient.Create(context.Background(), clusterBuilder)).To(Succeed())
+				Expect(adminClient.Create(context.Background(), clusterBuilder)).To(Succeed())
 
 				clusterBuilder.Status = buildv1alpha2.BuilderStatus{
 					Order: []corev1alpha1.OrderEntry{
@@ -422,12 +422,12 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						}},
 					},
 				}
-				Expect(k8sClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
+				Expect(adminClient.Status().Update(context.Background(), clusterBuilder)).To(Succeed())
 			})
 
 			It("sets the buildpacks on the BuilderInfo", func() {
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusBuildpack {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Buildpacks
 				}).ShouldNot(BeEmpty())
 
@@ -441,7 +441,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 
 			It("sets the stack", func() {
 				Eventually(func(g Gomega) []v1alpha1.BuilderInfoStatusStack {
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					return info.Status.Stacks
 				}).Should(HaveLen(1))
 

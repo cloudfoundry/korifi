@@ -18,7 +18,7 @@ var _ = Describe("StatefulSet Runner Pod Mutating Webhook", func() {
 
 	BeforeEach(func() {
 		namespace = testutils.PrefixedGUID("ns")
-		err := k8sClient.Create(ctx, &corev1.Namespace{
+		err := adminClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
@@ -46,10 +46,10 @@ var _ = Describe("StatefulSet Runner Pod Mutating Webhook", func() {
 	})
 
 	JustBeforeEach(func() {
-		Expect(k8sClient.Create(ctx, stsPod)).To(Succeed())
+		Expect(adminClient.Create(ctx, stsPod)).To(Succeed())
 		lookupKey := client.ObjectKeyFromObject(stsPod)
 		Eventually(func(g Gomega) {
-			g.Expect(k8sClient.Get(ctx, lookupKey, stsPod)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, lookupKey, stsPod)).To(Succeed())
 		}).Should(Succeed())
 	})
 

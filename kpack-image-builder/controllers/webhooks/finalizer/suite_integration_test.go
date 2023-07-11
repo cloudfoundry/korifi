@@ -2,9 +2,6 @@ package finalizer_test
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
-	"net"
 	"path/filepath"
 	"testing"
 	"time"
@@ -12,6 +9,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,8 +18,7 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,9 +27,10 @@ import (
 )
 
 var (
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	stopManager     context.CancelFunc
+	stopClientCache context.CancelFunc
+	testEnv         *envtest.Environment
+	adminClient     client.Client
 )
 
 const (
@@ -51,7 +49,7 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancelFunc := context.WithCancel(context.TODO())
-	cancel = cancelFunc
+	stopManager = cancelFunc
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -67,55 +65,25 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
-
-	scheme := runtime.NewScheme()
-	Expect(korifiv1alpha1.AddToScheme(scheme)).To(Succeed())
-	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
-	Expect(corev1.AddToScheme(scheme)).To(Succeed())
-	Expect(coordinationv1.AddToScheme(scheme)).To(Succeed())
-	Expect(buildv1alpha2.AddToScheme(scheme)).To(Succeed())
-
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient = mgr.GetClient()
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(admissionv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(coordinationv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(mgr)
-	version.NewVersionWebhook("some-version").SetupWebhookWithManager(mgr)
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "kpack-image-builder", "role.yaml"))
 
-	go func() {
-		defer GinkgoRecover()
-		err = mgr.Start(ctx)
-		if err != nil {
-			Expect(err).NotTo(HaveOccurred())
-		}
-	}()
+	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	// wait for the webhook server to get ready
-	dialer := &net.Dialer{Timeout: time.Second}
-	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
-	Eventually(func() error {
-		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
-		if err != nil {
-			return err
-		}
-		conn.Close()
-		return nil
-	}).Should(Succeed())
+	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(k8sManager)
+	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 
-	// Create root namespace
-	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+	stopManager = helpers.StartK8sManager(k8sManager)
+
+	Expect(adminClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: rootNamespace,
 		},
@@ -123,6 +91,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel() // call the cancel function to stop the controller context
+	stopClientCache()
+	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })

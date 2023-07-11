@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gcustom"
@@ -25,9 +26,10 @@ func TestCleanup(t *testing.T) {
 }
 
 var (
-	ctx       context.Context
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	ctx               context.Context
+	testEnv           *envtest.Environment
+	k8sClient         client.Client
+	controllersClient client.Client
 )
 
 var _ = BeforeSuite(func() {
@@ -46,6 +48,9 @@ var _ = BeforeSuite(func() {
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	k8sClient, err = client.New(cfg, client.Options{})
+	Expect(err).NotTo(HaveOccurred())
+
+	controllersClient, err = client.New(helpers.SetupTestEnvUser(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml")), client.Options{})
 	Expect(err).NotTo(HaveOccurred())
 
 	ctx = context.Background()
