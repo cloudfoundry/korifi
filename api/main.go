@@ -328,10 +328,11 @@ func main() {
 		handlers.NewJob(
 			*serverURL,
 			map[string]handlers.DeletionRepository{
-				handlers.OrgDeleteJobType:   orgRepo,
-				handlers.SpaceDeleteJobType: spaceRepo,
-				handlers.AppDeleteJobType:   appRepo,
-				handlers.RouteDeleteJobType: routeRepo,
+				handlers.OrgDeleteJobType:    orgRepo,
+				handlers.SpaceDeleteJobType:  spaceRepo,
+				handlers.AppDeleteJobType:    appRepo,
+				handlers.RouteDeleteJobType:  routeRepo,
+				handlers.DomainDeleteJobType: domainRepo,
 			},
 			500*time.Millisecond,
 		),
