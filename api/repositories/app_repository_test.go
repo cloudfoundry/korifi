@@ -1202,8 +1202,9 @@ var _ = Describe("AppRepository", func() {
 
 		It("deletes the CFApp resource", func() {
 			Expect(deleteAppErr).NotTo(HaveOccurred())
-			_, err := appRepo.GetApp(testCtx, authInfo, appGUID)
-			Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			app, err := appRepo.GetApp(testCtx, authInfo, appGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(app.DeletedAt).To(PointTo(BeTemporally("~", time.Now(), 5*time.Second)))
 		})
 
 		When("the app doesn't exist", func() {
