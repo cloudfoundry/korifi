@@ -63,30 +63,22 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 		)
 	}
 
-	var (
-		err         error
-		jobResponse presenter.JobResponse
-	)
+	if job.Type == syncSpaceJobType {
+		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForManifestApplyJob(job, h.serverURL)), nil
+	}
 
-	switch job.Type {
-	case syncSpaceJobType:
-		jobResponse = presenter.ForManifestApplyJob(job, h.serverURL)
-	case RoleDeleteJobType:
-		jobResponse = presenter.ForJob(job, []presenter.JobResponseError{}, presenter.StateComplete, h.serverURL)
-	default:
-		repository, ok := h.repositories[job.Type]
-		if !ok {
-			return nil, apierrors.LogAndReturn(
-				log,
-				apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", job.Type), JobResourceType),
-				fmt.Sprintf("Invalid Job type: %s", job.Type),
-			)
-		}
+	repository, ok := h.repositories[job.Type]
+	if !ok {
+		return nil, apierrors.LogAndReturn(
+			log,
+			apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", job.Type), JobResourceType),
+			fmt.Sprintf("Invalid Job type: %s", job.Type),
+		)
+	}
 
-		jobResponse, err = h.handleDeleteJob(ctx, repository, job)
-		if err != nil {
-			return nil, err
-		}
+	jobResponse, err := h.handleDeleteJob(ctx, repository, job)
+	if err != nil {
+		return nil, err
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil

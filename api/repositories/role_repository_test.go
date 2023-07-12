@@ -12,6 +12,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -643,6 +644,56 @@ var _ = Describe("RoleRepository", func() {
 				It("returns an error", func() {
 					Expect(getErr).To(MatchError(ContainSubstring("multiple role bindings")))
 				})
+			})
+		})
+	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			roleGUID    string
+			roleBinding rbacv1.RoleBinding
+			deletedAt   *time.Time
+			getErr      error
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Name)
+
+			roleGUID = uuid.NewString()
+			roleBinding = createRoleBinding(ctx, "bob", orgManagerRole.Name, cfOrg.Name, repositories.RoleGuidLabel, roleGUID)
+		})
+
+		JustBeforeEach(func() {
+			deletedAt, getErr = roleRepo.GetDeletedAt(ctx, authInfo, roleGUID)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletedAt).To(BeNil())
+		})
+
+		When("the role is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, &roleBinding, func() {
+					roleBinding.Finalizers = append(roleBinding.Finalizers, "kubernetes")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, &roleBinding)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletedAt).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the role isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, &roleBinding)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

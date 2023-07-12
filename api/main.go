@@ -333,6 +333,7 @@ func main() {
 				handlers.AppDeleteJobType:    appRepo,
 				handlers.RouteDeleteJobType:  routeRepo,
 				handlers.DomainDeleteJobType: domainRepo,
+				handlers.RoleDeleteJobType:   roleRepo,
 			},
 			500*time.Millisecond,
 		),
