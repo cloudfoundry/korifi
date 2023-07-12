@@ -52,6 +52,7 @@ type RoleRecord struct {
 	GUID      string
 	CreatedAt time.Time
 	UpdatedAt *time.Time
+	DeletedAt *time.Time
 	Type      string
 	Space     string
 	Org       string
@@ -340,6 +341,7 @@ func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName strin
 		GUID:      roleBinding.Labels[RoleGuidLabel],
 		CreatedAt: roleBinding.CreationTimestamp.Time,
 		UpdatedAt: getLastUpdatedTime(&roleBinding),
+		DeletedAt: golangTime(roleBinding.DeletionTimestamp),
 		Type:      cfRoleName,
 		User:      roleBinding.Subjects[0].Name,
 		Kind:      roleBinding.Subjects[0].Kind,
@@ -357,4 +359,9 @@ func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName strin
 	}
 
 	return record
+}
+
+func (r *RoleRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, roleGUID string) (*time.Time, error) {
+	role, err := r.GetRole(ctx, authInfo, roleGUID)
+	return role.DeletedAt, err
 }

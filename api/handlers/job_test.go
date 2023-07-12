@@ -3,7 +3,6 @@ package handlers_test
 import (
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -14,57 +13,58 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
 )
 
 var _ = Describe("Job", func() {
-	Describe("GET /v3/jobs", func() {
-		DescribeTable("response stubs", func(operation, resourceGUID string) {
-			jobGUID := operation + "~" + resourceGUID
-			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
-			Expect(err).NotTo(HaveOccurred())
+	var (
+		handler       *handlers.Job
+		deletionRepos map[string]handlers.DeletionRepository
+		jobGUID       string
+		req           *http.Request
+	)
 
-			rr = httptest.NewRecorder()
-			routerBuilder.Build().ServeHTTP(rr, req)
+	BeforeEach(func() {
+		deletionRepos = map[string]handlers.DeletionRepository{}
+	})
 
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			bodyMatchers := []types.GomegaMatcher{
-				MatchJSONPath("$.guid", jobGUID),
-				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
-				MatchJSONPath("$.operation", operation),
-				MatchJSONPath("$.state", "COMPLETE"),
-			}
-			if operation == "space.apply_manifest" {
-				bodyMatchers = append(bodyMatchers, MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/"+resourceGUID))
-			}
+	JustBeforeEach(func() {
+		handler = handlers.NewJob(*serverURL, deletionRepos, 0)
+		routerBuilder.LoadRoutes(handler)
 
-			Expect(rr).To(HaveHTTPBody(SatisfyAll(bodyMatchers...)))
-		},
-			Entry("role delete", "role.delete", "cf-role-guid"),
-			Entry("apply manifest", "space.apply_manifest", "cf-space-guid"),
-		)
+		var err error
+		req, err = http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
+		Expect(err).NotTo(HaveOccurred())
 
-		var (
-			jobGUID      string
-			req          *http.Request
-			deletionRepo *fake.DeletionRepository
-		)
+		routerBuilder.Build().ServeHTTP(rr, req)
+	})
 
+	Describe("GET /v3/jobs/space.apply_manifest", func() {
 		BeforeEach(func() {
-			jobGUID = "testing.delete~my-resource-guid"
-			deletionRepo = new(fake.DeletionRepository)
-			deletionRepo.GetDeletedAtReturns(tools.PtrTo(time.Now()), nil)
-			apiHandler := handlers.NewJob(*serverURL, map[string]handlers.DeletionRepository{"testing.delete": deletionRepo}, 0)
-			routerBuilder.LoadRoutes(apiHandler)
+			jobGUID = "space.apply_manifest~cf-space-guid"
 		})
 
-		JustBeforeEach(func() {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
-			Expect(err).NotTo(HaveOccurred())
+		It("returns a complete status", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", jobGUID),
+				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+				MatchJSONPath("$.operation", "space.apply_manifest"),
+				MatchJSONPath("$.state", "COMPLETE"),
+				MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/cf-space-guid"),
+			)))
+		})
+	})
 
-			routerBuilder.Build().ServeHTTP(rr, req)
+	Describe("GET /v3/jobs/*", func() {
+		var deletionRepo *fake.DeletionRepository
+
+		BeforeEach(func() {
+			deletionRepo = new(fake.DeletionRepository)
+			deletionRepo.GetDeletedAtReturns(tools.PtrTo(time.Now()), nil)
+			deletionRepos["testing.delete"] = deletionRepo
+
+			jobGUID = "testing.delete~my-resource-guid"
 		})
 
 		It("returns a processing status", func() {
@@ -157,8 +157,7 @@ var _ = Describe("Job", func() {
 
 		When("there is no deletion repository registered for the operation", func() {
 			BeforeEach(func() {
-				apiHandler := handlers.NewJob(*serverURL, map[string]handlers.DeletionRepository{}, 0)
-				routerBuilder.LoadRoutes(apiHandler)
+				deletionRepos = map[string]handlers.DeletionRepository{}
 			})
 
 			It("returns an error", func() {
