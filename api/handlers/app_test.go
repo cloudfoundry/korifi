@@ -1580,6 +1580,21 @@ var _ = Describe("App", func() {
 			})
 		})
 	})
+
+	Describe("GET /v3/apps/GUID/ssh_enabled", func() {
+		BeforeEach(func() {
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/ssh_enabled", nil)
+		})
+
+		It("returns false", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.enabled", BeFalse()),
+				MatchJSONPath("$.reason", Equal("Disabled globally")),
+			)))
+		})
+	})
 })
 
 func createHttpRequest(method string, url string, body io.Reader) *http.Request {

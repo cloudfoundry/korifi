@@ -187,3 +187,8 @@ func emptyMapToAnyIfEmpty(m map[string]any) map[string]any {
 
 	return m
 }
+
+type AppSSHEnabled struct {
+	Enabled bool   `json:"enabled"`
+	Reason  string `json:"reason"`
+}
