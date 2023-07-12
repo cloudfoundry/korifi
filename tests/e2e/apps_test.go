@@ -955,4 +955,22 @@ var _ = Describe("Apps", func() {
 			Expect(result.Metadata.Annotations).To(HaveKeyWithValue("annkey", "annvalue"))
 		})
 	})
+
+	Describe("query SSH enabled", func() {
+		It("always returns false", func() {
+			var respObj struct {
+				Enabled bool   `json:"enabled"`
+				Reason  string `json:"reason"`
+			}
+
+			resp, err := certClient.R().
+				SetResult(&respObj).
+				Get("/v3/apps/any-guid/ssh_enabled")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(respObj.Enabled).To(BeFalse())
+			Expect(respObj.Reason).To(Equal("Disabled globally"))
+		})
+	})
 })
