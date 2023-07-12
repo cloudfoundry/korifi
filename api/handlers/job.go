@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -70,7 +71,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	switch job.Type {
 	case syncSpaceJobType:
 		jobResponse = presenter.ForManifestApplyJob(job, h.serverURL)
-	case RouteDeleteJobType, DomainDeleteJobType, RoleDeleteJobType:
+	case DomainDeleteJobType, RoleDeleteJobType:
 		jobResponse = presenter.ForJob(job, []presenter.JobResponseError{}, presenter.StateComplete, h.serverURL)
 	default:
 		repository, ok := h.repositories[job.Type]
@@ -96,21 +97,20 @@ func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository
 
 	deletedAt, err := h.retryGetDeletedAt(ctx, repository, job)
 	if err != nil {
-		switch err.(type) {
-		case apierrors.NotFoundError, apierrors.ForbiddenError:
+		if errors.As(err, &apierrors.NotFoundError{}) || errors.As(err, &apierrors.ForbiddenError{}) {
 			return presenter.ForJob(job,
 				[]presenter.JobResponseError{},
 				presenter.StateComplete,
 				h.serverURL,
 			), nil
-		default:
-			return presenter.JobResponse{}, apierrors.LogAndReturn(
-				log,
-				err,
-				"failed to fetch "+job.ResourceType+" from Kubernetes",
-				job.ResourceType+"GUID", job.ResourceGUID,
-			)
 		}
+
+		return presenter.JobResponse{}, apierrors.LogAndReturn(
+			log,
+			err,
+			"failed to fetch "+job.ResourceType+" from Kubernetes",
+			job.ResourceType+"GUID", job.ResourceGUID,
+		)
 	}
 
 	if deletedAt == nil {
