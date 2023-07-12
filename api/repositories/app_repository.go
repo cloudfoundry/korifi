@@ -468,7 +468,10 @@ func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, me
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	return apierrors.FromK8sError(userClient.Delete(ctx, cfApp), AppResourceType)
+	return apierrors.FromK8sError(
+		userClient.Delete(ctx, cfApp, client.PropagationPolicy(metav1.DeletePropagationForeground)),
+		AppResourceType,
+	)
 }
 
 func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, appGUID string) (AppEnvRecord, error) {
