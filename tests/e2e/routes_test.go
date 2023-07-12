@@ -315,15 +315,13 @@ var _ = Describe("Routes", func() {
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			Eventually(func(g Gomega) {
-				getRouteResp, err := client.R().Get("/v3/routes/" + routeGUID)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(getRouteResp).To(HaveRestyStatusCode(http.StatusNotFound))
-			}).Should(Succeed())
-		})
+			getRouteResp, err := client.R().Get("/v3/routes/" + routeGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getRouteResp).To(HaveRestyStatusCode(http.StatusNotFound))
 
-		It("frees up the deleted route's name for reuse", func() {
-			createRoute(host, path, spaceGUID, domainGUID)
+			By("freeing up the deleted route's name for reuse", func() {
+				createRoute(host, path, spaceGUID, domainGUID)
+			})
 		})
 	})
 
