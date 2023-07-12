@@ -163,6 +163,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(kpackImage.Spec.Build.Env).To(Equal(env))
 					g.Expect(kpackImage.Spec.Build.Services).To(BeEquivalentTo(services))
 					g.Expect(kpackImage.Spec.Build.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 2048)))
+					g.Expect(kpackImage.Spec.Build.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", 1234)))
 
 					g.Expect(kpackImage.Spec.Builder.Kind).To(Equal("ClusterBuilder"))
 					g.Expect(kpackImage.Spec.Builder.Name).To(Equal("cf-kpack-builder"))

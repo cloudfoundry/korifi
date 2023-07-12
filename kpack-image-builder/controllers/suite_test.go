@@ -127,8 +127,11 @@ var _ = BeforeSuite(func() {
 		ClusterBuilderName:        "cf-kpack-builder",
 		ContainerRepositoryPrefix: "image/registry/tag",
 		BuilderServiceAccount:     "builder-service-account",
-		BuildCacheMB:              1024,
-		DiskMB:                    2048,
+		CFStagingResourceLimits: config.CFStagingResourceLimits{
+			BuildCacheMB: 1024,
+			DiskMB:       2048,
+			MemoryMB:     1234,
+		},
 	}
 
 	imageRepoCreator = new(fake.RepositoryCreator)

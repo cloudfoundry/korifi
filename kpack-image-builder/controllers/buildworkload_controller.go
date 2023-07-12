@@ -652,7 +652,7 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 		return err
 	}
 
-	cacheSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", r.controllerConfig.BuildCacheMB))
+	cacheSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", r.controllerConfig.CFStagingResourceLimits.BuildCacheMB))
 	if err != nil {
 		log.Info("failed to parse image cache size", "reason", err)
 		return err
@@ -704,7 +704,8 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 				Env:      buildWorkload.Spec.Env,
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(int64(r.controllerConfig.DiskMB), resource.Mega),
+						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(int64(r.controllerConfig.CFStagingResourceLimits.DiskMB), resource.Mega),
+						corev1.ResourceMemory:           *resource.NewScaledQuantity(int64(r.controllerConfig.CFStagingResourceLimits.MemoryMB), resource.Mega),
 					},
 				},
 			},

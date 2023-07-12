@@ -17,20 +17,21 @@ type ControllerConfig struct {
 	IncludeContourRouter     bool `yaml:"includeContourRouter"`
 
 	// core controllers
-	CFProcessDefaults                CFProcessDefaults `yaml:"cfProcessDefaults"`
-	CFRootNamespace                  string            `yaml:"cfRootNamespace"`
-	ContainerRegistrySecretNames     []string          `yaml:"containerRegistrySecretNames"`
-	TaskTTL                          string            `yaml:"taskTTL"`
-	WorkloadsTLSSecretName           string            `yaml:"workloads_tls_secret_name"`
-	WorkloadsTLSSecretNamespace      string            `yaml:"workloads_tls_secret_namespace"`
-	BuilderName                      string            `yaml:"builderName"`
-	RunnerName                       string            `yaml:"runnerName"`
-	NamespaceLabels                  map[string]string `yaml:"namespaceLabels"`
-	ExtraVCAPApplicationValues       map[string]any    `yaml:"extraVCAPApplicationValues"`
-	MaxRetainedPackagesPerApp        int               `yaml:"maxRetainedPackagesPerApp"`
-	MaxRetainedBuildsPerApp          int               `yaml:"maxRetainedBuildsPerApp"`
-	LogLevel                         zapcore.Level     `yaml:"logLevel"`
-	SpaceFinalizerAppDeletionTimeout *int64            `yaml:"spaceFinalizerAppDeletionTimeout"`
+	CFProcessDefaults                CFProcessDefaults       `yaml:"cfProcessDefaults"`
+	CFStagingResourceLimits          CFStagingResourceLimits `yaml:"cfStagingResourceLimits"`
+	CFRootNamespace                  string                  `yaml:"cfRootNamespace"`
+	ContainerRegistrySecretNames     []string                `yaml:"containerRegistrySecretNames"`
+	TaskTTL                          string                  `yaml:"taskTTL"`
+	WorkloadsTLSSecretName           string                  `yaml:"workloads_tls_secret_name"`
+	WorkloadsTLSSecretNamespace      string                  `yaml:"workloads_tls_secret_namespace"`
+	BuilderName                      string                  `yaml:"builderName"`
+	RunnerName                       string                  `yaml:"runnerName"`
+	NamespaceLabels                  map[string]string       `yaml:"namespaceLabels"`
+	ExtraVCAPApplicationValues       map[string]any          `yaml:"extraVCAPApplicationValues"`
+	MaxRetainedPackagesPerApp        int                     `yaml:"maxRetainedPackagesPerApp"`
+	MaxRetainedBuildsPerApp          int                     `yaml:"maxRetainedBuildsPerApp"`
+	LogLevel                         zapcore.Level           `yaml:"logLevel"`
+	SpaceFinalizerAppDeletionTimeout *int64                  `yaml:"spaceFinalizerAppDeletionTimeout"`
 
 	// job-task-runner
 	JobTTL string `yaml:"jobTTL"`
@@ -41,14 +42,18 @@ type ControllerConfig struct {
 	BuilderReadinessTimeout   string `yaml:"builderReadinessTimeout"`
 	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType     string `yaml:"containerRegistryType"`
-	BuildCacheMB              int    `yaml:"buildCacheMB"`
-	DiskMB                    int    `yaml:"diskMB"`
 }
 
 type CFProcessDefaults struct {
 	MemoryMB    int64  `yaml:"memoryMB"`
 	DiskQuotaMB int64  `yaml:"diskQuotaMB"`
 	Timeout     *int64 `yaml:"timeout"`
+}
+
+type CFStagingResourceLimits struct {
+	BuildCacheMB int64 `yaml:"buildCacheMB"`
+	DiskMB       int64 `yaml:"diskMB"`
+	MemoryMB     int64 `yaml:"memoryMB"`
 }
 
 const (
@@ -73,8 +78,8 @@ func LoadFromPath(path string) (*ControllerConfig, error) {
 		config.SpaceFinalizerAppDeletionTimeout = tools.PtrTo(defaultTimeout)
 	}
 
-	if config.BuildCacheMB == 0 {
-		config.BuildCacheMB = defaultBuildCacheMB
+	if config.CFStagingResourceLimits.BuildCacheMB == 0 {
+		config.CFStagingResourceLimits.BuildCacheMB = defaultBuildCacheMB
 	}
 
 	return &config, nil

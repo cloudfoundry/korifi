@@ -35,6 +35,11 @@ var _ = Describe("LoadFromPath", func() {
 				DiskQuotaMB: 512,
 				Timeout:     tools.PtrTo(int64(30)),
 			},
+			CFStagingResourceLimits: config.CFStagingResourceLimits{
+				BuildCacheMB: 1024,
+				DiskMB:       512,
+				MemoryMB:     2048,
+			},
 			CFRootNamespace:                  "rootNamespace",
 			ContainerRegistrySecretNames:     []string{"packageRegistrySecretName"},
 			TaskTTL:                          "taskTTL",
@@ -45,8 +50,6 @@ var _ = Describe("LoadFromPath", func() {
 			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
-			BuildCacheMB:                     1024,
-			DiskMB:                           512,
 		}
 	})
 
@@ -70,6 +73,11 @@ var _ = Describe("LoadFromPath", func() {
 				DiskQuotaMB: 512,
 				Timeout:     tools.PtrTo(int64(30)),
 			},
+			CFStagingResourceLimits: config.CFStagingResourceLimits{
+				BuildCacheMB: 1024,
+				DiskMB:       512,
+				MemoryMB:     2048,
+			},
 			CFRootNamespace:                  "rootNamespace",
 			ContainerRegistrySecretNames:     []string{"packageRegistrySecretName"},
 			TaskTTL:                          "taskTTL",
@@ -82,8 +90,6 @@ var _ = Describe("LoadFromPath", func() {
 			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
-			BuildCacheMB:                     1024,
-			DiskMB:                           512,
 		}))
 	})
 
@@ -119,11 +125,11 @@ var _ = Describe("LoadFromPath", func() {
 
 	When("the staging build cache size is not set", func() {
 		BeforeEach(func() {
-			cfg.BuildCacheMB = 0
+			cfg.CFStagingResourceLimits.BuildCacheMB = 0
 		})
 
 		It("uses the default", func() {
-			Expect(retConfig.BuildCacheMB).To(Equal(2048))
+			Expect(retConfig.CFStagingResourceLimits.BuildCacheMB).To(Equal(int64(2048)))
 		})
 	})
 })
