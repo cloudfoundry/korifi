@@ -184,9 +184,10 @@ var _ = Describe("RouteRepository", func() {
 					Expect(destinationRecord.Protocol).To(Equal(cfRoute1.Spec.Destinations[0].Protocol))
 				})
 
-				By("returning a record where the CreatedAt and UpdatedAt match the CR creation time", func() {
+				By("returning a record with timestamps", func() {
 					Expect(route.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 					Expect(route.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+					Expect(route.DeletedAt).To(BeNil())
 				})
 
 				Expect(route.Domain).To(Equal(DomainRecord{GUID: domainGUID}))
@@ -1515,6 +1516,80 @@ var _ = Describe("RouteRepository", func() {
 		When("the user is not authorized", func() {
 			It("return a forbidden error", func() {
 				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			cfRoute   *korifiv1alpha1.CFRoute
+			deletedAt *time.Time
+			getErr    error
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+
+			cfRoute = &korifiv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      route1GUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFRouteSpec{
+					Host:     "my-subdomain-1",
+					Path:     "",
+					Protocol: "http",
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: rootNamespace,
+					},
+					Destinations: []korifiv1alpha1.Destination{
+						{
+							GUID: "destination-guid",
+							Port: 8080,
+							AppRef: corev1.LocalObjectReference{
+								Name: "some-app-guid",
+							},
+							ProcessType: "web",
+							Protocol:    "http1",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, cfRoute)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			deletedAt, getErr = routeRepo.GetDeletedAt(testCtx, authInfo, route1GUID)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletedAt).To(BeNil())
+		})
+
+		When("the route is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfRoute, func() {
+					cfRoute.Finalizers = append(cfRoute.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfRoute)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletedAt).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the route isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfRoute)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

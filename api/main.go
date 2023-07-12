@@ -331,6 +331,7 @@ func main() {
 				handlers.OrgDeleteJobType:   orgRepo,
 				handlers.SpaceDeleteJobType: spaceRepo,
 				handlers.AppDeleteJobType:   appRepo,
+				handlers.RouteDeleteJobType: routeRepo,
 			},
 			500*time.Millisecond,
 		),

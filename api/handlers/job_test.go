@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -40,7 +41,6 @@ var _ = Describe("Job", func() {
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(bodyMatchers...)))
 		},
-			Entry("route delete", "route.delete", "cf-route-guid"),
 			Entry("domain delete", "domain.delete", "cf-domain-guid"),
 			Entry("role delete", "role.delete", "cf-role-guid"),
 			Entry("apply manifest", "space.apply_manifest", "cf-space-guid"),
@@ -86,7 +86,7 @@ var _ = Describe("Job", func() {
 
 		When("the resource does not exist", func() {
 			BeforeEach(func() {
-				deletionRepo.GetDeletedAtReturns(nil, apierrors.NewNotFoundError(nil, "foo"))
+				deletionRepo.GetDeletedAtReturns(nil, fmt.Errorf("wrapped error: %w", apierrors.NewNotFoundError(nil, "foo")))
 			})
 
 			It("returns a complete status", func() {
@@ -120,7 +120,7 @@ var _ = Describe("Job", func() {
 
 		When("the user does not have permission to see the resource", func() {
 			BeforeEach(func() {
-				deletionRepo.GetDeletedAtReturns(nil, apierrors.NewForbiddenError(nil, "foo"))
+				deletionRepo.GetDeletedAtReturns(nil, fmt.Errorf("wrapped err: %w", apierrors.NewForbiddenError(nil, "foo")))
 			})
 
 			It("returns a complete status", func() {
