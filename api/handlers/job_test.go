@@ -41,7 +41,6 @@ var _ = Describe("Job", func() {
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(bodyMatchers...)))
 		},
-			Entry("domain delete", "domain.delete", "cf-domain-guid"),
 			Entry("role delete", "role.delete", "cf-role-guid"),
 			Entry("apply manifest", "space.apply_manifest", "cf-space-guid"),
 		)

@@ -47,6 +47,7 @@ type DomainRecord struct {
 	Namespace   string
 	CreatedAt   time.Time
 	UpdatedAt   *time.Time
+	DeletedAt   *time.Time
 }
 
 type CreateDomainMessage struct {
@@ -198,6 +199,11 @@ func (r *DomainRepo) DeleteDomain(ctx context.Context, authInfo authorization.In
 	return nil
 }
 
+func (r *DomainRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, domainGUID string) (*time.Time, error) {
+	domain, err := r.GetDomain(ctx, authInfo, domainGUID)
+	return domain.DeletedAt, err
+}
+
 func returnDomainList(domainList []korifiv1alpha1.CFDomain) []DomainRecord {
 	domainRecords := make([]DomainRecord, 0, len(domainList))
 
@@ -214,6 +220,7 @@ func cfDomainToDomainRecord(cfDomain *korifiv1alpha1.CFDomain) DomainRecord {
 		Namespace:   cfDomain.Namespace,
 		CreatedAt:   cfDomain.CreationTimestamp.Time,
 		UpdatedAt:   getLastUpdatedTime(cfDomain),
+		DeletedAt:   golangTime(cfDomain.DeletionTimestamp),
 		Labels:      cfDomain.Labels,
 		Annotations: cfDomain.Annotations,
 	}

@@ -196,6 +196,10 @@ var _ = Describe("Domain", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(resp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
+
+			getDomainResp, err := certClient.R().Get("/v3/domains/" + domainGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getDomainResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 
 		When("the domain has routes", func() {

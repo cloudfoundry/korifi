@@ -376,4 +376,45 @@ var _ = Describe("DomainRepository", func() {
 			})
 		})
 	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			deletionTime *time.Time
+			getErr       error
+		)
+
+		JustBeforeEach(func() {
+			deletionTime, getErr = domainRepo.GetDeletedAt(ctx, authInfo, cfDomain.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the domain is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfDomain, func() {
+					cfDomain.Finalizers = append(cfDomain.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the domain isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
 })
