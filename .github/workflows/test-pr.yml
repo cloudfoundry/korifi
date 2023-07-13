@@ -19,6 +19,27 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
 
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - uses: actions/setup-go@v4
+      with:
+        go-version: 'stable'
+
+    - name: Run API unit tests
+      run: make -C api test
+
   controllers-tests:
     runs-on: ubuntu-latest
 
@@ -41,26 +62,27 @@ jobs:
     - name: Run Controllers tests
       run: make -C controllers test
 
-  api-tests:
+  job-task-runner-tests:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-    - uses: actions/setup-go@v4
-      with:
-        go-version: 'stable'
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 'stable'
 
-    - name: Run API unit tests
-      run: make -C api test
+      - name: Run job-task-runner tests
+        run: make -C job-task-runner test
 
   kpack-image-builder-tests:
     runs-on: ubuntu-latest
@@ -106,7 +128,7 @@ jobs:
       - name: Run statefulset-runner tests
         run: make -C statefulset-runner test
 
-  job-task-runner-tests:
+  tools-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -125,5 +147,5 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Run job-task-runner tests
-        run: make -C job-task-runner test
+      - name: Run tools tests
+        run: make -C tools test
