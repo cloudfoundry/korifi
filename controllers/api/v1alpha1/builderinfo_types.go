@@ -27,7 +27,8 @@ type BuilderInfoSpec struct{}
 type BuilderInfoStatus struct {
 	Stacks     []BuilderInfoStatusStack     `json:"stacks"`
 	Buildpacks []BuilderInfoStatusBuildpack `json:"buildpacks"`
-	Conditions []metav1.Condition           `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ObservedGeneration captures the latest generation of the BuilderInfo that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

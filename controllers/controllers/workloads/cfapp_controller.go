@@ -133,10 +133,6 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 
 	cfApp.Status.VCAPServicesSecretName = secretName
 
-	if cfApp.Status.Conditions == nil {
-		cfApp.Status.Conditions = make([]metav1.Condition, 0)
-	}
-
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
 		meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
 			Type:               shared.StatusConditionReady,

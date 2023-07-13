@@ -69,7 +69,6 @@ var _ = Describe("Builder", func() {
 		ensureCreate(serviceBinding)
 		ensurePatch(serviceBinding, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
-				Conditions: []metav1.Condition{},
 				Binding: corev1.LocalObjectReference{
 					Name: "service-binding-secret",
 				},
@@ -118,7 +117,6 @@ var _ = Describe("Builder", func() {
 		ensureCreate(serviceBinding2)
 		ensurePatch(serviceBinding2, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
-				Conditions: []metav1.Condition{},
 				Binding: corev1.LocalObjectReference{
 					Name: "service-binding-secret-2",
 				},

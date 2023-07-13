@@ -36,10 +36,6 @@ var _ = Describe("TaskRepository", func() {
 	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
 		GinkgoHelper()
 
-		if task.Status.Conditions == nil {
-			task.Status.Conditions = []metav1.Condition{}
-		}
-
 		for _, cond := range conditionTypes {
 			meta.SetStatusCondition(&(task.Status.Conditions), metav1.Condition{
 				Type:    cond,

@@ -40,8 +40,8 @@ type CFBuildSpec struct {
 // CFBuildStatus defines the observed state of CFBuild
 type CFBuildStatus struct {
 	Droplet *BuildDropletStatus `json:"droplet,omitempty"`
-	// Conditions capture the current status of the Build
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ObservedGeneration captures the latest generation of the CFBuild that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

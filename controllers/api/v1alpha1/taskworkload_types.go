@@ -41,8 +41,8 @@ type TaskWorkloadSpec struct {
 
 // TaskWorkloadStatus defines the observed state of TaskWorkload
 type TaskWorkloadStatus struct {
-	// +optional
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ObservedGeneration captures the latest generation of the TaskWorkload that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

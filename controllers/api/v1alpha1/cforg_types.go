@@ -40,7 +40,8 @@ type CFOrgSpec struct {
 
 // CFOrgStatus defines the observed state of CFOrg
 type CFOrgStatus struct {
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	GUID string `json:"guid"`
 

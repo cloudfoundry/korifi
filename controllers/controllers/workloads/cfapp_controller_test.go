@@ -112,7 +112,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			}
 			Expect(adminClient.Create(ctx, serviceBinding)).To(Succeed())
 			Expect(k8s.Patch(ctx, adminClient, serviceBinding, func() {
-				serviceBinding.Status.Conditions = []metav1.Condition{}
 				serviceBinding.Status.Binding = corev1.LocalObjectReference{
 					Name: serviceInstanceSecret.Name,
 				}

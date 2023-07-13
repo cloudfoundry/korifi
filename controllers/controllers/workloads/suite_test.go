@@ -264,7 +264,6 @@ func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuil
 		k8sClient.Create(ctx, cfBuild),
 	).To(Succeed())
 	patchedCFBuild := cfBuild.DeepCopy()
-	patchedCFBuild.Status.Conditions = []metav1.Condition{}
 	patchedCFBuild.Status.Droplet = droplet
 	Expect(
 		k8sClient.Status().Patch(ctx, patchedCFBuild, client.MergeFrom(cfBuild)),

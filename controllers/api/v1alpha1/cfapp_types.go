@@ -51,8 +51,8 @@ type DesiredState string
 
 // CFAppStatus defines the observed state of CFApp
 type CFAppStatus struct {
-	// Conditions capture the current status of the App
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// Deprecated: No longer used
 	//+kubebuilder:validation:Optional

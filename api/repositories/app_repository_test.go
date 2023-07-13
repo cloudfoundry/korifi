@@ -1530,7 +1530,6 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-	cfApp.Status.Conditions = []metav1.Condition{}
 	Expect(k8sClient.Status().Update(context.Background(), cfApp)).To(Succeed())
 
 	return cfApp

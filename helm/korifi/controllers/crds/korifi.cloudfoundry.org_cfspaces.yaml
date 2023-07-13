@@ -53,7 +53,6 @@ spec:
             description: CFSpaceStatus defines the observed state of CFSpace
             properties:
               conditions:
-                description: Conditions capture the current status of the CFSpace
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -129,7 +128,6 @@ spec:
                 format: int64
                 type: integer
             required:
-            - conditions
             - guid
             type: object
         type: object
