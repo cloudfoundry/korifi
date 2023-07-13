@@ -45,8 +45,8 @@ api:
     type: buildpack
     stack: cflinuxfs3
     stagingRequirements:
-      memoryMB: 1024
-      diskMB: 1024
+      memoryMB: 0
+      diskMB: 0
       buildCacheMB: 2048
 
   builderName: kpack-image-builder

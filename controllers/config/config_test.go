@@ -35,7 +35,7 @@ var _ = Describe("LoadFromPath", func() {
 				DiskQuotaMB: 512,
 				Timeout:     tools.PtrTo(int64(30)),
 			},
-			CFStagingResourceLimits: config.CFStagingResourceLimits{
+			CFStagingResources: config.CFStagingResources{
 				BuildCacheMB: 1024,
 				DiskMB:       512,
 				MemoryMB:     2048,
@@ -73,7 +73,7 @@ var _ = Describe("LoadFromPath", func() {
 				DiskQuotaMB: 512,
 				Timeout:     tools.PtrTo(int64(30)),
 			},
-			CFStagingResourceLimits: config.CFStagingResourceLimits{
+			CFStagingResources: config.CFStagingResources{
 				BuildCacheMB: 1024,
 				DiskMB:       512,
 				MemoryMB:     2048,
@@ -125,11 +125,11 @@ var _ = Describe("LoadFromPath", func() {
 
 	When("the staging build cache size is not set", func() {
 		BeforeEach(func() {
-			cfg.CFStagingResourceLimits.BuildCacheMB = 0
+			cfg.CFStagingResources.BuildCacheMB = 0
 		})
 
 		It("uses the default", func() {
-			Expect(retConfig.CFStagingResourceLimits.BuildCacheMB).To(Equal(int64(2048)))
+			Expect(retConfig.CFStagingResources.BuildCacheMB).To(Equal(int64(2048)))
 		})
 	})
 })

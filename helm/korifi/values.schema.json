@@ -184,11 +184,11 @@
               "type": "object",
               "properties": {
                 "memoryMB": {
-                  "description": "Memory in MB for staging.",
+                  "description": "Memory request in MB for staging.",
                   "type": "integer"
                 },
                 "diskMB": {
-                  "description": "Ephemeral Disk limit in MB for staging apps.",
+                  "description": "Ephemeral Disk request in MB for staging apps.",
                   "type": "integer"
                 },
                 "buildCacheMB": {

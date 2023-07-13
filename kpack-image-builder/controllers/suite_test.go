@@ -110,7 +110,7 @@ var _ = BeforeSuite(func() {
 		ClusterBuilderName:        "cf-kpack-builder",
 		ContainerRepositoryPrefix: "image/registry/tag",
 		BuilderServiceAccount:     "builder-service-account",
-		CFStagingResourceLimits: config.CFStagingResourceLimits{
+		CFStagingResources: config.CFStagingResources{
 			BuildCacheMB: 1024,
 			DiskMB:       2048,
 			MemoryMB:     1234,
