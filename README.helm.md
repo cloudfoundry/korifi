@@ -44,8 +44,8 @@ Here are all the values that can be set for the chart:
     - `stack` (_String_): Stack.
     - `stagingRequirements`:
       - `buildCacheMB` (_Integer_): Persistent disk in MB for caching staging artifacts across builds.
-      - `diskMB` (_Integer_): Ephemeral Disk limit in MB for staging apps.
-      - `memoryMB` (_Integer_): Memory in MB for staging.
+      - `diskMB` (_Integer_): Ephemeral Disk request in MB for staging apps.
+      - `memoryMB` (_Integer_): Memory request in MB for staging.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
