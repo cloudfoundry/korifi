@@ -144,6 +144,44 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		}
 	})
 
+	Describe("GetBuildResources", func() {
+		var (
+			diskMB, memoryMB     int64
+			resourceRequirements corev1.ResourceRequirements
+		)
+
+		JustBeforeEach(func() {
+			resourceRequirements = controllers.GetBuildResources(diskMB, memoryMB)
+		})
+
+		It("does not set the resource requests by default", func() {
+			Expect(resourceRequirements.Limits).To(BeEmpty())
+			Expect(resourceRequirements.Requests).To(BeEmpty())
+		})
+
+		When("staging diskMB is configured", func() {
+			BeforeEach(func() {
+				diskMB = 1234
+			})
+
+			It("sets the ephemeralStorage resource request", func() {
+				Expect(resourceRequirements.Limits).To(BeEmpty())
+				Expect(resourceRequirements.Requests).To(HaveKeyWithValue(corev1.ResourceEphemeralStorage, *resource.NewScaledQuantity(diskMB, resource.Mega)))
+			})
+		})
+
+		When("staging memoryMB is configured", func() {
+			BeforeEach(func() {
+				memoryMB = 4321
+			})
+
+			It("sets the memory resource request", func() {
+				Expect(resourceRequirements.Limits).To(BeEmpty())
+				Expect(resourceRequirements.Requests).To(HaveKeyWithValue(corev1.ResourceMemory, *resource.NewScaledQuantity(memoryMB, resource.Mega)))
+			})
+		})
+	})
+
 	Describe("BuildWorkload initialization phase", func() {
 		JustBeforeEach(func() {
 			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
@@ -162,8 +200,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(kpackImage.Spec.Source.Registry.ImagePullSecrets).To(BeEquivalentTo(source.Registry.ImagePullSecrets))
 					g.Expect(kpackImage.Spec.Build.Env).To(Equal(env))
 					g.Expect(kpackImage.Spec.Build.Services).To(BeEquivalentTo(services))
-					g.Expect(kpackImage.Spec.Build.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 2048)))
-					g.Expect(kpackImage.Spec.Build.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", 1234)))
+					g.Expect(kpackImage.Spec.Build.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 2048)))
+					g.Expect(kpackImage.Spec.Build.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", 1234)))
 
 					g.Expect(kpackImage.Spec.Builder.Kind).To(Equal("ClusterBuilder"))
 					g.Expect(kpackImage.Spec.Builder.Name).To(Equal("cf-kpack-builder"))

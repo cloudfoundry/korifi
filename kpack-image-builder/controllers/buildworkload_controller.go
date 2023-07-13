@@ -652,7 +652,7 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 		return err
 	}
 
-	cacheSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", r.controllerConfig.CFStagingResourceLimits.BuildCacheMB))
+	cacheSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", r.controllerConfig.CFStagingResources.BuildCacheMB))
 	if err != nil {
 		log.Info("failed to parse image cache size", "reason", err)
 		return err
@@ -700,14 +700,9 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 				},
 			},
 			Build: &buildv1alpha2.ImageBuild{
-				Services: buildWorkload.Spec.Services,
-				Env:      buildWorkload.Spec.Env,
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(int64(r.controllerConfig.CFStagingResourceLimits.DiskMB), resource.Mega),
-						corev1.ResourceMemory:           *resource.NewScaledQuantity(int64(r.controllerConfig.CFStagingResourceLimits.MemoryMB), resource.Mega),
-					},
-				},
+				Services:  buildWorkload.Spec.Services,
+				Env:       buildWorkload.Spec.Env,
+				Resources: GetBuildResources(r.controllerConfig.CFStagingResources.DiskMB, r.controllerConfig.CFStagingResources.MemoryMB),
 			},
 			Cache: &buildv1alpha2.ImageCacheConfig{
 				Volume: &buildv1alpha2.ImagePersistentVolumeCache{
@@ -757,6 +752,22 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 	buildWorkload.Labels[ImageGenerationKey] = strconv.FormatInt(desiredKpackImage.Generation, 10)
 
 	return nil
+}
+
+func GetBuildResources(diskMB, memoryMB int64) corev1.ResourceRequirements {
+	resourceRequirements := corev1.ResourceRequirements{
+		Requests: map[corev1.ResourceName]resource.Quantity{},
+	}
+
+	if diskMB != 0 {
+		resourceRequirements.Requests[corev1.ResourceEphemeralStorage] = *resource.NewScaledQuantity(diskMB, resource.Mega)
+	}
+
+	if memoryMB != 0 {
+		resourceRequirements.Requests[corev1.ResourceMemory] = *resource.NewScaledQuantity(memoryMB, resource.Mega)
+	}
+
+	return resourceRequirements
 }
 
 func (r *BuildWorkloadReconciler) isResizable(ctx context.Context, log logr.Logger, scName string) (bool, error) {
