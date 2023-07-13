@@ -42,8 +42,8 @@ type CFTaskSpec struct {
 
 // CFTaskStatus defines the observed state of CFTask
 type CFTaskStatus struct {
-	// +optional
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// +optional
 	SequenceID int64 `json:"sequenceId"`

@@ -30,7 +30,7 @@ type RunnerInfoSpec struct {
 // RunnerInfoStatus defines the observed state of RunnerInfo
 type RunnerInfoStatus struct {
 	//+kubebuilder:validation:Optional
-	Conditions []metav1.Condition `json:"conditions"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	Capabilities RunnerInfoCapabilities `json:"capabilities"`
 

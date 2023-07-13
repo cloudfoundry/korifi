@@ -42,8 +42,8 @@ type CFServiceBindingStatus struct {
 	// +optional
 	Binding v1.LocalObjectReference `json:"binding"`
 
-	// Conditions capture the current status of the CFServiceBinding
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ObservedGeneration captures the latest generation of the CFServiceBinding that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

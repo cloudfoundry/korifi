@@ -39,8 +39,8 @@ type CFSpaceSpec struct {
 
 // CFSpaceStatus defines the observed state of CFSpace
 type CFSpaceStatus struct {
-	// Conditions capture the current status of the CFSpace
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	GUID string `json:"guid"`
 

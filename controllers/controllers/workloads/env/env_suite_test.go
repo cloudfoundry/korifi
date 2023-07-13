@@ -99,7 +99,6 @@ var _ = BeforeEach(func() {
 	ensureCreate(cfOrg)
 	orgNSName := testutils.PrefixedGUID("org")
 	ensurePatch(cfOrg, func(cfOrg *korifiv1alpha1.CFOrg) {
-		cfOrg.Status.Conditions = []metav1.Condition{}
 		cfOrg.Status.GUID = orgNSName
 	})
 	createNamespace(cfOrg.Status.GUID)
@@ -116,7 +115,6 @@ var _ = BeforeEach(func() {
 	ensureCreate(cfSpace)
 	cfNSName := testutils.PrefixedGUID("space")
 	ensurePatch(cfSpace, func(cfSpace *korifiv1alpha1.CFSpace) {
-		cfSpace.Status.Conditions = []metav1.Condition{}
 		cfSpace.Status.GUID = cfNSName
 	})
 	createNamespace(cfSpace.Status.GUID)
@@ -138,7 +136,6 @@ var _ = BeforeEach(func() {
 	ensureCreate(cfApp)
 	ensurePatch(cfApp, func(app *korifiv1alpha1.CFApp) {
 		app.Status = korifiv1alpha1.CFAppStatus{
-			Conditions:                []metav1.Condition{},
 			VCAPServicesSecretName:    "app-guid-vcap-services",
 			VCAPApplicationSecretName: "app-guid-vcap-application",
 		}

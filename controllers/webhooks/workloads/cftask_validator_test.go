@@ -88,7 +88,6 @@ var _ = Describe("CFTask Creation", func() {
 
 			originalCfTask := cfTask.DeepCopy()
 			cfTask.Status = korifiv1alpha1.CFTaskStatus{
-				Conditions: []metav1.Condition{},
 				SequenceID: seqId,
 			}
 
@@ -141,9 +140,7 @@ var _ = Describe("CFTask Update", func() {
 		}
 		Expect(adminClient.Create(context.Background(), cfTask)).To(Succeed())
 		Expect(k8s.Patch(context.Background(), adminClient, cfTask, func() {
-			cfTask.Status = korifiv1alpha1.CFTaskStatus{
-				Conditions: []metav1.Condition{},
-			}
+			cfTask.Status = korifiv1alpha1.CFTaskStatus{}
 		})).To(Succeed())
 	})
 

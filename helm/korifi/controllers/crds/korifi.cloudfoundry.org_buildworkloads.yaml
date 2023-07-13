@@ -267,8 +267,6 @@ spec:
             description: BuildWorkloadStatus defines the observed state of BuildWorkload
             properties:
               conditions:
-                description: Conditions capture the current status of the observed
-                  generation of the BuildWorkload
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct

@@ -32,7 +32,7 @@ type CFDomainSpec struct {
 
 // CFDomainStatus defines the observed state of CFDomain
 type CFDomainStatus struct {
-	// Conditions capture the current status of the domain
+	//+kubebuilder:validation:Optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ObservedGeneration captures the latest generation of the CFDomain that has been reconciled

@@ -56,8 +56,8 @@ type AppWorkloadSpec struct {
 
 // AppWorkloadStatus defines the observed state of AppWorkload
 type AppWorkloadStatus struct {
-	// Conditions capture the current status of the observed generation of the AppWorkload
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ObservedGeneration captures the latest generation of the AppWorkload that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

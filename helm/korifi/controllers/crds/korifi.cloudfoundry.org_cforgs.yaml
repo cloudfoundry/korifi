@@ -128,7 +128,6 @@ spec:
                 format: int64
                 type: integer
             required:
-            - conditions
             - guid
             type: object
         type: object

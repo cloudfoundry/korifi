@@ -78,7 +78,7 @@ type CFRouteStatus struct {
 	// The observed state of the destinations. This is mainly used to record the target port of the underlying service
 	Destinations []Destination `json:"destinations,omitempty"`
 
-	// Conditions capture the current status of the route
+	//+kubebuilder:validation:Optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ObservedGeneration captures the latest generation of the CFRoute that has been reconciled

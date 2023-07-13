@@ -162,7 +162,6 @@ spec:
                 type: array
             required:
             - buildpacks
-            - conditions
             - stacks
             type: object
         type: object
