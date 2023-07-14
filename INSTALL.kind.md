@@ -44,21 +44,28 @@ We recommend you use [DockerHub](https://hub.docker.com/) as your container regi
 
 ## Dependencies
 
-No changes here, follow the [common instructions](./INSTALL.md#dependencies).
+Follow the [common instructions](./INSTALL.md#dependencies), with the exception of Metrics Server.
+
+### Metrics Server
+
+Make sure you pass the following flags to the Metrics Server container (see [_Configuration_](https://github.com/kubernetes-sigs/metrics-server#configuration)):
+
+-   `--kubelet-insecure-tls`
+-   `--kubelet-preferred-address-types=InternalIP`
 
 ## Pre-install configuration
 
 No changes here, follow the [common instructions](./INSTALL.md#pre-install-configuration).
 For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub.
+Remember to set `global.generateIngressCertificates` to `true` if you want to use self-signed TLS certificates.
 
 ## Install Korifi
 
 No changes here, follow the [common instructions](./INSTALL.md#install-korifi).
 If using DockerHub as recommended above, set the following values:
 
--   `api.packageRepository`: `index.docker.io/<username>/packages`;
 -   `kpackImageBuilder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
--   `kpackImageBuilder.dropletRepository`: `index.docker.io/<username>/droplets`.
+-   `global.containerRepositoryPrefix`: `index.docker.io/<username>/`;
 
 If `$KORIFI_NAMESPACE` doesn't exist yet, you can add the `--create-namespace` flag to the `helm` invocation.
 
