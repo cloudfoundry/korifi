@@ -28,7 +28,7 @@ var _ = Describe("Job", func() {
 	})
 
 	JustBeforeEach(func() {
-		handler = handlers.NewJob(*serverURL, deletionRepos, 0)
+		handler = handlers.NewJob(*serverURL, deletionRepos)
 		routerBuilder.LoadRoutes(handler)
 
 		var err error

@@ -36,16 +36,14 @@ type DeletionRepository interface {
 }
 
 type Job struct {
-	serverURL       url.URL
-	repositories    map[string]DeletionRepository
-	pollingInterval time.Duration
+	serverURL    url.URL
+	repositories map[string]DeletionRepository
 }
 
-func NewJob(serverURL url.URL, repositories map[string]DeletionRepository, pollingInterval time.Duration) *Job {
+func NewJob(serverURL url.URL, repositories map[string]DeletionRepository) *Job {
 	return &Job{
-		serverURL:       serverURL,
-		repositories:    repositories,
-		pollingInterval: pollingInterval,
+		serverURL:    serverURL,
+		repositories: repositories,
 	}
 }
 
@@ -86,8 +84,9 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 
 func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository, job presenter.Job) (presenter.JobResponse, error) {
 	ctx, log := logger.FromContext(ctx, "handleDeleteJob")
+	authInfo, _ := authorization.InfoFromContext(ctx)
 
-	deletedAt, err := h.retryGetDeletedAt(ctx, repository, job)
+	deletedAt, err := repository.GetDeletedAt(ctx, authInfo, job.ResourceGUID)
 	if err != nil {
 		if errors.As(err, &apierrors.NotFoundError{}) || errors.As(err, &apierrors.ForbiddenError{}) {
 			return presenter.ForJob(job,
@@ -133,32 +132,6 @@ func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository
 		presenter.StateFailed,
 		h.serverURL,
 	), nil
-}
-
-func (h *Job) retryGetDeletedAt(ctx context.Context, repository DeletionRepository, job presenter.Job) (*time.Time, error) {
-	ctx, log := logger.FromContext(ctx, "retryGetDeletedAt")
-	authInfo, _ := authorization.InfoFromContext(ctx)
-
-	var (
-		deletedAt *time.Time
-		err       error
-	)
-
-	for retries := 0; retries < 40; retries++ {
-		deletedAt, err = repository.GetDeletedAt(ctx, authInfo, job.ResourceGUID)
-		if err != nil {
-			return nil, err
-		}
-
-		if deletedAt != nil {
-			return deletedAt, nil
-		}
-
-		log.V(1).Info("Waiting for deletion timestamp", job.ResourceType+"GUID", job.ResourceGUID)
-		time.Sleep(h.pollingInterval)
-	}
-
-	return nil, nil
 }
 
 func (h *Job) UnauthenticatedRoutes() []routing.Route {

@@ -335,7 +335,6 @@ func main() {
 				handlers.DomainDeleteJobType: domainRepo,
 				handlers.RoleDeleteJobType:   roleRepo,
 			},
-			500*time.Millisecond,
 		),
 		handlers.NewLogCache(
 			appRepo,
