@@ -150,6 +150,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			resourceRequirements corev1.ResourceRequirements
 		)
 
+		BeforeEach(func() {
+			diskMB = 0
+			memoryMB = 0
+		})
+
 		JustBeforeEach(func() {
 			resourceRequirements = controllers.GetBuildResources(diskMB, memoryMB)
 		})
