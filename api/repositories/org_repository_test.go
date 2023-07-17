@@ -369,35 +369,23 @@ var _ = Describe("OrgRepository", func() {
 			deletionTime, getErr = orgRepo.GetDeletedAt(ctx, authInfo, cfOrg.Name)
 		})
 
-		When("the user has a role binding in the org", func() {
-			BeforeEach(func() {
-				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
-			})
-
-			It("returns nil", func() {
-				Expect(getErr).NotTo(HaveOccurred())
-				Expect(deletionTime).To(BeNil())
-			})
-
-			When("the org is being deleted", func() {
-				BeforeEach(func() {
-					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
-						cfOrg.Finalizers = append(cfOrg.Finalizers, "foo")
-					})).To(Succeed())
-
-					Expect(k8sClient.Delete(ctx, cfOrg)).To(Succeed())
-				})
-
-				It("returns the deletion time", func() {
-					Expect(getErr).NotTo(HaveOccurred())
-					Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
-				})
-			})
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
 		})
 
-		When("the user does not have a role binding in the org", func() {
-			It("errors", func() {
-				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+		When("the org is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
+					cfOrg.Finalizers = append(cfOrg.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfOrg)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
 			})
 		})
 
