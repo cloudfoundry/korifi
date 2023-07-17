@@ -165,6 +165,12 @@ type applicationResource struct {
 	Memory       string                               `yaml:"memory,omitempty"`
 	Metadata     metadata                             `yaml:"metadata,omitempty"`
 	Buildpacks   []string                             `yaml:"buildpacks"`
+	Services     []serviceResource                    `yaml:"services"`
+}
+
+type serviceResource struct {
+	Name        string `yaml:"name"`
+	BindingName string `yaml:"binding_name"`
 }
 
 type manifestApplicationProcessResource struct {
@@ -543,8 +549,8 @@ func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
 		SetError(&resultErr).
 		Post(rolesURL)
 
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
-	ExpectWithOffset(2, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return createdRole.GUID
 }
@@ -728,6 +734,20 @@ func addServiceBindingLabels(bindingGUID string, labels map[string]string) {
 		Patch("/v3/service_credential_bindings/" + bindingGUID)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+}
+
+func getServiceBindingsForApp(appGUID string) []resource {
+	GinkgoHelper()
+
+	var serviceBindings resourceList[resource]
+	resp, err := adminClient.R().
+		SetResult(&serviceBindings).
+		Get("/v3/service_credential_bindings?app_guids=" + appGUID)
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK), string(resp.Body()))
+
+	return serviceBindings.Resources
 }
 
 func createPackage(appGUID string) string {

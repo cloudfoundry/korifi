@@ -18,16 +18,18 @@ import (
 
 var _ = Describe("Applier", func() {
 	var (
-		appRepo     *fake.CFAppRepository
-		domainRepo  *fake.CFDomainRepository
-		processRepo *fake.CFProcessRepository
-		routeRepo   *fake.CFRouteRepository
-		applier     *manifest.Applier
-		applierErr  error
-		ctx         context.Context
-		authInfo    authorization.Info
-		appInfo     payloads.ManifestApplication
-		appState    manifest.AppState
+		appRepo             *fake.CFAppRepository
+		domainRepo          *fake.CFDomainRepository
+		processRepo         *fake.CFProcessRepository
+		routeRepo           *fake.CFRouteRepository
+		serviceInstanceRepo *fake.CFServiceInstanceRepository
+		serviceBindingRepo  *fake.CFServiceBindingRepository
+		applier             *manifest.Applier
+		applierErr          error
+		ctx                 context.Context
+		authInfo            authorization.Info
+		appInfo             payloads.ManifestApplication
+		appState            manifest.AppState
 	)
 
 	BeforeEach(func() {
@@ -35,7 +37,9 @@ var _ = Describe("Applier", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
-		applier = manifest.NewApplier(appRepo, domainRepo, processRepo, routeRepo)
+		serviceInstanceRepo = new(fake.CFServiceInstanceRepository)
+		serviceBindingRepo = new(fake.CFServiceBindingRepository)
+		applier = manifest.NewApplier(appRepo, domainRepo, processRepo, routeRepo, serviceInstanceRepo, serviceBindingRepo)
 		ctx = context.Background()
 		authInfo = authorization.Info{Token: "a-token"}
 		appInfo = payloads.ManifestApplication{
@@ -444,6 +448,102 @@ var _ = Describe("Applier", func() {
 						removeDest2Msg.DestinationGuid,
 					}).To(ConsistOf("dest1-guid", "dest2-guid"))
 				})
+			})
+		})
+	})
+
+	Describe("applying services", func() {
+		BeforeEach(func() {
+			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
+				{
+					Name: "service-name",
+					GUID: "service-guid",
+				},
+			}, nil)
+
+			appState.App.GUID = "app-guid"
+			appState.App.SpaceGUID = "space-guid"
+			appState.ServiceBindings = map[string]repositories.ServiceBindingRecord{
+				"another-service-name": {},
+			}
+
+			appInfo.Services = []payloads.ManifestApplicationService{
+				{Name: "service-name"},
+				{Name: "another-service-name"},
+			}
+		})
+
+		It("creates a service binding", func() {
+			Expect(applierErr).NotTo(HaveOccurred())
+
+			Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+			_, _, listMsg := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+			Expect(listMsg).To(Equal(repositories.ListServiceInstanceMessage{
+				Names: []string{"service-name"},
+			}))
+
+			Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
+			_, _, createMsg := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
+			Expect(createMsg).To(Equal(repositories.CreateServiceBindingMessage{
+				ServiceInstanceGUID: "service-guid",
+				AppGUID:             "app-guid",
+				SpaceGUID:           "space-guid",
+			}))
+		})
+
+		When("the desired binding has its name specified", func() {
+			BeforeEach(func() {
+				appInfo.Services = []payloads.ManifestApplicationService{
+					{Name: "service-name", BindingName: tools.PtrTo("service-binding")},
+					{Name: "another-service-name"},
+				}
+			})
+
+			It("creates a named service binding", func() {
+				Expect(applierErr).NotTo(HaveOccurred())
+
+				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
+				_, _, createMsg := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
+				Expect(createMsg).To(Equal(repositories.CreateServiceBindingMessage{
+					Name:                tools.PtrTo("service-binding"),
+					ServiceInstanceGUID: "service-guid",
+					AppGUID:             "app-guid",
+					SpaceGUID:           "space-guid",
+				}))
+			})
+		})
+
+		When("listing service instances fails", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns(nil, errors.New("list-services-err"))
+			})
+
+			It("returns the error", func() {
+				Expect(applierErr).To(MatchError(ContainSubstring("list-services-err")))
+			})
+		})
+
+		When("creating the service binding fails", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("create-sb-err"))
+			})
+
+			It("returns the error", func() {
+				Expect(applierErr).To(MatchError(ContainSubstring("create-sb-err")))
+			})
+		})
+
+		When("the app is already bound to all the services in the manifest", func() {
+			BeforeEach(func() {
+				appState.ServiceBindings = map[string]repositories.ServiceBindingRecord{
+					"service-name":         {},
+					"another-service-name": {},
+				}
+			})
+
+			It("does not bind the app again", func() {
+				Expect(applierErr).NotTo(HaveOccurred())
+				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(BeZero())
 			})
 		})
 	})

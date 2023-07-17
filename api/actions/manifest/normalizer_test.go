@@ -46,6 +46,10 @@ var _ = Describe("Normalizer", func() {
 				Labels:      map[string]*string{"foo": tools.PtrTo("FOO")},
 				Annotations: map[string]*string{"bar": tools.PtrTo("BAR")},
 			},
+			Services: []payloads.ManifestApplicationService{{
+				Name:        "my-service",
+				BindingName: tools.PtrTo("my-binding"),
+			}},
 		}
 		appState = manifest.AppState{
 			App:       repositories.AppRecord{},
@@ -66,6 +70,10 @@ var _ = Describe("Normalizer", func() {
 			Expect(normalizedAppInfo.Env).To(Equal(appInfo.Env))
 			Expect(normalizedAppInfo.Buildpacks).To(Equal(appInfo.Buildpacks))
 			Expect(normalizedAppInfo.Metadata).To(Equal(appInfo.Metadata))
+			Expect(normalizedAppInfo.Services).To(Equal([]payloads.ManifestApplicationService{{
+				Name:        "my-service",
+				BindingName: tools.PtrTo("my-binding"),
+			}}))
 		})
 
 		When("no-route is set", func() {

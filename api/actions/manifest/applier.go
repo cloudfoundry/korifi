@@ -10,13 +10,16 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"golang.org/x/exp/maps"
 )
 
 type Applier struct {
-	appRepo     shared.CFAppRepository
-	domainRepo  shared.CFDomainRepository
-	processRepo shared.CFProcessRepository
-	routeRepo   shared.CFRouteRepository
+	appRepo             shared.CFAppRepository
+	domainRepo          shared.CFDomainRepository
+	processRepo         shared.CFProcessRepository
+	routeRepo           shared.CFRouteRepository
+	serviceInstanceRepo shared.CFServiceInstanceRepository
+	serviceBindingRepo  shared.CFServiceBindingRepository
 }
 
 func NewApplier(
@@ -24,12 +27,16 @@ func NewApplier(
 	domainRepo shared.CFDomainRepository,
 	processRepo shared.CFProcessRepository,
 	routeRepo shared.CFRouteRepository,
+	serviceInstanceRepo shared.CFServiceInstanceRepository,
+	serviceBindingRepo shared.CFServiceBindingRepository,
 ) *Applier {
 	return &Applier{
-		appRepo:     appRepo,
-		domainRepo:  domainRepo,
-		processRepo: processRepo,
-		routeRepo:   routeRepo,
+		appRepo:             appRepo,
+		domainRepo:          domainRepo,
+		processRepo:         processRepo,
+		routeRepo:           routeRepo,
+		serviceInstanceRepo: serviceInstanceRepo,
+		serviceBindingRepo:  serviceBindingRepo,
 	}
 }
 
@@ -43,7 +50,11 @@ func (a *Applier) Apply(ctx context.Context, authInfo authorization.Info, spaceG
 		return err
 	}
 
-	return a.applyRoutes(ctx, authInfo, appInfo, appState)
+	if err := a.applyRoutes(ctx, authInfo, appInfo, appState); err != nil {
+		return err
+	}
+
+	return a.applyServices(ctx, authInfo, appInfo, appState)
 }
 
 func (a *Applier) applyApp(
@@ -186,6 +197,46 @@ func (a *Applier) deleteAppDestination(ctx context.Context, authInfo authorizati
 	}
 
 	return route.Destinations, nil
+}
+
+func (a *Applier) applyServices(ctx context.Context, authInfo authorization.Info, appInfo payloads.ManifestApplication, appState AppState) error {
+	desiredServiceNames := map[string]bool{}
+	for _, s := range appInfo.Services {
+		desiredServiceNames[s.Name] = true
+	}
+	for serviceName := range appState.ServiceBindings {
+		delete(desiredServiceNames, serviceName)
+	}
+
+	if len(desiredServiceNames) == 0 {
+		return nil
+	}
+
+	serviceInstances, err := a.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{
+		Names: maps.Keys(desiredServiceNames),
+	})
+	if err != nil {
+		return err
+	}
+
+	serviceNameToServiceBinding := map[string]*string{}
+	for _, manifestService := range appInfo.Services {
+		serviceNameToServiceBinding[manifestService.Name] = manifestService.BindingName
+	}
+
+	for _, si := range serviceInstances {
+		_, err := a.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, repositories.CreateServiceBindingMessage{
+			Name:                serviceNameToServiceBinding[si.Name],
+			ServiceInstanceGUID: si.GUID,
+			AppGUID:             appState.App.GUID,
+			SpaceGUID:           appState.App.SpaceGUID,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func splitRoute(route string) (string, string, string) {
