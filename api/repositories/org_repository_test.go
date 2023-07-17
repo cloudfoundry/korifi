@@ -380,6 +380,9 @@ var _ = Describe("OrgRepository", func() {
 			})
 
 			When("the org is being deleted", func() {
+				// This case occurs briefly between the CFOrg starting to delete and the finalizer deleting
+				// the roles in the org namespace. Once the finalizer deletes the roles, we'll be in the
+				// "the user does not have a role binding in the org" case below
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
 						cfOrg.Finalizers = append(cfOrg.Finalizers, "foo")
@@ -396,8 +399,29 @@ var _ = Describe("OrgRepository", func() {
 		})
 
 		When("the user does not have a role binding in the org", func() {
-			It("errors", func() {
-				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			When("the org is not being deleted", func() {
+				It("errors", func() {
+					Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			When("the org is being deleted", func() {
+				// This case occurs in 2 situations:
+				//   1. The user never has access to the Org, but another user deleted it
+				//   2. The user had access to the Org, deleted it, but the CFOrg finalizer has already
+				//      deleted their role bindings
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
+						cfOrg.Finalizers = append(cfOrg.Finalizers, "foo")
+					})).To(Succeed())
+
+					Expect(k8sClient.Delete(ctx, cfOrg)).To(Succeed())
+				})
+
+				It("returns the deletion time", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+				})
 			})
 		})
 
