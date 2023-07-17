@@ -32,9 +32,9 @@ func E2EFailHandler(correlationId func() string) func(string, ...int) {
 		fmt.Fprintf(ginkgo.GinkgoWriter, "Fail Handler: failure correlation ID: %q\n", correlationId())
 
 		if len(callerSkip) > 0 {
-			callerSkip[0] = callerSkip[0] + 1
+			callerSkip[0] = callerSkip[0] + 2
 		} else {
-			callerSkip = []int{1}
+			callerSkip = []int{2}
 		}
 
 		defer func() {
