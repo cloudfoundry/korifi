@@ -243,18 +243,11 @@ func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.I
 }
 
 func (r *OrgRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, orgGUID string) (*time.Time, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	org, err := r.GetOrg(ctx, authInfo, orgGUID)
 	if err != nil {
-		return nil, fmt.Errorf("get-deleted-at failed to build user client: %w", err)
+		return nil, err
 	}
-
-	cfOrg := new(korifiv1alpha1.CFOrg)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: orgGUID}, cfOrg)
-	if err != nil {
-		return nil, apierrors.FromK8sError(err, OrgResourceType)
-	}
-
-	return cfOrgToOrgRecord(*cfOrg).DeletedAt, nil
+	return org.DeletedAt, nil
 }
 
 func cfOrgToOrgRecord(cfOrg korifiv1alpha1.CFOrg) OrgRecord {
