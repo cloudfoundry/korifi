@@ -24,9 +24,6 @@ var _ = Describe("Manifest payload", func() {
 					Applications: []ManifestApplication{{
 						Name:         "test-app",
 						DefaultRoute: true,
-						Memory:       nil,
-						DiskQuota:    nil,
-						Metadata:     MetadataPatch{},
 					}},
 				}
 			})
@@ -580,6 +577,37 @@ var _ = Describe("Manifest payload", func() {
 
 			It("returns a validation error", func() {
 				expectUnprocessableEntityError(validateErr, "route is not a valid route")
+			})
+		})
+	})
+
+	Describe("ManifestApplicationServices", func() {
+		var (
+			validateErr          error
+			testManifestServices ManifestApplicationService
+		)
+
+		BeforeEach(func() {
+			testManifestServices = ManifestApplicationService{
+				Name: "my-service",
+			}
+		})
+
+		JustBeforeEach(func() {
+			validateErr = validator.DecodeAndValidateYAMLPayload(createYAMLRequest(testManifestServices), &ManifestApplicationService{})
+		})
+
+		It("validates the struct", func() {
+			Expect(validateErr).NotTo(HaveOccurred())
+		})
+
+		When("name is not specified", func() {
+			BeforeEach(func() {
+				testManifestServices.Name = ""
+			})
+
+			It("returns a validation error", func() {
+				expectUnprocessableEntityError(validateErr, "name cannot be blank")
 			})
 		})
 	})

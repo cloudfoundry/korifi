@@ -16,13 +16,15 @@ import (
 
 var _ = Describe("StateCollector", func() {
 	var (
-		appRepo         *fake.CFAppRepository
-		domainRepo      *fake.CFDomainRepository
-		processRepo     *fake.CFProcessRepository
-		routeRepo       *fake.CFRouteRepository
-		stateCollector  manifest.StateCollector
-		appState        manifest.AppState
-		collectStateErr error
+		appRepo             *fake.CFAppRepository
+		domainRepo          *fake.CFDomainRepository
+		processRepo         *fake.CFProcessRepository
+		routeRepo           *fake.CFRouteRepository
+		serviceInstanceRepo *fake.CFServiceInstanceRepository
+		serviceBindingRepo  *fake.CFServiceBindingRepository
+		stateCollector      manifest.StateCollector
+		appState            manifest.AppState
+		collectStateErr     error
 	)
 
 	BeforeEach(func() {
@@ -30,11 +32,15 @@ var _ = Describe("StateCollector", func() {
 		domainRepo = new(fake.CFDomainRepository)
 		processRepo = new(fake.CFProcessRepository)
 		routeRepo = new(fake.CFRouteRepository)
+		serviceInstanceRepo = new(fake.CFServiceInstanceRepository)
+		serviceBindingRepo = new(fake.CFServiceBindingRepository)
 		stateCollector = manifest.NewStateCollector(
 			appRepo,
 			domainRepo,
 			processRepo,
 			routeRepo,
+			serviceInstanceRepo,
+			serviceBindingRepo,
 		)
 	})
 
@@ -43,29 +49,33 @@ var _ = Describe("StateCollector", func() {
 	})
 
 	Describe("app", func() {
-		It("returns an empty app", func() {
-			Expect(collectStateErr).NotTo(HaveOccurred())
-			Expect(appState.App).To(Equal(repositories.AppRecord{}))
-			Expect(appState.Processes).To(BeEmpty())
-			Expect(appState.Routes).To(BeEmpty())
+		BeforeEach(func() {
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{
+				Name:      "bob",
+				GUID:      "app-guid",
+				EtcdUID:   "etcd-guid",
+				SpaceGUID: "space-guid",
+			}, nil)
 		})
 
-		When("the app exists", func() {
+		It("sets the app record in the state", func() {
+			Expect(collectStateErr).NotTo(HaveOccurred())
+			Expect(appState.App.Name).To(Equal("bob"))
+			Expect(appState.App.GUID).To(Equal("app-guid"))
+			Expect(appState.App.EtcdUID).To(BeEquivalentTo("etcd-guid"))
+			Expect(appState.App.SpaceGUID).To(Equal("space-guid"))
+		})
+
+		When("the app does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{
-					Name:      "bob",
-					GUID:      "app-guid",
-					EtcdUID:   "etcd-guid",
-					SpaceGUID: "space-guid",
-				}, nil)
+				appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
 			})
 
-			It("sets the app record in the state", func() {
+			It("returns an empty app", func() {
 				Expect(collectStateErr).NotTo(HaveOccurred())
-				Expect(appState.App.Name).To(Equal("bob"))
-				Expect(appState.App.GUID).To(Equal("app-guid"))
-				Expect(appState.App.EtcdUID).To(BeEquivalentTo("etcd-guid"))
-				Expect(appState.App.SpaceGUID).To(Equal("space-guid"))
+				Expect(appState.App).To(Equal(repositories.AppRecord{}))
+				Expect(appState.Processes).To(BeEmpty())
+				Expect(appState.Routes).To(BeEmpty())
 			})
 		})
 
@@ -180,6 +190,69 @@ var _ = Describe("StateCollector", func() {
 			Expect(appState.Routes).To(Equal(map[string]repositories.RouteRecord{
 				"my-host.my.domain/my-path/foo": routes[0],
 				"another-host.my.domain":        routes[1],
+			}))
+		})
+	})
+
+	Describe("services", func() {
+		var serviceBindings []repositories.ServiceBindingRecord
+
+		BeforeEach(func() {
+			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{GUID: "app-guid"}, nil)
+			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "s-guid"}}, nil)
+			serviceBindings = []repositories.ServiceBindingRecord{
+				{GUID: "sb1-guid", ServiceInstanceGUID: "s-guid"},
+				{GUID: "sb2-guid", ServiceInstanceGUID: "s-guid"},
+			}
+			serviceBindingRepo.ListServiceBindingsReturns(serviceBindings, nil)
+		})
+
+		It("lists the services for the service bindings", func() {
+			Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
+			_, _, listMsg := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
+			Expect(listMsg.GUIDs).To(ConsistOf("s-guid"))
+		})
+
+		When("listing the services fails", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns(nil, errors.New("list-service-err"))
+			})
+
+			It("returns the error", func() {
+				Expect(collectStateErr).To(MatchError("list-service-err"))
+			})
+		})
+
+		It("lists the app service bindings", func() {
+			Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
+			_, _, listMessage := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
+			Expect(listMessage.AppGUIDs).To(ConsistOf("app-guid"))
+		})
+
+		When("listing the service bindings fails", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.ListServiceBindingsReturns(nil, errors.New("list-sb-error"))
+			})
+
+			It("returns the error", func() {
+				Expect(collectStateErr).To(MatchError("list-sb-error"))
+			})
+		})
+
+		When("the service instance cannot be found for a binding", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "wrong-guid"}}, nil)
+			})
+
+			It("returns an error", func() {
+				Expect(collectStateErr).To(MatchError(ContainSubstring("no service instance found")))
+			})
+		})
+
+		It("populates the service bindings map", func() {
+			Expect(collectStateErr).ToNot(HaveOccurred())
+			Expect(appState.ServiceBindings).To(Equal(map[string]repositories.ServiceBindingRecord{
+				"service-name": serviceBindings[1],
 			}))
 		})
 	})

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"regexp"
 
-	payload_validation "code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
@@ -41,8 +40,9 @@ type ManifestApplication struct {
 	Routes                       []ManifestRoute              `json:"routes" yaml:"routes"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
 	// Deprecated: Use Buildpacks instead
-	Buildpack string        `yaml:"buildpack"`
-	Metadata  MetadataPatch `yaml:"metadata"`
+	Buildpack string                       `json:"buildpack" yaml:"buildpack"`
+	Metadata  MetadataPatch                `json:"metadata" yaml:"metadata"`
+	Services  []ManifestApplicationService `json:"services" yaml:"services"`
 }
 
 // TODO: Why is kebab-case used everywhere anyway and we have a deprecated field that claims to use
@@ -62,6 +62,11 @@ type ManifestApplicationProcess struct {
 	Instances                    *int    `json:"instances" yaml:"instances"`
 	Memory                       *string `json:"memory" yaml:"memory"`
 	Timeout                      *int64  `json:"timeout" yaml:"timeout"`
+}
+
+type ManifestApplicationService struct {
+	Name        string  `json:"name" yaml:"name"`
+	BindingName *string `json:"binding_name" yaml:"binding_name"`
 }
 
 type ManifestRoute struct {
@@ -191,7 +196,7 @@ func (m Manifest) Validate() error {
 
 func (a ManifestApplication) Validate() error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.Name, payload_validation.StrictlyRequired),
+		validation.Field(&a.Name, validation.Required),
 		validation.Field(&a.DefaultRoute, validation.When(a.RandomRoute && a.DefaultRoute, validation.Nil.Error("and random-route may not be used together"))),
 		validation.Field(&a.DiskQuota, validation.By(validateAmountWithUnit), validation.When(a.AltDiskQuota != nil, validation.Nil.Error("and disk-quota may not be used together"))),
 		validation.Field(&a.AltDiskQuota, validation.By(validateAmountWithUnit)),
@@ -207,7 +212,7 @@ func (a ManifestApplication) Validate() error {
 
 func (p ManifestApplicationProcess) Validate() error {
 	return validation.ValidateStruct(&p,
-		validation.Field(&p.Type, payload_validation.StrictlyRequired),
+		validation.Field(&p.Type, validation.Required),
 		validation.Field(&p.DiskQuota, validation.By(validateAmountWithUnit), validation.When(p.AltDiskQuota != nil, validation.Nil.Error("and disk-quota may not be used together"))),
 		validation.Field(&p.AltDiskQuota, validation.By(validateAmountWithUnit)),
 		validation.Field(&p.HealthCheckInvocationTimeout, validation.Min(1), validation.NilOrNotEmpty.Error("must be no less than 1")),
@@ -224,6 +229,10 @@ func (m ManifestRoute) Validate() error {
 	)
 	return validation.ValidateStruct(&m,
 		validation.Field(&m.Route, validation.Match(routeRegex).Error("is not a valid route")))
+}
+
+func (s ManifestApplicationService) Validate() error {
+	return validation.ValidateStruct(&s, validation.Field(&s.Name, validation.Required))
 }
 
 var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|MB|G|GB|T|TB)$`)

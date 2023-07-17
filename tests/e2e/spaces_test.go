@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -370,18 +371,23 @@ var _ = Describe("Spaces", func() {
 
 	Describe("manifests", func() {
 		var (
-			spaceGUID          string
-			resultErr          cfErrs
-			manifestBytes      []byte
-			manifest           manifestResource
-			app1Name, app2Name string
+			spaceGUID                string
+			resultErr                cfErrs
+			manifestBytes            []byte
+			manifest                 manifestResource
+			app1Name, app2Name       string
+			serviceName, serviceGUID string
+			serviceBindingName       string
 		)
 
 		BeforeEach(func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
+			serviceName = uuid.NewString()
+			serviceGUID = createServiceInstance(spaceGUID, serviceName, map[string]string{})
 			app1Name = generateGUID("manifested-app-1")
 			app2Name = generateGUID("manifested-app-2")
+			serviceBindingName = uuid.NewString()
 
 			route := fmt.Sprintf("%s.%s", app1Name, appFQDN)
 			manifest = manifestResource{
@@ -396,6 +402,10 @@ var _ = Describe("Spaces", func() {
 						Labels:      map[string]string{"foo": "FOO"},
 						Annotations: map[string]string{"bar": "BAR"},
 					},
+					Services: []serviceResource{{
+						Name:        serviceName,
+						BindingName: serviceBindingName,
+					}},
 				}, {
 					Name: app2Name,
 					Processes: []manifestApplicationProcessResource{{
@@ -450,6 +460,27 @@ var _ = Describe("Spaces", func() {
 					app1Process := getProcess(app1GUID, "web")
 					Expect(app1Process.Instances).To(Equal(1))
 					Expect(app1Process.Command).To(Equal("whatever"))
+
+					app1ServiceBindings := getServiceBindingsForApp(app1GUID)
+					Expect(app1ServiceBindings).To(HaveLen(1))
+					Expect(app1ServiceBindings[0].Name).To(Equal(serviceBindingName))
+					Expect(app1ServiceBindings[0].Relationships["app"].Data.GUID).To(Equal(app1GUID))
+					Expect(app1ServiceBindings[0].Relationships["service_instance"].Data.GUID).To(Equal(serviceGUID))
+
+					app1Env := getAppEnv(app1GUID)
+					Expect(app1Env).To(
+						HaveKeyWithValue("system_env_json",
+							HaveKeyWithValue("VCAP_SERVICES",
+								HaveKeyWithValue("user-provided",
+									ContainElement(SatisfyAll(
+										HaveKeyWithValue("instance_guid", serviceGUID),
+										HaveKeyWithValue("instance_name", serviceName),
+										HaveKeyWithValue("binding_name", serviceBindingName),
+									)),
+								),
+							),
+						),
+					)
 
 					app2GUID := getAppGUIDFromName(app2Name)
 					Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
