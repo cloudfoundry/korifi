@@ -130,7 +130,8 @@ func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
 
 type ServiceInstanceList struct {
 	Names      string
-	SpaceGuids string
+	GUIDs      string
+	SpaceGUIDs string
 	OrderBy    string
 }
 
@@ -143,12 +144,13 @@ func (l ServiceInstanceList) Validate() error {
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
 		Names:      parse.ArrayParam(l.Names),
-		SpaceGuids: parse.ArrayParam(l.SpaceGuids),
+		SpaceGUIDs: parse.ArrayParam(l.SpaceGUIDs),
+		GUIDs:      parse.ArrayParam(l.GUIDs),
 	}
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "order_by", "per_page", "page"}
+	return []string{"names", "space_guids", "guids", "order_by", "per_page", "page"}
 }
 
 func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
@@ -157,7 +159,8 @@ func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
 
 func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
-	l.SpaceGuids = values.Get("space_guids")
+	l.SpaceGUIDs = values.Get("space_guids")
+	l.GUIDs = values.Get("guids")
 	l.OrderBy = values.Get("order_by")
 	return nil
 }

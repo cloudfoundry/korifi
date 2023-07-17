@@ -434,7 +434,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			When("the spaceGUID filter is set", func() {
 				BeforeEach(func() {
 					filters = repositories.ListServiceInstanceMessage{
-						SpaceGuids: []string{
+						SpaceGUIDs: []string{
 							cfServiceInstance2.Namespace,
 							cfServiceInstance3.Namespace,
 						},
@@ -443,6 +443,20 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				It("returns only records for the ServiceInstances within the matching spaces", func() {
 					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+					))
+				})
+			})
+
+			When("the serviceGUID filter is set", func() {
+				BeforeEach(func() {
+					filters = repositories.ListServiceInstanceMessage{
+						GUIDs: []string{cfServiceInstance1.Name, cfServiceInstance3.Name},
+					}
+				})
+				It("returns only records for the ServiceInstances within the matching spaces", func() {
+					Expect(serviceInstanceList).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
 					))
 				})
