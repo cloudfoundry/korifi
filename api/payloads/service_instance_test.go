@@ -20,7 +20,8 @@ var _ = Describe("ServiceInstanceList", func() {
 			Expect(*actualServiceInstanceList).To(Equal(expectedServiceInstanceList))
 		},
 		Entry("names", "names=name", payloads.ServiceInstanceList{Names: "name"}),
-		Entry("space_guids", "space_guids=space_guid", payloads.ServiceInstanceList{SpaceGuids: "space_guid"}),
+		Entry("space_guids", "space_guids=space_guid", payloads.ServiceInstanceList{SpaceGUIDs: "space_guid"}),
+		Entry("guids", "guids=guid", payloads.ServiceInstanceList{GUIDs: "guid"}),
 		Entry("created_at", "order_by=created_at", payloads.ServiceInstanceList{OrderBy: "created_at"}),
 		Entry("-created_at", "order_by=-created_at", payloads.ServiceInstanceList{OrderBy: "-created_at"}),
 		Entry("updated_at", "order_by=updated_at", payloads.ServiceInstanceList{OrderBy: "updated_at"}),

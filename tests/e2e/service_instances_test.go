@@ -154,12 +154,9 @@ var _ = Describe("Service Instances", func() {
 				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
-			It("succeeds", func() {
+			It("deletes the service instance", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusNoContent))
-			})
-
-			It("deletes the service instance", func() {
 				Expect(listServiceInstances().Resources).NotTo(ContainElement(
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal(existingInstanceName),
@@ -177,6 +174,57 @@ var _ = Describe("Service Instances", func() {
 			It("fails with 403 Forbidden", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusForbidden))
+			})
+		})
+	})
+
+	Describe("List", func() {
+		var (
+			anotherSpaceGUID     string
+			anotherInstanceGUID  string
+			serviceInstancesList resourceList[resource]
+		)
+
+		BeforeEach(func() {
+			anotherSpaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
+			anotherInstanceGUID = createServiceInstance(anotherSpaceGUID, generateGUID("service-instance"), nil)
+		})
+
+		JustBeforeEach(func() {
+			serviceInstancesList = resourceList[resource]{}
+			httpResp, httpError = certClient.R().SetResult(&serviceInstancesList).Get("/v3/service_instances")
+		})
+
+		It("does not return service instances in spaces the user is not permitted", func() {
+			Expect(httpError).NotTo(HaveOccurred())
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(serviceInstancesList.Resources).NotTo(ContainElements(
+				MatchFields(IgnoreExtras, Fields{
+					"GUID": Equal(existingInstanceGUID),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"GUID": Equal(anotherInstanceGUID),
+				}),
+			))
+		})
+
+		When("the user has permissions to list service instances", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", certUserName, spaceGUID)
+				createSpaceRole("space_developer", certUserName, anotherSpaceGUID)
+			})
+
+			It("lists the service instances", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(serviceInstancesList.Resources).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(existingInstanceGUID),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(anotherInstanceGUID),
+					}),
+				))
 			})
 		})
 	})

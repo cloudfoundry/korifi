@@ -77,7 +77,8 @@ func (p PatchServiceInstanceMessage) Apply(cfServiceInstance *korifiv1alpha1.CFS
 
 type ListServiceInstanceMessage struct {
 	Names      []string
-	SpaceGuids []string
+	SpaceGUIDs []string
+	GUIDs      []string
 }
 
 type DeleteServiceInstanceMessage struct {
@@ -198,9 +199,10 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 
 	preds := []func(korifiv1alpha1.CFServiceInstance) bool{
 		SetPredicate(message.Names, func(s korifiv1alpha1.CFServiceInstance) string { return s.Spec.DisplayName }),
+		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFServiceInstance) string { return s.Name }),
 	}
 
-	spaceGUIDSet := NewSet(message.SpaceGuids...)
+	spaceGUIDSet := NewSet(message.SpaceGUIDs...)
 	var filteredServiceInstances []korifiv1alpha1.CFServiceInstance
 	for ns := range nsList {
 		if len(spaceGUIDSet) > 0 && !spaceGUIDSet.Includes(ns) {

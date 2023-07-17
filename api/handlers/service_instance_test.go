@@ -169,7 +169,7 @@ var _ = Describe("ServiceInstance", func() {
 			_, actualAuthInfo, actualListMessage := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualListMessage.Names).To(BeEmpty())
-			Expect(actualListMessage.SpaceGuids).To(BeEmpty())
+			Expect(actualListMessage.SpaceGUIDs).To(BeEmpty())
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -186,7 +186,8 @@ var _ = Describe("ServiceInstance", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{
 					Names:      "sc1,sc2",
-					SpaceGuids: "space1,space2",
+					SpaceGUIDs: "space1,space2",
+					GUIDs:      "g1,g2",
 				})
 			})
 
@@ -195,7 +196,8 @@ var _ = Describe("ServiceInstance", func() {
 				_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
 
 				Expect(message.Names).To(ConsistOf("sc1", "sc2"))
-				Expect(message.SpaceGuids).To(ConsistOf("space1", "space2"))
+				Expect(message.SpaceGUIDs).To(ConsistOf("space1", "space2"))
+				Expect(message.GUIDs).To(ConsistOf("g1", "g2"))
 			})
 
 			It("correctly sets query parameters in response pagination links", func() {
