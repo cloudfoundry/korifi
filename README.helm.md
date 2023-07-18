@@ -17,8 +17,6 @@ Here are all the values that can be set for the chart:
   - `defaultAppDomainName` (_String_): Base domain name for application URLs.
   - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
   - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
-  - `jobs`:
-    - `image` (_String_): The image for the jobs containing kubectl
   - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
   - `reconcilers`:
     - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
@@ -79,6 +77,8 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `workloadsTLSSecret` (_String_): TLS secret used when setting up an app routes.
+- `helm`:
+  - `hooksImage` (_String_): Image for the helm hooks containing kubectl
 - `jobTaskRunner`:
   - `include` (_Boolean_): Deploy the `job-task-runner` component.
   - `jobTTL` (_String_): How long before the `Job` backing up a task is deleted after completion. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
