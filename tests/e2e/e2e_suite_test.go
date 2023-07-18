@@ -314,7 +314,13 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	defaultAppBitsFile = sharedSetup.DefaultAppBitsFile
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
 
-	SetDefaultEventuallyTimeout(240 * time.Second)
+	eventuallyTimeoutSeconds := 240
+	customEventuallyTimeoutSeconds := os.Getenv("E2E_EVENTUALLY_TIMEOUT_SECONDS")
+	if customEventuallyTimeoutSeconds != "" {
+		eventuallyTimeoutSeconds, err = strconv.Atoi(customEventuallyTimeoutSeconds)
+		Expect(err).NotTo(HaveOccurred())
+	}
+	SetDefaultEventuallyTimeout(time.Duration(eventuallyTimeoutSeconds) * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
