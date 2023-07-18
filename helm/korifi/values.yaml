@@ -8,6 +8,8 @@ global:
   - image-registry-credentials
   eksContainerRegistryRoleARN: ""
   containerRegistryCACertSecret:
+  jobs:
+    image: alpine/k8s:1.25.2
 
   reconcilers:
     build: kpack-image-builder

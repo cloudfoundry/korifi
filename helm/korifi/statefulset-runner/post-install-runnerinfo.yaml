@@ -28,7 +28,7 @@ spec:
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       containers:
       - name: post-install-create-runnerinfo
-        image: "alpine/k8s:1.25.2"
+        image: {{ .Values.global.jobs.image }}
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
