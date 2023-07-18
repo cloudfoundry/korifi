@@ -26,7 +26,7 @@ spec:
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       containers:
       - name: pre-delete-builderinfo
-        image: {{ .Values.global.jobs.image }}
+        image: {{ .Values.helm.hooksImage }}
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
