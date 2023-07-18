@@ -48,6 +48,8 @@ var _ = Describe("CFRouteValidator", func() {
 		getDomainError error
 		getAppError    error
 		retErr         error
+
+		getDomainCallCount int
 	)
 
 	BeforeEach(func() {
@@ -68,6 +70,7 @@ var _ = Describe("CFRouteValidator", func() {
 		rootNamespace = "root-ns"
 		getDomainError = nil
 		getAppError = nil
+		getDomainCallCount = 0
 
 		cfRoute = initializeRouteCR(testRouteProtocol, testRouteHost, testRoutePath, testRouteGUID, testRouteNamespace, testDomainGUID, testDomainNamespace)
 
@@ -88,6 +91,7 @@ var _ = Describe("CFRouteValidator", func() {
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFDomain:
+				getDomainCallCount++
 				cfDomain.DeepCopyInto(obj)
 				return getDomainError
 			case *korifiv1alpha1.CFApp:
@@ -119,6 +123,10 @@ var _ = Describe("CFRouteValidator", func() {
 			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'."))
 		})
 
+		It("validates that the domain exists", func() {
+			Expect(getDomainCallCount).To(Equal(1), "Expected get domain call count mismatch")
+		})
+
 		When("the host is '*'", func() {
 			BeforeEach(func() {
 				cfRoute.Spec.Host = "*"
@@ -126,6 +134,19 @@ var _ = Describe("CFRouteValidator", func() {
 
 			It("allows the request", func() {
 				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("retrieving the domain record fails", func() {
+			BeforeEach(func() {
+				getDomainError = errors.New("nope")
+			})
+
+			It("denies the request", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					ContainSubstring("Error while retrieving CFDomain object"),
+				))
 			})
 		})
 
@@ -305,6 +326,10 @@ var _ = Describe("CFRouteValidator", func() {
 			Expect(actualNamespace).To(Equal(rootNamespace))
 			Expect(oldResource).To(Equal(cfRoute))
 			Expect(newResource).To(Equal(updatedCFRoute))
+		})
+
+		It("does not validate that the domain exists", func() {
+			Expect(getDomainCallCount).To(Equal(0), "Expected get domain call count mismatch")
 		})
 
 		When("the route is being deleted", func() {

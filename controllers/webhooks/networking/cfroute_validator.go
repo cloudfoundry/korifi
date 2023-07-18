@@ -128,7 +128,7 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 		return nil, immutableError.ExportJSONError()
 	}
 
-	_, err := v.validateDestinations(ctx, route)
+	err := v.validateDestinations(ctx, route)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,12 @@ func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 }
 
 func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
-	domain, err := v.validateDestinations(ctx, route)
+	domain, err := v.fetchDomain(ctx, route)
+	if err != nil {
+		return domain, err
+	}
+
+	err = v.validateDestinations(ctx, route)
 	if err != nil {
 		return domain, err
 	}
@@ -176,12 +181,9 @@ func (v *CFRouteValidator) fetchDomain(ctx context.Context, route *korifiv1alpha
 	return domain, err
 }
 
-func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
-	domain, err := v.fetchDomain(ctx, route)
+func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *korifiv1alpha1.CFRoute) error {
+	err := v.checkDestinationsExistInNamespace(ctx, *route)
 	if err != nil {
-		return domain, err
-	}
-	if err = v.checkDestinationsExistInNamespace(ctx, *route); err != nil {
 		validationErr := webhooks.ValidationError{}
 
 		if apierrors.IsNotFound(err) {
@@ -193,9 +195,10 @@ func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *kori
 		}
 
 		logger.Info(validationErr.Message, "reason", err)
-		return domain, validationErr.ExportJSONError()
+		return validationErr.ExportJSONError()
 	}
-	return domain, nil
+
+	return nil
 }
 
 func validateFQDN(host, domain string) error {
