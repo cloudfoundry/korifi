@@ -17,6 +17,8 @@ Here are all the values that can be set for the chart:
   - `defaultAppDomainName` (_String_): Base domain name for application URLs.
   - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
   - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
+  - `jobs`:
+    - `image` (_String_): The image for the jobs containing kubectl
   - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
   - `reconcilers`:
     - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.

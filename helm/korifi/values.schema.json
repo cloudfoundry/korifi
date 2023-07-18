@@ -50,6 +50,15 @@
           "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
           "type": "string"
         },
+        "jobs": {
+          "properties": {
+            "image": {
+              "description": "The image for the jobs containing kubectl",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "reconcilers": {
           "type": "object",
           "properties": {
