@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -15,6 +16,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -456,6 +458,43 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 			})
 
+			When("filtered by label selector", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding1, func() {
+						serviceBinding1.Labels = map[string]string{"foo": "FOO1"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding2, func() {
+						serviceBinding2.Labels = map[string]string{"foo": "FOO2"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding3, func() {
+						serviceBinding3.Labels = map[string]string{"not_foo": "NOT_FOO"}
+					})).To(Succeed())
+				})
+
+				DescribeTable("valid label selectors",
+					func(selector string, serviceBindingGUIDPrefixes ...string) {
+						serviceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, repositories.ListServiceBindingsMessage{
+							LabelSelector: labelSelector(selector),
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						matchers := []any{}
+						for _, prefix := range serviceBindingGUIDPrefixes {
+							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
+						}
+
+						Expect(serviceBindings).To(ConsistOf(matchers...))
+					},
+					Entry("key", "foo", "binding-1", "binding-2"),
+					Entry("!key", "!foo", "binding-3"),
+					Entry("key=value", "foo=FOO1", "binding-1"),
+					Entry("key==value", "foo==FOO2", "binding-2"),
+					Entry("key!=value", "foo!=FOO1", "binding-2", "binding-3"),
+					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "binding-1", "binding-2"),
+					Entry("key notin (value1,value2)", "foo notin (FOO2)", "binding-1", "binding-3"),
+				)
+			})
+
 			When("filtered by multiple params", func() {
 				BeforeEach(func() {
 					requestMessage = repositories.ListServiceBindingsMessage{
@@ -644,3 +683,10 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 	})
 })
+
+func labelSelector(s string) labels.Selector {
+	requirements, err := labels.ParseToRequirements(s)
+	Expect(err).NotTo(HaveOccurred())
+
+	return labels.NewSelector().Add(requirements...)
+}

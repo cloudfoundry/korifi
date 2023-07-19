@@ -716,6 +716,20 @@ func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
 	return serviceCredentialBinding.GUID
 }
 
+func addServiceBindingLabels(bindingGUID string, labels map[string]string) {
+	var respResource responseResource
+	resp, err := adminClient.R().
+		SetBody(metadataResource{
+			Metadata: &metadataPatch{
+				Labels: &labels,
+			},
+		}).
+		SetResult(&respResource).
+		Patch("/v3/service_credential_bindings/" + bindingGUID)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+}
+
 func createPackage(appGUID string) string {
 	GinkgoHelper()
 
