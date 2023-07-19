@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -84,6 +85,7 @@ type DeleteServiceBindingMessage struct {
 type ListServiceBindingsMessage struct {
 	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
+	LabelSelector        labels.Selector
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
@@ -270,7 +272,7 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 	var filteredServiceBindings []korifiv1alpha1.CFServiceBinding
 	for ns := range nsList {
 		serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-		err = userClient.List(ctx, serviceBindingList, client.InNamespace(ns))
+		err = userClient.List(ctx, serviceBindingList, client.InNamespace(ns), &client.ListOptions{LabelSelector: message.LabelSelector})
 		if k8serrors.IsForbidden(err) {
 			continue
 		}

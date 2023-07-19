@@ -1,9 +1,11 @@
 package e2e_test
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -139,12 +141,17 @@ var _ = Describe("Service Bindings", func() {
 
 	Describe("GET /v3/service_credential_bindings", func() {
 		var (
-			queryString string
-			result      resourceListWithInclusion
+			anotherInstanceGUID string
+			anotherBindingGUID  string
+			queryString         string
+			result              resourceListWithInclusion
 		)
 
 		BeforeEach(func() {
 			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
+
+			anotherInstanceGUID = createServiceInstance(spaceGUID, generateGUID("another-service-instance"), nil)
+			anotherBindingGUID = createServiceBinding(appGUID, anotherInstanceGUID, "")
 
 			queryString = ""
 			result = resourceListWithInclusion{}
@@ -170,8 +177,9 @@ var _ = Describe("Service Bindings", func() {
 			It("succeeds", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(ContainElement(
+				Expect(result.Resources).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherBindingGUID)}),
 				))
 			})
 		})
@@ -184,7 +192,10 @@ var _ = Describe("Service Bindings", func() {
 			It("succeeds", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).NotTo(BeEmpty())
+				Expect(result.Resources).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherBindingGUID)}),
+				))
 			})
 
 			It("doesn't return anything in the 'included' list", func() {
@@ -203,6 +214,22 @@ var _ = Describe("Service Bindings", func() {
 					Expect(result.Included).NotTo(BeNil())
 					Expect(result.Included.Apps).To(ContainElement(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(appGUID)}),
+					))
+				})
+			})
+
+			When("label selector is specified on the search query", func() {
+				var label string
+
+				BeforeEach(func() {
+					label = uuid.NewString()
+					queryString = fmt.Sprintf(`?label_selector=%s`, label)
+					addServiceBindingLabels(bindingGUID, map[string]string{label: "whatever"})
+				})
+
+				It("only returns the bindings that have that label", func() {
+					Expect(result.Resources).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
 					))
 				})
 			})
