@@ -126,9 +126,7 @@ function ensure_local_registry() {
 function install_dependencies() {
   pushd "${ROOT_DIR}" >/dev/null
   {
-    export INSECURE_TLS_METRICS_SERVER=true
-
-    "${SCRIPT_DIR}/install-dependencies.sh"
+    "${SCRIPT_DIR}/install-dependencies.sh" -i
   }
   popd >/dev/null
 }
@@ -192,9 +190,16 @@ EOF
 }
 
 function create_registry_secret() {
+  local docker_server="$DOCKER_SERVER"
+
+  # docker hub is very picky about its server name
+  if [ "$docker_server" == "" ] || [ "$docker_server" == "index.docker.io" ]; then
+    docker_server="https://index.docker.io/v1/"
+  fi
+
   kubectl delete -n cf secret image-registry-credentials --ignore-not-found
   kubectl create secret -n cf docker-registry image-registry-credentials \
-    --docker-server="$DOCKER_SERVER" \
+    --docker-server="$docker_server" \
     --docker-username="$DOCKER_USERNAME" \
     --docker-password="$DOCKER_PASSWORD"
 }
