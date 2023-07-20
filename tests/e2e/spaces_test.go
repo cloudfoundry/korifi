@@ -615,4 +615,30 @@ var _ = Describe("Spaces", func() {
 			})
 		})
 	})
+
+	Describe("get", func() {
+		var (
+			spaceGUID string
+			result    resource
+		)
+
+		BeforeEach(func() {
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
+
+			restyClient = adminClient
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetResult(&result).
+				Get("/v3/spaces/" + spaceGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the space", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(spaceGUID))
+		})
+	})
 })

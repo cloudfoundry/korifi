@@ -343,4 +343,51 @@ var _ = Describe("Space", func() {
 			})
 		})
 	})
+
+	Describe("get a space", func() {
+		BeforeEach(func() {
+			requestMethod = http.MethodGet
+			requestPath += "/the-space-guid"
+
+			spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
+				Name: "space-name",
+				GUID: "space-guid",
+			}, nil)
+		})
+
+		It("gets the space", func() {
+			Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
+			_, info, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
+			Expect(actualSpaceGUID).To(Equal("the-space-guid"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "space-guid"),
+				MatchJSONPath("$.name", "space-name"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/spaces/space-guid"),
+			)))
+		})
+
+		When("getting the space is forbidden", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(nil, repositories.SpaceResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.SpaceResourceType)
+			})
+		})
+
+		When("getting the space fails", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("get-space-err"))
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+	})
 })
