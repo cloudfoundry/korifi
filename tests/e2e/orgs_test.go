@@ -372,4 +372,25 @@ var _ = Describe("Orgs", func() {
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
 	})
+
+	Describe("get", func() {
+		var result resource
+
+		BeforeEach(func() {
+			restyClient = adminClient
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetResult(&result).
+				Get("/v3/organizations/" + commonTestOrgGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the org", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(commonTestOrgGUID))
+		})
+	})
 })
