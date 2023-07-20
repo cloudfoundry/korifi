@@ -22,5 +22,6 @@ jobTaskRunner:
   jobTTL: 5s
 
 kpackImageBuilder:
-  clusterStackBuildImage: paketobuildpacks/build:base-cnb
-  clusterStackRunImage: paketobuildpacks/run:base-cnb
+  clusterStackID: io.buildpacks.stacks.jammy
+  clusterStackBuildImage: paketobuildpacks/build-jammy-base
+  clusterStackRunImage: paketobuildpacks/run-jammy-base
