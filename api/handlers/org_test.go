@@ -506,4 +506,54 @@ var _ = Describe("Org", func() {
 			})
 		})
 	})
+
+	Describe("get an org", func() {
+		BeforeEach(func() {
+			orgRepo.GetOrgReturns(repositories.OrgRecord{
+				Name: "org-name",
+				GUID: "org-guid",
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			request, err := http.NewRequestWithContext(ctx, http.MethodGet, "/v3/organizations/org-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, request)
+		})
+
+		It("gets the org", func() {
+			Expect(orgRepo.GetOrgCallCount()).To(Equal(1))
+			_, info, actualOrgGUID := orgRepo.GetOrgArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
+			Expect(actualOrgGUID).To(Equal("org-guid"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "org-guid"),
+				MatchJSONPath("$.name", "org-name"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/organizations/org-guid"),
+			)))
+		})
+
+		When("getting the org is forbidden", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, apierrors.NewForbiddenError(nil, repositories.OrgResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.OrgResourceType)
+			})
+		})
+
+		When("getting the org fails", func() {
+			BeforeEach(func() {
+				orgRepo.GetOrgReturns(repositories.OrgRecord{}, errors.New("get-org-err"))
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+	})
 })

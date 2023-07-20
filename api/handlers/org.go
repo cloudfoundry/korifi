@@ -181,6 +181,20 @@ func (h *Org) defaultDomain(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.apiBaseURL)), nil
 }
 
+func (h *Org) get(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.get")
+
+	orgGUID := routing.URLParam(r, "guid")
+
+	org, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get org", "OrgGUID", orgGUID)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForOrg(org, h.apiBaseURL)), nil
+}
+
 func (h *Org) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -193,6 +207,7 @@ func (h *Org) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: OrgPath, Handler: h.update},
 		{Method: "GET", Pattern: OrgDomainsPath, Handler: h.listDomains},
 		{Method: "GET", Pattern: OrgDefaultDomainPath, Handler: h.defaultDomain},
+		{Method: "GET", Pattern: OrgPath, Handler: h.get},
 	}
 }
 
