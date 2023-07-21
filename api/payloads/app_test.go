@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 var _ = Describe("AppList", func() {
@@ -19,17 +20,24 @@ var _ = Describe("AppList", func() {
 				Expect(*actualAppList).To(Equal(expectedAppList))
 			},
 
-			Entry("names", "names=name", payloads.AppList{Names: "name"}),
-			Entry("guids", "guids=guid", payloads.AppList{GUIDs: "guid"}),
-			Entry("space_guids", "space_guids=space_guid", payloads.AppList{SpaceGuids: "space_guid"}),
-			Entry("order_by created_at", "order_by=created_at", payloads.AppList{OrderBy: "created_at"}),
-			Entry("order_by -created_at", "order_by=-created_at", payloads.AppList{OrderBy: "-created_at"}),
-			Entry("order_by updated_at", "order_by=updated_at", payloads.AppList{OrderBy: "updated_at"}),
-			Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppList{OrderBy: "-updated_at"}),
-			Entry("order_by name", "order_by=name", payloads.AppList{OrderBy: "name"}),
-			Entry("order_by -name", "order_by=-name", payloads.AppList{OrderBy: "-name"}),
-			Entry("order_by state", "order_by=state", payloads.AppList{OrderBy: "state"}),
-			Entry("order_by -state", "order_by=-state", payloads.AppList{OrderBy: "-state"}),
+			Entry("names", "names=name", payloads.AppList{Names: "name", LabelSelector: labels.Everything()}),
+			Entry("guids", "guids=guid", payloads.AppList{GUIDs: "guid", LabelSelector: labels.Everything()}),
+			Entry("space_guids", "space_guids=space_guid", payloads.AppList{SpaceGuids: "space_guid", LabelSelector: labels.Everything()}),
+			Entry("order_by created_at", "order_by=created_at", payloads.AppList{OrderBy: "created_at", LabelSelector: labels.Everything()}),
+			Entry("order_by -created_at", "order_by=-created_at", payloads.AppList{OrderBy: "-created_at", LabelSelector: labels.Everything()}),
+			Entry("order_by updated_at", "order_by=updated_at", payloads.AppList{OrderBy: "updated_at", LabelSelector: labels.Everything()}),
+			Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppList{OrderBy: "-updated_at", LabelSelector: labels.Everything()}),
+			Entry("order_by name", "order_by=name", payloads.AppList{OrderBy: "name", LabelSelector: labels.Everything()}),
+			Entry("order_by -name", "order_by=-name", payloads.AppList{OrderBy: "-name", LabelSelector: labels.Everything()}),
+			Entry("order_by state", "order_by=state", payloads.AppList{OrderBy: "state", LabelSelector: labels.Everything()}),
+			Entry("order_by -state", "order_by=-state", payloads.AppList{OrderBy: "-state", LabelSelector: labels.Everything()}),
+			Entry("label_selector=foo", "label_selector=foo", payloads.AppList{LabelSelector: parseLabelSelector("foo")}),
+			Entry("label_selector=!foo", "label_selector=!foo", payloads.AppList{LabelSelector: parseLabelSelector("!foo")}),
+			Entry("label_selector=foo=bar", "label_selector=foo=bar", payloads.AppList{LabelSelector: parseLabelSelector("foo=bar")}),
+			Entry("label_selector=foo==bar", "label_selector=foo==bar", payloads.AppList{LabelSelector: parseLabelSelector("foo==bar")}),
+			Entry("label_selector=foo!=bar", "label_selector=foo!=bar", payloads.AppList{LabelSelector: parseLabelSelector("foo!=bar")}),
+			Entry("label_selector=foo in (bar1,bar2)", "label_selector=foo in (bar1,bar2)", payloads.AppList{LabelSelector: parseLabelSelector("foo in (bar1, bar2)")}),
+			Entry("label_selector=foo notin (bar1,bar2)", "label_selector=foo notin (bar1,bar2)", payloads.AppList{LabelSelector: parseLabelSelector("foo notin (bar1, bar2)")}),
 		)
 
 		DescribeTable("invalid query",
@@ -43,16 +51,19 @@ var _ = Describe("AppList", func() {
 
 	Describe("ToMessage", func() {
 		It("translates to repository message", func() {
+			labelSelector := parseLabelSelector("foo=bar")
 			appList := payloads.AppList{
-				Names:      "n1,n2",
-				GUIDs:      "g1,g2",
-				SpaceGuids: "s1,s2",
-				OrderBy:    "created_at",
+				Names:         "n1,n2",
+				GUIDs:         "g1,g2",
+				SpaceGuids:    "s1,s2",
+				OrderBy:       "created_at",
+				LabelSelector: labelSelector,
 			}
 			Expect(appList.ToMessage()).To(Equal(repositories.ListAppsMessage{
-				Names:      []string{"n1", "n2"},
-				Guids:      []string{"g1", "g2"},
-				SpaceGuids: []string{"s1", "s2"},
+				Names:         []string{"n1", "n2"},
+				Guids:         []string{"g1", "g2"},
+				SpaceGuids:    []string{"s1", "s2"},
+				LabelSelector: labelSelector,
 			}))
 		})
 	})

@@ -9,11 +9,13 @@ import (
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -50,7 +52,7 @@ var _ = Describe("AppRepository", func() {
 		cfOrg = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(testCtx, cfOrg.Name, prefixedGUID("space1"))
 
-		cfApp = createApp(cfSpace.Name)
+		cfApp = createAppWithGUID(cfSpace.Name, testutils.PrefixedGUID("cfapp1-"))
 	})
 
 	Describe("GetApp", func() {
@@ -238,7 +240,7 @@ var _ = Describe("AppRepository", func() {
 			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 
-			cfApp2 = createApp(space2.Name)
+			cfApp2 = createAppWithGUID(space2.Name, testutils.PrefixedGUID("cfapp2-"))
 			createApp(space3.Name)
 		})
 
@@ -286,7 +288,7 @@ var _ = Describe("AppRepository", func() {
 			var cfApp12 *korifiv1alpha1.CFApp
 
 			BeforeEach(func() {
-				cfApp12 = createApp(cfSpace.Name)
+				cfApp12 = createAppWithGUID(cfSpace.Name, testutils.PrefixedGUID("cfapp12-"))
 			})
 
 			Describe("filtering by name", func() {
@@ -397,6 +399,43 @@ var _ = Describe("AppRepository", func() {
 						Expect(appList[0].GUID).To(Equal(cfApp12.Name))
 					})
 				})
+			})
+
+			Describe("filtering by label selector", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Labels = map[string]string{"foo": "FOO1"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp2, func() {
+						cfApp2.Labels = map[string]string{"foo": "FOO2"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp12, func() {
+						cfApp12.Labels = map[string]string{"not_foo": "NOT_FOO"}
+					})).To(Succeed())
+				})
+
+				DescribeTable("valid label selectors",
+					func(selector string, appGUIDPrefixes ...string) {
+						serviceBindings, err := appRepo.ListApps(context.Background(), authInfo, repositories.ListAppsMessage{
+							LabelSelector: labelSelector(selector),
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						matchers := []any{}
+						for _, prefix := range appGUIDPrefixes {
+							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
+						}
+
+						Expect(serviceBindings).To(ConsistOf(matchers...))
+					},
+					Entry("key", "foo", "cfapp1-", "cfapp2-"),
+					Entry("!key", "!foo", "cfapp12-"),
+					Entry("key=value", "foo=FOO1", "cfapp1-"),
+					Entry("key==value", "foo==FOO2", "cfapp2-"),
+					Entry("key!=value", "foo!=FOO1", "cfapp2-", "cfapp12-"),
+					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "cfapp1-", "cfapp2-"),
+					Entry("key notin (value1,value2)", "foo notin (FOO2)", "cfapp1-", "cfapp12-"),
+				)
 			})
 		})
 	})

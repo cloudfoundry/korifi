@@ -21,6 +21,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -168,9 +169,10 @@ type SetAppDesiredStateMessage struct {
 }
 
 type ListAppsMessage struct {
-	Names      []string
-	Guids      []string
-	SpaceGuids []string
+	Names         []string
+	Guids         []string
+	SpaceGuids    []string
+	LabelSelector labels.Selector
 }
 
 type byName []AppRecord
@@ -323,7 +325,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		}
 
 		appList := &korifiv1alpha1.CFAppList{}
-		err := userClient.List(ctx, appList, client.InNamespace(ns))
+		err := userClient.List(ctx, appList, client.InNamespace(ns), &client.ListOptions{LabelSelector: message.LabelSelector})
 
 		if k8serrors.IsForbidden(err) {
 			continue
