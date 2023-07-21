@@ -62,6 +62,13 @@ test-tools:
 test-e2e: build-dorifi
 	./scripts/run-tests.sh tests/e2e
 
+test-crds: build-dorifi
+	./tests/crds/run-tests.sh
+
+test-smoke: build-dorifi
+	./tests/smoke/run-tests.sh
+
+
 build-dorifi:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dorifi/dorifi -C tests/assets/golang .
 

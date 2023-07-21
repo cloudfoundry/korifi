@@ -80,7 +80,3 @@ func GetDefaultedEnvVar(envVarName, defaultValue string) string {
 	}
 	return value
 }
-
-func getSpaceName() string {
-	return spaceName
-}
