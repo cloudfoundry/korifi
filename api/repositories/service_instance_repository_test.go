@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -372,9 +373,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
 			)).To(Succeed())
 
-			cfServiceInstance1 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "service-instance-1", prefixedGUID("secret"))
-			cfServiceInstance2 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space2.Name, "service-instance-2", prefixedGUID("secret"))
-			cfServiceInstance3 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space3.Name, "service-instance-3", prefixedGUID("secret"))
+			cfServiceInstance1 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-1"), space.Name, "service-instance-1", prefixedGUID("secret"))
+			cfServiceInstance2 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-2"), space2.Name, "service-instance-2", prefixedGUID("secret"))
+			cfServiceInstance3 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-3"), space3.Name, "service-instance-3", prefixedGUID("secret"))
 			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), nonCFNamespace, "service-instance-4", prefixedGUID("secret"))
 
 			filters = repositories.ListServiceInstanceMessage{}
@@ -460,6 +461,43 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
 					))
 				})
+			})
+
+			When("filtered by label selector", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance1, func() {
+						cfServiceInstance1.Labels = map[string]string{"foo": "FOO1"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance2, func() {
+						cfServiceInstance2.Labels = map[string]string{"foo": "FOO2"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance3, func() {
+						cfServiceInstance3.Labels = map[string]string{"not_foo": "NOT_FOO"}
+					})).To(Succeed())
+				})
+
+				DescribeTable("valid label selectors",
+					func(selector string, serviceBindingGUIDPrefixes ...string) {
+						serviceInstances, err := serviceInstanceRepo.ListServiceInstances(context.Background(), authInfo, repositories.ListServiceInstanceMessage{
+							LabelSelector: labelSelector(selector),
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						matchers := []any{}
+						for _, prefix := range serviceBindingGUIDPrefixes {
+							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
+						}
+
+						Expect(serviceInstances).To(ConsistOf(matchers...))
+					},
+					Entry("key", "foo", "service-instance-1", "service-instance-2"),
+					Entry("!key", "!foo", "service-instance-3"),
+					Entry("key=value", "foo=FOO1", "service-instance-1"),
+					Entry("key==value", "foo==FOO2", "service-instance-2"),
+					Entry("key!=value", "foo!=FOO1", "service-instance-2", "service-instance-3"),
+					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "service-instance-1", "service-instance-2"),
+					Entry("key notin (value1,value2)", "foo notin (FOO2)", "service-instance-1", "service-instance-3"),
+				)
 			})
 		})
 	})

@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	jellidation "github.com/jellydator/validation"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type ServiceInstanceCreate struct {
@@ -129,10 +130,11 @@ func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
 }
 
 type ServiceInstanceList struct {
-	Names      string
-	GUIDs      string
-	SpaceGUIDs string
-	OrderBy    string
+	Names         string
+	GUIDs         string
+	SpaceGUIDs    string
+	OrderBy       string
+	LabelSelector labels.Selector
 }
 
 func (l ServiceInstanceList) Validate() error {
@@ -143,14 +145,15 @@ func (l ServiceInstanceList) Validate() error {
 
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
-		Names:      parse.ArrayParam(l.Names),
-		SpaceGUIDs: parse.ArrayParam(l.SpaceGUIDs),
-		GUIDs:      parse.ArrayParam(l.GUIDs),
+		Names:         parse.ArrayParam(l.Names),
+		SpaceGUIDs:    parse.ArrayParam(l.SpaceGUIDs),
+		GUIDs:         parse.ArrayParam(l.GUIDs),
+		LabelSelector: l.LabelSelector,
 	}
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "guids", "order_by", "per_page", "page"}
+	return []string{"names", "space_guids", "guids", "order_by", "per_page", "page", "label_selector"}
 }
 
 func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
@@ -162,5 +165,12 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.SpaceGUIDs = values.Get("space_guids")
 	l.GUIDs = values.Get("guids")
 	l.OrderBy = values.Get("order_by")
+
+	labelSelectorRequirements, err := labels.ParseToRequirements(values.Get("label_selector"))
+	if err != nil {
+		return err
+	}
+
+	l.LabelSelector = labels.NewSelector().Add(labelSelectorRequirements...)
 	return nil
 }
