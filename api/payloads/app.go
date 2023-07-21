@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	jellidation "github.com/jellydator/validation"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // DefaultLifecycleConfig is overwritten by main.go
@@ -81,10 +82,11 @@ func (d AppSetCurrentDroplet) Validate() error {
 }
 
 type AppList struct {
-	Names      string
-	GUIDs      string
-	SpaceGuids string
-	OrderBy    string
+	Names         string
+	GUIDs         string
+	SpaceGuids    string
+	OrderBy       string
+	LabelSelector labels.Selector
 }
 
 func (a AppList) Validate() error {
@@ -95,14 +97,15 @@ func (a AppList) Validate() error {
 
 func (a *AppList) ToMessage() repositories.ListAppsMessage {
 	return repositories.ListAppsMessage{
-		Names:      parse.ArrayParam(a.Names),
-		Guids:      parse.ArrayParam(a.GUIDs),
-		SpaceGuids: parse.ArrayParam(a.SpaceGuids),
+		Names:         parse.ArrayParam(a.Names),
+		Guids:         parse.ArrayParam(a.GUIDs),
+		SpaceGuids:    parse.ArrayParam(a.SpaceGuids),
+		LabelSelector: a.LabelSelector,
 	}
 }
 
 func (a *AppList) SupportedKeys() []string {
-	return []string{"names", "guids", "space_guids", "order_by", "per_page", "page"}
+	return []string{"names", "guids", "space_guids", "order_by", "per_page", "page", "label_selector"}
 }
 
 func (a *AppList) DecodeFromURLValues(values url.Values) error {
@@ -110,6 +113,14 @@ func (a *AppList) DecodeFromURLValues(values url.Values) error {
 	a.GUIDs = values.Get("guids")
 	a.SpaceGuids = values.Get("space_guids")
 	a.OrderBy = values.Get("order_by")
+
+	labelSelectorRequirements, err := labels.ParseToRequirements(values.Get("label_selector"))
+	if err != nil {
+		return err
+	}
+
+	a.LabelSelector = labels.NewSelector().Add(labelSelectorRequirements...)
+
 	return nil
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -35,9 +36,12 @@ var _ = Describe("Apps", func() {
 			app1GUID, app2GUID, app3GUID string
 			app4GUID, app5GUID, app6GUID string
 			result                       resourceList[resource]
+			query                        string
 		)
 
 		BeforeEach(func() {
+			query = ""
+
 			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
 			space3GUID = createSpace(generateGUID("space3"), commonTestOrgGUID)
 
@@ -59,7 +63,7 @@ var _ = Describe("Apps", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps")
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps" + query)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -77,6 +81,23 @@ var _ = Describe("Apps", func() {
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app3GUID)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app4GUID)}),
 			))
+		})
+
+		When("filtering by label selector", func() {
+			BeforeEach(func() {
+				label := uuid.NewString()
+				addAppLabels(app1GUID, map[string]string{label: ""})
+
+				query = "?label_selector=" + label
+			})
+
+			It("lists apps with matching labels", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+				Expect(result.Resources).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(app1GUID)}),
+				))
+			})
 		})
 	})
 

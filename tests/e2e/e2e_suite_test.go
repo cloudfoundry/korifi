@@ -734,6 +734,12 @@ func addServiceInstanceLabels(serviceInstanceGUID string, labels map[string]stri
 	addLabels("/v3/service_instances/"+serviceInstanceGUID, labels)
 }
 
+func addAppLabels(appGUID string, labels map[string]string) {
+	GinkgoHelper()
+
+	addLabels("/v3/apps/"+appGUID, labels)
+}
+
 func addLabels(resourcePath string, labels map[string]string) {
 	GinkgoHelper()
 

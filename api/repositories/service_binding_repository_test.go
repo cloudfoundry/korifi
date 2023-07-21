@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -683,10 +682,3 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 	})
 })
-
-func labelSelector(s string) labels.Selector {
-	requirements, err := labels.ParseToRequirements(s)
-	Expect(err).NotTo(HaveOccurred())
-
-	return labels.NewSelector().Add(requirements...)
-}
