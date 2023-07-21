@@ -37,7 +37,7 @@ generate-fakes:
 
 fmt: install-gofumpt install-shfmt
 	$(GOFUMPT) -w .
-	$(SHFMT) -f . | grep -v '^tests/vendor' | grep -v '^tests/e2e/assets/vendored' | xargs $(SHFMT) -w -i 2 -ci
+	$(SHFMT) -f . | grep -v '^tests/vendor' | xargs $(SHFMT) -w -i 2 -ci
 
 vet: ## Run go vet against code.
 	go vet ./...
@@ -63,7 +63,7 @@ test-e2e: build-dorifi
 	./scripts/run-tests.sh tests/e2e
 
 build-dorifi:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dorifi/dorifi -C tests/e2e/assets/golang .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dorifi/dorifi -C tests/assets/golang .
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:
