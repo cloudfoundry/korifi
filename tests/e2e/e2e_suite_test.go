@@ -302,8 +302,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
 		// with a different app in these environments.
 		// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-		DefaultAppBitsFile:      zipAsset(getEnv("DEFAULT_APP_BITS_PATH", "assets/dorifi")),
-		MultiProcessAppBitsFile: zipAsset("assets/multi-process"),
+		DefaultAppBitsFile:      zipAsset(getEnv("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
+		MultiProcessAppBitsFile: zipAsset("../assets/multi-process"),
 	}
 
 	bs, err := json.Marshal(sharedData)

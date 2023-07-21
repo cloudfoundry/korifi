@@ -112,7 +112,7 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(cf.Cf("target", "-o", orgDisplayName, "-s", spaceDisplayName)).Should(Exit(0))
 
 		Eventually(
-			cf.Cf("push", PrefixedGUID("crds-test-app"), "-p", "../smoke/assets/test-node-app", "--no-start"), // This could be any app
+			cf.Cf("push", PrefixedGUID("crds-test-app"), "-p", "../assets/dorifi", "--no-start"), // This could be any app
 			"20s",
 		).Should(Exit(0))
 	})
