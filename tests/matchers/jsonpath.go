@@ -29,8 +29,13 @@ func MatchJSONPath(path string, expected any) *JSONPathMatcher {
 }
 
 func (m *JSONPathMatcher) Match(actual interface{}) (bool, error) {
-	bs, ok := actual.([]byte)
-	if !ok {
+	var bs []byte
+	switch a := actual.(type) {
+	case []byte:
+		bs = a
+	case string:
+		bs = []byte(a)
+	default:
 		return false, fmt.Errorf("found %T, expected []byte", actual)
 	}
 
