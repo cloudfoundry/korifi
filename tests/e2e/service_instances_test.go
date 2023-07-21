@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -183,16 +184,18 @@ var _ = Describe("Service Instances", func() {
 			anotherSpaceGUID     string
 			anotherInstanceGUID  string
 			serviceInstancesList resourceList[resource]
+			queryString          string
 		)
 
 		BeforeEach(func() {
+			queryString = ""
 			anotherSpaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 			anotherInstanceGUID = createServiceInstance(anotherSpaceGUID, generateGUID("service-instance"), nil)
 		})
 
 		JustBeforeEach(func() {
 			serviceInstancesList = resourceList[resource]{}
-			httpResp, httpError = certClient.R().SetResult(&serviceInstancesList).Get("/v3/service_instances")
+			httpResp, httpError = certClient.R().SetResult(&serviceInstancesList).Get("/v3/service_instances" + queryString)
 		})
 
 		It("does not return service instances in spaces the user is not permitted", func() {
@@ -225,6 +228,24 @@ var _ = Describe("Service Instances", func() {
 						"GUID": Equal(anotherInstanceGUID),
 					}),
 				))
+			})
+
+			When("label selector is specified on the search query", func() {
+				BeforeEach(func() {
+					label := uuid.NewString()
+					queryString = "?label_selector=" + label
+					addServiceInstanceLabels(existingInstanceGUID, map[string]string{label: ""})
+				})
+
+				It("lists service instances matching the label selector", func() {
+					Expect(httpError).NotTo(HaveOccurred())
+					Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+					Expect(serviceInstancesList.Resources).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID": Equal(existingInstanceGUID),
+						}),
+					))
+				})
 			})
 		})
 	})

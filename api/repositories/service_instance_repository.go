@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -76,9 +77,10 @@ func (p PatchServiceInstanceMessage) Apply(cfServiceInstance *korifiv1alpha1.CFS
 }
 
 type ListServiceInstanceMessage struct {
-	Names      []string
-	SpaceGUIDs []string
-	GUIDs      []string
+	Names         []string
+	SpaceGUIDs    []string
+	GUIDs         []string
+	LabelSelector labels.Selector
 }
 
 type DeleteServiceInstanceMessage struct {
@@ -210,7 +212,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		}
 
 		serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
+		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), &client.ListOptions{LabelSelector: message.LabelSelector})
 		if k8serrors.IsForbidden(err) {
 			continue
 		}

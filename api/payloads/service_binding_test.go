@@ -1,8 +1,6 @@
 package payloads_test
 
 import (
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -11,109 +9,34 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 )
 
 var _ = Describe("ServiceBindingList", func() {
-	decode := func(queryString string) (payloads.ServiceBindingList, error) {
-		serviceBindingList := payloads.ServiceBindingList{}
-		req, err := http.NewRequest("GET", "http://foo.com/bar"+queryString, nil)
-		Expect(err).NotTo(HaveOccurred())
+	DescribeTable("valid query",
+		func(query string, expectedServiceBindingList payloads.ServiceBindingList) {
+			actualServiceBindingList, decodeErr := decodeQuery[payloads.ServiceBindingList](query)
 
-		err = validator.DecodeAndValidateURLValues(req, &serviceBindingList)
-		return serviceBindingList, err
-	}
-
-	Describe("decode from url values", func() {
-		var (
-			queryString        string
-			serviceBindingList payloads.ServiceBindingList
-			decodeErr          error
-		)
-
-		BeforeEach(func() {
-			queryString = "?app_guids=app_guid&service_instance_guids=service_instance_guid&include=include"
-		})
-
-		JustBeforeEach(func() {
-			serviceBindingList, decodeErr = decode(queryString)
-		})
-
-		It("succeeds", func() {
 			Expect(decodeErr).NotTo(HaveOccurred())
-			Expect(serviceBindingList).To(Equal(payloads.ServiceBindingList{
-				AppGUIDs:             "app_guid",
-				ServiceInstanceGUIDs: "service_instance_guid",
-				Include:              "include",
-				LabelSelector:        labels.Everything(),
-			}))
-		})
-
-		When("the query string contains an invalid label selector", func() {
-			BeforeEach(func() {
-				queryString = "?label_selector=~~~"
-			})
-
-			It("returns an error", func() {
-				Expect(decodeErr).To(MatchError(ContainSubstring("Invalid value")))
-			})
-		})
-	})
-
-	DescribeTable("valid label selectors",
-		func(labelSelector string, verifyRequirements func(labels.Requirements)) {
-			serviceBindingList := payloads.ServiceBindingList{}
-			req, err := http.NewRequest("GET", "http://foo.com/bar?label_selector="+labelSelector, nil)
-			Expect(err).NotTo(HaveOccurred())
-			err = validator.DecodeAndValidateURLValues(req, &serviceBindingList)
-			Expect(err).NotTo(HaveOccurred())
-
-			requirements, selectable := serviceBindingList.LabelSelector.Requirements()
-			Expect(selectable).To(BeTrue())
-			verifyRequirements(requirements)
+			Expect(*actualServiceBindingList).To(Equal(expectedServiceBindingList))
 		},
-		Entry("foo exists", "foo", func(r labels.Requirements) {
-			Expect(r).To(HaveLen(1))
-			Expect(r[0].Key()).To(Equal("foo"))
-			Expect(r[0].Operator()).To(Equal(selection.Exists))
-			Expect(r[0].Values()).To(BeEmpty())
-		}),
-		Entry("foo does not exist", "!foo", func(r labels.Requirements) {
-			Expect(r).To(HaveLen(1))
-			Expect(r[0].Key()).To(Equal("foo"))
-			Expect(r[0].Operator()).To(Equal(selection.DoesNotExist))
-			Expect(r[0].Values()).To(BeEmpty())
-		}),
-		Entry("foo=bar", "foo=bar", func(r labels.Requirements) {
-			Expect(r).To(HaveLen(1))
-			Expect(r[0].Key()).To(Equal("foo"))
-			Expect(r[0].Operator()).To(Equal(selection.Equals))
-			Expect(r[0].Values()).To(SatisfyAll(HaveLen(1), HaveKey("bar")))
-		}),
-		Entry("foo==bar", "foo==bar", func(r labels.Requirements) {
-			Expect(r).To(HaveLen(1))
-			Expect(r[0].Key()).To(Equal("foo"))
-			Expect(r[0].Operator()).To(Equal(selection.DoubleEquals))
-			Expect(r[0].Values()).To(SatisfyAll(HaveLen(1), HaveKey("bar")))
-		}),
-		Entry("foo!=bar", "foo!=bar", func(r labels.Requirements) {
-			Expect(r).To(HaveLen(1))
-			Expect(r[0].Key()).To(Equal("foo"))
-			Expect(r[0].Operator()).To(Equal(selection.NotEquals))
-			Expect(r[0].Values()).To(SatisfyAll(HaveLen(1), HaveKey("bar")))
-		}),
-		Entry("foo in (bar1,bar2)", "foo in (bar1,bar2)", func(r labels.Requirements) {
-			Expect(r).To(HaveLen(1))
-			Expect(r[0].Key()).To(Equal("foo"))
-			Expect(r[0].Operator()).To(Equal(selection.In))
-			Expect(r[0].Values()).To(SatisfyAll(HaveLen(2), HaveKey("bar1"), HaveKey("bar2")))
-		}),
-		Entry("foo notin (bar1,bar2)", "foo notin (bar1,bar2)", func(r labels.Requirements) {
-			Expect(r).To(HaveLen(1))
-			Expect(r[0].Key()).To(Equal("foo"))
-			Expect(r[0].Operator()).To(Equal(selection.NotIn))
-			Expect(r[0].Values()).To(SatisfyAll(HaveLen(2), HaveKey("bar1"), HaveKey("bar2")))
-		}),
+		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid", LabelSelector: labels.Everything()}),
+		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid", LabelSelector: labels.Everything()}),
+		Entry("include", "include=include", payloads.ServiceBindingList{Include: "include", LabelSelector: labels.Everything()}),
+		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo")}),
+		Entry("label_selector=!foo", "label_selector=!foo", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("!foo")}),
+		Entry("label_selector=foo=bar", "label_selector=foo=bar", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo=bar")}),
+		Entry("label_selector=foo==bar", "label_selector=foo==bar", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo==bar")}),
+		Entry("label_selector=foo!=bar", "label_selector=foo!=bar", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo!=bar")}),
+		Entry("label_selector=foo in (bar1,bar2)", "label_selector=foo in (bar1,bar2)", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo in (bar1, bar2)")}),
+		Entry("label_selector=foo notin (bar1,bar2)", "label_selector=foo notin (bar1,bar2)", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo notin (bar1, bar2)")}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.ServiceBindingList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid label_selector", "label_selector=~~~", "Invalid value"),
 	)
 
 	Describe("ToMessage", func() {
@@ -124,9 +47,7 @@ var _ = Describe("ServiceBindingList", func() {
 		)
 
 		BeforeEach(func() {
-			fooBarRequirement, err := labels.NewRequirement("foo", selection.Equals, []string{"bar"})
-			Expect(err).NotTo(HaveOccurred())
-			labelSelector = labels.NewSelector().Add(*fooBarRequirement)
+			labelSelector = parseLabelSelector("foo=bar")
 
 			payload = payloads.ServiceBindingList{
 				AppGUIDs:             "app1,app2",

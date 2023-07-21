@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/labels"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -70,4 +71,10 @@ func decodeQuery[T any, PT keyedPayload[T]](query string) (PT, error) {
 	decodeErr := validator.DecodeAndValidateURLValues(req, actual)
 
 	return actual, decodeErr
+}
+
+func parseLabelSelector(s string) labels.Selector {
+	reqs, err := labels.ParseToRequirements(s)
+	Expect(err).NotTo(HaveOccurred())
+	return labels.NewSelector().Add(reqs...)
 }
