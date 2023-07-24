@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	jellidation "github.com/jellydator/validation"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 // DefaultLifecycleConfig is overwritten by main.go
@@ -86,7 +85,7 @@ type AppList struct {
 	GUIDs         string
 	SpaceGuids    string
 	OrderBy       string
-	LabelSelector labels.Selector
+	LabelSelector string
 }
 
 func (a AppList) Validate() error {
@@ -113,13 +112,7 @@ func (a *AppList) DecodeFromURLValues(values url.Values) error {
 	a.GUIDs = values.Get("guids")
 	a.SpaceGuids = values.Get("space_guids")
 	a.OrderBy = values.Get("order_by")
-
-	selector, err := labels.Parse(values.Get("label_selector"))
-	if err != nil {
-		return err
-	}
-	a.LabelSelector = selector
-
+	a.LabelSelector = values.Get("label_selector")
 	return nil
 }
 

@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 var _ = Describe("ServiceInstanceList", func() {
@@ -21,23 +20,17 @@ var _ = Describe("ServiceInstanceList", func() {
 			Expect(decodeErr).NotTo(HaveOccurred())
 			Expect(*actualServiceInstanceList).To(Equal(expectedServiceInstanceList))
 		},
-		Entry("names", "names=name", payloads.ServiceInstanceList{Names: "name", LabelSelector: labels.NewSelector()}),
-		Entry("space_guids", "space_guids=space_guid", payloads.ServiceInstanceList{SpaceGUIDs: "space_guid", LabelSelector: labels.NewSelector()}),
-		Entry("guids", "guids=guid", payloads.ServiceInstanceList{GUIDs: "guid", LabelSelector: labels.NewSelector()}),
-		Entry("created_at", "order_by=created_at", payloads.ServiceInstanceList{OrderBy: "created_at", LabelSelector: labels.NewSelector()}),
-		Entry("-created_at", "order_by=-created_at", payloads.ServiceInstanceList{OrderBy: "-created_at", LabelSelector: labels.NewSelector()}),
-		Entry("updated_at", "order_by=updated_at", payloads.ServiceInstanceList{OrderBy: "updated_at", LabelSelector: labels.NewSelector()}),
-		Entry("-updated_at", "order_by=-updated_at", payloads.ServiceInstanceList{OrderBy: "-updated_at", LabelSelector: labels.NewSelector()}),
-		Entry("name", "order_by=name", payloads.ServiceInstanceList{OrderBy: "name", LabelSelector: labels.NewSelector()}),
-		Entry("-name", "order_by=-name", payloads.ServiceInstanceList{OrderBy: "-name", LabelSelector: labels.NewSelector()}),
-		Entry("fields[xxx]", "fields[abc.d]=e", payloads.ServiceInstanceList{LabelSelector: labels.NewSelector()}),
-		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceInstanceList{LabelSelector: parseLabelSelector("foo")}),
-		Entry("label_selector=!foo", "label_selector=!foo", payloads.ServiceInstanceList{LabelSelector: parseLabelSelector("!foo")}),
-		Entry("label_selector=foo=bar", "label_selector=foo=bar", payloads.ServiceInstanceList{LabelSelector: parseLabelSelector("foo=bar")}),
-		Entry("label_selector=foo==bar", "label_selector=foo==bar", payloads.ServiceInstanceList{LabelSelector: parseLabelSelector("foo==bar")}),
-		Entry("label_selector=foo!=bar", "label_selector=foo!=bar", payloads.ServiceInstanceList{LabelSelector: parseLabelSelector("foo!=bar")}),
-		Entry("label_selector=foo in (bar1,bar2)", "label_selector=foo in (bar1,bar2)", payloads.ServiceInstanceList{LabelSelector: parseLabelSelector("foo in (bar1, bar2)")}),
-		Entry("label_selector=foo notin (bar1,bar2)", "label_selector=foo notin (bar1,bar2)", payloads.ServiceInstanceList{LabelSelector: parseLabelSelector("foo notin (bar1, bar2)")}),
+		Entry("names", "names=name", payloads.ServiceInstanceList{Names: "name"}),
+		Entry("space_guids", "space_guids=space_guid", payloads.ServiceInstanceList{SpaceGUIDs: "space_guid"}),
+		Entry("guids", "guids=guid", payloads.ServiceInstanceList{GUIDs: "guid"}),
+		Entry("created_at", "order_by=created_at", payloads.ServiceInstanceList{OrderBy: "created_at"}),
+		Entry("-created_at", "order_by=-created_at", payloads.ServiceInstanceList{OrderBy: "-created_at"}),
+		Entry("updated_at", "order_by=updated_at", payloads.ServiceInstanceList{OrderBy: "updated_at"}),
+		Entry("-updated_at", "order_by=-updated_at", payloads.ServiceInstanceList{OrderBy: "-updated_at"}),
+		Entry("name", "order_by=name", payloads.ServiceInstanceList{OrderBy: "name"}),
+		Entry("-name", "order_by=-name", payloads.ServiceInstanceList{OrderBy: "-name"}),
+		Entry("fields[xxx]", "fields[abc.d]=e", payloads.ServiceInstanceList{}),
+		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceInstanceList{LabelSelector: "foo"}),
 	)
 
 	DescribeTable("invalid query",
@@ -46,25 +39,21 @@ var _ = Describe("ServiceInstanceList", func() {
 			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 		},
 		Entry("invalid order_by", "order_by=foo", "value must be one of"),
-		Entry("invalid label_selector", "label_selector=~~~", "Invalid value"),
 	)
 
 	Describe("ToMessage", func() {
 		var (
-			payload       payloads.ServiceInstanceList
-			message       repositories.ListServiceInstanceMessage
-			labelSelector labels.Selector
+			payload payloads.ServiceInstanceList
+			message repositories.ListServiceInstanceMessage
 		)
 
 		BeforeEach(func() {
-			labelSelector = parseLabelSelector("foo=bar")
-
 			payload = payloads.ServiceInstanceList{
 				Names:         "n1,n2",
 				GUIDs:         "g1,g2",
 				SpaceGUIDs:    "sg1,sg2",
 				OrderBy:       "order",
-				LabelSelector: labelSelector,
+				LabelSelector: "foo=bar",
 			}
 		})
 
@@ -77,7 +66,7 @@ var _ = Describe("ServiceInstanceList", func() {
 				Names:         []string{"n1", "n2"},
 				SpaceGUIDs:    []string{"sg1", "sg2"},
 				GUIDs:         []string{"g1", "g2"},
-				LabelSelector: labelSelector,
+				LabelSelector: "foo=bar",
 			}))
 		})
 	})

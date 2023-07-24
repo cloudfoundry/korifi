@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 var _ = Describe("ServiceBindingList", func() {
@@ -19,41 +18,24 @@ var _ = Describe("ServiceBindingList", func() {
 			Expect(decodeErr).NotTo(HaveOccurred())
 			Expect(*actualServiceBindingList).To(Equal(expectedServiceBindingList))
 		},
-		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid", LabelSelector: labels.NewSelector()}),
-		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid", LabelSelector: labels.NewSelector()}),
-		Entry("include", "include=include", payloads.ServiceBindingList{Include: "include", LabelSelector: labels.NewSelector()}),
-		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo")}),
-		Entry("label_selector=!foo", "label_selector=!foo", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("!foo")}),
-		Entry("label_selector=foo=bar", "label_selector=foo=bar", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo=bar")}),
-		Entry("label_selector=foo==bar", "label_selector=foo==bar", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo==bar")}),
-		Entry("label_selector=foo!=bar", "label_selector=foo!=bar", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo!=bar")}),
-		Entry("label_selector=foo in (bar1,bar2)", "label_selector=foo in (bar1,bar2)", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo in (bar1, bar2)")}),
-		Entry("label_selector=foo notin (bar1,bar2)", "label_selector=foo notin (bar1,bar2)", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo notin (bar1, bar2)")}),
-	)
-
-	DescribeTable("invalid query",
-		func(query string, expectedErrMsg string) {
-			_, decodeErr := decodeQuery[payloads.ServiceBindingList](query)
-			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
-		},
-		Entry("invalid label_selector", "label_selector=~~~", "Invalid value"),
+		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid"}),
+		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid"}),
+		Entry("include", "include=include", payloads.ServiceBindingList{Include: "include"}),
+		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: "foo"}),
 	)
 
 	Describe("ToMessage", func() {
 		var (
-			payload       payloads.ServiceBindingList
-			message       repositories.ListServiceBindingsMessage
-			labelSelector labels.Selector
+			payload payloads.ServiceBindingList
+			message repositories.ListServiceBindingsMessage
 		)
 
 		BeforeEach(func() {
-			labelSelector = parseLabelSelector("foo=bar")
-
 			payload = payloads.ServiceBindingList{
 				AppGUIDs:             "app1,app2",
 				ServiceInstanceGUIDs: "s1,s2",
 				Include:              "include",
-				LabelSelector:        labelSelector,
+				LabelSelector:        "foo=bar",
 			}
 		})
 
@@ -65,7 +47,7 @@ var _ = Describe("ServiceBindingList", func() {
 			Expect(message).To(Equal(repositories.ListServiceBindingsMessage{
 				AppGUIDs:             []string{"app1", "app2"},
 				ServiceInstanceGUIDs: []string{"s1", "s2"},
-				LabelSelector:        labelSelector,
+				LabelSelector:        "foo=bar",
 			}))
 		})
 	})

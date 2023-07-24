@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -359,6 +360,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *korifiv1alpha1.CFServiceInstance
 			nonCFNamespace                                             string
 			filters                                                    repositories.ListServiceInstanceMessage
+			listErr                                                    error
 
 			serviceInstanceList []repositories.ServiceInstanceRecord
 		)
@@ -382,13 +384,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			var err error
-			serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-			Expect(err).NotTo(HaveOccurred())
+			serviceInstanceList, listErr = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
 		})
 
 		When("no service instances exist in spaces where the user has permission", func() {
 			It("returns an empty list of ServiceInstanceRecord", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 				Expect(serviceInstanceList).To(BeEmpty())
 			})
 		})
@@ -400,6 +401,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			It("returns ServiceInstance records from only the spaces where the user has permission", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 				Expect(serviceInstanceList).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
@@ -425,6 +427,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 
 				It("returns only records for the ServiceInstances with matching spec.name fields", func() {
+					Expect(listErr).NotTo(HaveOccurred())
 					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
@@ -441,7 +444,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						},
 					}
 				})
+
 				It("returns only records for the ServiceInstances within the matching spaces", func() {
+					Expect(listErr).NotTo(HaveOccurred())
 					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
@@ -456,6 +461,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					}
 				})
 				It("returns only records for the ServiceInstances within the matching spaces", func() {
+					Expect(listErr).NotTo(HaveOccurred())
 					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
@@ -479,7 +485,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				DescribeTable("valid label selectors",
 					func(selector string, serviceBindingGUIDPrefixes ...string) {
 						serviceInstances, err := serviceInstanceRepo.ListServiceInstances(context.Background(), authInfo, repositories.ListServiceInstanceMessage{
-							LabelSelector: labelSelector(selector),
+							LabelSelector: selector,
 						})
 						Expect(err).NotTo(HaveOccurred())
 
@@ -498,6 +504,16 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "service-instance-1", "service-instance-2"),
 					Entry("key notin (value1,value2)", "foo notin (FOO2)", "service-instance-1", "service-instance-3"),
 				)
+
+				When("the label selector is invalid", func() {
+					BeforeEach(func() {
+						filters = repositories.ListServiceInstanceMessage{LabelSelector: "~"}
+					})
+
+					It("returns an error", func() {
+						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+					})
+				})
 			})
 		})
 	})

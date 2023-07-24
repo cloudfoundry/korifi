@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	jellidation "github.com/jellydator/validation"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 type ServiceInstanceCreate struct {
@@ -134,7 +133,7 @@ type ServiceInstanceList struct {
 	GUIDs         string
 	SpaceGUIDs    string
 	OrderBy       string
-	LabelSelector labels.Selector
+	LabelSelector string
 }
 
 func (l ServiceInstanceList) Validate() error {
@@ -165,12 +164,6 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.SpaceGUIDs = values.Get("space_guids")
 	l.GUIDs = values.Get("guids")
 	l.OrderBy = values.Get("order_by")
-
-	selector, err := labels.Parse(values.Get("label_selector"))
-	if err != nil {
-		return err
-	}
-
-	l.LabelSelector = selector
+	l.LabelSelector = values.Get("label_selector")
 	return nil
 }

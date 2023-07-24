@@ -229,6 +229,7 @@ var _ = Describe("AppRepository", func() {
 			message ListAppsMessage
 			appList []AppRecord
 			cfApp2  *korifiv1alpha1.CFApp
+			listErr error
 		)
 
 		BeforeEach(func() {
@@ -244,12 +245,11 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			var err error
-			appList, err = appRepo.ListApps(testCtx, authInfo, message)
-			Expect(err).NotTo(HaveOccurred())
+			appList, listErr = appRepo.ListApps(testCtx, authInfo, message)
 		})
 
 		It("returns all the AppRecord CRs where client has permission", func() {
+			Expect(listErr).NotTo(HaveOccurred())
 			Expect(appList).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -277,6 +277,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("does not list them", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 				Expect(appList).NotTo(ContainElement(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(nonCFApp.Name)}),
 				))
@@ -307,6 +308,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp12.Name)}),
@@ -322,6 +324,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns an empty list of apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
 				})
@@ -332,6 +335,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -347,6 +351,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns an empty list of apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
 				})
@@ -357,6 +362,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp12.Name)}),
@@ -373,6 +379,7 @@ var _ = Describe("AppRepository", func() {
 
 					When("an App matches by Name but not by Space", func() {
 						It("returns an empty list of apps", func() {
+							Expect(listErr).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
 					})
@@ -383,6 +390,7 @@ var _ = Describe("AppRepository", func() {
 						})
 
 						It("returns an empty list of apps", func() {
+							Expect(listErr).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
 					})
@@ -394,6 +402,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(HaveLen(1))
 						Expect(appList[0].GUID).To(Equal(cfApp12.Name))
 					})
@@ -416,7 +425,7 @@ var _ = Describe("AppRepository", func() {
 				DescribeTable("valid label selectors",
 					func(selector string, appGUIDPrefixes ...string) {
 						serviceBindings, err := appRepo.ListApps(context.Background(), authInfo, ListAppsMessage{
-							LabelSelector: labelSelector(selector),
+							LabelSelector: selector,
 						})
 						Expect(err).NotTo(HaveOccurred())
 
@@ -435,6 +444,16 @@ var _ = Describe("AppRepository", func() {
 					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "cfapp1-", "cfapp2-"),
 					Entry("key notin (value1,value2)", "foo notin (FOO2)", "cfapp1-", "cfapp12-"),
 				)
+
+				When("the label selector is invalid", func() {
+					BeforeEach(func() {
+						message = ListAppsMessage{LabelSelector: "~"}
+					})
+
+					It("returns an error", func() {
+						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+					})
+				})
 			})
 		})
 	})
