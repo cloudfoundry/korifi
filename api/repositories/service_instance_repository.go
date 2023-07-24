@@ -80,7 +80,7 @@ type ListServiceInstanceMessage struct {
 	Names         []string
 	SpaceGUIDs    []string
 	GUIDs         []string
-	LabelSelector labels.Selector
+	LabelSelector string
 }
 
 type DeleteServiceInstanceMessage struct {
@@ -204,6 +204,11 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFServiceInstance) string { return s.Name }),
 	}
 
+	labelSelector, err := labels.Parse(message.LabelSelector)
+	if err != nil {
+		return []ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
+	}
+
 	spaceGUIDSet := NewSet(message.SpaceGUIDs...)
 	var filteredServiceInstances []korifiv1alpha1.CFServiceInstance
 	for ns := range nsList {
@@ -212,7 +217,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		}
 
 		serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), &client.ListOptions{LabelSelector: message.LabelSelector})
+		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
 		if k8serrors.IsForbidden(err) {
 			continue
 		}

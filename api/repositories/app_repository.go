@@ -172,7 +172,7 @@ type ListAppsMessage struct {
 	Names         []string
 	Guids         []string
 	SpaceGuids    []string
-	LabelSelector labels.Selector
+	LabelSelector string
 }
 
 type byName []AppRecord
@@ -317,6 +317,11 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		SetPredicate(message.Guids, func(s korifiv1alpha1.CFApp) string { return s.Name }),
 	}
 
+	labelSelector, err := labels.Parse(message.LabelSelector)
+	if err != nil {
+		return []AppRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
+	}
+
 	var filteredApps []korifiv1alpha1.CFApp
 	spaceGUIDSet := NewSet(message.SpaceGuids...)
 	for ns := range nsList {
@@ -325,7 +330,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		}
 
 		appList := &korifiv1alpha1.CFAppList{}
-		err := userClient.List(ctx, appList, client.InNamespace(ns), &client.ListOptions{LabelSelector: message.LabelSelector})
+		err := userClient.List(ctx, appList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
 
 		if k8serrors.IsForbidden(err) {
 			continue

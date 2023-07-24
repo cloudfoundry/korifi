@@ -7,7 +7,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	jellidation "github.com/jellydator/validation"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 type ServiceBindingCreate struct {
@@ -48,7 +47,7 @@ type ServiceBindingList struct {
 	AppGUIDs             string
 	ServiceInstanceGUIDs string
 	Include              string
-	LabelSelector        labels.Selector
+	LabelSelector        string
 }
 
 func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage {
@@ -67,13 +66,7 @@ func (l *ServiceBindingList) DecodeFromURLValues(values url.Values) error {
 	l.AppGUIDs = values.Get("app_guids")
 	l.ServiceInstanceGUIDs = values.Get("service_instance_guids")
 	l.Include = values.Get("include")
-
-	selector, err := labels.Parse(values.Get("label_selector"))
-	if err != nil {
-		return err
-	}
-
-	l.LabelSelector = selector
+	l.LabelSelector = values.Get("label_selector")
 	return nil
 }
 

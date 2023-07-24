@@ -85,7 +85,7 @@ type DeleteServiceBindingMessage struct {
 type ListServiceBindingsMessage struct {
 	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
-	LabelSelector        labels.Selector
+	LabelSelector        string
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
@@ -269,10 +269,15 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 		SetPredicate(message.AppGUIDs, func(s korifiv1alpha1.CFServiceBinding) string { return s.Spec.AppRef.Name }),
 	}
 
+	labelSelector, err := labels.Parse(message.LabelSelector)
+	if err != nil {
+		return []ServiceBindingRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
+	}
+
 	var filteredServiceBindings []korifiv1alpha1.CFServiceBinding
 	for ns := range nsList {
 		serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-		err = userClient.List(ctx, serviceBindingList, client.InNamespace(ns), &client.ListOptions{LabelSelector: message.LabelSelector})
+		err = userClient.List(ctx, serviceBindingList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
 		if k8serrors.IsForbidden(err) {
 			continue
 		}

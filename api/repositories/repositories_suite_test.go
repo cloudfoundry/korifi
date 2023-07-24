@@ -21,7 +21,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -266,10 +265,4 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
 	return roleBinding
-}
-
-func labelSelector(s string) labels.Selector {
-	selector, err := labels.Parse(s)
-	Expect(err).NotTo(HaveOccurred())
-	return selector
 }

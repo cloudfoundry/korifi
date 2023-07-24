@@ -473,7 +473,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				DescribeTable("valid label selectors",
 					func(selector string, serviceBindingGUIDPrefixes ...string) {
 						serviceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, repositories.ListServiceBindingsMessage{
-							LabelSelector: labelSelector(selector),
+							LabelSelector: selector,
 						})
 						Expect(err).NotTo(HaveOccurred())
 
@@ -492,6 +492,16 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "binding-1", "binding-2"),
 					Entry("key notin (value1,value2)", "foo notin (FOO2)", "binding-1", "binding-3"),
 				)
+
+				When("the label selector is invalid", func() {
+					BeforeEach(func() {
+						requestMessage = repositories.ListServiceBindingsMessage{LabelSelector: "~"}
+					})
+
+					It("returns an error", func() {
+						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+					})
+				})
 			})
 
 			When("filtered by multiple params", func() {
