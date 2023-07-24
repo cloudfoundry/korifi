@@ -74,7 +74,7 @@ func decodeQuery[T any, PT keyedPayload[T]](query string) (PT, error) {
 }
 
 func parseLabelSelector(s string) labels.Selector {
-	reqs, err := labels.ParseToRequirements(s)
+	selector, err := labels.Parse(s)
 	Expect(err).NotTo(HaveOccurred())
-	return labels.NewSelector().Add(reqs...)
+	return selector
 }

@@ -269,8 +269,7 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 }
 
 func labelSelector(s string) labels.Selector {
-	requirements, err := labels.ParseToRequirements(s)
+	selector, err := labels.Parse(s)
 	Expect(err).NotTo(HaveOccurred())
-
-	return labels.NewSelector().Add(requirements...)
+	return selector
 }

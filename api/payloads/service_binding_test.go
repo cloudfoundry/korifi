@@ -19,9 +19,9 @@ var _ = Describe("ServiceBindingList", func() {
 			Expect(decodeErr).NotTo(HaveOccurred())
 			Expect(*actualServiceBindingList).To(Equal(expectedServiceBindingList))
 		},
-		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid", LabelSelector: labels.Everything()}),
-		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid", LabelSelector: labels.Everything()}),
-		Entry("include", "include=include", payloads.ServiceBindingList{Include: "include", LabelSelector: labels.Everything()}),
+		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid", LabelSelector: labels.NewSelector()}),
+		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid", LabelSelector: labels.NewSelector()}),
+		Entry("include", "include=include", payloads.ServiceBindingList{Include: "include", LabelSelector: labels.NewSelector()}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo")}),
 		Entry("label_selector=!foo", "label_selector=!foo", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("!foo")}),
 		Entry("label_selector=foo=bar", "label_selector=foo=bar", payloads.ServiceBindingList{LabelSelector: parseLabelSelector("foo=bar")}),

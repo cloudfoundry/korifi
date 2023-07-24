@@ -114,12 +114,11 @@ func (a *AppList) DecodeFromURLValues(values url.Values) error {
 	a.SpaceGuids = values.Get("space_guids")
 	a.OrderBy = values.Get("order_by")
 
-	labelSelectorRequirements, err := labels.ParseToRequirements(values.Get("label_selector"))
+	selector, err := labels.Parse(values.Get("label_selector"))
 	if err != nil {
 		return err
 	}
-
-	a.LabelSelector = labels.NewSelector().Add(labelSelectorRequirements...)
+	a.LabelSelector = selector
 
 	return nil
 }

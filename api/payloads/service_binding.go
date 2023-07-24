@@ -68,13 +68,12 @@ func (l *ServiceBindingList) DecodeFromURLValues(values url.Values) error {
 	l.ServiceInstanceGUIDs = values.Get("service_instance_guids")
 	l.Include = values.Get("include")
 
-	labelSelectorRequirements, err := labels.ParseToRequirements(values.Get("label_selector"))
+	selector, err := labels.Parse(values.Get("label_selector"))
 	if err != nil {
 		return err
 	}
 
-	l.LabelSelector = labels.NewSelector().Add(labelSelectorRequirements...)
-
+	l.LabelSelector = selector
 	return nil
 }
 

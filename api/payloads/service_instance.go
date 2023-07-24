@@ -166,11 +166,11 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.GUIDs = values.Get("guids")
 	l.OrderBy = values.Get("order_by")
 
-	labelSelectorRequirements, err := labels.ParseToRequirements(values.Get("label_selector"))
+	selector, err := labels.Parse(values.Get("label_selector"))
 	if err != nil {
 		return err
 	}
 
-	l.LabelSelector = labels.NewSelector().Add(labelSelectorRequirements...)
+	l.LabelSelector = selector
 	return nil
 }
