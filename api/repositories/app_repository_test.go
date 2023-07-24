@@ -9,7 +9,6 @@ import (
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -416,7 +415,7 @@ var _ = Describe("AppRepository", func() {
 
 				DescribeTable("valid label selectors",
 					func(selector string, appGUIDPrefixes ...string) {
-						serviceBindings, err := appRepo.ListApps(context.Background(), authInfo, repositories.ListAppsMessage{
+						serviceBindings, err := appRepo.ListApps(context.Background(), authInfo, ListAppsMessage{
 							LabelSelector: labelSelector(selector),
 						})
 						Expect(err).NotTo(HaveOccurred())
