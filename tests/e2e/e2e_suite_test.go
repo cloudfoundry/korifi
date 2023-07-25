@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"archive/zip"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,14 +18,19 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -269,12 +276,32 @@ type cfErr struct {
 	Code   int    `json:"code"`
 }
 
-func getCorrelationId() string {
-	return correlationId
-}
-
 func TestE2E(t *testing.T) {
-	RegisterFailHandler(helpers.E2EFailHandler(getCorrelationId))
+	RegisterFailHandler(fail_handler.New("E2E Tests", map[types.GomegaMatcher]func(*rest.Config){
+		fail_handler.Always: func(config *rest.Config) {
+			fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
+				{
+					Namespace:     systemNamespace(),
+					LabelKey:      "app",
+					LabelValue:    "korifi-api",
+					Container:     "korifi-api",
+					CorrelationId: correlationId,
+				},
+				{
+					Namespace:  systemNamespace(),
+					LabelKey:   "app",
+					LabelValue: "korifi-controllers",
+					Container:  "manager",
+				},
+			})
+		},
+		ContainSubstring("Droplet not found"): func(config *rest.Config) {
+			printDropletNotFoundDebugInfo(config)
+		},
+		ContainSubstring("404"): func(config *rest.Config) {
+			printAllRoleBindings(config)
+		},
+	}))
 	RunSpecs(t, "E2E Suite")
 }
 
@@ -302,7 +329,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
 		// with a different app in these environments.
 		// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-		DefaultAppBitsFile:      zipAsset(getEnv("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
+		DefaultAppBitsFile:      zipAsset(helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
 		MultiProcessAppBitsFile: zipAsset("../assets/multi-process"),
 	}
 
@@ -343,24 +370,6 @@ var _ = SynchronizedAfterSuite(func() {
 var _ = BeforeEach(func() {
 	correlationId = uuid.NewString()
 })
-
-func mustHaveEnv(key string) string {
-	GinkgoHelper()
-
-	val, ok := os.LookupEnv(key)
-	Expect(ok).To(BeTrue(), "must set env var %q", key)
-
-	return val
-}
-
-func getEnv(key, defaultValue string) string {
-	value, ok := os.LookupEnv(key)
-	if !ok {
-		return defaultValue
-	}
-
-	return value
-}
 
 func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
 	GinkgoHelper()
@@ -1077,23 +1086,23 @@ func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail
 }
 
 func commonTestSetup() {
-	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
-	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
-	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, mustHaveEnv("E2E_SERVICE_ACCOUNT"))
-	serviceAccountToken = mustHaveEnv("E2E_SERVICE_ACCOUNT_TOKEN")
-	unprivilegedServiceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, mustHaveEnv("E2E_UNPRIVILEGED_SERVICE_ACCOUNT"))
-	unprivilegedServiceAccountToken = mustHaveEnv("E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN")
+	apiServerRoot = helpers.GetRequiredEnvVar("API_SERVER_ROOT")
+	rootNamespace = helpers.GetRequiredEnvVar("ROOT_NAMESPACE")
+	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT"))
+	serviceAccountToken = helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT_TOKEN")
+	unprivilegedServiceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_UNPRIVILEGED_SERVICE_ACCOUNT"))
+	unprivilegedServiceAccountToken = helpers.GetRequiredEnvVar("E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN")
 
-	certUserName = mustHaveEnv("E2E_USER_NAME")
+	certUserName = helpers.GetRequiredEnvVar("E2E_USER_NAME")
 	certPEM = os.Getenv("E2E_USER_PEM")
 
-	longCertUserName = mustHaveEnv("E2E_LONGCERT_USER_NAME")
+	longCertUserName = helpers.GetRequiredEnvVar("E2E_LONGCERT_USER_NAME")
 	longCertPEM = os.Getenv("E2E_LONGCERT_USER_PEM")
 
-	appFQDN = mustHaveEnv("APP_FQDN")
+	appFQDN = helpers.GetRequiredEnvVar("APP_FQDN")
 
-	clusterVersionMinor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MINOR"))
-	clusterVersionMajor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MAJOR"))
+	clusterVersionMinor, _ = strconv.Atoi(helpers.GetRequiredEnvVar("CLUSTER_VERSION_MINOR"))
+	clusterVersionMajor, _ = strconv.Atoi(helpers.GetRequiredEnvVar("CLUSTER_VERSION_MAJOR"))
 
 	ensureServerIsUp()
 
@@ -1155,4 +1164,92 @@ func zipAsset(src string) string {
 	Expect(err).NotTo(HaveOccurred())
 
 	return file.Name()
+}
+
+func systemNamespace() string {
+	systemNS, found := os.LookupEnv("SYSTEM_NAMESPACE")
+	if found {
+		return systemNS
+	}
+
+	return "korifi"
+}
+
+func getCorrelationId() string {
+	return correlationId
+}
+
+func printDropletNotFoundDebugInfo(config *rest.Config) {
+	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet not found debug log (start) ==========\n")
+
+	fmt.Fprint(GinkgoWriter, "\n========== Kpack logs ==========\n")
+	fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
+		{
+			Namespace:  "kpack",
+			LabelKey:   "app",
+			LabelValue: "kpack-controller",
+		},
+		{
+			Namespace:  "kpack",
+			LabelKey:   "app",
+			LabelValue: "kpack-webhook",
+		},
+	})
+
+	dropletGUID, err := getDropletGUID(CurrentSpecReport().FailureMessage())
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "Failed to get droplet GUID from message %v\n", err)
+		return
+	}
+
+	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet build logs ==========\n")
+	fmt.Fprintf(GinkgoWriter, "DropletGUID: %q\n", dropletGUID)
+	fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
+		{
+			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
+			LabelValue: dropletGUID,
+		},
+	})
+	fail_handler.PrintPodEvents(config, []fail_handler.PodContainerDescriptor{
+		{
+			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
+			LabelValue: dropletGUID,
+		},
+	})
+
+	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet not found debug log (end) ==========\n\n")
+}
+
+func getDropletGUID(message string) (string, error) {
+	r := regexp.MustCompile(`Request.*droplets/(.*)`)
+	matches := r.FindStringSubmatch(message)
+	if len(matches) != 2 {
+		return "", fmt.Errorf("message does not match regex: %s", r.String())
+	}
+
+	return matches[1], nil
+}
+
+func printAllRoleBindings(config *rest.Config) {
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to create clientset: %v\n", err)
+		return
+	}
+
+	list, err := clientset.RbacV1().RoleBindings("").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("failed getting rolebindings: %v", err)
+		return
+	}
+
+	fmt.Fprint(GinkgoWriter, "\n\n========== Expected 404 debug log ==========\n\n")
+	for _, b := range list.Items {
+		fmt.Fprintf(GinkgoWriter, "Name: %s, Namespace: %s, RoleKind: %s, RoleName: %s, Subjects: \n",
+			b.Name, b.Namespace, b.RoleRef.Kind, b.RoleRef.Name)
+		for _, s := range b.Subjects {
+			fmt.Fprintf(GinkgoWriter, "\tKind: %s, Name: %s, Namespace: %s\n", s.Kind, s.Name, s.Namespace)
+		}
+	}
+	fmt.Fprint(GinkgoWriter, "\n\n========== Expected 404 debug log (end) ==========\n\n")
 }

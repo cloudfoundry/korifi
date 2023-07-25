@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -26,7 +26,7 @@ var _ = Describe("Routes", func() {
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 
-		domainName = mustHaveEnv("APP_FQDN")
+		domainName = helpers.GetRequiredEnvVar("APP_FQDN")
 		domainGUID = getDomainGUID(domainName)
 
 		host = generateGUID("myapp")
@@ -379,7 +379,7 @@ var _ = Describe("Routes", func() {
 				Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
 
 				// This enables replacing the default app output via DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE
-				Expect(resp.Body()).To(ContainSubstring(getEnv("DEFAULT_APP_RESPONSE", "Hi, I'm Dorifi")))
+				Expect(resp.Body()).To(ContainSubstring(helpers.GetDefaultedEnvVar("DEFAULT_APP_RESPONSE", "Hi, I'm Dorifi")))
 			})
 
 			When("an app from a different space is added", func() {

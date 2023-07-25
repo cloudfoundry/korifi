@@ -2,11 +2,11 @@ package crds_test
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/cloudfoundry/cf-test-helpers/cf"
 	"github.com/cloudfoundry/cf-test-helpers/commandreporter"
 	"github.com/cloudfoundry/cf-test-helpers/commandstarter"
@@ -25,7 +25,7 @@ func TestCrds(t *testing.T) {
 var rootNamespace string
 
 var _ = BeforeSuite(func() {
-	rootNamespace = GetDefaultedEnvVar("ROOT_NAMESPACE", "cf")
+	rootNamespace = helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf")
 	Eventually(
 		kubectl("get", "namespace/"+rootNamespace),
 	).Should(Exit(0), "Could not find root namespace called %q", rootNamespace)
@@ -52,20 +52,6 @@ func kubectlWithCustomReporter(cmdStarter *commandstarter.CommandStarter, report
 	}
 
 	return request
-}
-
-func GetRequiredEnvVar(envVarName string) string {
-	value, ok := os.LookupEnv(envVarName)
-	Expect(ok).To(BeTrue(), envVarName+" environment variable is required, but was not provided.")
-	return value
-}
-
-func GetDefaultedEnvVar(envVarName, defaultValue string) string {
-	value, ok := os.LookupEnv(envVarName)
-	if !ok {
-		return defaultValue
-	}
-	return value
 }
 
 func loginAs(apiEndpoint string, skipSSL bool, user string) {

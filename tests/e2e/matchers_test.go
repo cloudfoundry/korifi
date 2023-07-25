@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
