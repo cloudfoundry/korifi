@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/cloudfoundry/cf-test-helpers/cf"
@@ -19,8 +18,8 @@ import (
 )
 
 var _ = Describe("Smoke Tests", func() {
-	Describe("cf push", func() {
-		It("runs the app", func() {
+	Describe("pushed app", func() {
+		It("is reachable via its route", func() {
 			appResponseShould("/", SatisfyAll(
 				HaveHTTPStatus(http.StatusOK),
 				HaveHTTPBody(ContainSubstring("Hi, I'm Dorifi!")),
@@ -30,17 +29,13 @@ var _ = Describe("Smoke Tests", func() {
 
 	Describe("cf logs", func() {
 		It("prints app logs", func() {
-			Eventually(func(g Gomega) {
-				cfLogs := cf.Cf("logs", appName, "--recent")
-				g.Expect(cfLogs.Wait().Out).To(gbytes.Say("Listening on port 8080"))
-			}, 2*time.Minute, 2*time.Second).Should(Succeed())
+			Eventually(cf.Cf("logs", appName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
 		})
 	})
 
 	Describe("cf run-task", func() {
 		It("succeeds", func() {
-			cfRunTask := cf.Cf("run-task", appName, "-c", `echo "Hello from the task"`)
-			Eventually(cfRunTask).Should(Exit(0))
+			Eventually(cf.Cf("run-task", appName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
 		})
 	})
 
@@ -104,5 +99,5 @@ func appResponseShould(requestPath string, matchExpectations types.GomegaMatcher
 		resp, err := httpClient.Get(fmt.Sprintf("%s://%s.%s%s", appRouteProtocol, appName, appsDomain, requestPath))
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(resp).To(matchExpectations)
-	}, 5*time.Minute, 30*time.Second).Should(Succeed())
+	}).Should(Succeed())
 }

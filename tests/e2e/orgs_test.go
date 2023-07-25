@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 )
 
 var _ = Describe("Orgs", func() {
@@ -299,7 +299,7 @@ var _ = Describe("Orgs", func() {
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
 			createOrgRole("organization_user", certUserName, orgGUID)
-			domainName = mustHaveEnv("APP_FQDN")
+			domainName = helpers.GetRequiredEnvVar("APP_FQDN")
 		})
 
 		AfterEach(func() {
@@ -367,7 +367,7 @@ var _ = Describe("Orgs", func() {
 
 		It("succeeds", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-			domainName := mustHaveEnv("APP_FQDN")
+			domainName := helpers.GetRequiredEnvVar("APP_FQDN")
 			Expect(result.Name).To(Equal(domainName))
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
