@@ -191,8 +191,8 @@ var _ = Describe("SpaceRepository", func() {
 	})
 
 	Describe("ListSpaces", func() {
-		var cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
-		var space11, space12, space21, space22, space31, space32 *korifiv1alpha1.CFSpace
+		var cfOrg1, cfOrg2 *korifiv1alpha1.CFOrg
+		var space11, space12, space21, space22 *korifiv1alpha1.CFSpace
 
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -201,8 +201,6 @@ var _ = Describe("SpaceRepository", func() {
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
 			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg2.Name)
-			cfOrg3 = createOrgWithCleanup(ctx, prefixedGUID("org3"))
-			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg3.Name)
 
 			space11 = createSpaceWithCleanup(ctx, cfOrg1.Name, "space1")
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space11.Name)
@@ -214,13 +212,10 @@ var _ = Describe("SpaceRepository", func() {
 			space22 = createSpaceWithCleanup(ctx, cfOrg2.Name, "space3")
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space22.Name)
 
-			space31 = createSpaceWithCleanup(ctx, cfOrg3.Name, "space1")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space31.Name)
-			space32 = createSpaceWithCleanup(ctx, cfOrg3.Name, "space4")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space32.Name)
+			createSpaceWithCleanup(ctx, cfOrg2.Name, "space3")
 		})
 
-		It("returns the 6 spaces", func() {
+		It("returns the spaces the user has role bindings in", func() {
 			spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -244,16 +239,6 @@ var _ = Describe("SpaceRepository", func() {
 					"Name":             Equal("space3"),
 					"GUID":             Equal(space22.Name),
 					"OrganizationGUID": Equal(cfOrg2.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("space1"),
-					"GUID":             Equal(space31.Name),
-					"OrganizationGUID": Equal(cfOrg3.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("space4"),
-					"GUID":             Equal(space32.Name),
-					"OrganizationGUID": Equal(cfOrg3.Name),
 				}),
 			))
 		})
@@ -286,7 +271,7 @@ var _ = Describe("SpaceRepository", func() {
 		When("filtering by org guids", func() {
 			It("only returns the spaces belonging to the specified org guids", func() {
 				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-					OrganizationGUIDs: []string{cfOrg1.Name, cfOrg3.Name, "does-not-exist"},
+					OrganizationGUIDs: []string{cfOrg1.Name, "does-not-exist"},
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(ConsistOf(
@@ -295,11 +280,9 @@ var _ = Describe("SpaceRepository", func() {
 						"OrganizationGUID": Equal(cfOrg1.Name),
 					}),
 					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg3.Name),
+						"Name":             Equal("space2"),
+						"OrganizationGUID": Equal(cfOrg1.Name),
 					}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space2")}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space4")}),
 				))
 			})
 		})
@@ -320,10 +303,9 @@ var _ = Describe("SpaceRepository", func() {
 						"OrganizationGUID": Equal(cfOrg2.Name),
 					}),
 					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg3.Name),
+						"Name":             Equal("space3"),
+						"OrganizationGUID": Equal(cfOrg2.Name),
 					}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space3")}),
 				))
 			})
 		})
@@ -396,11 +378,11 @@ var _ = Describe("SpaceRepository", func() {
 				createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, org.Name)
 			})
 
-			It("returns the 6 spaces", func() {
+			It("returns the 4 spaces", func() {
 				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(spaces).To(HaveLen(6))
+				Expect(spaces).To(HaveLen(4))
 			})
 		})
 	})

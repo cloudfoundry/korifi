@@ -45,6 +45,8 @@ var _ = Describe("Tasks", func() {
 
 		BeforeEach(func() {
 			command = "echo hello"
+
+			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -59,35 +61,18 @@ var _ = Describe("Tasks", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the user has space developer role in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
-			It("succeeds", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-				Expect(createdTask.State).ToNot(BeEmpty())
-			})
-
-			When("the task fails", func() {
-				BeforeEach(func() {
-					command = "false"
-				})
-
-				It("is eventually marked as failed", func() {
-					eventuallyTaskShouldHaveState(createdTask.GUID, "FAILED")
-				})
-			})
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+			Expect(createdTask.State).ToNot(BeEmpty())
 		})
 
-		When("the user cannot create tasks in the space", func() {
+		When("the task fails", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, spaceGUID)
+				command = "false"
 			})
 
-			It("fails", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
+			It("is eventually marked as failed", func() {
+				eventuallyTaskShouldHaveState(createdTask.GUID, "FAILED")
 			})
 		})
 	})

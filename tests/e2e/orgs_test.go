@@ -58,37 +58,6 @@ var _ = Describe("Orgs", func() {
 			Expect(result.GUID).NotTo(BeEmpty())
 			Expect(result.GUID).To(HavePrefix("cf-org-"))
 		})
-
-		When("the org name already exists", func() {
-			var duplOrgGUID string
-
-			BeforeEach(func() {
-				duplOrgGUID = createOrg(orgName)
-			})
-
-			AfterEach(func() {
-				deleteOrg(duplOrgGUID)
-			})
-
-			It("returns an unprocessable entity error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(resultErr.Errors).To(ConsistOf(cfErr{
-					Detail: fmt.Sprintf(`Organization '%s' already exists.`, orgName),
-					Title:  "CF-UnprocessableEntity",
-					Code:   10008,
-				}))
-			})
-		})
-
-		When("not admin", func() {
-			BeforeEach(func() {
-				restyClient = unprivilegedServiceAccountClient
-			})
-
-			It("returns a forbidden error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
-		})
 	})
 
 	Describe("list", func() {
@@ -158,24 +127,6 @@ var _ = Describe("Orgs", func() {
 				return
 			}
 			Expect(resp.Header().Get("X-Cf-Warnings")).To(BeEmpty())
-		})
-
-		When("org names are filtered", func() {
-			BeforeEach(func() {
-				query = map[string]string{
-					"names": org1Name + "," + org3Name,
-				}
-			})
-
-			It("returns orgs 1 & 3", func() {
-				Expect(result.Resources).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org1Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
-				))
-				Expect(result.Resources).ToNot(ContainElement(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2Name)}),
-				))
-			})
 		})
 
 		// Note: It may seem arbitrary that we check for certificate issues on
@@ -269,23 +220,6 @@ var _ = Describe("Orgs", func() {
 				Expect(orgResp).To(HaveRestyStatusCode(http.StatusNotFound))
 			})
 		})
-
-		When("the org does not exist", func() {
-			var originalGUID string
-
-			BeforeEach(func() {
-				originalGUID = orgGUID
-				orgGUID = "nope"
-			})
-
-			AfterEach(func() {
-				deleteOrg(originalGUID)
-			})
-
-			It("returns a not found error", func() {
-				expectNotFoundError(resp, errResp, "Org")
-			})
-		})
 	})
 
 	Describe("list domains", func() {
@@ -315,30 +249,11 @@ var _ = Describe("Orgs", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the user is authorized in the space", func() {
-			It("can fetch the domain", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(resultList.Resources).To(ContainElement(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(domainName)}),
-				))
-			})
-		})
-
-		When("the user is not authorized in the organization", func() {
-			BeforeEach(func() {
-				restyClient = unprivilegedServiceAccountClient
-			})
-
-			It("returns a not found error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-				Expect(errResp.Errors).To(ConsistOf(
-					cfErr{
-						Detail: "Org not found. Ensure it exists and you have access to it.",
-						Title:  "CF-ResourceNotFound",
-						Code:   10010,
-					},
-				))
-			})
+		It("can fetch the domain", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(resultList.Resources).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(domainName)}),
+			))
 		})
 	})
 

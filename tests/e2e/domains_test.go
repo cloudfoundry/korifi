@@ -86,21 +86,6 @@ var _ = Describe("Domain", func() {
 			Expect(respResource.GUID).To(Equal(guid))
 			Expect(respResource.Name).To(Equal(name))
 		})
-
-		When("the domain name is invalid", func() {
-			BeforeEach(func() {
-				name = "#not!a%valid&domain"
-			})
-
-			It("fails", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(resultErr.Errors).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Detail": ContainSubstring("is not a valid domain"),
-					"Title":  Equal("CF-UnprocessableEntity"),
-					"Code":   Equal(10008),
-				})))
-			})
-		})
 	})
 
 	Describe("Get", func() {

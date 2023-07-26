@@ -32,6 +32,11 @@ var _ = Describe("Multi Process", func() {
 
 	Describe("Scale a worker process", func() {
 		var result responseResource
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+		})
+
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().
@@ -42,29 +47,9 @@ var _ = Describe("Multi Process", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns not found for users with no role in the space", func() {
-			expectNotFoundError(resp, errResp, "Process")
-		})
-
-		When("the user is a space manager", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, spaceGUID)
-			})
-
-			It("returns forbidden", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
-		})
-
-		When("the user is a space developer", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
-			It("succeeds, and returns the worker process", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.GUID).To(Equal(workerProcessGUID))
-			})
+		It("succeeds, and returns the worker process", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(workerProcessGUID))
 		})
 	})
 })

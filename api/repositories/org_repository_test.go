@@ -198,13 +198,14 @@ var _ = Describe("OrgRepository", func() {
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg2.Name)
 			cfOrg3 = createOrgWithCleanup(ctx, prefixedGUID("org3"))
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg3.Name)
+			createOrgWithCleanup(ctx, prefixedGUID("org4"))
 		})
 
 		It("returns the 3 orgs", func() {
 			orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(orgs).To(ContainElements(
+			Expect(orgs).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Name": Equal(cfOrg1.Spec.DisplayName),
 					"GUID": Equal(cfOrg1.Name),
