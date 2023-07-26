@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -10,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,7 +27,6 @@ var (
 	testEnv           *envtest.Environment
 	adminClient       client.Client
 	controllersClient client.Client
-	cacheStop         context.CancelFunc
 )
 
 var _ = BeforeSuite(func() {
@@ -43,31 +40,10 @@ var _ = BeforeSuite(func() {
 	adminClient, err = client.New(adminConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
-	controllersConf := helpers.SetupTestEnvUser(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
-	userCache, err := cache.New(controllersConf, cache.Options{})
-	Expect(err).NotTo(HaveOccurred())
-
-	var cacheCtx context.Context
-	cacheCtx, cacheStop = context.WithCancel(context.Background())
-	go func() {
-		GinkgoRecover()
-		Expect(userCache.Start(cacheCtx)).To(Succeed())
-	}()
-	userCache.WaitForCacheSync(cacheCtx)
-
-	controllersClient, err = client.New(
-		controllersConf,
-		client.Options{
-			Scheme: scheme.Scheme,
-			Cache: &client.CacheOptions{
-				Reader: userCache,
-			},
-		},
-	)
+	controllersClient, err = client.New(helpers.SetupTestEnvUser(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml")), client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	cacheStop()
 	Expect(testEnv.Stop()).To(Succeed())
 })
