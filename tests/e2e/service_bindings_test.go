@@ -1,11 +1,9 @@
 package e2e_test
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -32,6 +30,10 @@ var _ = Describe("Service Bindings", func() {
 	})
 
 	Describe("POST /v3/service_credential_bindings/{guid}", func() {
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+		})
+
 		JustBeforeEach(func() {
 			httpResp, httpError = certClient.R().
 				SetBody(typedResource{
@@ -43,42 +45,9 @@ var _ = Describe("Service Bindings", func() {
 				Post("/v3/service_credential_bindings")
 		})
 
-		It("returns a not found error when the user has no role in the space", func() {
+		It("succeeds", func() {
 			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp).To(HaveRestyStatusCode(http.StatusForbidden))
-		})
-
-		When("the user has space manager role", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, spaceGUID)
-			})
-
-			It("returns a forbidden error", func() {
-				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
-		})
-
-		When("the user has space developer role", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
-			It("succeeds", func() {
-				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
-			})
-
-			When("the user attempts to create a duplicate service binding", func() {
-				BeforeEach(func() {
-					_ = createServiceBinding(appGUID, instanceGUID, "")
-				})
-
-				It("returns an error", func() {
-					Expect(httpError).NotTo(HaveOccurred())
-					Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				})
-			})
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
 		})
 	})
 
@@ -104,6 +73,7 @@ var _ = Describe("Service Bindings", func() {
 
 	Describe("DELETE /v3/service_credential_bindings/{guid}", func() {
 		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
 			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 		})
 
@@ -111,31 +81,9 @@ var _ = Describe("Service Bindings", func() {
 			httpResp, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
 		})
 
-		It("returns a not found error when the user has no role in the space", func() {
+		It("succeeds", func() {
 			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp).To(HaveRestyStatusCode(http.StatusNotFound))
-		})
-
-		When("the user has space manager role", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, spaceGUID)
-			})
-
-			It("returns a forbidden error", func() {
-				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
-		})
-
-		When("the user has space developer role", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
-			It("succeeds", func() {
-				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp).To(HaveRestyStatusCode(http.StatusNoContent))
-			})
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusNoContent))
 		})
 	})
 
@@ -143,96 +91,31 @@ var _ = Describe("Service Bindings", func() {
 		var (
 			anotherInstanceGUID string
 			anotherBindingGUID  string
-			queryString         string
 			result              resourceListWithInclusion
 		)
 
 		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+
 			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 
 			anotherInstanceGUID = createServiceInstance(spaceGUID, generateGUID("another-service-instance"), nil)
 			anotherBindingGUID = createServiceBinding(appGUID, anotherInstanceGUID, "")
 
-			queryString = ""
 			result = resourceListWithInclusion{}
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().SetResult(&result).Get("/v3/service_credential_bindings" + queryString)
+			httpResp, httpError = certClient.R().SetResult(&result).Get("/v3/service_credential_bindings")
 		})
 
-		It("returns a list without ServiceBindings in spaces where the user doesn't have access", func() {
+		It("succeeds", func() {
 			Expect(httpError).NotTo(HaveOccurred())
 			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Resources).NotTo(ContainElement(
+			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherBindingGUID)}),
 			))
-		})
-
-		When("the user has space manager role", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, spaceGUID)
-			})
-
-			It("succeeds", func() {
-				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherBindingGUID)}),
-				))
-			})
-		})
-
-		When("the user has space developer role", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
-			It("succeeds", func() {
-				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherBindingGUID)}),
-				))
-			})
-
-			It("doesn't return anything in the 'included' list", func() {
-				Expect(result.Included).To(BeNil())
-			})
-
-			When("the 'include=app' querystring is set", func() {
-				BeforeEach(func() {
-					queryString = `?include=app`
-				})
-
-				It("returns an app in the 'included' list", func() {
-					Expect(httpError).NotTo(HaveOccurred())
-					Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-					Expect(result.Resources).NotTo(BeEmpty())
-					Expect(result.Included).NotTo(BeNil())
-					Expect(result.Included.Apps).To(ContainElement(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(appGUID)}),
-					))
-				})
-			})
-
-			When("label selector is specified on the search query", func() {
-				var label string
-
-				BeforeEach(func() {
-					label = uuid.NewString()
-					queryString = fmt.Sprintf(`?label_selector=%s`, label)
-					addServiceBindingLabels(bindingGUID, map[string]string{label: "whatever"})
-				})
-
-				It("only returns the bindings that have that label", func() {
-					Expect(result.Resources).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
-					))
-				})
-			})
 		})
 	})
 

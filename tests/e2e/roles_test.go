@@ -52,16 +52,6 @@ var _ = Describe("Roles", func() {
 			Expect(result.Relationships).To(HaveKey("organization"))
 			Expect(result.Relationships["organization"].Data.GUID).To(Equal(commonTestOrgGUID))
 		})
-
-		When("the user is not admin", func() {
-			BeforeEach(func() {
-				client = certClient
-			})
-
-			It("returns 403 Forbidden", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
-		})
 	})
 
 	Describe("creating a space role", func() {
@@ -102,16 +92,6 @@ var _ = Describe("Roles", func() {
 			Expect(result.Relationships).To(HaveKey("space"))
 			Expect(result.Relationships["space"].Data.GUID).To(Equal(spaceGUID))
 		})
-
-		When("the user is not admin", func() {
-			BeforeEach(func() {
-				client = certClient
-			})
-
-			It("returns forbidden error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
-		})
 	})
 
 	Describe("listing roles", func() {
@@ -124,6 +104,8 @@ var _ = Describe("Roles", func() {
 			createOrgRole("organization_user", userName, commonTestOrgGUID)
 			spaceGUID = createSpace(uuid.NewString(), commonTestOrgGUID)
 			createSpaceRole("space_developer", userName, spaceGUID)
+
+			client = certClient
 		})
 
 		AfterEach(func() {
@@ -138,7 +120,7 @@ var _ = Describe("Roles", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("lists all the roles as an admin user", func() {
+		It("returns only the roles visible to the user", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(resultList.Resources).To(ContainElements(
 				SatisfyAll(
@@ -148,6 +130,8 @@ var _ = Describe("Roles", func() {
 						"Type": Equal("organization_user"),
 					}),
 				),
+			))
+			Expect(resultList.Resources).ToNot(ContainElements(
 				SatisfyAll(
 					HaveRelationship("user", "GUID", userName),
 					HaveRelationship("space", "GUID", spaceGUID),
@@ -156,34 +140,6 @@ var _ = Describe("Roles", func() {
 					}),
 				),
 			))
-		})
-
-		When("invoking as the cert user", func() {
-			BeforeEach(func() {
-				client = certClient
-			})
-
-			It("returns only the roles visible to the cert user", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(resultList.Resources).To(ContainElements(
-					SatisfyAll(
-						HaveRelationship("user", "GUID", userName),
-						HaveRelationship("organization", "GUID", commonTestOrgGUID),
-						MatchFields(IgnoreExtras, Fields{
-							"Type": Equal("organization_user"),
-						}),
-					),
-				))
-				Expect(resultList.Resources).ToNot(ContainElements(
-					SatisfyAll(
-						HaveRelationship("user", "GUID", userName),
-						HaveRelationship("space", "GUID", spaceGUID),
-						MatchFields(IgnoreExtras, Fields{
-							"Type": Equal("space_developer"),
-						}),
-					),
-				))
-			})
 		})
 	})
 

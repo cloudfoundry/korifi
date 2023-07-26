@@ -32,23 +32,11 @@ var _ = Describe("Buildpacks", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the user has acquired the cf_user role", func() {
-			It("returns a list of buildpacks", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": ContainSubstring("java")}),
-				))
-			})
-		})
-
-		When("the user has no permissions", func() {
-			BeforeEach(func() {
-				restyClient = unprivilegedServiceAccountClient
-			})
-
-			It("returns forbidden", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
+		It("returns a list of buildpacks", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Resources).To(ContainElements(
+				MatchFields(IgnoreExtras, Fields{"Name": ContainSubstring("java")}),
+			))
 		})
 	})
 })

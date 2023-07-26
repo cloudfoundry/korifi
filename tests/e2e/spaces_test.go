@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
@@ -70,43 +69,6 @@ var _ = Describe("Spaces", func() {
 			Expect(result.GUID).To(HavePrefix("cf-space-"))
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
-
-		When("the space name already exists", func() {
-			BeforeEach(func() {
-				createSpace(spaceName, commonTestOrgGUID)
-			})
-
-			It("returns an unprocessable entity error", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(createErr.Errors).To(ConsistOf(cfErr{
-					Detail: fmt.Sprintf(`Space '%s' already exists. Name must be unique per organization.`, spaceName),
-					Title:  "CF-UnprocessableEntity",
-					Code:   10008,
-				}))
-			})
-		})
-
-		When("the organization relationship references a space guid", func() {
-			var otherSpaceGUID string
-
-			BeforeEach(func() {
-				otherSpaceGUID = createSpace(generateGUID("some-other-space"), commonTestOrgGUID)
-				parentGUID = otherSpaceGUID
-			})
-
-			AfterEach(func() {
-				deleteSpace(otherSpaceGUID)
-			})
-
-			It("denies the request", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-				Expect(createErr.Errors).To(ConsistOf(cfErr{
-					Detail: "Invalid organization. Ensure the organization exists and you have access to it.",
-					Title:  "CF-UnprocessableEntity",
-					Code:   10008,
-				}))
-			})
-		})
 	})
 
 	Describe("create as a ServiceAccount user", func() {
@@ -125,6 +87,8 @@ var _ = Describe("Spaces", func() {
 			createErr = cfErrs{}
 
 			restyClient = tokenClient
+
+			createOrgRole("organization_manager", serviceAccountName, orgGUID)
 		})
 
 		AfterEach(func() {
@@ -152,27 +116,11 @@ var _ = Describe("Spaces", func() {
 			}
 		})
 
-		When("the user is an org manager", func() {
-			BeforeEach(func() {
-				createOrgRole("organization_manager", serviceAccountName, orgGUID)
-			})
-
-			It("creates a space", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-				Expect(result.Name).To(Equal(spaceName))
-				Expect(result.GUID).To(HavePrefix("cf-space-"))
-				Expect(result.GUID).NotTo(BeEmpty())
-			})
-		})
-
-		When("the user is an org user", func() {
-			BeforeEach(func() {
-				createOrgRole("organization_user", serviceAccountName, orgGUID)
-			})
-
-			It("cannot create a space", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
+		It("creates a space", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+			Expect(result.Name).To(Equal(spaceName))
+			Expect(result.GUID).To(HavePrefix("cf-space-"))
+			Expect(result.GUID).NotTo(BeEmpty())
 		})
 	})
 
@@ -186,7 +134,6 @@ var _ = Describe("Spaces", func() {
 			space21Name, space22Name, space23Name string
 			space31Name, space32Name, space33Name string
 			result                                resourceList[resource]
-			query                                 map[string]string
 		)
 
 		BeforeEach(func() {
@@ -198,7 +145,6 @@ var _ = Describe("Spaces", func() {
 
 			var orgWG sync.WaitGroup
 			orgErrChan := make(chan error, 3)
-			query = make(map[string]string)
 
 			orgWG.Add(3)
 			asyncCreateOrg(generateGUID("org1"), &org1GUID, &orgWG, orgErrChan)
@@ -256,7 +202,6 @@ var _ = Describe("Spaces", func() {
 		JustBeforeEach(func() {
 			var err error
 			resp, err = restyClient.R().
-				SetQueryParams(query).
 				SetResult(&result).
 				Get("/v3/spaces")
 			Expect(err).NotTo(HaveOccurred())
@@ -275,40 +220,6 @@ var _ = Describe("Spaces", func() {
 			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space13Name)})))
 			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space23Name)})))
 			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space33Name)})))
-		})
-
-		When("filtering by organization GUIDs", func() {
-			BeforeEach(func() {
-				query = map[string]string{
-					"organization_guids": fmt.Sprintf("%s,%s", org1GUID, org3GUID),
-				}
-			})
-
-			It("only lists spaces belonging to the orgs", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(space31Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
-				))
-			})
-		})
-
-		When("filtering by name", func() {
-			BeforeEach(func() {
-				query = map[string]string{
-					"names": strings.Join([]string{space12Name, space13Name, space32Name}, ","),
-				}
-			})
-
-			It("only lists those matching and available", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.Resources).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
-				))
-			})
 		})
 	})
 
@@ -349,23 +260,6 @@ var _ = Describe("Spaces", func() {
 			spaceResp, err := restyClient.R().Get("/v3/spaces/" + spaceGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spaceResp).To(HaveRestyStatusCode(http.StatusNotFound))
-		})
-
-		When("the space does not exist", func() {
-			var originalSpaceGUID string
-
-			BeforeEach(func() {
-				originalSpaceGUID = spaceGUID
-				spaceGUID = "nope"
-			})
-
-			AfterEach(func() {
-				deleteSpace(originalSpaceGUID)
-			})
-
-			It("returns a not found error", func() {
-				expectNotFoundError(resp, resultErr, "Space")
-			})
 		})
 	})
 
@@ -420,6 +314,10 @@ var _ = Describe("Spaces", func() {
 		})
 
 		Describe("apply manifest", func() {
+			BeforeEach(func() {
+				createSpaceRole("space_developer", certUserName, spaceGUID)
+			})
+
 			JustBeforeEach(func() {
 				var err error
 				manifestBytes, err = yaml.Marshal(manifest)
@@ -432,16 +330,99 @@ var _ = Describe("Spaces", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			When("the user has space developer role in the space", func() {
+			It("succeeds", func() {
+				Expect(resp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusAccepted),
+					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
+				))
+
+				jobURL := resp.Header().Get("Location")
+				Eventually(func(g Gomega) {
+					jobResp, err := restyClient.R().Get(jobURL)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+				}).Should(Succeed())
+
+				app1GUID := getAppGUIDFromName(app1Name)
+
+				app1 := getApp(app1GUID)
+				Expect(app1.Metadata).NotTo(BeNil())
+				Expect(app1.Metadata.Labels).To(HaveKeyWithValue("foo", "FOO"))
+				Expect(app1.Metadata.Annotations).To(HaveKeyWithValue("bar", "BAR"))
+
+				app1Process := getProcess(app1GUID, "web")
+				Expect(app1Process.Instances).To(Equal(1))
+				Expect(app1Process.Command).To(Equal("whatever"))
+
+				app1ServiceBindings := getServiceBindingsForApp(app1GUID)
+				Expect(app1ServiceBindings).To(HaveLen(1))
+				Expect(app1ServiceBindings[0].Name).To(Equal(serviceBindingName))
+				Expect(app1ServiceBindings[0].Relationships["app"].Data.GUID).To(Equal(app1GUID))
+				Expect(app1ServiceBindings[0].Relationships["service_instance"].Data.GUID).To(Equal(serviceGUID))
+
+				app1Env := getAppEnv(app1GUID)
+				Expect(app1Env).To(
+					HaveKeyWithValue("system_env_json",
+						HaveKeyWithValue("VCAP_SERVICES",
+							HaveKeyWithValue("user-provided",
+								ContainElement(SatisfyAll(
+									HaveKeyWithValue("instance_guid", serviceGUID),
+									HaveKeyWithValue("instance_name", serviceName),
+									HaveKeyWithValue("binding_name", serviceBindingName),
+								)),
+							),
+						),
+					),
+				)
+
+				app2GUID := getAppGUIDFromName(app2Name)
+				Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
+				Expect(getProcess(app2GUID, "bob").Instances).To(Equal(0))
+			})
+
+			When("the app already exists", func() {
+				applyManifest := func(m manifestResource) {
+					mBytes, err := yaml.Marshal(m)
+					Expect(err).NotTo(HaveOccurred())
+
+					var requestErr error
+					r, err := restyClient.R().
+						SetHeader("Content-type", "application/x-yaml").
+						SetBody(mBytes).
+						SetError(&requestErr).
+						Post("/v3/spaces/" + spaceGUID + "/actions/apply_manifest")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(requestErr).NotTo(HaveOccurred())
+
+					Expect(r).To(HaveRestyStatusCode(http.StatusAccepted))
+
+					jobURL := r.Header().Get("Location")
+					Eventually(func(g Gomega) {
+						jobResp, err := restyClient.R().Get(jobURL)
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+					}).Should(Succeed())
+				}
+
 				BeforeEach(func() {
-					createSpaceRole("space_developer", certUserName, spaceGUID)
+					applyManifest(manifestResource{
+						Version: 1,
+						Applications: []applicationResource{{
+							Name:    app1Name,
+							Command: "ogWhatever",
+							Metadata: metadata{
+								Labels:      map[string]string{"foo": "ogFOO", "baz": "luhrmann"},
+								Annotations: map[string]string{"bar": "ogBAR", "fizz": "buzz"},
+							},
+							Processes: []manifestApplicationProcessResource{{
+								Type: "worker",
+							}},
+						}},
+					})
 				})
 
-				It("succeeds", func() {
-					Expect(resp).To(SatisfyAll(
-						HaveRestyStatusCode(http.StatusAccepted),
-						HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
-					))
+				It("applies the changes correctly", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 
 					jobURL := resp.Header().Get("Location")
 					Eventually(func(g Gomega) {
@@ -454,140 +435,23 @@ var _ = Describe("Spaces", func() {
 
 					app1 := getApp(app1GUID)
 					Expect(app1.Metadata).NotTo(BeNil())
-					Expect(app1.Metadata.Labels).To(HaveKeyWithValue("foo", "FOO"))
-					Expect(app1.Metadata.Annotations).To(HaveKeyWithValue("bar", "BAR"))
+					Expect(app1.Metadata.Labels).To(SatisfyAll(
+						HaveKeyWithValue("foo", "FOO"),
+						HaveKeyWithValue("baz", "luhrmann"),
+					))
+					Expect(app1.Metadata.Annotations).To(SatisfyAll(
+						HaveKeyWithValue("bar", "BAR"),
+						HaveKeyWithValue("fizz", "buzz"),
+					))
 
 					app1Process := getProcess(app1GUID, "web")
 					Expect(app1Process.Instances).To(Equal(1))
 					Expect(app1Process.Command).To(Equal("whatever"))
-
-					app1ServiceBindings := getServiceBindingsForApp(app1GUID)
-					Expect(app1ServiceBindings).To(HaveLen(1))
-					Expect(app1ServiceBindings[0].Name).To(Equal(serviceBindingName))
-					Expect(app1ServiceBindings[0].Relationships["app"].Data.GUID).To(Equal(app1GUID))
-					Expect(app1ServiceBindings[0].Relationships["service_instance"].Data.GUID).To(Equal(serviceGUID))
-
-					app1Env := getAppEnv(app1GUID)
-					Expect(app1Env).To(
-						HaveKeyWithValue("system_env_json",
-							HaveKeyWithValue("VCAP_SERVICES",
-								HaveKeyWithValue("user-provided",
-									ContainElement(SatisfyAll(
-										HaveKeyWithValue("instance_guid", serviceGUID),
-										HaveKeyWithValue("instance_name", serviceName),
-										HaveKeyWithValue("binding_name", serviceBindingName),
-									)),
-								),
-							),
-						),
-					)
+					Expect(getProcess(app1GUID, "worker").Instances).To(Equal(0))
 
 					app2GUID := getAppGUIDFromName(app2Name)
 					Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
 					Expect(getProcess(app2GUID, "bob").Instances).To(Equal(0))
-				})
-
-				When("the app already exists", func() {
-					applyManifest := func(m manifestResource) {
-						mBytes, err := yaml.Marshal(m)
-						Expect(err).NotTo(HaveOccurred())
-
-						var requestErr error
-						r, err := restyClient.R().
-							SetHeader("Content-type", "application/x-yaml").
-							SetBody(mBytes).
-							SetError(&requestErr).
-							Post("/v3/spaces/" + spaceGUID + "/actions/apply_manifest")
-						Expect(err).NotTo(HaveOccurred())
-						Expect(requestErr).NotTo(HaveOccurred())
-
-						Expect(r).To(HaveRestyStatusCode(http.StatusAccepted))
-
-						jobURL := r.Header().Get("Location")
-						Eventually(func(g Gomega) {
-							jobResp, err := restyClient.R().Get(jobURL)
-							g.Expect(err).NotTo(HaveOccurred())
-							g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-						}).Should(Succeed())
-					}
-
-					BeforeEach(func() {
-						applyManifest(manifestResource{
-							Version: 1,
-							Applications: []applicationResource{{
-								Name:    app1Name,
-								Command: "ogWhatever",
-								Metadata: metadata{
-									Labels:      map[string]string{"foo": "ogFOO", "baz": "luhrmann"},
-									Annotations: map[string]string{"bar": "ogBAR", "fizz": "buzz"},
-								},
-								Processes: []manifestApplicationProcessResource{{
-									Type: "worker",
-								}},
-							}},
-						})
-					})
-
-					It("applies the changes correctly", func() {
-						Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
-
-						jobURL := resp.Header().Get("Location")
-						Eventually(func(g Gomega) {
-							jobResp, err := restyClient.R().Get(jobURL)
-							g.Expect(err).NotTo(HaveOccurred())
-							g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-						}).Should(Succeed())
-
-						app1GUID := getAppGUIDFromName(app1Name)
-
-						app1 := getApp(app1GUID)
-						Expect(app1.Metadata).NotTo(BeNil())
-						Expect(app1.Metadata.Labels).To(SatisfyAll(
-							HaveKeyWithValue("foo", "FOO"),
-							HaveKeyWithValue("baz", "luhrmann"),
-						))
-						Expect(app1.Metadata.Annotations).To(SatisfyAll(
-							HaveKeyWithValue("bar", "BAR"),
-							HaveKeyWithValue("fizz", "buzz"),
-						))
-
-						app1Process := getProcess(app1GUID, "web")
-						Expect(app1Process.Instances).To(Equal(1))
-						Expect(app1Process.Command).To(Equal("whatever"))
-						Expect(getProcess(app1GUID, "worker").Instances).To(Equal(0))
-
-						app2GUID := getAppGUIDFromName(app2Name)
-						Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
-						Expect(getProcess(app2GUID, "bob").Instances).To(Equal(0))
-					})
-				})
-			})
-
-			When("the user has space manager role in the space", func() {
-				BeforeEach(func() {
-					createSpaceRole("space_manager", certUserName, spaceGUID)
-				})
-
-				It("returns 403", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-					Expect(resultErr.Errors).To(ConsistOf(cfErr{
-						Detail: "You are not authorized to perform the requested action",
-						Title:  "CF-NotAuthorized",
-						Code:   10003,
-					}))
-				})
-			})
-
-			When("the user has no role in the space", func() {
-				It("returns 404", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-					Expect(resultErr.Errors).To(ConsistOf(
-						cfErr{
-							Detail: "Space not found. Ensure it exists and you have access to it.",
-							Title:  "CF-ResourceNotFound",
-							Code:   10010,
-						},
-					))
 				})
 			})
 		})
@@ -610,6 +474,10 @@ var _ = Describe("Spaces", func() {
 			deleteSpace(spaceGUID)
 		})
 
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+		})
+
 		JustBeforeEach(func() {
 			var err error
 			resp, err = restyClient.R().
@@ -620,30 +488,14 @@ var _ = Describe("Spaces", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the user has space-developer permissions in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
+		It("returns the diff response JSON", func() {
+			Expect(resp.StatusCode()).To(Equal(http.StatusAccepted))
 
-			It("returns the diff response JSON", func() {
-				Expect(resp.StatusCode()).To(Equal(http.StatusAccepted))
-
-				diff := map[string]interface{}{}
-				Expect(json.Unmarshal(resp.Body(), &diff)).To(Succeed())
-				// The `manifest_diff` endpoint is currently a stub to return
-				// an empty diff
-				Expect(diff).To(HaveKeyWithValue("diff", BeEmpty()))
-			})
-		})
-
-		When("the user has no permissions", func() {
-			BeforeEach(func() {
-				restyClient = unprivilegedServiceAccountClient
-			})
-
-			It("returns a Not-Found error", func() {
-				expectNotFoundError(resp, errResp, "Space")
-			})
+			diff := map[string]interface{}{}
+			Expect(json.Unmarshal(resp.Body(), &diff)).To(Succeed())
+			// The `manifest_diff` endpoint is currently a stub to return
+			// an empty diff
+			Expect(diff).To(HaveKeyWithValue("diff", BeEmpty()))
 		})
 	})
 

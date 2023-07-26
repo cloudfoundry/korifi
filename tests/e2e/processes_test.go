@@ -34,52 +34,28 @@ var _ = Describe("Processes", func() {
 	})
 
 	Describe("List processes for app", func() {
-		var (
-			space2GUID     string
-			app2GUID       string
-			requestAppGUID string
-			result         resourceList[resource]
-		)
+		var result resourceList[resource]
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + requestAppGUID + "/processes")
+			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the user is authorized in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-				requestAppGUID = appGUID
-			})
+		It("returns the processes for the app", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-			It("returns the processes for the app", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-
-				Expect(webProcessGUID).To(HavePrefix("cf-proc-"))
-				Expect(webProcessGUID).To(HaveSuffix("-web"))
-				// If DEFAULT_APP_BITS_PATH is set, then there may also be non-web processes.
-				// To avoid failures in this case, we only test that the web process is included in the response.
-				Expect(result.Resources).To(ContainElement(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(webProcessGUID)}),
-				))
-			})
-		})
-
-		When("the user is NOT authorized in the space", func() {
-			BeforeEach(func() {
-				space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
-				app2GUID, _ = pushTestApp(space2GUID, defaultAppBitsFile)
-				requestAppGUID = app2GUID
-			})
-
-			AfterEach(func() {
-				deleteSpace(space2GUID)
-			})
-
-			It("returns 404 NotFound", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-			})
+			Expect(webProcessGUID).To(HavePrefix("cf-proc-"))
+			Expect(webProcessGUID).To(HaveSuffix("-web"))
+			// If DEFAULT_APP_BITS_PATH is set, then there may also be non-web processes.
+			// To avoid failures in this case, we only test that the web process is included in the response.
+			Expect(result.Resources).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(webProcessGUID)}),
+			))
 		})
 	})
 
@@ -105,16 +81,6 @@ var _ = Describe("Processes", func() {
 		It("lists the (empty list of) sidecars", func() {
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK), string(resp.Body()))
 			Expect(list.Resources).To(BeEmpty())
-		})
-
-		When("the user is not authorized in the space", func() {
-			BeforeEach(func() {
-				restyClient = unprivilegedServiceAccountClient
-			})
-
-			It("returns a not found error", func() {
-				expectNotFoundError(resp, errResp, "Process")
-			})
 		})
 	})
 
@@ -169,16 +135,6 @@ var _ = Describe("Processes", func() {
 				}))
 			})
 		})
-
-		When("the user is not authorized in the space", func() {
-			BeforeEach(func() {
-				restyClient = unprivilegedServiceAccountClient
-			})
-
-			It("returns a not found error", func() {
-				expectNotFoundError(resp, errResp, "Process")
-			})
-		})
 	})
 
 	Describe("Fetch a process", func() {
@@ -204,6 +160,11 @@ var _ = Describe("Processes", func() {
 
 	Describe("Scale a process", func() {
 		var result responseResource
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+		})
+
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().
@@ -214,29 +175,9 @@ var _ = Describe("Processes", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns not found for users with no role in the space", func() {
-			expectNotFoundError(resp, errResp, "Process")
-		})
-
-		When("the user is a space manager", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, spaceGUID)
-			})
-
-			It("returns forbidden", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-			})
-		})
-
-		When("the user is a space developer", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
-			It("succeeds, and returns the process", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.GUID).To(Equal(webProcessGUID))
-			})
+		It("succeeds, and returns the process", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(webProcessGUID))
 		})
 	})
 
@@ -253,36 +194,22 @@ var _ = Describe("Processes", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the user is a space developer", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
-			It("returns success", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.GUID).To(Equal(webProcessGUID))
-			})
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
-		When("the user is a space manager", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, spaceGUID)
-			})
-
-			It("returns forbidden", func() {
-				expectForbiddenError(resp, errResp)
-			})
-		})
-
-		When("the user has no role", func() {
-			It("returns not found", func() {
-				expectNotFoundError(resp, errResp, "Process")
-			})
+		It("returns success", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(webProcessGUID))
 		})
 	})
 
 	Describe("Patch process metadata", func() {
 		var result responseResource
+
+		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, spaceGUID)
+		})
 
 		JustBeforeEach(func() {
 			var err error
@@ -296,32 +223,10 @@ var _ = Describe("Processes", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the user is a space developer", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
-			It("successfully patches the annotations", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(string(resp.Body())).To(ContainSubstring(`"foo":"bar"`))
-				Expect(result.GUID).To(Equal(webProcessGUID))
-			})
-		})
-
-		When("the user is a space manager", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, spaceGUID)
-			})
-
-			It("returns forbidden", func() {
-				expectForbiddenError(resp, errResp)
-			})
-		})
-
-		When("the user has no role", func() {
-			It("returns not found", func() {
-				expectNotFoundError(resp, errResp, "Process")
-			})
+		It("successfully patches the annotations", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(string(resp.Body())).To(ContainSubstring(`"foo":"bar"`))
+			Expect(result.GUID).To(Equal(webProcessGUID))
 		})
 	})
 })

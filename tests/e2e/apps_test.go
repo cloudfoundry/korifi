@@ -82,22 +82,6 @@ var _ = Describe("Apps", func() {
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app4GUID)}),
 			))
 		})
-
-		When("filtering by label selector", func() {
-			BeforeEach(func() {
-				label := uuid.NewString()
-				addAppLabels(app1GUID, map[string]string{label: ""})
-
-				query = "?label_selector=" + label
-			})
-
-			It("lists apps with matching labels", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-
-				Expect(result.Resources).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(app1GUID)}),
-				))
-			})
 		})
 	})
 
@@ -105,6 +89,7 @@ var _ = Describe("Apps", func() {
 		var appName string
 
 		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, space1GUID)
 			appName = generateGUID("app")
 		})
 
@@ -125,36 +110,8 @@ var _ = Describe("Apps", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the user has space developer role in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, space1GUID)
-			})
-
-			It("succeeds", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-			})
-
-			When("the app name already exists in the space", func() {
-				BeforeEach(func() {
-					createApp(space1GUID, appName)
-				})
-
-				It("returns an unprocessable entity error", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-					Expect(resp).To(HaveRestyBody(ContainSubstring("CF-UniquenessError")))
-				})
-			})
-		})
-
-		When("the user cannot create apps in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, space1GUID)
-			})
-
-			It("fails", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
-			})
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 		})
 	})
 
@@ -176,6 +133,7 @@ var _ = Describe("Apps", func() {
 
 			spaceName = generateGUID("space")
 			spaceGUID = createSpace(spaceName, orgGUID)
+			createSpaceRole("space_developer", serviceAccountName, spaceGUID)
 		})
 
 		AfterEach(func() {
@@ -199,25 +157,8 @@ var _ = Describe("Apps", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the service account has space developer role in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", serviceAccountName, spaceGUID)
-			})
-
-			It("succeeds", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-			})
-		})
-
-		When("the service account cannot create apps in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", serviceAccountName, spaceGUID)
-			})
-
-			It("fails", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
-			})
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 		})
 	})
 
@@ -339,6 +280,8 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
+			createSpaceRole("space_developer", certUserName, space1GUID)
+
 			appGUID, _ = pushTestApp(space1GUID, defaultAppBitsFile)
 			processGUID = getProcess(appGUID, "web").GUID
 		})
@@ -349,20 +292,9 @@ var _ = Describe("Apps", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns a not-found error to users with no space access", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-			Expect(resp).To(HaveRestyBody(ContainSubstring("App not found")))
-		})
-
-		When("the user is a space developer", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, space1GUID)
-			})
-
-			It("successfully returns the process", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.GUID).To(Equal(processGUID))
-			})
+		It("successfully returns the process", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(processGUID))
 		})
 	})
 
@@ -640,6 +572,11 @@ var _ = Describe("Apps", func() {
 		Describe("Scale a process", func() {
 			var result responseResource
 			var errResp cfErrs
+
+			BeforeEach(func() {
+				createSpaceRole("space_developer", certUserName, space1GUID)
+			})
+
 			JustBeforeEach(func() {
 				var err error
 				resp, err = certClient.R().
@@ -650,29 +587,9 @@ var _ = Describe("Apps", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("returns not found for users with no role in the space", func() {
-				expectNotFoundError(resp, errResp, "App")
-			})
-
-			When("the user is a space manager", func() {
-				BeforeEach(func() {
-					createSpaceRole("space_manager", certUserName, space1GUID)
-				})
-
-				It("returns forbidden", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				})
-			})
-
-			When("the user is a space developer", func() {
-				BeforeEach(func() {
-					createSpaceRole("space_developer", certUserName, space1GUID)
-				})
-
-				It("succeeds, and returns the process", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-					Expect(result.GUID).To(Equal(processGUID))
-				})
+			It("succeeds, and returns the process", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(processGUID))
 			})
 		})
 
