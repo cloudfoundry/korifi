@@ -180,32 +180,16 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return r.finalize(ctx, log, buildWorkload)
 	}
 
-	var err error
-	if !hasKpackImage(buildWorkload) {
-		var builderName string
-		if len(buildWorkload.Spec.Buildpacks) > 0 {
-			builderName, err = r.ensureKpackBuilder(ctx, log, buildWorkload)
-			if err != nil {
-				log.Info("failed ensuring custom builder", "reason", err)
-				return ctrl.Result{}, ignoreDoNotRetryError(fmt.Errorf("failed ensuring custom builder: %w", err))
-			}
-		}
-
-		err = r.ensureKpackImageRequirements(ctx, buildWorkload)
-		if err != nil {
-			log.Info("kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, r.reconcileKpackImage(ctx, log, buildWorkload, builderName)
-	}
-
 	if hasCompleted(buildWorkload) {
 		return ctrl.Result{}, nil
 	}
 
+	if neverReconciledSuccessfully(buildWorkload) {
+		return r.beginImageBuild(ctx, log, buildWorkload)
+	}
+
 	kpackImage := new(buildv1alpha2.Image)
-	err = r.k8sClient.Get(ctx, client.ObjectKey{
+	err := r.k8sClient.Get(ctx, client.ObjectKey{
 		Namespace: buildWorkload.Namespace,
 		Name:      buildWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey],
 	}, kpackImage)
@@ -420,7 +404,7 @@ func ignoreDoNotRetryError(err error) error {
 	return err
 }
 
-func (r *BuildWorkloadReconciler) ensureKpackBuilder(ctx context.Context, log logr.Logger, buildWorkload *korifiv1alpha1.BuildWorkload) (string, error) {
+func (r *BuildWorkloadReconciler) ensureKpackBuilderForBuildpacks(ctx context.Context, log logr.Logger, buildWorkload *korifiv1alpha1.BuildWorkload) (string, error) {
 	var (
 		defaultBuilder *buildv1alpha2.ClusterBuilder
 		err            error
@@ -545,7 +529,7 @@ func (r *BuildWorkloadReconciler) failSkippedEarlierWorkloads(ctx context.Contex
 			continue
 		}
 
-		if !hasKpackImage(workload) || hasCompleted(workload) {
+		if neverReconciledSuccessfully(workload) || hasCompleted(workload) {
 			continue
 		}
 
@@ -576,12 +560,13 @@ func (r *BuildWorkloadReconciler) failSkippedEarlierWorkloads(ctx context.Contex
 	return nil
 }
 
-func hasKpackImage(buildWorkload *korifiv1alpha1.BuildWorkload) bool {
-	return meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType) != nil
+func neverReconciledSuccessfully(buildWorkload *korifiv1alpha1.BuildWorkload) bool {
+	return meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType) == nil
 }
 
 func hasCompleted(buildWorkload *korifiv1alpha1.BuildWorkload) bool {
-	return meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType).Status != metav1.ConditionUnknown
+	succeeded := meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+	return succeeded != nil && succeeded.Status != metav1.ConditionUnknown
 }
 
 func (r *BuildWorkloadReconciler) listKpackBuilds(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) ([]buildv1alpha2.Build, error) {
@@ -608,10 +593,12 @@ func latestBuild(builds []buildv1alpha2.Build) (*buildv1alpha2.Build, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse build number for build %q: %w", build.Name, err)
 		}
+
 		latestBuildNumber, err := strconv.ParseInt(latestBuild.Labels[buildv1alpha2.BuildNumberLabel], 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse build number for build %q: %w", latestBuild.Name, err)
 		}
+
 		if buildNumber > latestBuildNumber {
 			latestBuild = build
 		}
@@ -620,7 +607,28 @@ func latestBuild(builds []buildv1alpha2.Build) (*buildv1alpha2.Build, error) {
 	return &latestBuild, nil
 }
 
-func (r *BuildWorkloadReconciler) ensureKpackImageRequirements(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
+func (r *BuildWorkloadReconciler) beginImageBuild(ctx context.Context, log logr.Logger, buildWorkload *korifiv1alpha1.BuildWorkload) (ctrl.Result, error) {
+	var builderName string
+	var err error
+
+	if len(buildWorkload.Spec.Buildpacks) > 0 {
+		builderName, err = r.ensureKpackBuilderForBuildpacks(ctx, log, buildWorkload)
+		if err != nil {
+			log.Info("failed ensuring custom builder", "reason", err)
+			return ctrl.Result{}, ignoreDoNotRetryError(fmt.Errorf("failed ensuring custom builder: %w", err))
+		}
+	}
+
+	err = r.ensureRegistryImagePullSecretsExist(ctx, buildWorkload)
+	if err != nil {
+		log.Info("kpack image requirements for buildWorkload are not met", "guid", buildWorkload.Name, "reason", err)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, r.reconcileKpackImage(ctx, log, buildWorkload, builderName)
+}
+
+func (r *BuildWorkloadReconciler) ensureRegistryImagePullSecretsExist(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) error {
 	for _, secret := range buildWorkload.Spec.Source.Registry.ImagePullSecrets {
 		err := r.k8sClient.Get(ctx, types.NamespacedName{Namespace: buildWorkload.Namespace, Name: secret.Name}, &corev1.Secret{})
 		if err != nil {
@@ -866,6 +874,7 @@ func (r *BuildWorkloadReconciler) finalize(ctx context.Context, log logr.Logger,
 			return ctrl.Result{}, err
 		}
 
+		// This retry code is untested, because there isn't an obvious way to test it with TestEnv
 		hasRemainingBuilds, err := r.hasRemainingBuilds(ctx, buildWorkload)
 		if err != nil {
 			log.Info("failed to check for remaining builds for build workload", "reason", err)
