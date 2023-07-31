@@ -18,12 +18,14 @@ import (
 )
 
 type AppWorkloadToStatefulsetConverter struct {
-	scheme *runtime.Scheme
+	scheme              *runtime.Scheme
+	allowRootContainers bool
 }
 
-func NewAppWorkloadToStatefulsetConverter(scheme *runtime.Scheme) *AppWorkloadToStatefulsetConverter {
+func NewAppWorkloadToStatefulsetConverter(scheme *runtime.Scheme, allowRootContainers bool) *AppWorkloadToStatefulsetConverter {
 	return &AppWorkloadToStatefulsetConverter{
-		scheme: scheme,
+		scheme:              scheme,
+		allowRootContainers: allowRootContainers,
 	}
 }
 
@@ -141,6 +143,11 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 				},
 			},
 		},
+	}
+
+	if r.allowRootContainers {
+		containers[0].SecurityContext = nil
+		statefulSet.Spec.Template.Spec.SecurityContext = nil
 	}
 
 	statefulSet.Spec.Template.Spec.AutomountServiceAccountToken = tools.PtrTo(false)

@@ -57,3 +57,4 @@ data:
     {{- if .Values.jobTaskRunner.include }}
     jobTTL: {{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}
     {{- end }}
+    allowRootContainers: {{ .Values.controllers.allowRootContainers }}

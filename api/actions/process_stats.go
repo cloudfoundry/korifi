@@ -49,6 +49,7 @@ type (
 		Usage     Usage
 		MemQuota  *int64
 		DiskQuota *int64
+		Details   string
 	}
 
 	ProcessStats struct {
@@ -70,6 +71,17 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 	processRecord, err := a.processRepo.GetProcess(ctx, authInfo, processGUID)
 	if err != nil {
 		return nil, err
+	}
+
+	if processRecord.Ready != nil && !*processRecord.Ready {
+		return []PodStatsRecord{
+			{
+				Type:    processRecord.Type,
+				Index:   0,
+				State:   "CRASHED",
+				Details: processRecord.Message,
+			},
+		}, nil
 	}
 
 	appRecord, err := a.appRepo.GetApp(ctx, authInfo, processRecord.AppGUID)
@@ -112,7 +124,7 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 			return nil, err
 		}
 
-		podState := getPodState(m.Pod)
+		podState, details := getPodState(m.Pod)
 		if podState == stateDown {
 			continue
 		}
@@ -122,6 +134,7 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 		}
 
 		records[index].State = podState
+		records[index].Details = details
 
 		metricsMap := aggregateContainerMetrics(m.Metrics.Containers)
 		if len(metricsMap) == 0 {
@@ -203,21 +216,29 @@ func extractEnvVarFromContainer(container corev1.Container, envVar string) (stri
 // RUNNING => pod.conditions.Ready
 // STARTING => default
 
-func getPodState(pod corev1.Pod) string {
+func getPodState(pod corev1.Pod) (string, string) {
 	// return running when all containers are ready
 	if podConditionStatus(pod, corev1.PodReady) {
-		return stateRunning
+		return stateRunning, ""
 	}
 
 	if !podConditionStatus(pod, corev1.PodScheduled) {
-		return stateDown
+		return stateDown, ""
+	}
+
+	if waitingWithConfigErr, reason := podHasWaitingContainerWithReason(pod, "CreateContainerConfigError"); waitingWithConfigErr {
+		return stateCrashed, reason
+	}
+
+	if waitingWithConfigErr, reason := podHasWaitingContainerWithReason(pod, "ImagePullBackOff"); waitingWithConfigErr {
+		return stateCrashed, reason
 	}
 
 	if podHasTerminatedContainer(pod) {
-		return stateCrashed
+		return stateCrashed, ""
 	}
 
-	return stateStarting
+	return stateStarting, ""
 }
 
 func podHasTerminatedContainer(pod corev1.Pod) bool {
@@ -228,6 +249,16 @@ func podHasTerminatedContainer(pod corev1.Pod) bool {
 	}
 
 	return false
+}
+
+func podHasWaitingContainerWithReason(pod corev1.Pod, reason string) (bool, string) {
+	for _, cond := range pod.Status.ContainerStatuses {
+		if cond.State.Waiting != nil && cond.State.Waiting.Reason == reason {
+			return true, cond.State.Waiting.Message
+		}
+	}
+
+	return false, ""
 }
 
 func podConditionStatus(pod corev1.Pod, conditionType corev1.PodConditionType) bool {

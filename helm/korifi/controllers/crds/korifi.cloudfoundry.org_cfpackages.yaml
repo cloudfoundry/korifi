@@ -86,9 +86,11 @@ spec:
                 - registry
                 type: object
               type:
-                description: The package type. Only "bits" is currently allowed.
+                description: The package type. Only "bits" and "docker" are currently
+                  allowed.
                 enum:
                 - bits
+                - docker
                 type: string
             required:
             - appRef

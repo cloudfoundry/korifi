@@ -36,8 +36,8 @@ type Lifecycle struct {
 }
 
 // LifecycleType inform the platform of how to build droplets and run apps
-// allow only values "buildpack"
-// +kubebuilder:validation:Enum=buildpack
+// allow only values "buildpack" and "docker"
+// +kubebuilder:validation:Enum=buildpack;docker
 type LifecycleType string
 
 // LifecycleData is shared by CFApp and CFBuild

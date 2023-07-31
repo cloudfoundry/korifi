@@ -42,6 +42,8 @@ type ControllerConfig struct {
 	BuilderReadinessTimeout   string `yaml:"builderReadinessTimeout"`
 	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType     string `yaml:"containerRegistryType"`
+
+	AllowRootContainers bool `yaml:"allowRootContainers"`
 }
 
 type CFProcessDefaults struct {

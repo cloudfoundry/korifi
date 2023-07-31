@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"sort"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -25,6 +27,7 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -148,6 +151,8 @@ func filterAppWorkloads(object client.Object) bool {
 
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;patch;deletecollection
 
+//+kubebuilder:rbac:groups="",resources=events,verbs=list;watch
+
 func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
 	log := r.log.WithValues("namespace", appWorkload.Namespace, "name", appWorkload.Name)
 
@@ -203,12 +208,63 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		return ctrl.Result{}, err
 	}
 
+	eventList := new(corev1.EventList)
+	err = r.k8sClient.List(ctx, eventList,
+		client.InNamespace(statefulSet.Namespace),
+		client.MatchingFields{
+			shared.IndexEventInvolvedObjectName: statefulSet.Name,
+		},
+	)
+	if err != nil {
+		log.Info("error getting events for statefulset", "reason", err, "statefulset", statefulSet.Name)
+		return ctrl.Result{}, err
+	}
+
+	events := filterAndSortImportantEvents(eventList)
+
+	if len(events) == 0 {
+		meta.SetStatusCondition(&appWorkload.Status.Conditions, metav1.Condition{
+			Type:               shared.StatusConditionReady,
+			Status:             metav1.ConditionUnknown,
+			Reason:             "Unknown",
+			ObservedGeneration: appWorkload.Generation,
+			Message:            "Unknown",
+		})
+
+		return ctrl.Result{}, nil
+	}
+
+	fmt.Printf("events[0] = %+v\n", events[0])
+	status := metav1.ConditionTrue
+	if events[0].Reason == "FailedCreate" {
+		status = metav1.ConditionFalse
+	}
+
 	meta.SetStatusCondition(&appWorkload.Status.Conditions, metav1.Condition{
 		Type:               shared.StatusConditionReady,
-		Status:             metav1.ConditionTrue,
-		Reason:             shared.StatusConditionReady,
+		Status:             status,
+		Reason:             events[0].Reason,
+		Message:            events[0].Message,
 		ObservedGeneration: appWorkload.Generation,
 	})
 
 	return ctrl.Result{}, nil
+}
+
+func filterAndSortImportantEvents(eventList *corev1.EventList) []corev1.Event {
+	fmt.Printf("eventList.Items = %+v\n", eventList.Items)
+	result := []corev1.Event{}
+
+	for _, e := range eventList.Items {
+		if e.Reason == "FailedCreate" || e.Reason == "SuccessfulCreate" {
+			result = append(result, e)
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].LastTimestamp.After(result[j].LastTimestamp.Time)
+	})
+
+	fmt.Printf("Filtered result = %+v\n", result)
+	return result
 }

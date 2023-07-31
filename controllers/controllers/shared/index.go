@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,6 +23,7 @@ const (
 	IndexAppTasks                          = "appTasks"
 	IndexSpaceNamespaceName                = "spaceNamespace"
 	IndexOrgNamespaceName                  = "orgNamespace"
+	IndexEventInvolvedObjectName           = "eventInvolvedObjectName"
 
 	StatusConditionReady = "Ready"
 )
@@ -66,6 +68,14 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFOrg{}, IndexOrgNamespaceName, func(object client.Object) []string {
 		org := object.(*korifiv1alpha1.CFOrg)
 		return []string{org.Status.GUID}
+	})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Event{}, IndexEventInvolvedObjectName, func(object client.Object) []string {
+		event := object.(*corev1.Event)
+		return []string{event.InvolvedObject.Name}
 	})
 	if err != nil {
 		return err

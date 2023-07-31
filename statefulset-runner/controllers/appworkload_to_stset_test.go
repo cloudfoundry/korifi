@@ -26,7 +26,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	BeforeEach(func() {
 		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		appWorkload = createAppWorkload("some-namespace", "guid_1234")
-		converter = controllers.NewAppWorkloadToStatefulsetConverter(scheme.Scheme)
+		converter = controllers.NewAppWorkloadToStatefulsetConverter(scheme.Scheme, false)
 	})
 
 	JustBeforeEach(func() {

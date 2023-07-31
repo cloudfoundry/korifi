@@ -5,6 +5,13 @@ metadata:
   name: korifi-statefulset-runner-appworkload-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - list
+  - watch
+- apiGroups:
   - apps
   resources:
   - statefulsets

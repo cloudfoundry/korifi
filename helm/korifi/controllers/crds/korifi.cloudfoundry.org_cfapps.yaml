@@ -94,6 +94,7 @@ spec:
                       allowed
                     enum:
                     - buildpack
+                    - docker
                     type: string
                 required:
                 - data

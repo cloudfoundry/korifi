@@ -9,10 +9,13 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -50,6 +53,8 @@ type ProcessRecord struct {
 	Annotations      map[string]string
 	CreatedAt        time.Time
 	UpdatedAt        *time.Time
+	Ready            *bool
+	Message          string
 }
 
 type HealthCheck struct {
@@ -319,6 +324,16 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		cmd = cfProcess.Spec.DetectedCommand
 	}
 
+	var (
+		ready   *bool
+		message string
+	)
+	readyCondition := meta.FindStatusCondition(cfProcess.Status.Conditions, shared.StatusConditionReady)
+	if readyCondition != nil && readyCondition.Status != metav1.ConditionUnknown {
+		ready = tools.PtrTo(readyCondition.Status == metav1.ConditionTrue)
+		message = readyCondition.Message
+	}
+
 	return ProcessRecord{
 		GUID:             cfProcess.Name,
 		SpaceGUID:        cfProcess.Namespace,
@@ -341,5 +356,7 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		Annotations: cfProcess.Annotations,
 		CreatedAt:   cfProcess.CreationTimestamp.Time,
 		UpdatedAt:   getLastUpdatedTime(&cfProcess),
+		Ready:       ready,
+		Message:     message,
 	}
 }

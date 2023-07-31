@@ -78,6 +78,7 @@ spec:
                       allowed
                     enum:
                     - buildpack
+                    - docker
                     type: string
                 required:
                 - data
@@ -232,10 +233,7 @@ spec:
                     description: The stack used to build the Droplet
                     type: string
                 required:
-                - ports
-                - processTypes
                 - registry
-                - stack
                 type: object
               observedGeneration:
                 description: ObservedGeneration captures the latest generation of

@@ -342,7 +342,7 @@ func main() {
 			if err = statefulsetcontrollers.NewAppWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
-				statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
+				statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme(), controllerConfig.AllowRootContainers),
 				statefulsetcontrollers.NewPDBUpdater(mgr.GetClient()),
 				logger,
 			).SetupWithManager(mgr); err != nil {

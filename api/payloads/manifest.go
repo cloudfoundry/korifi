@@ -43,6 +43,11 @@ type ManifestApplication struct {
 	Buildpack string                       `json:"buildpack" yaml:"buildpack"`
 	Metadata  MetadataPatch                `json:"metadata" yaml:"metadata"`
 	Services  []ManifestApplicationService `json:"services" yaml:"services"`
+	Docker    *Docker                      `json:"docker" yaml:"docker"`
+}
+
+type Docker struct {
+	Image string `json:"image" yaml:"image"`
 }
 
 // TODO: Why is kebab-case used everywhere anyway and we have a deprecated field that claims to use
@@ -74,7 +79,7 @@ type ManifestRoute struct {
 }
 
 func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.CreateAppMessage {
-	return repositories.CreateAppMessage{
+	message := repositories.CreateAppMessage{
 		Name:      a.Name,
 		SpaceGUID: spaceGUID,
 		Lifecycle: repositories.Lifecycle{
@@ -90,6 +95,14 @@ func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.C
 			Annotations: ignoreNilKeys(a.Metadata.Annotations),
 		},
 	}
+
+	if a.Docker != nil {
+		message.Lifecycle = repositories.Lifecycle{
+			Type: string(korifiv1alpha1.DockerPackage),
+		}
+	}
+
+	return message
 }
 
 func ignoreNilKeys(m map[string]*string) map[string]string {

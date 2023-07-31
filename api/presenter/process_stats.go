@@ -18,7 +18,7 @@ type ProcessStatsResource struct {
 	DiskQuota        *int64                 `json:"disk_quota"`
 	FDSQuota         *int                   `json:"fds_quota"`
 	IsolationSegment *string                `json:"isolation_segment"`
-	Details          *ProcessDetails        `json:"details"`
+	Details          string                 `json:"details"`
 }
 
 type ProcessUsage struct {
@@ -34,8 +34,6 @@ type ProcessInstancePort struct {
 	ExternalTLSProxyPort int `json:"external_tls_proxy_port"`
 	InternalTLSProxyPort int `json:"internal_tls_proxy_port"`
 }
-
-type ProcessDetails struct{}
 
 func ForProcessStats(records []actions.PodStatsRecord) ProcessStatsResponse {
 	resources := []ProcessStatsResource{}
@@ -63,5 +61,6 @@ func statRecordToResource(record actions.PodStatsRecord) ProcessStatsResource {
 		},
 		MemQuota:  record.MemQuota,
 		DiskQuota: record.DiskQuota,
+		Details:   record.Details,
 	}
 }

@@ -137,7 +137,6 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		log.Info("unable to clean up old builds", "reason", err)
 	}
 
-	stagingStatus := shared.GetConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, cfBuild.Generation)
 	succeededStatus := shared.GetConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, cfBuild.Generation)
 
 	if succeededStatus != metav1.ConditionUnknown {
@@ -145,6 +144,28 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		return ctrl.Result{}, nil
 	}
 
+	if cfPackage.Spec.Type == korifiv1alpha1.DockerPackage {
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.StagingConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "BuildNotRunning",
+			ObservedGeneration: cfBuild.Generation,
+		})
+
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.SucceededConditionType,
+			Status:             metav1.ConditionTrue,
+			Reason:             "BuildSucceeded",
+			ObservedGeneration: cfBuild.Generation,
+		})
+
+		cfBuild.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+			Registry: cfPackage.Spec.Source.Registry,
+		}
+		return ctrl.Result{}, nil
+	}
+
+	stagingStatus := shared.GetConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, cfBuild.Generation)
 	if stagingStatus == metav1.ConditionUnknown {
 		err = r.createBuildWorkload(ctx, cfBuild, cfApp, cfPackage)
 		if err != nil {

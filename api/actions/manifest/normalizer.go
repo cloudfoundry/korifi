@@ -32,6 +32,7 @@ func (n Normalizer) Normalize(appInfo payloads.ManifestApplication, appState App
 		NoRoute:    appInfo.NoRoute,
 		Metadata:   appInfo.Metadata,
 		Services:   appInfo.Services,
+		Docker:     appInfo.Docker,
 	}
 }
 

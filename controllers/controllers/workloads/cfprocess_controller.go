@@ -102,7 +102,7 @@ func (r *CFProcessReconciler) enqueueCFProcessRequests(ctx context.Context, o cl
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
-func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) (ctrl.Result, error) {
+func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) (_ ctrl.Result, err error) {
 	log := shared.ObjectLogger(r.log, cfProcess)
 	ctx = logr.NewContext(ctx, log)
 
@@ -112,7 +112,7 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 	shared.GetConditionOrSetAsUnknown(&cfProcess.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfProcess.Generation)
 
 	cfApp := new(korifiv1alpha1.CFApp)
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
 	if err != nil {
 		log.Info("error when trying to fetch CFApp", "namespace", cfProcess.Namespace, "name", cfProcess.Spec.AppRef.Name, "reason", err)
 		return ctrl.Result{}, err
@@ -133,63 +133,71 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 		cfLastStopAppRev = foundValue
 	}
 
-	if needsAppWorkload(cfApp, cfProcess) {
-		err = r.createOrPatchAppWorkload(ctx, cfApp, cfProcess, cfAppRev, cfLastStopAppRev)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	defer func() {
+		err = r.cleanUpAppWorkloads(ctx, cfProcess, cfApp.Spec.DesiredState, cfLastStopAppRev)
+	}()
+
+	if !appStarted(cfApp, cfProcess) {
+		meta.SetStatusCondition(&cfProcess.Status.Conditions, metav1.Condition{
+			Type:               shared.StatusConditionReady,
+			Status:             metav1.ConditionTrue,
+			Reason:             shared.StatusConditionReady,
+			ObservedGeneration: cfProcess.Generation,
+		})
+
+		return ctrl.Result{}, nil
 	}
 
-	err = r.cleanUpAppWorkloads(ctx, cfProcess, cfApp.Spec.DesiredState, cfLastStopAppRev)
+	var appWorkload *korifiv1alpha1.AppWorkload
+	appWorkload, err = r.createOrPatchAppWorkload(ctx, cfApp, cfProcess, cfAppRev, cfLastStopAppRev)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	meta.SetStatusCondition(&cfProcess.Status.Conditions, metav1.Condition{
-		Type:               shared.StatusConditionReady,
-		Status:             metav1.ConditionTrue,
-		Reason:             shared.StatusConditionReady,
-		ObservedGeneration: cfProcess.Generation,
-	})
+	readyCondition := meta.FindStatusCondition(appWorkload.Status.Conditions, shared.StatusConditionReady)
+	if readyCondition != nil {
+		meta.SetStatusCondition(&cfProcess.Status.Conditions, metav1.Condition{
+			Type:               shared.StatusConditionReady,
+			Status:             readyCondition.Status,
+			Reason:             readyCondition.Reason,
+			Message:            readyCondition.Message,
+			ObservedGeneration: cfProcess.Generation,
+		})
+	}
 
 	return ctrl.Result{}, nil
 }
 
-func needsAppWorkload(cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess) bool {
-	if cfApp.Spec.DesiredState != korifiv1alpha1.StartedState {
-		return false
-	}
-
-	// note that the defaulting webhook ensures DesiredInstances is never nil
-	return cfProcess.Spec.DesiredInstances != nil && *cfProcess.Spec.DesiredInstances > 0
+func appStarted(cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess) bool {
+	return cfApp.Spec.DesiredState == korifiv1alpha1.StartedState && *cfProcess.Spec.DesiredInstances > 0
 }
 
-func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfAppRev, cfLastStopAppRev string) error {
+func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfAppRev, cfLastStopAppRev string) (*korifiv1alpha1.AppWorkload, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchAppWorkload")
 
 	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
 	if err != nil {
 		log.Info("error when trying to fetch CFBuild", "namespace", cfProcess.Namespace, "name", cfApp.Spec.CurrentDropletRef.Name, "reason", err)
-		return err
+		return nil, err
 	}
 
 	if cfBuild.Status.Droplet == nil {
 		log.Info("no build droplet status on CFBuild", "namespace", cfProcess.Namespace, "name", cfApp.Spec.CurrentDropletRef.Name, "reason", err)
-		return errors.New("no build droplet status on CFBuild")
+		return nil, errors.New("no build droplet status on CFBuild")
 	}
 
 	var appPort int
 	appPort, err = r.getPort(ctx, cfProcess, cfApp)
 	if err != nil {
 		log.Info("error when trying to fetch routes for CFApp", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
-		return err
+		return nil, err
 	}
 
 	envVars, err := r.envBuilder.BuildEnv(ctx, cfApp)
 	if err != nil {
 		log.Info("error when trying build the process environment for app", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
-		return err
+		return nil, err
 	}
 
 	actualAppWorkload := &korifiv1alpha1.AppWorkload{
@@ -203,15 +211,15 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	desiredAppWorkload, err = r.generateAppWorkload(actualAppWorkload, cfApp, cfProcess, cfBuild, appPort, envVars, cfAppRev, cfLastStopAppRev)
 	if err != nil { // untested
 		log.Info("error when initializing AppWorkload", "reason", err)
-		return err
+		return nil, err
 	}
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, actualAppWorkload, appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload))
 	if err != nil {
 		log.Info("error calling CreateOrPatch on AppWorkload", "reason", err)
-		return err
+		return nil, err
 	}
-	return nil
+	return actualAppWorkload, nil
 }
 
 func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState, cfLastStopAppRev string) error {
@@ -242,7 +250,7 @@ func needsToDeleteAppWorkload(
 	cfLastStopAppRev string,
 ) bool {
 	return desiredState == korifiv1alpha1.StoppedState ||
-		(cfProcess.Spec.DesiredInstances != nil && *cfProcess.Spec.DesiredInstances == 0) ||
+		*cfProcess.Spec.DesiredInstances == 0 ||
 		appWorkload.Name != generateAppWorkloadName(cfLastStopAppRev, cfProcess.Name)
 }
 
