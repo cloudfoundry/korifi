@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,14 +11,12 @@ import (
 
 var _ = Describe("Domain", func() {
 	var (
-		restyClient *helpers.CorrelatedRestyClient
-		resp        *resty.Response
-		domainName  string
-		domainGUID  string
+		resp       *resty.Response
+		domainName string
+		domainGUID string
 	)
 
 	BeforeEach(func() {
-		restyClient = adminClient
 		domainName = generateGUID("test-domain") + ".com"
 
 		var err error
@@ -61,14 +58,14 @@ var _ = Describe("Domain", func() {
 
 		AfterEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				Delete("/v3/domains/" + guid)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetBody(domainResource{
 					resource: resource{Name: name},
 					Internal: false,
@@ -91,13 +88,9 @@ var _ = Describe("Domain", func() {
 	Describe("Get", func() {
 		var respResource responseResource
 
-		BeforeEach(func() {
-			restyClient = certClient
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&respResource).
 				Get("/v3/domains/" + domainGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -114,7 +107,7 @@ var _ = Describe("Domain", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetBody(metadataResource{
 					Metadata: &metadataPatch{
 						Annotations: &map[string]string{"foo": "bar"},
@@ -140,12 +133,11 @@ var _ = Describe("Domain", func() {
 
 		BeforeEach(func() {
 			result = resourceList[responseResource]{}
-			restyClient = certClient
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/domains")
 			Expect(err).NotTo(HaveOccurred())
@@ -163,7 +155,7 @@ var _ = Describe("Domain", func() {
 	Describe("Delete", func() {
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				Delete("/v3/domains/" + domainGUID)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -177,12 +169,12 @@ var _ = Describe("Domain", func() {
 			jobURL := resp.Header().Get("Location")
 			Eventually(func(g Gomega) {
 				var err error
-				resp, err = certClient.R().Get(jobURL)
+				resp, err = adminClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(resp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			getDomainResp, err := certClient.R().Get("/v3/domains/" + domainGUID)
+			getDomainResp, err := adminClient.R().Get("/v3/domains/" + domainGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getDomainResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})

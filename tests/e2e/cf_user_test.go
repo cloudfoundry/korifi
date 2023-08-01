@@ -1,9 +1,12 @@
 package e2e_test
 
 import (
+	"crypto/tls"
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -19,8 +22,11 @@ var _ = Describe("CF User", func() {
 	})
 
 	JustBeforeEach(func() {
+		token := helpers.NewServiceAccountFactory(rootNamespace).CreateServiceAccount(uuid.NewString())
+		client := helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(token).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+
 		var err error
-		httpResp, err = unprivilegedServiceAccountClient.R().Get(reqPath)
+		httpResp, err = client.R().Get(reqPath)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

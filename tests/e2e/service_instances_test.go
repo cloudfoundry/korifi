@@ -34,11 +34,10 @@ var _ = Describe("Service Instances", func() {
 
 			BeforeEach(func() {
 				instanceName = generateGUID("service-instance")
-				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
 			JustBeforeEach(func() {
-				httpResp, httpError = certClient.R().
+				httpResp, httpError = adminClient.R().
 					SetBody(serviceInstanceResource{
 						resource: resource{
 							Name: instanceName,
@@ -76,12 +75,8 @@ var _ = Describe("Service Instances", func() {
 	})
 
 	Describe("Update", func() {
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().
+			httpResp, httpError = adminClient.R().
 				SetBody(serviceInstanceResource{
 					resource: resource{
 						Name: "new-instance-name",
@@ -113,12 +108,8 @@ var _ = Describe("Service Instances", func() {
 	})
 
 	Describe("Delete", func() {
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().Delete("/v3/service_instances/" + existingInstanceGUID)
+			httpResp, httpError = adminClient.R().Delete("/v3/service_instances/" + existingInstanceGUID)
 		})
 
 		It("deletes the service instance", func() {
@@ -143,14 +134,11 @@ var _ = Describe("Service Instances", func() {
 		BeforeEach(func() {
 			anotherSpaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 			anotherInstanceGUID = createServiceInstance(anotherSpaceGUID, generateGUID("service-instance"), nil)
-
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-			createSpaceRole("space_developer", certUserName, anotherSpaceGUID)
 		})
 
 		JustBeforeEach(func() {
 			serviceInstancesList = resourceList[resource]{}
-			httpResp, httpError = certClient.R().SetResult(&serviceInstancesList).Get("/v3/service_instances")
+			httpResp, httpError = adminClient.R().SetResult(&serviceInstancesList).Get("/v3/service_instances")
 		})
 
 		It("lists the service instances", func() {

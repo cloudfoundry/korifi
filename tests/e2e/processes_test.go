@@ -3,8 +3,6 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/tests/helpers"
-
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,13 +14,11 @@ var _ = Describe("Processes", func() {
 		spaceGUID      string
 		appGUID        string
 		webProcessGUID string
-		restyClient    *helpers.CorrelatedRestyClient
 		resp           *resty.Response
 		errResp        cfErrs
 	)
 
 	BeforeEach(func() {
-		restyClient = certClient
 		errResp = cfErrs{}
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 		appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
@@ -36,13 +32,9 @@ var _ = Describe("Processes", func() {
 	Describe("List processes for app", func() {
 		var result resourceList[resource]
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes")
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -62,15 +54,10 @@ var _ = Describe("Processes", func() {
 	Describe("List sidecars", Ordered, func() {
 		var list resourceList[resource]
 
-		BeforeEach(func() {
-			list = resourceList[resource]{}
-
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			list = resourceList[resource]{}
+			resp, err = adminClient.R().
 				SetResult(&list).
 				SetError(&errResp).
 				Get("/v3/processes/" + webProcessGUID + "/sidecars")
@@ -87,13 +74,9 @@ var _ = Describe("Processes", func() {
 	Describe("Get process stats", func() {
 		var processStats resourceList[statsResource]
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&processStats).
 				SetError(&errResp).
 				Get("/v3/processes/" + webProcessGUID + "/stats")
@@ -110,7 +93,7 @@ var _ = Describe("Processes", func() {
 			BeforeEach(func() {
 				Eventually(func(g Gomega) {
 					var err error
-					resp, err = restyClient.R().
+					resp, err = adminClient.R().
 						SetResult(&processStats).
 						SetError(&errResp).
 						Get("/v3/processes/" + webProcessGUID + "/stats")
@@ -140,13 +123,9 @@ var _ = Describe("Processes", func() {
 	Describe("Fetch a process", func() {
 		var result resource
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/processes/" + webProcessGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -161,13 +140,9 @@ var _ = Describe("Processes", func() {
 	Describe("Scale a process", func() {
 		var result responseResource
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(scaleResource{Instances: 2}).
 				SetError(&errResp).
 				SetResult(&result).
@@ -186,16 +161,12 @@ var _ = Describe("Processes", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(commandResource{Command: "new command"}).
 				SetError(&errResp).
 				SetResult(&result).
 				Patch("/v3/processes/" + webProcessGUID)
 			Expect(err).NotTo(HaveOccurred())
-		})
-
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		It("returns success", func() {
@@ -207,13 +178,9 @@ var _ = Describe("Processes", func() {
 	Describe("Patch process metadata", func() {
 		var result responseResource
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(metadataResource{Metadata: &metadataPatch{
 					Annotations: &map[string]string{"foo": "bar"},
 				}}).

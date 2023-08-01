@@ -32,13 +32,9 @@ var _ = Describe("Package", func() {
 	})
 
 	Describe("Create", func() {
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(typedResource{
 					Type: "bits",
 					resource: resource{
@@ -70,7 +66,7 @@ var _ = Describe("Package", func() {
 		When("a new package is created for the same app", func() {
 			BeforeEach(func() {
 				var err error
-				resp, err = certClient.R().
+				resp, err = adminClient.R().
 					SetBody(typedResource{
 						Type: "bits",
 						resource: resource{
@@ -93,13 +89,12 @@ var _ = Describe("Package", func() {
 
 	Describe("Update", func() {
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 			packageGUID = createPackage(appGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(typedResource{
 					Metadata: &metadata{
 						Labels: map[string]string{
@@ -125,13 +120,12 @@ var _ = Describe("Package", func() {
 
 	Describe("Upload", func() {
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 			packageGUID = createPackage(appGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetFile("bits", defaultAppBitsFile).
 				SetError(&resultErr).
 				SetResult(&result).
@@ -148,13 +142,12 @@ var _ = Describe("Package", func() {
 		var result resource
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 			packageGUID = createPackage(appGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/packages/" + packageGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -171,8 +164,6 @@ var _ = Describe("Package", func() {
 		var resultList resourceList[resource]
 
 		BeforeEach(func() {
-			createSpaceRole("space_manager", certUserName, spaceGUID)
-
 			resultList = resourceList[resource]{}
 			packageGUID = createPackage(appGUID)
 			uploadTestApp(packageGUID, defaultAppBitsFile)
@@ -185,7 +176,7 @@ var _ = Describe("Package", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetResult(&resultList).
 				Get("/v3/packages/" + packageGUID + "/droplets")
 			Expect(err).NotTo(HaveOccurred())
@@ -202,47 +193,35 @@ var _ = Describe("Package", func() {
 		var (
 			result       resourceList[resource]
 			space2GUID   string
-			space3GUID   string
 			package1GUID string
 			package2GUID string
-			package3GUID string
 		)
 
 		BeforeEach(func() {
 			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
-			space3GUID = createSpace(generateGUID("space3"), commonTestOrgGUID)
-
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-			createSpaceRole("space_developer", certUserName, space2GUID)
 
 			package1GUID = createPackage(appGUID)
 			app2GUID := createApp(space2GUID, generateGUID("app2"))
 			package2GUID = createPackage(app2GUID)
-			app3GUID := createApp(space3GUID, generateGUID("app3"))
-			package3GUID = createPackage(app3GUID)
 		})
 
 		AfterEach(func() {
 			deleteSpace(space2GUID)
-			deleteSpace(space3GUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/packages")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns only the Packages in spaces where the user has access", func() {
+		It("returns packages", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(package1GUID)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(package2GUID)}),
-			))
-			Expect(result.Resources).NotTo(ContainElement(
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(package3GUID)}),
 			))
 		})
 	})

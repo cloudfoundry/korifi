@@ -19,7 +19,6 @@ var _ = Describe("Builds", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-		createSpaceRole("space_developer", certUserName, spaceGUID)
 		appGUID = createApp(spaceGUID, generateGUID("app"))
 		pkgGUID = createPackage(appGUID)
 	})
@@ -37,7 +36,7 @@ var _ = Describe("Builds", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/builds/" + buildGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -52,7 +51,7 @@ var _ = Describe("Builds", func() {
 	Describe("create", func() {
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(buildResource{Package: resource{GUID: pkgGUID}}).
 				SetResult(&result).
 				Post("/v3/builds")
@@ -74,7 +73,7 @@ var _ = Describe("Builds", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Patch("/v3/builds/" + buildGUID)
 			Expect(err).NotTo(HaveOccurred())

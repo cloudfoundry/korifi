@@ -38,29 +38,30 @@ import (
 var (
 	correlationId string
 
-	adminClient                      *helpers.CorrelatedRestyClient
-	certClient                       *helpers.CorrelatedRestyClient
-	tokenClient                      *helpers.CorrelatedRestyClient
-	unprivilegedServiceAccountClient *helpers.CorrelatedRestyClient
-	longCertClient                   *helpers.CorrelatedRestyClient
-	apiServerRoot                    string
-	serviceAccountName               string
-	serviceAccountToken              string
-	unprivilegedServiceAccountName   string
-	unprivilegedServiceAccountToken  string
-	certUserName                     string
-	certPEM                          string
-	longCertUserName                 string
-	longCertPEM                      string
-	rootNamespace                    string
-	appFQDN                          string
-	commonTestOrgGUID                string
-	commonTestOrgName                string
-	assetsTmpDir                     string
-	clusterVersionMinor              int
-	clusterVersionMajor              int
-	defaultAppBitsFile               string
-	multiProcessAppBitsFile          string
+	adminClient                    *helpers.CorrelatedRestyClient
+	privilegedServiceAccountClient *helpers.CorrelatedRestyClient
+	longCertClient                 *helpers.CorrelatedRestyClient
+
+	apiServerRoot string
+
+	serviceAccountName  string
+	serviceAccountToken string
+
+	certUserName string
+	certPEM      string
+
+	longCertUserName string
+	longCertPEM      string
+
+	rootNamespace           string
+	appFQDN                 string
+	commonTestOrgGUID       string
+	commonTestOrgName       string
+	assetsTmpDir            string
+	clusterVersionMinor     int
+	clusterVersionMajor     int
+	defaultAppBitsFile      string
+	multiProcessAppBitsFile string
 )
 
 type resource struct {
@@ -316,7 +317,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestSetup()
 	commonTestOrgName = generateGUID("common-test-org")
 	commonTestOrgGUID = createOrg(commonTestOrgName)
-	createOrgRole("organization_user", certUserName, commonTestOrgGUID)
 
 	var err error
 	assetsTmpDir, err = os.MkdirTemp("", "e2e-test-assets")
@@ -533,11 +533,7 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 	}()
 }
 
-// createRole creates an org or space role
-// You should probably invoke this via createOrgRole or createSpaceRole
-func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
-	GinkgoHelper()
-
+func createRoleRaw(roleName, orgSpaceType, userName, orgSpaceGUID string) (string, error) {
 	rolesURL := apiServerRoot + "/v3/roles"
 
 	payload := typedResource{
@@ -557,11 +553,25 @@ func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
 		SetResult(&createdRole).
 		SetError(&resultErr).
 		Post(rolesURL)
+	if err != nil {
+		return "", err
+	}
 
+	if resp.StatusCode() != http.StatusCreated {
+		return "", fmt.Errorf("Failed to create %s role %q for user %q in %s %q; status code %d; response: %q", orgSpaceType, roleName, userName, orgSpaceType, orgSpaceGUID, resp.StatusCode(), string(resp.Body()))
+	}
+
+	return createdRole.GUID, nil
+}
+
+// createRole creates an org or space role
+// You should probably invoke this via createOrgRole or createSpaceRole
+func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
+	GinkgoHelper()
+
+	roleGuid, err := createRoleRaw(roleName, orgSpaceType, userName, orgSpaceGUID)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-
-	return createdRole.GUID
+	return roleGuid
 }
 
 func createOrgRole(roleName, userName, orgGUID string) string {
@@ -1090,14 +1100,12 @@ func commonTestSetup() {
 	rootNamespace = helpers.GetRequiredEnvVar("ROOT_NAMESPACE")
 	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT"))
 	serviceAccountToken = helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT_TOKEN")
-	unprivilegedServiceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_UNPRIVILEGED_SERVICE_ACCOUNT"))
-	unprivilegedServiceAccountToken = helpers.GetRequiredEnvVar("E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN")
-
-	certUserName = helpers.GetRequiredEnvVar("E2E_USER_NAME")
-	certPEM = os.Getenv("E2E_USER_PEM")
 
 	longCertUserName = helpers.GetRequiredEnvVar("E2E_LONGCERT_USER_NAME")
 	longCertPEM = os.Getenv("E2E_LONGCERT_USER_PEM")
+
+	certUserName = helpers.GetRequiredEnvVar("E2E_USER_NAME")
+	certPEM = os.Getenv("E2E_USER_PEM")
 
 	appFQDN = helpers.GetRequiredEnvVar("APP_FQDN")
 
@@ -1107,9 +1115,7 @@ func commonTestSetup() {
 	ensureServerIsUp()
 
 	adminClient = makeClient("CF_ADMIN_PEM", "CF_ADMIN_TOKEN")
-	certClient = makeClient("E2E_USER_PEM", "E2E_USER_TOKEN")
-	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	unprivilegedServiceAccountClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(unprivilegedServiceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	privilegedServiceAccountClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }
 

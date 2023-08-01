@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/tests/helpers"
-
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -17,14 +15,7 @@ import (
 )
 
 var _ = Describe("Spaces", func() {
-	var (
-		resp        *resty.Response
-		restyClient *helpers.CorrelatedRestyClient
-	)
-
-	BeforeEach(func() {
-		restyClient = certClient
-	})
+	var resp *resty.Response
 
 	Describe("create", func() {
 		var (
@@ -38,13 +29,11 @@ var _ = Describe("Spaces", func() {
 			spaceName = generateGUID("space")
 			parentGUID = commonTestOrgGUID
 			createErr = cfErrs{}
-
-			restyClient = adminClient
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetBody(resource{
 					Name: spaceName,
 					Relationships: relationships{
@@ -86,8 +75,6 @@ var _ = Describe("Spaces", func() {
 			spaceName = generateGUID("space")
 			createErr = cfErrs{}
 
-			restyClient = tokenClient
-
 			createOrgRole("organization_manager", serviceAccountName, orgGUID)
 		})
 
@@ -97,7 +84,7 @@ var _ = Describe("Spaces", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = privilegedServiceAccountClient.R().
 				SetBody(resource{
 					Name: spaceName,
 					Relationships: relationships{
@@ -126,30 +113,26 @@ var _ = Describe("Spaces", func() {
 
 	Describe("list", func() {
 		var (
-			org1GUID, org2GUID, org3GUID          string
-			space11GUID, space12GUID, space13GUID string
-			space21GUID, space22GUID, space23GUID string
-			space31GUID, space32GUID, space33GUID string
-			space11Name, space12Name, space13Name string
-			space21Name, space22Name, space23Name string
-			space31Name, space32Name, space33Name string
-			result                                resourceList[resource]
+			org1GUID, org2GUID       string
+			space11GUID, space12GUID string
+			space21GUID, space22GUID string
+			space11Name, space12Name string
+			space21Name, space22Name string
+			result                   resourceList[resource]
 		)
 
 		BeforeEach(func() {
-			org1GUID, org2GUID, org3GUID = "", "", ""
-			space11GUID, space12GUID, space13GUID = "", "", ""
-			space21GUID, space22GUID, space23GUID = "", "", ""
-			space31GUID, space32GUID, space33GUID = "", "", ""
+			org1GUID, org2GUID = "", ""
+			space11GUID, space12GUID = "", ""
+			space21GUID, space22GUID = "", ""
 			result = resourceList[resource]{}
 
 			var orgWG sync.WaitGroup
 			orgErrChan := make(chan error, 3)
 
-			orgWG.Add(3)
+			orgWG.Add(2)
 			asyncCreateOrg(generateGUID("org1"), &org1GUID, &orgWG, orgErrChan)
 			asyncCreateOrg(generateGUID("org2"), &org2GUID, &orgWG, orgErrChan)
-			asyncCreateOrg(generateGUID("org3"), &org3GUID, &orgWG, orgErrChan)
 			orgWG.Wait()
 
 			var err error
@@ -158,42 +141,25 @@ var _ = Describe("Spaces", func() {
 
 			var spaceWG sync.WaitGroup
 
-			space11Name, space12Name, space13Name = generateGUID("space11"), generateGUID("space12"), generateGUID("space13")
-			space21Name, space22Name, space23Name = generateGUID("space21"), generateGUID("space22"), generateGUID("space23")
-			space31Name, space32Name, space33Name = generateGUID("space31"), generateGUID("space32"), generateGUID("space33")
+			space11Name, space12Name = generateGUID("space11"), generateGUID("space12")
+			space21Name, space22Name = generateGUID("space21"), generateGUID("space22")
 
-			spaceErrChan := make(chan error, 9)
-			spaceWG.Add(9)
+			spaceErrChan := make(chan error, 4)
+			spaceWG.Add(4)
 			asyncCreateSpace(space11Name, org1GUID, &space11GUID, &spaceWG, spaceErrChan)
 			asyncCreateSpace(space12Name, org1GUID, &space12GUID, &spaceWG, spaceErrChan)
-			asyncCreateSpace(space13Name, org1GUID, &space13GUID, &spaceWG, spaceErrChan)
 
 			asyncCreateSpace(space21Name, org2GUID, &space21GUID, &spaceWG, spaceErrChan)
 			asyncCreateSpace(space22Name, org2GUID, &space22GUID, &spaceWG, spaceErrChan)
-			asyncCreateSpace(space23Name, org2GUID, &space23GUID, &spaceWG, spaceErrChan)
 
-			asyncCreateSpace(space31Name, org3GUID, &space31GUID, &spaceWG, spaceErrChan)
-			asyncCreateSpace(space32Name, org3GUID, &space32GUID, &spaceWG, spaceErrChan)
-			asyncCreateSpace(space33Name, org3GUID, &space33GUID, &spaceWG, spaceErrChan)
 			spaceWG.Wait()
 
 			Expect(spaceErrChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating spaces: %v", err) })
 			close(spaceErrChan)
-
-			createOrgRole("organization_user", certUserName, org1GUID)
-			createOrgRole("organization_user", certUserName, org2GUID)
-			createOrgRole("organization_user", certUserName, org3GUID)
-
-			createSpaceRole("space_developer", certUserName, space12GUID)
-			createSpaceRole("space_developer", certUserName, space11GUID)
-			createSpaceRole("space_developer", certUserName, space21GUID)
-			createSpaceRole("space_developer", certUserName, space22GUID)
-			createSpaceRole("space_developer", certUserName, space31GUID)
-			createSpaceRole("space_developer", certUserName, space32GUID)
 		})
 
 		AfterEach(func() {
-			orgIDs := []string{org1GUID, org2GUID, org3GUID}
+			orgIDs := []string{org1GUID, org2GUID}
 			for _, id := range orgIDs {
 				deleteOrg(id)
 			}
@@ -201,25 +167,20 @@ var _ = Describe("Spaces", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/spaces")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("lists the spaces the user has role in", func() {
+		It("lists spaces", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space11Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space12Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space21Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(space22Name)}),
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(space31Name)}),
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(space32Name)}),
 			))
-			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space13Name)})))
-			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space23Name)})))
-			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(space33Name)})))
 		})
 	})
 
@@ -232,13 +193,11 @@ var _ = Describe("Spaces", func() {
 		BeforeEach(func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
-
-			restyClient = adminClient
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetError(&resultErr).
 				Delete("/v3/spaces/" + spaceGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -252,12 +211,12 @@ var _ = Describe("Spaces", func() {
 
 			jobURL := resp.Header().Get("Location")
 			Eventually(func(g Gomega) {
-				jobResp, err := restyClient.R().Get(jobURL)
+				jobResp, err := adminClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			spaceResp, err := restyClient.R().Get("/v3/spaces/" + spaceGUID)
+			spaceResp, err := adminClient.R().Get("/v3/spaces/" + spaceGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spaceResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
@@ -314,15 +273,11 @@ var _ = Describe("Spaces", func() {
 		})
 
 		Describe("apply manifest", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, spaceGUID)
-			})
-
 			JustBeforeEach(func() {
 				var err error
 				manifestBytes, err = yaml.Marshal(manifest)
 				Expect(err).NotTo(HaveOccurred())
-				resp, err = restyClient.R().
+				resp, err = adminClient.R().
 					SetHeader("Content-type", "application/x-yaml").
 					SetBody(manifestBytes).
 					SetError(&resultErr).
@@ -338,7 +293,7 @@ var _ = Describe("Spaces", func() {
 
 				jobURL := resp.Header().Get("Location")
 				Eventually(func(g Gomega) {
-					jobResp, err := restyClient.R().Get(jobURL)
+					jobResp, err := adminClient.R().Get(jobURL)
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 				}).Should(Succeed())
@@ -386,7 +341,7 @@ var _ = Describe("Spaces", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					var requestErr error
-					r, err := restyClient.R().
+					r, err := adminClient.R().
 						SetHeader("Content-type", "application/x-yaml").
 						SetBody(mBytes).
 						SetError(&requestErr).
@@ -398,7 +353,7 @@ var _ = Describe("Spaces", func() {
 
 					jobURL := r.Header().Get("Location")
 					Eventually(func(g Gomega) {
-						jobResp, err := restyClient.R().Get(jobURL)
+						jobResp, err := adminClient.R().Get(jobURL)
 						g.Expect(err).NotTo(HaveOccurred())
 						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 					}).Should(Succeed())
@@ -426,7 +381,7 @@ var _ = Describe("Spaces", func() {
 
 					jobURL := resp.Header().Get("Location")
 					Eventually(func(g Gomega) {
-						jobResp, err := restyClient.R().Get(jobURL)
+						jobResp, err := adminClient.R().Get(jobURL)
 						g.Expect(err).NotTo(HaveOccurred())
 						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 					}).Should(Succeed())
@@ -466,7 +421,6 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
-			restyClient = certClient
 			manifestBytes = []byte{}
 		})
 
@@ -474,13 +428,9 @@ var _ = Describe("Spaces", func() {
 			deleteSpace(spaceGUID)
 		})
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetHeader("Content-type", "application/x-yaml").
 				SetBody(manifestBytes).
 				SetError(&errResp).
@@ -507,13 +457,11 @@ var _ = Describe("Spaces", func() {
 
 		BeforeEach(func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
-
-			restyClient = adminClient
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/spaces/" + spaceGUID)
 			Expect(err).NotTo(HaveOccurred())

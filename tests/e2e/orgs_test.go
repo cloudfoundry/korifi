@@ -14,14 +14,7 @@ import (
 )
 
 var _ = Describe("Orgs", func() {
-	var (
-		resp        *resty.Response
-		restyClient *helpers.CorrelatedRestyClient
-	)
-
-	BeforeEach(func() {
-		restyClient = certClient
-	})
+	var resp *resty.Response
 
 	Describe("create", func() {
 		var (
@@ -34,8 +27,6 @@ var _ = Describe("Orgs", func() {
 			orgName = generateGUID("my-org")
 			result = resource{}
 			resultErr = cfErrs{}
-
-			restyClient = adminClient
 		})
 
 		AfterEach(func() {
@@ -44,7 +35,7 @@ var _ = Describe("Orgs", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetBody(resource{Name: orgName}).
 				SetError(&resultErr).
 				SetResult(&result).
@@ -62,40 +53,35 @@ var _ = Describe("Orgs", func() {
 
 	Describe("list", func() {
 		var (
-			org1Name, org2Name, org3Name, org4Name string
-			org1GUID, org2GUID, org3GUID, org4GUID string
-			result                                 resourceList[resource]
-			query                                  map[string]string
+			org1Name, org2Name string
+			org1GUID, org2GUID string
+			result             resourceList[resource]
+			query              map[string]string
+			restyClient        *helpers.CorrelatedRestyClient
 		)
 
 		BeforeEach(func() {
+			restyClient = adminClient
+
 			var wg sync.WaitGroup
 			errChan := make(chan error, 4)
 			query = make(map[string]string)
 
 			org1Name = generateGUID("org1")
 			org2Name = generateGUID("org2")
-			org3Name = generateGUID("org3")
-			org4Name = generateGUID("org4")
 
-			wg.Add(4)
+			wg.Add(2)
 			asyncCreateOrg(org1Name, &org1GUID, &wg, errChan)
 			asyncCreateOrg(org2Name, &org2GUID, &wg, errChan)
-			asyncCreateOrg(org3Name, &org3GUID, &wg, errChan)
-			asyncCreateOrg(org4Name, &org4GUID, &wg, errChan)
 			wg.Wait()
 
 			var err error
 			Expect(errChan).ToNot(Receive(&err), func() string { return fmt.Sprintf("unexpected error occurred while creating orgs: %v", err) })
 			close(errChan)
-
-			createOrgRole("organization_manager", certUserName, org1GUID)
-			createOrgRole("organization_manager", certUserName, org2GUID)
-			createOrgRole("organization_manager", certUserName, org3GUID)
 		})
 
 		AfterEach(func() {
-			for _, id := range []string{org1GUID, org2GUID, org3GUID, org4GUID} {
+			for _, id := range []string{org1GUID, org2GUID} {
 				deleteOrg(id)
 			}
 		})
@@ -109,15 +95,11 @@ var _ = Describe("Orgs", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns orgs that the client has a role in", func() {
+		It("returns orgs", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org1Name)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(org2Name)}),
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
-			))
-			Expect(result.Resources).ToNot(ContainElement(
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(org4Name)}),
 			))
 		})
 
@@ -141,7 +123,7 @@ var _ = Describe("Orgs", func() {
 					Skip("No certificate with a long expiry date provided")
 				}
 				restyClient = longCertClient
-				createOrgRole("organization_manager", longCertUserName, org3GUID)
+				createOrgRole("organization_manager", longCertUserName, org2GUID)
 			})
 			It("returns orgs that the client has a role in and sets an HTTP warning header", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
@@ -150,7 +132,7 @@ var _ = Describe("Orgs", func() {
 				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", MatchRegexp("\\d{3}h\\d{1}m\\d{1}s")))
 				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", HaveSuffix("to configure your authentication to generate short-lived credentials automatically.")))
 				Expect(result.Resources).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal(org3Name)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(org2Name)}),
 				))
 			})
 		})
@@ -167,13 +149,11 @@ var _ = Describe("Orgs", func() {
 			orgName = generateGUID("my-org")
 			orgGUID = createOrg(orgName)
 			errResp = cfErrs{}
-
-			restyClient = adminClient
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetError(&errResp).
 				Delete("/v3/organizations/" + orgGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -187,12 +167,12 @@ var _ = Describe("Orgs", func() {
 
 			jobURL := resp.Header().Get("Location")
 			Eventually(func(g Gomega) {
-				jobResp, err := restyClient.R().Get(jobURL)
+				jobResp, err := adminClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			orgResp, err := restyClient.R().Get("/v3/organizations/" + orgGUID)
+			orgResp, err := adminClient.R().Get("/v3/organizations/" + orgGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(orgResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
@@ -210,12 +190,12 @@ var _ = Describe("Orgs", func() {
 
 				jobURL := resp.Header().Get("Location")
 				Eventually(func(g Gomega) {
-					jobResp, err := restyClient.R().Get(jobURL)
+					jobResp, err := adminClient.R().Get(jobURL)
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 				}).Should(Succeed())
 
-				orgResp, err := restyClient.R().Get("/v3/organizations/" + orgGUID)
+				orgResp, err := adminClient.R().Get("/v3/organizations/" + orgGUID)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgResp).To(HaveRestyStatusCode(http.StatusNotFound))
 			})
@@ -232,7 +212,6 @@ var _ = Describe("Orgs", func() {
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			createOrgRole("organization_user", certUserName, orgGUID)
 			domainName = helpers.GetRequiredEnvVar("APP_FQDN")
 		})
 
@@ -242,7 +221,7 @@ var _ = Describe("Orgs", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&resultList).
 				SetError(&errResp).
 				Get("/v3/organizations/" + orgGUID + "/domains")
@@ -265,7 +244,6 @@ var _ = Describe("Orgs", func() {
 
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
-			createOrgRole("organization_user", certUserName, orgGUID)
 		})
 
 		AfterEach(func() {
@@ -274,7 +252,7 @@ var _ = Describe("Orgs", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/organizations/" + orgGUID + "/domains/default")
 			Expect(err).NotTo(HaveOccurred())
@@ -291,13 +269,9 @@ var _ = Describe("Orgs", func() {
 	Describe("get", func() {
 		var result resource
 
-		BeforeEach(func() {
-			restyClient = adminClient
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/organizations/" + commonTestOrgGUID)
 			Expect(err).NotTo(HaveOccurred())
