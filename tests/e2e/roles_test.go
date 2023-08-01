@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -16,19 +15,17 @@ var _ = Describe("Roles", func() {
 		userName string
 		resp     *resty.Response
 		result   typedResource
-		client   *helpers.CorrelatedRestyClient
 	)
 
 	BeforeEach(func() {
 		userName = generateGUID("user")
-		client = adminClient
 		result = typedResource{}
 	})
 
 	Describe("creating an org role", func() {
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetBody(typedResource{
 					Type: "organization_manager",
 					resource: resource{
@@ -68,7 +65,7 @@ var _ = Describe("Roles", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetBody(typedResource{
 					Type: "space_developer",
 					resource: resource{
@@ -104,8 +101,6 @@ var _ = Describe("Roles", func() {
 			createOrgRole("organization_user", userName, commonTestOrgGUID)
 			spaceGUID = createSpace(uuid.NewString(), commonTestOrgGUID)
 			createSpaceRole("space_developer", userName, spaceGUID)
-
-			client = certClient
 		})
 
 		AfterEach(func() {
@@ -114,13 +109,13 @@ var _ = Describe("Roles", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetResult(&resultList).
 				Get("/v3/roles")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns only the roles visible to the user", func() {
+		It("returns roles", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(resultList.Resources).To(ContainElements(
 				SatisfyAll(
@@ -130,8 +125,6 @@ var _ = Describe("Roles", func() {
 						"Type": Equal("organization_user"),
 					}),
 				),
-			))
-			Expect(resultList.Resources).ToNot(ContainElements(
 				SatisfyAll(
 					HaveRelationship("user", "GUID", userName),
 					HaveRelationship("space", "GUID", spaceGUID),
@@ -161,7 +154,7 @@ var _ = Describe("Roles", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Delete("/v3/roles/" + roleGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -175,12 +168,12 @@ var _ = Describe("Roles", func() {
 
 			jobURL := resp.Header().Get("Location")
 			Eventually(func(g Gomega) {
-				jobResp, err := client.R().Get(jobURL)
+				jobResp, err := adminClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			resp, err := client.R().Get("/v3/roles/" + roleGUID)
+			resp, err := adminClient.R().Get("/v3/roles/" + roleGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})

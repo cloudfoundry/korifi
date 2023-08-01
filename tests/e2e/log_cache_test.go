@@ -20,7 +20,6 @@ var _ = Describe("LogCache", func() {
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 		appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
-		createSpaceRole("space_developer", certUserName, spaceGUID)
 	})
 
 	AfterEach(func() {
@@ -32,7 +31,7 @@ var _ = Describe("LogCache", func() {
 
 		It("succeeds with log envelopes that include both app and staging logs", func() {
 			Eventually(func(g Gomega) {
-				httpResp, httpError = certClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
+				httpResp, httpError = adminClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
 				g.Expect(httpError).NotTo(HaveOccurred())
 				g.Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
 				g.Expect(result.Envelopes.Batch).NotTo(BeEmpty())
@@ -43,7 +42,7 @@ var _ = Describe("LogCache", func() {
 			}).Should(Succeed())
 
 			Eventually(func(g Gomega) {
-				httpResp, httpError = certClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
+				httpResp, httpError = adminClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
 				g.Expect(httpError).NotTo(HaveOccurred())
 				g.Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
 				g.Expect(result.Envelopes.Batch).NotTo(BeEmpty())

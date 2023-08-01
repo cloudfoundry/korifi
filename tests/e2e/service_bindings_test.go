@@ -30,12 +30,8 @@ var _ = Describe("Service Bindings", func() {
 	})
 
 	Describe("POST /v3/service_credential_bindings/{guid}", func() {
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().
+			httpResp, httpError = adminClient.R().
 				SetBody(typedResource{
 					Type: "app",
 					resource: resource{
@@ -55,12 +51,11 @@ var _ = Describe("Service Bindings", func() {
 		var respResource responseResource
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().
+			httpResp, httpError = adminClient.R().
 				SetResult(&respResource).
 				Get("/v3/service_credential_bindings/" + bindingGUID)
 		})
@@ -73,12 +68,11 @@ var _ = Describe("Service Bindings", func() {
 
 	Describe("DELETE /v3/service_credential_bindings/{guid}", func() {
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
+			httpResp, httpError = adminClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
 		})
 
 		It("succeeds", func() {
@@ -95,8 +89,6 @@ var _ = Describe("Service Bindings", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-
 			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
 
 			anotherInstanceGUID = createServiceInstance(spaceGUID, generateGUID("another-service-instance"), nil)
@@ -106,7 +98,7 @@ var _ = Describe("Service Bindings", func() {
 		})
 
 		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().SetResult(&result).Get("/v3/service_credential_bindings")
+			httpResp, httpError = adminClient.R().SetResult(&result).Get("/v3/service_credential_bindings")
 		})
 
 		It("succeeds", func() {
@@ -124,12 +116,11 @@ var _ = Describe("Service Bindings", func() {
 
 		BeforeEach(func() {
 			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			httpResp, err = certClient.R().
+			httpResp, err = adminClient.R().
 				SetBody(metadataResource{
 					Metadata: &metadataPatch{
 						Annotations: &map[string]string{"foo": "bar"},

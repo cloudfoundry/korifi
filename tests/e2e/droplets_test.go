@@ -17,7 +17,6 @@ var _ = Describe("Droplets", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-		createSpaceRole("space_developer", certUserName, spaceGUID)
 		appGUID := createApp(spaceGUID, generateGUID("app"))
 		pkgGUID := createPackage(appGUID)
 		uploadTestApp(pkgGUID, defaultAppBitsFile)
@@ -31,7 +30,7 @@ var _ = Describe("Droplets", func() {
 	Describe("get", func() {
 		JustBeforeEach(func() {
 			Eventually(func() (*resty.Response, error) {
-				return certClient.R().
+				return adminClient.R().
 					SetResult(&result).
 					Get("/v3/droplets/" + buildGUID)
 			}).Should(HaveRestyStatusCode(http.StatusOK))
@@ -45,7 +44,7 @@ var _ = Describe("Droplets", func() {
 	Describe("update", func() {
 		JustBeforeEach(func() {
 			Eventually(func() (*resty.Response, error) {
-				return certClient.R().
+				return adminClient.R().
 					SetBody(metadataResource{
 						Metadata: &metadataPatch{
 							Annotations: &map[string]string{"foo": "bar"},

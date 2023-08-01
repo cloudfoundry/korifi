@@ -29,7 +29,7 @@ var _ = Describe("Tasks", func() {
 	eventuallyTaskShouldHaveState := func(taskGUID, expectedState string) {
 		Eventually(func(g Gomega) {
 			var task taskResource
-			getResp, err := certClient.R().
+			getResp, err := adminClient.R().
 				SetPathParam("taskGUID", taskGUID).
 				SetResult(&task).
 				Get("/v3/tasks/{taskGUID}")
@@ -45,13 +45,11 @@ var _ = Describe("Tasks", func() {
 
 		BeforeEach(func() {
 			command = "echo hello"
-
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(taskResource{
 					Command: command,
 				}).
@@ -81,8 +79,7 @@ var _ = Describe("Tasks", func() {
 		BeforeEach(func() {
 			var err error
 
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(taskResource{
 					Command: "/bin/sh -c 'echo hello world'",
 				}).
@@ -98,7 +95,7 @@ var _ = Describe("Tasks", func() {
 
 			Eventually(func(g Gomega) {
 				var task taskResource
-				getResp, err := certClient.R().
+				getResp, err := adminClient.R().
 					SetPathParam("taskGUID", createdTask.GUID).
 					SetResult(&task).
 					Get("/v3/tasks/{taskGUID}")
@@ -115,12 +112,10 @@ var _ = Describe("Tasks", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-
 			guids = nil
 			var err error
 			for i := 0; i < 2; i++ {
-				resp, err = certClient.R().
+				resp, err = adminClient.R().
 					SetBody(taskResource{
 						Command: "echo hello",
 					}).
@@ -134,7 +129,7 @@ var _ = Describe("Tasks", func() {
 		})
 
 		JustBeforeEach(func() {
-			listResp, err := certClient.R().
+			listResp, err := adminClient.R().
 				SetResult(&list).
 				Get("/v3/tasks")
 			Expect(err).NotTo(HaveOccurred())
@@ -156,13 +151,11 @@ var _ = Describe("Tasks", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-
 			guids = nil
 			var err error
 
 			for i := 0; i < 2; i++ {
-				resp, err = certClient.R().
+				resp, err = adminClient.R().
 					SetBody(taskResource{
 						Command: "echo hello",
 					}).
@@ -176,7 +169,7 @@ var _ = Describe("Tasks", func() {
 		})
 
 		JustBeforeEach(func() {
-			listResp, err := certClient.R().
+			listResp, err := adminClient.R().
 				SetPathParam("appGUID", appGUID).
 				SetResult(&list).
 				Get("/v3/apps/{appGUID}/tasks")
@@ -201,12 +194,11 @@ var _ = Describe("Tasks", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 			command = "sleep 100"
 		})
 
 		JustBeforeEach(func() {
-			resp, err := certClient.R().
+			resp, err := adminClient.R().
 				SetBody(taskResource{
 					Command: command,
 				}).
@@ -216,7 +208,7 @@ var _ = Describe("Tasks", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
-			partialRequest = certClient.R().
+			partialRequest = adminClient.R().
 				SetPathParam("taskGUID", createdTask.GUID).
 				SetResult(&returnedTask)
 		})

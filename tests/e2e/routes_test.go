@@ -14,7 +14,6 @@ import (
 
 var _ = Describe("Routes", func() {
 	var (
-		client     *helpers.CorrelatedRestyClient
 		domainGUID string
 		domainName string
 		spaceGUID  string
@@ -30,8 +29,6 @@ var _ = Describe("Routes", func() {
 
 		host = generateGUID("myapp")
 		path = generateGUID("/some-path")
-
-		client = certClient
 	})
 
 	AfterEach(func() {
@@ -47,13 +44,12 @@ var _ = Describe("Routes", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 			routeGUID = createRoute(host, path, spaceGUID, domainGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				SetError(&errResp).
 				Get("/v3/routes/" + routeGUID)
@@ -72,22 +68,19 @@ var _ = Describe("Routes", func() {
 			resp    *resty.Response
 			errResp cfErrs
 
-			route1AGUID, route1BGUID string
+			route1GUID string
 
-			space2GUID  string
-			route2AGUID string
+			space2GUID string
+			route2GUID string
 		)
 
 		BeforeEach(func() {
 			host1 := generateGUID("myapp1")
-			route1AGUID = createRoute(host1, generateGUID("/some-path"), spaceGUID, domainGUID)
-			route1BGUID = createRoute(host1, generateGUID("/some-path"), spaceGUID, domainGUID)
+			route1GUID = createRoute(host1, generateGUID("/some-path"), spaceGUID, domainGUID)
 
 			space2GUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			host2 := generateGUID("myapp2")
-			route2AGUID = createRoute(host2, generateGUID("/some-path"), space2GUID, domainGUID)
-
-			createSpaceRole("space_developer", certUserName, spaceGUID)
+			route2GUID = createRoute(host2, generateGUID("/some-path"), space2GUID, domainGUID)
 		})
 
 		AfterEach(func() {
@@ -96,7 +89,7 @@ var _ = Describe("Routes", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				SetError(&errResp).
 				Get("/v3/routes")
@@ -106,10 +99,9 @@ var _ = Describe("Routes", func() {
 		It("returns the list of routes", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElements(
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(route1AGUID)}),
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(route1BGUID)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(route1GUID)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(route2GUID)}),
 			))
-			Expect(result.Resources).ToNot(ContainElement(MatchFields(IgnoreExtras, Fields{"GUID": Equal(route2AGUID)})))
 		})
 	})
 
@@ -120,13 +112,9 @@ var _ = Describe("Routes", func() {
 			route     routeResource
 		)
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetBody(routeResource{
 					resource: resource{
 						Relationships: map[string]relationship{
@@ -160,13 +148,12 @@ var _ = Describe("Routes", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 			routeGUID = createRoute(host, path, spaceGUID, domainGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				Delete("/v3/routes/" + routeGUID)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -180,12 +167,12 @@ var _ = Describe("Routes", func() {
 
 			jobURL := resp.Header().Get("Location")
 			Eventually(func(g Gomega) {
-				jobResp, err := client.R().Get(jobURL)
+				jobResp, err := adminClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			getRouteResp, err := client.R().Get("/v3/routes/" + routeGUID)
+			getRouteResp, err := adminClient.R().Get("/v3/routes/" + routeGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getRouteResp).To(HaveRestyStatusCode(http.StatusNotFound))
 
@@ -211,12 +198,11 @@ var _ = Describe("Routes", func() {
 			errResp = cfErrs{}
 
 			appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(mapRouteResource{
 					Destinations: []destinationRef{
 						{App: resource{GUID: appGUID}},
@@ -265,13 +251,11 @@ var _ = Describe("Routes", func() {
 			routeGUID = createRoute(host, generateGUID("/some-path"), spaceGUID, domainGUID)
 			destinationGUIDs = addDestinationForRoute(appGUID, routeGUID)
 			Expect(destinationGUIDs).To(HaveLen(1))
-
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				SetError(&errResp).
 				Get("/v3/routes/" + routeGUID + "/destinations")
@@ -298,13 +282,11 @@ var _ = Describe("Routes", func() {
 			routeGUID = createRoute(host, generateGUID("/some-path"), spaceGUID, domainGUID)
 			destinationGUIDs = addDestinationForRoute(appGUID, routeGUID)
 			Expect(destinationGUIDs).To(HaveLen(1))
-
-			createSpaceRole("space_developer", certUserName, spaceGUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetError(&errResp).
 				Delete("/v3/routes/" + routeGUID + "/destinations/" + destinationGUIDs[0])
 			Expect(err).NotTo(HaveOccurred())

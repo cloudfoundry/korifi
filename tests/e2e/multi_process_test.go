@@ -33,13 +33,9 @@ var _ = Describe("Multi Process", func() {
 	Describe("Scale a worker process", func() {
 		var result responseResource
 
-		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(scaleResource{Instances: 1}).
 				SetError(&errResp).
 				SetResult(&result).

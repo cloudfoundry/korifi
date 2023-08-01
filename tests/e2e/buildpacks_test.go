@@ -3,8 +3,6 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/tests/helpers"
-
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,12 +10,6 @@ import (
 )
 
 var _ = Describe("Buildpacks", func() {
-	var restyClient *helpers.CorrelatedRestyClient
-
-	BeforeEach(func() {
-		restyClient = certClient
-	})
-
 	Describe("list", func() {
 		var (
 			result resourceList[responseResource]
@@ -26,7 +18,7 @@ var _ = Describe("Buildpacks", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = restyClient.R().
+			resp, err = adminClient.R().
 				SetResult(&result).
 				Get("/v3/buildpacks")
 			Expect(err).NotTo(HaveOccurred())
