@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -12,6 +13,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
@@ -26,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var _ = Describe("PackageRepository", func() {
@@ -36,7 +37,7 @@ var _ = Describe("PackageRepository", func() {
 		org         *korifiv1alpha1.CFOrg
 		space       *korifiv1alpha1.CFSpace
 		app         *korifiv1alpha1.CFApp
-		mgrCancel   context.CancelFunc
+		stopManager context.CancelFunc
 	)
 
 	BeforeEach(func() {
@@ -53,36 +54,26 @@ var _ = Describe("PackageRepository", func() {
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 		app = createApp(space.Name)
 
-		k8sManager, err := ctrl.NewManager(k8sConfig, ctrl.Options{
-			Scheme:             scheme.Scheme,
-			MetricsBindAddress: "0",
-		})
-		Expect(err).NotTo(HaveOccurred())
+		k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 
-		k8sInterface, err := kubernetes.NewForConfig(k8sConfig)
+		k8sInterface, err := kubernetes.NewForConfig(k8sManager.GetConfig())
 		Expect(err).NotTo(HaveOccurred())
 
 		err = (workloads.NewCFPackageReconciler(
 			k8sManager.GetClient(),
+			k8sManager.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 			image.NewClient(k8sInterface),
 			cleanup.NewPackageCleaner(k8sClient, 5),
-			k8sManager.GetScheme(),
-			"package-repo-secret-name",
-			ctrl.Log.WithName("controllers").WithName("CFPackage"),
+			[]string{"package-repo-secret-name"},
 		)).SetupWithManager(k8sManager)
 		Expect(err).NotTo(HaveOccurred())
 
-		var mgrCtx context.Context
-		mgrCtx, mgrCancel = context.WithCancel(ctx)
-		go func() {
-			defer GinkgoRecover()
-			err = k8sManager.Start(mgrCtx)
-			Expect(err).NotTo(HaveOccurred())
-		}()
+		stopManager = helpers.StartK8sManager(k8sManager)
 	})
 
 	AfterEach(func() {
-		mgrCancel()
+		stopManager()
 	})
 
 	Describe("CreatePackage", func() {
@@ -133,13 +124,9 @@ var _ = Describe("PackageRepository", func() {
 				Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
 				Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
 
-				createdAt, err := time.Parse(time.RFC3339, createdPackage.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(createdPackage.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 
-				updatedAt, err := time.Parse(time.RFC3339, createdPackage.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
 				createdCFPackage := new(korifiv1alpha1.CFPackage)
@@ -205,13 +192,8 @@ var _ = Describe("PackageRepository", func() {
 				Expect(packageRecord.Annotations).To(HaveKeyWithValue("bar", "the-original-value"))
 				Expect(packageRecord.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
 
-				createdAt, err := time.Parse(time.RFC3339, packageRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-				updatedAt, err := time.Parse(time.RFC3339, packageRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(packageRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(packageRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			Describe("State field", func() {
@@ -444,10 +426,10 @@ var _ = Describe("PackageRepository", func() {
 			}
 
 			updateMessage = repositories.UpdatePackageSourceMessage{
-				GUID:               packageGUID,
-				SpaceGUID:          space.Name,
-				ImageRef:           packageSourceImageRef,
-				RegistrySecretName: "image-pull-secret",
+				GUID:                packageGUID,
+				SpaceGUID:           space.Name,
+				ImageRef:            packageSourceImageRef,
+				RegistrySecretNames: []string{"image-pull-secret"},
 			}
 		})
 
@@ -473,13 +455,8 @@ var _ = Describe("PackageRepository", func() {
 				Expect(returnedPackageRecord.SpaceGUID).To(Equal(existingCFPackage.Namespace))
 				Expect(returnedPackageRecord.State).To(Equal("READY"))
 
-				createdAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-				updatedAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(returnedPackageRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(returnedPackageRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				Expect(updatedCFPackage.Name).To(Equal(existingCFPackage.Name))
 				Expect(updatedCFPackage.Namespace).To(Equal(existingCFPackage.Namespace))
@@ -493,7 +470,7 @@ var _ = Describe("PackageRepository", func() {
 
 			When("the package registry secret is not specified on the message", func() {
 				BeforeEach(func() {
-					updateMessage.RegistrySecretName = ""
+					updateMessage.RegistrySecretNames = []string{}
 				})
 
 				It("does not populate package registry secrets", func() {

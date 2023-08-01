@@ -17,23 +17,22 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
+	CFOrgFinalizerName = "cfOrg.korifi.cloudfoundry.org"
+
 	OrgNameKey             = "cloudfoundry.org/org-name"
 	OrgGUIDKey             = "cloudfoundry.org/org-guid"
 	OrgSpaceDeprecatedName = "XXX-deprecated-XXX"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CFOrgSpec defines the desired state of CFOrg
 type CFOrgSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// The mutable, user-friendly name of the CFOrg. Unlike metadata.name, the user can change this field.
 	// +kubebuilder:validation:Pattern="^[[:alnum:][:punct:][:print:]]+$"
 	DisplayName string `json:"displayName"`
@@ -41,11 +40,13 @@ type CFOrgSpec struct {
 
 // CFOrgStatus defines the observed state of CFOrg
 type CFOrgStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	GUID string `json:"guid"`
+
+	// ObservedGeneration captures the latest generation of the CFOrg that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -73,4 +74,13 @@ type CFOrgList struct {
 
 func init() {
 	SchemeBuilder.Register(&CFOrg{}, &CFOrgList{})
+}
+
+func (o CFOrg) UniqueName() string {
+	return strings.ToLower(o.Spec.DisplayName)
+}
+
+func (o CFOrg) UniqueValidationErrorMessage() string {
+	// Note: the cf cli expects the specific text `Organization '.*' already exists.` in the error and ignores the error if it matches it.
+	return fmt.Sprintf("Organization '%s' already exists.", o.Spec.DisplayName)
 }

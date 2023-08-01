@@ -21,14 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // AppWorkloadSpec defines the desired state of AppWorkload
 type AppWorkloadSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +kubebuilder:validation:Required
 	GUID        string `json:"GUID"`
 	Version     string `json:"version"`
@@ -62,8 +56,11 @@ type AppWorkloadSpec struct {
 
 // AppWorkloadStatus defines the observed state of AppWorkload
 type AppWorkloadStatus struct {
-	// Conditions capture the current status of the observed generation of the AppWorkload
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the AppWorkload that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

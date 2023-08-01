@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -21,36 +20,39 @@ import (
 )
 
 const (
-	OrgsPath              = "/v3/organizations"
-	OrgPath               = "/v3/organizations/{guid}"
-	OrgDomainsPath        = "/v3/organizations/{guid}/domains"
-	OrgDefaultDomainsPath = "/v3/organizations/{guid}/domains/default"
+	OrgsPath             = "/v3/organizations"
+	OrgPath              = "/v3/organizations/{guid}"
+	OrgDomainsPath       = "/v3/organizations/{guid}/domains"
+	OrgDefaultDomainPath = "/v3/organizations/{guid}/domains/default"
 )
 
-//counterfeiter:generate -o fake -fake-name OrgRepository . CFOrgRepository
+//counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 type CFOrgRepository interface {
 	CreateOrg(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
 	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
 	GetOrg(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
 	PatchOrgMetadata(context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error)
+	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
 }
 
 type Org struct {
 	apiBaseURL                               url.URL
 	orgRepo                                  CFOrgRepository
 	domainRepo                               CFDomainRepository
-	decoderValidator                         *DecoderValidator
+	requestValidator                         RequestValidator
 	userCertificateExpirationWarningDuration time.Duration
+	defaultDomainName                        string
 }
 
-func NewOrg(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, decoderValidator *DecoderValidator, userCertificateExpirationWarningDuration time.Duration) *Org {
+func NewOrg(apiBaseURL url.URL, orgRepo CFOrgRepository, domainRepo CFDomainRepository, requestValidator RequestValidator, userCertificateExpirationWarningDuration time.Duration, defaultDomainName string) *Org {
 	return &Org{
 		apiBaseURL:                               apiBaseURL,
 		orgRepo:                                  orgRepo,
 		domainRepo:                               domainRepo,
-		decoderValidator:                         decoderValidator,
+		requestValidator:                         requestValidator,
 		userCertificateExpirationWarningDuration: userCertificateExpirationWarningDuration,
+		defaultDomainName:                        defaultDomainName,
 	}
 }
 
@@ -59,7 +61,7 @@ func (h *Org) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.create")
 
 	var payload payloads.OrgCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "invalid-payload-for-create-org")
 	}
 
@@ -84,7 +86,7 @@ func (h *Org) update(r *http.Request) (*routing.Response, error) {
 	}
 
 	var payload payloads.OrgPatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -117,9 +119,13 @@ func (h *Org) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.list")
 
-	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
+	listFilter := &payloads.OrgList{}
+	err := h.requestValidator.DecodeAndValidateURLValues(r, listFilter)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
 
-	orgs, err := h.orgRepo.ListOrgs(r.Context(), authInfo, repositories.ListOrgsMessage{Names: names})
+	orgs, err := h.orgRepo.ListOrgs(r.Context(), authInfo, listFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to fetch orgs")
 	}
@@ -144,14 +150,9 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
 	}
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	domainListFilter := new(payloads.DomainList)
-	err := payloads.Decode(domainListFilter, r.Form)
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, domainListFilter); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	domainList, err := h.domainRepo.ListDomains(r.Context(), authInfo, domainListFilter.ToMessage())
@@ -162,6 +163,24 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDomain, domainList, h.apiBaseURL, *r.URL)), nil
 }
 
+func (h *Org) defaultDomain(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.default-domain")
+
+	orgGUID := routing.URLParam(r, "guid")
+
+	if _, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID); err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
+	}
+
+	domain, err := h.domainRepo.GetDomainByName(r.Context(), authInfo, h.defaultDomainName)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get domain")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.apiBaseURL)), nil
+}
+
 func (h *Org) get(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.get")
@@ -170,43 +189,10 @@ func (h *Org) get(r *http.Request) (*routing.Response, error) {
 
 	org, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch org from Kubernetes", "OrgGUID", orgGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get org", "OrgGUID", orgGUID)
 	}
 
-	orgResult := presenter.ForOrg(org, h.apiBaseURL)
-	return routing.NewResponse(http.StatusOK).WithBody(orgResult), nil
-}
-
-func (h *Org) getDefaultDomain(r *http.Request) (*routing.Response, error) {
-	authInfo, _ := authorization.InfoFromContext(r.Context())
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.get-default-domain")
-
-	orgGUID := routing.URLParam(r, "guid")
-
-	if _, err := h.orgRepo.GetOrg(r.Context(), authInfo, orgGUID); err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
-	}
-
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
-	domainListFilter := new(payloads.DomainList)
-	err := payloads.Decode(domainListFilter, r.Form)
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
-	}
-
-	domainList, err := h.domainRepo.ListDomains(r.Context(), authInfo, domainListFilter.ToMessage())
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch domain(s) from Kubernetes")
-	}
-
-	if len(domainList) == 0 {
-		return nil, apierrors.LogAndReturn(logger, errors.New("no domains found"), "failed to get the default domain")
-	}
-
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomain(domainList[0], h.apiBaseURL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForOrg(org, h.apiBaseURL)), nil
 }
 
 func (h *Org) UnauthenticatedRoutes() []routing.Route {
@@ -220,8 +206,8 @@ func (h *Org) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: OrgPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: OrgPath, Handler: h.update},
 		{Method: "GET", Pattern: OrgDomainsPath, Handler: h.listDomains},
+		{Method: "GET", Pattern: OrgDefaultDomainPath, Handler: h.defaultDomain},
 		{Method: "GET", Pattern: OrgPath, Handler: h.get},
-		{Method: "GET", Pattern: OrgDefaultDomainsPath, Handler: h.getDefaultDomain},
 	}
 }
 

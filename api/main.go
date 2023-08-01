@@ -18,13 +18,16 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/middleware"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
+	"code.cloudfoundry.org/korifi/version"
 	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -83,6 +86,8 @@ func main() {
 
 	go tools.SyncLogLevel(context.Background(), ctrl.Log, eventChan, atomicLevel, config.GetLogLevelFromPath)
 
+	ctrl.Log.Info("starting Korifi API", "version", version.Version)
+
 	privilegedCRClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
 	if err != nil {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
@@ -98,12 +103,16 @@ func main() {
 	}
 	namespaceRetriever := repositories.NewNamespaceRetriever(dynamicClient)
 
-	mapper, err := apiutil.NewDynamicRESTMapper(k8sClientConfig)
+	httpClient, err := rest.HTTPClientFor(k8sClientConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create http client from k8s rest config: %v", err))
+	}
+	mapper, err := apiutil.NewDynamicRESTMapper(k8sClientConfig, httpClient)
 	if err != nil {
 		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
 	}
 
-	userClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, authorization.NewDefaultBackoff())
+	userClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, k8s.NewDefaultBackoff())
 
 	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
@@ -159,10 +168,19 @@ func main() {
 		namespaceRetriever,
 		cfg.RootNamespace,
 	)
+	deploymentRepo := repositories.NewDeploymentRepo(
+		userClientFactory,
+		namespaceRetriever,
+	)
 	buildRepo := repositories.NewBuildRepo(
 		namespaceRetriever,
 		userClientFactory,
 		nsPermissions,
+	)
+	runnerInfoRepo := repositories.NewRunnerInfoRepository(
+		userClientFactory,
+		cfg.RunnerName,
+		cfg.RootNamespace,
 	)
 	packageRepo := repositories.NewPackageRepo(
 		userClientFactory,
@@ -201,7 +219,7 @@ func main() {
 		privilegedK8sClient,
 		userClientFactory,
 		imageClient,
-		cfg.PackageRegistrySecretName,
+		cfg.PackageRegistrySecretNames,
 		cfg.RootNamespace,
 	)
 	taskRepo := repositories.NewTaskRepo(
@@ -223,10 +241,7 @@ func main() {
 	)
 	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 
-	decoderValidator, err := handlers.NewDefaultDecoderValidator()
-	if err != nil {
-		panic(fmt.Sprintf("could not wire validator: %v", err))
-	}
+	requestValidator := validation.NewDefaultDecoderValidator()
 
 	routerBuilder := routing.NewRouterBuilder()
 	routerBuilder.UseMiddleware(
@@ -250,11 +265,8 @@ func main() {
 	)
 
 	apiHandlers := []routing.Routable{
-		handlers.NewRootV3(cfg.ServerURL),
-		handlers.NewRoot(
-			cfg.ServerURL,
-			cfg.UaaURL,
-		),
+		handlers.NewRootV3(*serverURL),
+		handlers.NewRoot(*serverURL, cfg.UaaURL),
 		handlers.NewResourceMatches(),
 		handlers.NewApp(
 			*serverURL,
@@ -265,9 +277,9 @@ func main() {
 			domainRepo,
 			spaceRepo,
 			packageRepo,
-			decoderValidator,
 			buildRepo,
 			processStats,
+			requestValidator,
 		),
 		handlers.NewRoute(
 			*serverURL,
@@ -275,7 +287,7 @@ func main() {
 			domainRepo,
 			appRepo,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewServiceRouteBinding(
 			*serverURL,
@@ -286,87 +298,106 @@ func main() {
 			appRepo,
 			dropletRepo,
 			imageRepo,
-			decoderValidator,
-			cfg.PackageRegistrySecretName,
+			requestValidator,
+			cfg.PackageRegistrySecretNames,
 		),
 		handlers.NewBuild(
 			*serverURL,
 			buildRepo,
 			packageRepo,
 			appRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewDroplet(
 			*serverURL,
 			dropletRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewProcess(
 			*serverURL,
 			processRepo,
 			processStats,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewDomain(
 			*serverURL,
-			decoderValidator,
+			requestValidator,
 			domainRepo,
+		),
+		handlers.NewDeployment(
+			*serverURL,
+			requestValidator,
+			deploymentRepo,
+			runnerInfoRepo,
+			cfg.RunnerName,
 		),
 		handlers.NewJob(
 			*serverURL,
+			map[string]handlers.DeletionRepository{
+				handlers.OrgDeleteJobType:    orgRepo,
+				handlers.SpaceDeleteJobType:  spaceRepo,
+				handlers.AppDeleteJobType:    appRepo,
+				handlers.RouteDeleteJobType:  routeRepo,
+				handlers.DomainDeleteJobType: domainRepo,
+				handlers.RoleDeleteJobType:   roleRepo,
+			},
+			500*time.Millisecond,
 		),
 		handlers.NewLogCache(
 			appRepo,
 			buildRepo,
 			appLogs,
+			requestValidator,
 		),
 		handlers.NewOrg(
 			*serverURL,
 			orgRepo,
 			domainRepo,
-			decoderValidator,
+			requestValidator,
 			cfg.GetUserCertificateDuration(),
+			cfg.DefaultDomainName,
 		),
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewSpaceManifest(
 			*serverURL,
 			manifest,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewRole(
 			*serverURL,
 			roleRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
 		handlers.NewUser(*serverURL),
 		handlers.NewBuildpack(
 			*serverURL,
 			buildpackRepo,
+			requestValidator,
 		),
 		handlers.NewServiceInstance(
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewServiceBinding(
 			*serverURL,
 			serviceBindingRepo,
 			appRepo,
 			serviceInstanceRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewTask(
 			*serverURL,
 			appRepo,
 			taskRepo,
-			decoderValidator,
+			requestValidator,
 		),
 		handlers.NewOAuth(
 			*serverURL,
@@ -374,6 +405,7 @@ func main() {
 		handlers.NewServiceCatalog(
 			*serverURL,
 			serviceCatalogRepo,
+			requestValidator,
 		),
 	}
 	for _, handler := range apiHandlers {

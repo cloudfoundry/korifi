@@ -17,13 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
-
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
 	UserProvidedType = "user-provided"
@@ -40,6 +39,11 @@ type CFServiceInstanceSpec struct {
 
 	// Type of the Service Instance. Must be `user-provided`
 	Type InstanceType `json:"type"`
+
+	// Service label to use when adding this instance to VCAP_Services
+	// Defaults to `user-provided` when this field is not set
+	// +optional
+	ServiceLabel *string `json:"serviceLabel,omitempty"`
 
 	// Tags are used by apps to identify service instances
 	Tags []string `json:"tags,omitempty"`
@@ -61,8 +65,11 @@ type CFServiceInstanceStatus struct {
 	// +optional
 	Binding corev1.LocalObjectReference `json:"binding"`
 
-	// Conditions capture the current status of the CFServiceInstance
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the CFServiceInstance that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -78,6 +85,15 @@ type CFServiceInstance struct {
 	Spec CFServiceInstanceSpec `json:"spec,omitempty"`
 
 	Status CFServiceInstanceStatus `json:"status,omitempty"`
+}
+
+func (si CFServiceInstance) UniqueName() string {
+	return si.Spec.DisplayName
+}
+
+func (si CFServiceInstance) UniqueValidationErrorMessage() string {
+	// Note: the cf cli expects the specific text 'The service instance name is taken'
+	return fmt.Sprintf("The service instance name is taken: %s", si.Spec.DisplayName)
 }
 
 //+kubebuilder:object:root=true

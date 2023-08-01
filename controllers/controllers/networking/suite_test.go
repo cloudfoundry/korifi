@@ -10,10 +10,20 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/networking"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,10 +33,14 @@ import (
 	//+kubebuilder:scaffold:imports
 )
 
+const rootNamespace = "cf"
+
 var (
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	k8sClient client.Client
+	stopManager     context.CancelFunc
+	stopClientCache context.CancelFunc
+	testEnv         *envtest.Environment
+	adminClient     client.Client
+	logOutput       *gbytes.Buffer
 )
 
 func TestNetworkingControllers(t *testing.T) {
@@ -38,43 +52,31 @@ func TestNetworkingControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	SetDefaultEventuallyTimeout(10 * time.Second)
+	logOutput = gbytes.NewBuffer()
+	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	var ctx context.Context
-	ctx, cancel = context.WithCancel(context.TODO())
-
-	// TODO: Add directory path for Contour CRDs
 	testEnv = &envtest.Environment{
-		// TODO: Reconcile with CRDInstallOptions
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
 			filepath.Join("..", "..", "..", "tests", "vendor", "contour"),
 		},
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml")},
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
-	cfg, err := testEnv.Start()
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(contourv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
-	Expect(err).ToNot(HaveOccurred())
+	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	err = (NewCFRouteReconciler(
 		k8sManager.GetClient(),
@@ -98,17 +100,31 @@ var _ = BeforeSuite(func() {
 	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = shared.SetupIndexWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
+	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
+	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(workloads.NewCFAppValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.AppEntityType)),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(networking.NewCFDomainValidator(k8sManager.GetClient()).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(networking.NewCFRouteValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), networking.RouteEntityType)),
+		rootNamespace,
+		k8sManager.GetClient(),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred())
-	}()
+	Expect(adminClient.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: rootNamespace,
+		},
+	})).To(Succeed())
+
+	stopManager = helpers.StartK8sManager(k8sManager)
 })
 
 var _ = AfterSuite(func() {
-	cancel()
+	stopClientCache()
+	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })

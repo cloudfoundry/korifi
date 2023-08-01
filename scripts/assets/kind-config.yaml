@@ -9,8 +9,6 @@ containerdConfigPatches:
     [plugins."io.containerd.grpc.v1.cri".registry.configs]
       [plugins."io.containerd.grpc.v1.cri".registry.configs."127.0.0.1:30050".tls]
         insecure_skip_verify = true
-featureGates:
-  EphemeralContainers: true
 nodes:
 - role: control-plane
   extraPortMappings:

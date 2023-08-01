@@ -76,8 +76,8 @@ func ForServiceOffering(serviceOfferingRecord repositories.ServiceOfferingRecord
 				AllowContextUpdates:  serviceOfferingRecord.AllowContextUpdates,
 			},
 		},
-		CreatedAt: serviceOfferingRecord.CreatedAt,
-		UpdatedAt: serviceOfferingRecord.UpdatedAt,
+		CreatedAt: formatTimestamp(&serviceOfferingRecord.CreatedAt),
+		UpdatedAt: formatTimestamp(serviceOfferingRecord.UpdatedAt),
 		Relationships: Relationships{
 			"service_broker": Relationship{
 				Data: &RelationshipData{
@@ -146,8 +146,8 @@ func ForServicePlan(servicePlanRecord repositories.ServicePlanRecord, baseURL ur
 				Bindable:       servicePlanRecord.Bindable,
 			},
 		},
-		CreatedAt:      servicePlanRecord.CreatedAt,
-		UpdatedAt:      servicePlanRecord.UpdatedAt,
+		CreatedAt:      formatTimestamp(&servicePlanRecord.CreatedAt),
+		UpdatedAt:      formatTimestamp(servicePlanRecord.UpdatedAt),
 		VisibilityType: servicePlanRecord.VisibilityType,
 		Free:           servicePlanRecord.Free,
 		Schemas:        servicePlanRecord.Schemas,

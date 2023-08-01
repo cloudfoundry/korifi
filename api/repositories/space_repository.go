@@ -52,7 +52,8 @@ type SpaceRecord struct {
 	Labels           map[string]string
 	Annotations      map[string]string
 	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	UpdatedAt        *time.Time
+	DeletedAt        *time.Time
 }
 
 type SpaceRepo struct {
@@ -103,13 +104,7 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
-	return SpaceRecord{
-		Name:             message.Name,
-		GUID:             spaceCR.Name,
-		OrganizationGUID: message.OrganizationGUID,
-		CreatedAt:        spaceCR.CreationTimestamp.Time,
-		UpdatedAt:        spaceCR.CreationTimestamp.Time,
-	}, nil
+	return cfSpaceToSpaceRecord(*spaceCR), nil
 }
 
 //nolint:dupl
@@ -179,7 +174,26 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 
 	cfSpaces := []korifiv1alpha1.CFSpace{}
 
+	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+
+	preds := []func(korifiv1alpha1.CFSpace) bool{
+		func(s korifiv1alpha1.CFSpace) bool { return authorizedSpaceNamespaces[s.Name] },
+		func(s korifiv1alpha1.CFSpace) bool {
+			return meta.IsStatusConditionTrue(s.Status.Conditions, StatusConditionReady)
+		},
+		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFSpace) string { return s.Name }),
+		SetPredicate(message.Names, func(s korifiv1alpha1.CFSpace) string { return s.Spec.DisplayName }),
+	}
+
+	orgGUIDs := NewSet(message.OrganizationGUIDs...)
 	for org := range authorizedOrgNamespaces {
+		if len(orgGUIDs) > 0 && !orgGUIDs.Includes(org) {
+			continue
+		}
+
 		cfSpaceList := new(korifiv1alpha1.CFSpaceList)
 
 		err = userClient.List(ctx, cfSpaceList, client.InNamespace(org))
@@ -190,36 +204,11 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 			return nil, apierrors.FromK8sError(err, SpaceResourceType)
 		}
 
-		cfSpaces = append(cfSpaces, cfSpaceList.Items...)
-	}
-
-	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)
-	if err != nil {
-		return nil, err
+		cfSpaces = append(cfSpaces, Filter(cfSpaceList.Items, preds...)...)
 	}
 
 	var records []SpaceRecord
 	for _, cfSpace := range cfSpaces {
-		if !meta.IsStatusConditionTrue(cfSpace.Status.Conditions, StatusConditionReady) {
-			continue
-		}
-
-		if !matchesFilter(cfSpace.Namespace, message.OrganizationGUIDs) {
-			continue
-		}
-
-		if !matchesFilter(cfSpace.Name, message.GUIDs) {
-			continue
-		}
-
-		if !matchesFilter(cfSpace.Spec.DisplayName, message.Names) {
-			continue
-		}
-
-		if !authorizedSpaceNamespaces[cfSpace.Name] {
-			continue
-		}
-
 		records = append(records, cfSpaceToSpaceRecord(cfSpace))
 	}
 
@@ -254,7 +243,8 @@ func cfSpaceToSpaceRecord(cfSpace korifiv1alpha1.CFSpace) SpaceRecord {
 		Annotations:      cfSpace.Annotations,
 		Labels:           cfSpace.Labels,
 		CreatedAt:        cfSpace.CreationTimestamp.Time,
-		UpdatedAt:        cfSpace.CreationTimestamp.Time,
+		UpdatedAt:        getLastUpdatedTime(&cfSpace),
+		DeletedAt:        golangTime(cfSpace.DeletionTimestamp),
 	}
 }
 
@@ -294,4 +284,12 @@ func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorizati
 	}
 
 	return cfSpaceToSpaceRecord(*cfSpace), nil
+}
+
+func (r *SpaceRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, spaceGUID string) (*time.Time, error) {
+	space, err := r.GetSpace(ctx, authInfo, spaceGUID)
+	if err != nil {
+		return nil, err
+	}
+	return space.DeletedAt, nil
 }

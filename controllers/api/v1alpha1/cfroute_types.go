@@ -17,17 +17,19 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
+	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
+
 	ValidStatus   CurrentStatus = "valid"
 	InvalidStatus CurrentStatus = "invalid"
 )
-
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // Destination defines a target for a CFRoute, does not carry meaning outside of a CF context
 type Destination struct {
@@ -50,9 +52,6 @@ type Protocol string
 
 // CFRouteSpec defines the desired state of CFRoute
 type CFRouteSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// The subdomain of the route within the domain. Host is optional and defaults to empty.
 	// When the host is empty, then the name of the app will be used
 	Host string `json:"host,omitempty"`
@@ -79,8 +78,11 @@ type CFRouteStatus struct {
 	// The observed state of the destinations. This is mainly used to record the target port of the underlying service
 	Destinations []Destination `json:"destinations,omitempty"`
 
-	// Conditions capture the current status of the route
+	//+kubebuilder:validation:Optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the CFRoute that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // CurrentStatus declares whether the CFRoute is currently valid or invalid
@@ -112,4 +114,18 @@ type CFRouteList struct {
 
 func init() {
 	SchemeBuilder.Register(&CFRoute{}, &CFRouteList{})
+}
+
+func (r CFRoute) UniqueName() string {
+	return strings.Join([]string{strings.ToLower(r.Spec.Host), r.Spec.DomainRef.Namespace, r.Spec.DomainRef.Name, r.Spec.Path}, "::")
+}
+
+func (r CFRoute) UniqueValidationErrorMessage() string {
+	pathDetails := ""
+
+	if r.Spec.Path != "" {
+		pathDetails = fmt.Sprintf(" and path '%s'", r.Spec.Path)
+	}
+
+	return fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.", r.Spec.Host, pathDetails, r.Status.FQDN)
 }

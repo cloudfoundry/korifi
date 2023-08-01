@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
@@ -43,8 +44,8 @@ type ServiceOfferingRecord struct {
 	Available            bool
 	Tags                 []string
 	Requires             []string
-	CreatedAt            string
-	UpdatedAt            string
+	CreatedAt            time.Time
+	UpdatedAt            *time.Time
 	Shareable            bool
 	DocumentationUrl     string
 	BrokerId             string
@@ -61,8 +62,8 @@ type ServicePlanRecord struct {
 	Name                string
 	Description         string
 	Available           bool
-	CreatedAt           string
-	UpdatedAt           string
+	CreatedAt           time.Time
+	UpdatedAt           *time.Time
 	VisibilityType      string
 	Free                bool
 	Costs               []struct{}
@@ -244,8 +245,8 @@ func servicePlanToRecord(servicePlan *trinityv1alpha1.CFServicePlan) ServicePlan
 		Name:                servicePlan.Spec.PlanName,
 		Description:         servicePlan.Spec.Description,
 		Available:           servicePlan.Spec.Available,
-		CreatedAt:           servicePlan.Spec.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:           servicePlan.Spec.UpdatedTimestamp.UTC().Format(TimestampFormat),
+		CreatedAt:           servicePlan.Spec.CreationTimestamp.Time,
+		UpdatedAt:           getLastUpdatedTime(servicePlan),
 		VisibilityType:      "public",
 		Free:                servicePlan.Spec.Free,
 		ServiceOfferingGUID: servicePlan.Spec.Relationships.ServiceOfferingGUID,
@@ -278,8 +279,8 @@ func serviceOfferingToRecord(offering *trinityv1alpha1.CFServiceOffering) Servic
 		Available:            offering.Spec.Available,
 		Tags:                 offering.Spec.Tags,
 		Requires:             offering.Spec.Requires,
-		CreatedAt:            offering.Spec.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:            offering.Spec.UpdatedTimestamp.UTC().Format(TimestampFormat),
+		CreatedAt:            offering.Spec.CreationTimestamp.Time,
+		UpdatedAt:            getLastUpdatedTime(offering),
 		Shareable:            offering.Spec.Shareable,
 		DocumentationUrl:     offering.Spec.DocumentationUrl,
 		BrokerId:             offering.OwnerReferences[0].Name,

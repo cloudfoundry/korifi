@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -28,7 +26,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		ctx = context.Background()
 
 		orgNamespace = "test-org-" + uuid.NewString()
-		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFOrg{
+		Expect(adminClient.Create(ctx, &korifiv1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      orgNamespace,
 				Namespace: rootNamespace,
@@ -38,21 +36,12 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 			},
 		})).To(Succeed())
 
-		Expect(k8sClient.Create(ctx, &v1.Namespace{
+		Expect(adminClient.Create(ctx, &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   orgNamespace,
 				Labels: map[string]string{korifiv1alpha1.OrgNameKey: orgNamespace},
 			},
 		})).To(Succeed())
-
-		// Ensure that the client used by the validating webhook has the CFOrg in its cache.
-		// In practice this will always be the case because...
-		//   1. The controllers and webhooks share the same client
-		//   2. The CFSpace is created in the namespace that the CFOrgReconciler creates
-		//   3. To create the namespace, the CFOrgReconciler has to first fetch the CFOrg (ensuring it's in the cache)
-		Eventually(func() error {
-			return internalWebhookK8sClient.Get(ctx, types.NamespacedName{Name: orgNamespace, Namespace: rootNamespace}, new(korifiv1alpha1.CFOrg))
-		}).Should(Succeed())
 	})
 
 	Describe("creating a space", func() {
@@ -63,7 +52,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		})
 
 		JustBeforeEach(func() {
-			err = k8sClient.Create(ctx, cfSpace)
+			err = adminClient.Create(ctx, cfSpace)
 		})
 
 		It("succeeds", func() {
@@ -73,7 +62,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		When("a corresponding CFOrg does not exist", func() {
 			BeforeEach(func() {
 				cfSpace.Namespace = "not-an-org"
-				Expect(k8sClient.Create(ctx, &v1.Namespace{
+				Expect(adminClient.Create(ctx, &v1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "not-an-org",
 					},
@@ -98,7 +87,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		When("the name already exists in the org namespace", func() {
 			BeforeEach(func() {
 				cfSpace2 = makeCFSpace(orgNamespace, "my-space")
-				Expect(k8sClient.Create(ctx, cfSpace2)).To(Succeed())
+				Expect(adminClient.Create(ctx, cfSpace2)).To(Succeed())
 			})
 
 			It("fails", func() {
@@ -109,7 +98,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		When("another CFSpace exists with the same name(case insensitive) in the same namespace", func() {
 			BeforeEach(func() {
 				cfSpace2 = makeCFSpace(orgNamespace, "My-Space")
-				Expect(k8sClient.Create(ctx, cfSpace2)).To(Succeed())
+				Expect(adminClient.Create(ctx, cfSpace2)).To(Succeed())
 			})
 
 			It("should fail", func() {
@@ -121,12 +110,12 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 	Describe("updating a space", func() {
 		BeforeEach(func() {
 			cfSpace = makeCFSpace(orgNamespace, "my-space")
-			Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfSpace)).To(Succeed())
 		})
 
 		When("the space name is changed to another which is unique in the root CF namespace", func() {
 			It("succeeds", func() {
-				Expect(k8s.Patch(ctx, k8sClient, cfSpace, func() {
+				Expect(k8s.Patch(ctx, adminClient, cfSpace, func() {
 					cfSpace.Spec.DisplayName = "another-space"
 				})).To(Succeed())
 			})
@@ -135,11 +124,11 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		When("the new space name already exists in the org namespace", func() {
 			BeforeEach(func() {
 				cfSpace2 = makeCFSpace(orgNamespace, "another-space")
-				Expect(k8sClient.Create(ctx, cfSpace2)).To(Succeed())
+				Expect(adminClient.Create(ctx, cfSpace2)).To(Succeed())
 			})
 
 			It("fails", func() {
-				Expect(k8s.Patch(ctx, k8sClient, cfSpace, func() {
+				Expect(k8s.Patch(ctx, adminClient, cfSpace, func() {
 					cfSpace.Spec.DisplayName = "another-space"
 				})).To(MatchError(ContainSubstring("Name must be unique per organization")))
 			})
@@ -147,15 +136,13 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 	})
 
 	Describe("deleting a space", func() {
-		var err error
 		BeforeEach(func() {
 			cfSpace = makeCFSpace(orgNamespace, "my-space")
-			err = k8sClient.Create(ctx, cfSpace)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(adminClient.Create(ctx, cfSpace)).To(Succeed())
 		})
 
 		It("can delete the space", func() {
-			Expect(k8sClient.Delete(ctx, cfSpace)).To(Succeed())
+			Expect(adminClient.Delete(ctx, cfSpace)).To(Succeed())
 		})
 	})
 })

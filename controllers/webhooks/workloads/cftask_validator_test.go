@@ -24,7 +24,7 @@ var _ = Describe("CFTask Creation", func() {
 
 	BeforeEach(func() {
 		cfApp := makeCFApp(testutils.PrefixedGUID("cfapp"), rootNamespace, testutils.PrefixedGUID("appName"))
-		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+		Expect(adminClient.Create(context.Background(), cfApp)).To(Succeed())
 
 		cfTask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
@@ -41,7 +41,7 @@ var _ = Describe("CFTask Creation", func() {
 	})
 
 	JustBeforeEach(func() {
-		creationErr = k8sClient.Create(context.Background(), cfTask)
+		creationErr = adminClient.Create(context.Background(), cfTask)
 	})
 
 	It("suceeds", func() {
@@ -88,11 +88,10 @@ var _ = Describe("CFTask Creation", func() {
 
 			originalCfTask := cfTask.DeepCopy()
 			cfTask.Status = korifiv1alpha1.CFTaskStatus{
-				Conditions: []metav1.Condition{},
 				SequenceID: seqId,
 			}
 
-			creationErr = k8sClient.Status().Patch(context.Background(), cfTask, client.MergeFrom(originalCfTask))
+			creationErr = adminClient.Status().Patch(context.Background(), cfTask, client.MergeFrom(originalCfTask))
 		})
 
 		It("suceeds", func() {
@@ -124,7 +123,7 @@ var _ = Describe("CFTask Update", func() {
 
 	BeforeEach(func() {
 		cfApp := makeCFApp(testutils.PrefixedGUID("cfapp"), rootNamespace, testutils.PrefixedGUID("appName"))
-		Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+		Expect(adminClient.Create(context.Background(), cfApp)).To(Succeed())
 		updateFunc = func() {}
 
 		cfTask = &korifiv1alpha1.CFTask{
@@ -139,16 +138,14 @@ var _ = Describe("CFTask Update", func() {
 				},
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
-		Expect(k8s.Patch(context.Background(), k8sClient, cfTask, func() {
-			cfTask.Status = korifiv1alpha1.CFTaskStatus{
-				Conditions: []metav1.Condition{},
-			}
+		Expect(adminClient.Create(context.Background(), cfTask)).To(Succeed())
+		Expect(k8s.Patch(context.Background(), adminClient, cfTask, func() {
+			cfTask.Status = korifiv1alpha1.CFTaskStatus{}
 		})).To(Succeed())
 	})
 
 	JustBeforeEach(func() {
-		updateErr = k8s.Patch(context.Background(), k8sClient, cfTask, updateFunc)
+		updateErr = k8s.Patch(context.Background(), adminClient, cfTask, updateFunc)
 	})
 
 	When("canceled is not changed", func() {
@@ -206,7 +203,7 @@ var _ = Describe("CFTask Update", func() {
 
 		When("the task is already canceled before an update", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(context.Background(), k8sClient, cfTask, func() {
+				Expect(k8s.Patch(context.Background(), adminClient, cfTask, func() {
 					cfTask.Spec.Canceled = true
 				})).To(Succeed())
 
@@ -247,7 +244,7 @@ func setStatusCondition(cftask *korifiv1alpha1.CFTask, conditionType string) {
 		Reason:  "foo",
 		Message: "bar",
 	})
-	Expect(k8sClient.Status().Patch(context.Background(), cftask, client.MergeFrom(clone))).To(Succeed())
+	Expect(adminClient.Status().Patch(context.Background(), cftask, client.MergeFrom(clone))).To(Succeed())
 
 	// the status update clears any unapplied changes to the rest of the object, so reset spec changes:
 	cftask.Spec = clone.Spec

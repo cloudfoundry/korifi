@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.1
   name: cfapps.korifi.cloudfoundry.org
 spec:
   group: korifi.cloudfoundry.org
@@ -109,7 +108,6 @@ spec:
             description: CFAppStatus defines the observed state of CFApp
             properties:
               conditions:
-                description: Conditions capture the current status of the App
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -180,6 +178,11 @@ spec:
               observedDesiredState:
                 description: 'Deprecated: No longer used'
                 type: string
+              observedGeneration:
+                description: ObservedGeneration captures the latest generation of
+                  the CFApp that has been reconciled
+                format: int64
+                type: integer
               vcapApplicationSecretName:
                 description: VCAPApplicationSecretName contains the name of the CFApp's
                   VCAP_APPLICATION Secret, which should exist in the same namespace
@@ -188,8 +191,6 @@ spec:
                 description: VCAPServicesSecretName contains the name of the CFApp's
                   VCAP_SERVICES Secret, which should exist in the same namespace
                 type: string
-            required:
-            - conditions
             type: object
         type: object
     served: true

@@ -24,6 +24,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -36,15 +37,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	//+kubebuilder:scaffold:imports
 )
 
-// These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-
 var (
-	cancel        context.CancelFunc
-	k8sClient     client.Client
+	stopManager   context.CancelFunc
+	stopClient    context.CancelFunc
+	adminClient   client.Client
 	testEnv       *envtest.Environment
 	testNamespace *corev1.Namespace
 )
@@ -61,9 +59,6 @@ func TestJobTaskWorkloadController(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	ctx, cancelFunc := context.WithCancel(context.TODO())
-	cancel = cancelFunc
-
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -72,58 +67,38 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 	}
 
-	cfg, err := testEnv.Start()
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
 
 	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
-
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
-	Expect(err).NotTo(HaveOccurred())
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "job-task-runner", "role.yaml"))
 
 	logger := ctrl.Log.WithName("job-task-runner").WithName("TaskWorkload")
-	managerClient := k8sManager.GetClient()
-
 	taskWorkloadReconciler := controllers.NewTaskWorkloadReconciler(
 		logger,
-		managerClient,
+		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
-		controllers.NewStatusGetter(logger, managerClient),
+		controllers.NewStatusGetter(logger, k8sManager.GetClient()),
 		time.Minute,
 	)
 	err = taskWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+	stopManager = helpers.StartK8sManager(k8sManager)
 
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	adminClient, stopClient = helpers.NewCachedClient(testEnv.Config)
 })
 
 var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
+	stopClient()
+	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
 var _ = BeforeEach(func() {
-	testNamespace = createNamespace(context.Background(), k8sClient, prefixedGUID("testns"))
+	testNamespace = createNamespace(context.Background(), adminClient, prefixedGUID("testns"))
 })
 
 func prefixedGUID(prefix string) string {

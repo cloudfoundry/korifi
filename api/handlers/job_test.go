@@ -1,113 +1,168 @@
 package handlers_test
 
 import (
+	"fmt"
 	"net/http"
-	"net/http/httptest"
+	"time"
 
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
-
+	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
-	"github.com/go-http-utils/headers"
-	"github.com/google/uuid"
+	"code.cloudfoundry.org/korifi/tools"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Job", func() {
-	Describe("GET /v3/jobs endpoint", func() {
-		var (
-			spaceGUID string
-			jobGUID   string
-			req       *http.Request
-		)
+	var (
+		handler       *handlers.Job
+		deletionRepos map[string]handlers.DeletionRepository
+		jobGUID       string
+		req           *http.Request
+	)
+
+	BeforeEach(func() {
+		deletionRepos = map[string]handlers.DeletionRepository{}
+	})
+
+	JustBeforeEach(func() {
+		handler = handlers.NewJob(*serverURL, deletionRepos, 0)
+		routerBuilder.LoadRoutes(handler)
+
+		var err error
+		req, err = http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		routerBuilder.Build().ServeHTTP(rr, req)
+	})
+
+	Describe("GET /v3/jobs/space.apply_manifest", func() {
+		BeforeEach(func() {
+			jobGUID = "space.apply_manifest~cf-space-guid"
+		})
+
+		It("returns a complete status", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", jobGUID),
+				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+				MatchJSONPath("$.operation", "space.apply_manifest"),
+				MatchJSONPath("$.state", "COMPLETE"),
+				MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/cf-space-guid"),
+			)))
+		})
+	})
+
+	Describe("GET /v3/jobs/*", func() {
+		var deletionRepo *fake.DeletionRepository
 
 		BeforeEach(func() {
-			spaceGUID = uuid.NewString()
-			apiHandler := handlers.NewJob(*serverURL)
-			routerBuilder.LoadRoutes(apiHandler)
+			deletionRepo = new(fake.DeletionRepository)
+			deletionRepo.GetDeletedAtReturns(tools.PtrTo(time.Now()), nil)
+			deletionRepos["testing.delete"] = deletionRepo
+
+			jobGUID = "testing.delete~my-resource-guid"
 		})
 
-		JustBeforeEach(func() {
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
-			Expect(err).NotTo(HaveOccurred())
+		It("returns a processing status", func() {
+			Expect(deletionRepo.GetDeletedAtCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualResourceGUID := deletionRepo.GetDeletedAtArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualResourceGUID).To(Equal("my-resource-guid"))
 
-			routerBuilder.Build().ServeHTTP(rr, req)
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", jobGUID),
+				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+				MatchJSONPath("$.operation", "testing.delete"),
+				MatchJSONPath("$.state", "PROCESSING"),
+				MatchJSONPath("$.errors", BeEmpty()),
+			)))
 		})
 
-		When("getting an existing job", func() {
+		When("the resource does not exist", func() {
 			BeforeEach(func() {
-				jobGUID = "space.apply_manifest~" + spaceGUID
+				deletionRepo.GetDeletedAtReturns(nil, fmt.Errorf("wrapped error: %w", apierrors.NewNotFoundError(nil, "foo")))
 			})
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
-			})
-
-			When("the existing job operation is space.apply-manifest", func() {
-				It("returns the job", func() {
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", jobGUID))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/"+spaceGUID))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.operation", "space.apply_manifest"))
-				})
-			})
-
-			Describe("job guid validation", func() {
-				When("the job guid provided does not have the expected delimiter", func() {
-					BeforeEach(func() {
-						jobGUID = "job.operation;some-resource-guid"
-					})
-
-					It("returns an error", func() {
-						expectNotFoundError("Job not found")
-					})
-				})
-
-				When("the resource identifier portion has a prefixed guid", func() {
-					BeforeEach(func() {
-						jobGUID = "space.delete~cf-space-a4cd478b-0b02-452f-8498-ce87ec5c6649"
-					})
-
-					It("returns status 200 OK", func() {
-						Expect(rr.Code).To(Equal(http.StatusOK))
-					})
-				})
-			})
-
-			When("the resource identifier portion does not include a guid", func() {
-				BeforeEach(func() {
-					jobGUID = "space.apply_manifest~cf-space-staging-space"
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK))
-				})
+			It("returns a complete status", func() {
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.state", "COMPLETE"),
+					MatchJSONPath("$.errors", BeEmpty()),
+				)))
 			})
 		})
 
-		DescribeTable("delete jobs", func(operation, guid string) {
-			jobGUID := operation + "~" + guid
-			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/jobs/"+jobGUID, nil)
-			Expect(err).NotTo(HaveOccurred())
+		When("the resource deletion times out", func() {
+			BeforeEach(func() {
+				deletionRepo.GetDeletedAtReturns(tools.PtrTo(time.Now().Add(-180*time.Second)), nil)
+			})
 
-			rr = httptest.NewRecorder()
-			routerBuilder.Build().ServeHTTP(rr, req)
+			It("returns a failed status", func() {
+				Expect(deletionRepo.GetDeletedAtCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualResourceGUID := deletionRepo.GetDeletedAtArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualResourceGUID).To(Equal("my-resource-guid"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.state", "FAILED"),
+					MatchJSONPath("$.errors", ConsistOf(map[string]interface{}{
+						"code":   float64(10008),
+						"detail": "Testing deletion timed out, check the remaining \"my-resource-guid\" resource",
+						"title":  "CF-UnprocessableEntity",
+					})),
+				)))
+			})
+		})
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", jobGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.operation", operation))
-		},
+		When("the user does not have permission to see the resource", func() {
+			BeforeEach(func() {
+				deletionRepo.GetDeletedAtReturns(nil, fmt.Errorf("wrapped err: %w", apierrors.NewForbiddenError(nil, "foo")))
+			})
 
-			Entry("app delete", "app.delete", "cf-app-guid"),
-			Entry("org delete", "org.delete", "cf-org-guid"),
-			Entry("space delete", "space.delete", "cf-space-guid"),
-			Entry("route delete", "route.delete", "cf-route-guid"),
-			Entry("domain delete", "domain.delete", "cf-domain-guid"),
-			Entry("role delete", "role.delete", "cf-role-guid"),
-		)
+			It("returns a complete status", func() {
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.state", "COMPLETE"),
+					MatchJSONPath("$.errors", BeEmpty()),
+				)))
+			})
+		})
+
+		When("the resource has not been marked for deletion", func() {
+			BeforeEach(func() {
+				deletionRepo.GetDeletedAtReturns(nil, nil)
+			})
+
+			It("returns a not found error", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.errors[0].code", float64(10010)),
+					MatchJSONPath("$.errors[0].detail", "Job not found. Ensure it exists and you have access to it."),
+					MatchJSONPath("$.errors[0].title", "CF-ResourceNotFound"),
+				)))
+			})
+		})
+
+		When("the job guid is invalid", func() {
+			BeforeEach(func() {
+				jobGUID = "job.operation;some-resource-guid"
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Job")
+			})
+		})
+
+		When("there is no deletion repository registered for the operation", func() {
+			BeforeEach(func() {
+				deletionRepos = map[string]handlers.DeletionRepository{}
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Job")
+			})
+		})
 	})
 })

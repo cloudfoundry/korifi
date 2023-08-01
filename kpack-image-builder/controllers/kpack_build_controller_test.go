@@ -22,7 +22,7 @@ var _ = Describe("KpackBuildReconciler", func() {
 
 	BeforeEach(func() {
 		namespaceGUID = PrefixedGUID("namespace")
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		Expect(adminClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespaceGUID,
 			},
@@ -49,23 +49,23 @@ var _ = Describe("KpackBuildReconciler", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(ctx, &build)).To(Succeed())
+			Expect(adminClient.Create(ctx, &build)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
 			if setImage {
 				buildOrig := build.DeepCopy()
 				build.Status.LatestImage = "foo.reg/latest-image@sha256:abcdef123"
-				Expect(k8sClient.Status().Patch(ctx, &build, client.MergeFrom(buildOrig))).To(Succeed())
+				Expect(adminClient.Status().Patch(ctx, &build, client.MergeFrom(buildOrig))).To(Succeed())
 			}
 
 			Eventually(func(g Gomega) {
 				gotBuild := kpackv1alpha2.Build{}
-				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &gotBuild)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(&build), &gotBuild)).To(Succeed())
 				g.Expect(gotBuild.Finalizers).NotTo(BeEmpty())
 			}).Should(Succeed())
 
-			Expect(k8sClient.Delete(ctx, &build)).To(Succeed())
+			Expect(adminClient.Delete(ctx, &build)).To(Succeed())
 		})
 
 		It("works", func() {
@@ -77,7 +77,7 @@ var _ = Describe("KpackBuildReconciler", func() {
 				g.Expect(imageRef).To(Equal(build.Status.LatestImage))
 				g.Expect(tagsToDelete).To(ConsistOf("bob"))
 
-				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)
+				err := adminClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)
 				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 		})
@@ -101,30 +101,10 @@ var _ = Describe("KpackBuildReconciler", func() {
 
 			It("still deletes the build", func() {
 				Eventually(func(g Gomega) {
-					err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(&build), &build)
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
 			})
-		})
-	})
-
-	Context("non-Korifi builds", func() {
-		BeforeEach(func() {
-			build = kpackv1alpha2.Build{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bar",
-					Namespace: namespaceGUID,
-				},
-			}
-			Expect(k8sClient.Create(ctx, &build)).To(Succeed())
-		})
-
-		It("does not trigger the reconciler", func() {
-			Consistently(func(g Gomega) {
-				gotBuild := kpackv1alpha2.Build{}
-				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&build), &gotBuild)).To(Succeed())
-				g.Expect(gotBuild.Finalizers).To(BeEmpty())
-			}).Should(Succeed())
 		})
 	})
 })

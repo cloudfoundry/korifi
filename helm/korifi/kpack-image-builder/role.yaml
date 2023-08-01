@@ -2,7 +2,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: korifi-kpack-build-manager-role
 rules:
 - apiGroups:
@@ -61,8 +60,20 @@ rules:
 - apiGroups:
   - kpack.io
   resources:
+  - builders
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
   - builds
   verbs:
+  - deletecollection
   - get
   - list
   - patch
@@ -113,3 +124,10 @@ rules:
   verbs:
   - get
   - patch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - list
+  - watch

@@ -3,33 +3,55 @@ package payloads
 import (
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	jellidation "github.com/jellydator/validation"
 )
 
 type PackageCreate struct {
-	Type          string                `json:"type" validate:"required,oneof='bits'"`
-	Relationships *PackageRelationships `json:"relationships" validate:"required"`
+	Type          string                `json:"type"`
+	Relationships *PackageRelationships `json:"relationships"`
 	Metadata      Metadata              `json:"metadata"`
 }
 
-type PackageRelationships struct {
-	App *Relationship `json:"app" validate:"required"`
+func (c PackageCreate) Validate() error {
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Type, validation.OneOf("bits"), jellidation.Required),
+		jellidation.Field(&c.Relationships, jellidation.NotNil),
+		jellidation.Field(&c.Metadata),
+	)
 }
 
-func (m PackageCreate) ToMessage(record repositories.AppRecord) repositories.CreatePackageMessage {
+func (c PackageCreate) ToMessage(record repositories.AppRecord) repositories.CreatePackageMessage {
 	return repositories.CreatePackageMessage{
-		Type:      m.Type,
+		Type:      c.Type,
 		AppGUID:   record.GUID,
 		SpaceGUID: record.SpaceGUID,
 		Metadata: repositories.Metadata{
-			Annotations: m.Metadata.Annotations,
-			Labels:      m.Metadata.Labels,
+			Annotations: c.Metadata.Annotations,
+			Labels:      c.Metadata.Labels,
 		},
 	}
 }
 
+type PackageRelationships struct {
+	App *Relationship `json:"app"`
+}
+
+func (r PackageRelationships) Validate() error {
+	return jellidation.ValidateStruct(&r,
+		jellidation.Field(&r.App, jellidation.NotNil))
+}
+
 type PackageUpdate struct {
 	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (p PackageUpdate) Validate() error {
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Metadata),
+	)
 }
 
 func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackageMessage {
@@ -42,40 +64,54 @@ func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackage
 	}
 }
 
-type PackageListQueryParameters struct {
+type PackageList struct {
 	AppGUIDs string
 	States   string
+	OrderBy  string
 }
 
-func (p *PackageListQueryParameters) ToMessage() repositories.ListPackagesMessage {
+func (p *PackageList) ToMessage() repositories.ListPackagesMessage {
 	return repositories.ListPackagesMessage{
-		AppGUIDs: ParseArrayParam(p.AppGUIDs),
-		States:   ParseArrayParam(p.States),
+		AppGUIDs: parse.ArrayParam(p.AppGUIDs),
+		States:   parse.ArrayParam(p.States),
 	}
 }
 
-func (p *PackageListQueryParameters) SupportedKeys() []string {
-	return []string{"app_guids", "order_by", "per_page", "states"}
+func (p *PackageList) SupportedKeys() []string {
+	return []string{"app_guids", "states", "order_by", "per_page", "page"}
 }
 
-func (p *PackageListQueryParameters) DecodeFromURLValues(values url.Values) error {
+func (p *PackageList) DecodeFromURLValues(values url.Values) error {
 	p.AppGUIDs = values.Get("app_guids")
 	p.States = values.Get("states")
+	p.OrderBy = values.Get("order_by")
 	return nil
 }
 
-type PackageListDropletsQueryParameters struct{}
+func (p PackageList) Validate() error {
+	validOrderBys := []string{"created_at", "updated_at"}
+	var allowed []any
+	for _, a := range validOrderBys {
+		allowed = append(allowed, a, "-"+a)
+	}
 
-func (p *PackageListDropletsQueryParameters) ToMessage(packageGUIDs []string) repositories.ListDropletsMessage {
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.OrderBy, validation.OneOf(allowed...)),
+	)
+}
+
+type PackageListDroplets struct{}
+
+func (p *PackageListDroplets) ToMessage(packageGUIDs []string) repositories.ListDropletsMessage {
 	return repositories.ListDropletsMessage{
 		PackageGUIDs: packageGUIDs,
 	}
 }
 
-func (p *PackageListDropletsQueryParameters) SupportedKeys() []string {
-	return []string{"states", "per_page"}
+func (p *PackageListDroplets) SupportedKeys() []string {
+	return []string{"states", "per_page", "page"}
 }
 
-func (p *PackageListDropletsQueryParameters) DecodeFromURLValues(values url.Values) error {
+func (p *PackageListDroplets) DecodeFromURLValues(values url.Values) error {
 	return nil
 }

@@ -17,20 +17,24 @@ import (
 
 var _ = Describe("LogCache", func() {
 	var (
-		appRepo       *fake.CFAppRepository
-		buildRepo     *fake.CFBuildRepository
-		appLogsReader *fake.AppLogsReader
-		req           *http.Request
+		appRepo          *fake.CFAppRepository
+		buildRepo        *fake.CFBuildRepository
+		appLogsReader    *fake.AppLogsReader
+		req              *http.Request
+		requestValidator *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
 		appRepo = new(fake.CFAppRepository)
 		buildRepo = new(fake.CFBuildRepository)
 		appLogsReader = new(fake.AppLogsReader)
+		requestValidator = new(fake.RequestValidator)
+
 		apiHandler := NewLogCache(
 			appRepo,
 			buildRepo,
 			appLogsReader,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -54,10 +58,15 @@ var _ = Describe("LogCache", func() {
 	})
 
 	Describe("the GET /api/v1/read/<app-guid> endpoint", func() {
+		var payload *payloads.LogRead
+
 		BeforeEach(func() {
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/api/v1/read/the-app-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
+
+			payload = &payloads.LogRead{}
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
 
 			appLogsReader.ReadReturns([]repositories.LogRecord{
 				{
@@ -84,11 +93,18 @@ var _ = Describe("LogCache", func() {
 			)))
 		})
 
+		It("validates the payload", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			_, actualPayload := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualPayload).To(Equal(payload))
+		})
+
 		When("query parameters are specified", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/api/v1/read/the-app-guid?descending=true&envelope_types=LOG&envelope_types=TIMER&limit=1000&start_time=-6795364578871345152", nil)
-				Expect(err).NotTo(HaveOccurred())
+				payload.Descending = true
+				payload.EnvelopeTypes = []string{"LOG", "TIMER"}
+				payload.Limit = 1000
+				payload.StartTime = -6795364578871345152
 			})
 
 			It("filters the log records accordingly", func() {
@@ -103,40 +119,13 @@ var _ = Describe("LogCache", func() {
 			})
 		})
 
-		When("an invalid envelope type is provided", func() {
+		When("the payload is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/api/v1/read/the-app-guid?envelope_types=BAD", nil)
-				Expect(err).NotTo(HaveOccurred())
+				requestValidator.DecodeAndValidateURLValuesReturns(apierrors.NewUnprocessableEntityError(nil, "boom"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnprocessableEntityError("error validating log read query parameters")
-			})
-		})
-
-		When("an invalid envelope type is provided#2", func() {
-			BeforeEach(func() {
-				var err error
-				// Commas are literally interpreted instead of automatically placed as a list
-				req, err = http.NewRequestWithContext(ctx, "GET", "/api/v1/read/the-app-guid?envelope_types=LOG,TIMER", nil)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an Unknown key error", func() {
-				expectUnprocessableEntityError("error validating log read query parameters")
-			})
-		})
-
-		When("invalid query parameters are provided", func() {
-			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/api/v1/read/the-app-guid?foo=bar", nil)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'start_time, end_time, envelope_types, limit, descending'")
+			It("returns an error", func() {
+				expectUnprocessableEntityError("boom")
 			})
 		})
 
@@ -145,7 +134,7 @@ var _ = Describe("LogCache", func() {
 				appLogsReader.ReadReturns(nil, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
 			})
 			It("elevates the error", func() {
-				expectNotFoundError("App not found")
+				expectNotFoundError("App")
 			})
 		})
 

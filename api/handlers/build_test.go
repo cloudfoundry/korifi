@@ -5,20 +5,48 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	. "code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Build", func() {
-	var req *http.Request
+	var (
+		createdAt = time.UnixMilli(1000)
+		updatedAt = tools.PtrTo(time.UnixMilli(2000))
+
+		req              *http.Request
+		requestValidator *fake.RequestValidator
+		apiHandler       *handlers.Build
+		appRepo          *fake.CFAppRepository
+		buildRepo        *fake.CFBuildRepository
+		packageRepo      *fake.CFPackageRepository
+	)
+
+	BeforeEach(func() {
+		requestValidator = new(fake.RequestValidator)
+		appRepo = new(fake.CFAppRepository)
+		buildRepo = new(fake.CFBuildRepository)
+		packageRepo = new(fake.CFPackageRepository)
+
+		apiHandler = handlers.NewBuild(
+			*serverURL,
+			buildRepo,
+			packageRepo,
+			appRepo,
+			requestValidator,
+		)
+		routerBuilder.LoadRoutes(apiHandler)
+	})
 
 	JustBeforeEach(func() {
 		routerBuilder.Build().ServeHTTP(rr, req)
@@ -32,16 +60,9 @@ var _ = Describe("Build", func() {
 
 			stagingMem  = 1024
 			stagingDisk = 2048
-
-			createdAt = "1906-04-18T13:12:00Z"
-			updatedAt = "1906-04-18T13:12:01Z"
 		)
 
-		var buildRepo *fake.CFBuildRepository
-
-		// set up happy path defaults
 		BeforeEach(func() {
-			buildRepo = new(fake.CFBuildRepository)
 			buildRepo.GetBuildReturns(repositories.BuildRecord{
 				GUID:            buildGUID,
 				State:           "STAGING",
@@ -63,118 +84,16 @@ var _ = Describe("Build", func() {
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/builds/"+buildGUID, nil)
 			Expect(err).NotTo(HaveOccurred())
-
-			decoderValidator, err := NewDefaultDecoderValidator()
-			Expect(err).NotTo(HaveOccurred())
-
-			apiHandler := NewBuild(
-				*serverURL,
-				buildRepo,
-				new(fake.CFPackageRepository),
-				new(fake.CFAppRepository),
-				decoderValidator,
-			)
-			routerBuilder.LoadRoutes(apiHandler)
 		})
 
-		When("on the happy path", func() {
-			When("build staging is not complete", func() {
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-				})
-
-				It("returns the Build in the response", func() {
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGING"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
-				})
-			})
-
-			When("build staging is successful", func() {
-				BeforeEach(func() {
-					buildRepo.GetBuildReturns(repositories.BuildRecord{
-						GUID:            buildGUID,
-						State:           "STAGED",
-						CreatedAt:       createdAt,
-						UpdatedAt:       updatedAt,
-						StagingMemoryMB: stagingMem,
-						StagingDiskMB:   stagingDisk,
-						Lifecycle: repositories.Lifecycle{
-							Type: "buildpack",
-							Data: repositories.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-						PackageGUID: packageGUID,
-						DropletGUID: buildGUID,
-						AppGUID:     appGUID,
-					}, nil)
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-				})
-
-				It("returns the Build in the response", func() {
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGED"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.droplet.guid", "test-build-guid"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
-				})
-			})
-
-			When("build staging fails", func() {
-				const (
-					stagingErrorMsg = "StagingError: something went wrong during staging"
-				)
-				BeforeEach(func() {
-					buildRepo.GetBuildReturns(repositories.BuildRecord{
-						GUID:            buildGUID,
-						State:           "FAILED",
-						CreatedAt:       createdAt,
-						UpdatedAt:       updatedAt,
-						StagingErrorMsg: stagingErrorMsg,
-						StagingMemoryMB: stagingMem,
-						StagingDiskMB:   stagingDisk,
-						Lifecycle: repositories.Lifecycle{
-							Type: "buildpack",
-							Data: repositories.LifecycleData{
-								Buildpacks: []string{},
-								Stack:      "",
-							},
-						},
-						PackageGUID: packageGUID,
-						DropletGUID: "",
-						AppGUID:     appGUID,
-					}, nil)
-				})
-
-				It("returns status 200 OK", func() {
-					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-				})
-
-				It("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-				})
-
-				It("returns the Build in the response", func() {
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "FAILED"))
-					Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
-				})
-			})
+		It("returns the Build", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "test-build-guid"),
+				MatchJSONPath("$.state", "STAGING"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("the user does not have access to the build", func() {
@@ -183,7 +102,7 @@ var _ = Describe("Build", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Build not found")
+				expectNotFoundError("Build")
 			})
 		})
 
@@ -199,14 +118,7 @@ var _ = Describe("Build", func() {
 	})
 
 	Describe("the POST /v3/builds endpoint", func() {
-		var (
-			packageRepo                 *fake.CFPackageRepository
-			appRepo                     *fake.CFAppRepository
-			buildRepo                   *fake.CFBuildRepository
-			requestJSONValidator        *fake.RequestJSONValidator
-			expectedLifecycleBuildpacks []string
-			payload                     payloads.BuildCreate
-		)
+		var expectedLifecycleBuildpacks []string
 
 		const (
 			packageGUID = "the-package-guid"
@@ -219,29 +131,17 @@ var _ = Describe("Build", func() {
 			expectedLifecycleType  = "buildpack"
 			expectedLifecycleStack = "cflinuxfs3d"
 			spaceGUID              = "the-space-guid"
-			createdAt              = "1906-04-18T13:12:00Z"
-			updatedAt              = "1906-04-18T13:12:01Z"
 		)
 
 		BeforeEach(func() {
-			payload = payloads.BuildCreate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.BuildCreate{
 				Package: &payloads.RelationshipData{
 					GUID: packageGUID,
 				},
-			}
-
-			requestJSONValidator = new(fake.RequestJSONValidator)
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				build, ok := i.(*payloads.BuildCreate)
-				Expect(ok).To(BeTrue())
-				*build = payload
-
-				return nil
-			}
+			})
 
 			expectedLifecycleBuildpacks = []string{"buildpack-a", "buildpack-b"}
 
-			packageRepo = new(fake.CFPackageRepository)
 			packageRepo.GetPackageReturns(repositories.PackageRecord{
 				Type:      "bits",
 				AppGUID:   appGUID,
@@ -253,7 +153,6 @@ var _ = Describe("Build", func() {
 				UpdatedAt: updatedAt,
 			}, nil)
 
-			appRepo = new(fake.CFAppRepository)
 			appRepo.GetAppReturns(repositories.AppRecord{
 				GUID:      appGUID,
 				SpaceGUID: spaceGUID,
@@ -266,7 +165,6 @@ var _ = Describe("Build", func() {
 				},
 			}, nil)
 
-			buildRepo = new(fake.CFBuildRepository)
 			buildRepo.CreateBuildReturns(repositories.BuildRecord{
 				GUID:            buildGUID,
 				State:           "STAGING",
@@ -285,55 +183,34 @@ var _ = Describe("Build", func() {
 				AppGUID:     appGUID,
 			}, nil)
 
-			apiHandler := NewBuild(
-				*serverURL,
-				buildRepo,
-				packageRepo,
-				appRepo,
-				requestJSONValidator,
-			)
-			routerBuilder.LoadRoutes(apiHandler)
-
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/builds", strings.NewReader(""))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("on the happy path", func() {
-			It("returns status 201", func() {
-				Expect(rr.Code).To(Equal(http.StatusCreated), "Matching HTTP response code:")
-			})
+		It("creates the build", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAppGUID).To(Equal(appGUID))
 
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
+			Expect(buildRepo.CreateBuildCallCount()).To(Equal(1))
+			_, _, actualCreate := buildRepo.CreateBuildArgsForCall(0)
 
-			It("calls create build with the correct payload", func() {
-				Expect(buildRepo.CreateBuildCallCount()).To(Equal(1))
-				_, _, actualCreate := buildRepo.CreateBuildArgsForCall(0)
+			Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
+			Expect(actualCreate.AppGUID).To(Equal(appGUID))
+			Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
+			Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
+			Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
+			Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal(expectedLifecycleBuildpacks))
+			Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
 
-				Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
-				Expect(actualCreate.AppGUID).To(Equal(appGUID))
-				Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
-				Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
-				Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
-				Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
-				Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal(expectedLifecycleBuildpacks))
-				Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
-			})
-
-			It("returns the Build in the response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "test-build-guid"))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.state", "STAGING"))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")))
-			})
-
-			It("looks up the app by the correct GUID", func() {
-				Expect(appRepo.GetAppCallCount()).To(Equal(1))
-				_, _, actualAppGUID := appRepo.GetAppArgsForCall(0)
-				Expect(actualAppGUID).To(Equal(appGUID))
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "test-build-guid"),
+				MatchJSONPath("$.state", "STAGING"),
+				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
+			)))
 		})
 
 		When("the package doesn't exist", func() {
@@ -414,7 +291,7 @@ var _ = Describe("Build", func() {
 
 		When("the JSON body is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {
@@ -425,24 +302,13 @@ var _ = Describe("Build", func() {
 
 	Describe("the PATCH /v3/builds endpoint", func() {
 		BeforeEach(func() {
-			decoderValidator, err := NewDefaultDecoderValidator()
-			Expect(err).NotTo(HaveOccurred())
-
-			apiHandler := NewBuild(
-				*serverURL,
-				new(fake.CFBuildRepository),
-				new(fake.CFPackageRepository),
-				new(fake.CFAppRepository),
-				decoderValidator,
-			)
-			routerBuilder.LoadRoutes(apiHandler)
-
+			var err error
 			req, err = http.NewRequestWithContext(context.Background(), "PATCH", "/v3/builds/build-guid", strings.NewReader(`{}`))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns an unprocessable entity error", func() {
-			expectUnprocessableEntityError(`Labels and annotations are not supported for builds.`)
+			expectUnprocessableEntityError("Labels and annotations are not supported for builds.")
 		})
 	})
 })

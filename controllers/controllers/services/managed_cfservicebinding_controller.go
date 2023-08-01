@@ -18,7 +18,6 @@ package services
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -27,7 +26,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -141,27 +139,6 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 	})
 
 	return ctrl.Result{}, nil
-}
-
-func (r *ManagedCFServiceBindingReconciler) handleGetError(ctx context.Context, err error, cfServiceBinding *korifiv1alpha1.CFServiceBinding, conditionType, notFoundReason, objectType string) (ctrl.Result, error) {
-	cfServiceBinding.Status.Binding = corev1.LocalObjectReference{}
-	if apierrors.IsNotFound(err) {
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-			Type:    conditionType,
-			Status:  metav1.ConditionFalse,
-			Reason:  notFoundReason,
-			Message: objectType + " does not exist",
-		})
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-
-	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-		Type:    conditionType,
-		Status:  metav1.ConditionFalse,
-		Reason:  "UnknownError",
-		Message: "Error occurred while fetching " + strings.ToLower(objectType) + ": " + err.Error(),
-	})
-	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

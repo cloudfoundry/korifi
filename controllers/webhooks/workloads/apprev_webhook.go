@@ -27,11 +27,7 @@ func (r *AppRevWebhook) SetupWebhookWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register("/mutate-korifi-cloudfoundry-org-v1alpha1-cfapp-apprev", &admission.Webhook{
 		Handler: r,
 	})
-}
-
-func (r *AppRevWebhook) InjectDecoder(d *admission.Decoder) error {
-	r.decoder = d
-	return nil
+	r.decoder = admission.NewDecoder(mgr.GetScheme())
 }
 
 func (r *AppRevWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -46,7 +42,9 @@ func (r *AppRevWebhook) Handle(ctx context.Context, req admission.Request) admis
 	}
 
 	if cfApp.Spec.DesiredState == korifiv1alpha1.StoppedState && oldCFApp.Spec.DesiredState == korifiv1alpha1.StartedState {
-		cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = bumpAppRev(cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey])
+		newAppRev := bumpAppRev(cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey])
+		cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey] = newAppRev
+		cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = newAppRev
 	}
 
 	marshalled, err := json.Marshal(cfApp)

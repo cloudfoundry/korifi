@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -43,8 +44,8 @@ type BuildCreatedBy struct {
 type BuildRecord struct {
 	GUID            string
 	State           string
-	CreatedAt       string
-	UpdatedAt       string
+	CreatedAt       time.Time
+	UpdatedAt       *time.Time
 	CreatedBy       BuildCreatedBy
 	StagingErrorMsg string
 	StagingMemoryMB int
@@ -167,13 +168,11 @@ func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Inf
 }
 
 func (b *BuildRepo) cfBuildToBuildRecord(authInfo authorization.Info, cfBuild korifiv1alpha1.CFBuild) BuildRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
-
 	toReturn := BuildRecord{
 		GUID:      cfBuild.Name,
 		State:     BuildStateStaging,
-		CreatedAt: cfBuild.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		CreatedAt: cfBuild.CreationTimestamp.Time,
+		UpdatedAt: getLastUpdatedTime(&cfBuild),
 		CreatedBy: BuildCreatedBy{
 			GUID:  authInfo.UserId(),
 			Name:  authInfo.UserName(),

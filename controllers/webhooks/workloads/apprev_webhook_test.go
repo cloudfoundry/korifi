@@ -25,7 +25,7 @@ var _ = Describe("ApprevWebhook", func() {
 
 		namespace = "ns-" + uuid.NewString()
 
-		Expect(k8sClient.Create(ctx, &v1.Namespace{
+		Expect(adminClient.Create(ctx, &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
@@ -36,13 +36,13 @@ var _ = Describe("ApprevWebhook", func() {
 			korifiv1alpha1.CFAppRevisionKey: "5",
 		}
 		app.Spec.DesiredState = korifiv1alpha1.StartedState
-		Expect(k8sClient.Create(ctx, app)).To(Succeed())
+		Expect(adminClient.Create(ctx, app)).To(Succeed())
 		originalApp = app.DeepCopy()
 	})
 
 	JustBeforeEach(func() {
 		app.Spec.DisplayName = "changed-display-name"
-		Expect(k8sClient.Patch(ctx, app, client.MergeFrom(originalApp))).To(Succeed())
+		Expect(adminClient.Patch(ctx, app, client.MergeFrom(originalApp))).To(Succeed())
 	})
 
 	It("does not change the app rev", func() {
@@ -58,10 +58,14 @@ var _ = Describe("ApprevWebhook", func() {
 			Expect(app.Annotations[korifiv1alpha1.CFAppRevisionKey]).To(Equal("6"))
 		})
 
+		It("updates status.lastStopAppRev", func() {
+			Expect(app.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("6"))
+		})
+
 		When("the app rev is not a number", func() {
 			BeforeEach(func() {
 				app.Annotations[korifiv1alpha1.CFAppRevisionKey] = "a"
-				Expect(k8sClient.Patch(ctx, app, client.MergeFrom(originalApp))).To(Succeed())
+				Expect(adminClient.Patch(ctx, app, client.MergeFrom(originalApp))).To(Succeed())
 				originalApp = app.DeepCopy()
 			})
 
@@ -73,7 +77,7 @@ var _ = Describe("ApprevWebhook", func() {
 		When("the app rev is negative", func() {
 			BeforeEach(func() {
 				app.Annotations[korifiv1alpha1.CFAppRevisionKey] = "-10"
-				Expect(k8sClient.Patch(ctx, app, client.MergeFrom(originalApp))).To(Succeed())
+				Expect(adminClient.Patch(ctx, app, client.MergeFrom(originalApp))).To(Succeed())
 				originalApp = app.DeepCopy()
 			})
 

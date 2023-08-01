@@ -29,14 +29,8 @@ const (
 	TaskCanceledConditionType    = "Canceled"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CFTaskSpec defines the desired state of CFTask
 type CFTaskSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// The command used to start the task process
 	Command string `json:"command,omitempty"`
 	// A reference to the CFApp containing the code or script for this CFTask
@@ -48,11 +42,8 @@ type CFTaskSpec struct {
 
 // CFTaskStatus defines the observed state of CFTask
 type CFTaskStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// +optional
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// +optional
 	SequenceID int64 `json:"sequenceId"`
@@ -62,6 +53,9 @@ type CFTaskStatus struct {
 	DiskQuotaMB int64 `json:"diskQuotaMB"`
 	// +optional
 	DropletRef corev1.LocalObjectReference `json:"dropletRef"`
+
+	// ObservedGeneration captures the latest generation of the CFTask that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

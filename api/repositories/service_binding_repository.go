@@ -3,7 +3,9 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -56,8 +58,8 @@ type ServiceBindingRecord struct {
 	SpaceGUID           string
 	Labels              map[string]string
 	Annotations         map[string]string
-	CreatedAt           string
-	UpdatedAt           string
+	CreatedAt           time.Time
+	UpdatedAt           *time.Time
 	LastOperation       ServiceBindingLastOperation
 }
 
@@ -65,8 +67,8 @@ type ServiceBindingLastOperation struct {
 	Type        string
 	State       string
 	Description *string
-	CreatedAt   string
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 }
 
 type CreateServiceBindingMessage struct {
@@ -85,7 +87,7 @@ type ListServiceBindingsMessage struct {
 	Type                 string
 	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
-	LabelSelectors       []string
+	LabelSelector        string
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
@@ -234,8 +236,6 @@ func (r *ServiceBindingRepo) UpdateServiceBinding(ctx context.Context, authInfo 
 }
 
 func cfServiceBindingToRecord(binding *korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {
-	createdAt := binding.CreationTimestamp.UTC().Format(TimestampFormat)
-	updatedAt, _ := getTimeLastUpdatedTimestamp(&binding.ObjectMeta)
 	return ServiceBindingRecord{
 		GUID:                binding.Name,
 		Type:                binding.Labels[korifiv1alpha1.CFBindingTypeLabelKey],
@@ -245,14 +245,14 @@ func cfServiceBindingToRecord(binding *korifiv1alpha1.CFServiceBinding) ServiceB
 		SpaceGUID:           binding.Namespace,
 		Labels:              binding.Labels,
 		Annotations:         binding.Annotations,
-		CreatedAt:           createdAt,
-		UpdatedAt:           updatedAt,
+		CreatedAt:           binding.CreationTimestamp.Time,
+		UpdatedAt:           getLastUpdatedTime(binding),
 		LastOperation: ServiceBindingLastOperation{
 			Type:        "create",
 			State:       "succeeded",
 			Description: nil,
-			CreatedAt:   createdAt,
-			UpdatedAt:   updatedAt,
+			CreatedAt:   binding.CreationTimestamp.Time,
+			UpdatedAt:   getLastUpdatedTime(binding),
 		},
 	}
 }
@@ -269,10 +269,20 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFServiceBinding) bool{
+		SetPredicate(message.ServiceInstanceGUIDs, func(s korifiv1alpha1.CFServiceBinding) string { return s.Spec.Service.Name }),
+		SetPredicate(message.AppGUIDs, func(s korifiv1alpha1.CFServiceBinding) string { return s.Spec.AppRef.Name }),
+	}
+
+	labelSelector, err := labels.Parse(message.LabelSelector)
+	if err != nil {
+		return []ServiceBindingRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
+	}
+
 	var filteredServiceBindings []korifiv1alpha1.CFServiceBinding
 	for ns := range nsList {
-		serviceInstanceList := new(korifiv1alpha1.CFServiceBindingList)
-		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
+		serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
+		err = userClient.List(ctx, serviceBindingList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
 		if k8serrors.IsForbidden(err) {
 			continue
 		}
@@ -282,24 +292,10 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 				apierrors.FromK8sError(err, ServiceBindingResourceType),
 			)
 		}
-		filteredServiceBindings = append(filteredServiceBindings, applyServiceBindingListFilter(serviceInstanceList.Items, message)...)
+		filteredServiceBindings = append(filteredServiceBindings, Filter(serviceBindingList.Items, preds...)...)
 	}
 
 	return toServiceBindingRecords(filteredServiceBindings), nil
-}
-
-func applyServiceBindingListFilter(serviceBindingList []korifiv1alpha1.CFServiceBinding, message ListServiceBindingsMessage) []korifiv1alpha1.CFServiceBinding {
-	var filtered []korifiv1alpha1.CFServiceBinding
-	for _, serviceBinding := range serviceBindingList {
-		if serviceBinding.Labels[korifiv1alpha1.CFBindingTypeLabelKey] == message.Type &&
-			matchesFilter(serviceBinding.Spec.Service.Name, message.ServiceInstanceGUIDs) &&
-			matchesFilter(serviceBinding.Spec.AppRef.Name, message.AppGUIDs) &&
-			labelsFilters(serviceBinding.Labels, message.LabelSelectors) {
-			filtered = append(filtered, serviceBinding)
-		}
-	}
-
-	return filtered
 }
 
 func toServiceBindingRecords(serviceBindings []korifiv1alpha1.CFServiceBinding) []ServiceBindingRecord {

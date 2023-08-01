@@ -21,8 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+const (
+	BuildWorkloadFinalizerName = "kpack-image-builder.korifi.cloudfoundry.org/buildworkload"
+)
 
 // BuildWorkloadSpec defines the desired state of BuildWorkload
 type BuildWorkloadSpec struct {
@@ -48,10 +49,13 @@ type BuildWorkloadSpec struct {
 
 // BuildWorkloadStatus defines the observed state of BuildWorkload
 type BuildWorkloadStatus struct {
-	// Conditions capture the current status of the observed generation of the BuildWorkload
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	Droplet *BuildDropletStatus `json:"droplet,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the BuildWorkload that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

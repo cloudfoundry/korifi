@@ -30,18 +30,18 @@ type CFDropletRepository interface {
 type Droplet struct {
 	serverURL        url.URL
 	dropletRepo      CFDropletRepository
-	decoderValidator *DecoderValidator
+	requestValidator RequestValidator
 }
 
 func NewDroplet(
 	serverURL url.URL,
 	dropletRepo CFDropletRepository,
-	decoderValidator *DecoderValidator,
+	requestValidator RequestValidator,
 ) *Droplet {
 	return &Droplet{
 		serverURL:        serverURL,
 		dropletRepo:      dropletRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -71,7 +71,7 @@ func (h *Droplet) update(r *http.Request) (*routing.Response, error) {
 	dropletGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.DropletUpdate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 

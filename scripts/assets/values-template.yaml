@@ -3,7 +3,6 @@ adminUserName: cf-admin
 global:
   defaultAppDomainName: apps-127-0-0-1.nip.io
   generateIngressCertificates: true
-  containerRepositoryPrefix: localregistry-docker-registry.default.svc.cluster.local:30050/
   logLevel: debug
 
 api:
@@ -13,6 +12,10 @@ api:
     url: localhost
   uaaURL: "https://uaa.cf.eu10.hana.ondemand.com"
   image: cloudfoundry/korifi-api:latest
+  lifecycle:
+    stagingRequirements:
+      buildCacheMB: 1024
+
 
 controllers:
   taskTTL: 5s
@@ -22,6 +25,6 @@ jobTaskRunner:
   jobTTL: 5s
 
 kpackImageBuilder:
-  builderRepository: localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder
-  clusterStackBuildImage: paketobuildpacks/build:full-cnb
-  clusterStackRunImage: paketobuildpacks/run:full-cnb
+  clusterStackID: io.buildpacks.stacks.jammy
+  clusterStackBuildImage: paketobuildpacks/build-jammy-full
+  clusterStackRunImage: paketobuildpacks/run-jammy-full

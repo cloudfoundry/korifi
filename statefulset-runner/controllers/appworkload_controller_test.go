@@ -26,7 +26,6 @@ import (
 
 const (
 	testAppWorkloadGUID = "test-appworkload-guid"
-	testNamespace       = "test-ns"
 )
 
 var _ = Describe("AppWorkload Reconcile", func() {
@@ -116,6 +115,14 @@ var _ = Describe("AppWorkload Reconcile", func() {
 			Expect(fakeWorkloadToStSet.ConvertCallCount()).To(Equal(1))
 			actualWorkload := fakeWorkloadToStSet.ConvertArgsForCall(0)
 			Expect(actualWorkload.Name).To(Equal(appWorkload.Name))
+		})
+
+		It("sets the appworkload status", func() {
+			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+			_, object, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+			patchedAppWorkload, ok := object.(*korifiv1alpha1.AppWorkload)
+			Expect(ok).To(BeTrue())
+			Expect(patchedAppWorkload.Status.ObservedGeneration).To(Equal(patchedAppWorkload.Generation))
 		})
 
 		When("coverting the app workload to statefulset fails", func() {

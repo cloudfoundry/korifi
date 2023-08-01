@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const kpackBuildFinalizer string = "korifi.cloudfoundry.org/kpackBuild"
+const KpackBuildFinalizer string = "korifi.cloudfoundry.org/kpackBuild"
 
 //counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter
 
@@ -45,15 +45,33 @@ func NewKpackBuildController(
 	})
 }
 
+func (c KpackBuildController) SetupWithManager(mgr manager.Manager) *ctrl.Builder {
+	// ignoring error as this construction is not dynamic
+	labelSelector, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      BuildWorkloadLabelKey,
+				Operator: metav1.LabelSelectorOpExists,
+				Values:   []string{},
+			},
+		},
+	})
+
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&kpackv1alpha2.Build{}).
+		WithEventFilter(labelSelector)
+}
+
 //+kubebuilder:rbac:groups=kpack.io,resources=builds,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=builds/status,verbs=get;patch
 //+kubebuilder:rbac:groups=kpack.io,resources=builds/finalizers,verbs=get;patch
 
 func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild *kpackv1alpha2.Build) (ctrl.Result, error) {
 	log := c.log.WithValues("namespace", kpackBuild.Namespace, "name", kpackBuild.Name, "deletionTimestamp", kpackBuild.DeletionTimestamp)
+	log.Info("in finalizer")
 
 	if !kpackBuild.GetDeletionTimestamp().IsZero() {
-		if !controllerutil.ContainsFinalizer(kpackBuild, kpackBuildFinalizer) {
+		if !controllerutil.ContainsFinalizer(kpackBuild, KpackBuildFinalizer) {
 			return ctrl.Result{}, nil
 		}
 
@@ -75,35 +93,12 @@ func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild 
 			}
 		}
 
-		if controllerutil.RemoveFinalizer(kpackBuild, kpackBuildFinalizer) {
+		if controllerutil.RemoveFinalizer(kpackBuild, KpackBuildFinalizer) {
 			log.V(1).Info("finalizer removed")
 		}
 
 		return ctrl.Result{}, nil
 	}
 
-	err := k8s.AddFinalizer(ctx, log, c.k8sClient, kpackBuild, kpackBuildFinalizer)
-	if err != nil {
-		log.Error(err, "Error adding finalizer")
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
-}
-
-func (c KpackBuildController) SetupWithManager(mgr manager.Manager) *ctrl.Builder {
-	// ignoring error as this construction is not dynamic
-	labelSelector, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      BuildWorkloadLabelKey,
-				Operator: metav1.LabelSelectorOpExists,
-				Values:   []string{},
-			},
-		},
-	})
-
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kpackv1alpha2.Build{}).
-		WithEventFilter(labelSelector)
 }

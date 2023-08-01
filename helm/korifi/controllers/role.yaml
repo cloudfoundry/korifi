@@ -2,7 +2,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: korifi-controllers-manager-role
 rules:
 - apiGroups:
@@ -96,7 +95,10 @@ rules:
   verbs:
   - create
   - delete
+  - get
+  - list
   - patch
+  - watch
 - apiGroups:
   - extensions.korifi.cloudfoundry.org
   resources:
@@ -133,6 +135,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - appworkloads/finalizers
+  verbs:
+  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
@@ -180,6 +188,12 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - buildworkloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - buildworkloads/status
   verbs:
   - get
@@ -190,6 +204,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -396,6 +411,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceinstances/finalizers
+  verbs:
+  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:

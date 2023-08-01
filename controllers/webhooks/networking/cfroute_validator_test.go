@@ -48,6 +48,8 @@ var _ = Describe("CFRouteValidator", func() {
 		getDomainError error
 		getAppError    error
 		retErr         error
+
+		getDomainCallCount int
 	)
 
 	BeforeEach(func() {
@@ -68,6 +70,7 @@ var _ = Describe("CFRouteValidator", func() {
 		rootNamespace = "root-ns"
 		getDomainError = nil
 		getAppError = nil
+		getDomainCallCount = 0
 
 		cfRoute = initializeRouteCR(testRouteProtocol, testRouteHost, testRoutePath, testRouteGUID, testRouteNamespace, testDomainGUID, testDomainNamespace)
 
@@ -88,6 +91,7 @@ var _ = Describe("CFRouteValidator", func() {
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
 			switch obj := obj.(type) {
 			case *korifiv1alpha1.CFDomain:
+				getDomainCallCount++
 				cfDomain.DeepCopyInto(obj)
 				return getDomainError
 			case *korifiv1alpha1.CFApp:
@@ -103,7 +107,7 @@ var _ = Describe("CFRouteValidator", func() {
 
 	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateCreate(ctx, cfRoute)
+			_, retErr = validatingWebhook.ValidateCreate(ctx, cfRoute)
 		})
 
 		It("allows the request", func() {
@@ -112,10 +116,15 @@ var _ = Describe("CFRouteValidator", func() {
 
 		It("invokes the duplicate validator correctly", func() {
 			Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, name, _ := duplicateValidator.ValidateCreateArgsForCall(0)
+			actualContext, _, actualNamespace, actualResource := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(rootNamespace))
-			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			Expect(actualResource).To(Equal(cfRoute))
+			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'."))
+		})
+
+		It("validates that the domain exists", func() {
+			Expect(getDomainCallCount).To(Equal(1), "Expected get domain call count mismatch")
 		})
 
 		When("the host is '*'", func() {
@@ -125,6 +134,19 @@ var _ = Describe("CFRouteValidator", func() {
 
 			It("allows the request", func() {
 				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("retrieving the domain record fails", func() {
+			BeforeEach(func() {
+				getDomainError = errors.New("nope")
+			})
+
+			It("denies the request", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					ContainSubstring("Error while retrieving CFDomain object"),
+				))
 			})
 		})
 
@@ -143,33 +165,11 @@ var _ = Describe("CFRouteValidator", func() {
 
 		When("the route name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'.",
-				})
+				duplicateValidator.ValidateCreateReturns(errors.New("foo"))
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.DuplicateNameErrorType,
-					Equal("Route already exists with host 'my-host' and path '/my-path' for domain 'test.domain.name'."),
-				))
-			})
-		})
-
-		When("validating the app name fails", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateCreateReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 
@@ -312,7 +312,7 @@ var _ = Describe("CFRouteValidator", func() {
 		})
 
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateUpdate(ctx, cfRoute, updatedCFRoute)
+			_, retErr = validatingWebhook.ValidateUpdate(ctx, cfRoute, updatedCFRoute)
 		})
 
 		It("allows the request", func() {
@@ -321,10 +321,15 @@ var _ = Describe("CFRouteValidator", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, oldName, _, _ := duplicateValidator.ValidateUpdateArgsForCall(0)
+			actualContext, _, actualNamespace, oldResource, newResource := duplicateValidator.ValidateUpdateArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(rootNamespace))
-			Expect(oldName).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			Expect(oldResource).To(Equal(cfRoute))
+			Expect(newResource).To(Equal(updatedCFRoute))
+		})
+
+		It("does not validate that the domain exists", func() {
+			Expect(getDomainCallCount).To(Equal(0), "Expected get domain call count mismatch")
 		})
 
 		When("the route is being deleted", func() {
@@ -352,33 +357,11 @@ var _ = Describe("CFRouteValidator", func() {
 
 		When("the new route name is a duplicate", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: "Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'.",
-				})
+				duplicateValidator.ValidateUpdateReturns(errors.New("foo"))
 			})
 
 			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.DuplicateNameErrorType,
-					Equal("Route already exists with host 'my-host' and path '/new-path' for domain 'test.domain.name'."),
-				))
-			})
-		})
-
-		When("the update validation fails for another reason", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 
@@ -450,7 +433,7 @@ var _ = Describe("CFRouteValidator", func() {
 
 	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			retErr = validatingWebhook.ValidateDelete(ctx, cfRoute)
+			_, retErr = validatingWebhook.ValidateDelete(ctx, cfRoute)
 		})
 
 		It("allows the request", func() {
@@ -459,25 +442,19 @@ var _ = Describe("CFRouteValidator", func() {
 
 		It("invokes the validator correctly", func() {
 			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, name := duplicateValidator.ValidateDeleteArgsForCall(0)
+			actualContext, _, actualNamespace, actualResource := duplicateValidator.ValidateDeleteArgsForCall(0)
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(rootNamespace))
-			Expect(name).To(Equal(testRouteHost + "::" + testDomainNamespace + "::" + testDomainGUID + "::" + testRoutePath))
+			Expect(actualResource).To(Equal(cfRoute))
 		})
 
 		When("delete validation fails", func() {
 			BeforeEach(func() {
-				duplicateValidator.ValidateDeleteReturns(&webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				})
+				duplicateValidator.ValidateDeleteReturns(errors.New("foo"))
 			})
 
 			It("disallows the request", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					webhooks.UnknownErrorType,
-					Equal(webhooks.UnknownErrorMessage),
-				))
+				Expect(retErr).To(MatchError("foo"))
 			})
 		})
 	})

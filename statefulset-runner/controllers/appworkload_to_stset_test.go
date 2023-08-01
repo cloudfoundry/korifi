@@ -64,6 +64,41 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Name).To(ContainSubstring("premium-app-guid-1234"))
 	})
 
+	It("should default the lastStopAppRev to the spec.version when not set", func() {
+		originalName := statefulSet.Name
+
+		appWorkload.Spec.Version = appWorkload.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]
+		delete(appWorkload.Annotations, korifiv1alpha1.CFAppLastStopRevisionKey)
+
+		var err error
+		statefulSet, err = converter.Convert(appWorkload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(statefulSet.Name).To(Equal(originalName))
+	})
+
+	It("should have a stable name when appWorkload lastStopAppRev is unchanged but version changes", func() {
+		originalName := statefulSet.Name
+
+		appWorkload.Spec.Version = "another_version"
+		var err error
+		statefulSet, err = converter.Convert(appWorkload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(statefulSet.Name).To(Equal(originalName))
+	})
+
+	It("should have a new name when appWorkload lastStopAppRev changes", func() {
+		originalName := statefulSet.Name
+
+		appWorkload.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = "another_version"
+		var err error
+		statefulSet, err = converter.Convert(appWorkload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(statefulSet.Name).NotTo(Equal(originalName))
+	})
+
 	It("should set podManagementPolicy to parallel", func() {
 		Expect(string(statefulSet.Spec.PodManagementPolicy)).To(Equal("Parallel"))
 	})
@@ -146,10 +181,6 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelGUID, "guid_1234"))
 	})
 
-	It("should set version as a label selector", func() {
-		Expect(statefulSet.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelVersion, "version_1234"))
-	})
-
 	It("should set memory limit", func() {
 		actualLimit := statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Memory()
 		Expect(actualLimit.String()).To(Equal("1Gi"))
@@ -194,11 +225,6 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				Key:      controllers.LabelGUID,
 				Operator: metav1.LabelSelectorOpIn,
 				Values:   []string{"guid_1234"},
-			},
-			metav1.LabelSelectorRequirement{
-				Key:      controllers.LabelVersion,
-				Operator: metav1.LabelSelectorOpIn,
-				Values:   []string{"version_1234"},
 			},
 		))
 	})
@@ -279,7 +305,6 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				{Name: "c-third", Value: "third"},
 			}))
 		})
-
 	})
 
 	It("should produce a stable statefulset regardless of labels iteration order", func() {

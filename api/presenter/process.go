@@ -47,6 +47,9 @@ type ProcessResponseHealthCheckData struct {
 	HTTPEndpoint      string `json:"endpoint"`
 }
 
+// alias to avoid infinite recursive in default case of switch below
+type respAlias ProcessResponseHealthCheckData
+
 func (h ProcessResponseHealthCheckData) MarshalJSON() ([]byte, error) {
 	timeout := &(h.Timeout)
 	if *timeout == 0 {
@@ -74,7 +77,7 @@ func (h ProcessResponseHealthCheckData) MarshalJSON() ([]byte, error) {
 			Timeout: timeout,
 		})
 	default:
-		return json.Marshal(h)
+		return json.Marshal(respAlias(h))
 	}
 }
 
@@ -121,8 +124,8 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 			Labels:      responseProcess.Labels,
 			Annotations: responseProcess.Annotations,
 		},
-		CreatedAt: responseProcess.CreatedAt,
-		UpdatedAt: responseProcess.UpdatedAt,
+		CreatedAt: formatTimestamp(&responseProcess.CreatedAt),
+		UpdatedAt: formatTimestamp(responseProcess.UpdatedAt),
 		Links: ProcessLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID).build(),

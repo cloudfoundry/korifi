@@ -46,6 +46,10 @@ var _ = Describe("Normalizer", func() {
 				Labels:      map[string]*string{"foo": tools.PtrTo("FOO")},
 				Annotations: map[string]*string{"bar": tools.PtrTo("BAR")},
 			},
+			Services: []payloads.ManifestApplicationService{{
+				Name:        "my-service",
+				BindingName: tools.PtrTo("my-binding"),
+			}},
 		}
 		appState = manifest.AppState{
 			App:       repositories.AppRecord{},
@@ -66,6 +70,10 @@ var _ = Describe("Normalizer", func() {
 			Expect(normalizedAppInfo.Env).To(Equal(appInfo.Env))
 			Expect(normalizedAppInfo.Buildpacks).To(Equal(appInfo.Buildpacks))
 			Expect(normalizedAppInfo.Metadata).To(Equal(appInfo.Metadata))
+			Expect(normalizedAppInfo.Services).To(Equal([]payloads.ManifestApplicationService{{
+				Name:        "my-service",
+				BindingName: tools.PtrTo("my-binding"),
+			}}))
 		})
 
 		When("no-route is set", func() {
@@ -80,7 +88,8 @@ var _ = Describe("Normalizer", func() {
 
 		When("deprecated 'buildpack' is specified", func() {
 			BeforeEach(func() {
-				appInfo.Buildpack = "deprecated-buildpack" // nolint: staticcheck
+				//lint:ignore SA1019 we have to deal with this deprecation
+				appInfo.Buildpack = "deprecated-buildpack"
 			})
 
 			It("adds it to the buildpacks list", func() {
@@ -91,7 +100,8 @@ var _ = Describe("Normalizer", func() {
 
 			When("set to 'default'", func() {
 				BeforeEach(func() {
-					appInfo.Buildpack = "default" // nolint: staticcheck
+					//lint:ignore SA1019 we have to deal with this deprecation
+					appInfo.Buildpack = "default"
 				})
 
 				It("ignores it", func() {
@@ -103,7 +113,8 @@ var _ = Describe("Normalizer", func() {
 
 			When("set to 'null'", func() {
 				BeforeEach(func() {
-					appInfo.Buildpack = "null" // nolint: staticcheck
+					//lint:ignore SA1019 we have to deal with this deprecation
+					appInfo.Buildpack = "null"
 				})
 
 				It("ignores it", func() {
@@ -370,7 +381,7 @@ var _ = Describe("Normalizer", func() {
 
 		When("disk-quota is set on app", func() {
 			BeforeEach(func() {
-				//nolint:staticcheck
+				//lint:ignore SA1019 we have to deal with this deprecation
 				appInfo.AltDiskQuota = tools.PtrTo("123M")
 			})
 

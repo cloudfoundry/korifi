@@ -4,20 +4,27 @@ metadata:
   name: korifi-controllers-config
   namespace: {{ .Release.Namespace }}
 data:
-  components_config.yaml: |-
+  config.yaml: |-
     includeKpackImageBuilder: {{ .Values.kpackImageBuilder.include }}
     includeJobTaskRunner: {{ .Values.jobTaskRunner.include }}
     includeStatefulsetRunner: {{ .Values.statefulsetRunner.include }}
     includeContourRouter: {{ .Values.contourRouter.include }}
-  korifi_controllers_config.yaml: |-
-    builderName: {{ .Values.controllers.reconcilers.build }}
-    runnerName: {{ .Values.controllers.reconcilers.app }}
+    builderName: {{ .Values.global.reconcilers.build }}
+    runnerName: {{ .Values.global.reconcilers.run }}
     cfProcessDefaults:
       memoryMB: {{ .Values.controllers.processDefaults.memoryMB }}
       diskQuotaMB: {{ .Values.controllers.processDefaults.diskQuotaMB }}
     cfRootNamespace: {{ .Values.global.rootNamespace }}
     {{- if not .Values.global.eksContainerRegistryRoleARN }}
-    containerRegistrySecretName: {{ .Values.global.containerRegistrySecret | quote }}
+    {{- if .Values.global.containerRegistrySecrets }}
+    containerRegistrySecretNames:
+    {{- range .Values.global.containerRegistrySecrets }}
+    - {{ . | quote }}
+    {{- end }}
+    {{- else }}
+    containerRegistrySecretNames:
+    - {{ .Values.global.containerRegistrySecret | quote }}
+    {{- end }}
     {{- end }}
     taskTTL: {{ .Values.controllers.taskTTL }}
     workloads_tls_secret_name: {{ .Values.controllers.workloadsTLSSecret }}
@@ -34,17 +41,19 @@ data:
     maxRetainedPackagesPerApp: {{ .Values.controllers.maxRetainedPackagesPerApp }}
     maxRetainedBuildsPerApp: {{ .Values.controllers.maxRetainedBuildsPerApp }}
     logLevel: {{ .Values.global.logLevel }}
-{{- if .Values.kpackImageBuilder.include }}
-  kpack_build_controllers_config.yaml: |
-    cfRootNamespace: {{ .Values.global.rootNamespace }}
+    {{- if .Values.kpackImageBuilder.include }}
     clusterBuilderName: {{ .Values.kpackImageBuilder.clusterBuilderName | default "cf-kpack-cluster-builder" }}
+    builderReadinessTimeout: {{ required "builderReadinessTimeout is required" .Values.kpackImageBuilder.builderReadinessTimeout }}
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     builderServiceAccount: kpack-service-account
+    cfStagingResources:
+      buildCacheMB: {{ .Values.api.lifecycle.stagingRequirements.buildCacheMB }}
+      diskMB: {{ .Values.api.lifecycle.stagingRequirements.diskMB }}
+      memoryMB: {{ .Values.api.lifecycle.stagingRequirements.memoryMB }}
     {{- if .Values.global.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}
-{{- end }}
-{{- if .Values.jobTaskRunner.include }}
-  job_task_runner_config.yaml: |
+    {{- end }}
+    {{- if .Values.jobTaskRunner.include }}
     jobTTL: {{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}
-{{- end }}
+    {{- end }}

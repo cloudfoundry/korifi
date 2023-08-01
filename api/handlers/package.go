@@ -26,7 +26,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFPackageRepository . CFPackageRepository
 //counterfeiter:generate -o fake -fake-name ImageRepository . ImageRepository
-//counterfeiter:generate -o fake -fake-name RequestJSONValidator . RequestJSONValidator
+//counterfeiter:generate -o fake -fake-name RequestValidator . RequestValidator
 
 type CFPackageRepository interface {
 	GetPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
@@ -40,18 +40,14 @@ type ImageRepository interface {
 	UploadSourceImage(ctx context.Context, authInfo authorization.Info, imageRef string, srcReader io.Reader, spaceGUID string, tags ...string) (imageRefWithDigest string, err error)
 }
 
-type RequestJSONValidator interface {
-	DecodeAndValidateJSONPayload(r *http.Request, object interface{}) error
-}
-
 type Package struct {
-	serverURL          url.URL
-	packageRepo        CFPackageRepository
-	appRepo            CFAppRepository
-	dropletRepo        CFDropletRepository
-	imageRepo          ImageRepository
-	requestValidator   RequestJSONValidator
-	registrySecretName string
+	serverURL           url.URL
+	packageRepo         CFPackageRepository
+	appRepo             CFAppRepository
+	dropletRepo         CFDropletRepository
+	imageRepo           ImageRepository
+	requestValidator    RequestValidator
+	registrySecretNames []string
 }
 
 func NewPackage(
@@ -60,17 +56,17 @@ func NewPackage(
 	appRepo CFAppRepository,
 	dropletRepo CFDropletRepository,
 	imageRepo ImageRepository,
-	requestValidator RequestJSONValidator,
-	registrySecretName string,
+	requestValidator RequestValidator,
+	registrySecretNames []string,
 ) *Package {
 	return &Package{
-		serverURL:          serverURL,
-		packageRepo:        packageRepo,
-		appRepo:            appRepo,
-		dropletRepo:        dropletRepo,
-		imageRepo:          imageRepo,
-		registrySecretName: registrySecretName,
-		requestValidator:   requestValidator,
+		serverURL:           serverURL,
+		packageRepo:         packageRepo,
+		appRepo:             appRepo,
+		dropletRepo:         dropletRepo,
+		imageRepo:           imageRepo,
+		registrySecretNames: registrySecretNames,
+		requestValidator:    requestValidator,
 	}
 }
 
@@ -92,43 +88,34 @@ func (h Package) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
-	packageListQueryParameters := new(payloads.PackageListQueryParameters)
-	err := payloads.Decode(packageListQueryParameters, r.Form)
+	packageList := new(payloads.PackageList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, packageList)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageListQueryParameters.ToMessage())
+	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageList.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository")
 	}
 
-	if err := h.sortList(records, r.FormValue("order_by")); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "bad order by value")
-	}
+	h.sortList(records, packageList.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForPackage, records, h.serverURL, *r.URL)), nil
 }
 
-func (h Package) sortList(records []repositories.PackageRecord, order string) error {
+func (h Package) sortList(records []repositories.PackageRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(records, func(i, j int) bool { return records[i].CreatedAt < records[j].CreatedAt })
+		sort.Slice(records, func(i, j int) bool { return timePtrAfter(&records[j].CreatedAt, &records[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(records, func(i, j int) bool { return records[i].CreatedAt > records[j].CreatedAt })
+		sort.Slice(records, func(i, j int) bool { return timePtrAfter(&records[i].CreatedAt, &records[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(records, func(i, j int) bool { return records[i].UpdatedAt < records[j].UpdatedAt })
+		sort.Slice(records, func(i, j int) bool { return timePtrAfter(records[j].UpdatedAt, records[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(records, func(i, j int) bool { return records[i].UpdatedAt > records[j].UpdatedAt })
-	default:
-		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at")
+		sort.Slice(records, func(i, j int) bool { return timePtrAfter(records[i].UpdatedAt, records[j].UpdatedAt) })
 	}
-	return nil
 }
 
 func (h Package) create(r *http.Request) (*routing.Response, error) {
@@ -212,10 +199,10 @@ func (h Package) upload(r *http.Request) (*routing.Response, error) {
 	}
 
 	record, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.UpdatePackageSourceMessage{
-		GUID:               packageGUID,
-		SpaceGUID:          record.SpaceGUID,
-		ImageRef:           uploadedImageRef,
-		RegistrySecretName: h.registrySecretName,
+		GUID:                packageGUID,
+		SpaceGUID:           record.SpaceGUID,
+		ImageRef:            uploadedImageRef,
+		RegistrySecretNames: h.registrySecretNames,
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling UpdatePackageSource")
@@ -228,23 +215,17 @@ func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.list-droplets")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
-	packageListDropletsQueryParams := new(payloads.PackageListDropletsQueryParameters)
-	err := payloads.Decode(packageListDropletsQueryParams, r.Form)
-	if err != nil {
+	packageListDroplets := new(payloads.PackageListDroplets)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, packageListDroplets); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	packageGUID := routing.URLParam(r, "guid")
-	_, err = h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
-	if err != nil {
+	if _, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
 	}
 
-	dropletListMessage := packageListDropletsQueryParams.ToMessage([]string{packageGUID})
+	dropletListMessage := packageListDroplets.ToMessage([]string{packageGUID})
 
 	dropletList, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, dropletListMessage)
 	if err != nil {

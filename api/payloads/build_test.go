@@ -1,10 +1,6 @@
 package payloads_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -30,13 +26,7 @@ var _ = Describe("BuildCreate", func() {
 		})
 
 		JustBeforeEach(func() {
-			body, err := json.Marshal(createPayload)
-			Expect(err).NotTo(HaveOccurred())
-
-			req, err := http.NewRequest("", "", bytes.NewReader(body))
-			Expect(err).NotTo(HaveOccurred())
-
-			validatorErr = validator.DecodeAndValidateJSONPayload(req, decodedBuildPayload)
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), decodedBuildPayload)
 		})
 
 		It("succeeds", func() {
@@ -50,7 +40,7 @@ var _ = Describe("BuildCreate", func() {
 			})
 
 			It("says package is required", func() {
-				expectUnprocessableEntityError(validatorErr, "Package is a required field")
+				expectUnprocessableEntityError(validatorErr, "package cannot be blank")
 			})
 		})
 
@@ -60,7 +50,7 @@ var _ = Describe("BuildCreate", func() {
 			})
 
 			It("says guid is required", func() {
-				expectUnprocessableEntityError(validatorErr, "GUID is a required field")
+				expectUnprocessableEntityError(validatorErr, "package.guid cannot be blank")
 			})
 		})
 
@@ -72,7 +62,7 @@ var _ = Describe("BuildCreate", func() {
 			})
 
 			It("says labels and annotations are not supported", func() {
-				expectUnprocessableEntityError(validatorErr, "Labels and annotations are not supported for builds")
+				expectUnprocessableEntityError(validatorErr, "metadata.annotations must be blank")
 			})
 		})
 
@@ -84,7 +74,7 @@ var _ = Describe("BuildCreate", func() {
 			})
 
 			It("says labels and annotations are not supported", func() {
-				expectUnprocessableEntityError(validatorErr, "Labels and annotations are not supported for builds")
+				expectUnprocessableEntityError(validatorErr, "metadata.labels must be blank")
 			})
 		})
 	})

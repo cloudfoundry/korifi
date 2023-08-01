@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,21 +31,21 @@ var _ = Describe("CFDomainReconciler Integration Tests", func() {
 		ctx = context.Background()
 
 		domainNamespace = GenerateGUID()
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		Expect(adminClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: domainNamespace,
 			},
 		})).To(Succeed())
 
 		route1Namespace = GenerateGUID()
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		Expect(adminClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: route1Namespace,
 			},
 		})).To(Succeed())
 
 		route2Namespace = GenerateGUID()
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		Expect(adminClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: route2Namespace,
 			},
@@ -61,7 +62,7 @@ var _ = Describe("CFDomainReconciler Integration Tests", func() {
 				Name: testDomainName,
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfDomain)).To(Succeed())
 
 		createValidRoute(ctx, &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
@@ -96,30 +97,34 @@ var _ = Describe("CFDomainReconciler Integration Tests", func() {
 		})
 	})
 
-	Describe("Delete CFDomain", func() {
+	When("a domain is deleted", func() {
 		JustBeforeEach(func() {
-			Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
+			Expect(adminClient.Delete(ctx, cfDomain)).To(Succeed())
 		})
 
 		It("deletes the domain routes", func() {
 			Eventually(func(g Gomega) {
 				routes := &korifiv1alpha1.CFRouteList{}
 
-				g.Expect(k8sClient.List(ctx, routes, client.InNamespace(route1Namespace))).To(Succeed())
+				g.Expect(adminClient.List(ctx, routes, client.InNamespace(route1Namespace))).To(Succeed())
 				g.Expect(routes.Items).To(BeEmpty())
 
-				g.Expect(k8sClient.List(ctx, routes, client.InNamespace(route2Namespace))).To(Succeed())
+				g.Expect(adminClient.List(ctx, routes, client.InNamespace(route2Namespace))).To(Succeed())
 				g.Expect(routes.Items).To(BeEmpty())
 			}).Should(Succeed())
+		})
+
+		It("writes a log message", func() {
+			Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
 		})
 	})
 })
 
 func createValidRoute(ctx context.Context, route *korifiv1alpha1.CFRoute) {
-	Expect(k8sClient.Create(ctx, route)).To(Succeed())
+	Expect(adminClient.Create(ctx, route)).To(Succeed())
 	Eventually(func(g Gomega) {
 		createdRoute := &korifiv1alpha1.CFRoute{}
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(route), createdRoute)).To(Succeed())
+		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), createdRoute)).To(Succeed())
 		g.Expect(meta.IsStatusConditionTrue(createdRoute.Status.Conditions, "Valid")).To(BeTrue())
 	}).Should(Succeed())
 }

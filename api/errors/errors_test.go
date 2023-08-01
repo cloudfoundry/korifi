@@ -306,6 +306,18 @@ var _ = Describe("LogAndReturn", func() {
 	})
 })
 
+var _ = Describe("invalid lists", func() {
+	It("formats the invalid keys correctly", func() {
+		err := apierrors.NewUnknownKeyError(errors.New("oops"), []string{"one", "two"})
+		Expect(err.Detail()).To(Equal("The query parameter is invalid: Valid parameters are: 'one', 'two'"))
+	})
+
+	It("formats the invalid values correctly", func() {
+		err := apierrors.NewBadQueryParamValueError("bob", "one", "two")
+		Expect(err.Detail()).To(Equal("The query parameter is invalid: bob can only be: 'one', 'two'"))
+	})
+})
+
 type testApiError struct {
 	apierrors.ApiError
 }

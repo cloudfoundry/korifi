@@ -30,7 +30,7 @@ type CFBuildSpec struct {
 
 	// The memory limit for the pod that will stage the image
 	StagingMemoryMB int `json:"stagingMemoryMB"`
-	// The disk limit for the pod that will stage the image
+	// Unimplemented: StagingDiskMB is the ephemeral-disk size request for the pod that will stage the image
 	StagingDiskMB int `json:"stagingDiskMB"`
 
 	// Specifies the buildpacks and stack for the build
@@ -40,8 +40,11 @@ type CFBuildSpec struct {
 // CFBuildStatus defines the observed state of CFBuild
 type CFBuildStatus struct {
 	Droplet *BuildDropletStatus `json:"droplet,omitempty"`
-	// Conditions capture the current status of the Build
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the CFBuild that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // BuildDropletStatus defines the observed state of the CFBuild's Droplet or runnable image

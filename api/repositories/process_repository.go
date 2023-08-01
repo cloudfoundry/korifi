@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -47,8 +48,8 @@ type ProcessRecord struct {
 	HealthCheck      HealthCheck
 	Labels           map[string]string
 	Annotations      map[string]string
-	CreatedAt        string
-	UpdatedAt        string
+	CreatedAt        time.Time
+	UpdatedAt        *time.Time
 }
 
 type HealthCheck struct {
@@ -135,6 +136,10 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 		return []ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFProcess) bool{
+		SetPredicate(message.AppGUIDs, func(s korifiv1alpha1.CFProcess) string { return s.Spec.AppRef.Name }),
+	}
+
 	processList := &korifiv1alpha1.CFProcessList{}
 	var matches []korifiv1alpha1.CFProcess
 	for ns := range nsList {
@@ -149,7 +154,7 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 			return []ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 		}
 		allProcesses := processList.Items
-		matches = append(matches, filterProcessesByAppGUID(allProcesses, message.AppGUIDs)...)
+		matches = append(matches, Filter(allProcesses, preds...)...)
 	}
 
 	return returnProcesses(matches)
@@ -298,23 +303,6 @@ func returnProcess(processes []korifiv1alpha1.CFProcess) (ProcessRecord, error) 
 	return cfProcessToProcessRecord(processes[0]), nil
 }
 
-func filterProcessesByAppGUID(processes []korifiv1alpha1.CFProcess, appGUIDs []string) []korifiv1alpha1.CFProcess {
-	if len(appGUIDs) == 0 {
-		return processes
-	}
-
-	var filtered []korifiv1alpha1.CFProcess
-	for _, process := range processes {
-		for _, appGUID := range appGUIDs {
-			if process.Spec.AppRef.Name == appGUID {
-				filtered = append(filtered, process)
-				break
-			}
-		}
-	}
-	return filtered
-}
-
 func returnProcesses(processes []korifiv1alpha1.CFProcess) ([]ProcessRecord, error) {
 	processRecords := make([]ProcessRecord, 0, len(processes))
 	for _, process := range processes {
@@ -326,8 +314,6 @@ func returnProcesses(processes []korifiv1alpha1.CFProcess) ([]ProcessRecord, err
 }
 
 func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfProcess.ObjectMeta)
-
 	cmd := cfProcess.Spec.Command
 	if cmd == "" {
 		cmd = cfProcess.Spec.DetectedCommand
@@ -353,7 +339,7 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		},
 		Labels:      cfProcess.Labels,
 		Annotations: cfProcess.Annotations,
-		CreatedAt:   cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   cfProcess.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(&cfProcess),
 	}
 }

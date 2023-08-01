@@ -30,20 +30,21 @@ const (
 )
 
 type TaskRecord struct {
-	Name              string
-	GUID              string
-	SpaceGUID         string
-	Command           string
-	AppGUID           string
-	DropletGUID       string
-	Labels            map[string]string
-	Annotations       map[string]string
-	SequenceID        int64
-	CreationTimestamp time.Time
-	MemoryMB          int64
-	DiskMB            int64
-	State             string
-	FailureReason     string
+	Name          string
+	GUID          string
+	SpaceGUID     string
+	Command       string
+	AppGUID       string
+	DropletGUID   string
+	Labels        map[string]string
+	Annotations   map[string]string
+	SequenceID    int64
+	CreatedAt     time.Time
+	UpdatedAt     *time.Time
+	MemoryMB      int64
+	DiskMB        int64
+	State         string
+	FailureReason string
 }
 
 type CreateTaskMessage struct {
@@ -170,6 +171,11 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFTask) bool{
+		SetPredicate(msg.SequenceIDs, func(s korifiv1alpha1.CFTask) int64 { return s.Status.SequenceID }),
+		SetPredicate(msg.AppGUIDs, func(s korifiv1alpha1.CFTask) string { return s.Spec.AppRef.Name }),
+	}
+
 	var tasks []korifiv1alpha1.CFTask
 	for ns := range nsList {
 		taskList := &korifiv1alpha1.CFTaskList{}
@@ -180,7 +186,7 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		if err != nil {
 			return nil, fmt.Errorf("failed to list tasks in namespace %s: %w", ns, apierrors.FromK8sError(err, TaskResourceType))
 		}
-		tasks = append(tasks, filterBySequenceIDs(filterByAppGUIDs(taskList.Items, msg.AppGUIDs), msg.SequenceIDs)...)
+		tasks = append(tasks, Filter(taskList.Items, preds...)...)
 	}
 
 	taskRecords := []TaskRecord{}
@@ -245,61 +251,22 @@ func (r *TaskRepo) PatchTaskMetadata(ctx context.Context, authInfo authorization
 	return taskToRecord(task), nil
 }
 
-func filterByAppGUIDs(tasks []korifiv1alpha1.CFTask, appGUIDs []string) []korifiv1alpha1.CFTask {
-	if len(appGUIDs) == 0 {
-		return tasks
-	}
-
-	guidMap := map[string]bool{}
-	for _, g := range appGUIDs {
-		guidMap[g] = true
-	}
-
-	var res []korifiv1alpha1.CFTask
-	for _, t := range tasks {
-		if guidMap[t.Spec.AppRef.Name] {
-			res = append(res, t)
-		}
-	}
-
-	return res
-}
-
-func filterBySequenceIDs(tasks []korifiv1alpha1.CFTask, sequenceIDs []int64) []korifiv1alpha1.CFTask {
-	if len(sequenceIDs) == 0 {
-		return tasks
-	}
-
-	seqIdMap := map[int64]bool{}
-	for _, seqId := range sequenceIDs {
-		seqIdMap[seqId] = true
-	}
-
-	var res []korifiv1alpha1.CFTask
-	for _, t := range tasks {
-		if seqIdMap[t.Status.SequenceID] {
-			res = append(res, t)
-		}
-	}
-
-	return res
-}
-
 func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 	taskRecord := TaskRecord{
-		Name:              task.Name,
-		GUID:              task.Name,
-		SpaceGUID:         task.Namespace,
-		Command:           task.Spec.Command,
-		AppGUID:           task.Spec.AppRef.Name,
-		SequenceID:        task.Status.SequenceID,
-		CreationTimestamp: task.CreationTimestamp.Time,
-		MemoryMB:          task.Status.MemoryMB,
-		DiskMB:            task.Status.DiskQuotaMB,
-		DropletGUID:       task.Status.DropletRef.Name,
-		State:             toRecordState(task),
-		Labels:            task.Labels,
-		Annotations:       task.Annotations,
+		Name:        task.Name,
+		GUID:        task.Name,
+		SpaceGUID:   task.Namespace,
+		Command:     task.Spec.Command,
+		AppGUID:     task.Spec.AppRef.Name,
+		SequenceID:  task.Status.SequenceID,
+		CreatedAt:   task.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(task),
+		MemoryMB:    task.Status.MemoryMB,
+		DiskMB:      task.Status.DiskQuotaMB,
+		DropletGUID: task.Status.DropletRef.Name,
+		State:       toRecordState(task),
+		Labels:      task.Labels,
+		Annotations: task.Annotations,
 	}
 
 	failedCond := meta.FindStatusCondition(task.Status.Conditions, korifiv1alpha1.TaskFailedConditionType)

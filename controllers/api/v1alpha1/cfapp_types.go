@@ -17,6 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -48,8 +51,8 @@ type DesiredState string
 
 // CFAppStatus defines the observed state of CFApp
 type CFAppStatus struct {
-	// Conditions capture the current status of the App
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// Deprecated: No longer used
 	//+kubebuilder:validation:Optional
@@ -62,6 +65,9 @@ type CFAppStatus struct {
 	// VCAPApplicationSecretName contains the name of the CFApp's VCAP_APPLICATION Secret, which should exist in the same namespace
 	//+kubebuilder:validation:Optional
 	VCAPApplicationSecretName string `json:"vcapApplicationSecretName"`
+
+	// ObservedGeneration captures the latest generation of the CFApp that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -93,4 +99,12 @@ func init() {
 
 func (a CFApp) StatusConditions() []metav1.Condition {
 	return a.Status.Conditions
+}
+
+func (a CFApp) UniqueName() string {
+	return strings.ToLower(a.Spec.DisplayName)
+}
+
+func (a CFApp) UniqueValidationErrorMessage() string {
+	return fmt.Sprintf("App with the name '%s' already exists.", a.Spec.DisplayName)
 }

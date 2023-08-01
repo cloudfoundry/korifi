@@ -40,11 +40,23 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
+manifests: install-controller-gen install-yq
+webhooks-file = ../helm/korifi/kpack-image-builder/manifests.yaml
 manifests: install-controller-gen
 	$(CONTROLLER_GEN) \
 		paths="./..." \
 		rbac:roleName=korifi-kpack-build-manager-role \
-		output:rbac:artifacts:config=../helm/korifi/kpack-image-builder
+		webhook \
+		output:rbac:artifacts:config=../helm/korifi/kpack-image-builder \
+		output:webhook:artifacts:config=../helm/korifi/kpack-image-builder
+
+	$(YQ) -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-controllers-serving-cert")' $(webhooks-file)
+	$(YQ) -i 'with(.metadata; .name="korifi-kpack-image-builder-" + .name)' $(webhooks-file)
+	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
+	$(YQ) -i 'with(.webhooks[]; .clientConfig.service.name="korifi-controllers-" + .clientConfig.service.name)' $(webhooks-file)
+
+
+
 
 .PHONY: generate
 generate: install-controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -61,3 +73,7 @@ install-controller-gen:
 
 install-ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
+
+YQ = $(shell pwd)/bin/yq
+install-yq:
+	GOBIN=$(shell pwd)/bin go install github.com/mikefarah/yq/v4@latest

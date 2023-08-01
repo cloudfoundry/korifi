@@ -4,9 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
-
-	"github.com/go-logr/logr"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -14,6 +12,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+
+	"github.com/go-logr/logr"
 )
 
 const (
@@ -21,27 +21,28 @@ const (
 	SpacePath  = "/v3/spaces/{guid}"
 )
 
-//counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
+//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
 
-type SpaceRepository interface {
+type CFSpaceRepository interface {
 	CreateSpace(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
 	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
 	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
 	PatchSpaceMetadata(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)
+	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
 }
 
 type Space struct {
-	spaceRepo        SpaceRepository
+	spaceRepo        CFSpaceRepository
 	apiBaseURL       url.URL
-	decoderValidator *DecoderValidator
+	requestValidator RequestValidator
 }
 
-func NewSpace(apiBaseURL url.URL, spaceRepo SpaceRepository, decoderValidator *DecoderValidator) *Space {
+func NewSpace(apiBaseURL url.URL, spaceRepo CFSpaceRepository, requestValidator RequestValidator) *Space {
 	return &Space{
 		apiBaseURL:       apiBaseURL,
 		spaceRepo:        spaceRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -50,7 +51,7 @@ func (h *Space) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.create")
 
 	var payload payloads.SpaceCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate payload")
 	}
 
@@ -72,19 +73,17 @@ func (h *Space) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.list")
 
-	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"))
-	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
+	spaceList := new(payloads.SpaceList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, spaceList); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate request values")
+	}
 
-	spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, repositories.ListSpacesMessage{
-		OrganizationGUIDs: orgUIDs,
-		Names:             names,
-	})
+	spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, spaceList.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch spaces")
 	}
 
-	spaceList := presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL)
-	return routing.NewResponse(http.StatusOK).WithBody(spaceList), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL)), nil
 }
 
 //nolint:dupl
@@ -100,7 +99,7 @@ func (h *Space) update(r *http.Request) (*routing.Response, error) {
 	}
 
 	var payload payloads.SpacePatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -143,11 +142,10 @@ func (h *Space) get(r *http.Request) (*routing.Response, error) {
 
 	space, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch space from Kubernetes", "GUID", spaceGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch space", "spaceGUID", spaceGUID)
 	}
 
-	spaceResult := presenter.ForSpace(space, h.apiBaseURL)
-	return routing.NewResponse(http.StatusOK).WithBody(spaceResult), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForSpace(space, h.apiBaseURL)), nil
 }
 
 func (h *Space) UnauthenticatedRoutes() []routing.Route {
@@ -162,15 +160,4 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
 		{Method: "GET", Pattern: SpacePath, Handler: h.get},
 	}
-}
-
-func parseCommaSeparatedList(list string) []string {
-	var elements []string
-	for _, element := range strings.Split(list, ",") {
-		if element != "" {
-			elements = append(elements, element)
-		}
-	}
-
-	return elements
 }

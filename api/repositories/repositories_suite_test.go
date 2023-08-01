@@ -5,11 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -33,7 +35,7 @@ import (
 )
 
 const (
-	timeCheckThreshold = 3
+	timeCheckThreshold = 3 * time.Second
 )
 
 func TestRepositories(t *testing.T) {
@@ -47,11 +49,11 @@ var (
 	k8sClient             client.WithWatch
 	namespaceRetriever    repositories.NamespaceRetriever
 	userClientFactory     authorization.UserK8sClientFactory
-	k8sConfig             *rest.Config
 	userName              string
 	authInfo              authorization.Info
 	rootNamespace         string
 	builderName           string
+	runnerName            string
 	idProvider            authorization.IdentityProvider
 	nsPerms               *authorization.NamespacePermissions
 	adminRole             *rbacv1.ClusterRole
@@ -75,7 +77,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	var err error
-	k8sConfig, err = testEnv.Start()
+	_, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
 	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
@@ -83,11 +85,11 @@ var _ = BeforeSuite(func() {
 	err = buildv1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	dynamicClient, err := dynamic.NewForConfig(k8sConfig)
+	dynamicClient, err := dynamic.NewForConfig(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(dynamicClient).NotTo(BeNil())
 	namespaceRetriever = repositories.NewNamespaceRetriever(dynamicClient)
@@ -113,15 +115,18 @@ var _ = BeforeEach(func() {
 	authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
 	rootNamespace = prefixedGUID("root-ns")
 	builderName = "kpack-image-builder"
+	runnerName = "statefulset-runner"
 	tokenInspector := authorization.NewTokenReviewer(k8sClient)
-	certInspector := authorization.NewCertInspector(k8sConfig)
+	certInspector := authorization.NewCertInspector(testEnv.Config)
 	baseIDProvider := authorization.NewCertTokenIdentityProvider(tokenInspector, certInspector)
 	idProvider = authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
 	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider)
 
-	mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig)
+	httpClient, err := rest.HTTPClientFor(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
-	userClientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, authorization.NewDefaultBackoff())
+	mapper, err := apiutil.NewDynamicRESTMapper(testEnv.Config, httpClient)
+	Expect(err).NotTo(HaveOccurred())
+	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8s.NewDefaultBackoff())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

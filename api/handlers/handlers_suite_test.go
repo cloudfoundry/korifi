@@ -2,27 +2,26 @@ package handlers_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/routing"
-	"github.com/go-http-utils/headers"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
 	defaultServerURL = "https://api.example.org"
-	jsonHeader       = "application/json"
 )
 
 var (
@@ -53,102 +52,88 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-func expectJSONResponse(status int, body string) {
-	ExpectWithOffset(2, rr).To(HaveHTTPStatus(status))
-	ExpectWithOffset(2, rr).To(HaveHTTPHeaderWithValue("Content-Type", jsonHeader))
-	ExpectWithOffset(2, rr).To(HaveHTTPBody(MatchJSON(body)))
+func expectErrorResponse(status int, title, detail string, code int) {
+	GinkgoHelper()
+
+	Expect(rr).To(HaveHTTPStatus(status))
+	Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+	Expect(rr).To(HaveHTTPBody(SatisfyAll(
+		MatchJSONPath("$.errors[0].title", MatchRegexp(title)),
+		MatchJSONPath("$.errors[0].detail", MatchRegexp(detail)),
+		MatchJSONPath("$.errors[0].code", BeEquivalentTo(code)),
+	)))
 }
 
 func expectUnknownError() {
-	expectJSONResponse(http.StatusInternalServerError, `{
-			"errors": [
-				{
-					"title": "UnknownError",
-					"detail": "An unknown error occurred.",
-					"code": 10001
-				}
-			]
-		}`)
+	GinkgoHelper()
+
+	expectErrorResponse(http.StatusInternalServerError, "UnknownError", "An unknown error occurred.", 10001)
 }
 
 func expectNotAuthorizedError() {
-	expectJSONResponse(http.StatusForbidden, `{
-			"errors": [
-				{
-					"code": 10003,
-					"title": "CF-NotAuthorized",
-					"detail": "You are not authorized to perform the requested action"
-				}
-			]
-		}`)
+	GinkgoHelper()
+
+	expectErrorResponse(http.StatusForbidden, "CF-NotAuthorized", "You are not authorized to perform the requested action", 10003)
 }
 
-func expectNotFoundError(detail string) {
-	ExpectWithOffset(1, rr).To(HaveHTTPStatus(http.StatusNotFound))
-	ExpectWithOffset(1, rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
-	var bodyJSON map[string]interface{}
-	Expect(json.Unmarshal(rr.Body.Bytes(), &bodyJSON)).To(Succeed())
-	Expect(bodyJSON).To(HaveKey("errors"))
-	Expect(bodyJSON["errors"]).To(HaveLen(1))
-	Expect(bodyJSON["errors"]).To(ConsistOf(
-		gstruct.MatchAllKeys(gstruct.Keys{
-			"code":   BeEquivalentTo(10010),
-			"title":  Equal("CF-ResourceNotFound"),
-			"detail": HavePrefix(detail),
-		}),
-	))
+func expectNotFoundError(resourceType string) {
+	GinkgoHelper()
+
+	expectErrorResponse(http.StatusNotFound, "CF-ResourceNotFound", resourceType+" not found. Ensure it exists and you have access to it.", 10010)
 }
 
 func expectUnprocessableEntityError(detail string) {
-	expectJSONResponse(http.StatusUnprocessableEntity, fmt.Sprintf(`{
-			"errors": [
-				{
-					"detail": %q,
-					"title": "CF-UnprocessableEntity",
-					"code": 10008
-				}
-			]
-		}`, detail))
-}
+	GinkgoHelper()
 
-func expectBadRequestError() {
-	expectJSONResponse(http.StatusBadRequest, `{
-        "errors": [
-            {
-                "title": "CF-MessageParseError",
-                "detail": "Request invalid due to parse error: invalid request body",
-                "code": 1001
-            }
-        ]
-    }`)
+	expectErrorResponse(http.StatusUnprocessableEntity, "CF-UnprocessableEntity", detail, 10008)
 }
 
 func expectBlobstoreUnavailableError() {
-	expectJSONResponse(http.StatusBadGateway, `{
-        "errors": [
-            {
-                "title": "CF-BlobstoreUnavailable",
-                "detail": "Error uploading source package to the container registry",
-                "code": 150006
-            }
-        ]
-    }`)
-}
+	GinkgoHelper()
 
-func expectUnknownKeyError(detail string) {
-	expectJSONResponse(http.StatusBadRequest, fmt.Sprintf(`{
-		"errors": [
-			{
-				"code": 10005,
-				"title": "CF-BadQueryParameter",
-				"detail": %q
-			}
-		]
-	}`, detail))
+	expectErrorResponse(http.StatusBadGateway, "CF-BlobstoreUnavailable", "Error uploading source package to the container registry", 150006)
 }
 
 func generateGUID(prefix string) string {
 	guid := uuid.NewString()
 
 	return fmt.Sprintf("%s-%s", prefix, guid[:13])
+}
+
+func decodeAndValidatePayloadStub[T any](desiredPayload *T) func(_ *http.Request, decodedPayload any) error {
+	return func(_ *http.Request, decodedPayload any) error {
+		GinkgoHelper()
+
+		decodedPayloadPtr, ok := decodedPayload.(*T)
+		Expect(ok).To(BeTrue())
+
+		*decodedPayloadPtr = *desiredPayload
+
+		return nil
+	}
+}
+
+type keyedPayloadImpl[P any] interface {
+	validation.KeyedPayload
+	*P
+}
+
+func decodeAndValidateURLValuesStub[P any, I keyedPayloadImpl[P]](desiredPayload I) func(*http.Request, validation.KeyedPayload) error {
+	return func(_ *http.Request, output validation.KeyedPayload) error {
+		GinkgoHelper()
+
+		outputPtr, ok := output.(I)
+		Expect(ok).To(BeTrue())
+
+		*outputPtr = *desiredPayload
+		return nil
+	}
+}
+
+func bodyString(r *http.Request) string {
+	GinkgoHelper()
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	Expect(err).NotTo(HaveOccurred())
+	return string(bodyBytes)
 }

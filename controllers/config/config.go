@@ -17,19 +17,21 @@ type ControllerConfig struct {
 	IncludeContourRouter     bool `yaml:"includeContourRouter"`
 
 	// core controllers
-	CFProcessDefaults           CFProcessDefaults `yaml:"cfProcessDefaults"`
-	CFRootNamespace             string            `yaml:"cfRootNamespace"`
-	ContainerRegistrySecretName string            `yaml:"containerRegistrySecretName"`
-	TaskTTL                     string            `yaml:"taskTTL"`
-	WorkloadsTLSSecretName      string            `yaml:"workloads_tls_secret_name"`
-	WorkloadsTLSSecretNamespace string            `yaml:"workloads_tls_secret_namespace"`
-	BuilderName                 string            `yaml:"builderName"`
-	RunnerName                  string            `yaml:"runnerName"`
-	NamespaceLabels             map[string]string `yaml:"namespaceLabels"`
-	ExtraVCAPApplicationValues  map[string]any    `yaml:"extraVCAPApplicationValues"`
-	MaxRetainedPackagesPerApp   int               `yaml:"maxRetainedPackagesPerApp"`
-	MaxRetainedBuildsPerApp     int               `yaml:"maxRetainedBuildsPerApp"`
-	LogLevel                    zapcore.Level     `yaml:"logLevel"`
+	CFProcessDefaults                CFProcessDefaults  `yaml:"cfProcessDefaults"`
+	CFStagingResources               CFStagingResources `yaml:"cfStagingResources"`
+	CFRootNamespace                  string             `yaml:"cfRootNamespace"`
+	ContainerRegistrySecretNames     []string           `yaml:"containerRegistrySecretNames"`
+	TaskTTL                          string             `yaml:"taskTTL"`
+	WorkloadsTLSSecretName           string             `yaml:"workloads_tls_secret_name"`
+	WorkloadsTLSSecretNamespace      string             `yaml:"workloads_tls_secret_namespace"`
+	BuilderName                      string             `yaml:"builderName"`
+	RunnerName                       string             `yaml:"runnerName"`
+	NamespaceLabels                  map[string]string  `yaml:"namespaceLabels"`
+	ExtraVCAPApplicationValues       map[string]any     `yaml:"extraVCAPApplicationValues"`
+	MaxRetainedPackagesPerApp        int                `yaml:"maxRetainedPackagesPerApp"`
+	MaxRetainedBuildsPerApp          int                `yaml:"maxRetainedBuildsPerApp"`
+	LogLevel                         zapcore.Level      `yaml:"logLevel"`
+	SpaceFinalizerAppDeletionTimeout *int64             `yaml:"spaceFinalizerAppDeletionTimeout"`
 
 	// job-task-runner
 	JobTTL string `yaml:"jobTTL"`
@@ -37,6 +39,7 @@ type ControllerConfig struct {
 	// kpack-image-builder
 	ClusterBuilderName        string `yaml:"clusterBuilderName"`
 	BuilderServiceAccount     string `yaml:"builderServiceAccount"`
+	BuilderReadinessTimeout   string `yaml:"builderReadinessTimeout"`
 	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType     string `yaml:"containerRegistryType"`
 }
@@ -47,10 +50,17 @@ type CFProcessDefaults struct {
 	Timeout     *int64 `yaml:"timeout"`
 }
 
+type CFStagingResources struct {
+	BuildCacheMB int64 `yaml:"buildCacheMB"`
+	DiskMB       int64 `yaml:"diskMB"`
+	MemoryMB     int64 `yaml:"memoryMB"`
+}
+
 const (
-	defaultTaskTTL       = 30 * 24 * time.Hour
-	defaultTimeout int64 = 60
-	defaultJobTTL        = 24 * time.Hour
+	defaultTaskTTL            = 30 * 24 * time.Hour
+	defaultTimeout      int64 = 60
+	defaultJobTTL             = 24 * time.Hour
+	defaultBuildCacheMB       = 2048
 )
 
 func LoadFromPath(path string) (*ControllerConfig, error) {
@@ -62,6 +72,14 @@ func LoadFromPath(path string) (*ControllerConfig, error) {
 
 	if config.CFProcessDefaults.Timeout == nil {
 		config.CFProcessDefaults.Timeout = tools.PtrTo(defaultTimeout)
+	}
+
+	if config.SpaceFinalizerAppDeletionTimeout == nil {
+		config.SpaceFinalizerAppDeletionTimeout = tools.PtrTo(defaultTimeout)
+	}
+
+	if config.CFStagingResources.BuildCacheMB == 0 {
+		config.CFStagingResources.BuildCacheMB = defaultBuildCacheMB
 	}
 
 	return &config, nil
@@ -89,6 +107,10 @@ func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {
 	}
 
 	return tools.ParseDuration(c.TaskTTL)
+}
+
+func (c ControllerConfig) ParseBuilderReadinessTimeout() (time.Duration, error) {
+	return tools.ParseDuration(c.BuilderReadinessTimeout)
 }
 
 func (c ControllerConfig) ParseJobTTL() (time.Duration, error) {

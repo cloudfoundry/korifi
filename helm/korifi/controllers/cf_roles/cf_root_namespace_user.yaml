@@ -29,3 +29,12 @@ rules:
   - get
   - list
   - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runnerinfos
+  verbs:
+  - get
+  - list
+  - watch

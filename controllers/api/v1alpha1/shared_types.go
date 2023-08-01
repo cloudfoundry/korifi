@@ -5,16 +5,17 @@ import (
 )
 
 const (
-	CFAppGUIDLabelKey       = "korifi.cloudfoundry.org/app-guid"
-	CFAppRevisionKey        = "korifi.cloudfoundry.org/app-rev"
-	CFAppRevisionKeyDefault = "0"
-	CFPackageGUIDLabelKey   = "korifi.cloudfoundry.org/package-guid"
-	CFBuildGUIDLabelKey     = "korifi.cloudfoundry.org/build-guid"
-	CFProcessGUIDLabelKey   = "korifi.cloudfoundry.org/process-guid"
-	CFProcessTypeLabelKey   = "korifi.cloudfoundry.org/process-type"
-	CFDomainGUIDLabelKey    = "korifi.cloudfoundry.org/domain-guid"
-	CFRouteGUIDLabelKey     = "korifi.cloudfoundry.org/route-guid"
-	CFTaskGUIDLabelKey      = "korifi.cloudfoundry.org/task-guid"
+	CFAppGUIDLabelKey        = "korifi.cloudfoundry.org/app-guid"
+	CFAppRevisionKey         = "korifi.cloudfoundry.org/app-rev"
+	CFAppLastStopRevisionKey = "korifi.cloudfoundry.org/last-stop-app-rev"
+	CFAppRevisionKeyDefault  = "0"
+	CFPackageGUIDLabelKey    = "korifi.cloudfoundry.org/package-guid"
+	CFBuildGUIDLabelKey      = "korifi.cloudfoundry.org/build-guid"
+	CFProcessGUIDLabelKey    = "korifi.cloudfoundry.org/process-guid"
+	CFProcessTypeLabelKey    = "korifi.cloudfoundry.org/process-type"
+	CFDomainGUIDLabelKey     = "korifi.cloudfoundry.org/domain-guid"
+	CFRouteGUIDLabelKey      = "korifi.cloudfoundry.org/route-guid"
+	CFTaskGUIDLabelKey       = "korifi.cloudfoundry.org/task-guid"
 
 	CFBindingTypeLabelKey = "korifi.cloudfoundry.org/binding-type"
 
@@ -24,6 +25,7 @@ const (
 
 	PropagateRoleBindingAnnotation    = "cloudfoundry.org/propagate-cf-role"
 	PropagateServiceAccountAnnotation = "cloudfoundry.org/propagate-service-account"
+	PropagateDeletionAnnotation       = "cloudfoundry.org/propagate-deletion"
 	PropagatedFromLabel               = "cloudfoundry.org/propagated-from"
 )
 

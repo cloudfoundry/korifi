@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,19 +36,17 @@ var _ = Describe("WhoAmI", func() {
 	})
 
 	Describe("Who Am I", func() {
-		It("returns 201 with appropriate success JSON", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-                "name": "the-user",
-                "kind": "User"
-            }`)))
-		})
-
-		It("calls the identity provider with the authorization.Info from the request context", func() {
+		It("fetches the identity and returns its JSON", func() {
 			Expect(identityProvider.GetIdentityCallCount()).To(Equal(1))
 			_, actualAuthInfo := identityProvider.GetIdentityArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authorization.Info{Token: "the-token"}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.name", "the-user"),
+				MatchJSONPath("$.kind", "User"),
+			)))
 		})
 
 		When("the identity provider returns an error", func() {

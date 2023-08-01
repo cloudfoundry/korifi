@@ -50,8 +50,8 @@ func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL) Domain
 		Internal:           false,
 		RouterGroup:        nil,
 		SupportedProtocols: []string{"http"},
-		CreatedAt:          responseDomain.CreatedAt,
-		UpdatedAt:          responseDomain.UpdatedAt,
+		CreatedAt:          formatTimestamp(&responseDomain.CreatedAt),
+		UpdatedAt:          formatTimestamp(responseDomain.UpdatedAt),
 
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(responseDomain.Labels),

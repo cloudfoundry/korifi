@@ -26,6 +26,9 @@ linters:
     - dupl
     - ginkgolinter
 
+  disable:
+    - staticcheck # we run this separately
+
 issues:
   exclude-rules:
     - path: _test\.go

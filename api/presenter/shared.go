@@ -3,6 +3,7 @@ package presenter
 import (
 	"net/url"
 	"path"
+	"time"
 )
 
 type Lifecycle struct {
@@ -118,4 +119,11 @@ func emptySliceIfNil(m []string) []string {
 		return []string{}
 	}
 	return m
+}
+
+func formatTimestamp(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }

@@ -5,7 +5,7 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
@@ -82,7 +82,7 @@ func createPackageCR(ctx context.Context, k8sClient client.Client, packageGUID, 
 		Eventually(func(g Gomega) {
 			var pkg korifiv1alpha1.CFPackage
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(toReturn), &pkg)).To(Succeed())
-			g.Expect(meta.IsStatusConditionTrue(pkg.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
+			g.Expect(meta.IsStatusConditionTrue(pkg.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 		}, "10s", "100ms").Should(Succeed())
 	}
 
@@ -244,14 +244,17 @@ func initializeAppPatchMessage(appName, appGUID, spaceGUID string) PatchAppMessa
 		Name:      appName,
 		AppGUID:   appGUID,
 		SpaceGUID: spaceGUID,
-		Lifecycle: Lifecycle{
-			Type: "buildpack",
-			Data: LifecycleData{
-				Buildpacks: []string{
+		Lifecycle: &LifecyclePatch{
+			Data: &LifecycleDataPatch{
+				Buildpacks: &[]string{
 					"some-buildpack",
 				},
 				Stack: "cflinuxfs3",
 			},
+		},
+		MetadataPatch: MetadataPatch{
+			Labels:      map[string]*string{"l": tools.PtrTo("lv")},
+			Annotations: map[string]*string{"a": tools.PtrTo("av")},
 		},
 	}
 }

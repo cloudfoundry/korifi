@@ -20,11 +20,13 @@ import (
 	"context"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -105,20 +106,64 @@ func NewAppWorkloadReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.AppWorkload, *korifiv1alpha1.AppWorkload](log, c, &appWorkloadReconciler)
 }
 
+func (r *AppWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.AppWorkload{}).
+		Watches(
+			new(appsv1.StatefulSet),
+			handler.EnqueueRequestsFromMapFunc(r.enqueueAppWorkloadRequests),
+		).
+		WithEventFilter(predicate.NewPredicateFuncs(filterAppWorkloads))
+}
+
+func (r *AppWorkloadReconciler) enqueueAppWorkloadRequests(ctx context.Context, o client.Object) []reconcile.Request {
+	var requests []reconcile.Request
+
+	if appWorkloadName, ok := o.GetLabels()[LabelAppWorkloadGUID]; ok {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      appWorkloadName,
+				Namespace: o.GetNamespace(),
+			},
+		})
+	}
+
+	return requests
+}
+
+func filterAppWorkloads(object client.Object) bool {
+	appWorkload, ok := object.(*korifiv1alpha1.AppWorkload)
+	if !ok {
+		return true
+	}
+
+	return appWorkload.Spec.RunnerName == AppWorkloadReconcilerName
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads/status,verbs=get;patch
+
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;patch;get;list;watch
+//+kubebuilder:rbac:groups=apps,resources=statefulsets/finalizers,verbs=update
+
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;patch;deletecollection
 
 func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
+	log := r.log.WithValues("namespace", appWorkload.Namespace, "name", appWorkload.Name)
+
 	if appWorkload.Spec.RunnerName != AppWorkloadReconcilerName {
 		return ctrl.Result{}, nil
 	}
 
+	appWorkload.Status.ObservedGeneration = appWorkload.Generation
+	log.V(1).Info("set observed generation", "generation", appWorkload.Status.ObservedGeneration)
+
+	shared.GetConditionOrSetAsUnknown(&appWorkload.Status.Conditions, korifiv1alpha1.ReadyConditionType, appWorkload.Generation)
+
 	statefulSet, err := r.workloadsToStSet.Convert(appWorkload)
 	// Not clear what errors this would produce, but we may use it later
 	if err != nil {
-		r.log.Info("error when converting AppWorkload", "reason", err)
+		log.Info("error when converting AppWorkload", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -137,7 +182,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		return nil
 	})
 	if err != nil {
-		r.log.Info("error when creating or updating StatefulSet", "reason", err)
+		log.Info("error when creating or updating StatefulSet", "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -147,45 +192,23 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		} else {
-			r.log.Info("error when fetching StatefulSet", "StatefulSet.Name", statefulSet.Name, "StatefulSet.Namespace", statefulSet.Namespace, "reason", err)
+			log.Info("error when fetching StatefulSet", "StatefulSet.Name", statefulSet.Name, "StatefulSet.Namespace", statefulSet.Namespace, "reason", err)
 			return ctrl.Result{}, err
 		}
 	}
 
 	err = r.pdb.Update(ctx, updatedStatefulSet)
 	if err != nil {
-		r.log.Info("error when creating or patching pod disruption budget", "reason", err)
+		log.Info("error when creating or patching pod disruption budget", "reason", err)
 		return ctrl.Result{}, err
 	}
 
+	meta.SetStatusCondition(&appWorkload.Status.Conditions, metav1.Condition{
+		Type:               shared.StatusConditionReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             shared.StatusConditionReady,
+		ObservedGeneration: appWorkload.Generation,
+	})
+
 	return ctrl.Result{}, nil
-}
-
-func (r *AppWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.AppWorkload{}).
-		Watches(
-			&source.Kind{Type: new(appsv1.StatefulSet)},
-			handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-				var requests []reconcile.Request
-				if appWorkloadName, ok := obj.GetLabels()[LabelAppWorkloadGUID]; ok {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Name:      appWorkloadName,
-							Namespace: obj.GetNamespace(),
-						},
-					})
-				}
-				return requests
-			})).
-		WithEventFilter(predicate.NewPredicateFuncs(filterAppWorkloads))
-}
-
-func filterAppWorkloads(object client.Object) bool {
-	appWorkload, ok := object.(*korifiv1alpha1.AppWorkload)
-	if !ok {
-		return true
-	}
-
-	return appWorkload.Spec.RunnerName == AppWorkloadReconcilerName
 }

@@ -1,53 +1,53 @@
 package handlers_test
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("Space", func() {
-	const spacesBase = "/v3/spaces"
-
 	var (
-		now           time.Time
-		apiHandler    *handlers.Space
-		spaceRepo     *fake.SpaceRepository
-		requestMethod string
-		requestBody   string
-		requestPath   string
+		apiHandler       *handlers.Space
+		spaceRepo        *fake.CFSpaceRepository
+		requestValidator *fake.RequestValidator
+		requestMethod    string
+		requestPath      string
 	)
 
 	BeforeEach(func() {
-		now = time.Unix(1631892190, 0) // 2021-09-17T15:23:10Z
-		requestBody = ""
-		requestPath = spacesBase
-		spaceRepo = new(fake.SpaceRepository)
-		decoderValidator, err := handlers.NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		requestPath = "/v3/spaces"
+
+		requestValidator = new(fake.RequestValidator)
+		spaceRepo = new(fake.CFSpaceRepository)
+		spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
+			Name:             "the-space",
+			GUID:             "the-space-guid",
+			OrganizationGUID: "the-org-guid",
+		}, nil)
 
 		apiHandler = handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
-			decoderValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
 	JustBeforeEach(func() {
-		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader(requestBody))
+		req, err := http.NewRequestWithContext(ctx, requestMethod, requestPath, strings.NewReader("the-json-body"))
 		Expect(err).NotTo(HaveOccurred())
 
 		routerBuilder.Build().ServeHTTP(rr, req)
@@ -59,59 +59,38 @@ var _ = Describe("Space", func() {
 
 			spaceRepo.CreateSpaceReturns(repositories.SpaceRecord{
 				Name:             "the-space",
-				GUID:             "t-h-e-s-p-a-c-e",
-				OrganizationGUID: "the-org",
-				CreatedAt:        now,
-				UpdatedAt:        now,
+				GUID:             "the-space-guid",
+				OrganizationGUID: "the-org-guid",
 			}, nil)
 
-			requestBody = `{
-                "name": "the-space",
-                "relationships": {
-                    "organization": {
-                        "data": {
-                            "guid": "[org-guid]"
-                        }
-                    }
-                }
-            }`
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.SpaceCreate{
+				Name: "the-space",
+				Relationships: &payloads.SpaceRelationships{
+					Org: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: "org-guid",
+						},
+					},
+				},
+			})
 		})
 
-		It("returns 201 with appropriate success JSON", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
-                "guid": "t-h-e-s-p-a-c-e",
-                "name": "the-space",
-                "created_at": "2021-09-17T15:23:10Z",
-                "updated_at": "2021-09-17T15:23:10Z",
-                "metadata": {
-                    "labels": {},
-                    "annotations": {}
-                },
-                "relationships": {
-                    "organization": {
-                        "data": {
-                            "guid": "the-org"
-                        }
-                    }
-                },
-                "links": {
-                    "self": {
-                        "href": "%[1]s/v3/spaces/t-h-e-s-p-a-c-e"
-                    },
-                    "organization": {
-                        "href": "%[1]s/v3/organizations/the-org"
-                    }
-                }
-            }`, defaultServerURL))))
-		})
+		It("creates the space", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
-		It("uses the space repo to create the space", func() {
 			Expect(spaceRepo.CreateSpaceCallCount()).To(Equal(1))
 			_, info, spaceRecord := spaceRepo.CreateSpaceArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
 			Expect(spaceRecord.Name).To(Equal("the-space"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "the-space-guid"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/spaces/the-space-guid"),
+			)))
 		})
 
 		When("the parent org does not exist (and the repo returns a not found error)", func() {
@@ -134,46 +113,13 @@ var _ = Describe("Space", func() {
 			})
 		})
 
-		When("a field in the request has invalid value", func() {
+		When("the request is invalid", func() {
 			BeforeEach(func() {
-				requestBody = `{
-                    "name": 123,
-                    "relationships": {
-                        "organization": {
-                            "data": {
-                                "guid": "[org-guid]"
-                            }
-                        }
-                    }
-                }`
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			It("returns a bad request error", func() {
-				expectUnprocessableEntityError("Name must be a string")
-			})
-		})
-
-		When("the request body is invalid json", func() {
-			BeforeEach(func() {
-				requestBody = `{"definitely not valid json`
-			})
-
-			It("returns a bad request error", func() {
-				expectBadRequestError()
-			})
-		})
-
-		When("when a required field is not provided", func() {
-			BeforeEach(func() {
-				requestBody = `{
-                    "name": "the-name",
-                    "relationships": {
-                    }
-                }`
-			})
-
-			It("returns a bad request error", func() {
-				expectUnprocessableEntityError("Data is a required field")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -181,99 +127,42 @@ var _ = Describe("Space", func() {
 	Describe("Listing Spaces", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodGet
+			requestPath += "?foo=bar"
 			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
 				{
-					Name:             "alice",
-					GUID:             "a-l-i-c-e",
-					OrganizationGUID: "org-guid-1",
-					CreatedAt:        now,
-					UpdatedAt:        now,
+					Name:             "test-space-1",
+					GUID:             "test-space-1-guid",
+					OrganizationGUID: "test-org-1-guid",
 				},
 				{
-					Name:             "bob",
-					GUID:             "b-o-b",
-					OrganizationGUID: "org-guid-2",
-					CreatedAt:        now,
-					UpdatedAt:        now,
+					Name:             "test-space-2",
+					GUID:             "test-space-2-guid",
+					OrganizationGUID: "test-org-2-guid",
 				},
 			}, nil)
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{})
 		})
 
 		It("returns a list of spaces", func() {
-			Expect(rr.Header().Get("Content-Type")).To(Equal("application/json"))
-
-			Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-                "pagination": {
-                    "total_results": 2,
-                    "total_pages": 1,
-                    "first": {
-                        "href": "%[1]s/v3/spaces"
-                    },
-                    "last": {
-                        "href": "%[1]s/v3/spaces"
-                    },
-                    "next": null,
-                    "previous": null
-                },
-                "resources": [
-                {
-                    "guid": "a-l-i-c-e",
-                    "name": "alice",
-                    "created_at": "2021-09-17T15:23:10Z",
-                    "updated_at": "2021-09-17T15:23:10Z",
-                    "metadata": {
-                        "labels": {},
-                        "annotations": {}
-                    },
-                    "relationships": {
-                        "organization": {
-                            "data": {
-                                "guid": "org-guid-1"
-                            }
-                        }
-                    },
-                    "links": {
-                        "self": {
-                            "href": "%[1]s/v3/spaces/a-l-i-c-e"
-                        },
-                        "organization": {
-                            "href": "%[1]s/v3/organizations/org-guid-1"
-                        }
-                    }
-                },
-                {
-                    "guid": "b-o-b",
-                    "name": "bob",
-                    "created_at": "2021-09-17T15:23:10Z",
-                    "updated_at": "2021-09-17T15:23:10Z",
-                    "metadata": {
-                        "labels": {},
-                        "annotations": {}
-                    },
-                    "relationships": {
-                        "organization": {
-                            "data": {
-                                "guid": "org-guid-2"
-                            }
-                        }
-                    },
-                    "links": {
-                        "self": {
-                            "href": "%[1]s/v3/spaces/b-o-b"
-                        },
-                        "organization": {
-                            "href": "%[1]s/v3/organizations/org-guid-2"
-                        }
-                    }
-                }
-                ]
-            }`, defaultServerURL)))
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix(requestPath))
 
 			Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
 			_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
 			Expect(message.OrganizationGUIDs).To(BeEmpty())
 			Expect(message.Names).To(BeEmpty())
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/spaces?foo=bar"),
+				MatchJSONPath("$.resources", HaveLen(2)),
+				MatchJSONPath("$.resources[0].guid", "test-space-1-guid"),
+				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/spaces/test-space-1-guid"),
+				MatchJSONPath("$.resources[1].guid", "test-space-2-guid"),
+			)))
 		})
 
 		When("fetching the spaces fails", func() {
@@ -288,77 +177,59 @@ var _ = Describe("Space", func() {
 
 		When("organization_guids are provided as a comma-separated list", func() {
 			BeforeEach(func() {
-				requestPath = spacesBase + "?organization_guids=foo,,bar,"
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{
+					OrganizationGUIDs: "org1,org2",
+				})
 			})
 
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
 				_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(message.OrganizationGUIDs).To(ConsistOf("foo", "bar"))
+				Expect(message.OrganizationGUIDs).To(ConsistOf("org1", "org2"))
 				Expect(message.Names).To(BeEmpty())
 			})
 		})
 
 		When("names are provided as a comma-separated list", func() {
 			BeforeEach(func() {
-				requestPath = spacesBase + "?organization_guids=org1&names=foo,,bar,"
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{
+					Names: "name1,name2",
+				})
 			})
 
 			It("filters spaces by them", func() {
 				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
 				_, info, message := spaceRepo.ListSpacesArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(message.OrganizationGUIDs).To(ConsistOf("org1"))
-				Expect(message.Names).To(ConsistOf("foo", "bar"))
+				Expect(message.OrganizationGUIDs).To(BeEmpty())
+				Expect(message.Names).To(ConsistOf("name1", "name2"))
 			})
 		})
 	})
 
 	Describe("Deleting a Space", func() {
-		const (
-			spaceGUID = "spaceGUID"
-			orgGUID   = "orgGUID"
-		)
-
 		BeforeEach(func() {
 			requestMethod = http.MethodDelete
-			requestPath = spacesBase + "/" + spaceGUID
-
-			space := repositories.SpaceRecord{
-				GUID:             spaceGUID,
-				OrganizationGUID: orgGUID,
-			}
-
-			spaceRepo.GetSpaceReturns(space, nil)
-			spaceRepo.DeleteSpaceReturns(nil)
+			requestPath += "/the-space-guid"
 		})
 
-		When("on the happy path", func() {
-			It("responds with a 202 accepted response", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-			})
+		It("deletes the space", func() {
+			Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
+			_, info, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
+			Expect(actualSpaceGUID).To(Equal("the-space-guid"))
 
-			It("responds with a job URL in a location header", func() {
-				Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/space.delete~"+spaceGUID))
-			})
+			Expect(spaceRepo.DeleteSpaceCallCount()).To(Equal(1))
+			_, info, message := spaceRepo.DeleteSpaceArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
+			Expect(message).To(Equal(repositories.DeleteSpaceMessage{
+				GUID:             "the-space-guid",
+				OrganizationGUID: "the-org-guid",
+			}))
 
-			It("fetches the right space", func() {
-				Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
-				_, info, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
-				Expect(info).To(Equal(authInfo))
-				Expect(actualSpaceGUID).To(Equal(spaceGUID))
-			})
-
-			It("deletes the K8s record via the repository", func() {
-				Expect(spaceRepo.DeleteSpaceCallCount()).To(Equal(1))
-				_, info, message := spaceRepo.DeleteSpaceArgsForCall(0)
-				Expect(info).To(Equal(authInfo))
-				Expect(message).To(Equal(repositories.DeleteSpaceMessage{
-					GUID:             spaceGUID,
-					OrganizationGUID: orgGUID,
-				}))
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/space.delete~the-space-guid"))
 		})
 
 		When("fetching the space errors", func() {
@@ -383,105 +254,60 @@ var _ = Describe("Space", func() {
 	})
 
 	Describe("Updating Space", func() {
-		const (
-			spaceGUID = "spaceGUID"
-			orgGUID   = "orgGUID"
-		)
-
 		BeforeEach(func() {
 			requestMethod = http.MethodPatch
-			requestPath = spacesBase + "/" + spaceGUID
+			requestPath += "/the-space-guid"
+
+			spaceRepo.PatchSpaceMetadataReturns(repositories.SpaceRecord{
+				Name:             "the-space",
+				GUID:             "the-space-guid",
+				OrganizationGUID: "the-org-guid",
+			}, nil)
+
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.SpacePatch{
+				Metadata: payloads.MetadataPatch{
+					Annotations: map[string]*string{
+						"hello":                       tools.PtrTo("there"),
+						"foo.example.com/lorem-ipsum": tools.PtrTo("Lorem ipsum."),
+					},
+					Labels: map[string]*string{
+						"env":                           tools.PtrTo("production"),
+						"foo.example.com/my-identifier": tools.PtrTo("aruba"),
+					},
+				},
+			})
 		})
 
-		When("the space exists and is accessible and we patch the annotations and labels", func() {
-			BeforeEach(func() {
-				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
-					GUID:             spaceGUID,
-					OrganizationGUID: orgGUID,
-					Name:             "test-space",
-				}, nil)
+		It("updates the space", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
-				spaceRepo.PatchSpaceMetadataReturns(repositories.SpaceRecord{
-					GUID:             spaceGUID,
-					Name:             "test-space",
-					OrganizationGUID: orgGUID,
-					Labels: map[string]string{
-						"env":                           "production",
-						"foo.example.com/my-identifier": "aruba",
-					},
-					Annotations: map[string]string{
-						"hello":                       "there",
-						"foo.example.com/lorem-ipsum": "Lorem ipsum.",
-					},
-				}, nil)
-				requestBody = `{
-				  "metadata": {
-					"labels": {
-						"env": "production",
-                        "foo.example.com/my-identifier": "aruba"
-					},
-					"annotations": {
-						"hello": "there",
-                        "foo.example.com/lorem-ipsum": "Lorem ipsum."
-					}
-				  }
-			    }`
-			})
+			Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(1))
+			_, _, msg := spaceRepo.PatchSpaceMetadataArgsForCall(0)
+			Expect(msg.GUID).To(Equal("the-space-guid"))
+			Expect(msg.OrgGUID).To(Equal("the-org-guid"))
+			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
+			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
+			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
+			Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK))
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-			It("patches the space with the new labels and annotations", func() {
-				Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(1))
-				_, _, msg := spaceRepo.PatchSpaceMetadataArgsForCall(0)
-				Expect(msg.GUID).To(Equal(spaceGUID))
-				Expect(msg.OrgGUID).To(Equal(orgGUID))
-				Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
-				Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
-				Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
-				Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
-			})
-
-			It("includes the labels and annotations in the response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				var jsonBody struct {
-					Metadata struct {
-						Annotations map[string]string `json:"annotations"`
-						Labels      map[string]string `json:"labels"`
-					} `json:"metadata"`
-				}
-				Expect(json.NewDecoder(rr.Body).Decode(&jsonBody)).To(Succeed())
-				Expect(jsonBody.Metadata.Annotations).To(Equal(map[string]string{
-					"hello":                       "there",
-					"foo.example.com/lorem-ipsum": "Lorem ipsum.",
-				}), "body = ", rr.Body.String())
-				Expect(jsonBody.Metadata.Labels).To(Equal(map[string]string{
-					"env":                           "production",
-					"foo.example.com/my-identifier": "aruba",
-				}))
-			})
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "the-space-guid"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/spaces/the-space-guid"),
+			)))
 		})
 
 		When("the user doesn't have permission to get the org", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(nil, repositories.SpaceResourceType))
-				requestBody = `{
-				  "metadata": {
-					"labels": {
-					  "env": "production"
-					}
-				  }
-				}`
 			})
 
-			It("returns a not found error", func() {
+			It("returns a not found error and does not try updating the space", func() {
 				expectNotFoundError(repositories.SpaceResourceType)
-			})
-
-			It("does not call patch", func() {
 				Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(0))
 			})
 		})
@@ -489,40 +315,17 @@ var _ = Describe("Space", func() {
 		When("fetching the org errors", func() {
 			BeforeEach(func() {
 				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("boom"))
-				requestBody = `{
-				  "metadata": {
-					"labels": {
-					  "env": "production"
-					}
-				  }
-				}`
 			})
 
-			It("returns an error", func() {
+			It("returns an error and does not try updating the space", func() {
 				expectUnknownError()
-			})
-
-			It("does not call patch", func() {
 				Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(0))
 			})
 		})
 
 		When("patching the org errors", func() {
 			BeforeEach(func() {
-				spaceRecord := repositories.SpaceRecord{
-					GUID:             spaceGUID,
-					OrganizationGUID: orgGUID,
-					Name:             "test-space",
-				}
-				spaceRepo.GetSpaceReturns(spaceRecord, nil)
 				spaceRepo.PatchSpaceMetadataReturns(repositories.SpaceRecord{}, errors.New("boom"))
-				requestBody = `{
-				  "metadata": {
-					"labels": {
-					  "env": "production"
-					}
-				  }
-				}`
 			})
 
 			It("returns an error", func() {
@@ -530,71 +333,60 @@ var _ = Describe("Space", func() {
 			})
 		})
 
-		When("a label is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-					  "metadata": {
-						"labels": {
-						  "cloudfoundry.org/test": "production"
-					    }
-        		     }
-					}`
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
+		When("the request is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
 			})
 
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-					  "metadata": {
-						"labels": {
-						  "korifi.cloudfoundry.org/test": "production"
-					    }
-    		         }
-					}`
-				})
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
 
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
+	Describe("get a space", func() {
+		BeforeEach(func() {
+			requestMethod = http.MethodGet
+			requestPath += "/the-space-guid"
+
+			spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
+				Name: "space-name",
+				GUID: "space-guid",
+			}, nil)
+		})
+
+		It("gets the space", func() {
+			Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
+			_, info, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
+			Expect(info).To(Equal(authInfo))
+			Expect(actualSpaceGUID).To(Equal("the-space-guid"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "space-guid"),
+				MatchJSONPath("$.name", "space-name"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/spaces/space-guid"),
+			)))
+		})
+
+		When("getting the space is forbidden", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(nil, repositories.SpaceResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.SpaceResourceType)
 			})
 		})
 
-		When("an annotation is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					requestBody = `{
-					  "metadata": {
-						"annotations": {
-						  "cloudfoundry.org/test": "there"
-						}
-					  }
-					}`
-				})
+		When("getting the space fails", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("get-space-err"))
+			})
 
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-
-				When("the prefix is a subdomain of cloudfoundry.org", func() {
-					BeforeEach(func() {
-						requestBody = `{
-						  "metadata": {
-							"annotations": {
-							  "korifi.cloudfoundry.org/test": "there"
-							}
-						  }
-						}`
-					})
-
-					It("returns an unprocessable entity error", func() {
-						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-					})
-				})
+			It("returns an unknown error", func() {
+				expectUnknownError()
 			})
 		})
 	})

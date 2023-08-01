@@ -7,10 +7,10 @@ import (
 	"strings"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
-	testhelpers "code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -67,7 +67,7 @@ var _ = Describe("Spaces", func() {
 		It("creates a space", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Name).To(Equal(spaceName))
-			testhelpers.EnsureValidUUID(result.GUID)
+			helpers.EnsureValidUUID(result.GUID)
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
 
@@ -105,6 +105,73 @@ var _ = Describe("Spaces", func() {
 					Title:  "CF-UnprocessableEntity",
 					Code:   10008,
 				}))
+			})
+		})
+	})
+
+	Describe("create as a ServiceAccount user", func() {
+		var (
+			result    resource
+			orgName   string
+			orgGUID   string
+			spaceName string
+			createErr cfErrs
+		)
+
+		BeforeEach(func() {
+			orgName = generateGUID("org")
+			orgGUID = createOrg(orgName)
+			spaceName = generateGUID("space")
+			createErr = cfErrs{}
+
+			restyClient = tokenClient
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetBody(resource{
+					Name: spaceName,
+					Relationships: relationships{
+						"organization": {Data: resource{GUID: orgGUID}},
+					},
+				}).
+				SetError(&createErr).
+				SetResult(&result).
+				Post("/v3/spaces")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if len(createErr.Errors) == 0 {
+				deleteSpace(result.GUID)
+			}
+		})
+
+		When("the user is an org manager", func() {
+			BeforeEach(func() {
+				createOrgRole("organization_manager", serviceAccountName, orgGUID)
+			})
+
+			It("creates a space", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+				Expect(result.Name).To(Equal(spaceName))
+				Expect(result.GUID).To(HavePrefix("cf-space-"))
+				Expect(result.GUID).NotTo(BeEmpty())
+			})
+		})
+
+		When("the user is an org user", func() {
+			BeforeEach(func() {
+				createOrgRole("organization_user", serviceAccountName, orgGUID)
+			})
+
+			It("cannot create a space", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
 			})
 		})
 	})
@@ -278,6 +345,10 @@ var _ = Describe("Spaces", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
+
+			spaceResp, err := restyClient.R().Get("/v3/spaces/" + spaceGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(spaceResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 
 		When("the space does not exist", func() {
@@ -300,18 +371,23 @@ var _ = Describe("Spaces", func() {
 
 	Describe("manifests", func() {
 		var (
-			spaceGUID          string
-			resultErr          cfErrs
-			manifestBytes      []byte
-			manifest           manifestResource
-			app1Name, app2Name string
+			spaceGUID                string
+			resultErr                cfErrs
+			manifestBytes            []byte
+			manifest                 manifestResource
+			app1Name, app2Name       string
+			serviceName, serviceGUID string
+			serviceBindingName       string
 		)
 
 		BeforeEach(func() {
 			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 			resultErr = cfErrs{}
+			serviceName = uuid.NewString()
+			serviceGUID = createServiceInstance(spaceGUID, serviceName, map[string]string{})
 			app1Name = generateGUID("manifested-app-1")
 			app2Name = generateGUID("manifested-app-2")
+			serviceBindingName = uuid.NewString()
 
 			route := fmt.Sprintf("%s.%s", app1Name, appFQDN)
 			manifest = manifestResource{
@@ -326,6 +402,10 @@ var _ = Describe("Spaces", func() {
 						Labels:      map[string]string{"foo": "FOO"},
 						Annotations: map[string]string{"bar": "BAR"},
 					},
+					Services: []serviceResource{{
+						Name:        serviceName,
+						BindingName: serviceBindingName,
+					}},
 				}, {
 					Name: app2Name,
 					Processes: []manifestApplicationProcessResource{{
@@ -374,18 +454,33 @@ var _ = Describe("Spaces", func() {
 
 					app1 := getApp(app1GUID)
 					Expect(app1.Metadata).NotTo(BeNil())
-					Expect(app1.Metadata.Labels).To(Equal(map[string]string{
-						"foo":                              "FOO",
-						"korifi.cloudfoundry.org/app-guid": app1GUID,
-					}))
-					Expect(app1.Metadata.Annotations).To(Equal(map[string]string{
-						"bar":                             "BAR",
-						"korifi.cloudfoundry.org/app-rev": "0",
-					}))
+					Expect(app1.Metadata.Labels).To(HaveKeyWithValue("foo", "FOO"))
+					Expect(app1.Metadata.Annotations).To(HaveKeyWithValue("bar", "BAR"))
 
 					app1Process := getProcess(app1GUID, "web")
 					Expect(app1Process.Instances).To(Equal(1))
 					Expect(app1Process.Command).To(Equal("whatever"))
+
+					app1ServiceBindings := getServiceBindingsForApp(app1GUID)
+					Expect(app1ServiceBindings).To(HaveLen(1))
+					Expect(app1ServiceBindings[0].Name).To(Equal(serviceBindingName))
+					Expect(app1ServiceBindings[0].Relationships["app"].Data.GUID).To(Equal(app1GUID))
+					Expect(app1ServiceBindings[0].Relationships["service_instance"].Data.GUID).To(Equal(serviceGUID))
+
+					app1Env := getAppEnv(app1GUID)
+					Expect(app1Env).To(
+						HaveKeyWithValue("system_env_json",
+							HaveKeyWithValue("VCAP_SERVICES",
+								HaveKeyWithValue("user-provided",
+									ContainElement(SatisfyAll(
+										HaveKeyWithValue("instance_guid", serviceGUID),
+										HaveKeyWithValue("instance_name", serviceName),
+										HaveKeyWithValue("binding_name", serviceBindingName),
+									)),
+								),
+							),
+						),
+					)
 
 					app2GUID := getAppGUIDFromName(app2Name)
 					Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
@@ -447,16 +542,14 @@ var _ = Describe("Spaces", func() {
 
 						app1 := getApp(app1GUID)
 						Expect(app1.Metadata).NotTo(BeNil())
-						Expect(app1.Metadata.Labels).To(Equal(map[string]string{
-							"foo":                              "FOO",
-							"baz":                              "luhrmann",
-							"korifi.cloudfoundry.org/app-guid": app1GUID,
-						}))
-						Expect(app1.Metadata.Annotations).To(Equal(map[string]string{
-							"bar":                             "BAR",
-							"fizz":                            "buzz",
-							"korifi.cloudfoundry.org/app-rev": "0",
-						}))
+						Expect(app1.Metadata.Labels).To(SatisfyAll(
+							HaveKeyWithValue("foo", "FOO"),
+							HaveKeyWithValue("baz", "luhrmann"),
+						))
+						Expect(app1.Metadata.Annotations).To(SatisfyAll(
+							HaveKeyWithValue("bar", "BAR"),
+							HaveKeyWithValue("fizz", "buzz"),
+						))
 
 						app1Process := getProcess(app1GUID, "web")
 						Expect(app1Process.Instances).To(Equal(1))
@@ -545,12 +638,38 @@ var _ = Describe("Spaces", func() {
 
 		When("the user has no permissions", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns a Not-Found error", func() {
 				expectNotFoundError(resp, errResp, "Space")
 			})
+		})
+	})
+
+	Describe("get", func() {
+		var (
+			spaceGUID string
+			result    resource
+		)
+
+		BeforeEach(func() {
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
+
+			restyClient = adminClient
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetResult(&result).
+				Get("/v3/spaces/" + spaceGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the space", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(spaceGUID))
 		})
 	})
 })

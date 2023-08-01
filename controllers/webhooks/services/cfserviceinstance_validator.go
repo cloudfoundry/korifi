@@ -12,17 +12,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
 	ServiceInstanceEntityType = "serviceinstance"
-	// Note: the cf cli expects the specific text 'The service instance name is taken'
-	duplicateServiceInstanceNameErrorMessage = "The service instance name is taken: %s"
 )
 
 var cfserviceinstancelog = logf.Log.WithName("cfserviceinstance-validate")
 
-//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=create;update;delete,versions=v1alpha1,name=vcfserviceinstance.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance,mutating=false,failurePolicy=fail,sideEffects=NoneOnDryRun,groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=create;update;delete,versions=v1alpha1,name=vcfserviceinstance.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFServiceInstanceValidator struct {
 	duplicateValidator webhooks.NameValidator
@@ -43,55 +42,38 @@ func (v *CFServiceInstanceValidator) SetupWebhookWithManager(mgr ctrl.Manager) e
 		Complete()
 }
 
-func (v *CFServiceInstanceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *CFServiceInstanceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	serviceInstance, ok := obj.(*korifiv1alpha1.CFServiceInstance)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance.Spec.DisplayName, duplicateErrorMessage)
-	if validationErr != nil {
-		return validationErr.ExportJSONError()
-	}
-
-	return nil
+	return nil, v.duplicateValidator.ValidateCreate(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance)
 }
 
-func (v *CFServiceInstanceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+func (v *CFServiceInstanceValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
 	serviceInstance, ok := obj.(*korifiv1alpha1.CFServiceInstance)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
 	}
 
 	if !serviceInstance.GetDeletionTimestamp().IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	oldServiceInstance, ok := oldObj.(*korifiv1alpha1.CFServiceInstance)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", oldObj))
 	}
 
-	duplicateErrorMessage := fmt.Sprintf(duplicateServiceInstanceNameErrorMessage, serviceInstance.Spec.DisplayName)
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, serviceInstance.Namespace, oldServiceInstance.Spec.DisplayName, serviceInstance.Spec.DisplayName, duplicateErrorMessage)
-	if validationErr != nil {
-		return validationErr.ExportJSONError()
-	}
-
-	return nil
+	return nil, v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, serviceInstance.Namespace, oldServiceInstance, serviceInstance)
 }
 
-func (v *CFServiceInstanceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (v *CFServiceInstanceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	serviceInstance, ok := obj.(*korifiv1alpha1.CFServiceInstance)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance.Spec.DisplayName)
-	if validationErr != nil {
-		return validationErr.ExportJSONError()
-	}
-
-	return nil
+	return nil, v.duplicateValidator.ValidateDelete(ctx, cfserviceinstancelog, serviceInstance.Namespace, serviceInstance)
 }

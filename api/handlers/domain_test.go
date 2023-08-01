@@ -13,25 +13,24 @@ import (
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Domain", func() {
 	var (
-		apiHandler           *handlers.Domain
-		domainRepo           *fake.CFDomainRepository
-		requestJSONValidator *fake.RequestJSONValidator
-		req                  *http.Request
+		apiHandler       *handlers.Domain
+		domainRepo       *fake.CFDomainRepository
+		requestValidator *fake.RequestValidator
+		req              *http.Request
 	)
 
 	BeforeEach(func() {
-		requestJSONValidator = new(fake.RequestJSONValidator)
+		requestValidator = new(fake.RequestValidator)
 		domainRepo = new(fake.CFDomainRepository)
 		apiHandler = handlers.NewDomain(
 			*serverURL,
-			requestJSONValidator,
+			requestValidator,
 			domainRepo,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -42,10 +41,10 @@ var _ = Describe("Domain", func() {
 	})
 
 	Describe("POST /v3/domain", func() {
-		var payload payloads.DomainCreate
+		var payload *payloads.DomainCreate
 
 		BeforeEach(func() {
-			payload = payloads.DomainCreate{
+			payload = &payloads.DomainCreate{
 				Name:     "my.domain",
 				Internal: false,
 				Metadata: payloads.Metadata{
@@ -57,13 +56,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				domain, ok := i.(*payloads.DomainCreate)
-				Expect(ok).To(BeTrue())
-				*domain = payload
-
-				return nil
-			}
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
 			domainRepo.CreateDomainReturns(repositories.DomainRecord{
 				Name:        "my.domain",
@@ -71,21 +64,18 @@ var _ = Describe("Domain", func() {
 				Labels:      map[string]string{"foo": "bar"},
 				Annotations: map[string]string{"bar": "baz"},
 				Namespace:   "my-ns",
-				CreatedAt:   "created-on",
-				UpdatedAt:   "updated-on",
 			}, nil)
 
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/domains", strings.NewReader(""))
+			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/domains", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("has the correct response type", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
-		})
+		It("creates a domain", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
-		It("invokes create domain correctly", func() {
 			Expect(domainRepo.CreateDomainCallCount()).To(Equal(1))
 			_, actualAuthInfo, createMessage := domainRepo.CreateDomainArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -96,17 +86,19 @@ var _ = Describe("Domain", func() {
 			Expect(createMessage.Metadata.Annotations).To(Equal(map[string]string{
 				"bar": "baz",
 			}))
-		})
 
-		It("returns the correct JSON", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "domain-guid"),
+				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"),
+			)))
 		})
 
 		When("decoding the payload fails", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {
@@ -143,8 +135,6 @@ var _ = Describe("Domain", func() {
 				Labels:      map[string]string{"foo": "bar"},
 				Annotations: map[string]string{"bar": "baz"},
 				Namespace:   "my-ns",
-				CreatedAt:   "created-on",
-				UpdatedAt:   "updated-on",
 			}, nil)
 
 			var err error
@@ -152,15 +142,19 @@ var _ = Describe("Domain", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("has the correct response type", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
-		})
+		It("returns the domain", func() {
+			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualDomainGUID := domainRepo.GetDomainArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualDomainGUID).To(Equal("domain-guid"))
 
-		It("returns the correct JSON", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "domain-guid"),
+				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"),
+			)))
 		})
 
 		When("the domain repo returns an error", func() {
@@ -179,16 +173,16 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFDomain not found")
+				expectNotFoundError("CFDomain")
 			})
 		})
 	})
 
 	Describe("PATCH /v3/domains/:guid", func() {
-		var payload payloads.DomainUpdate
+		var payload *payloads.DomainUpdate
 
 		BeforeEach(func() {
-			payload = payloads.DomainUpdate{
+			payload = &payloads.DomainUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"foo": tools.PtrTo("bar"),
@@ -198,13 +192,7 @@ var _ = Describe("Domain", func() {
 					},
 				},
 			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				update, ok := i.(*payloads.DomainUpdate)
-				Expect(ok).To(BeTrue())
-				*update = payload
-
-				return nil
-			}
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 
 			domainRepo.UpdateDomainReturns(repositories.DomainRecord{
 				Name:        "my.domain",
@@ -212,27 +200,18 @@ var _ = Describe("Domain", func() {
 				Labels:      map[string]string{"foo": "bar"},
 				Annotations: map[string]string{"bar": "baz"},
 				Namespace:   "my-ns",
-				CreatedAt:   "created-on",
-				UpdatedAt:   "updated-on",
 			}, nil)
 
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/domains/my-domain", strings.NewReader(""))
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/domains/my-domain", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("has the correct response type", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
-		})
+		It("updates the domain", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
-		It("returns the correct JSON", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", "domain-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.supported_protocols", ConsistOf("http")))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"))
-		})
-
-		It("invokes the domain repo correctly", func() {
 			Expect(domainRepo.UpdateDomainCallCount()).To(Equal(1))
 			_, _, updateMessage := domainRepo.UpdateDomainArgsForCall(0)
 			Expect(updateMessage).To(Equal(repositories.UpdateDomainMessage{
@@ -242,11 +221,19 @@ var _ = Describe("Domain", func() {
 					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
 				},
 			}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "domain-guid"),
+				MatchJSONPath("$.supported_protocols", ConsistOf("http")),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/domains/domain-guid"),
+			)))
 		})
 
 		When("decoding the payload fails", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "oops"))
 			})
 
 			It("returns an error", func() {
@@ -269,7 +256,7 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFDomain not found")
+				expectNotFoundError("CFDomain")
 			})
 		})
 	})
@@ -283,30 +270,37 @@ var _ = Describe("Domain", func() {
 				Name:        "example.org",
 				Labels:      nil,
 				Annotations: nil,
-				CreatedAt:   "2019-05-10T17:17:48Z",
-				UpdatedAt:   "2019-05-10T17:17:48Z",
 			}
 			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
+
+			payload := &payloads.DomainList{Names: "bob,alice"}
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/domains", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns status 200 OK", func() {
+		It("returns the list of domains", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL).To(Equal(req.URL))
+
+			Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
+			_, _, listMessage := domainRepo.ListDomainsArgsForCall(0)
+			Expect(listMessage).To(Equal(repositories.ListDomainsMessage{
+				Names: []string{"bob", "alice"},
+			}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-		})
-
-		It("returns Content-Type as JSON in header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
-		})
-
-		It("returns the Pagination Data and Domain Resources in the response", func() {
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/domains"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].guid", "test-domain-guid"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].supported_protocols", ConsistOf("http")))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/domains"),
+				MatchJSONPath("$.resources", HaveLen(1)),
+				MatchJSONPath("$.resources[0].guid", "test-domain-guid"),
+				MatchJSONPath("$.resources[0].supported_protocols", ConsistOf("http")),
+			)))
 		})
 
 		When("no domain exists", func() {
@@ -315,17 +309,12 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("returns an empty list in the response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeZero()))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", BeEmpty()))
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.pagination.total_results", BeZero()),
+					MatchJSONPath("$.resources", BeEmpty()),
+				)))
 			})
 		})
 
@@ -347,17 +336,12 @@ var _ = Describe("Domain", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("deletes the domain with the repository", func() {
+		It("deletes the domain", func() {
 			Expect(domainRepo.DeleteDomainCallCount()).To(Equal(1))
 			_, _, deletedDomainGUID := domainRepo.DeleteDomainArgsForCall(0)
 			Expect(deletedDomainGUID).To(Equal("my-domain"))
-		})
 
-		It("responds with a 202 accepted response", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-		})
-
-		It("responds with a job URL in a location header", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/domain.delete~my-domain"))
 		})
 
@@ -377,7 +361,7 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("CFDomain not found")
+				expectNotFoundError("CFDomain")
 			})
 		})
 	})

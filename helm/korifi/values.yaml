@@ -4,9 +4,14 @@ global:
   logLevel: info
   defaultAppDomainName:
   generateIngressCertificates: false
-  containerRegistrySecret: image-registry-credentials
+  containerRegistrySecrets:
+  - image-registry-credentials
   eksContainerRegistryRoleARN: ""
   containerRegistryCACertSecret:
+
+  reconcilers:
+    build: kpack-image-builder
+    run: statefulset-runner
 
 adminUserName:
 
@@ -44,8 +49,9 @@ api:
     type: buildpack
     stack: cflinuxfs3
     stagingRequirements:
-      memoryMB: 1024
-      diskMB: 1024
+      memoryMB: 0
+      diskMB: 0
+      buildCacheMB: 2048
 
   builderName: kpack-image-builder
   userCertificateExpirationWarningDuration: 168h
@@ -66,9 +72,6 @@ controllers:
       cpu: 50m
       memory: 100Mi
 
-  reconcilers:
-    build: kpack-image-builder
-    app: statefulset-runner
   processDefaults:
     memoryMB: 1024
     diskQuotaMB: 1024
@@ -92,8 +95,10 @@ kpackImageBuilder:
       memory: 100Mi
 
   clusterBuilderName: ""
-  clusterStackBuildImage: paketobuildpacks/build:full-cnb
-  clusterStackRunImage: paketobuildpacks/run:full-cnb
+  builderReadinessTimeout: 30s
+  clusterStackID: io.buildpacks.stacks.jammy
+  clusterStackBuildImage: paketobuildpacks/build-jammy-full
+  clusterStackRunImage: paketobuildpacks/run-jammy-full
   builderRepository: ""
 
 statefulsetRunner:
@@ -122,3 +127,6 @@ jobTaskRunner:
 
 contourRouter:
   include: true
+
+helm:
+  hooksImage: alpine/k8s:1.25.2

@@ -126,13 +126,8 @@ var _ = Describe("DomainRepository", func() {
 				Expect(createdDomain.Labels).To(HaveKeyWithValue("foo", "bar"))
 				Expect(createdDomain.Annotations).To(HaveKeyWithValue("bar", "baz"))
 
-				createdAt, err := time.Parse(time.RFC3339, createdDomain.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-
-				updatedAt, err := time.Parse(time.RFC3339, createdDomain.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(createdDomain.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdDomain.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				domainNSName := types.NamespacedName{Name: createdDomainGUID, Namespace: rootNamespace}
 				createdCFDomain := new(korifiv1alpha1.CFDomain)
@@ -259,11 +254,7 @@ var _ = Describe("DomainRepository", func() {
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID1)}),
 			))
 
-			firstDomainCreatedAt, err := time.Parse(time.RFC3339, domainRecords[0].CreatedAt)
-			Expect(err).NotTo(HaveOccurred())
-			secondDomainCreatedAt, err := time.Parse(time.RFC3339, domainRecords[1].CreatedAt)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(firstDomainCreatedAt).To(BeTemporally("<=", secondDomainCreatedAt))
+			Expect(domainRecords[0].CreatedAt).To(BeTemporally("<=", domainRecords[1].CreatedAt))
 		})
 
 		When("no CFDomains exist", func() {
@@ -329,6 +320,18 @@ var _ = Describe("DomainRepository", func() {
 			Expect(foundDomain.Name).To(Equal(domainName))
 		})
 
+		When("the user has no permission to list domains in the root namespace", func() {
+			BeforeEach(func() {
+				userName = generateGUID()
+				cert, key := testhelpers.ObtainClientCert(testEnv, userName)
+				authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
+			})
+
+			It("returns a not found error", func() {
+				Expect(getErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+
 		When("No matches exist for the provided name", func() {
 			BeforeEach(func() {
 				searchName = "fubar"
@@ -370,6 +373,47 @@ var _ = Describe("DomainRepository", func() {
 					err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cfDomain), &korifiv1alpha1.CFDomain{})
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
+			})
+		})
+	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			deletionTime *time.Time
+			getErr       error
+		)
+
+		JustBeforeEach(func() {
+			deletionTime, getErr = domainRepo.GetDeletedAt(ctx, authInfo, cfDomain.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the domain is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfDomain, func() {
+					cfDomain.Finalizers = append(cfDomain.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the domain isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

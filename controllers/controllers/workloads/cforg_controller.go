@@ -21,9 +21,15 @@ import (
 	"fmt"
 	"time"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
+	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,40 +39,59 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
-	"code.cloudfoundry.org/korifi/tools/k8s"
-)
-
-const (
-	orgFinalizerName = "cfOrg.korifi.cloudfoundry.org"
 )
 
 // CFOrgReconciler reconciles a CFOrg object
 type CFOrgReconciler struct {
-	client                      client.Client
-	scheme                      *runtime.Scheme
-	log                         logr.Logger
-	containerRegistrySecretName string
-	labelCompiler               labels.Compiler
+	client                       client.Client
+	scheme                       *runtime.Scheme
+	log                          logr.Logger
+	containerRegistrySecretNames []string
+	labelCompiler                labels.Compiler
 }
 
 func NewCFOrgReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	containerRegistrySecretName string,
+	containerRegistrySecretNames []string,
 	labelCompiler labels.Compiler,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg] {
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](log, client, &CFOrgReconciler{
-		client:                      client,
-		scheme:                      scheme,
-		log:                         log,
-		containerRegistrySecretName: containerRegistrySecretName,
-		labelCompiler:               labelCompiler,
+		client:                       client,
+		scheme:                       scheme,
+		log:                          log,
+		containerRegistrySecretNames: containerRegistrySecretNames,
+		labelCompiler:                labelCompiler,
 	})
+}
+
+func (r *CFOrgReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.CFOrg{}).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
+		).
+		Watches(
+			&rbacv1.RoleBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
+		)
+}
+
+func (r *CFOrgReconciler) enqueueCFOrgRequests(ctx context.Context, object client.Object) []reconcile.Request {
+	cfOrgList := &korifiv1alpha1.CFOrgList{}
+	err := r.client.List(ctx, cfOrgList, client.InNamespace(object.GetNamespace()))
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	requests := make([]reconcile.Request, len(cfOrgList.Items))
+	for i := range cfOrgList.Items {
+		requests[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cfOrgList.Items[i])}
+	}
+
+	return requests
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cforgs,verbs=get;list;watch;create;update;patch;delete
@@ -96,109 +121,78 @@ func NewCFOrgReconciler(
 //+kubebuilder:rbac:groups="policy",resources=poddisruptionbudgets,verbs=create;deletecollection
 //+kubebuilder:rbac:groups="policy",resources=podsecuritypolicies,verbs=use
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the CFOrg object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfOrg.Namespace, "name", cfOrg.Name)
+	log := shared.ObjectLogger(r.log, cfOrg)
+	ctx = logr.NewContext(ctx, log)
+
+	cfOrg.Status.ObservedGeneration = cfOrg.Generation
+	log.V(1).Info("set observed generation", "generation", cfOrg.Status.ObservedGeneration)
 
 	if !cfOrg.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, log, cfOrg)
+		return r.finalize(ctx, cfOrg)
 	}
 
-	getConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType)
-
-	err := k8s.AddFinalizer(ctx, log, r.client, cfOrg, orgFinalizerName)
-	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error adding finalizer: %w", err), log, &cfOrg.Status.Conditions, "FinalizerAddition")
-	}
+	shared.GetConditionOrSetAsUnknown(&cfOrg.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfOrg.Generation)
 
 	cfOrg.Status.GUID = cfOrg.Name
 
-	err = createOrPatchNamespace(ctx, r.client, log, cfOrg, r.labelCompiler.Compile(map[string]string{
+	err := createOrPatchNamespace(ctx, r.client, cfOrg, r.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.OrgNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
 		korifiv1alpha1.OrgGUIDKey: cfOrg.Name,
 	}), map[string]string{
 		korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName,
 	})
 	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error creating namespace: %w", err), log, &cfOrg.Status.Conditions, "NamespaceCreation")
+		return logAndSetReadyStatus(fmt.Errorf("error creating namespace: %w", err), log, &cfOrg.Status.Conditions, "NamespaceCreation", cfOrg.Generation)
 	}
 
-	err = getNamespace(ctx, log, r.client, cfOrg.Name)
+	err = getNamespace(ctx, r.client, cfOrg.Name)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
 	}
 
-	err = propagateSecret(ctx, r.client, log, cfOrg, r.containerRegistrySecretName)
+	err = propagateSecrets(ctx, r.client, cfOrg, r.containerRegistrySecretNames)
 	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfOrg.Status.Conditions, "RegistrySecretPropagation")
+		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfOrg.Status.Conditions, "RegistrySecretPropagation", cfOrg.Generation)
 	}
 
-	err = reconcileRoleBindings(ctx, r.client, log, cfOrg)
+	err = reconcileRoleBindings(ctx, r.client, cfOrg)
 	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error propagating role-bindings: %w", err), log, &cfOrg.Status.Conditions, "RoleBindingPropagation")
+		return logAndSetReadyStatus(fmt.Errorf("error propagating role-bindings: %w", err), log, &cfOrg.Status.Conditions, "RoleBindingPropagation", cfOrg.Generation)
 	}
 
 	meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
-		Type:   StatusConditionReady,
-		Status: metav1.ConditionTrue,
-		Reason: StatusConditionReady,
+		Type:               shared.StatusConditionReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             shared.StatusConditionReady,
+		ObservedGeneration: cfOrg.Generation,
 	})
 
 	return ctrl.Result{}, nil
 }
 
-func (r *CFOrgReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFOrg{}).
-		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
-		).
-		Watches(
-			&source.Kind{Type: &rbacv1.RoleBinding{}},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueCFOrgRequests),
-		)
-}
+func (r *CFOrgReconciler) finalize(ctx context.Context, org client.Object) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalize")
 
-func (r *CFOrgReconciler) enqueueCFOrgRequests(object client.Object) []reconcile.Request {
-	cfOrgList := &korifiv1alpha1.CFOrgList{}
-	err := r.client.List(context.Background(), cfOrgList, client.InNamespace(object.GetNamespace()))
-	if err != nil {
-		return []reconcile.Request{}
-	}
-
-	requests := make([]reconcile.Request, len(cfOrgList.Items))
-	for i := range cfOrgList.Items {
-		requests[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cfOrgList.Items[i])}
-	}
-
-	return requests
-}
-
-func (r *CFOrgReconciler) finalize(ctx context.Context, log logr.Logger, org client.Object) (ctrl.Result, error) {
-	log = log.WithName("finalize")
-
-	if !controllerutil.ContainsFinalizer(org, orgFinalizerName) {
+	if !controllerutil.ContainsFinalizer(org, korifiv1alpha1.CFOrgFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
 	err := r.client.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.GetName()}})
+	if k8serrors.IsNotFound(err) {
+		if controllerutil.RemoveFinalizer(org, korifiv1alpha1.CFOrgFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	if err != nil {
 		log.Info("failed to delete namespace", "reason", err)
 		return ctrl.Result{}, err
 	}
 
-	if controllerutil.RemoveFinalizer(org, orgFinalizerName) {
-		log.V(1).Info("finalizer removed")
-	}
+	log.V(1).Info("requeuing waiting for namespace deletion")
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: time.Second}, nil
 }

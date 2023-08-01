@@ -1,13 +1,11 @@
 package payloads_test
 
 import (
-	"bytes"
 	"encoding/json"
-	"net/http"
-	"net/url"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,20 +13,62 @@ import (
 )
 
 var _ = Describe("ServiceInstanceList", func() {
-	Describe("DecodeFromURLValues", func() {
-		serviceInstanceList := payloads.ServiceInstanceList{}
-		err := serviceInstanceList.DecodeFromURLValues(url.Values{
-			"names":       []string{"name"},
-			"space_guids": []string{"space_guid"},
-			"order_by":    []string{"order"},
+	DescribeTable("valid query",
+		func(query string, expectedServiceInstanceList payloads.ServiceInstanceList) {
+			actualServiceInstanceList, decodeErr := decodeQuery[payloads.ServiceInstanceList](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualServiceInstanceList).To(Equal(expectedServiceInstanceList))
+		},
+		Entry("names", "names=name", payloads.ServiceInstanceList{Names: "name"}),
+		Entry("space_guids", "space_guids=space_guid", payloads.ServiceInstanceList{SpaceGUIDs: "space_guid"}),
+		Entry("guids", "guids=guid", payloads.ServiceInstanceList{GUIDs: "guid"}),
+		Entry("created_at", "order_by=created_at", payloads.ServiceInstanceList{OrderBy: "created_at"}),
+		Entry("-created_at", "order_by=-created_at", payloads.ServiceInstanceList{OrderBy: "-created_at"}),
+		Entry("updated_at", "order_by=updated_at", payloads.ServiceInstanceList{OrderBy: "updated_at"}),
+		Entry("-updated_at", "order_by=-updated_at", payloads.ServiceInstanceList{OrderBy: "-updated_at"}),
+		Entry("name", "order_by=name", payloads.ServiceInstanceList{OrderBy: "name"}),
+		Entry("-name", "order_by=-name", payloads.ServiceInstanceList{OrderBy: "-name"}),
+		Entry("fields[xxx]", "fields[abc.d]=e", payloads.ServiceInstanceList{}),
+		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceInstanceList{LabelSelector: "foo"}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.ServiceInstanceList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+	)
+
+	Describe("ToMessage", func() {
+		var (
+			payload payloads.ServiceInstanceList
+			message repositories.ListServiceInstanceMessage
+		)
+
+		BeforeEach(func() {
+			payload = payloads.ServiceInstanceList{
+				Names:         "n1,n2",
+				GUIDs:         "g1,g2",
+				SpaceGUIDs:    "sg1,sg2",
+				OrderBy:       "order",
+				LabelSelector: "foo=bar",
+			}
 		})
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(serviceInstanceList).To(Equal(payloads.ServiceInstanceList{
-			Names:      "name",
-			SpaceGuids: "space_guid",
-			OrderBy:    "order",
-		}))
+		JustBeforeEach(func() {
+			message = payload.ToMessage()
+		})
+
+		It("returns a list service instances message", func() {
+			Expect(message).To(Equal(repositories.ListServiceInstanceMessage{
+				Names:         []string{"n1", "n2"},
+				SpaceGUIDs:    []string{"sg1", "sg2"},
+				GUIDs:         []string{"g1", "g2"},
+				LabelSelector: "foo=bar",
+			}))
+		})
 	})
 })
 
@@ -49,8 +89,8 @@ var _ = Describe("ServiceInstanceCreate", func() {
 				"username": "bob",
 				"password": "float",
 			},
-			Relationships: payloads.ServiceInstanceRelationships{
-				Space: payloads.Relationship{
+			Relationships: &payloads.ServiceInstanceRelationships{
+				Space: &payloads.Relationship{
 					Data: &payloads.RelationshipData{
 						GUID: "space-guid",
 					},
@@ -64,13 +104,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(createPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, serviceInstanceCreate)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), serviceInstanceCreate)
 	})
 
 	It("succeeds", func() {
@@ -84,7 +118,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Name is a required field")
+			expectUnprocessableEntityError(validatorErr, "name cannot be blank")
 		})
 	})
 
@@ -94,7 +128,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Type is a required field")
+			expectUnprocessableEntityError(validatorErr, "type cannot be blank")
 		})
 	})
 
@@ -104,7 +138,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Type must be one of [user-provided]")
+			expectUnprocessableEntityError(validatorErr, "type value must be one of: user-provided")
 		})
 	})
 
@@ -114,7 +148,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Data is a required field")
+			expectUnprocessableEntityError(validatorErr, "data is required")
 		})
 	})
 
@@ -125,11 +159,11 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "Key: 'ServiceInstanceCreate.Tags' Error:Field validation for 'Tags' failed on the 'serviceinstancetaglength' tag")
+			expectUnprocessableEntityError(validatorErr, "combined length of tags cannot exceed")
 		})
 	})
 
-	When("metadata.labels contains an invalid key", func() {
+	When("metadata is invalid", func() {
 		BeforeEach(func() {
 			createPayload.Metadata = payloads.Metadata{
 				Labels: map[string]string{
@@ -139,21 +173,7 @@ var _ = Describe("ServiceInstanceCreate", func() {
 		})
 
 		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
-		})
-	})
-
-	When("metadata.annotations contains an invalid key", func() {
-		BeforeEach(func() {
-			createPayload.Metadata = payloads.Metadata{
-				Annotations: map[string]string{
-					"foo.cloudfoundry.org/bar": "jim",
-				},
-			}
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot begin with \"cloudfoundry.org\"")
+			expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
 		})
 	})
 
@@ -253,13 +273,7 @@ var _ = Describe("ServiceInstancePatch", func() {
 	})
 
 	JustBeforeEach(func() {
-		body, err := json.Marshal(patchPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		req, err := http.NewRequest("", "", bytes.NewReader(body))
-		Expect(err).NotTo(HaveOccurred())
-
-		validatorErr = validator.DecodeAndValidateJSONPayload(req, serviceInstancePatch)
+		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(patchPayload), serviceInstancePatch)
 	})
 
 	It("succeeds", func() {
@@ -275,6 +289,16 @@ var _ = Describe("ServiceInstancePatch", func() {
 		It("succeeds", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
 			Expect(serviceInstancePatch).To(PointTo(Equal(patchPayload)))
+		})
+	})
+
+	When("metadata is invalid", func() {
+		BeforeEach(func() {
+			patchPayload.Metadata.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+		})
+
+		It("returns an appropriate error", func() {
+			expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
 		})
 	})
 

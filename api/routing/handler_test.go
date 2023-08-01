@@ -7,7 +7,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/routing"
 	"code.cloudfoundry.org/korifi/api/routing/fake"
-	"github.com/go-http-utils/headers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -43,7 +42,7 @@ var _ = Describe("Handler", func() {
 	})
 
 	It("does not set content type header on the response", func() {
-		Expect(rr.Header()).NotTo(HaveKey(headers.ContentType))
+		Expect(rr.Header()).NotTo(HaveKey("Content-Type"))
 	})
 
 	When("the response body is not nil", func() {
@@ -52,7 +51,7 @@ var _ = Describe("Handler", func() {
 		})
 
 		It("sets the application/json content type in the response", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, "application/json"))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("encodes the body into JSON", func() {
@@ -62,13 +61,13 @@ var _ = Describe("Handler", func() {
 
 	When("the response sets header values", func() {
 		BeforeEach(func() {
-			response = response.WithHeader(headers.Location, "/home")
-			response = response.WithHeader(headers.Link, "link")
+			response = response.WithHeader("Location", "/home")
+			response = response.WithHeader("Link", "link")
 		})
 
 		It("sets the header on the response", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.Location, "/home"))
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.Link, "link"))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "/home"))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Link", "link"))
 		})
 	})
 

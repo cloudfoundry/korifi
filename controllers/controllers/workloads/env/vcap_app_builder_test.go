@@ -13,7 +13,7 @@ var _ = Describe("VCAP_APPLICATION env value builder", func() {
 	var builder *env.VCAPApplicationEnvValueBuilder
 
 	BeforeEach(func() {
-		builder = env.NewVCAPApplicationEnvValueBuilder(k8sClient, nil)
+		builder = env.NewVCAPApplicationEnvValueBuilder(controllersClient, nil)
 	})
 
 	Describe("BuildEnvValue", func() {
@@ -42,7 +42,7 @@ var _ = Describe("VCAP_APPLICATION env value builder", func() {
 
 		When("extra values are provided", func() {
 			BeforeEach(func() {
-				builder = env.NewVCAPApplicationEnvValueBuilder(k8sClient, map[string]any{
+				builder = env.NewVCAPApplicationEnvValueBuilder(controllersClient, map[string]any{
 					"application_id": "not-the-application-id",
 					"foo":            "bar",
 					"answer":         42,

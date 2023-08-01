@@ -3,10 +3,12 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -41,8 +43,8 @@ var _ = Describe("App", func() {
 						Stack:      "cflinuxfs2",
 					},
 				},
-				CreatedAt: "2023-03-28T15:00:00Z",
-				UpdatedAt: "2023-03-28T15:00:01Z",
+				CreatedAt: time.UnixMilli(1000),
+				UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 				IsStaged:  false,
 			}
 		})
@@ -57,8 +59,8 @@ var _ = Describe("App", func() {
 		It("produces expected app json", func() {
 			Expect(output).To(MatchJSON(`{
 				"guid": "app-guid",
-				"created_at": "2023-03-28T15:00:00Z",
-				"updated_at": "2023-03-28T15:00:01Z",
+				"created_at": "1970-01-01T00:00:01Z",
+				"updated_at": "1970-01-01T00:00:02Z",
 				"name": "test-app",
 				"state": "STOPPED",
 				"lifecycle": {

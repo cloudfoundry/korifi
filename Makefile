@@ -37,25 +37,40 @@ generate-fakes:
 
 fmt: install-gofumpt install-shfmt
 	$(GOFUMPT) -w .
-	$(SHFMT) -f . | grep -v '^tests/vendor' | grep -v '^tests/e2e/assets/vendored' | xargs $(SHFMT) -w -i 2 -ci
+	$(SHFMT) -f . | grep -v '^tests/vendor' | xargs $(SHFMT) -w -i 2 -ci
 
 vet: ## Run go vet against code.
 	go vet ./...
 
-lint: fmt vet
+lint: fmt vet gosec staticcheck
 	golangci-lint run -v
+
+gosec: install-gosec
+	$(GOSEC) --exclude=G101,G304,G401,G404,G505 --exclude-dir=tests ./...
+
+staticcheck: install-staticcheck
+	$(STATICCHECK) ./...
 
 test: lint
 	@for comp in $(COMPONENTS); do make -C $$comp test; done
 	make test-tools
 	make test-e2e
 
-
 test-tools:
 	./scripts/run-tests.sh tools
 
-test-e2e:
+test-e2e: build-dorifi
 	./scripts/run-tests.sh tests/e2e
+
+test-crds: build-dorifi
+	./tests/crds/run-tests.sh
+
+test-smoke: build-dorifi
+	./tests/smoke/run-tests.sh
+
+
+build-dorifi:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dorifi/dorifi -C tests/assets/golang .
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:
@@ -68,6 +83,14 @@ install-shfmt:
 VENDIR = $(shell go env GOPATH)/bin/vendir
 install-vendir:
 	go install github.com/vmware-tanzu/carvel-vendir/cmd/vendir@latest
+
+GOSEC = $(shell go env GOPATH)/bin/gosec
+install-gosec:
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+STATICCHECK = $(shell go env GOPATH)/bin/staticcheck
+install-staticcheck:
+	go install honnef.co/go/tools/cmd/staticcheck@latest
 
 vendir-update-dependencies: install-vendir
 	$(VENDIR) sync --chdir tests

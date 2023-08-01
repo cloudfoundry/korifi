@@ -3,10 +3,12 @@ package webhooks_test
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -19,15 +21,12 @@ import (
 
 var _ = Describe("DuplicateValidator", func() {
 	var (
-		ctx                   context.Context
-		nameRegistry          *fake.NameRegistry
-		logger                logr.Logger
-		duplicateValidator    *webhooks.DuplicateValidator
-		validationErr         *webhooks.ValidationError
-		duplicateErrorMessage string
-		testName              string
-		testNewName           string
-		testNamespace         string
+		ctx                context.Context
+		nameRegistry       *fake.NameRegistry
+		logger             logr.Logger
+		duplicateValidator *webhooks.DuplicateValidator
+		validationErr      error
+		uniqueClientObj    *fake.UniqueClientObject
 	)
 
 	BeforeEach(func() {
@@ -40,27 +39,29 @@ var _ = Describe("DuplicateValidator", func() {
 		duplicateValidator = webhooks.NewDuplicateValidator(nameRegistry)
 		logger = logf.Log
 
-		testName = "test-resource"
-		testNewName = "test-resource-new"
-		testNamespace = "default"
-		duplicateErrorMessage = "Resource with the name 'test-resource' already exists."
+		uniqueClientObj = new(fake.UniqueClientObject)
+		uniqueClientObj.GetNameReturns("test-resource-name")
+		uniqueClientObj.GetNamespaceReturns("test-resource-namespace")
+		uniqueClientObj.UniqueNameReturns("unique-name")
+		uniqueClientObj.UniqueValidationErrorMessageReturns("uniqueness-error")
 	})
 
 	Describe("ValidateCreate", func() {
 		JustBeforeEach(func() {
-			validationErr = duplicateValidator.ValidateCreate(ctx, logger, testNamespace, testName, duplicateErrorMessage)
-		})
-
-		It("succeeds", func() {
-			Expect(validationErr).NotTo(HaveOccurred())
+			validationErr = duplicateValidator.ValidateCreate(ctx, logger, "uniqueness-namespace", uniqueClientObj)
 		})
 
 		It("uses the name registry to register the name", func() {
+			Expect(validationErr).NotTo(HaveOccurred())
+
 			Expect(nameRegistry.RegisterNameCallCount()).To(Equal(1))
-			actualContext, namespace, name := nameRegistry.RegisterNameArgsForCall(0)
+			actualContext, namespace, name, ownerNamespace, ownerName := nameRegistry.RegisterNameArgsForCall(0)
+
 			Expect(actualContext).To(Equal(ctx))
-			Expect(namespace).To(Equal(testNamespace))
-			Expect(name).To(Equal(testName))
+			Expect(namespace).To(Equal("uniqueness-namespace"))
+			Expect(name).To(Equal("unique-name"))
+			Expect(ownerNamespace).To(Equal("test-resource-namespace"))
+			Expect(ownerName).To(Equal("test-resource-name"))
 		})
 
 		When("the name is already registered", func() {
@@ -69,10 +70,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: duplicateErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("uniqueness-error"),
+				))
 			})
 		})
 
@@ -82,47 +83,53 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("returns the error", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})
 
 	Describe("ValidateUpdate", func() {
+		var newUniqueClientObj *fake.UniqueClientObject
+		BeforeEach(func() {
+			newUniqueClientObj = new(fake.UniqueClientObject)
+			newUniqueClientObj = new(fake.UniqueClientObject)
+			newUniqueClientObj.GetNameReturns("test-resource-name")
+			newUniqueClientObj.GetNamespaceReturns("test-resource-namespace")
+			newUniqueClientObj.UniqueNameReturns("new-unique-name")
+			newUniqueClientObj.UniqueValidationErrorMessageReturns("new-uniqueness-error")
+		})
+
 		JustBeforeEach(func() {
-			validationErr = duplicateValidator.ValidateUpdate(ctx, logger, testNamespace, testName, testNewName, duplicateErrorMessage)
+			validationErr = duplicateValidator.ValidateUpdate(ctx, logger, "uniqueness-namespace", uniqueClientObj, newUniqueClientObj)
 		})
 
-		It("succeeds", func() {
+		It("locks the old name, registers the new name, deregisters the old name", func() {
 			Expect(validationErr).NotTo(HaveOccurred())
-		})
 
-		It("locks the old name", func() {
 			Expect(nameRegistry.TryLockNameCallCount()).To(Equal(1))
 			_, namespace, name := nameRegistry.TryLockNameArgsForCall(0)
-			Expect(namespace).To(Equal(testNamespace))
-			Expect(name).To(Equal(testName))
-		})
+			Expect(namespace).To(Equal("uniqueness-namespace"))
+			Expect(name).To(Equal("unique-name"))
 
-		It("registers the new name", func() {
 			Expect(nameRegistry.RegisterNameCallCount()).To(Equal(1))
-			_, namespace, name := nameRegistry.RegisterNameArgsForCall(0)
-			Expect(namespace).To(Equal(testNamespace))
-			Expect(name).To(Equal(testNewName))
-		})
+			_, namespace, name, ownerNamespace, ownerName := nameRegistry.RegisterNameArgsForCall(0)
+			Expect(namespace).To(Equal("uniqueness-namespace"))
+			Expect(name).To(Equal("new-unique-name"))
+			Expect(ownerNamespace).To(Equal("test-resource-namespace"))
+			Expect(ownerName).To(Equal("test-resource-name"))
 
-		It("deregisters the old name", func() {
 			Expect(nameRegistry.DeregisterNameCallCount()).To(Equal(1))
-			_, namespace, name := nameRegistry.DeregisterNameArgsForCall(0)
-			Expect(namespace).To(Equal(testNamespace))
-			Expect(name).To(Equal(testName))
+			_, namespace, name = nameRegistry.DeregisterNameArgsForCall(0)
+			Expect(namespace).To(Equal("uniqueness-namespace"))
+			Expect(name).To(Equal("unique-name"))
 		})
 
 		When("the name isn't changed", func() {
 			BeforeEach(func() {
-				testNewName = testName
+				newUniqueClientObj.UniqueNameReturns("unique-name")
 			})
 
 			It("is allowed without using the name registry", func() {
@@ -134,19 +141,67 @@ var _ = Describe("DuplicateValidator", func() {
 		})
 
 		When("taking the lock on the old name fails", func() {
-			BeforeEach(func() {
-				nameRegistry.TryLockNameReturns(errors.New("nope"))
+			When("for a generic error", func() {
+				BeforeEach(func() {
+					nameRegistry.TryLockNameReturns(errors.New("nope"))
+				})
+
+				It("fails", func() {
+					Expect(validationErr).To(matchers.BeValidationError(
+						webhooks.UnknownErrorType,
+						Equal(webhooks.UnknownErrorMessage),
+					))
+					Expect(nameRegistry.RegisterNameCallCount()).To(Equal(0))
+				})
 			})
 
-			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
-			})
+			When("for a not found error", func() {
+				BeforeEach(func() {
+					nameRegistry.TryLockNameReturns(fmt.Errorf("wrapped not found error: %w", k8serrors.NewNotFound(schema.GroupResource{}, "nope")))
+				})
 
-			It("does not register the new name", func() {
-				Expect(nameRegistry.RegisterNameCallCount()).To(Equal(0))
+				When("the new name is registered to the resource", func() {
+					BeforeEach(func() {
+						nameRegistry.CheckNameOwnershipReturns(true, nil)
+					})
+
+					It("checks the new name is registered to the resource and allows the request", func() {
+						Expect(nameRegistry.CheckNameOwnershipCallCount()).To(Equal(1))
+						_, namespace, name, ownerNamespace, ownerName := nameRegistry.CheckNameOwnershipArgsForCall(0)
+						Expect(namespace).To(Equal("uniqueness-namespace"))
+						Expect(name).To(Equal("new-unique-name"))
+						Expect(ownerNamespace).To(Equal("test-resource-namespace"))
+						Expect(ownerName).To(Equal("test-resource-name"))
+
+						Expect(validationErr).NotTo(HaveOccurred())
+					})
+				})
+
+				When("the new name is not registered", func() {
+					BeforeEach(func() {
+						nameRegistry.CheckNameOwnershipReturns(false, nil)
+					})
+
+					It("rejects the request", func() {
+						Expect(validationErr).To(matchers.BeValidationError(
+							webhooks.UnknownErrorType,
+							Equal(webhooks.UnknownErrorMessage),
+						))
+					})
+				})
+
+				When("checking name ownership fails", func() {
+					BeforeEach(func() {
+						nameRegistry.CheckNameOwnershipReturns(false, errors.New("foo"))
+					})
+
+					It("rejects the request", func() {
+						Expect(validationErr).To(matchers.BeValidationError(
+							webhooks.UnknownErrorType,
+							Equal(webhooks.UnknownErrorMessage),
+						))
+					})
+				})
 			})
 		})
 
@@ -156,10 +211,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.DuplicateNameErrorType,
-					Message: duplicateErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.DuplicateNameErrorType,
+					Equal("new-uniqueness-error"),
+				))
 			})
 		})
 
@@ -169,17 +224,17 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("denies the request", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 
 			It("releases the lock on the old name", func() {
 				Expect(nameRegistry.UnlockNameCallCount()).To(Equal(1))
 				_, namespace, name := nameRegistry.UnlockNameArgsForCall(0)
-				Expect(namespace).To(Equal(testNamespace))
-				Expect(name).To(Equal(testName))
+				Expect(namespace).To(Equal("uniqueness-namespace"))
+				Expect(name).To(Equal("unique-name"))
 			})
 
 			When("releasing the old name lock fails", func() {
@@ -188,10 +243,10 @@ var _ = Describe("DuplicateValidator", func() {
 				})
 
 				It("fails with the register error", func() {
-					Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-						Type:    webhooks.UnknownErrorType,
-						Message: webhooks.UnknownErrorMessage,
-					}))
+					Expect(validationErr).To(matchers.BeValidationError(
+						webhooks.UnknownErrorType,
+						Equal(webhooks.UnknownErrorMessage),
+					))
 				})
 			})
 		})
@@ -209,7 +264,7 @@ var _ = Describe("DuplicateValidator", func() {
 
 	Describe("ValidateDelete", func() {
 		JustBeforeEach(func() {
-			validationErr = duplicateValidator.ValidateDelete(ctx, logger, testNamespace, testName)
+			validationErr = duplicateValidator.ValidateDelete(ctx, logger, "uniqueness-namespace", uniqueClientObj)
 		})
 
 		It("succeeds", func() {
@@ -219,8 +274,8 @@ var _ = Describe("DuplicateValidator", func() {
 		It("deregisters the old name", func() {
 			Expect(nameRegistry.DeregisterNameCallCount()).To(Equal(1))
 			_, namespace, name := nameRegistry.DeregisterNameArgsForCall(0)
-			Expect(namespace).To(Equal(testNamespace))
-			Expect(name).To(Equal(testName))
+			Expect(namespace).To(Equal("uniqueness-namespace"))
+			Expect(name).To(Equal("unique-name"))
 		})
 
 		When("the old name doesn't exist", func() {
@@ -239,10 +294,10 @@ var _ = Describe("DuplicateValidator", func() {
 			})
 
 			It("fails", func() {
-				Expect(*validationErr).To(MatchError(webhooks.ValidationError{
-					Type:    webhooks.UnknownErrorType,
-					Message: webhooks.UnknownErrorMessage,
-				}))
+				Expect(validationErr).To(matchers.BeValidationError(
+					webhooks.UnknownErrorType,
+					Equal(webhooks.UnknownErrorMessage),
+				))
 			})
 		})
 	})

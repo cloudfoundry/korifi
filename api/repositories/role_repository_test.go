@@ -11,7 +11,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +21,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("RoleRepository", func() {
@@ -58,8 +60,10 @@ var _ = Describe("RoleRepository", func() {
 	})
 
 	getTheRoleBinding := func(name, namespace string) rbacv1.RoleBinding {
+		GinkgoHelper()
+
 		roleBinding := rbacv1.RoleBinding{}
-		ExpectWithOffset(1, k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &roleBinding)).To(Succeed())
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &roleBinding)).To(Succeed())
 
 		return roleBinding
 	}
@@ -126,9 +130,9 @@ var _ = Describe("RoleRepository", func() {
 			})
 
 			It("updated the create/updated timestamps", func() {
-				Expect(time.Parse(time.RFC3339, createdRole.CreatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(time.Parse(time.RFC3339, createdRole.UpdatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
+				Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdRole.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(createdRole.UpdatedAt).To(PointTo(Equal(createdRole.CreatedAt)))
 			})
 
 			Describe("Role propagation", func() {
@@ -162,8 +166,9 @@ var _ = Describe("RoleRepository", func() {
 				BeforeEach(func() {
 					roleCreateMessage.Kind = rbacv1.ServiceAccountKind
 					roleCreateMessage.User = "my-service-account"
-					// Sha256 sum of "organization_manager::my-service-account"
-					expectedName = "cf-6af123f3cf60cbba6c34bfa5f13314151ba309a9d7a9a19464aa052c773542e0"
+					roleCreateMessage.ServiceAccountNamespace = "my-namespace"
+					// Sha256 sum of "organization_manager::my-namespace/my-service-account"
+					expectedName = "cf-aff6351a3949461e600a128524e2849af0afb4d3d5bd94e36e2189df3e4130b8"
 				})
 
 				It("succeeds and uses a service account subject kind", func() {
@@ -173,6 +178,7 @@ var _ = Describe("RoleRepository", func() {
 					Expect(roleBinding.Subjects).To(HaveLen(1))
 					Expect(roleBinding.Subjects[0].Name).To(Equal("my-service-account"))
 					Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
+					Expect(roleBinding.Subjects[0].Namespace).To(Equal("my-namespace"))
 				})
 			})
 
@@ -285,13 +291,15 @@ var _ = Describe("RoleRepository", func() {
 		})
 
 		It("updated the create/updated timestamps", func() {
-			Expect(time.Parse(time.RFC3339, createdRole.CreatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
-			Expect(time.Parse(time.RFC3339, createdRole.UpdatedAt)).To(BeTemporally("~", time.Now(), 2*time.Second))
-			Expect(createdRole.CreatedAt).To(Equal(createdRole.UpdatedAt))
+			Expect(createdRole.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+			Expect(createdRole.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+			Expect(createdRole.UpdatedAt).To(PointTo(Equal(createdRole.CreatedAt)))
 		})
 
 		When("using service accounts", func() {
 			BeforeEach(func() {
+				// Sha256 sum of "space_developer::my-namespace/my-service-account"
+				expectedName = "cf-253970950188359abff344b5976af3fd888c9c10ef2972603ec7eb1ef5e82296"
 				roleCreateMessage.Kind = rbacv1.ServiceAccountKind
 				roleCreateMessage.User = "my-service-account"
 				roleCreateMessage.ServiceAccountNamespace = "my-namespace"
@@ -301,6 +309,18 @@ var _ = Describe("RoleRepository", func() {
 				_, identity, _ := authorizedInChecker.AuthorizedInArgsForCall(0)
 				Expect(identity.Kind).To(Equal(rbacv1.ServiceAccountKind))
 				Expect(identity.Name).To(Equal("system:serviceaccount:my-namespace:my-service-account"))
+			})
+
+			It("creates a role binding in the space namespace", func() {
+				roleBinding := getTheRoleBinding(expectedName, cfSpace.Name)
+
+				Expect(roleBinding.Labels).To(HaveKeyWithValue(repositories.RoleGuidLabel, roleCreateMessage.GUID))
+				Expect(roleBinding.RoleRef.Kind).To(Equal("ClusterRole"))
+				Expect(roleBinding.RoleRef.Name).To(Equal(spaceDeveloperRole.Name))
+				Expect(roleBinding.Subjects).To(HaveLen(1))
+				Expect(roleBinding.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
+				Expect(roleBinding.Subjects[0].Name).To(Equal("my-service-account"))
+				Expect(roleBinding.Subjects[0].Namespace).To(Equal("my-namespace"))
 			})
 		})
 
@@ -596,8 +616,8 @@ var _ = Describe("RoleRepository", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 				Expect(roleRecord).To(Equal(repositories.RoleRecord{
 					GUID:      guid,
-					CreatedAt: roleBinding.CreationTimestamp.UTC().Format(time.RFC3339),
-					UpdatedAt: roleBinding.CreationTimestamp.UTC().Format(time.RFC3339),
+					CreatedAt: roleBinding.CreationTimestamp.Time,
+					UpdatedAt: tools.PtrTo(roleBinding.CreationTimestamp.Time),
 					Type:      "organization_manager",
 					Space:     "",
 					Org:       cfOrg.Name,
@@ -624,6 +644,56 @@ var _ = Describe("RoleRepository", func() {
 				It("returns an error", func() {
 					Expect(getErr).To(MatchError(ContainSubstring("multiple role bindings")))
 				})
+			})
+		})
+	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			roleGUID    string
+			roleBinding rbacv1.RoleBinding
+			deletedAt   *time.Time
+			getErr      error
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Name)
+
+			roleGUID = uuid.NewString()
+			roleBinding = createRoleBinding(ctx, "bob", orgManagerRole.Name, cfOrg.Name, repositories.RoleGuidLabel, roleGUID)
+		})
+
+		JustBeforeEach(func() {
+			deletedAt, getErr = roleRepo.GetDeletedAt(ctx, authInfo, roleGUID)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletedAt).To(BeNil())
+		})
+
+		When("the role is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, &roleBinding, func() {
+					roleBinding.Finalizers = append(roleBinding.Finalizers, "kubernetes")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, &roleBinding)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletedAt).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the role isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, &roleBinding)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

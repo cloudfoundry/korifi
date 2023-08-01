@@ -39,11 +39,11 @@ type ManifestApplication struct {
 	Processes                    []ManifestApplicationProcess `json:"processes" yaml:"processes"`
 	Routes                       []ManifestRoute              `json:"routes" yaml:"routes"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
-	Services                     []string                     `yaml:"services"`
 
 	// Deprecated: Use Buildpacks instead
-	Buildpack string        `yaml:"buildpack"`
-	Metadata  MetadataPatch `yaml:"metadata"`
+	Buildpack string                       `json:"buildpack" yaml:"buildpack"`
+	Metadata  MetadataPatch                `json:"metadata" yaml:"metadata"`
+	Services  []ManifestApplicationService `json:"services" yaml:"services"`
 }
 
 // TODO: Why is kebab-case used everywhere anyway and we have a deprecated field that claims to use
@@ -63,6 +63,11 @@ type ManifestApplicationProcess struct {
 	Instances                    *int    `json:"instances" yaml:"instances"`
 	Memory                       *string `json:"memory" yaml:"memory"`
 	Timeout                      *int64  `json:"timeout" yaml:"timeout"`
+}
+
+type ManifestApplicationService struct {
+	Name        string  `json:"name" yaml:"name"`
+	BindingName *string `json:"binding_name" yaml:"binding_name"`
 }
 
 type ManifestRoute struct {
@@ -104,10 +109,9 @@ func (a ManifestApplication) ToAppPatchMessage(appGUID, spaceGUID string) reposi
 		Name:      a.Name,
 		AppGUID:   appGUID,
 		SpaceGUID: spaceGUID,
-		Lifecycle: repositories.Lifecycle{
-			Type: string(korifiv1alpha1.BuildpackLifecycle),
-			Data: repositories.LifecycleData{
-				Buildpacks: a.Buildpacks,
+		Lifecycle: &repositories.LifecyclePatch{
+			Data: &repositories.LifecycleDataPatch{
+				Buildpacks: &a.Buildpacks,
 			},
 		},
 		EnvironmentVariables: a.Env,
@@ -194,7 +198,7 @@ func (m Manifest) Validate() error {
 func (a ManifestApplication) Validate() error {
 	return validation.ValidateStruct(&a,
 		validation.Field(&a.Name, validation.Required),
-		validation.Field(&a.DefaultRoute, validation.When(a.RandomRoute, validation.Nil.Error("and random-route may not be used together"))),
+		validation.Field(&a.DefaultRoute, validation.When(a.RandomRoute && a.DefaultRoute, validation.Nil.Error("and random-route may not be used together"))),
 		validation.Field(&a.DiskQuota, validation.By(validateAmountWithUnit), validation.When(a.AltDiskQuota != nil, validation.Nil.Error("and disk-quota may not be used together"))),
 		validation.Field(&a.AltDiskQuota, validation.By(validateAmountWithUnit)),
 		validation.Field(&a.Instances, validation.Min(0)),
@@ -226,6 +230,10 @@ func (m ManifestRoute) Validate() error {
 	)
 	return validation.ValidateStruct(&m,
 		validation.Field(&m.Route, validation.Match(routeRegex).Error("is not a valid route")))
+}
+
+func (s ManifestApplicationService) Validate() error {
+	return validation.ValidateStruct(&s, validation.Field(&s.Name, validation.Required))
 }
 
 var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|MB|G|GB|T|TB)$`)

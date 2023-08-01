@@ -26,17 +26,20 @@ type BuildpackRepository interface {
 }
 
 type Buildpack struct {
-	serverURL     url.URL
-	buildpackRepo BuildpackRepository
+	serverURL        url.URL
+	buildpackRepo    BuildpackRepository
+	requestValidator RequestValidator
 }
 
 func NewBuildpack(
 	serverURL url.URL,
 	buildpackRepo BuildpackRepository,
+	requestValidator RequestValidator,
 ) *Buildpack {
 	return &Buildpack{
-		serverURL:     serverURL,
-		buildpackRepo: buildpackRepo,
+		serverURL:        serverURL,
+		buildpackRepo:    buildpackRepo,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -44,14 +47,9 @@ func (h *Buildpack) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.build.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	buildpackListFilter := new(payloads.BuildpackList)
-	err := payloads.Decode(buildpackListFilter, r.Form)
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, buildpackListFilter); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
 	buildpacks, err := h.buildpackRepo.ListBuildpacks(r.Context(), authInfo)
@@ -59,33 +57,28 @@ func (h *Buildpack) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch buildpacks from Kubernetes")
 	}
 
-	if err := h.sortList(buildpacks, r.FormValue("order_by")); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
-	}
+	h.sortList(buildpacks, buildpackListFilter.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForBuildpack, buildpacks, h.serverURL, *r.URL)), nil
 }
 
 // nolint:dupl
-func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string) error {
+func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].CreatedAt < bpList[j].CreatedAt })
+		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(&bpList[j].CreatedAt, &bpList[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].CreatedAt > bpList[j].CreatedAt })
+		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(&bpList[i].CreatedAt, &bpList[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].UpdatedAt < bpList[j].UpdatedAt })
+		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(bpList[j].UpdatedAt, bpList[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].UpdatedAt > bpList[j].UpdatedAt })
+		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(bpList[i].UpdatedAt, bpList[j].UpdatedAt) })
 	case "position":
 		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position < bpList[j].Position })
 	case "-position":
 		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position > bpList[j].Position })
-	default:
-		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at", "position")
 	}
-	return nil
 }
 
 func (h *Buildpack) UnauthenticatedRoutes() []routing.Route {

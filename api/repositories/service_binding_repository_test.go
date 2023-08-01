@@ -15,6 +15,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -178,8 +179,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(record.AppGUID).To(Equal(appGUID))
 				Expect(record.ServiceInstanceGUID).To(Equal(serviceInstanceGUID))
 				Expect(record.SpaceGUID).To(Equal(space.Name))
-				Expect(record.CreatedAt).NotTo(BeEmpty())
-				Expect(record.UpdatedAt).NotTo(BeEmpty())
+				Expect(record.CreatedAt).NotTo(BeZero())
+				Expect(record.UpdatedAt).NotTo(BeNil())
 
 				Expect(record.LastOperation.Type).To(Equal("create"))
 				Expect(record.LastOperation.State).To(Equal("succeeded"))
@@ -453,6 +454,53 @@ var _ = Describe("ServiceBindingRepo", func() {
 							"ServiceInstanceGUID": Equal(serviceInstance2GUID),
 						}),
 					))
+				})
+			})
+
+			When("filtered by label selector", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding1, func() {
+						serviceBinding1.Labels = map[string]string{"foo": "FOO1"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding2, func() {
+						serviceBinding2.Labels = map[string]string{"foo": "FOO2"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding3, func() {
+						serviceBinding3.Labels = map[string]string{"not_foo": "NOT_FOO"}
+					})).To(Succeed())
+				})
+
+				DescribeTable("valid label selectors",
+					func(selector string, serviceBindingGUIDPrefixes ...string) {
+						serviceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, repositories.ListServiceBindingsMessage{
+							LabelSelector: selector,
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						matchers := []any{}
+						for _, prefix := range serviceBindingGUIDPrefixes {
+							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
+						}
+
+						Expect(serviceBindings).To(ConsistOf(matchers...))
+					},
+					Entry("key", "foo", "binding-1", "binding-2"),
+					Entry("!key", "!foo", "binding-3"),
+					Entry("key=value", "foo=FOO1", "binding-1"),
+					Entry("key==value", "foo==FOO2", "binding-2"),
+					Entry("key!=value", "foo!=FOO1", "binding-2", "binding-3"),
+					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "binding-1", "binding-2"),
+					Entry("key notin (value1,value2)", "foo notin (FOO2)", "binding-1", "binding-3"),
+				)
+
+				When("the label selector is invalid", func() {
+					BeforeEach(func() {
+						requestMessage = repositories.ListServiceBindingsMessage{LabelSelector: "~"}
+					})
+
+					It("returns an error", func() {
+						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+					})
 				})
 			})
 

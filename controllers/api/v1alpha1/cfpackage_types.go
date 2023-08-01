@@ -21,6 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	CFPackageFinalizerName = "korifi.cloudfoundry.org/cfPackageController"
+)
+
 // CFPackageSpec defines the desired state of CFPackage
 type CFPackageSpec struct {
 	// The package type. Only "bits" is currently allowed.
@@ -44,8 +48,11 @@ type PackageSource struct {
 
 // CFPackageStatus defines the observed state of CFPackage
 type CFPackageStatus struct {
-	// Conditions capture the current status of the Package
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the CFPackage that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -1,5 +1,7 @@
 # syntax = docker/dockerfile:experimental
-FROM golang:1.20.2 as builder
+FROM golang:1.20.6 as builder
+
+ARG version=dev
 
 COPY netrc /root/.netrc
 RUN chmod 600 /root/.netrc
@@ -28,10 +30,11 @@ COPY controllers/controllers/shared controllers/controllers/shared
 COPY controllers/controllers/workloads controllers/controllers/workloads
 COPY controllers/webhooks controllers/webhooks
 COPY tools tools
+COPY version version
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o cfapi api/main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X code.cloudfoundry.org/korifi/version.Version=${version}" -o cfapi api/main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details

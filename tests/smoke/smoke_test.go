@@ -5,98 +5,62 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/cloudfoundry/cf-test-helpers/cf"
 	"github.com/cloudfoundry/cf-test-helpers/generator"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/types"
 )
 
-const NamePrefix = "cf-on-k8s-smoke"
-
-func GetRequiredEnvVar(envVarName string) string {
-	value, ok := os.LookupEnv(envVarName)
-	Expect(ok).To(BeTrue(), envVarName+" environment variable is required, but was not provided.")
-	return value
-}
-
-func GetDefaultedEnvVar(envVarName, defaultValue string) string {
-	value, ok := os.LookupEnv(envVarName)
-	if !ok {
-		return defaultValue
-	}
-	return value
-}
-
 var _ = Describe("Smoke Tests", func() {
-	When("running cf push", func() {
-		var (
-			orgName                      string
-			appName                      string
-			appsDomain, appRouteProtocol string
-		)
+	Describe("pushed app", func() {
+		It("is reachable via its route", func() {
+			appResponseShould("/", SatisfyAll(
+				HaveHTTPStatus(http.StatusOK),
+				HaveHTTPBody(ContainSubstring("Hi, I'm Dorifi!")),
+			))
+		})
+	})
 
+	Describe("cf logs", func() {
+		It("prints app logs", func() {
+			Eventually(cf.Cf("logs", appName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
+		})
+	})
+
+	Describe("cf run-task", func() {
+		It("succeeds", func() {
+			Eventually(cf.Cf("run-task", appName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
+		})
+	})
+
+	Describe("cf bind-service", func() {
 		BeforeEach(func() {
-			apiArguments := []string{"api", GetRequiredEnvVar("SMOKE_TEST_API_ENDPOINT")}
-			skipSSL := os.Getenv("SMOKE_TEST_SKIP_SSL") == "true"
-			if skipSSL {
-				apiArguments = append(apiArguments, "--skip-ssl-validation")
-			}
+			serviceName := generator.PrefixedRandomName(NamePrefix, "svc")
 
-			cfAPI := cf.Cf(apiArguments...)
-			Eventually(cfAPI).Should(Exit(0))
+			Eventually(
+				cf.Cf("create-user-provided-service", serviceName, "-p", `{"key1":"value1","key2":"value2"}`),
+			).Should(Exit(0))
 
-			loginAs(GetRequiredEnvVar("SMOKE_TEST_USER"))
-
-			appRouteProtocol = GetDefaultedEnvVar("SMOKE_TEST_APP_ROUTE_PROTOCOL", "https")
-			appsDomain = GetRequiredEnvVar("SMOKE_TEST_APPS_DOMAIN")
-			orgName = generator.PrefixedRandomName(NamePrefix, "org")
-			spaceName := generator.PrefixedRandomName(NamePrefix, "space")
-
-			Eventually(cf.Cf("create-org", orgName)).Should(Exit(0))
-			Eventually(cf.Cf("create-space", "-o", orgName, spaceName)).Should(Exit(0))
-			Eventually(cf.Cf("target", "-o", orgName, "-s", spaceName)).Should(Exit(0))
+			Eventually(cf.Cf("bind-service", appName, serviceName)).Should(Exit(0))
+			Eventually(cf.Cf("restart", appName)).Should(Exit(0))
 		})
 
-		AfterEach(func() {
-			if CurrentSpecReport().State.Is(types.SpecStateFailed) {
-				printAppReport(appName)
-			}
-
-			if orgName != "" {
-				Eventually(func() *Session {
-					return cf.Cf("delete-org", orgName, "-f").Wait()
-				}, 2*time.Minute, 1*time.Second).Should(Exit(0))
-			}
-		})
-
-		It("creates a routable app pod in Kubernetes from a source-based app", func() {
-			appName = generator.PrefixedRandomName(NamePrefix, "app")
-
-			cfPush := cf.Cf("push", appName, "-p", "assets/test-node-app")
-			Eventually(cfPush).Should(Exit(0))
-
-			var httpClient http.Client
-			httpClient.Transport = &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			}
-
-			Eventually(func(g Gomega) {
-				resp, err := httpClient.Get(fmt.Sprintf("%s://%s.%s", appRouteProtocol, appName, appsDomain))
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(resp).To(HaveHTTPStatus(http.StatusOK))
-				g.Expect(resp).To(HaveHTTPBody(ContainSubstring("Hello World")))
-			}, 5*time.Minute, 30*time.Second).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				cfLogs := cf.Cf("logs", appName, "--recent")
-				g.Expect(string(cfLogs.Wait().Out.Contents())).To(ContainSubstring("Console output from test-node-app"))
-			}, 2*time.Minute, 2*time.Second).Should(Succeed())
+		It("binds the service to the app", func() {
+			appResponseShould("/env.json", SatisfyAll(
+				HaveHTTPStatus(http.StatusOK),
+				HaveHTTPBody(
+					MatchJSONPath("$.VCAP_SERVICES", SatisfyAll(
+						MatchJSONPath(`$["user-provided"][0].credentials.key1`, "value1"),
+						MatchJSONPath(`$["user-provided"][0].credentials.key2`, "value2"),
+					)),
+				),
+			))
 		})
 	})
 })
@@ -123,4 +87,17 @@ func loginAs(user string) {
 	// is presented if there is more than one org
 	loginSession := cf.CfWithStdin(bytes.NewBufferString(user+"\n\n"), "login")
 	Eventually(loginSession).Should(Exit(0))
+}
+
+func appResponseShould(requestPath string, matchExpectations types.GomegaMatcher) {
+	var httpClient http.Client
+	httpClient.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	Eventually(func(g Gomega) {
+		resp, err := httpClient.Get(fmt.Sprintf("%s://%s.%s%s", appRouteProtocol, appName, appsDomain, requestPath))
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(resp).To(matchExpectations)
+	}).Should(Succeed())
 }

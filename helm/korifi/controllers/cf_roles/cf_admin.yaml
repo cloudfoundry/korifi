@@ -161,13 +161,29 @@ rules:
   - watch
 
 - apiGroups:
-    - korifi.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
-    - builderinfos
+  - appworkloads
   verbs:
-    - get
-    - list
-    - watch
+  - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - builderinfos
+  verbs:
+  - get
+  - list
+  - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runnerinfos
+  verbs:
+  - get
+  - list
+  - watch
 
 - apiGroups:
   - rbac.authorization.k8s.io

@@ -1,13 +1,17 @@
 package handlers_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,14 +19,16 @@ import (
 
 var _ = Describe("Buildpack", func() {
 	var (
-		buildpackRepo *fake.BuildpackRepository
-		req           *http.Request
+		buildpackRepo    *fake.BuildpackRepository
+		req              *http.Request
+		requestValidator *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
 		buildpackRepo = new(fake.BuildpackRepository)
 
-		apiHandler := NewBuildpack(*serverURL, buildpackRepo)
+		requestValidator = new(fake.RequestValidator)
+		apiHandler := NewBuildpack(*serverURL, buildpackRepo, requestValidator)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
@@ -38,8 +44,8 @@ var _ = Describe("Buildpack", func() {
 					Position:  1,
 					Stack:     "waffle-house",
 					Version:   "1.0.0",
-					CreatedAt: "2016-03-18T23:26:46Z",
-					UpdatedAt: "2016-10-17T20:00:42Z",
+					CreatedAt: time.UnixMilli(1000),
+					UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 				},
 			}, nil)
 
@@ -48,52 +54,56 @@ var _ = Describe("Buildpack", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-		})
-
-		It("passes authInfo from context to GetApp", func() {
-			Expect(buildpackRepo.ListBuildpacksCallCount()).To(Equal(1))
-			_, actualAuthInfo := buildpackRepo.ListBuildpacksArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
+		It("validates the request", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL).To(Equal(req.URL))
 		})
 
 		It("returns the buildpacks for the default builder", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+			Expect(buildpackRepo.ListBuildpacksCallCount()).To(Equal(1))
+			_, actualAuthInfo := buildpackRepo.ListBuildpacksArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/buildpacks"))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources", HaveLen(1)))
-			Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[0].filename", "paketo-foopacks/bar@1.0.0"))
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/buildpacks"),
+				MatchJSONPath("$.resources", HaveLen(1)),
+				MatchJSONPath("$.resources[0].filename", "paketo-foopacks/bar@1.0.0"),
+			)))
 		})
 
 		Describe("Order results", func() {
 			BeforeEach(func() {
 				buildpackRepo.ListBuildpacksReturns([]repositories.BuildpackRecord{
 					{
-						CreatedAt: "2023-01-14T14:58:32Z",
-						UpdatedAt: "2023-01-19T14:58:32Z",
+						CreatedAt: time.UnixMilli(1000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
 						Position:  1,
 					},
 					{
-						CreatedAt: "2023-01-17T14:57:32Z",
-						UpdatedAt: "2023-01-18:57:32Z",
+						CreatedAt: time.UnixMilli(3000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(4000)),
 						Position:  2,
 					},
 					{
-						CreatedAt: "2023-01-16T14:57:32Z",
-						UpdatedAt: "2023-01-20:57:32Z",
+						CreatedAt: time.UnixMilli(2000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(6000)),
 						Position:  3,
 					},
 				}, nil)
 			})
 
 			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
-				req = createHttpRequest("GET", "/v3/buildpacks?order_by="+orderBy, nil)
+				req = createHttpRequest("GET", "/v3/buildpacks?order_by=not-used", nil)
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.BuildpackList{
+					OrderBy: orderBy,
+				})
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.resources[*].position", expectedOrder))
+				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].position", expectedOrder)))
 			},
 				Entry("created_at ASC", "created_at", 1.0, 3.0, 2.0),
 				Entry("created_at DESC", "-created_at", 2.0, 3.0, 1.0),
@@ -102,27 +112,15 @@ var _ = Describe("Buildpack", func() {
 				Entry("position ASC", "position", 1.0, 2.0, 3.0),
 				Entry("position DESC", "-position", 3.0, 2.0, 1.0),
 			)
-
-			When("order_by is not a valid field", func() {
-				BeforeEach(func() {
-					req = createHttpRequest("GET", "/v3/buildpacks?order_by=not_valid", nil)
-				})
-
-				It("returns an Unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at', 'position'")
-				})
-			})
 		})
 
-		When("invalid query parameters are provided", func() {
+		When("request is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "GET", "/v3/buildpacks?foo=bar", nil)
-				Expect(err).NotTo(HaveOccurred())
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("foo"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'order_by'")
+			It("returns an Unknown error", func() {
+				expectUnknownError()
 			})
 		})
 	})

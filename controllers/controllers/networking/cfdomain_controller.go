@@ -18,25 +18,20 @@ package networking
 
 import (
 	"context"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;patch;create;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/status,verbs=patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update
-
-const (
-	CFDomainFinalizerName = "cfDomain.korifi.cloudfoundry.org"
 )
 
 type CFDomainReconciler struct {
@@ -54,31 +49,41 @@ func NewCFDomainReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFDomain, *korifiv1alpha1.CFDomain](log, client, &routeReconciler)
 }
 
-func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfDomain.Namespace, "name", cfDomain.Name)
-
-	if !cfDomain.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFDomain(ctx, log, cfDomain)
-	}
-
-	err := k8s.AddFinalizer(ctx, log, r.client, cfDomain, CFDomainFinalizerName)
-	if err != nil {
-		log.Info("error adding finalizer", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
-}
-
 func (r *CFDomainReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFDomain{})
 }
 
-func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logger, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
-	log = log.WithName("finalizeCFDomain")
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains,verbs=get;list;watch;patch;create;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/status,verbs=patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update
 
-	if !controllerutil.ContainsFinalizer(cfDomain, CFDomainFinalizerName) {
+func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
+	log := shared.ObjectLogger(r.log, cfDomain)
+	ctx = logr.NewContext(ctx, log)
+
+	if !cfDomain.GetDeletionTimestamp().IsZero() {
+		return r.finalizeCFDomain(ctx, cfDomain)
+	}
+
+	cfDomain.Status.ObservedGeneration = cfDomain.Generation
+	log.V(1).Info("set observed generation", "generation", cfDomain.Status.ObservedGeneration)
+
+	meta.SetStatusCondition(&cfDomain.Status.Conditions, metav1.Condition{
+		Type:               "Valid",
+		Status:             metav1.ConditionTrue,
+		Reason:             "Valid",
+		Message:            "Valid Domain",
+		ObservedGeneration: cfDomain.Generation,
+	})
+
+	return ctrl.Result{}, nil
+}
+
+func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFDomain")
+
+	if !controllerutil.ContainsFinalizer(cfDomain, korifiv1alpha1.CFDomainFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -88,19 +93,23 @@ func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, log logr.Logg
 		return ctrl.Result{}, err
 	}
 
+	if len(domainRoutes) == 0 {
+		if controllerutil.RemoveFinalizer(cfDomain, korifiv1alpha1.CFDomainFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	for i := range domainRoutes {
 		err = r.client.Delete(ctx, &domainRoutes[i])
 		if err != nil {
-			log.Info("failed to list CFRoutes", "reason", err)
+			log.Info("failed to delete CFRoute", "reason", err)
 			return ctrl.Result{}, err
 		}
 	}
 
-	if controllerutil.RemoveFinalizer(cfDomain, CFDomainFinalizerName) {
-		log.V(1).Info("finalizer removed")
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
 func (r *CFDomainReconciler) listRoutesForDomain(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) ([]korifiv1alpha1.CFRoute, error) {

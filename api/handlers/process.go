@@ -44,20 +44,20 @@ type Process struct {
 	serverURL        url.URL
 	processRepo      CFProcessRepository
 	processStats     ProcessStats
-	decoderValidator *DecoderValidator
+	requestValidator RequestValidator
 }
 
 func NewProcess(
 	serverURL url.URL,
 	processRepo CFProcessRepository,
 	processStatsFetcher ProcessStats,
-	decoderValidator *DecoderValidator,
+	requestValidator RequestValidator,
 ) *Process {
 	return &Process{
 		serverURL:        serverURL,
 		processRepo:      processRepo,
 		processStats:     processStatsFetcher,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -110,7 +110,7 @@ func (h *Process) scale(r *http.Request) (*routing.Response, error) {
 	processGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.ProcessScale
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -149,12 +149,8 @@ func (h *Process) list(r *http.Request) (*routing.Response, error) { //nolint:du
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	processListFilter := new(payloads.ProcessList)
-	err := payloads.Decode(processListFilter, r.Form)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, processListFilter)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
@@ -174,7 +170,7 @@ func (h *Process) update(r *http.Request) (*routing.Response, error) {
 	processGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.ProcessPatch
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 

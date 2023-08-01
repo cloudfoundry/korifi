@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -27,8 +28,8 @@ type BuildpackRecord struct {
 	Position  int
 	Stack     string
 	Version   string
-	CreatedAt string
-	UpdatedAt string
+	CreatedAt time.Time
+	UpdatedAt *time.Time
 }
 
 func NewBuildpackRepository(builderName string, userClientFactory authorization.UserK8sClientFactory, rootNamespace string) *BuildpackRepository {
@@ -90,8 +91,8 @@ func builderInfoToBuildpackRecords(info v1alpha1.BuilderInfo) []BuildpackRecord 
 			Version:   b.Version,
 			Position:  i + 1,
 			Stack:     b.Stack,
-			CreatedAt: b.CreationTimestamp.UTC().Format(TimestampFormat),
-			UpdatedAt: b.UpdatedTimestamp.UTC().Format(TimestampFormat),
+			CreatedAt: b.CreationTimestamp.Time,
+			UpdatedAt: &b.UpdatedTimestamp.Time,
 		}
 		buildpackRecords = append(buildpackRecords, currentRecord)
 	}

@@ -35,11 +35,9 @@ var _ = Describe("CFTaskMutatingWebhook", func() {
 	})
 
 	JustBeforeEach(func() {
-		Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
-		Expect(k8s.Patch(context.Background(), k8sClient, cfTask, func() {
-			cfTask.Status = korifiv1alpha1.CFTaskStatus{
-				Conditions: []metav1.Condition{},
-			}
+		Expect(adminClient.Create(context.Background(), cfTask)).To(Succeed())
+		Expect(k8s.Patch(context.Background(), adminClient, cfTask, func() {
+			cfTask.Status = korifiv1alpha1.CFTaskStatus{}
 		})).To(Succeed())
 	})
 
@@ -66,7 +64,7 @@ var _ = Describe("CFTaskMutatingWebhook", func() {
 
 		JustBeforeEach(func() {
 			currentSeqId = cfTask.Status.SequenceID
-			Expect(k8s.Patch(context.Background(), k8sClient, cfTask, updateTaskFunc)).To(Succeed())
+			Expect(k8s.Patch(context.Background(), adminClient, cfTask, updateTaskFunc)).To(Succeed())
 		})
 
 		When("the spec is updated", func() {

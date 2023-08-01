@@ -22,17 +22,35 @@ var _ = Describe("CF Org", func() {
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFOrgSpec{
-					DisplayName: "org-name",
+					DisplayName: "org-name-" + uuid.NewString(),
 				},
 			}
 		})
 
 		JustBeforeEach(func() {
-			createErr = k8sClient.Create(ctx, cfOrg)
+			createErr = adminClient.Create(ctx, cfOrg)
 		})
 
 		It("accepts a valid name", func() {
 			Expect(createErr).NotTo(HaveOccurred())
+		})
+
+		When("an org with the same display name already exists", func() {
+			BeforeEach(func() {
+				Expect(adminClient.Create(ctx, &korifiv1alpha1.CFOrg{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespace,
+						Name:      uuid.NewString(),
+					},
+					Spec: korifiv1alpha1.CFOrgSpec{
+						DisplayName: cfOrg.Spec.DisplayName,
+					},
+				})).To(Succeed())
+			})
+
+			It("fails", func() {
+				Expect(createErr).To(HaveOccurred())
+			})
 		})
 
 		When("name contains a space", func() {

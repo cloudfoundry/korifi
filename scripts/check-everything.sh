@@ -14,7 +14,7 @@ print_message() {
 main() {
   print_message "about to run tests in parallel, it will be awesome" $GREEN
   print_message "ctrl-d panes when they are done" $RED
-  tmux new-window -n korifi-tests "/bin/bash -c \"make lint; bash --init-file <(echo 'history -s make lint')\""
+  tmux new-window -n korifi-tests "/bin/bash -c \"make lint && make -C tools test; bash --init-file <(echo 'history -s make lint \&\& make -C tools test')\""
   tmux split-window -h -p 75 "GINKGO_NODES=2 /bin/bash -c \"make -C kpack-image-builder test; bash --init-file <(echo 'history -s make -C kpack-image-builder test')\""
   tmux split-window -h -p 67 "GINKGO_NODES=2 /bin/bash -c \"make -C statefulset-runner test; bash --init-file <(echo 'history -s make -C statefulset-runner test')\""
   tmux split-window -h -p 50 "GINKGO_NODES=2 /bin/bash -c \"make -C job-task-runner test; bash --init-file <(echo 'history -s make -C job-task-runner test')\""

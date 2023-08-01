@@ -3,7 +3,6 @@ package repositories_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -13,8 +12,9 @@ import (
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -51,7 +51,7 @@ var _ = Describe("AppRepository", func() {
 		cfOrg = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(testCtx, cfOrg.Name, prefixedGUID("space1"))
 
-		cfApp = createApp(cfSpace.Name)
+		cfApp = createAppWithGUID(cfSpace.Name, testutils.PrefixedGUID("cfapp1-"))
 	})
 
 	Describe("GetApp", func() {
@@ -93,12 +93,13 @@ var _ = Describe("AppRepository", func() {
 					},
 				}))
 				Expect(app.IsStaged).To(BeFalse())
+				Expect(app.DeletedAt).To(BeNil())
 			})
 
 			When("the app has staged condition true", func() {
 				BeforeEach(func() {
 					cfApp.Status.Conditions = []metav1.Condition{{
-						Type:               workloads.StatusConditionReady,
+						Type:               shared.StatusConditionReady,
 						Status:             metav1.ConditionTrue,
 						LastTransitionTime: metav1.Now(),
 						Reason:             "staged",
@@ -121,7 +122,7 @@ var _ = Describe("AppRepository", func() {
 			When("the app has staged condition false", func() {
 				BeforeEach(func() {
 					meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-						Type:    workloads.StatusConditionReady,
+						Type:    shared.StatusConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "appStaged",
 						Message: "",
@@ -130,7 +131,7 @@ var _ = Describe("AppRepository", func() {
 					Eventually(func(g Gomega) {
 						app := korifiv1alpha1.CFApp{}
 						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
-						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, workloads.StatusConditionReady)).To(BeTrue())
+						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 					}).Should(Succeed())
 				})
 
@@ -228,6 +229,7 @@ var _ = Describe("AppRepository", func() {
 			message ListAppsMessage
 			appList []AppRecord
 			cfApp2  *korifiv1alpha1.CFApp
+			listErr error
 		)
 
 		BeforeEach(func() {
@@ -238,17 +240,16 @@ var _ = Describe("AppRepository", func() {
 			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 
-			cfApp2 = createApp(space2.Name)
+			cfApp2 = createAppWithGUID(space2.Name, testutils.PrefixedGUID("cfapp2-"))
 			createApp(space3.Name)
 		})
 
 		JustBeforeEach(func() {
-			var err error
-			appList, err = appRepo.ListApps(testCtx, authInfo, message)
-			Expect(err).NotTo(HaveOccurred())
+			appList, listErr = appRepo.ListApps(testCtx, authInfo, message)
 		})
 
 		It("returns all the AppRecord CRs where client has permission", func() {
+			Expect(listErr).NotTo(HaveOccurred())
 			Expect(appList).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -276,6 +277,7 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("does not list them", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 				Expect(appList).NotTo(ContainElement(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(nonCFApp.Name)}),
 				))
@@ -286,7 +288,7 @@ var _ = Describe("AppRepository", func() {
 			var cfApp12 *korifiv1alpha1.CFApp
 
 			BeforeEach(func() {
-				cfApp12 = createApp(cfSpace.Name)
+				cfApp12 = createAppWithGUID(cfSpace.Name, testutils.PrefixedGUID("cfapp12-"))
 			})
 
 			Describe("filtering by name", func() {
@@ -306,6 +308,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp12.Name)}),
@@ -321,6 +324,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns an empty list of apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
 				})
@@ -331,6 +335,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
@@ -346,6 +351,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns an empty list of apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(BeEmpty())
 					})
 				})
@@ -356,6 +362,7 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(ConsistOf(
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp12.Name)}),
@@ -372,6 +379,7 @@ var _ = Describe("AppRepository", func() {
 
 					When("an App matches by Name but not by Space", func() {
 						It("returns an empty list of apps", func() {
+							Expect(listErr).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
 					})
@@ -382,6 +390,7 @@ var _ = Describe("AppRepository", func() {
 						})
 
 						It("returns an empty list of apps", func() {
+							Expect(listErr).NotTo(HaveOccurred())
 							Expect(appList).To(BeEmpty())
 						})
 					})
@@ -393,8 +402,56 @@ var _ = Describe("AppRepository", func() {
 					})
 
 					It("returns the matching apps", func() {
+						Expect(listErr).NotTo(HaveOccurred())
 						Expect(appList).To(HaveLen(1))
 						Expect(appList[0].GUID).To(Equal(cfApp12.Name))
+					})
+				})
+			})
+
+			Describe("filtering by label selector", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Labels = map[string]string{"foo": "FOO1"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp2, func() {
+						cfApp2.Labels = map[string]string{"foo": "FOO2"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp12, func() {
+						cfApp12.Labels = map[string]string{"not_foo": "NOT_FOO"}
+					})).To(Succeed())
+				})
+
+				DescribeTable("valid label selectors",
+					func(selector string, appGUIDPrefixes ...string) {
+						serviceBindings, err := appRepo.ListApps(context.Background(), authInfo, ListAppsMessage{
+							LabelSelector: selector,
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						matchers := []any{}
+						for _, prefix := range appGUIDPrefixes {
+							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
+						}
+
+						Expect(serviceBindings).To(ConsistOf(matchers...))
+					},
+					Entry("key", "foo", "cfapp1-", "cfapp2-"),
+					Entry("!key", "!foo", "cfapp12-"),
+					Entry("key=value", "foo=FOO1", "cfapp1-"),
+					Entry("key==value", "foo==FOO2", "cfapp2-"),
+					Entry("key!=value", "foo!=FOO1", "cfapp2-", "cfapp12-"),
+					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "cfapp1-", "cfapp2-"),
+					Entry("key notin (value1,value2)", "foo notin (FOO2)", "cfapp1-", "cfapp12-"),
+				)
+
+				When("the label selector is invalid", func() {
+					BeforeEach(func() {
+						message = ListAppsMessage{LabelSelector: "~"}
+					})
+
+					It("returns an error", func() {
+						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 					})
 				})
 			})
@@ -439,13 +496,8 @@ var _ = Describe("AppRepository", func() {
 				Expect(createdAppRecord.Name).To(Equal(testAppName))
 				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
 
-				recordCreatedTime, err := time.Parse(TimestampFormat, createdAppRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-
-				recordUpdatedTime, err := time.Parse(TimestampFormat, createdAppRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(createdAppRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdAppRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			When("no environment variables are given", func() {
@@ -535,6 +587,7 @@ var _ = Describe("AppRepository", func() {
 
 		JustBeforeEach(func() {
 			patchedAppRecord, patchErr = appRepo.PatchApp(testCtx, authInfo, appPatchMessage)
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 		})
 
 		When("authorized in the space", func() {
@@ -543,14 +596,12 @@ var _ = Describe("AppRepository", func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
-			It("can patch the AppRecord CR we're looking for", func() {
+			It("updates the app", func() {
 				Expect(patchErr).NotTo(HaveOccurred())
 
 				Expect(patchedAppRecord.GUID).To(Equal(cfApp.Name))
-				Expect(patchedAppRecord.Name).To(Equal(cfApp.Spec.DisplayName))
 				Expect(patchedAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
-				Expect(patchedAppRecord.State).To(Equal(DesiredState("STOPPED")))
-				Expect(patchedAppRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
+				Expect(patchedAppRecord.Name).To(Equal(appPatchMessage.Name))
 				Expect(patchedAppRecord.Lifecycle).To(Equal(Lifecycle{
 					Type: string(cfApp.Spec.Lifecycle.Type),
 					Data: LifecycleData{
@@ -558,10 +609,18 @@ var _ = Describe("AppRepository", func() {
 						Stack:      "cflinuxfs3",
 					},
 				}))
-				Expect(patchedAppRecord.IsStaged).To(BeFalse())
+
+				Expect(cfApp.Spec.DisplayName).To(Equal(appPatchMessage.Name))
+				Expect(cfApp.Spec.Lifecycle).To(Equal(korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+					Data: korifiv1alpha1.LifecycleData{
+						Buildpacks: []string{"some-buildpack"},
+						Stack:      "cflinuxfs3",
+					},
+				}))
 			})
 
-			When("patching labels and annotations", func() {
+			Describe("patching labels and annotations", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
 						cfApp.Labels = map[string]string{
@@ -576,12 +635,12 @@ var _ = Describe("AppRepository", func() {
 						}
 					})).To(Succeed())
 
-					appPatchMessage.MetadataPatch.Labels = map[string]*string{
+					appPatchMessage.Labels = map[string]*string{
 						"A": tools.PtrTo("42"),
 						"B": nil,
 						"D": tools.PtrTo("4"),
 					}
-					appPatchMessage.MetadataPatch.Annotations = map[string]*string{
+					appPatchMessage.Annotations = map[string]*string{
 						"W": tools.PtrTo("23"),
 						"X": tools.PtrTo("112358"),
 						"Y": nil,
@@ -601,6 +660,87 @@ var _ = Describe("AppRepository", func() {
 						"X": "112358",
 						"Z": "26",
 					}))
+
+					Expect(cfApp.Labels).To(SatisfyAll(
+						HaveKeyWithValue("A", "42"),
+						HaveKeyWithValue("C", "3"),
+						HaveKeyWithValue("D", "4"),
+					))
+					Expect(cfApp.Annotations).To(SatisfyAll(
+						HaveKeyWithValue("W", "23"),
+						HaveKeyWithValue("X", "112358"),
+						HaveKeyWithValue("Z", "26"),
+					))
+				})
+			})
+
+			Describe("partially patching the app", func() {
+				var originalCFApp *korifiv1alpha1.CFApp
+
+				BeforeEach(func() {
+					originalCFApp = cfApp.DeepCopy()
+				})
+
+				When("name is empty", func() {
+					BeforeEach(func() {
+						appPatchMessage.Name = ""
+					})
+
+					It("does not change the display name", func() {
+						Expect(patchedAppRecord.Name).To(Equal(originalCFApp.Spec.DisplayName))
+						Expect(cfApp.Spec.DisplayName).To(Equal(originalCFApp.Spec.DisplayName))
+					})
+				})
+
+				When("lifecycle is not specified", func() {
+					BeforeEach(func() {
+						appPatchMessage.Lifecycle = nil
+					})
+
+					It("does not change the app lifecyle", func() {
+						Expect(patchedAppRecord.Lifecycle).To(Equal(Lifecycle{
+							Type: string(originalCFApp.Spec.Lifecycle.Type),
+							Data: LifecycleData{
+								Buildpacks: originalCFApp.Spec.Lifecycle.Data.Buildpacks,
+								Stack:      originalCFApp.Spec.Lifecycle.Data.Stack,
+							},
+						}))
+
+						Expect(cfApp.Spec.Lifecycle).To(Equal(originalCFApp.Spec.Lifecycle))
+					})
+				})
+
+				When("buildpacks are not specified", func() {
+					BeforeEach(func() {
+						appPatchMessage.Lifecycle.Data.Buildpacks = nil
+					})
+
+					It("does not change the app lifecyle buildpacks", func() {
+						Expect(patchedAppRecord.Lifecycle.Data.Buildpacks).To(Equal(originalCFApp.Spec.Lifecycle.Data.Buildpacks))
+						Expect(cfApp.Spec.Lifecycle.Data.Buildpacks).To(Equal(originalCFApp.Spec.Lifecycle.Data.Buildpacks))
+					})
+				})
+
+				When("buildpacks are empty", func() {
+					BeforeEach(func() {
+						appPatchMessage.Lifecycle.Data.Buildpacks = &[]string{}
+					})
+
+					It("clears the app buildpacks", func() {
+						Expect(patchedAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
+						Expect(cfApp.Spec.Lifecycle.Data.Buildpacks).To(BeEmpty())
+					})
+				})
+
+				When("stack is not specified", func() {
+					BeforeEach(func() {
+						appPatchMessage.Lifecycle.Data.Stack = ""
+					})
+
+					It("does not change the app lifecyle buildpacks", func() {
+						Expect(patchedAppRecord.Lifecycle.Data.Stack).To(Equal(originalCFApp.Spec.Lifecycle.Data.Stack))
+						Expect(cfApp.Spec.Lifecycle.Data.Stack).To(Equal(originalCFApp.Spec.Lifecycle.Data.Stack))
+					})
 				})
 			})
 
@@ -612,12 +752,9 @@ var _ = Describe("AppRepository", func() {
 				It("creates an empty secret and sets the environment variable secret ref on the App", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 
-					cfAppLookupKey := types.NamespacedName{Name: patchedAppRecord.GUID, Namespace: cfSpace.Name}
-					patchedCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(testCtx, cfAppLookupKey, patchedCFApp)).To(Succeed())
-					Expect(patchedCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+					Expect(cfApp.Spec.EnvSecretName).NotTo(BeEmpty())
 
-					secretLookupKey := types.NamespacedName{Name: patchedCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
+					secretLookupKey := types.NamespacedName{Name: cfApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
 					createdSecret := new(corev1.Secret)
 					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
 					Expect(createdSecret.Data).To(BeEmpty())
@@ -634,12 +771,10 @@ var _ = Describe("AppRepository", func() {
 
 				It("creates an secret for the environment variables and sets the ref on the App", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
-					cfAppLookupKey := types.NamespacedName{Name: patchedAppRecord.GUID, Namespace: cfSpace.Name}
-					patchedCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(testCtx, cfAppLookupKey, patchedCFApp)).To(Succeed())
-					Expect(patchedCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
 
-					secretLookupKey := types.NamespacedName{Name: patchedCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
+					Expect(cfApp.Spec.EnvSecretName).NotTo(BeEmpty())
+
+					secretLookupKey := types.NamespacedName{Name: cfApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
 					createdSecret := new(corev1.Secret)
 					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
 					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
@@ -814,8 +949,7 @@ var _ = Describe("AppRepository", func() {
 					Expect(k8sClient.Get(testCtx, cfAppSecretLookupKey, createdCFAppSecret)).To(Succeed())
 
 					// Secret has an owner reference that points to the App CR
-					Expect(createdCFAppSecret.OwnerReferences)
-					Expect(createdCFAppSecret.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
+					Expect(createdCFAppSecret.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 						{
 							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 							Kind:       "CFApp",
@@ -894,214 +1028,6 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	Describe("PatchAppMetadata", func() {
-		var (
-			appGUID                       string
-			patchErr                      error
-			appRecord                     AppRecord
-			labelsPatch, annotationsPatch map[string]*string
-		)
-
-		BeforeEach(func() {
-			appGUID = cfApp.Name
-			labelsPatch = nil
-			annotationsPatch = nil
-		})
-
-		JustBeforeEach(func() {
-			patchMsg := PatchAppMetadataMessage{
-				AppGUID:   appGUID,
-				SpaceGUID: cfSpace.Name,
-				MetadataPatch: MetadataPatch{
-					Annotations: annotationsPatch,
-					Labels:      labelsPatch,
-				},
-			}
-
-			appRecord, patchErr = appRepo.PatchAppMetadata(testCtx, authInfo, patchMsg)
-		})
-
-		When("the user is authorized and an app exists", func() {
-			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
-			})
-
-			When("the app doesn't have labels or annotations", func() {
-				BeforeEach(func() {
-					labelsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
-					}
-					annotationsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
-					}
-					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels = nil
-						cfApp.Annotations = nil
-					})).To(Succeed())
-				})
-
-				It("returns the updated org record", func() {
-					Expect(patchErr).NotTo(HaveOccurred())
-					Expect(appRecord.GUID).To(Equal(appGUID))
-					Expect(appRecord.SpaceGUID).To(Equal(cfSpace.Name))
-					Expect(appRecord.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
-					))
-					Expect(appRecord.Annotations).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
-					))
-				})
-
-				It("sets the k8s CFSpace resource", func() {
-					Expect(patchErr).NotTo(HaveOccurred())
-					updatedCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), updatedCFApp)).To(Succeed())
-					Expect(updatedCFApp.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
-					))
-					Expect(updatedCFApp.Annotations).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
-					))
-				})
-			})
-
-			When("the app already has labels and annotations", func() {
-				BeforeEach(func() {
-					labelsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
-						"before-key-two": nil,
-					}
-					annotationsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
-						"before-key-two": nil,
-					}
-					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels = map[string]string{
-							"before-key-one": "value-one",
-							"before-key-two": "value-two",
-							"key-one":        "value-one",
-						}
-						cfApp.Annotations = map[string]string{
-							"before-key-one": "value-one",
-							"before-key-two": "value-two",
-							"key-one":        "value-one",
-						}
-					})).To(Succeed())
-				})
-
-				It("returns the updated app record", func() {
-					Expect(patchErr).NotTo(HaveOccurred())
-					Expect(appRecord.GUID).To(Equal(cfApp.Name))
-					Expect(appRecord.SpaceGUID).To(Equal(cfApp.Namespace))
-					Expect(appRecord.State).To(BeEquivalentTo(cfApp.Spec.DesiredState))
-					Expect(appRecord.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
-					))
-					Expect(appRecord.Annotations).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
-					))
-				})
-
-				It("sets the k8s cfapp resource", func() {
-					Expect(patchErr).NotTo(HaveOccurred())
-					updatedCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfApp), updatedCFApp)).To(Succeed())
-					Expect(updatedCFApp.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
-					))
-					Expect(updatedCFApp.Annotations).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
-					))
-				})
-			})
-
-			When("an annotation is invalid", func() {
-				BeforeEach(func() {
-					annotationsPatch = map[string]*string{
-						"-bad-annotation": pointerTo("stuff"),
-					}
-				})
-
-				It("returns an UnprocessableEntityError", func() {
-					var unprocessableEntityError apierrors.UnprocessableEntityError
-					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
-					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
-						ContainSubstring("metadata.annotations is invalid"),
-						ContainSubstring(`"-bad-annotation"`),
-						ContainSubstring("alphanumeric"),
-					))
-				})
-			})
-
-			When("a label is invalid", func() {
-				BeforeEach(func() {
-					labelsPatch = map[string]*string{
-						"-bad-label": pointerTo("stuff"),
-					}
-				})
-
-				It("returns an UnprocessableEntityError", func() {
-					var unprocessableEntityError apierrors.UnprocessableEntityError
-					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
-					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
-						ContainSubstring("metadata.labels is invalid"),
-						ContainSubstring(`"-bad-label"`),
-						ContainSubstring("alphanumeric"),
-					))
-				})
-			})
-		})
-
-		When("the user is authorized but the app does not exist", func() {
-			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
-				appGUID = "invalidAppName"
-			})
-
-			It("fails to get the app", func() {
-				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
-			})
-		})
-
-		When("the user is not authorized", func() {
-			It("return a forbidden error", func() {
-				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
-			})
-		})
-	})
-
 	Describe("SetCurrentDroplet", func() {
 		var (
 			dropletGUID string
@@ -1131,7 +1057,7 @@ var _ = Describe("AppRepository", func() {
 					theAppCopy := theApp.DeepCopy()
 					theAppCopy.Status = korifiv1alpha1.CFAppStatus{
 						Conditions: []metav1.Condition{{
-							Type:               workloads.StatusConditionReady,
+							Type:               shared.StatusConditionReady,
 							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Now(),
 							Reason:             "staged",
@@ -1333,8 +1259,9 @@ var _ = Describe("AppRepository", func() {
 
 		It("deletes the CFApp resource", func() {
 			Expect(deleteAppErr).NotTo(HaveOccurred())
-			_, err := appRepo.GetApp(testCtx, authInfo, appGUID)
-			Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			app, err := appRepo.GetApp(testCtx, authInfo, appGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(app.DeletedAt).To(PointTo(BeTemporally("~", time.Now(), 5*time.Second)))
 		})
 
 		When("the app doesn't exist", func() {
@@ -1582,6 +1509,52 @@ var _ = Describe("AppRepository", func() {
 			})
 		})
 	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			deletionTime *time.Time
+			getErr       error
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
+			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+		})
+
+		JustBeforeEach(func() {
+			deletionTime, getErr = appRepo.GetDeletedAt(ctx, authInfo, cfApp.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the app is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+					cfApp.Finalizers = append(cfApp.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the app isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfApp)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
 })
 
 func createApp(space string) *korifiv1alpha1.CFApp {
@@ -1614,7 +1587,6 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
-	cfApp.Status.Conditions = []metav1.Condition{}
 	Expect(k8sClient.Status().Update(context.Background(), cfApp)).To(Succeed())
 
 	return cfApp
@@ -1629,7 +1601,7 @@ func generateVcapServiceSecretDataByte() (map[string][]byte, error) {
 		InstanceName: "myupsi",
 		BindingGUID:  "73f68d28-4602-47a3-8110-74ca991d5032",
 		BindingName:  nil,
-		Credentials: map[string]string{
+		Credentials: map[string]any{
 			"foo": "bar",
 		},
 		SyslogDrainURL: nil,
@@ -1637,7 +1609,7 @@ func generateVcapServiceSecretDataByte() (map[string][]byte, error) {
 	}
 
 	vcapServicesData, err := json.Marshal(env.VCAPServices{
-		UserProvided: []env.ServiceDetails{
+		env.UserProvided: []env.ServiceDetails{
 			serviceDetails,
 		},
 	})

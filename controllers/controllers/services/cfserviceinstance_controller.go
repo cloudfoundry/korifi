@@ -21,19 +21,19 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -56,8 +56,15 @@ func NewCFServiceInstanceReconciler(
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
 
 func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+	log := shared.ObjectLogger(r.log, cfServiceInstance)
+	ctx = logr.NewContext(ctx, log)
+
+	cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
+	log.V(1).Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
+
 	secret := new(corev1.Secret)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: cfServiceInstance.Namespace}, secret)
 	if err != nil {
@@ -66,6 +73,7 @@ func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfS
 			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 
+		log.Info("failed to get secret", "reason", err)
 		cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "UnknownError", "Error occurred while fetching secret: "+err.Error())
 		return ctrl.Result{}, err
 	}
@@ -79,13 +87,15 @@ func bindSecretAvailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstan
 		Binding: corev1.LocalObjectReference{
 			Name: cfServiceInstance.Spec.SecretName,
 		},
-		Conditions: cfServiceInstance.Status.Conditions,
+		Conditions:         cfServiceInstance.Status.Conditions,
+		ObservedGeneration: cfServiceInstance.Status.ObservedGeneration,
 	}
 
 	meta.SetStatusCondition(&status.Conditions, metav1.Condition{
-		Type:   BindingSecretAvailableCondition,
-		Status: metav1.ConditionTrue,
-		Reason: "SecretFound",
+		Type:               BindingSecretAvailableCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             "SecretFound",
+		ObservedGeneration: cfServiceInstance.Generation,
 	})
 
 	return status
@@ -93,15 +103,17 @@ func bindSecretAvailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstan
 
 func bindSecretUnavailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance, reason, message string) korifiv1alpha1.CFServiceInstanceStatus {
 	status := korifiv1alpha1.CFServiceInstanceStatus{
-		Binding:    corev1.LocalObjectReference{},
-		Conditions: cfServiceInstance.Status.Conditions,
+		Binding:            corev1.LocalObjectReference{},
+		Conditions:         cfServiceInstance.Status.Conditions,
+		ObservedGeneration: cfServiceInstance.Status.ObservedGeneration,
 	}
 
 	meta.SetStatusCondition(&status.Conditions, metav1.Condition{
-		Type:    BindingSecretAvailableCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  reason,
-		Message: message,
+		Type:               BindingSecretAvailableCondition,
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: cfServiceInstance.Generation,
 	})
 
 	return status

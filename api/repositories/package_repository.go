@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -64,8 +65,8 @@ type PackageRecord struct {
 	AppGUID     string
 	SpaceGUID   string
 	State       string
-	CreatedAt   string // Can we also just use date objects directly here?
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 	Labels      map[string]string
 	Annotations map[string]string
 	ImageRef    string
@@ -113,10 +114,10 @@ type UpdatePackageMessage struct {
 }
 
 type UpdatePackageSourceMessage struct {
-	GUID               string
-	SpaceGUID          string
-	ImageRef           string
-	RegistrySecretName string
+	GUID                string
+	SpaceGUID           string
+	ImageRef            string
+	RegistrySecretNames []string
 }
 
 func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message CreatePackageMessage) (PackageRecord, error) {
@@ -201,6 +202,17 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 		return []PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFPackage) bool{
+		SetPredicate(message.AppGUIDs, func(s korifiv1alpha1.CFPackage) string { return s.Spec.AppRef.Name }),
+	}
+	if len(message.States) > 0 {
+		stateSet := NewSet(message.States...)
+		preds = append(preds, func(p korifiv1alpha1.CFPackage) bool {
+			return (stateSet.Includes(PackageStateReady) && meta.IsStatusConditionTrue(p.Status.Conditions, shared.StatusConditionReady)) ||
+				(stateSet.Includes(PackageStateAwaitingUpload) && !meta.IsStatusConditionTrue(p.Status.Conditions, shared.StatusConditionReady))
+		})
+	}
+
 	var filteredPackages []korifiv1alpha1.CFPackage
 	for ns := range nsList {
 		packageList := &korifiv1alpha1.CFPackageList{}
@@ -211,47 +223,9 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 		if err != nil {
 			return []PackageRecord{}, fmt.Errorf("failed to list packages in namespace %s: %w", ns, apierrors.FromK8sError(err, PackageResourceType))
 		}
-		filteredPackages = append(filteredPackages, applyPackageFilter(packageList.Items, message)...)
+		filteredPackages = append(filteredPackages, Filter(packageList.Items, preds...)...)
 	}
 	return r.convertToPackageRecords(filteredPackages), nil
-}
-
-func applyPackageFilter(packages []korifiv1alpha1.CFPackage, message ListPackagesMessage) []korifiv1alpha1.CFPackage {
-	var appFiltered []korifiv1alpha1.CFPackage
-	if len(message.AppGUIDs) > 0 {
-		for _, currentPackage := range packages {
-			for _, appGUID := range message.AppGUIDs {
-				if currentPackage.Spec.AppRef.Name == appGUID {
-					appFiltered = append(appFiltered, currentPackage)
-					break
-				}
-			}
-		}
-	} else {
-		appFiltered = packages
-	}
-
-	var stateFiltered []korifiv1alpha1.CFPackage
-	if len(message.States) > 0 {
-		for _, currentPackage := range appFiltered {
-			for _, state := range message.States {
-				switch state {
-				case PackageStateReady:
-					if currentPackage.Spec.Source.Registry.Image != "" {
-						stateFiltered = append(stateFiltered, currentPackage)
-					}
-				case PackageStateAwaitingUpload:
-					if currentPackage.Spec.Source.Registry.Image == "" {
-						stateFiltered = append(stateFiltered, currentPackage)
-					}
-				}
-			}
-		}
-	} else {
-		stateFiltered = appFiltered
-	}
-
-	return stateFiltered
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
@@ -268,15 +242,15 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 	if err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
 		cfPackage.Spec.Source.Registry.Image = message.ImageRef
 		imagePullSecrets := []corev1.LocalObjectReference{}
-		if message.RegistrySecretName != "" {
-			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: message.RegistrySecretName})
+		for _, secret := range message.RegistrySecretNames {
+			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: secret})
 		}
 		cfPackage.Spec.Source.Registry.ImagePullSecrets = imagePullSecrets
 	}); err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, workloads.StatusConditionReady)
+	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, shared.StatusConditionReady)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed awaiting Ready status condition: %w", err)
 	}
@@ -286,9 +260,8 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 }
 
 func (r *PackageRepo) cfPackageToPackageRecord(cfPackage *korifiv1alpha1.CFPackage) PackageRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfPackage.ObjectMeta)
 	state := PackageStateAwaitingUpload
-	if meta.IsStatusConditionTrue(cfPackage.Status.Conditions, workloads.StatusConditionReady) {
+	if meta.IsStatusConditionTrue(cfPackage.Status.Conditions, shared.StatusConditionReady) {
 		state = PackageStateReady
 	}
 	return PackageRecord{
@@ -298,8 +271,8 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage *korifiv1alpha1.CFPacka
 		Type:        string(cfPackage.Spec.Type),
 		AppGUID:     cfPackage.Spec.AppRef.Name,
 		State:       state,
-		CreatedAt:   formatTimestamp(cfPackage.CreationTimestamp),
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   cfPackage.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(cfPackage),
 		Labels:      cfPackage.Labels,
 		Annotations: cfPackage.Annotations,
 		ImageRef:    r.repositoryRef(cfPackage.Spec.AppRef.Name),

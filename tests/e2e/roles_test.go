@@ -3,7 +3,7 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -223,6 +223,10 @@ var _ = Describe("Roles", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
+
+			resp, err := client.R().Get("/v3/roles/" + roleGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 	})
 })

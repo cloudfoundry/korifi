@@ -35,22 +35,26 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
+	versionwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	kpackimagebuilderfinalizer "code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
 	statesetfulrunnerv1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
 	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/registry"
+	"code.cloudfoundry.org/korifi/version"
 	btpv1 "github.com/SAP/sap-btp-service-operator/api/v1"
 	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
-	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
+	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -120,6 +124,8 @@ func main() {
 
 	log.SetOutput(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"})
 
+	ctrl.Log.Info("starting Korifi controllers", "version", version.Version)
+
 	conf := ctrl.GetConfigOrDie()
 	k8sClient, err := k8sclient.NewForConfig(conf)
 	if err != nil {
@@ -165,11 +171,11 @@ func main() {
 
 		if err = (workloadscontrollers.NewCFPackageReconciler(
 			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFPackage"),
 			image.NewClient(k8sClient),
 			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
-			mgr.GetScheme(),
-			controllerConfig.ContainerRegistrySecretName,
-			ctrl.Log.WithName("controllers").WithName("CFPackage"),
+			controllerConfig.ContainerRegistrySecretNames,
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
 			os.Exit(1)
@@ -234,7 +240,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFOrg"),
-			controllerConfig.ContainerRegistrySecretName,
+			controllerConfig.ContainerRegistrySecretNames,
 			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFOrg")
@@ -245,8 +251,9 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
-			controllerConfig.ContainerRegistrySecretName,
+			controllerConfig.ContainerRegistrySecretNames,
 			controllerConfig.CFRootNamespace,
+			*controllerConfig.SpaceFinalizerAppDeletionTimeout,
 			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
@@ -290,6 +297,12 @@ func main() {
 		}
 
 		if controllerConfig.IncludeKpackImageBuilder {
+			var builderReadinessTimeout time.Duration
+			builderReadinessTimeout, err = controllerConfig.ParseBuilderReadinessTimeout()
+			if err != nil {
+				setupLog.Error(err, "error parsing builderReadinessTimeout")
+				os.Exit(1)
+			}
 			if err = controllers.NewBuildWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
@@ -298,6 +311,7 @@ func main() {
 				image.NewClient(k8sClient),
 				controllerConfig.ContainerRepositoryPrefix,
 				registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
+				builderReadinessTimeout,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")
 				os.Exit(1)
@@ -347,7 +361,7 @@ func main() {
 		}
 
 		if controllerConfig.IncludeStatefulsetRunner {
-			logger := ctrl.Log.WithName("controllers").WithName("AppWorkloadReconciler")
+			logger := ctrl.Log.WithName("controllers").WithName("AppWorkload")
 			if err = statefulsetcontrollers.NewAppWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
@@ -356,6 +370,16 @@ func main() {
 				logger,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
+				os.Exit(1)
+			}
+
+			logger = ctrl.Log.WithName("controllers").WithName("RunnerInfo")
+			if err = statefulsetcontrollers.NewRunnerInfoReconciler(
+				mgr.GetClient(),
+				mgr.GetScheme(),
+				logger,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "RunnerInfo")
 				os.Exit(1)
 			}
 		}
@@ -470,11 +494,18 @@ func main() {
 			os.Exit(1)
 		}
 
+		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
+		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
+
 		if controllerConfig.IncludeStatefulsetRunner {
 			if err = statesetfulrunnerv1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
 				os.Exit(1)
 			}
+		}
+
+		if controllerConfig.IncludeKpackImageBuilder {
+			kpackimagebuilderfinalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(mgr)
 		}
 
 		if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {

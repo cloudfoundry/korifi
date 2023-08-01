@@ -68,13 +68,7 @@ echo "********************"
 echo " Installing Contour"
 echo "********************"
 
-# Temporarily resolve an issue with contour running on Apple silicon.
-# This fix can be removed once the latest version of contour uses envoy v1.23.1 or newer
-if command -v kbld &>/dev/null; then
-  kbld --image-map-file "${DEP_DIR}/contour/kbld-image-mapping-to-fix-envoy-v1.23-bug.json" -f "$VENDOR_DIR/contour" | kubectl apply -f -
-else
-  kubectl apply -f "$VENDOR_DIR/contour"
-fi
+kubectl apply -f "$VENDOR_DIR/contour"
 
 echo "************************************"
 echo " Installing Service Binding Runtime"

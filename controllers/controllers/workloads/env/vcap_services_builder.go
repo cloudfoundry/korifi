@@ -14,6 +14,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const UserProvided = "user-provided"
+
 type VCAPServicesEnvValueBuilder struct {
 	k8sClient client.Client
 }
@@ -36,8 +38,7 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 		return map[string]string{"VCAP_SERVICES": "{}"}, nil
 	}
 
-	vcapServices := map[string][]ServiceDetails{}
-
+	serviceEnvs := VCAPServices{}
 	for _, currentServiceBinding := range serviceBindings.Items {
 		// If finalizing do not append
 		if !currentServiceBinding.DeletionTimestamp.IsZero() {
@@ -45,18 +46,19 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 		}
 
 		var serviceEnv ServiceDetails
-		serviceEnv, err = b.buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
+		var serviceLabel string
+		serviceEnv, serviceLabel, err = b.buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
 		if err != nil {
 			return nil, err
 		}
 
-		if _, ok := vcapServices[serviceEnv.Label]; !ok {
-			vcapServices[serviceEnv.Label] = []ServiceDetails{}
+		if _, ok := serviceEnvs[serviceEnv.Label]; !ok {
+			serviceEnvs[serviceEnv.Label] = []ServiceDetails{}
 		}
-		vcapServices[serviceEnv.Label] = append(vcapServices[serviceEnv.Label], serviceEnv)
+		serviceEnvs[serviceLabel] = append(serviceEnvs[serviceLabel], serviceEnv)
 	}
 
-	jsonVal, err := json.Marshal(vcapServices)
+	jsonVal, err := json.Marshal(serviceEnvs)
 	if err != nil {
 		return nil, err
 	}
@@ -94,28 +96,41 @@ func (b *VCAPServicesEnvValueBuilder) getServiceOffering(ctx context.Context, se
 	return serviceOfferings.Items[0], nil
 }
 
-func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, error) {
+func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, string, error) {
 	if serviceBinding.Status.Binding.Name == "" {
-		return ServiceDetails{}, fmt.Errorf("service binding secret name is empty")
+		return ServiceDetails{}, "", fmt.Errorf("service binding secret name is empty")
 	}
 
 	serviceInstance := korifiv1alpha1.CFServiceInstance{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Spec.Service.Name}, &serviceInstance)
 	if err != nil {
-		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceInstance: %w", err)
+		return ServiceDetails{}, "", fmt.Errorf("error fetching CFServiceInstance: %w", err)
 	}
 
 	secret := corev1.Secret{}
 	err = k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Status.Binding.Name}, &secret)
 	if err != nil {
-		return ServiceDetails{}, fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
+		return ServiceDetails{}, "", fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 	}
 
-	return b.fromServiceBinding(ctx, serviceBinding, serviceInstance, secret)
+	serviceLabel, err := b.getServiceLabel(ctx, serviceInstance)
+	if err != nil {
+		return ServiceDetails{}, "", fmt.Errorf("failed to determine service label: %w", err)
+	}
+
+	serviceDetails, err := b.fromServiceBinding(ctx, serviceBinding, serviceInstance, secret, serviceLabel)
+	if err != nil {
+		return ServiceDetails{}, "", fmt.Errorf("error creating service details: %w", err)
+	}
+	return serviceDetails, serviceLabel, nil
 }
 
 func (b *VCAPServicesEnvValueBuilder) getServiceLabel(ctx context.Context, cfServiceInstance korifiv1alpha1.CFServiceInstance) (string, error) {
 	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
+		if cfServiceInstance.Spec.ServiceLabel != nil && *cfServiceInstance.Spec.ServiceLabel != "" {
+			return *cfServiceInstance.Spec.ServiceLabel, nil
+		}
+
 		return korifiv1alpha1.UserProvidedType, nil
 	}
 
@@ -137,6 +152,7 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 	serviceBinding korifiv1alpha1.CFServiceBinding,
 	serviceInstance korifiv1alpha1.CFServiceInstance,
 	serviceBindingSecret corev1.Secret,
+	serviceLabel string,
 ) (ServiceDetails, error) {
 	var serviceName string
 	var bindingName *string
@@ -163,18 +179,13 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		tags = append(tags, bindingTags...)
 	}
 
-	label, err := b.getServiceLabel(ctx, serviceInstance)
-	if err != nil {
-		return ServiceDetails{}, err
-	}
-
 	credentials, err := mapFromSecret(serviceBindingSecret)
 	if err != nil {
 		return ServiceDetails{}, err
 	}
 
 	return ServiceDetails{
-		Label:          label,
+		Label:          serviceLabel,
 		Name:           serviceName,
 		Tags:           tags,
 		InstanceGUID:   serviceInstance.Name,
@@ -216,7 +227,10 @@ func parseValue(bindingSecret corev1.Secret, key string) (any, error) {
 		return string(bindingSecret.Data[key]), nil
 	case "json":
 		var value any
-		json.Unmarshal(bindingSecret.Data[key], &value)
+		err := json.Unmarshal(bindingSecret.Data[key], &value)
+		if err != nil {
+			return nil, err
+		}
 		return value, nil
 
 	}

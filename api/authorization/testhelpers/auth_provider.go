@@ -13,7 +13,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-http-utils/headers"
 	"github.com/golang-jwt/jwt"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -118,7 +117,7 @@ func renderJWKSResponse(signingKey *rsa.PrivateKey) string {
 
 func configureServer(server *ghttp.Server, signingKey *rsa.PrivateKey) {
 	applicationJSONHeader := http.Header{}
-	applicationJSONHeader.Add(headers.ContentType, "application/json")
+	applicationJSONHeader.Add("Content-Type", "application/json")
 
 	server.SetAllowUnhandledRequests(false)
 

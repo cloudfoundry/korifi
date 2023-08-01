@@ -25,6 +25,7 @@ const (
 
 type CFDomainRepository interface {
 	GetDomain(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
+	GetDomainByName(ctx context.Context, authInfo authorization.Info, domainName string) (repositories.DomainRecord, error)
 	CreateDomain(context.Context, authorization.Info, repositories.CreateDomainMessage) (repositories.DomainRecord, error)
 	UpdateDomain(context.Context, authorization.Info, repositories.UpdateDomainMessage) (repositories.DomainRecord, error)
 	ListDomains(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)
@@ -32,20 +33,20 @@ type CFDomainRepository interface {
 }
 
 type Domain struct {
-	serverURL            url.URL
-	requestJSONValidator RequestJSONValidator
-	domainRepo           CFDomainRepository
+	serverURL        url.URL
+	requestValidator RequestValidator
+	domainRepo       CFDomainRepository
 }
 
 func NewDomain(
 	serverURL url.URL,
-	requestJSONValidator RequestJSONValidator,
+	requestValidator RequestValidator,
 	domainRepo CFDomainRepository,
 ) *Domain {
 	return &Domain{
-		serverURL:            serverURL,
-		requestJSONValidator: requestJSONValidator,
-		domainRepo:           domainRepo,
+		serverURL:        serverURL,
+		requestValidator: requestValidator,
+		domainRepo:       domainRepo,
 	}
 }
 
@@ -54,7 +55,7 @@ func (h *Domain) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.create")
 
 	var payload payloads.DomainCreate
-	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -93,7 +94,7 @@ func (h *Domain) update(r *http.Request) (*routing.Response, error) { //nolint:d
 	domainGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.DomainUpdate
-	if err := h.requestJSONValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -114,13 +115,8 @@ func (h *Domain) list(r *http.Request) (*routing.Response, error) { //nolint:dup
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	domainListFilter := new(payloads.DomainList)
-	err := payloads.Decode(domainListFilter, r.Form)
-	if err != nil {
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, domainListFilter); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 

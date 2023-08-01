@@ -17,12 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
 type CFServiceBindingSpec struct {
@@ -43,8 +42,11 @@ type CFServiceBindingStatus struct {
 	// +optional
 	Binding v1.LocalObjectReference `json:"binding"`
 
-	// Conditions capture the current status of the CFServiceBinding
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the CFServiceBinding that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -73,6 +75,14 @@ type CFServiceBindingList struct {
 
 func (b CFServiceBinding) StatusConditions() []metav1.Condition {
 	return b.Status.Conditions
+}
+
+func (b CFServiceBinding) UniqueName() string {
+	return fmt.Sprintf("sb::%s::%s::%s", b.Spec.AppRef.Name, b.Spec.Service.Namespace, b.Spec.Service.Name)
+}
+
+func (b CFServiceBinding) UniqueValidationErrorMessage() string {
+	return fmt.Sprintf("Service binding already exists: App: %s Service Instance: %s", b.Spec.AppRef.Name, b.Spec.Service.Name)
 }
 
 func init() {

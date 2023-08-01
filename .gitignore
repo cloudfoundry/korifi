@@ -1,9 +1,16 @@
-**/cover.out
+**/cover.out*
 **/bin
 **/testbin
 .idea/
 ~/.*
 *.test
+<<<<<<< HEAD
 # Don't add zipped assets. Use the runtime zipping logic in the e2e suite instead.
 tests/e2e/assets/*.zip
 netrc
+||||||| 0058fb3f
+# Don't add zipped assets. Use the runtime zipping logic in the e2e suite instead.
+tests/e2e/assets/*.zip
+=======
+tests/assets/dorifi/dorifi
+>>>>>>> korifi/main

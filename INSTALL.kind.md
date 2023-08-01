@@ -23,7 +23,7 @@ BASE_DOMAIN="apps-127-0-0-1.nip.io"
 In order to access the Korifi API, we'll need to [expose the cluster ingress locally](https://kind.sigs.k8s.io/docs/user/ingress/). To do it, create your kind cluster using a command like this:
 
 ```sh
-cat <<EOF | kind create cluster --config=-
+cat <<EOF | kind create cluster --name korifi --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -44,7 +44,14 @@ We recommend you use [DockerHub](https://hub.docker.com/) as your container regi
 
 ## Dependencies
 
-No changes here, follow the [common instructions](./INSTALL.md#dependencies).
+Follow the [common instructions](./INSTALL.md#dependencies), with the exception of Metrics Server.
+
+### Metrics Server
+
+Make sure you pass the following flags to the Metrics Server container (see [_Configuration_](https://github.com/kubernetes-sigs/metrics-server#configuration)):
+
+-   `--kubelet-insecure-tls`
+-   `--kubelet-preferred-address-types=InternalIP`
 
 ## Pre-install configuration
 
@@ -56,9 +63,10 @@ For the container registry credentials `Secret`, we recommend you [create an acc
 No changes here, follow the [common instructions](./INSTALL.md#install-korifi).
 If using DockerHub as recommended above, set the following values:
 
--   `api.packageRepository`: `index.docker.io/<username>/packages`;
 -   `kpackImageBuilder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
--   `kpackImageBuilder.dropletRepository`: `index.docker.io/<username>/droplets`.
+-   `global.containerRepositoryPrefix`: `index.docker.io/<username>/`;
+
+Remember to set `global.generateIngressCertificates` to `true` if you want to use self-signed TLS certificates.
 
 If `$KORIFI_NAMESPACE` doesn't exist yet, you can add the `--create-namespace` flag to the `helm` invocation.
 
@@ -69,4 +77,4 @@ Yon can skip this section.
 ## Test Korifi
 
 No changes here, follow the [common instructions](./INSTALL.md#test-korifi).
-When running `cf login`, make sure you select the entry associated to your kind cluster (`kind-kind` by default).
+When running `cf login`, make sure you select the entry associated to your kind cluster (`kind-korifi` in our case).

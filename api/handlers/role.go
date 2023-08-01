@@ -21,22 +21,6 @@ const (
 	RolePath  = RolesPath + "/{guid}"
 )
 
-type RoleName string
-
-const (
-	RoleAdmin                      RoleName = "admin"
-	RoleAdminReadOnly              RoleName = "admin_read_only"
-	RoleGlobalAuditor              RoleName = "global_auditor"
-	RoleOrganizationAuditor        RoleName = "organization_auditor"
-	RoleOrganizationBillingManager RoleName = "organization_billing_manager"
-	RoleOrganizationManager        RoleName = "organization_manager"
-	RoleOrganizationUser           RoleName = "organization_user"
-	RoleSpaceAuditor               RoleName = "space_auditor"
-	RoleSpaceDeveloper             RoleName = "space_developer"
-	RoleSpaceManager               RoleName = "space_manager"
-	RoleSpaceSupporter             RoleName = "space_supporter"
-)
-
 //counterfeiter:generate -o fake -fake-name CFRoleRepository . CFRoleRepository
 
 type CFRoleRepository interface {
@@ -49,14 +33,14 @@ type CFRoleRepository interface {
 type Role struct {
 	apiBaseURL       url.URL
 	roleRepo         CFRoleRepository
-	decoderValidator *DecoderValidator
+	requestValidator RequestValidator
 }
 
-func NewRole(apiBaseURL url.URL, roleRepo CFRoleRepository, decoderValidator *DecoderValidator) *Role {
+func NewRole(apiBaseURL url.URL, roleRepo CFRoleRepository, requestValidator RequestValidator) *Role {
 	return &Role{
 		apiBaseURL:       apiBaseURL,
 		roleRepo:         roleRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -65,7 +49,7 @@ func (h *Role) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.role.create")
 
 	var payload payloads.RoleCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -84,12 +68,8 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.role.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
-	roleListFilter := new(payloads.RoleListFilter)
-	err := payloads.Decode(roleListFilter, r.Form)
+	roleListFilter := new(payloads.RoleList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, roleListFilter)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
@@ -100,15 +80,12 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 	}
 
 	filteredRoles := filterRoles(roleListFilter, roles)
-
-	if err := h.sortList(filteredRoles, r.FormValue("order_by")); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
-	}
+	h.sortList(filteredRoles, roleListFilter.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRole, filteredRoles, h.apiBaseURL, *r.URL)), nil
 }
 
-func filterRoles(roleListFilter *payloads.RoleListFilter, roles []repositories.RoleRecord) []repositories.RoleRecord {
+func filterRoles(roleListFilter *payloads.RoleList, roles []repositories.RoleRecord) []repositories.RoleRecord {
 	var filteredRoles []repositories.RoleRecord
 	for _, role := range roles {
 		if match(roleListFilter.GUIDs, role.GUID) &&
@@ -126,21 +103,18 @@ func match(allowedValues map[string]bool, val string) bool {
 	return len(allowedValues) == 0 || allowedValues[val]
 }
 
-func (h *Role) sortList(roles []repositories.RoleRecord, order string) error {
+func (h *Role) sortList(roles []repositories.RoleRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(roles, func(i, j int) bool { return roles[i].CreatedAt < roles[j].CreatedAt })
+		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(&roles[j].CreatedAt, &roles[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(roles, func(i, j int) bool { return roles[i].CreatedAt > roles[j].CreatedAt })
+		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(&roles[i].CreatedAt, &roles[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(roles, func(i, j int) bool { return roles[i].UpdatedAt < roles[j].UpdatedAt })
+		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(roles[j].UpdatedAt, roles[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(roles, func(i, j int) bool { return roles[i].UpdatedAt > roles[j].UpdatedAt })
-	default:
-		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at")
+		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(roles[i].UpdatedAt, roles[j].UpdatedAt) })
 	}
-	return nil
 }
 
 func (h *Role) delete(r *http.Request) (*routing.Response, error) {

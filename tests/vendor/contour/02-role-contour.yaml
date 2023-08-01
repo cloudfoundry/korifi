@@ -5,7 +5,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: contour
 rules:
 - apiGroups:
@@ -24,6 +23,7 @@ rules:
   resources:
   - gatewayclasses
   - gateways
+  - grpcroutes
   - httproutes
   - referencegrants
   - tlsroutes
@@ -36,6 +36,7 @@ rules:
   resources:
   - gatewayclasses/status
   - gateways/status
+  - grpcroutes/status
   - httproutes/status
   - tlsroutes/status
   verbs:
@@ -81,7 +82,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  creationTimestamp: null
   name: contour
   namespace: projectcontour
 rules:

@@ -47,7 +47,7 @@ type ServiceInstanceLinks struct {
 
 func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL) ServiceInstanceResponse {
 	lastOperationType := "update"
-	if serviceInstanceRecord.CreatedAt == serviceInstanceRecord.UpdatedAt {
+	if serviceInstanceRecord.UpdatedAt == nil || serviceInstanceRecord.CreatedAt == *serviceInstanceRecord.UpdatedAt {
 		lastOperationType = "create"
 	}
 
@@ -57,14 +57,14 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 		Type: serviceInstanceRecord.Type,
 		Tags: emptySliceIfNil(serviceInstanceRecord.Tags),
 		LastOperation: lastOperation{
-			CreatedAt:   serviceInstanceRecord.CreatedAt,
-			UpdatedAt:   serviceInstanceRecord.UpdatedAt,
+			CreatedAt:   formatTimestamp(&serviceInstanceRecord.CreatedAt),
+			UpdatedAt:   formatTimestamp(serviceInstanceRecord.UpdatedAt),
 			Description: "Operation succeeded",
 			State:       "succeeded",
 			Type:        lastOperationType,
 		},
-		CreatedAt: serviceInstanceRecord.CreatedAt,
-		UpdatedAt: serviceInstanceRecord.UpdatedAt,
+		CreatedAt: formatTimestamp(&serviceInstanceRecord.CreatedAt),
+		UpdatedAt: formatTimestamp(serviceInstanceRecord.UpdatedAt),
 		Relationships: Relationships{
 			"space": Relationship{
 				Data: &RelationshipData{

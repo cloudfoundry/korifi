@@ -42,14 +42,14 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 		GUID:      record.GUID,
 		Type:      record.Type,
 		Name:      record.Name,
-		CreatedAt: record.CreatedAt,
-		UpdatedAt: record.UpdatedAt,
+		CreatedAt: formatTimestamp(&record.CreatedAt),
+		UpdatedAt: formatTimestamp(record.UpdatedAt),
 		LastOperation: ServiceBindingLastOperationResponse{
 			Type:        record.LastOperation.Type,
 			State:       record.LastOperation.State,
 			Description: record.LastOperation.Description,
-			CreatedAt:   record.LastOperation.CreatedAt,
-			UpdatedAt:   record.LastOperation.UpdatedAt,
+			CreatedAt:   formatTimestamp(&record.LastOperation.CreatedAt),
+			UpdatedAt:   formatTimestamp(record.LastOperation.UpdatedAt),
 		},
 		Relationships: map[string]Relationship{
 			"app":              {&RelationshipData{record.AppGUID}},
@@ -70,8 +70,8 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 			},
 		},
 		Metadata: Metadata{
-			Labels:      record.Labels,
-			Annotations: record.Annotations,
+			Labels:      emptyMapIfNil(record.Labels),
+			Annotations: emptyMapIfNil(record.Annotations),
 		},
 	}
 }

@@ -9,10 +9,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,12 +39,12 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			},
 			Spec: korifiv1alpha1.CFPackageSpec{
 				Type: "bits",
-				AppRef: v1.LocalObjectReference{
+				AppRef: corev1.LocalObjectReference{
 					Name: cfAppName,
 				},
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfPackage)).To(Succeed())
 
 		cfDroplet = &korifiv1alpha1.CFBuild{
 			ObjectMeta: metav1.ObjectMeta{
@@ -53,16 +52,16 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Name:      testutils.PrefixedGUID("droplet"),
 			},
 			Spec: korifiv1alpha1.CFBuildSpec{
-				PackageRef: v1.LocalObjectReference{
+				PackageRef: corev1.LocalObjectReference{
 					Name: cfPackage.Name,
 				},
-				AppRef: v1.LocalObjectReference{
+				AppRef: corev1.LocalObjectReference{
 					Name: cfAppName,
 				},
 				Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfDroplet)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfDroplet)).To(Succeed())
 
 		cfDropletCopy := cfDroplet.DeepCopy()
 		cfDropletCopy.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
@@ -83,7 +82,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Status: "Unknown",
 			Reason: "reason",
 		})
-		Expect(k8sClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
+		Expect(adminClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
 
 		envSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -96,7 +95,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			},
 			Type: corev1.SecretTypeOpaque,
 		}
-		Expect(k8sClient.Create(ctx, envSecret)).To(Succeed())
+		Expect(adminClient.Create(ctx, envSecret)).To(Succeed())
 
 		cfProcess := &korifiv1alpha1.CFProcess{
 			ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +119,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Ports: []int32{8080},
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
 
 		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -137,7 +136,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				EnvSecretName: envSecret.Name,
 			},
 		}
-		Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 
 		cfTask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{
@@ -156,13 +155,14 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	Describe("CFTask creation", func() {
 		var (
 			eventCallCount int
-			task           korifiv1alpha1.CFTask
+			task           *korifiv1alpha1.CFTask
 		)
 
 		BeforeEach(func() {
+			task = &korifiv1alpha1.CFTask{}
 			Eventually(func(g Gomega) {
 				app := new(korifiv1alpha1.CFApp)
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfApp.Name}, app)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfApp.Name}, app)).To(Succeed())
 
 				readyCondition := meta.FindStatusCondition(app.Status.Conditions, "Ready")
 				g.Expect(readyCondition).NotTo(BeNil())
@@ -173,18 +173,15 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		})
 
 		JustBeforeEach(func() {
-			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
-			orig := cfTask.DeepCopy()
-			cfTask.Status.MemoryMB = 123
-			cfTask.Status.DiskQuotaMB = 432
-			Expect(k8sClient.Status().Patch(ctx, cfTask, client.MergeFrom(orig))).To(Succeed())
+			Expect(adminClient.Create(ctx, cfTask)).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, &task)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
 				initializedStatusCondition := meta.FindStatusCondition(task.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)
 				g.Expect(initializedStatusCondition).NotTo(BeNil())
 				g.Expect(initializedStatusCondition.Status).To(Equal(metav1.ConditionTrue), "task did not become initialized")
 				g.Expect(initializedStatusCondition.Reason).To(Equal("TaskInitialized"))
+				g.Expect(initializedStatusCondition.ObservedGeneration).To(Equal(task.Generation))
 			}).Should(Succeed())
 		})
 
@@ -196,13 +193,21 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(task.Status.DropletRef.Name).To(Equal(cfDroplet.Name))
 		})
 
+		It("sets the ObservedGeneration status field", func() {
+			Expect(task.Status.ObservedGeneration).To(Equal(task.Generation))
+		})
+
+		It("writes a log message", func() {
+			Eventually(logOutput).Should(gbytes.Say("set observed generation"))
+		})
+
 		It("creates an TaskWorkload", func() {
 			var taskWorkload korifiv1alpha1.TaskWorkload
 
 			Eventually(func(g Gomega) {
 				var taskWorkloads korifiv1alpha1.TaskWorkloadList
 
-				g.Expect(k8sClient.List(ctx, &taskWorkloads,
+				g.Expect(adminClient.List(ctx, &taskWorkloads,
 					client.InNamespace(cfSpace.Status.GUID),
 					client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
 				)).To(Succeed())
@@ -213,10 +218,10 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				g.Expect(taskWorkload.Spec.Command).To(Equal([]string{"/cnb/lifecycle/launcher", "echo hello"}))
 				g.Expect(taskWorkload.Spec.Image).To(Equal("registry.io/my/image"))
 				g.Expect(taskWorkload.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "registry-secret"}}))
-				g.Expect(taskWorkload.Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", 123)))
-				g.Expect(taskWorkload.Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", 123)))
-				g.Expect(taskWorkload.Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 432)))
-				g.Expect(taskWorkload.Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", 432)))
+				g.Expect(taskWorkload.Spec.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", defaultMemoryMB)))
+				g.Expect(taskWorkload.Spec.Resources.Limits.Memory().String()).To(Equal(fmt.Sprintf("%dM", defaultMemoryMB)))
+				g.Expect(taskWorkload.Spec.Resources.Requests.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", defaultDiskQuotaMB)))
+				g.Expect(taskWorkload.Spec.Resources.Limits.StorageEphemeral().String()).To(Equal(fmt.Sprintf("%dM", defaultDiskQuotaMB)))
 				g.Expect(taskWorkload.Spec.Resources.Requests.Cpu().String()).To(Equal("75m"))
 				g.Expect(taskWorkload.GetOwnerReferences()).To(ConsistOf(SatisfyAll(
 					HaveField("Name", cfTask.Name),
@@ -225,7 +230,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			}).Should(Succeed())
 
 			// Refresh the VCAPServicesSecretName
-			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+			Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 
 			Expect(taskWorkload.Spec.Env).To(ConsistOf(
 				corev1.EnvVar{
@@ -279,7 +284,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(eventRecorder.EventfCallCount()).To(Equal(eventCallCount+1), "eventRecorder.Eventf call count mismatch")
 			eventTaskObj, eventType, eventReason, eventMessage, eventMessageArgs := eventRecorder.EventfArgsForCall(eventCallCount)
 			eventTask := eventTaskObj.(*korifiv1alpha1.CFTask)
-			Expect(*eventTask).To(BeEquivalentTo(task), "Unexpected task in event record")
+			Expect(client.ObjectKeyFromObject(eventTask)).To(Equal(client.ObjectKeyFromObject(task)))
 			Expect(eventType).To(Equal("Normal"), "Unexpected event type in event record")
 			Expect(eventReason).To(Equal("TaskWorkloadCreated"), "Unexpected event reason in event record")
 			Expect(eventMessage).To(Equal("Created task workload %s"), "Unexpected event message in event record")
@@ -291,14 +296,14 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Eventually(func(g Gomega) {
 					var taskWorkloads korifiv1alpha1.TaskWorkloadList
 
-					g.Expect(k8sClient.List(ctx, &taskWorkloads,
+					g.Expect(adminClient.List(ctx, &taskWorkloads,
 						client.InNamespace(cfSpace.Status.GUID),
 						client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
 					)).To(Succeed())
 					g.Expect(taskWorkloads.Items).To(HaveLen(1))
 
 					modifiedTaskWorkload := taskWorkloads.Items[0].DeepCopy()
-					g.Expect(k8s.Patch(ctx, k8sClient, modifiedTaskWorkload, func() {
+					g.Expect(k8s.Patch(ctx, adminClient, modifiedTaskWorkload, func() {
 						meta.SetStatusCondition(&modifiedTaskWorkload.Status.Conditions, metav1.Condition{
 							Type:    korifiv1alpha1.TaskStartedConditionType,
 							Status:  metav1.ConditionTrue,
@@ -311,7 +316,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 			It("reflects the status in the korifi task", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, &task)).To(Succeed())
+					g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfTask.Name}, task)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(task.Status.Conditions, korifiv1alpha1.TaskStartedConditionType)).To(BeTrue())
 				}).Should(Succeed())
 			})
@@ -320,54 +325,62 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 	Describe("CFTask Cancellation", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfTask)).To(Succeed())
 		})
 
 		When("spec.canceled is set to true", func() {
 			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+				Expect(k8s.PatchResource(ctx, adminClient, cfTask, func() {
 					cfTask.Spec.Canceled = true
 				})).To(Succeed())
 			})
 
 			It("sets the canceled status condition", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
 					canceledStatusCondition := meta.FindStatusCondition(cfTask.Status.Conditions, korifiv1alpha1.TaskCanceledConditionType)
 					g.Expect(canceledStatusCondition).NotTo(BeNil())
 					g.Expect(canceledStatusCondition.Status).To(Equal(metav1.ConditionTrue))
-					g.Expect(canceledStatusCondition.Reason).To(Equal("TaskCancelled"))
-				})
+					g.Expect(canceledStatusCondition.Reason).To(Equal("TaskCanceled"))
+					g.Expect(canceledStatusCondition.ObservedGeneration).To(Equal(cfTask.Generation))
+				}).Should(Succeed())
 			})
 		})
 	})
 
 	Describe("CFTask TTL", func() {
 		BeforeEach(func() {
-			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
+			Expect(adminClient.Create(ctx, cfTask)).To(Succeed())
 
-			updatedTask := cfTask.DeepCopy()
-			meta.SetStatusCondition(&updatedTask.Status.Conditions, metav1.Condition{
-				Type:               korifiv1alpha1.TaskSucceededConditionType,
-				Status:             metav1.ConditionTrue,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "succeeded",
-				Message:            "succeeded",
-			})
-			Expect(k8sClient.Status().Patch(ctx, updatedTask, client.MergeFrom(cfTask))).To(Succeed())
+			// wait for reconciler to set initialized condition to avoid it overwriting the succeeded condition
+			Eventually(func(g Gomega) {
+				g.Expect(controllersClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+			}).Should(Succeed())
+
+			Expect(k8s.Patch(ctx, adminClient, cfTask, func() {
+				cfTask.Annotations = map[string]string{"trigger-the": "reconciler"}
+				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+					Type:               korifiv1alpha1.TaskSucceededConditionType,
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+					Reason:             "succeeded",
+					Message:            "succeeded",
+				})
+			})).To(Succeed())
 		})
 
 		It("it can get the task shortly after completion", func() {
-			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+			Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
 		})
 
 		It("deletes the task after it expires", func() {
 			task := new(korifiv1alpha1.CFTask)
 
 			Eventually(func(g Gomega) {
-				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), task)
-				g.Expect(err).To(HaveOccurred(), "Task has not been deleted")
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				err := adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), task)
+				g.Expect(err).To(HaveOccurred(), "%#v", task.Status)
+				g.Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred())
 			}).Should(Succeed())
 		})
 	})

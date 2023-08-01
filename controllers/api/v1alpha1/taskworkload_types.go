@@ -21,14 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // TaskWorkloadSpec defines the desired state of TaskWorkload
 type TaskWorkloadSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +kubebuilder:validation:Required
 	Image string `json:"image"`
 
@@ -47,11 +41,11 @@ type TaskWorkloadSpec struct {
 
 // TaskWorkloadStatus defines the observed state of TaskWorkload
 type TaskWorkloadStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// +optional
-	Conditions []metav1.Condition `json:"conditions"`
+	// ObservedGeneration captures the latest generation of the TaskWorkload that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

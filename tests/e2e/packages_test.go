@@ -186,7 +186,7 @@ var _ = Describe("Package", func() {
 		JustBeforeEach(func() {
 			var err error
 			resp, err = certClient.R().
-				SetFile("bits", procfileAppBitsFile).
+				SetFile("bits", defaultAppBitsFile).
 				SetError(&resultErr).
 				SetResult(&result).
 				Post("/v3/packages/" + packageGUID + "/upload")
@@ -258,7 +258,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			resultList = resourceList[resource]{}
 			packageGUID = createPackage(appGUID)
-			uploadTestApp(packageGUID, procfileAppBitsFile)
+			uploadTestApp(packageGUID, defaultAppBitsFile)
 			buildGUID = createBuild(packageGUID)
 
 			Eventually(func() (*resty.Response, error) {
@@ -324,7 +324,7 @@ var _ = Describe("Package", func() {
 		When("the user has no space access", func() {
 			JustBeforeEach(func() {
 				var err error
-				resp, err = tokenClient.R().
+				resp, err = unprivilegedServiceAccountClient.R().
 					SetResult(&result).
 					Get("/v3/packages")
 				Expect(err).NotTo(HaveOccurred())

@@ -35,7 +35,7 @@ var _ = Describe("CFPackageMutatingWebhook", func() {
 	})
 
 	BeforeEach(func() {
-		Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+		Expect(adminClient.Create(ctx, cfPackage)).To(Succeed())
 	})
 
 	It("sets a label with the app guid", func() {

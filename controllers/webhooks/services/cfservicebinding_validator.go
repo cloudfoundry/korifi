@@ -12,18 +12,18 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
-	ServiceBindingEntityType            = "servicebinding"
-	ServiceBindingErrorType             = "ServiceBindingValidationError"
-	duplicateServiceBindingErrorMessage = "Service binding already exists: App: %s Service Instance: %s"
+	ServiceBindingEntityType = "servicebinding"
+	ServiceBindingErrorType  = "ServiceBindingValidationError"
 )
 
 // log is for logging in this package.
 var cfservicebindinglog = logf.Log.WithName("cfservicebinding-validator")
 
-//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=create;update;delete,versions=v1alpha1,name=vcfservicebinding.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding,mutating=false,failurePolicy=fail,sideEffects=NoneOnDryRun,groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=create;update;delete,versions=v1alpha1,name=vcfservicebinding.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 func (v *CFServiceBindingValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -44,69 +44,50 @@ func NewCFServiceBindingValidator(duplicateValidator webhooks.NameValidator) *CF
 	}
 }
 
-func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	serviceBinding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}
 
-	lockName := generateServiceBindingLock(serviceBinding)
-
-	duplicateErrorMessage := fmt.Sprintf(duplicateServiceBindingErrorMessage, serviceBinding.Spec.AppRef.Name, serviceBinding.Spec.Service.Name)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName, duplicateErrorMessage)
-	if validationErr != nil {
-		return validationErr.ExportJSONError()
-	}
-
-	return nil
+	return nil, v.duplicateValidator.ValidateCreate(ctx, cfservicebindinglog, serviceBinding.Namespace, serviceBinding)
 }
 
-func (v *CFServiceBindingValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+func (v *CFServiceBindingValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
 	serviceBinding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}
 
 	if !serviceBinding.GetDeletionTimestamp().IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	oldServiceBinding, ok := oldObj.(*korifiv1alpha1.CFServiceBinding)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", oldObj))
 	}
 
 	if oldServiceBinding.Spec.AppRef.Name != serviceBinding.Spec.AppRef.Name {
-		return webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "AppRef.Name is immutable"}
+		return nil, webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "AppRef.Name is immutable"}
 	}
 
 	if oldServiceBinding.Spec.Service.Name != serviceBinding.Spec.Service.Name {
-		return webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "Service.Name is immutable"}
+		return nil, webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "Service.Name is immutable"}
 	}
 
 	if oldServiceBinding.Spec.Service.Namespace != serviceBinding.Spec.Service.Namespace {
-		return webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "Service.Namespace is immutable"}
+		return nil, webhooks.ValidationError{Type: ServiceBindingErrorType, Message: "Service.Namespace is immutable"}
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (v *CFServiceBindingValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (v *CFServiceBindingValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	serviceBinding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}
 
-	lockName := generateServiceBindingLock(serviceBinding)
-
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, lockName)
-	if validationErr != nil {
-		return validationErr.ExportJSONError()
-	}
-
-	return nil
-}
-
-func generateServiceBindingLock(serviceBinding *korifiv1alpha1.CFServiceBinding) string {
-	return fmt.Sprintf("sb::%s::%s::%s", serviceBinding.Spec.AppRef.Name, serviceBinding.Spec.Service.Namespace, serviceBinding.Spec.Service.Name)
+	return nil, v.duplicateValidator.ValidateDelete(ctx, cfservicebindinglog, serviceBinding.Namespace, serviceBinding)
 }

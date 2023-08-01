@@ -26,7 +26,7 @@ var _ = Describe("Builder", func() {
 	)
 
 	BeforeEach(func() {
-		builder = env.NewWorkloadEnvBuilder(k8sClient)
+		builder = env.NewWorkloadEnvBuilder(controllersClient)
 
 		appSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{

@@ -46,7 +46,7 @@ var _ = Describe("CFProcessMutatingWebhook", func() {
 	})
 
 	JustBeforeEach(func() {
-		Expect(k8sClient.Create(context.Background(), cfProcess)).To(Succeed())
+		Expect(adminClient.Create(context.Background(), cfProcess)).To(Succeed())
 	})
 
 	Describe("labels", func() {

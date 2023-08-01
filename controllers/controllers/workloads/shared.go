@@ -4,14 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,12 +22,8 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
-const (
-	StatusConditionReady = "Ready"
-)
-
-func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, labels map[string]string, annotations map[string]string) error {
-	log = log.WithName("createOrPatchNamespace")
+func createOrPatchNamespace(ctx context.Context, client client.Client, orgOrSpace client.Object, labels map[string]string, annotations map[string]string) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchNamespace")
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -34,8 +32,8 @@ func createOrPatchNamespace(ctx context.Context, client client.Client, log logr.
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, client, namespace, func() error {
-		updateMap(&namespace.Labels, labels)
 		updateMap(&namespace.Annotations, annotations)
+		updateMap(&namespace.Labels, labels)
 		return nil
 	})
 	if err != nil {
@@ -56,63 +54,65 @@ func updateMap(dest *map[string]string, values map[string]string) {
 	}
 }
 
-func propagateSecret(ctx context.Context, client client.Client, log logr.Logger, orgOrSpace client.Object, secretName string) error {
-	if secretName == "" {
+func propagateSecrets(ctx context.Context, client client.Client, orgOrSpace client.Object, secretNames []string) error {
+	if len(secretNames) == 0 {
 		// we are operating in service account role association mode for registry permissions.
 		// only tested implicity in EKS e2es
 		return nil
 	}
 
-	log = log.WithName("propagateSecret").
-		WithValues("secretName", secretName, "parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
+	log := logr.FromContextOrDiscard(ctx).WithName("propagateSecret").
+		WithValues("parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
 
-	secret := new(corev1.Secret)
-	err := client.Get(ctx, types.NamespacedName{Namespace: orgOrSpace.GetNamespace(), Name: secretName}, secret)
-	if err != nil {
-		return fmt.Errorf("error fetching secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
+	for _, secretName := range secretNames {
+		looplog := log.WithValues("secretName", secretName)
+
+		secret := new(corev1.Secret)
+		err := client.Get(ctx, types.NamespacedName{Namespace: orgOrSpace.GetNamespace(), Name: secretName}, secret)
+		if err != nil {
+			return fmt.Errorf("error fetching secret %q from namespace %q: %w", secretName, orgOrSpace.GetNamespace(), err)
+		}
+
+		newSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret.Name,
+				Namespace: orgOrSpace.GetName(),
+			},
+		}
+
+		result, err := controllerutil.CreateOrPatch(ctx, client, newSecret, func() error {
+			newSecret.Annotations = shared.RemovePackageManagerKeys(secret.Annotations, looplog)
+			newSecret.Labels = shared.RemovePackageManagerKeys(secret.Labels, looplog)
+			newSecret.Immutable = secret.Immutable
+			newSecret.Data = secret.Data
+			newSecret.StringData = secret.StringData
+			newSecret.Type = secret.Type
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("error creating/patching secret: %w", err)
+		}
+
+		looplog.V(1).Info("Secret propagated", "operation", result)
 	}
 
-	newSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secret.Name,
-			Namespace: orgOrSpace.GetName(),
-		},
-	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, client, newSecret, func() error {
-		newSecret.Annotations = secret.Annotations
-		newSecret.Labels = secret.Labels
-		newSecret.Immutable = secret.Immutable
-		newSecret.Data = secret.Data
-		newSecret.StringData = secret.StringData
-		newSecret.Type = secret.Type
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("error creating/patching secret: %w", err)
-	}
-
-	log.V(1).Info("Secret propagated", "operation", result)
+	log.V(1).Info("All secrets propagated")
 
 	return nil
 }
 
-func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.Logger, orgOrSpace client.Object) error {
-	var (
-		result controllerutil.OperationResult
-		err    error
-	)
-
-	log = log.WithName("propagateRolebindings").
+func reconcileRoleBindings(ctx context.Context, kClient client.Client, orgOrSpace client.Object) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("propagateRolebindings").
 		WithValues("parentNamespace", orgOrSpace.GetNamespace(), "targetNamespace", orgOrSpace.GetName())
 
 	roleBindings := new(rbacv1.RoleBindingList)
-	err = kClient.List(ctx, roleBindings, client.InNamespace(orgOrSpace.GetNamespace()))
+	err := kClient.List(ctx, roleBindings, client.InNamespace(orgOrSpace.GetNamespace()))
 	if err != nil {
 		log.Info("error listing role-bindings from the parent namespace", "reason", err)
 		return err
 	}
 
+	var result controllerutil.OperationResult
 	parentRoleBindingMap := make(map[string]struct{})
 	for _, binding := range roleBindings.Items {
 		if binding.Annotations[korifiv1alpha1.PropagateRoleBindingAnnotation] == "true" {
@@ -128,12 +128,12 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 			}
 
 			result, err = controllerutil.CreateOrPatch(ctx, kClient, newRoleBinding, func() error {
-				newRoleBinding.Labels = binding.Labels
+				newRoleBinding.Annotations = shared.RemovePackageManagerKeys(binding.Annotations, log)
+				newRoleBinding.Labels = shared.RemovePackageManagerKeys(binding.Labels, log)
 				if newRoleBinding.Labels == nil {
 					newRoleBinding.Labels = map[string]string{}
 				}
 				newRoleBinding.Labels[korifiv1alpha1.PropagatedFromLabel] = orgOrSpace.GetNamespace()
-				newRoleBinding.Annotations = binding.Annotations
 				newRoleBinding.Subjects = binding.Subjects
 				newRoleBinding.RoleRef = binding.RoleRef
 				return nil
@@ -164,6 +164,10 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 
 	for index := range propagatedRoleBindings.Items {
 		propagatedRoleBinding := propagatedRoleBindings.Items[index]
+		if propagatedRoleBinding.Annotations[korifiv1alpha1.PropagateDeletionAnnotation] == "false" {
+			continue
+		}
+
 		if _, found := parentRoleBindingMap[propagatedRoleBinding.Name]; !found {
 			err = kClient.Delete(ctx, &propagatedRoleBinding)
 			if err != nil {
@@ -172,11 +176,12 @@ func reconcileRoleBindings(ctx context.Context, kClient client.Client, log logr.
 			}
 		}
 	}
+
 	return nil
 }
 
-func getNamespace(ctx context.Context, log logr.Logger, client client.Client, namespaceName string) error {
-	log = log.WithValues("namespace", namespaceName)
+func getNamespace(ctx context.Context, client client.Client, namespaceName string) error {
+	log := logr.FromContextOrDiscard(ctx).WithValues("namespace", namespaceName)
 
 	namespace := new(corev1.Namespace)
 	err := client.Get(ctx, types.NamespacedName{Name: namespaceName}, namespace)
@@ -184,17 +189,19 @@ func getNamespace(ctx context.Context, log logr.Logger, client client.Client, na
 		log.Info("failed to get namespace", "reason", err)
 		return err
 	}
+
 	return nil
 }
 
-func logAndSetReadyStatus(err error, log logr.Logger, conditions *[]metav1.Condition, reason string) (ctrl.Result, error) {
+func logAndSetReadyStatus(err error, log logr.Logger, conditions *[]metav1.Condition, reason string, generation int64) (ctrl.Result, error) {
 	log.Info(err.Error())
 
 	meta.SetStatusCondition(conditions, metav1.Condition{
-		Type:    StatusConditionReady,
-		Status:  metav1.ConditionFalse,
-		Reason:  reason,
-		Message: err.Error(),
+		Type:               shared.StatusConditionReady,
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
+		Message:            err.Error(),
+		ObservedGeneration: generation,
 	})
 
 	return ctrl.Result{}, err

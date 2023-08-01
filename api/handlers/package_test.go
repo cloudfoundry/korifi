@@ -27,18 +27,18 @@ import (
 
 var _ = Describe("Package", func() {
 	var (
-		packageRepo                *fake.CFPackageRepository
-		appRepo                    *fake.CFAppRepository
-		dropletRepo                *fake.CFDropletRepository
-		imageRepo                  *fake.ImageRepository
-		requestJSONValidator       *fake.RequestJSONValidator
-		packageImagePullSecretName string
+		packageRepo                 *fake.CFPackageRepository
+		appRepo                     *fake.CFAppRepository
+		dropletRepo                 *fake.CFDropletRepository
+		imageRepo                   *fake.ImageRepository
+		requestValidator            *fake.RequestValidator
+		packageImagePullSecretNames []string
 
 		packageGUID string
 		appGUID     string
 		spaceGUID   string
-		createdAt   string
-		updatedAt   string
+		createdAt   time.Time
+		updatedAt   *time.Time
 	)
 
 	BeforeEach(func() {
@@ -46,14 +46,14 @@ var _ = Describe("Package", func() {
 		appRepo = new(fake.CFAppRepository)
 		dropletRepo = new(fake.CFDropletRepository)
 		imageRepo = new(fake.ImageRepository)
-		requestJSONValidator = new(fake.RequestJSONValidator)
-		packageImagePullSecretName = "package-image-pull-secret"
+		requestValidator = new(fake.RequestValidator)
+		packageImagePullSecretNames = []string{"package-image-pull-secret"}
 
 		packageGUID = generateGUID("package")
 		appGUID = generateGUID("app")
 		spaceGUID = generateGUID("space")
-		createdAt = time.Now().Format(time.RFC3339)
-		updatedAt = time.Now().Format(time.RFC3339)
+		createdAt = time.Now()
+		updatedAt = tools.PtrTo(time.Now())
 
 		apiHandler := NewPackage(
 			*serverURL,
@@ -61,8 +61,8 @@ var _ = Describe("Package", func() {
 			appRepo,
 			dropletRepo,
 			imageRepo,
-			requestJSONValidator,
-			packageImagePullSecretName,
+			requestValidator,
+			packageImagePullSecretNames,
 		)
 
 		routerBuilder.LoadRoutes(apiHandler)
@@ -114,7 +114,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Package not found")
+				expectNotFoundError("Package")
 			})
 		})
 
@@ -130,13 +130,9 @@ var _ = Describe("Package", func() {
 	})
 
 	Describe("the GET /v3/packages endpoint", func() {
-		var (
-			queryParamString   string
-			anotherPackageGUID string
-		)
+		var anotherPackageGUID string
 
 		BeforeEach(func() {
-			queryParamString = ""
 			anotherPackageGUID = generateGUID("package2")
 
 			packageRepo.ListPackagesReturns([]repositories.PackageRecord{
@@ -159,20 +155,26 @@ var _ = Describe("Package", func() {
 					UpdatedAt: updatedAt,
 				},
 			}, nil)
+
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.PackageList{})
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/packages"+queryParamString, nil)
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/packages?foo=bar", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("returns the package list", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix("foo=bar"))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/packages"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/packages?foo=bar"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", packageGUID),
 				MatchJSONPath("$.resources[0].state", Equal("AWAITING_UPLOAD")),
@@ -182,7 +184,9 @@ var _ = Describe("Package", func() {
 
 		When("the 'app_guids' query parameter is provided", func() {
 			BeforeEach(func() {
-				queryParamString = "?app_guids=" + appGUID
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.PackageList{
+					AppGUIDs: appGUID,
+				})
 			})
 
 			It("calls the package repository with expected arguments", func() {
@@ -201,24 +205,30 @@ var _ = Describe("Package", func() {
 				packageRepo.ListPackagesReturns([]repositories.PackageRecord{
 					{
 						GUID:      "1",
-						CreatedAt: "2023-01-17T14:58:32Z",
-						UpdatedAt: "2023-01-18T14:58:32Z",
+						CreatedAt: time.UnixMilli(3000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(4000)),
 					},
 					{
 						GUID:      "2",
-						CreatedAt: "2023-01-17T14:57:32Z",
-						UpdatedAt: "2023-01-17T14:57:32Z",
+						CreatedAt: time.UnixMilli(2000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 					},
 					{
 						GUID:      "3",
-						CreatedAt: "2023-01-16T14:57:32Z",
-						UpdatedAt: "2023-01-20:57:32Z",
+						CreatedAt: time.UnixMilli(1000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
 					},
 				}, nil)
 			})
 
 			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
-				req := createHttpRequest("GET", "/v3/packages?order_by="+orderBy, nil)
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(
+					&payloads.PackageList{
+						OrderBy: orderBy,
+					},
+				)
+
+				req := createHttpRequest("GET", "/v3/packages?order_by=not-used", nil)
 				rr = httptest.NewRecorder()
 				routerBuilder.Build().ServeHTTP(rr, req)
 				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedOrder)))
@@ -228,31 +238,15 @@ var _ = Describe("Package", func() {
 				Entry("updated_at ASC", "updated_at", "2", "1", "3"),
 				Entry("updated_at DESC", "-updated_at", "3", "1", "2"),
 			)
-
-			When("order_by is not a valid field", func() {
-				BeforeEach(func() {
-					queryParamString = "?order_by=not_valid"
-				})
-
-				It("returns an Unknown key error", func() {
-					expectUnknownKeyError("The query parameter is invalid: Order by can only be: 'created_at', 'updated_at'")
-				})
-			})
-		})
-
-		When("the 'per_page' parameter is sent", func() {
-			BeforeEach(func() {
-				queryParamString = "?per_page=some_weird_value"
-			})
-
-			It("ignores it and returns status 200", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
 		})
 
 		When("the 'states' parameter is sent", func() {
 			BeforeEach(func() {
-				queryParamString = "?states=READY,AWAITING_UPLOAD"
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(
+					&payloads.PackageList{
+						States: "READY,AWAITING_UPLOAD",
+					},
+				)
 			})
 
 			It("calls repository ListPackage with the correct message object", func() {
@@ -265,13 +259,13 @@ var _ = Describe("Package", func() {
 			})
 		})
 
-		When("unsupported query parameters are provided", func() {
+		When("request is invalid", func() {
 			BeforeEach(func() {
-				queryParamString = "?foo=my-app-guid"
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("foo"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'app_guids, order_by, per_page, states'")
+			It("returns an Unknown error", func() {
+				expectUnknownError()
 			})
 		})
 
@@ -306,7 +300,8 @@ var _ = Describe("Package", func() {
 
 		BeforeEach(func() {
 			appUID = "appUID"
-			body := &payloads.PackageCreate{
+
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.PackageCreate{
 				Type: "bits",
 				Relationships: &payloads.PackageRelationships{
 					App: &payloads.Relationship{
@@ -323,13 +318,7 @@ var _ = Describe("Package", func() {
 						"jim": "foo",
 					},
 				},
-			}
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				b, ok := i.(*payloads.PackageCreate)
-				Expect(ok).To(BeTrue())
-				*b = *body
-				return nil
-			}
+			})
 
 			packageRepo.CreatePackageReturns(repositories.PackageRecord{
 				Type:        "bits",
@@ -351,13 +340,17 @@ var _ = Describe("Package", func() {
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader(""))
+			req, err := http.NewRequestWithContext(ctx, "POST", "/v3/packages", strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
 
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
 
 		It("creates a CFPackage", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
+
 			Expect(packageRepo.CreatePackageCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualCreate := packageRepo.CreatePackageArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -429,7 +422,7 @@ var _ = Describe("Package", func() {
 
 		When("the request JSON is invalid", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "test-error"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "test-error"))
 			})
 
 			It("returns an error", func() {
@@ -452,7 +445,7 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			packageGUID = generateGUID("package")
 
-			body := &payloads.PackageUpdate{
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.PackageUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels: map[string]*string{
 						"bob": tools.PtrTo("foo"),
@@ -461,14 +454,7 @@ var _ = Describe("Package", func() {
 						"jim": tools.PtrTo("foo"),
 					},
 				},
-			}
-
-			requestJSONValidator.DecodeAndValidateJSONPayloadStub = func(_ *http.Request, i interface{}) error {
-				b, ok := i.(*payloads.PackageUpdate)
-				Expect(ok).To(BeTrue())
-				*b = *body
-				return nil
-			}
+			})
 
 			packageRepo.UpdatePackageReturns(repositories.PackageRecord{
 				Type:        "bits",
@@ -491,17 +477,21 @@ var _ = Describe("Package", func() {
 		})
 
 		It("validates the request payload", func() {
-			Expect(requestJSONValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 		})
 
 		When("the request payload validation fails", func() {
 			BeforeEach(func() {
-				requestJSONValidator.DecodeAndValidateJSONPayloadReturns(errors.New("req-invalid"))
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("req-invalid"))
 			})
 
 			It("returns an error", func() {
 				expectUnknownError()
 			})
+		})
+
+		It("returns Content-Type as JSON in header", func() {
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
 		It("Updates a CFPackage", func() {
@@ -616,7 +606,7 @@ var _ = Describe("Package", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(message.GUID).To(Equal(packageGUID))
 			Expect(message.ImageRef).To(Equal(imageRefWithDigest))
-			Expect(message.RegistrySecretName).To(Equal(packageImagePullSecretName))
+			Expect(message.RegistrySecretNames).To(ConsistOf(packageImagePullSecretNames))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -646,7 +636,7 @@ var _ = Describe("Package", func() {
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Package not found")
+				expectNotFoundError("Package")
 			})
 			itDoesntUploadSourceImage()
 			itDoesntUpdateAnyPackages()
@@ -736,14 +726,12 @@ var _ = Describe("Package", func() {
 			})
 
 			It("returns status 400 BadRequest", func() {
-				Expect(rr.Code).To(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 			})
 
 			It("returns a CF API formatted Error response", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-
-				Expect(rr.Body.String()).To(MatchJSON(`{
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
 					"errors": [
 						{
 							"title": "CF-PackageBitsAlreadyUploaded",
@@ -751,7 +739,7 @@ var _ = Describe("Package", func() {
 							"code": 150004
 						}
 					]
-				}`), "Response body matches response:")
+				}`)))
 			})
 		})
 	})
@@ -787,7 +775,10 @@ var _ = Describe("Package", func() {
 					PackageGUID: packageGUID,
 				},
 			}, nil)
-			queryString = ""
+			queryString = "?not=used"
+
+			payload := payloads.PackageListDroplets{}
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
 		})
 
 		JustBeforeEach(func() {
@@ -797,6 +788,10 @@ var _ = Describe("Package", func() {
 		})
 
 		It("fetches the droplet", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL.String()).To(HaveSuffix(queryString))
+
 			Expect(packageRepo.GetPackageCallCount()).To(Equal(1))
 
 			_, _, actualPackageGUID := packageRepo.GetPackageArgsForCall(0)
@@ -814,31 +809,11 @@ var _ = Describe("Package", func() {
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/packages/"+packageGUID+"/droplets"),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/packages/"+packageGUID+"/droplets?not=used"),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", Equal(dropletGUID)),
 				MatchJSONPath("$.resources[0].state", Equal("STAGED")),
 			)))
-		})
-
-		When("the 'states' query parameter is provided", func() {
-			BeforeEach(func() {
-				queryString = "?states=SOME_WEIRD_VALUE"
-			})
-
-			It("ignores it and returns status 200", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
-		})
-
-		When("the \"per_page\" query parameter is provided", func() {
-			BeforeEach(func() {
-				queryString = "?per_page=SOME_WEIRD_VALUE"
-			})
-
-			It("ignores it and returns status 200", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
 		})
 
 		When("an error occurs while fetching the package", func() {
@@ -872,13 +847,13 @@ var _ = Describe("Package", func() {
 			})
 		})
 
-		When("unsupported query parameters are provided", func() {
+		When("the request is invalid", func() {
 			BeforeEach(func() {
-				queryString = "?foo=my-app-guid"
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
 			})
 
-			It("returns an Unknown key error", func() {
-				expectUnknownKeyError("The query parameter is invalid: Valid parameters are: 'states, per_page'")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})

@@ -3,8 +3,10 @@ package webhooks
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -33,7 +35,12 @@ func (v ValidationError) ExportJSONError() error {
 		return err
 	}
 
-	return errors.New(string(bytes))
+	return &k8serrors.StatusError{
+		ErrStatus: metav1.Status{
+			Reason: metav1.StatusReason(bytes),
+			Code:   http.StatusForbidden,
+		},
+	}
 }
 
 func WebhookErrorToValidationError(err error) (ValidationError, bool) {

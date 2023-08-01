@@ -6,11 +6,19 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"github.com/jellydator/validation"
 )
 
 type TaskCreate struct {
-	Command  string   `json:"command" validate:"required"`
+	Command  string   `json:"command"`
 	Metadata Metadata `json:"metadata"`
+}
+
+func (c TaskCreate) Validate() error {
+	return validation.ValidateStruct(&c,
+		validation.Field(&c.Command, validation.Required),
+		validation.Field(&c.Metadata),
+	)
 }
 
 func (p TaskCreate) ToMessage(appRecord repositories.AppRecord) repositories.CreateTaskMessage {
@@ -33,7 +41,7 @@ func (t *TaskList) ToMessage() repositories.ListTaskMessage {
 }
 
 func (t *TaskList) SupportedKeys() []string {
-	return []string{"sequence_ids"}
+	return []string{"sequence_ids", "per_page", "page"}
 }
 
 func (a *TaskList) DecodeFromURLValues(values url.Values) error {
@@ -57,6 +65,12 @@ func (a *TaskList) DecodeFromURLValues(values url.Values) error {
 
 type TaskUpdate struct {
 	Metadata MetadataPatch `json:"metadata"`
+}
+
+func (u TaskUpdate) Validate() error {
+	return validation.ValidateStruct(&u,
+		validation.Field(&u.Metadata),
+	)
 }
 
 func (u *TaskUpdate) ToMessage(taskGUID, spaceGUID string) repositories.PatchTaskMetadataMessage {

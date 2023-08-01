@@ -9,6 +9,23 @@ import (
 )
 
 type NameRegistry struct {
+	CheckNameOwnershipStub        func(context.Context, string, string, string, string) (bool, error)
+	checkNameOwnershipMutex       sync.RWMutex
+	checkNameOwnershipArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 string
+		arg5 string
+	}
+	checkNameOwnershipReturns struct {
+		result1 bool
+		result2 error
+	}
+	checkNameOwnershipReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	DeregisterNameStub        func(context.Context, string, string) error
 	deregisterNameMutex       sync.RWMutex
 	deregisterNameArgsForCall []struct {
@@ -22,12 +39,14 @@ type NameRegistry struct {
 	deregisterNameReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RegisterNameStub        func(context.Context, string, string) error
+	RegisterNameStub        func(context.Context, string, string, string, string) error
 	registerNameMutex       sync.RWMutex
 	registerNameArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
+		arg4 string
+		arg5 string
 	}
 	registerNameReturns struct {
 		result1 error
@@ -63,6 +82,74 @@ type NameRegistry struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *NameRegistry) CheckNameOwnership(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string) (bool, error) {
+	fake.checkNameOwnershipMutex.Lock()
+	ret, specificReturn := fake.checkNameOwnershipReturnsOnCall[len(fake.checkNameOwnershipArgsForCall)]
+	fake.checkNameOwnershipArgsForCall = append(fake.checkNameOwnershipArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 string
+		arg5 string
+	}{arg1, arg2, arg3, arg4, arg5})
+	stub := fake.CheckNameOwnershipStub
+	fakeReturns := fake.checkNameOwnershipReturns
+	fake.recordInvocation("CheckNameOwnership", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.checkNameOwnershipMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *NameRegistry) CheckNameOwnershipCallCount() int {
+	fake.checkNameOwnershipMutex.RLock()
+	defer fake.checkNameOwnershipMutex.RUnlock()
+	return len(fake.checkNameOwnershipArgsForCall)
+}
+
+func (fake *NameRegistry) CheckNameOwnershipCalls(stub func(context.Context, string, string, string, string) (bool, error)) {
+	fake.checkNameOwnershipMutex.Lock()
+	defer fake.checkNameOwnershipMutex.Unlock()
+	fake.CheckNameOwnershipStub = stub
+}
+
+func (fake *NameRegistry) CheckNameOwnershipArgsForCall(i int) (context.Context, string, string, string, string) {
+	fake.checkNameOwnershipMutex.RLock()
+	defer fake.checkNameOwnershipMutex.RUnlock()
+	argsForCall := fake.checkNameOwnershipArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+}
+
+func (fake *NameRegistry) CheckNameOwnershipReturns(result1 bool, result2 error) {
+	fake.checkNameOwnershipMutex.Lock()
+	defer fake.checkNameOwnershipMutex.Unlock()
+	fake.CheckNameOwnershipStub = nil
+	fake.checkNameOwnershipReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NameRegistry) CheckNameOwnershipReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.checkNameOwnershipMutex.Lock()
+	defer fake.checkNameOwnershipMutex.Unlock()
+	fake.CheckNameOwnershipStub = nil
+	if fake.checkNameOwnershipReturnsOnCall == nil {
+		fake.checkNameOwnershipReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.checkNameOwnershipReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *NameRegistry) DeregisterName(arg1 context.Context, arg2 string, arg3 string) error {
@@ -128,20 +215,22 @@ func (fake *NameRegistry) DeregisterNameReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *NameRegistry) RegisterName(arg1 context.Context, arg2 string, arg3 string) error {
+func (fake *NameRegistry) RegisterName(arg1 context.Context, arg2 string, arg3 string, arg4 string, arg5 string) error {
 	fake.registerNameMutex.Lock()
 	ret, specificReturn := fake.registerNameReturnsOnCall[len(fake.registerNameArgsForCall)]
 	fake.registerNameArgsForCall = append(fake.registerNameArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
 		arg3 string
-	}{arg1, arg2, arg3})
+		arg4 string
+		arg5 string
+	}{arg1, arg2, arg3, arg4, arg5})
 	stub := fake.RegisterNameStub
 	fakeReturns := fake.registerNameReturns
-	fake.recordInvocation("RegisterName", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("RegisterName", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.registerNameMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1
@@ -155,17 +244,17 @@ func (fake *NameRegistry) RegisterNameCallCount() int {
 	return len(fake.registerNameArgsForCall)
 }
 
-func (fake *NameRegistry) RegisterNameCalls(stub func(context.Context, string, string) error) {
+func (fake *NameRegistry) RegisterNameCalls(stub func(context.Context, string, string, string, string) error) {
 	fake.registerNameMutex.Lock()
 	defer fake.registerNameMutex.Unlock()
 	fake.RegisterNameStub = stub
 }
 
-func (fake *NameRegistry) RegisterNameArgsForCall(i int) (context.Context, string, string) {
+func (fake *NameRegistry) RegisterNameArgsForCall(i int) (context.Context, string, string, string, string) {
 	fake.registerNameMutex.RLock()
 	defer fake.registerNameMutex.RUnlock()
 	argsForCall := fake.registerNameArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *NameRegistry) RegisterNameReturns(result1 error) {
@@ -320,6 +409,8 @@ func (fake *NameRegistry) UnlockNameReturnsOnCall(i int, result1 error) {
 func (fake *NameRegistry) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.checkNameOwnershipMutex.RLock()
+	defer fake.checkNameOwnershipMutex.RUnlock()
 	fake.deregisterNameMutex.RLock()
 	defer fake.deregisterNameMutex.RUnlock()
 	fake.registerNameMutex.RLock()

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -26,7 +25,7 @@ type ServiceBinding struct {
 	serviceBindingRepo  CFServiceBindingRepository
 	serviceInstanceRepo CFServiceInstanceRepository
 	serverURL           url.URL
-	decoderValidator    *DecoderValidator
+	requestValidator    RequestValidator
 }
 
 //counterfeiter:generate -o fake -fake-name CFServiceBindingRepository . CFServiceBindingRepository
@@ -38,13 +37,13 @@ type CFServiceBindingRepository interface {
 	UpdateServiceBinding(context.Context, authorization.Info, repositories.UpdateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
 }
 
-func NewServiceBinding(serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, decoderValidator *DecoderValidator) *ServiceBinding {
+func NewServiceBinding(serverURL url.URL, serviceBindingRepo CFServiceBindingRepository, appRepo CFAppRepository, serviceInstanceRepo CFServiceInstanceRepository, requestValidator RequestValidator) *ServiceBinding {
 	return &ServiceBinding{
 		appRepo:             appRepo,
 		serviceInstanceRepo: serviceInstanceRepo,
 		serviceBindingRepo:  serviceBindingRepo,
 		serverURL:           serverURL,
-		decoderValidator:    decoderValidator,
+		requestValidator:    requestValidator,
 	}
 }
 
@@ -53,18 +52,18 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-binding.create")
 
 	var payload payloads.ServiceBindingCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to get %s", repositories.AppResourceType))
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get "+repositories.AppResourceType)
 	}
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to get %s", repositories.ServiceInstanceResourceType))
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get "+repositories.ServiceInstanceResourceType)
 	}
 
 	if app.SpaceGUID != serviceInstance.SpaceGUID {
@@ -102,19 +101,14 @@ func (h *ServiceBinding) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-binding.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(err, "unable to parse query"), "Unable to parse request query parameters")
-	}
-
 	listFilter := new(payloads.ServiceBindingList)
-	err := payloads.Decode(listFilter, r.Form)
-	if err != nil {
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, listFilter); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
 	serviceBindingList, err := h.serviceBindingRepo.ListServiceBindings(r.Context(), authInfo, listFilter.ToMessage())
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to list %s", repositories.ServiceBindingResourceType))
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list "+repositories.ServiceBindingResourceType)
 	}
 
 	var appRecords []repositories.AppRecord
@@ -127,7 +121,7 @@ func (h *ServiceBinding) list(r *http.Request) (*routing.Response, error) {
 
 		appRecords, err = h.appRepo.ListApps(r.Context(), authInfo, listAppsMessage)
 		if err != nil {
-			return nil, apierrors.LogAndReturn(logger, err, fmt.Sprintf("failed to list %s", repositories.AppResourceType))
+			return nil, apierrors.LogAndReturn(logger, err, "failed to list "+repositories.AppResourceType)
 		}
 	}
 
@@ -141,7 +135,7 @@ func (h *ServiceBinding) update(r *http.Request) (*routing.Response, error) { //
 	serviceBindingGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.ServiceBindingUpdate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 

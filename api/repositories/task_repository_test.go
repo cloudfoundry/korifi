@@ -6,16 +6,17 @@ import (
 	"sync"
 	"time"
 
-	"code.cloudfoundry.org/korifi/tools/k8s"
-
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,9 +34,7 @@ var _ = Describe("TaskRepository", func() {
 	)
 
 	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
-		if task.Status.Conditions == nil {
-			task.Status.Conditions = []metav1.Condition{}
-		}
+		GinkgoHelper()
 
 		for _, cond := range conditionTypes {
 			meta.SetStatusCondition(&(task.Status.Conditions), metav1.Condition{
@@ -46,7 +45,7 @@ var _ = Describe("TaskRepository", func() {
 			})
 		}
 
-		ExpectWithOffset(1, k8sClient.Status().Update(ctx, task)).To(Succeed())
+		Expect(k8sClient.Status().Update(ctx, task)).To(Succeed())
 	}
 
 	defaultStatusValues := func(task *korifiv1alpha1.CFTask, seqId int64, dropletId string) *korifiv1alpha1.CFTask {
@@ -152,7 +151,10 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.Command).To(Equal("echo 'hello world'"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).NotTo(BeZero())
-				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+				Expect(taskRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(taskRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+
 				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
@@ -244,7 +246,10 @@ var _ = Describe("TaskRepository", func() {
 					Expect(taskRecord.Command).To(Equal("echo hello"))
 					Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 					Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
-					Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+					Expect(taskRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+					Expect(taskRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+
 					Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 					Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 					Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
@@ -539,7 +544,10 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.Command).To(Equal("echo hello"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
-				Expect(taskRecord.CreationTimestamp).To(BeTemporally("~", time.Now(), 5*time.Second))
+
+				Expect(taskRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(taskRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+
 				Expect(taskRecord.MemoryMB).To(BeEquivalentTo(256))
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))

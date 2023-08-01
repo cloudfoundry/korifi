@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/handlers"
-	"github.com/go-http-utils/headers"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -13,7 +13,7 @@ var _ = Describe("RootV3", func() {
 	var req *http.Request
 
 	BeforeEach(func() {
-		apiHandler := handlers.NewRootV3(defaultServerURL)
+		apiHandler := handlers.NewRootV3(*serverURL)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
@@ -28,17 +28,13 @@ var _ = Describe("RootV3", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns status 200 OK", func() {
-			Expect(rr.Code).To(Equal(http.StatusOK))
-		})
+		It("returns the expected response", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
-		It("returns Content-Type as JSON in header", func() {
-			Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
-		})
-
-		It("matches the expected response body format", func() {
-			expectedBody := `{"links":{"self":{"href":"` + defaultServerURL + `/v3"}}}`
-			Expect(rr.Body).To(MatchJSON(expectedBody))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3"),
+			)))
 		})
 	})
 })

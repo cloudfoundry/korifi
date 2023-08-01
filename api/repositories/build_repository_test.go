@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,7 @@ var _ = Describe("BuildRepository", func() {
 		buildRepo = repositories.NewBuildRepo(
 			namespaceRetriever,
 			userClientFactory,
+			nsPerms,
 		)
 	})
 
@@ -138,15 +140,11 @@ var _ = Describe("BuildRepository", func() {
 					})
 
 					It("returns a record with a CreatedAt field from the CR", func() {
-						createdAt, err := time.Parse(time.RFC3339, buildRecord.CreatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						Expect(buildRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 					})
 
 					It("returns a record with a UpdatedAt field from the CR", func() {
-						updatedAt, err := time.Parse(time.RFC3339, buildRecord.UpdatedAt)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+						Expect(buildRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 					})
 
 					It("returns a record with a StagingMemoryMB field matching the CR", func() {
@@ -428,12 +426,8 @@ var _ = Describe("BuildRepository", func() {
 
 				Expect(buildCreateRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
 				Expect(buildCreateRecord.State).To(Equal(buildStagingState))
-				createdAt, err := time.Parse(time.RFC3339, buildCreateRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
-				updatedAt, err := time.Parse(time.RFC3339, buildCreateRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
+				Expect(buildCreateRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(buildCreateRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				Expect(buildCreateRecord.StagingErrorMsg).To(BeEmpty())
 				Expect(buildCreateRecord.StagingMemoryMB).To(Equal(stagingMemory))
 				Expect(buildCreateRecord.StagingDiskMB).To(Equal(stagingDisk))

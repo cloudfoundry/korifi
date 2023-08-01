@@ -8,24 +8,33 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
 	controllerfake "code.cloudfoundry.org/korifi/controllers/fake"
+	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/services"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
+	"github.com/onsi/gomega/gbytes"
+	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,21 +45,30 @@ import (
 )
 
 var (
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	testEnv             *envtest.Environment
-	k8sClient           client.Client
-	cfRootNamespace     string
-	cfOrg               *korifiv1alpha1.CFOrg
-	imageRegistrySecret *corev1.Secret
-	imageDeleter        *fake.ImageDeleter
-	packageCleaner      *fake.PackageCleaner
-	eventRecorder       *controllerfake.EventRecorder
-	buildCleaner        *fake.BuildCleaner
+	ctx                  context.Context
+	stopManager          context.CancelFunc
+	stopClientCache      context.CancelFunc
+	testEnv              *envtest.Environment
+	adminClient          client.Client
+	controllersClient    client.Client
+	cfRootNamespace      string
+	cfOrg                *korifiv1alpha1.CFOrg
+	imageRegistrySecret1 *corev1.Secret
+	imageRegistrySecret2 *corev1.Secret
+	imageDeleter         *fake.ImageDeleter
+	packageCleaner       *fake.PackageCleaner
+	eventRecorder        *controllerfake.EventRecorder
+	buildCleaner         *fake.BuildCleaner
+	logOutput            *gbytes.Buffer
 )
 
 const (
+	defaultMemoryMB    = 128
+	defaultDiskQuotaMB = 256
+	defaultTimeout     = 60
+
 	packageRegistrySecretName = "test-package-registry-secret"
+	otherRegistrySecretName   = "some-other-registry-secret"
 )
 
 func TestWorkloadsControllers(t *testing.T) {
@@ -62,39 +80,34 @@ func TestWorkloadsControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	logOutput = gbytes.NewBuffer()
+	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
 
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx = context.Background()
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
 		},
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml")},
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
-	cfg, err := testEnv.Start()
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	//+kubebuilder:scaffold:scheme
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	k8sClient = k8sManager.GetClient()
+	controllersClient = k8sManager.GetClient()
+	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	cfRootNamespace = testutils.PrefixedGUID("root-namespace")
 
@@ -103,10 +116,11 @@ var _ = BeforeSuite(func() {
 			MemoryMB:    500,
 			DiskQuotaMB: 512,
 		},
-		CFRootNamespace:             cfRootNamespace,
-		ContainerRegistrySecretName: packageRegistrySecretName,
-		WorkloadsTLSSecretName:      "korifi-workloads-ingress-cert",
-		WorkloadsTLSSecretNamespace: "korifi-controllers-system",
+		CFRootNamespace:                  cfRootNamespace,
+		ContainerRegistrySecretNames:     []string{packageRegistrySecretName, otherRegistrySecretName},
+		WorkloadsTLSSecretName:           "korifi-workloads-ingress-cert",
+		WorkloadsTLSSecretNamespace:      "korifi-controllers-system",
+		SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(2)),
 	}
 
 	eventRecorder = new(controllerfake.EventRecorder)
@@ -119,10 +133,6 @@ var _ = BeforeSuite(func() {
 		env.NewVCAPApplicationEnvValueBuilder(k8sManager.GetClient(), nil),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
-
-	registryAuthFetcherClient, err := k8sclient.NewForConfig(cfg)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(registryAuthFetcherClient).NotTo(BeNil())
 
 	buildCleaner = new(fake.BuildCleaner)
 	cfBuildReconciler := NewCFBuildReconciler(
@@ -149,11 +159,11 @@ var _ = BeforeSuite(func() {
 	packageCleaner = new(fake.PackageCleaner)
 	err = (NewCFPackageReconciler(
 		k8sManager.GetClient(),
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFPackage"),
 		imageDeleter,
 		packageCleaner,
-		k8sManager.GetScheme(),
-		"package-repo-secret-name",
-		ctrl.Log.WithName("controllers").WithName("CFPackage"),
+		[]string{"package-repo-secret-name"},
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -166,7 +176,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFOrg"),
-		controllerConfig.ContainerRegistrySecretName,
+		controllerConfig.ContainerRegistrySecretNames,
 		labelCompiler,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -175,8 +185,9 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
-		controllerConfig.ContainerRegistrySecretName,
+		controllerConfig.ContainerRegistrySecretNames,
 		controllerConfig.CFRootNamespace,
+		*controllerConfig.SpaceFinalizerAppDeletionTimeout,
 		labelCompiler,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -191,25 +202,60 @@ var _ = BeforeSuite(func() {
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	// Add new reconcilers here
+	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
+	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
+	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(workloads.NewCFAppValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.AppEntityType)),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	(&workloads.AppRevWebhook{}).SetupWebhookWithManager(k8sManager)
 
-	// Setup index for manager
-	err = SetupIndexWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
+	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.CFOrgEntityType))
+	orgPlacementValidator := webhooks.NewPlacementValidator(k8sManager.GetClient(), cfRootNamespace)
+	Expect(workloads.NewCFOrgValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.CFSpaceEntityType))
+	spacePlacementValidator := webhooks.NewPlacementValidator(k8sManager.GetClient(), cfRootNamespace)
+	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	Expect(networking.NewCFDomainValidator(k8sManager.GetClient()).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(services.NewCFServiceInstanceValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), services.ServiceInstanceEntityType)),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(workloads.NewCFTaskDefaulter(config.CFProcessDefaults{
+		MemoryMB:    128,
+		DiskQuotaMB: 256,
+	}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	Expect(korifiv1alpha1.NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB, defaultTimeout).
+		SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(networking.NewCFRouteValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), networking.RouteEntityType)),
+		cfRootNamespace,
+		k8sManager.GetClient(),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(services.NewCFServiceBindingValidator(
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), services.ServiceBindingEntityType)),
+	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+
+	stopManager = helpers.StartK8sManager(k8sManager)
 
 	createNamespace(cfRootNamespace)
-	imageRegistrySecret = createSecret(ctx, k8sClient, packageRegistrySecretName, cfRootNamespace)
+	imageRegistrySecret1 = createImageRegistrySecret(ctx, adminClient, packageRegistrySecretName, cfRootNamespace)
+	imageRegistrySecret2 = createImageRegistrySecret(ctx, adminClient, otherRegistrySecretName, cfRootNamespace)
+
 	cfOrg = createOrg(cfRootNamespace)
 })
 
 var _ = AfterSuite(func() {
-	cancel()
+	stopManager()
+	stopClientCache()
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
@@ -218,7 +264,6 @@ func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuil
 		k8sClient.Create(ctx, cfBuild),
 	).To(Succeed())
 	patchedCFBuild := cfBuild.DeepCopy()
-	patchedCFBuild.Status.Conditions = []metav1.Condition{}
 	patchedCFBuild.Status.Droplet = droplet
 	Expect(
 		k8sClient.Status().Patch(ctx, patchedCFBuild, client.MergeFrom(cfBuild)),
@@ -233,15 +278,20 @@ func createNamespace(name string) *corev1.Namespace {
 		},
 	}
 	Expect(
-		k8sClient.Create(ctx, ns)).To(Succeed())
+		adminClient.Create(ctx, ns)).To(Succeed())
 	return ns
 }
 
-func createSecret(ctx context.Context, k8sClient client.Client, name string, namespace string) *corev1.Secret {
+func createImageRegistrySecret(ctx context.Context, k8sClient client.Client, name string, namespace string) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				"kapp.k14s.io/foo": "bar",
+				"meta.helm.sh/baz": "foo",
+				"bar":              "baz",
+			},
 		},
 		StringData: map[string]string{
 			"foo": "bar",
@@ -294,13 +344,15 @@ func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceA
 			{Name: serviceAccountName + "-token-someguid"},
 			{Name: serviceAccountName + "-dockercfg-someguid"},
 			{Name: packageRegistrySecretName},
+			{Name: otherRegistrySecretName},
 		},
 		ImagePullSecrets: []corev1.LocalObjectReference{
 			{Name: serviceAccountName + "-dockercfg-someguid"},
 			{Name: packageRegistrySecretName},
+			{Name: otherRegistrySecretName},
 		},
 	}
-	Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
+	Expect(adminClient.Create(ctx, serviceAccount)).To(Succeed())
 	return serviceAccount
 }
 
@@ -327,10 +379,10 @@ func createOrg(rootNamespace string) *korifiv1alpha1.CFOrg {
 			DisplayName: testutils.PrefixedGUID("org"),
 		},
 	}
-	Expect(k8sClient.Create(ctx, org)).To(Succeed())
+	Expect(adminClient.Create(ctx, org)).To(Succeed())
 	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(org), org)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(org.Status.Conditions, StatusConditionReady)).To(BeTrue())
+		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(org), org)).To(Succeed())
+		g.Expect(meta.IsStatusConditionTrue(org.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 	return org
 }
@@ -345,10 +397,10 @@ func createSpace(org *korifiv1alpha1.CFOrg) *korifiv1alpha1.CFSpace {
 			DisplayName: testutils.PrefixedGUID("space"),
 		},
 	}
-	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+	Expect(adminClient.Create(ctx, cfSpace)).To(Succeed())
 	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, StatusConditionReady)).To(BeTrue())
+		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
+		g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 	return cfSpace
 }

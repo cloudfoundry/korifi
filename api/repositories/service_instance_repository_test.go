@@ -9,7 +9,9 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -88,13 +90,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(createdServiceInstanceRecord.Type).To(Equal("user-provided"), "Type in record did not match input")
 				Expect(createdServiceInstanceRecord.Tags).To(ConsistOf([]string{"foo", "bar"}), "Tags in record did not match input")
 
-				recordCreatedTime, err := time.Parse(repositories.TimestampFormat, createdServiceInstanceRecord.CreatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordCreatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-
-				recordUpdatedTime, err := time.Parse(repositories.TimestampFormat, createdServiceInstanceRecord.UpdatedAt)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(recordUpdatedTime).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(createdServiceInstanceRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(createdServiceInstanceRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			When("ServiceInstance credentials are NOT provided", func() {
@@ -363,6 +360,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *korifiv1alpha1.CFServiceInstance
 			nonCFNamespace                                             string
 			filters                                                    repositories.ListServiceInstanceMessage
+			listErr                                                    error
 
 			serviceInstanceList []repositories.ServiceInstanceRecord
 		)
@@ -377,22 +375,21 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
 			)).To(Succeed())
 
-			cfServiceInstance1 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "service-instance-1", prefixedGUID("secret"))
-			cfServiceInstance2 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space2.Name, "service-instance-2", prefixedGUID("secret"))
-			cfServiceInstance3 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space3.Name, "service-instance-3", prefixedGUID("secret"))
+			cfServiceInstance1 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-1"), space.Name, "service-instance-1", prefixedGUID("secret"))
+			cfServiceInstance2 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-2"), space2.Name, "service-instance-2", prefixedGUID("secret"))
+			cfServiceInstance3 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-3"), space3.Name, "service-instance-3", prefixedGUID("secret"))
 			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), nonCFNamespace, "service-instance-4", prefixedGUID("secret"))
 
 			filters = repositories.ListServiceInstanceMessage{}
 		})
 
 		JustBeforeEach(func() {
-			var err error
-			serviceInstanceList, err = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
-			Expect(err).NotTo(HaveOccurred())
+			serviceInstanceList, listErr = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
 		})
 
 		When("no service instances exist in spaces where the user has permission", func() {
 			It("returns an empty list of ServiceInstanceRecord", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 				Expect(serviceInstanceList).To(BeEmpty())
 			})
 		})
@@ -404,6 +401,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			It("returns ServiceInstance records from only the spaces where the user has permission", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 				Expect(serviceInstanceList).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
@@ -427,7 +425,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						},
 					}
 				})
+
 				It("returns only records for the ServiceInstances with matching spec.name fields", func() {
+					Expect(listErr).NotTo(HaveOccurred())
 					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
@@ -438,17 +438,81 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			When("the spaceGUID filter is set", func() {
 				BeforeEach(func() {
 					filters = repositories.ListServiceInstanceMessage{
-						SpaceGuids: []string{
+						SpaceGUIDs: []string{
 							cfServiceInstance2.Namespace,
 							cfServiceInstance3.Namespace,
 						},
 					}
 				})
+
 				It("returns only records for the ServiceInstances within the matching spaces", func() {
+					Expect(listErr).NotTo(HaveOccurred())
 					Expect(serviceInstanceList).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
 					))
+				})
+			})
+
+			When("the serviceGUID filter is set", func() {
+				BeforeEach(func() {
+					filters = repositories.ListServiceInstanceMessage{
+						GUIDs: []string{cfServiceInstance1.Name, cfServiceInstance3.Name},
+					}
+				})
+				It("returns only records for the ServiceInstances within the matching spaces", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(serviceInstanceList).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+					))
+				})
+			})
+
+			When("filtered by label selector", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance1, func() {
+						cfServiceInstance1.Labels = map[string]string{"foo": "FOO1"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance2, func() {
+						cfServiceInstance2.Labels = map[string]string{"foo": "FOO2"}
+					})).To(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance3, func() {
+						cfServiceInstance3.Labels = map[string]string{"not_foo": "NOT_FOO"}
+					})).To(Succeed())
+				})
+
+				DescribeTable("valid label selectors",
+					func(selector string, serviceBindingGUIDPrefixes ...string) {
+						serviceInstances, err := serviceInstanceRepo.ListServiceInstances(context.Background(), authInfo, repositories.ListServiceInstanceMessage{
+							LabelSelector: selector,
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						matchers := []any{}
+						for _, prefix := range serviceBindingGUIDPrefixes {
+							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
+						}
+
+						Expect(serviceInstances).To(ConsistOf(matchers...))
+					},
+					Entry("key", "foo", "service-instance-1", "service-instance-2"),
+					Entry("!key", "!foo", "service-instance-3"),
+					Entry("key=value", "foo=FOO1", "service-instance-1"),
+					Entry("key==value", "foo==FOO2", "service-instance-2"),
+					Entry("key!=value", "foo!=FOO1", "service-instance-2", "service-instance-3"),
+					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "service-instance-1", "service-instance-2"),
+					Entry("key notin (value1,value2)", "foo notin (FOO2)", "service-instance-1", "service-instance-3"),
+				)
+
+				When("the label selector is invalid", func() {
+					BeforeEach(func() {
+						filters = repositories.ListServiceInstanceMessage{LabelSelector: "~"}
+					})
+
+					It("returns an error", func() {
+						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+					})
 				})
 			})
 		})

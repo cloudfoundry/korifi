@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -42,8 +43,8 @@ func NewDropletRepo(
 type DropletRecord struct {
 	GUID            string
 	State           string
-	CreatedAt       string
-	UpdatedAt       string
+	CreatedAt       time.Time
+	UpdatedAt       *time.Time
 	DropletErrorMsg string
 	Lifecycle       Lifecycle
 	Stack           string
@@ -98,7 +99,6 @@ func returnDroplet(cfBuild korifiv1alpha1.CFBuild) (DropletRecord, error) {
 }
 
 func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 	processTypesMap := make(map[string]string)
 	processTypesArrayObject := cfBuild.Status.Droplet.ProcessTypes
 	for index := range processTypesArrayObject {
@@ -108,8 +108,8 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 	return DropletRecord{
 		GUID:      cfBuild.Name,
 		State:     "STAGED",
-		CreatedAt: formatTimestamp(cfBuild.CreationTimestamp),
-		UpdatedAt: updatedAtTime,
+		CreatedAt: cfBuild.CreationTimestamp.Time,
+		UpdatedAt: getLastUpdatedTime(&cfBuild),
 		Lifecycle: Lifecycle{
 			Type: string(cfBuild.Spec.Lifecycle.Type),
 			Data: LifecycleData{
@@ -150,9 +150,16 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		}
 		allBuilds = append(allBuilds, buildList.Items...)
 	}
-	matches := applyDropletFilters(allBuilds, message)
 
-	return returnDropletList(matches), nil
+	return returnDropletList(Filter(allBuilds,
+		func(a korifiv1alpha1.CFBuild) bool {
+			return getConditionValue(&a.Status.Conditions, StagingConditionType) == metav1.ConditionFalse
+		},
+		func(a korifiv1alpha1.CFBuild) bool {
+			return getConditionValue(&a.Status.Conditions, SucceededConditionType) == metav1.ConditionTrue
+		},
+		SetPredicate(message.PackageGUIDs, func(s korifiv1alpha1.CFBuild) string { return s.Spec.PackageRef.Name }),
+	)), nil
 }
 
 type UpdateDropletMessage struct {
@@ -162,10 +169,6 @@ type UpdateDropletMessage struct {
 
 func (r *DropletRepo) UpdateDroplet(ctx context.Context, authInfo authorization.Info, message UpdateDropletMessage) (DropletRecord, error) {
 	build, userClient, err := r.getBuildAssociatedWithDroplet(ctx, authInfo, message.GUID)
-	if err != nil {
-		return DropletRecord{}, err
-	}
-
 	if err != nil {
 		return DropletRecord{}, err
 	}
@@ -187,33 +190,4 @@ func returnDropletList(droplets []korifiv1alpha1.CFBuild) []DropletRecord {
 		dropletRecords = append(dropletRecords, cfBuildToDropletRecord(currentBuild))
 	}
 	return dropletRecords
-}
-
-func applyDropletFilters(builds []korifiv1alpha1.CFBuild, message ListDropletsMessage) []korifiv1alpha1.CFBuild {
-	var filtered []korifiv1alpha1.CFBuild
-	for i, build := range builds {
-
-		stagingStatus := getConditionValue(&build.Status.Conditions, StagingConditionType)
-		succeededStatus := getConditionValue(&build.Status.Conditions, SucceededConditionType)
-		if stagingStatus != metav1.ConditionFalse ||
-			succeededStatus != metav1.ConditionTrue {
-			continue
-		}
-
-		if len(message.PackageGUIDs) > 0 {
-			foundMatch := false
-			for _, packageGUID := range message.PackageGUIDs {
-				if build.Spec.PackageRef.Name == packageGUID {
-					foundMatch = true
-					break
-				}
-			}
-			if !foundMatch {
-				continue
-			}
-		}
-
-		filtered = append(filtered, builds[i])
-	}
-	return filtered
 }

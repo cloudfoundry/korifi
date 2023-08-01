@@ -7,7 +7,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/routing"
 	"github.com/Masterminds/semver"
-	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/mileusna/useragent"
 )
@@ -17,7 +16,7 @@ const minSupportedVersion = ">= 8.5.0"
 func CFCliVersion(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := logr.FromContextOrDiscard(r.Context()).WithName("cf-cli-version-check")
-		userAgents := r.Header[headers.UserAgent]
+		userAgents := r.Header["User-Agent"]
 		if len(userAgents) == 0 {
 			next.ServeHTTP(w, r)
 			return

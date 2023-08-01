@@ -72,8 +72,8 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 		Host:      route.Host,
 		Path:      route.Path,
 		URL:       routeURL(route),
-		CreatedAt: route.CreatedAt,
-		UpdatedAt: route.UpdatedAt,
+		CreatedAt: formatTimestamp(&route.CreatedAt),
+		UpdatedAt: formatTimestamp(route.UpdatedAt),
 		Relationships: Relationships{
 			"space": Relationship{
 				Data: &RelationshipData{

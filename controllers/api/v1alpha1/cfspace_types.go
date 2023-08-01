@@ -17,10 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
+	CFSpaceFinalizerName = "cfSpace.korifi.cloudfoundry.org"
+
 	SpaceNameKey = "cloudfoundry.org/space-name"
 	SpaceGUIDKey = "cloudfoundry.org/space-guid"
 )
@@ -34,10 +39,13 @@ type CFSpaceSpec struct {
 
 // CFSpaceStatus defines the observed state of CFSpace
 type CFSpaceStatus struct {
-	// Conditions capture the current status of the CFSpace
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	GUID string `json:"guid"`
+
+	// ObservedGeneration captures the latest generation of the CFSpace that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -52,6 +60,15 @@ type CFSpace struct {
 
 	Spec   CFSpaceSpec   `json:"spec,omitempty"`
 	Status CFSpaceStatus `json:"status,omitempty"`
+}
+
+func (s CFSpace) UniqueValidationErrorMessage() string {
+	// Note: the cf cli expects the specific text `Name must be unique per organization` in the error and ignores the error if it matches it.
+	return fmt.Sprintf("Space '%s' already exists. Name must be unique per organization.", s.Spec.DisplayName)
+}
+
+func (s CFSpace) UniqueName() string {
+	return strings.ToLower(s.Spec.DisplayName)
 }
 
 //+kubebuilder:object:root=true

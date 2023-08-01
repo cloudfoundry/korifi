@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -43,7 +44,7 @@ const (
 
 var logger = logf.Log.WithName("route-validation")
 
-//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfroute,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=create;update;delete,versions=v1alpha1,name=vcfroute.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cfroute,mutating=false,failurePolicy=fail,sideEffects=NoneOnDryRun,groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=create;update;delete,versions=v1alpha1,name=vcfroute.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 type CFRouteValidator struct {
 	duplicateValidator webhooks.NameValidator
@@ -72,39 +73,35 @@ func (v *CFRouteValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (v *CFRouteValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *CFRouteValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	route, ok := obj.(*korifiv1alpha1.CFRoute)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected nil, a CFRoute but got a %T", obj))
 	}
 
-	domain, err := v.validateRoute(ctx, route)
+	cfDomain, err := v.validateRoute(ctx, route)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	duplicateErrorMessage := generateDuplicateErrorMessage(route, domain)
-	validationErr := v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, uniqueName(*route), duplicateErrorMessage)
-	if validationErr != nil {
-		return validationErr.ExportJSONError()
-	}
+	route.Status.FQDN = cfDomain.Spec.Name
 
-	return nil
+	return nil, v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, route)
 }
 
-func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) error {
+func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
 	route, ok := obj.(*korifiv1alpha1.CFRoute)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
 	if !route.GetDeletionTimestamp().IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	oldRoute, ok := oldObj.(*korifiv1alpha1.CFRoute)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
 	immutableError := webhooks.ValidationError{
@@ -113,54 +110,48 @@ func (v *CFRouteValidator) ValidateUpdate(ctx context.Context, oldObj, obj runti
 
 	if route.Spec.Host != oldRoute.Spec.Host {
 		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFRoute.Spec.Host")
-		return immutableError.ExportJSONError()
+		return nil, immutableError.ExportJSONError()
 	}
 
 	if route.Spec.Path != oldRoute.Spec.Path {
 		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFRoute.Spec.Path")
-		return immutableError.ExportJSONError()
+		return nil, immutableError.ExportJSONError()
 	}
 
 	if route.Spec.Protocol != oldRoute.Spec.Protocol {
 		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFRoute.Spec.Protocol")
-		return immutableError.ExportJSONError()
+		return nil, immutableError.ExportJSONError()
 	}
 
 	if route.Spec.DomainRef.Name != oldRoute.Spec.DomainRef.Name {
 		immutableError.Message = fmt.Sprintf(webhooks.ImmutableFieldErrorMessageTemplate, "CFRoute.Spec.DomainRef.Name")
-		return immutableError.ExportJSONError()
+		return nil, immutableError.ExportJSONError()
 	}
 
-	domain, err := v.validateDestinations(ctx, route)
+	err := v.validateDestinations(ctx, route)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	duplicateErrorMessage := generateDuplicateErrorMessage(route, domain)
-	validationErr := v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, uniqueName(*oldRoute), uniqueName(*route), duplicateErrorMessage)
-	if validationErr != nil {
-		return validationErr.ExportJSONError()
-	}
-
-	return nil
+	return nil, v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, oldRoute, route)
 }
 
-func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (v *CFRouteValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	route, ok := obj.(*korifiv1alpha1.CFRoute)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
-	validationErr := v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, uniqueName(*route))
-	if validationErr != nil {
-		return validationErr.ExportJSONError()
-	}
-
-	return nil
+	return nil, v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, route)
 }
 
 func (v *CFRouteValidator) validateRoute(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
-	domain, err := v.validateDestinations(ctx, route)
+	domain, err := v.fetchDomain(ctx, route)
+	if err != nil {
+		return domain, err
+	}
+
+	err = v.validateDestinations(ctx, route)
 	if err != nil {
 		return domain, err
 	}
@@ -190,12 +181,9 @@ func (v *CFRouteValidator) fetchDomain(ctx context.Context, route *korifiv1alpha
 	return domain, err
 }
 
-func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *korifiv1alpha1.CFRoute) (*korifiv1alpha1.CFDomain, error) {
-	domain, err := v.fetchDomain(ctx, route)
+func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *korifiv1alpha1.CFRoute) error {
+	err := v.checkDestinationsExistInNamespace(ctx, *route)
 	if err != nil {
-		return domain, err
-	}
-	if err = v.checkDestinationsExistInNamespace(ctx, *route); err != nil {
 		validationErr := webhooks.ValidationError{}
 
 		if apierrors.IsNotFound(err) {
@@ -207,24 +195,10 @@ func (v *CFRouteValidator) validateDestinations(ctx context.Context, route *kori
 		}
 
 		logger.Info(validationErr.Message, "reason", err)
-		return domain, validationErr.ExportJSONError()
-	}
-	return domain, nil
-}
-
-func generateDuplicateErrorMessage(route *korifiv1alpha1.CFRoute, domain *korifiv1alpha1.CFDomain) string {
-	pathDetails := ""
-
-	if route.Spec.Path != "" {
-		pathDetails = fmt.Sprintf(" and path '%s'", route.Spec.Path)
+		return validationErr.ExportJSONError()
 	}
 
-	return fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.",
-		route.Spec.Host, pathDetails, domain.Spec.Name)
-}
-
-func uniqueName(route korifiv1alpha1.CFRoute) string {
-	return strings.Join([]string{strings.ToLower(route.Spec.Host), route.Spec.DomainRef.Namespace, route.Spec.DomainRef.Name, route.Spec.Path}, "::")
+	return nil
 }
 
 func validateFQDN(host, domain string) error {

@@ -2,6 +2,7 @@ package crds_test
 
 import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/cloudfoundry/cf-test-helpers/cf"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,22 +27,19 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		spaceGUID = PrefixedGUID("space")
 		spaceDisplayName = PrefixedGUID("Space")
 
-		testCLIUser = GetRequiredEnvVar("CRDS_TEST_CLI_USER")
-		korifiAPIEndpoint = GetRequiredEnvVar("CRDS_TEST_API_ENDPOINT")
-		skipSSL = GetDefaultedEnvVar("CRDS_TEST_SKIP_SSL", "false")
+		testCLIUser = helpers.GetRequiredEnvVar("CRDS_TEST_CLI_USER")
+		korifiAPIEndpoint = helpers.GetRequiredEnvVar("CRDS_TEST_API_ENDPOINT")
+		skipSSL = helpers.GetDefaultedEnvVar("CRDS_TEST_SKIP_SSL", "false")
 
 		cfUserRoleBindingName = testCLIUser + "-root-namespace-user"
 	})
 
 	AfterAll(func() {
-		Eventually(
-			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforg", orgGUID),
-			"20s",
-		).Should(Exit(0))
+		deleteOrg := kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforg", orgGUID)
+		deleteRoleBinding := kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "rolebinding", cfUserRoleBindingName)
 
-		Eventually(
-			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "rolebinding", cfUserRoleBindingName),
-		).Should(Exit(0))
+		Eventually(deleteOrg, "20s").Should(Exit(0), "deleteOrg")
+		Eventually(deleteRoleBinding, "20s").Should(Exit(0), "deleteRoleBinging")
 	})
 
 	It("can create a CFOrg", func() {
@@ -92,13 +90,22 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(
 			kubectl("create", "rolebinding", "-n="+rootNamespace, "--user="+testCLIUser, "--clusterrole=korifi-controllers-root-namespace-user", cfUserRoleBindingName),
 		).Should(Exit(0))
+		Eventually(
+			kubectl("label", "rolebinding", cfUserRoleBindingName, "-n="+rootNamespace, "cloudfoundry.org/role-guid="+GenerateGUID()),
+		).Should(Exit(0))
 
 		Eventually(
 			kubectl("create", "rolebinding", "-n="+orgGUID, "--user="+testCLIUser, "--clusterrole=korifi-controllers-organization-user", testCLIUser+"-org-user"),
 		).Should(Exit(0))
+		Eventually(
+			kubectl("label", "rolebinding", testCLIUser+"-org-user", "-n="+orgGUID, "cloudfoundry.org/role-guid="+GenerateGUID()),
+		).Should(Exit(0))
 
 		Eventually(
 			kubectl("create", "rolebinding", "-n="+spaceGUID, "--user="+testCLIUser, "--clusterrole=korifi-controllers-space-developer", testCLIUser+"-space-developer"),
+		).Should(Exit(0))
+		Eventually(
+			kubectl("label", "rolebinding", testCLIUser+"-space-developer", "-n="+spaceGUID, "cloudfoundry.org/role-guid="+GenerateGUID()),
 		).Should(Exit(0))
 
 		loginAs(korifiAPIEndpoint, skipSSL == "true", testCLIUser)
@@ -106,7 +113,7 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(cf.Cf("target", "-o", orgDisplayName, "-s", spaceDisplayName)).Should(Exit(0))
 
 		Eventually(
-			cf.Cf("push", PrefixedGUID("crds-test-app"), "-p", "../smoke/assets/test-node-app", "--no-start"), // This could be any app
+			cf.Cf("push", PrefixedGUID("crds-test-app"), "-p", "../assets/dorifi", "--no-start"), // This could be any app
 			"20s",
 		).Should(Exit(0))
 	})
@@ -156,16 +163,15 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		Eventually(kubectl("wait", "--for=delete", "rolebinding/cf-admin-test-cli-role-binding", "-n", spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
 	})
 
+	It("can delete the space", func() {
+		Eventually(kubectl("delete", "--ignore-not-found=true", "-n="+orgGUID, "cfspace/"+spaceGUID), "120s").Should(Exit(0))
+		Eventually(kubectl("wait", "--for=delete", "namespace/"+spaceGUID)).Should(Exit(0))
+	})
+
 	It("can delete the org", func() {
-		Eventually(
-			kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforgs/"+orgGUID),
-			"20s",
-		).Should(Exit(0))
+		Eventually(kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforgs/"+orgGUID), "120s").Should(Exit(0))
 
-		Eventually(kubectl("wait", "--for=delete", "cforg/"+orgGUID, "-n", rootNamespace, "--timeout=20s"), "20s").Should(Exit(0))
-
-		Eventually(kubectl("wait", "--for=delete", "namespace/"+orgGUID, "--timeout=60s"), "60s").Should(Exit(0))
-
-		Eventually(kubectl("wait", "--for=delete", "namespace/"+spaceGUID, "--timeout=60s"), "60s").Should(Exit(0))
+		Eventually(kubectl("wait", "--for=delete", "cforg/"+orgGUID, "-n", rootNamespace)).Should(Exit(0))
+		Eventually(kubectl("wait", "--for=delete", "namespace/"+orgGUID)).Should(Exit(0))
 	})
 })

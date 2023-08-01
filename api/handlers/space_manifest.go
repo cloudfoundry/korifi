@@ -5,15 +5,13 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-http-utils/headers"
-	"github.com/go-logr/logr"
-
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
-	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+
+	"github.com/go-logr/logr"
 )
 
 const (
@@ -21,20 +19,11 @@ const (
 	SpaceManifestDiffPath  = "/v3/spaces/{spaceGUID}/manifest_diff"
 )
 
-//counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
-
-type CFSpaceRepository interface {
-	CreateSpace(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
-	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
-	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
-	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
-}
-
 type SpaceManifest struct {
 	serverURL        url.URL
 	manifestApplier  ManifestApplier
 	spaceRepo        CFSpaceRepository
-	decoderValidator *DecoderValidator
+	requestValidator RequestValidator
 }
 
 //counterfeiter:generate -o fake -fake-name ManifestApplier . ManifestApplier
@@ -46,13 +35,13 @@ func NewSpaceManifest(
 	serverURL url.URL,
 	manifestApplier ManifestApplier,
 	spaceRepo CFSpaceRepository,
-	decoderValidator *DecoderValidator,
+	requestValidator RequestValidator,
 ) *SpaceManifest {
 	return &SpaceManifest{
 		serverURL:        serverURL,
 		manifestApplier:  manifestApplier,
 		spaceRepo:        spaceRepo,
-		decoderValidator: decoderValidator,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -73,7 +62,7 @@ func (h *SpaceManifest) apply(r *http.Request) (*routing.Response, error) {
 
 	spaceGUID := routing.URLParam(r, "spaceGUID")
 	var manifest payloads.Manifest
-	if err := h.decoderValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
+	if err := h.requestValidator.DecodeAndValidateYAMLPayload(r, &manifest); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -82,7 +71,7 @@ func (h *SpaceManifest) apply(r *http.Request) (*routing.Response, error) {
 	}
 
 	return routing.NewResponse(http.StatusAccepted).
-		WithHeader(headers.Location, presenter.JobURLForRedirects(spaceGUID, presenter.SpaceApplyManifestOperation, h.serverURL)), nil
+		WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceApplyManifestOperation, h.serverURL)), nil
 }
 
 func (h *SpaceManifest) diff(r *http.Request) (*routing.Response, error) {

@@ -33,9 +33,10 @@ type (
 
 		RootNamespace                            string                 `yaml:"rootNamespace"`
 		BuilderName                              string                 `yaml:"builderName"`
+		RunnerName                               string                 `yaml:"runnerName"`
 		ContainerRepositoryPrefix                string                 `yaml:"containerRepositoryPrefix"`
 		ContainerRegistryType                    string                 `yaml:"containerRegistryType"`
-		PackageRegistrySecretName                string                 `yaml:"packageRegistrySecretName"`
+		PackageRegistrySecretNames               []string               `yaml:"packageRegistrySecretNames"`
 		DefaultDomainName                        string                 `yaml:"defaultDomainName"`
 		UserCertificateExpirationWarningDuration string                 `yaml:"userCertificateExpirationWarningDuration"`
 		DefaultLifecycleConfig                   DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
@@ -60,7 +61,6 @@ type (
 		Type            string `yaml:"type"`
 		Stack           string `yaml:"stack"`
 		StagingMemoryMB int    `yaml:"stagingMemoryMB"`
-		StagingDiskMB   int    `yaml:"stagingDiskMB"`
 	}
 )
 
@@ -108,7 +108,7 @@ func (c *APIConfig) validate() error {
 
 	if c.UserCertificateExpirationWarningDuration != "" {
 		if _, err := time.ParseDuration(c.UserCertificateExpirationWarningDuration); err != nil {
-			return errors.New(`Invalid duration format for userCertificateExpirationWarningDuration. Use a format like "48h"`)
+			return errors.New(`invalid duration format for userCertificateExpirationWarningDuration. Use a format like "48h"`)
 		}
 	}
 

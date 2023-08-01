@@ -10,8 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
-	testhelpers "code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 )
 
 var _ = Describe("Orgs", func() {
@@ -57,7 +56,7 @@ var _ = Describe("Orgs", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Name).To(Equal(orgName))
 			Expect(result.GUID).NotTo(BeEmpty())
-			testhelpers.EnsureValidUUID(result.GUID)
+			helpers.EnsureValidUUID(result.GUID)
 		})
 
 		When("the org name already exists", func() {
@@ -83,7 +82,7 @@ var _ = Describe("Orgs", func() {
 
 		When("not admin", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns a forbidden error", func() {
@@ -241,6 +240,10 @@ var _ = Describe("Orgs", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
+
+			orgResp, err := restyClient.R().Get("/v3/organizations/" + orgGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(orgResp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 
 		When("the org contains a space", func() {
@@ -260,6 +263,10 @@ var _ = Describe("Orgs", func() {
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 				}).Should(Succeed())
+
+				orgResp, err := restyClient.R().Get("/v3/organizations/" + orgGUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(orgResp).To(HaveRestyStatusCode(http.StatusNotFound))
 			})
 		})
 
@@ -292,7 +299,7 @@ var _ = Describe("Orgs", func() {
 		BeforeEach(func() {
 			orgGUID = createOrg(generateGUID("org"))
 			createOrgRole("organization_user", certUserName, orgGUID)
-			domainName = mustHaveEnv("APP_FQDN")
+			domainName = helpers.GetRequiredEnvVar("APP_FQDN")
 		})
 
 		AfterEach(func() {
@@ -319,7 +326,7 @@ var _ = Describe("Orgs", func() {
 
 		When("the user is not authorized in the organization", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns a not found error", func() {
@@ -332,6 +339,58 @@ var _ = Describe("Orgs", func() {
 					},
 				))
 			})
+		})
+	})
+
+	Describe("get default domain", func() {
+		var (
+			result  bareResource
+			orgGUID string
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("org"))
+			createOrgRole("organization_user", certUserName, orgGUID)
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetResult(&result).
+				Get("/v3/organizations/" + orgGUID + "/domains/default")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			domainName := helpers.GetRequiredEnvVar("APP_FQDN")
+			Expect(result.Name).To(Equal(domainName))
+			Expect(result.GUID).NotTo(BeEmpty())
+		})
+	})
+
+	Describe("get", func() {
+		var result resource
+
+		BeforeEach(func() {
+			restyClient = adminClient
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = restyClient.R().
+				SetResult(&result).
+				Get("/v3/organizations/" + commonTestOrgGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the org", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(commonTestOrgGUID))
 		})
 	})
 })

@@ -142,8 +142,9 @@ var _ = Describe("SpaceRepository", func() {
 
 				Expect(space.Name).To(Equal(spaceName))
 				helpers.EnsureValidUUID(space.GUID)
-				Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
-				Expect(space.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+				Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(space.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(space.DeletedAt).To(BeNil())
 			})
 
 			When("the org does not exist", func() {
@@ -225,48 +226,36 @@ var _ = Describe("SpaceRepository", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(spaces).To(ConsistOf(
-				repositories.SpaceRecord{
-					Name:             "space1",
-					CreatedAt:        space11.CreationTimestamp.Time,
-					UpdatedAt:        space11.CreationTimestamp.Time,
-					GUID:             space11.Name,
-					OrganizationGUID: cfOrg1.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space2",
-					CreatedAt:        space12.CreationTimestamp.Time,
-					UpdatedAt:        space12.CreationTimestamp.Time,
-					GUID:             space12.Name,
-					OrganizationGUID: cfOrg1.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space1",
-					CreatedAt:        space21.CreationTimestamp.Time,
-					UpdatedAt:        space21.CreationTimestamp.Time,
-					GUID:             space21.Name,
-					OrganizationGUID: cfOrg2.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space3",
-					CreatedAt:        space22.CreationTimestamp.Time,
-					UpdatedAt:        space22.CreationTimestamp.Time,
-					GUID:             space22.Name,
-					OrganizationGUID: cfOrg2.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space1",
-					CreatedAt:        space31.CreationTimestamp.Time,
-					UpdatedAt:        space31.CreationTimestamp.Time,
-					GUID:             space31.Name,
-					OrganizationGUID: cfOrg3.Name,
-				},
-				repositories.SpaceRecord{
-					Name:             "space4",
-					CreatedAt:        space32.CreationTimestamp.Time,
-					UpdatedAt:        space32.CreationTimestamp.Time,
-					GUID:             space32.Name,
-					OrganizationGUID: cfOrg3.Name,
-				},
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space1"),
+					"GUID":             Equal(space11.Name),
+					"OrganizationGUID": Equal(cfOrg1.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space2"),
+					"GUID":             Equal(space12.Name),
+					"OrganizationGUID": Equal(cfOrg1.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space1"),
+					"GUID":             Equal(space21.Name),
+					"OrganizationGUID": Equal(cfOrg2.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space3"),
+					"GUID":             Equal(space22.Name),
+					"OrganizationGUID": Equal(cfOrg2.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space1"),
+					"GUID":             Equal(space31.Name),
+					"OrganizationGUID": Equal(cfOrg3.Name),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("space4"),
+					"GUID":             Equal(space32.Name),
+					"OrganizationGUID": Equal(cfOrg3.Name),
+				}),
 			))
 		})
 
@@ -286,13 +275,11 @@ var _ = Describe("SpaceRepository", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(spaces).NotTo(ContainElement(
-					repositories.SpaceRecord{
-						Name:             "space1",
-						CreatedAt:        space11.CreationTimestamp.Time,
-						UpdatedAt:        space11.CreationTimestamp.Time,
-						GUID:             space11.Name,
-						OrganizationGUID: cfOrg1.Name,
-					},
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"GUID":             Equal(space11.Name),
+						"OrganizationGUID": Equal(cfOrg1.Name),
+					}),
 				))
 			})
 		})
@@ -429,14 +416,26 @@ var _ = Describe("SpaceRepository", func() {
 			cfOrg = createOrgWithCleanup(ctx, "the-org")
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
 			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, "the-space")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 		})
 
-		It("gets the space resource", func() {
-			spaceRecord, err := spaceRepo.GetSpace(ctx, authInfo, cfSpace.Name)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(spaceRecord.Name).To(Equal("the-space"))
-			Expect(spaceRecord.OrganizationGUID).To(Equal(cfOrg.Name))
+		When("the user has a role binding in the space", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+			})
+
+			It("gets the space resource", func() {
+				spaceRecord, err := spaceRepo.GetSpace(ctx, authInfo, cfSpace.Name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(spaceRecord.Name).To(Equal("the-space"))
+				Expect(spaceRecord.OrganizationGUID).To(Equal(cfOrg.Name))
+			})
+		})
+
+		When("the user does not have a role binding in the space", func() {
+			It("errors", func() {
+				_, err := spaceRepo.GetSpace(ctx, authInfo, "the-space")
+				Expect(err).To(MatchError(ContainSubstring("not found")))
+			})
 		})
 
 		When("the space doesn't exist", func() {
@@ -718,6 +717,54 @@ var _ = Describe("SpaceRepository", func() {
 		When("the user is not authorized", func() {
 			It("return a forbidden error", func() {
 				Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			cfSpace      *korifiv1alpha1.CFSpace
+			deletionTime *time.Time
+			getErr       error
+		)
+
+		BeforeEach(func() {
+			cfOrg := createOrgWithCleanup(ctx, "the-org")
+			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, "the-space")
+		})
+
+		JustBeforeEach(func() {
+			deletionTime, getErr = spaceRepo.GetDeletedAt(ctx, authInfo, cfSpace.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the space is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfSpace, func() {
+					cfSpace.Finalizers = append(cfSpace.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfSpace)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the space isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfSpace)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

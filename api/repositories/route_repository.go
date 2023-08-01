@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -54,8 +55,9 @@ type RouteRecord struct {
 	Destinations []DestinationRecord
 	Labels       map[string]string
 	Annotations  map[string]string
-	CreatedAt    string
-	UpdatedAt    string
+	CreatedAt    time.Time
+	UpdatedAt    *time.Time
+	DeletedAt    *time.Time
 }
 
 type AddDestinationsToRouteMessage struct {
@@ -145,13 +147,13 @@ func (m CreateRouteMessage) toCFRoute() korifiv1alpha1.CFRoute {
 	}
 }
 
-func (f *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
-	ns, err := f.namespaceRetriever.NamespaceFor(ctx, routeGUID, RouteResourceType)
+func (r *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, routeGUID, RouteResourceType)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to get namespace for route: %w", err)
 	}
 
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
@@ -165,19 +167,41 @@ func (f *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 	return cfRouteToRouteRecord(route), nil
 }
 
-func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) ([]RouteRecord, error) {
-	nsList, err := f.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) ([]RouteRecord, error) {
+	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFRoute) bool{
+		SetPredicate(message.DomainGUIDs, func(s korifiv1alpha1.CFRoute) string { return s.Spec.DomainRef.Name }),
+		SetPredicate(message.Hosts, func(s korifiv1alpha1.CFRoute) string { return s.Spec.Host }),
+		SetPredicate(message.Paths, func(s korifiv1alpha1.CFRoute) string { return s.Spec.Path }),
+	}
+	if len(message.AppGUIDs) > 0 {
+		appGUIDsSet := NewSet(message.AppGUIDs...)
+		preds = append(preds, func(r korifiv1alpha1.CFRoute) bool {
+			for _, dest := range r.Spec.Destinations {
+				if appGUIDsSet.Includes(dest.AppRef.Name) {
+					return true
+				}
+			}
+			return false
+		})
+	}
+
 	filteredRoutes := []korifiv1alpha1.CFRoute{}
+	spaceGUIDSet := NewSet(message.SpaceGUIDs...)
 	for ns := range nsList {
+		if len(spaceGUIDSet) > 0 && !spaceGUIDSet.Includes(ns) {
+			continue
+		}
+
 		cfRouteList := &korifiv1alpha1.CFRouteList{}
 		err := userClient.List(ctx, cfRouteList, client.InNamespace(ns))
 		if k8serrors.IsForbidden(err) {
@@ -186,53 +210,14 @@ func (f *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		if err != nil {
 			return []RouteRecord{}, fmt.Errorf("failed to list routes namespace %s: %w", ns, apierrors.FromK8sError(err, RouteResourceType))
 		}
-		filteredRoutes = append(filteredRoutes, applyRouteListFilter(cfRouteList.Items, message)...)
+		filteredRoutes = append(filteredRoutes, Filter(cfRouteList.Items, preds...)...)
 	}
 
 	return returnRouteList(filteredRoutes), nil
 }
 
-func applyRouteListFilter(routes []korifiv1alpha1.CFRoute, message ListRoutesMessage) []korifiv1alpha1.CFRoute {
-	if len(message.AppGUIDs) == 0 &&
-		len(message.SpaceGUIDs) == 0 &&
-		len(message.DomainGUIDs) == 0 &&
-		len(message.Hosts) == 0 &&
-		len(message.Paths) == 0 {
-		return routes
-	}
-
-	var filtered []korifiv1alpha1.CFRoute
-	for _, route := range routes {
-		if matchesFilter(route.Namespace, message.SpaceGUIDs) &&
-			matchesFilter(route.Spec.DomainRef.Name, message.DomainGUIDs) &&
-			matchesFilter(route.Spec.Host, message.Hosts) &&
-			matchesFilter(route.Spec.Path, message.Paths) {
-			filtered = append(filtered, route)
-		}
-	}
-
-	if len(message.AppGUIDs) == 0 {
-		return filtered
-	}
-
-	var appFiltered []korifiv1alpha1.CFRoute
-
-	for _, route := range filtered {
-		for _, destination := range route.Spec.Destinations {
-			for _, appGUID := range message.AppGUIDs {
-				if destination.AppRef.Name == appGUID {
-					appFiltered = append(appFiltered, route)
-					break
-				}
-			}
-		}
-	}
-
-	return appFiltered
-}
-
-func (f *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+func (r *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
@@ -245,12 +230,6 @@ func (f *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization
 	filteredRouteList := filterByAppDestination(cfRouteList.Items, appGUID)
 
 	return returnRouteList(filteredRouteList), nil
-}
-
-func (r RouteRecord) UpdateDomainRef(d DomainRecord) RouteRecord {
-	r.Domain = d
-
-	return r
 }
 
 func filterByAppDestination(routeList []korifiv1alpha1.CFRoute, appGUID string) []korifiv1alpha1.CFRoute {
@@ -285,7 +264,6 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 	for _, destination := range cfRoute.Spec.Destinations {
 		destinations = append(destinations, cfRouteDestinationToDestination(destination))
 	}
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfRoute.ObjectMeta)
 	return RouteRecord{
 		GUID:      cfRoute.Name,
 		SpaceGUID: cfRoute.Namespace,
@@ -296,8 +274,9 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 		Path:         cfRoute.Spec.Path,
 		Protocol:     "http", // TODO: Create a mutating webhook to set this default on the CFRoute
 		Destinations: destinations,
-		CreatedAt:    cfRoute.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:    updatedAtTime,
+		CreatedAt:    cfRoute.CreationTimestamp.Time,
+		UpdatedAt:    getLastUpdatedTime(&cfRoute),
+		DeletedAt:    golangTime(cfRoute.DeletionTimestamp),
 		Labels:       cfRoute.Labels,
 		Annotations:  cfRoute.Annotations,
 	}
@@ -313,9 +292,9 @@ func cfRouteDestinationToDestination(cfRouteDestination korifiv1alpha1.Destinati
 	}
 }
 
-func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
+func (r *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
 	cfRoute := message.toCFRoute()
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
@@ -328,8 +307,8 @@ func (f *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 	return cfRouteToRouteRecord(cfRoute), nil
 }
 
-func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info, message DeleteRouteMessage) error {
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+func (r *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info, message DeleteRouteMessage) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
@@ -343,8 +322,8 @@ func (f *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 	return apierrors.FromK8sError(err, RouteResourceType)
 }
 
-func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
-	existingRecord, exists, err := f.fetchRouteByFields(ctx, authInfo, message)
+func (r *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
+	existingRecord, exists, err := r.fetchRouteByFields(ctx, authInfo, message)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("GetOrCreateRoute: %w", err)
 	}
@@ -353,11 +332,11 @@ func (f *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization
 		return existingRecord, nil
 	}
 
-	return f.CreateRoute(ctx, authInfo, message)
+	return r.CreateRoute(ctx, authInfo, message)
 }
 
-func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsToRouteMessage) (RouteRecord, error) {
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+func (r *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsToRouteMessage) (RouteRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
@@ -378,8 +357,8 @@ func (f *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 	return cfRouteToRouteRecord(*cfRoute), err
 }
 
-func (f *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message RemoveDestinationFromRouteMessage) (RouteRecord, error) {
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+func (r *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message RemoveDestinationFromRouteMessage) (RouteRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
@@ -436,8 +415,8 @@ outer:
 	return result
 }
 
-func (f *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, bool, error) {
-	matches, err := f.ListRoutes(ctx, authInfo, ListRoutesMessage{
+func (r *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, bool, error) {
+	matches, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{
 		SpaceGUIDs:  []string{message.SpaceGUID},
 		DomainGUIDs: []string{message.DomainGUID},
 		Hosts:       []string{message.Host},
@@ -471,8 +450,8 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 	return destinations
 }
 
-func (f *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorization.Info, message PatchRouteMetadataMessage) (RouteRecord, error) {
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+func (r *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorization.Info, message PatchRouteMetadataMessage) (RouteRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
@@ -491,4 +470,9 @@ func (f *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorizati
 	}
 
 	return cfRouteToRouteRecord(*route), nil
+}
+
+func (r *RouteRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, routeGUID string) (*time.Time, error) {
+	route, err := r.GetRoute(ctx, authInfo, routeGUID)
+	return route.DeletedAt, err
 }

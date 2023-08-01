@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -34,12 +35,11 @@ const (
 	AppRestartPath                    = "/v3/apps/{guid}/actions/restart"
 	AppEnvVarsPath                    = "/v3/apps/{guid}/environment_variables"
 	AppEnvPath                        = "/v3/apps/{guid}/env"
-	AppSSHEnabledPath                 = "/v3/apps/{guid}/ssh_enabled"
 	AppFeaturePath                    = "/v3/apps/{guid}/features/{name}"
+	AppPackagesPath                   = "/v3/apps/{guid}/packages"
+	AppSSHEnabledPath                 = "/v3/apps/{guid}/ssh_enabled"
 	AppBuildsPath                     = "/v3/apps/{guid}/builds"
-
-	invalidDropletMsg = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
-	AppPackagesPath   = "/v3/apps/{guid}/packages"
+	invalidDropletMsg                 = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
 	AppStoppedState = "STOPPED"
@@ -57,7 +57,7 @@ type CFAppRepository interface {
 	DeleteApp(context.Context, authorization.Info, repositories.DeleteAppMessage) error
 	GetAppEnv(context.Context, authorization.Info, string) (repositories.AppEnvRecord, error)
 	GetAppEnvVars(context.Context, authorization.Info, string) (repositories.AppEnvVarsRecord, error)
-	PatchAppMetadata(context.Context, authorization.Info, repositories.PatchAppMetadataMessage) (repositories.AppRecord, error)
+	PatchApp(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
 }
 
 type App struct {
@@ -67,9 +67,9 @@ type App struct {
 	processRepo      CFProcessRepository
 	routeRepo        CFRouteRepository
 	domainRepo       CFDomainRepository
-	spaceRepo        SpaceRepository
+	spaceRepo        CFSpaceRepository
 	packageRepo      CFPackageRepository
-	decoderValidator *DecoderValidator
+	requestValidator RequestValidator
 	buildRepo        CFBuildRepository
 	processStats     ProcessStats
 }
@@ -81,11 +81,11 @@ func NewApp(
 	processRepo CFProcessRepository,
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
-	spaceRepo SpaceRepository,
+	spaceRepo CFSpaceRepository,
 	packageRepo CFPackageRepository,
-	decoderValidator *DecoderValidator,
 	buildRepo CFBuildRepository,
 	processStats ProcessStats,
+	requestValidator RequestValidator,
 ) *App {
 	return &App{
 		serverURL:        serverURL,
@@ -94,11 +94,11 @@ func NewApp(
 		processRepo:      processRepo,
 		routeRepo:        routeRepo,
 		domainRepo:       domainRepo,
-		decoderValidator: decoderValidator,
-		packageRepo:      packageRepo,
 		spaceRepo:        spaceRepo,
+		packageRepo:      packageRepo,
 		buildRepo:        buildRepo,
 		processStats:     processStats,
+		requestValidator: requestValidator,
 	}
 }
 
@@ -119,7 +119,7 @@ func (h *App) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.create")
 	var payload payloads.AppCreate
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
@@ -154,12 +154,8 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.list")
 
-	if err := r.ParseForm(); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
-	}
-
 	appListFilter := new(payloads.AppList)
-	err := payloads.Decode(appListFilter, r.Form)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, appListFilter)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
@@ -169,24 +165,30 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app(s) from Kubernetes")
 	}
 
-	if err := h.sortList(appList, r.FormValue("order_by")); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "unable to parse order by request")
-	}
+	h.sortList(appList, appListFilter.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForApp, appList, h.serverURL, *r.URL)), nil
 }
 
-func (h *App) sortList(appList []repositories.AppRecord, order string) error {
+func timePtrAfter(t1, t2 *time.Time) bool {
+	if t1 == nil || t2 == nil {
+		return false
+	}
+
+	return (*t1).After(*t2)
+}
+
+func (h *App) sortList(appList []repositories.AppRecord, order string) {
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].CreatedAt < appList[j].CreatedAt })
+		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(&appList[j].CreatedAt, &appList[i].CreatedAt) })
 	case "-created_at":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].CreatedAt > appList[j].CreatedAt })
+		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(&appList[i].CreatedAt, &appList[j].CreatedAt) })
 	case "updated_at":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].UpdatedAt < appList[j].UpdatedAt })
+		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(appList[j].UpdatedAt, appList[i].UpdatedAt) })
 	case "-updated_at":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].UpdatedAt > appList[j].UpdatedAt })
+		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(appList[i].UpdatedAt, appList[j].UpdatedAt) })
 	case "name":
 		sort.Slice(appList, func(i, j int) bool { return appList[i].Name < appList[j].Name })
 	case "-name":
@@ -195,10 +197,7 @@ func (h *App) sortList(appList []repositories.AppRecord, order string) error {
 		sort.Slice(appList, func(i, j int) bool { return appList[i].State < appList[j].State })
 	case "-state":
 		sort.Slice(appList, func(i, j int) bool { return appList[i].State > appList[j].State })
-	default:
-		return apierrors.NewBadQueryParamValueError("Order by", "created_at", "updated_at", "name", "state")
 	}
-	return nil
 }
 
 func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {
@@ -207,7 +206,7 @@ func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {
 	appGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.AppSetCurrentDroplet
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
@@ -389,7 +388,7 @@ func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
 		WithValues("appGUID", appGUID, "processType", processType)
 
 	var payload payloads.ProcessScale
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
@@ -503,7 +502,7 @@ func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, aut
 			}
 			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
 		}
-		routeRecords[i] = routeRecord.UpdateDomainRef(domainRecord)
+		routeRecords[i].Domain = domainRecord
 	}
 
 	return routeRecords, nil
@@ -515,7 +514,7 @@ func (h *App) updateEnvVars(r *http.Request) (*routing.Response, error) {
 	appGUID := routing.URLParam(r, "guid")
 
 	var payload payloads.AppPatchEnvVars
-	if err := h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -599,21 +598,21 @@ func (h *App) update(r *http.Request) (*routing.Response, error) {
 	}
 
 	var payload payloads.AppPatch
-	if err = h.decoderValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	app, err = h.appRepo.PatchAppMetadata(r.Context(), authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
+	app, err = h.appRepo.PatchApp(r.Context(), authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch app metadata", "AppGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch app", "AppGUID", appGUID)
 	}
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
 }
 
-func (h *App) getSshEnabled(r *http.Request) (*routing.Response, error) {
-	return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
-		"enabled": false,
-		"reason":  "Disabled globally",
+func (h *App) getSSHEnabled(r *http.Request) (*routing.Response, error) {
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.AppSSHEnabled{
+		Enabled: false,
+		Reason:  "Disabled globally",
 	}), nil
 }
 
@@ -701,9 +700,9 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: AppEnvVarsPath, Handler: h.updateEnvVars},
 		{Method: "GET", Pattern: AppEnvVarsPath, Handler: h.getEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
-		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSshEnabled},
 		{Method: "GET", Pattern: AppPackagesPath, Handler: h.getPackages},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
+		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSSHEnabled},
 		{Method: "PATCH", Pattern: AppFeaturePath, Handler: h.updateAppFeature},
 		{Method: "GET", Pattern: AppBuildsPath, Handler: h.getAppBuilds},
 		{Method: "GET", Pattern: AppProcessStatsByTypePath, Handler: h.getProcessStats},

@@ -3,6 +3,7 @@ package payloads
 import (
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -12,7 +13,7 @@ type ServiceOfferingList struct {
 
 func (l *ServiceOfferingList) ToMessage() repositories.ListServiceOfferingMessage {
 	return repositories.ListServiceOfferingMessage{
-		Names: ParseArrayParam(l.Names),
+		Names: parse.ArrayParam(l.Names),
 	}
 }
 
@@ -33,9 +34,9 @@ type ServicePlanList struct {
 
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 	return repositories.ListServicePlanMessage{
-		Names:                ParseArrayParam(l.Names),
-		ServiceOfferingNames: ParseArrayParam(l.ServiceOfferingNames),
-		ServiceOfferingGUIDs: ParseArrayParam(l.ServiceOfferingGUIDs),
+		Names:                parse.ArrayParam(l.Names),
+		ServiceOfferingNames: parse.ArrayParam(l.ServiceOfferingNames),
+		ServiceOfferingGUIDs: parse.ArrayParam(l.ServiceOfferingGUIDs),
 	}
 }
 

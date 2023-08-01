@@ -31,15 +31,18 @@ type ServiceCatalogRepo interface {
 type ServiceCatalog struct {
 	serverURL          url.URL
 	serviceCatalogRepo ServiceCatalogRepo
+	requestValidator   RequestValidator
 }
 
 func NewServiceCatalog(
 	serverURL url.URL,
 	serviceCatalogRepo ServiceCatalogRepo,
+	requestValidator RequestValidator,
 ) *ServiceCatalog {
 	return &ServiceCatalog{
 		serverURL:          serverURL,
 		serviceCatalogRepo: serviceCatalogRepo,
+		requestValidator:   requestValidator,
 	}
 }
 
@@ -52,7 +55,7 @@ func (h *ServiceCatalog) listOfferings(r *http.Request) (*routing.Response, erro
 	}
 
 	listFilter := new(payloads.ServiceOfferingList)
-	err := payloads.Decode(listFilter, r.Form)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, listFilter)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
@@ -74,7 +77,7 @@ func (h *ServiceCatalog) listPlans(r *http.Request) (*routing.Response, error) {
 	}
 
 	listFilter := payloads.ServicePlanList{}
-	err := payloads.Decode(&listFilter, r.Form)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, &listFilter)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}

@@ -3,7 +3,7 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -43,7 +43,7 @@ var _ = Describe("Buildpacks", func() {
 
 		When("the user has no permissions", func() {
 			BeforeEach(func() {
-				restyClient = tokenClient
+				restyClient = unprivilegedServiceAccountClient
 			})
 
 			It("returns forbidden", func() {

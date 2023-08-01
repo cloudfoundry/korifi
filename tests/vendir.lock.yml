@@ -2,42 +2,26 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - githubRelease:
-      tag: v0.10.1
-      url: https://api.github.com/repos/pivotal/kpack/releases/95236881
+      tag: v0.11.2
+      url: https://api.github.com/repos/buildpacks-community/kpack/releases/111436159
     path: kpack
   - githubRelease:
-      tag: v0.3.0
-      url: https://api.github.com/repos/servicebinding/runtime/releases/91631479
+      tag: v0.4.0
+      url: https://api.github.com/repos/servicebinding/runtime/releases/114028583
     path: service-binding
   - githubRelease:
-      tag: v0.6.3
-      url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/96339759
+      tag: v0.6.4
+      url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/113485257
     path: metrics-server-local
   - githubRelease:
-      tag: v1.11.0
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/88598256
+      tag: v1.12.3
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/113661979
     path: cert-manager
   - git:
-      commitTitle: Update Contour Docker image to v1.24.2....
-      sha: 060052945bbc00b2f3d94fb847d664582e597ef4
+      commitTitle: Update Contour Docker image to v1.25.2....
+      sha: c9df5407beac6d6b6e6ed4900a5ad9205bdb77b2
       tags:
-      - v1.24.2
+      - v1.25.2
     path: contour
   path: vendor
-- contents:
-  - git:
-      commitTitle: Fix CatsConfig and config...
-      sha: eeadb781ea7dd0a84474c83fb5c72258821ab44c
-      tags:
-      - v12.1.0
-    path: .
-  path: e2e/assets/vendored/node
-- contents:
-  - git:
-      commitTitle: Fix CatsConfig and config...
-      sha: eeadb781ea7dd0a84474c83fb5c72258821ab44c
-      tags:
-      - v12.1.0
-    path: .
-  path: e2e/assets/vendored/dora
 kind: LockConfig

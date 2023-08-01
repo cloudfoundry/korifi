@@ -35,7 +35,7 @@ if ! grep -q e2e <(echo "$@"); then
     source <(setup-envtest use -p env --bin-dir "${ENVTEST_ASSETS_DIR}")
   fi
 
-  extra_args+=("--poll-progress-after=60s" "--skip-package=e2e" "--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
+  extra_args+=("--poll-progress-after=60s" "--skip-package=e2e")
 else
   export ROOT_NAMESPACE="${ROOT_NAMESPACE:-cf}"
   export APP_FQDN="${APP_FQDN:-apps-127-0-0-1.nip.io}"
@@ -55,6 +55,10 @@ else
 
   echo "waiting for ClusterBuilder to be ready..."
   kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
+fi
+
+if [[ -z "${NO_COVERAGE:-}" ]]; then
+  extra_args+=("--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
 fi
 
 if [[ -z "${NON_RECURSIVE_TEST:-}" ]]; then

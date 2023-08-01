@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.1
   name: appworkloads.korifi.cloudfoundry.org
 spec:
   group: korifi.cloudfoundry.org
@@ -200,9 +199,7 @@ spec:
                     format: int32
                     type: integer
                   grpc:
-                    description: GRPC specifies an action involving a GRPC port. This
-                      is a beta field and requires enabling GRPCContainerProbe feature
-                      gate.
+                    description: GRPC specifies an action involving a GRPC port.
                     properties:
                       port:
                         description: Port number of the gRPC service. Number must
@@ -233,7 +230,9 @@ spec:
                             used in HTTP probes
                           properties:
                             name:
-                              description: The header field name
+                              description: The header field name. This will be canonicalized
+                                upon output, so case-variant names will be understood
+                                as the same header.
                               type: string
                             value:
                               description: The header field value
@@ -351,9 +350,7 @@ spec:
                     format: int32
                     type: integer
                   grpc:
-                    description: GRPC specifies an action involving a GRPC port. This
-                      is a beta field and requires enabling GRPCContainerProbe feature
-                      gate.
+                    description: GRPC specifies an action involving a GRPC port.
                     properties:
                       port:
                         description: Port number of the gRPC service. Number must
@@ -384,7 +381,9 @@ spec:
                             used in HTTP probes
                           properties:
                             name:
-                              description: The header field name
+                              description: The header field name. This will be canonicalized
+                                upon output, so case-variant names will be understood
+                                as the same header.
                               type: string
                             value:
                               description: The header field value
@@ -512,7 +511,8 @@ spec:
                     description: 'Requests describes the minimum amount of compute
                       resources required. If Requests is omitted for a container,
                       it defaults to Limits if that is explicitly specified, otherwise
-                      to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                      to an implementation-defined value. Requests cannot exceed Limits.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                 type: object
               runnerName:
@@ -546,9 +546,7 @@ spec:
                     format: int32
                     type: integer
                   grpc:
-                    description: GRPC specifies an action involving a GRPC port. This
-                      is a beta field and requires enabling GRPCContainerProbe feature
-                      gate.
+                    description: GRPC specifies an action involving a GRPC port.
                     properties:
                       port:
                         description: Port number of the gRPC service. Number must
@@ -579,7 +577,9 @@ spec:
                             used in HTTP probes
                           properties:
                             name:
-                              description: The header field name
+                              description: The header field name. This will be canonicalized
+                                upon output, so case-variant names will be understood
+                                as the same header.
                               type: string
                             value:
                               description: The header field value
@@ -678,8 +678,6 @@ spec:
             description: AppWorkloadStatus defines the observed state of AppWorkload
             properties:
               conditions:
-                description: Conditions capture the current status of the observed
-                  generation of the AppWorkload
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -747,8 +745,11 @@ spec:
                   - type
                   type: object
                 type: array
-            required:
-            - conditions
+              observedGeneration:
+                description: ObservedGeneration captures the latest generation of
+                  the AppWorkload that has been reconciled
+                format: int64
+                type: integer
             type: object
         type: object
     served: true

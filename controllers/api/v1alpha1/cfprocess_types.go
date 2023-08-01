@@ -83,8 +83,11 @@ type HealthCheckData struct {
 
 // CFProcessStatus defines the observed state of CFProcess
 type CFProcessStatus struct {
-	// Conditions capture the current status of the Process
-	Conditions []metav1.Condition `json:"conditions"`
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration captures the latest generation of the CFProcess that has been reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

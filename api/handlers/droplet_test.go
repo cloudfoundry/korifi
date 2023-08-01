@@ -4,14 +4,15 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
-	"github.com/go-http-utils/headers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,12 +24,14 @@ var _ = Describe("Droplet", func() {
 		packageGUID = "test-package-guid"
 		dropletGUID = "test-build-guid" // same as build guid
 
-		createdAt = "1906-04-18T13:12:00Z"
-		updatedAt = "1906-04-18T13:12:01Z"
 	)
 	var (
-		dropletRepo *fake.CFDropletRepository
-		req         *http.Request
+		createdAt = time.UnixMilli(2000)
+		updatedAt = tools.PtrTo(time.UnixMilli(2000))
+
+		requestValidator *fake.RequestValidator
+		dropletRepo      *fake.CFDropletRepository
+		req              *http.Request
 	)
 
 	BeforeEach(func() {
@@ -37,12 +40,12 @@ var _ = Describe("Droplet", func() {
 		req, err = http.NewRequestWithContext(ctx, "GET", "/v3/droplets/"+dropletGUID, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		decoderValidator, err := NewDefaultDecoderValidator()
-		Expect(err).NotTo(HaveOccurred())
+		requestValidator = new(fake.RequestValidator)
+
 		apiHandler := NewDroplet(
 			*serverURL,
 			dropletRepo,
-			decoderValidator,
+			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -82,25 +85,17 @@ var _ = Describe("Droplet", func() {
 				}, nil)
 			})
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("fetches the right droplet", func() {
+			It("returns the droplet", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
-
 				_, _, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
 				Expect(actualDropletGUID).To(Equal(dropletGUID))
-			})
 
-			It("returns the droplet in the response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.process_types.rake", "bundle exec rake"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", dropletGUID),
+					MatchJSONPath("$.process_types.rake", "bundle exec rake"),
+				)))
 			})
 		})
 
@@ -110,7 +105,7 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns a Not Found error", func() {
-				expectNotFoundError("Droplet not found")
+				expectNotFoundError("Droplet")
 			})
 		})
 
@@ -126,6 +121,8 @@ var _ = Describe("Droplet", func() {
 	})
 
 	Describe("the PATCH /v3/droplet/:guid endpoint", func() {
+		var payload *payloads.DropletUpdate
+
 		BeforeEach(func() {
 			dropletRepo.GetDropletReturns(repositories.DropletRecord{
 				GUID:      dropletGUID,
@@ -178,132 +175,49 @@ var _ = Describe("Droplet", func() {
 			}, nil)
 
 			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-				  "metadata": {
-					"labels": {
-					  "foo": "bar"
-					},
-					"annotations": {
-					  "bar": "baz"
-					}
-				  }
-				}`))
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader("the-json-body"))
 			Expect(err).NotTo(HaveOccurred())
-		})
 
-		When("on the happy path", func() {
-			It("has the correct response type", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPHeaderWithValue(headers.ContentType, jsonHeader))
-			})
-
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
-			})
-
-			It("calls update droplet with the correct payload", func() {
-				Expect(dropletRepo.UpdateDropletCallCount()).To(Equal(1))
-				_, _, actualUpdate := dropletRepo.UpdateDropletArgsForCall(0)
-
-				Expect(actualUpdate.GUID).To(Equal(dropletGUID))
-				Expect(actualUpdate.MetadataPatch).To(Equal(repositories.MetadataPatch{
+			payload = &payloads.DropletUpdate{
+				Metadata: payloads.MetadataPatch{
 					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
 					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
-				}))
-			})
+				},
+			}
 
-			It("returns the droplet in the response", func() {
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.guid", dropletGUID))
-				Expect(rr.Body.Bytes()).To(MatchJSONPath("$.process_types.rake", "bundle exec rake"))
-			})
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
 		})
 
-		When("the payload cannot be decoded", func() {
+		It("validates the payload", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
+		})
+
+		It("updates the droplet", func() {
+			Expect(dropletRepo.UpdateDropletCallCount()).To(Equal(1))
+			_, _, actualUpdate := dropletRepo.UpdateDropletArgsForCall(0)
+			Expect(actualUpdate.GUID).To(Equal(dropletGUID))
+			Expect(actualUpdate.MetadataPatch).To(Equal(repositories.MetadataPatch{
+				Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+				Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+			}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", dropletGUID),
+				MatchJSONPath("$.process_types.rake", "bundle exec rake"),
+			)))
+		})
+
+		When("the request body is invalid", func() {
 			BeforeEach(func() {
-				var err error
-				req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{"one": "two"}`))
-				Expect(err).NotTo(HaveOccurred())
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
 			})
 
-			It("returns an error", func() {
-				expectUnprocessableEntityError("invalid request body: json: unknown field \"one\"")
-			})
-		})
-
-		When("a label is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-					  "metadata": {
-						"labels": {
-						  "cloudfoundry.org/test": "production"
-					    }
-				      }
-					}`))
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-
-			When("the prefix is a subdomain of cloudfoundry.org", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-					  "metadata": {
-						"labels": {
-						  "korifi.cloudfoundry.org/test": "production"
-					    }
-			          }
-					}`))
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-			})
-		})
-
-		When("an annotation is invalid", func() {
-			When("the prefix is cloudfoundry.org", func() {
-				BeforeEach(func() {
-					var err error
-					req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-					  "metadata": {
-						"annotations": {
-						  "cloudfoundry.org/test": "there"
-						}
-					  }
-					}`))
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("returns an unprocessable entity error", func() {
-					expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-				})
-
-				When("the prefix is a subdomain of cloudfoundry.org", func() {
-					BeforeEach(func() {
-						var err error
-						req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader(`{
-						  "metadata": {
-							"annotations": {
-							  "korifi.cloudfoundry.org/test": "there"
-							}
-						  }
-						}`))
-						Expect(err).NotTo(HaveOccurred())
-					})
-
-					It("returns an unprocessable entity error", func() {
-						expectUnprocessableEntityError(`Labels and annotations cannot begin with "cloudfoundry.org" or its subdomains`)
-					})
-				})
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("validation error")
 			})
 		})
 
@@ -322,7 +236,7 @@ var _ = Describe("Droplet", func() {
 			})
 
 			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFDroplet not found")
+				expectNotFoundError("CFDroplet")
 			})
 		})
 	})

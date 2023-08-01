@@ -11,13 +11,17 @@ Here are all the values that can be set for the chart:
 
 - `global`: Global values that are shared between Korifi and its subcharts.
   - `commonName` (_String_): Custom CN for the ingress certs. If set ingress certs will have this values as the CN and the full url as a subjext alternative domain name. Useful for urls longer than 64 characters.
-  - `containerRegistrySecret` (_String_): Name of the `Secret` to use when pushing or pulling from package, droplet and kpack-build repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
+  - `containerRegistrySecret` (_String_): Deprecated in favor of containerRegistrySecrets.
+  - `containerRegistrySecrets` (_Array_): List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
   - `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.
   - `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).
   - `defaultAppDomainName` (_String_): Base domain name for application URLs.
   - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
   - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
   - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
+  - `reconcilers`:
+    - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
+    - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.
   - `rootNamespace` (_String_): Root of the Cloud Foundry namespace hierarchy.
 - `adminUserName` (_String_): Name of the admin user that will be bound to the Cloud Foundry Admin role.
 - `api`:
@@ -40,8 +44,9 @@ Here are all the values that can be set for the chart:
   - `lifecycle`: Default lifecycle for apps.
     - `stack` (_String_): Stack.
     - `stagingRequirements`:
-      - `diskMB` (_Integer_): Disk in MB for staging.
-      - `memoryMB` (_Integer_): Memory in MB for staging.
+      - `buildCacheMB` (_Integer_): Persistent disk in MB for caching staging artifacts across builds.
+      - `diskMB` (_Integer_): Ephemeral Disk request in MB for staging apps.
+      - `memoryMB` (_Integer_): Memory request in MB for staging.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).
   - `logcache`:
     - `url` (_String_): Logcache URL.
@@ -65,9 +70,6 @@ Here are all the values that can be set for the chart:
   - `processDefaults`:
     - `diskQuotaMB` (_Integer_): Default disk quota for the `web` process.
     - `memoryMB` (_Integer_): Default memory limit for the `web` process.
-  - `reconcilers`:
-    - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
-    - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
     - `limits`: Resource limits.
@@ -78,6 +80,8 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `workloadsTLSSecret` (_String_): TLS secret used when setting up an app routes.
+- `helm`:
+  - `hooksImage` (_String_): Image for the helm hooks containing kubectl
 - `jobTaskRunner`:
   - `include` (_Boolean_): Deploy the `job-task-runner` component.
   - `jobTTL` (_String_): How long before the `Job` backing up a task is deleted after completion. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
@@ -90,10 +94,12 @@ Here are all the values that can be set for the chart:
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
 - `kpackImageBuilder`:
+  - `builderReadinessTimeout` (_String_): The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `builderRepository` (_String_): Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.
   - `clusterBuilderName` (_String_): The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.
-  - `clusterStackBuildImage` (_String_): The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.
-  - `clusterStackRunImage` (_String_): The image to use for running defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.
+  - `clusterStackBuildImage` (_String_): The image to use for building defined in the `ClusterStack`. Used when `clusterBuilderName` is blank.
+  - `clusterStackID` (_String_): The ID of the `ClusterStack`. Used when `clusterBuilderName` is blank.
+  - `clusterStackRunImage` (_String_): The image to use for running defined in the `ClusterStack`. Used when `clusterBuilderName` is blank.
   - `include` (_Boolean_): Deploy the `kpack-image-builder` component.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.

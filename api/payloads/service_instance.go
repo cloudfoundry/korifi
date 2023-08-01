@@ -2,24 +2,54 @@ package payloads
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/url"
+	"regexp"
 
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	jellidation "github.com/jellydator/validation"
 )
 
 type ServiceInstanceCreate struct {
-	Name          string                       `json:"name" validate:"required"`
-	Type          string                       `json:"type" validate:"required,oneof=user-provided managed"`
-	Tags          []string                     `json:"tags" validate:"serviceinstancetaglength"`
-	Parameters    map[string]any               `json:"parameters"`
-	Credentials   map[string]string            `json:"credentials"`
-	Relationships ServiceInstanceRelationships `json:"relationships" validate:"required"`
-	Metadata      Metadata                     `json:"metadata"`
+	Name          string                        `json:"name"`
+	Type          string                        `json:"type"`
+	Tags          []string                      `json:"tags"`
+	Credentials   map[string]string             `json:"credentials"`
+	Relationships *ServiceInstanceRelationships `json:"relationships"`
+	Metadata      Metadata                      `json:"metadata"`
+	Parameters    map[string]any                `json:"parameters"`
 }
 
-type ServiceInstanceRelationships struct {
-	Space       Relationship  `json:"space" validate:"required"`
-	ServicePlan *Relationship `json:"service_plan"`
+const maxTagsLength = 2048
+
+func validateTagLength(tags any) error {
+	tagSlice, ok := tags.([]string)
+	if !ok {
+		return errors.New("wrong input")
+	}
+
+	l := 0
+	for _, t := range tagSlice {
+		l += len(t)
+		if l >= maxTagsLength {
+			return fmt.Errorf("combined length of tags cannot exceed %d", maxTagsLength)
+		}
+	}
+
+	return nil
+}
+
+func (c ServiceInstanceCreate) Validate() error {
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Name, jellidation.Required),
+		jellidation.Field(&c.Type, jellidation.Required, validation.OneOf("user-provided")),
+		jellidation.Field(&c.Tags, jellidation.By(validateTagLength)),
+		jellidation.Field(&c.Relationships, jellidation.NotNil),
+		jellidation.Field(&c.Metadata),
+	)
 }
 
 func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.CreateServiceInstanceMessage {
@@ -41,11 +71,28 @@ func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.Cre
 	return message
 }
 
+type ServiceInstanceRelationships struct {
+	Space       *Relationship `json:"space"`
+	ServicePlan *Relationship `json:"service_plan"`
+}
+
+func (r ServiceInstanceRelationships) Validate() error {
+	return jellidation.ValidateStruct(&r,
+		jellidation.Field(&r.Space, jellidation.NotNil),
+	)
+}
+
 type ServiceInstancePatch struct {
 	Name        *string            `json:"name,omitempty"`
 	Tags        *[]string          `json:"tags,omitempty"`
 	Credentials *map[string]string `json:"credentials,omitempty"`
 	Metadata    MetadataPatch      `json:"metadata"`
+}
+
+func (p ServiceInstancePatch) Validate() error {
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Metadata),
+	)
 }
 
 func (p ServiceInstancePatch) ToServiceInstancePatchMessage(spaceGUID, appGUID string) repositories.PatchServiceInstanceMessage {
@@ -92,26 +139,39 @@ func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
 
 type ServiceInstanceList struct {
 	Names         string
-	SpaceGuids    string
+	GUIDs         string
+	SpaceGUIDs    string
 	OrderBy       string
 	LabelSelector string
 }
 
+func (l ServiceInstanceList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "name", "updated_at")),
+	)
+}
+
 func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessage {
 	return repositories.ListServiceInstanceMessage{
-		Names:          ParseArrayParam(l.Names),
-		SpaceGuids:     ParseArrayParam(l.SpaceGuids),
-		LabelSelectors: ParseArrayParam(l.LabelSelector),
+		Names:         parse.ArrayParam(l.Names),
+		SpaceGUIDs:    parse.ArrayParam(l.SpaceGUIDs),
+		GUIDs:         parse.ArrayParam(l.GUIDs),
+		LabelSelector: l.LabelSelector,
 	}
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "fields", "order_by", "per_page", "label_selector", "page"}
+	return []string{"names", "space_guids", "guids", "order_by", "per_page", "page", "label_selector"}
+}
+
+func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
+	return []*regexp.Regexp{regexp.MustCompile(`fields\[.+\]`)}
 }
 
 func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
-	l.SpaceGuids = values.Get("space_guids")
+	l.SpaceGUIDs = values.Get("space_guids")
+	l.GUIDs = values.Get("guids")
 	l.OrderBy = values.Get("order_by")
 	l.LabelSelector = values.Get("label_selector")
 	return nil

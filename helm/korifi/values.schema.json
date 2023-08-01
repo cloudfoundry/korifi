@@ -35,22 +35,46 @@
         },
         "containerRepositoryPrefix": {
           "description": "The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.",
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*/?$"
         },
         "containerRegistrySecret": {
-          "description": "Name of the `Secret` to use when pushing or pulling from package, droplet and kpack-build repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.",
+          "deprecated": true,
+          "description": "Deprecated in favor of containerRegistrySecrets.",
           "type": "string"
+        },
+        "containerRegistrySecrets": {
+          "description": "List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "eksContainerRegistryRoleARN": {
           "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
           "type": "string"
+        },
+        "reconcilers": {
+          "type": "object",
+          "properties": {
+            "build": {
+              "description": "ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.",
+              "type": "string"
+            },
+            "app": {
+              "description": "ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.",
+              "type": "string"
+            }
+          },
+          "required": ["build", "run"]
         }
       },
       "required": [
-        "rootNamespace",
         "containerRepositoryPrefix",
         "defaultAppDomainName",
-        "logLevel"
+        "logLevel",
+        "reconcilers",
+        "rootNamespace"
       ],
       "type": "object"
     },
@@ -175,15 +199,19 @@
               "type": "object",
               "properties": {
                 "memoryMB": {
-                  "description": "Memory in MB for staging.",
+                  "description": "Memory request in MB for staging.",
                   "type": "integer"
                 },
                 "diskMB": {
-                  "description": "Disk in MB for staging.",
+                  "description": "Ephemeral Disk request in MB for staging apps.",
+                  "type": "integer"
+                },
+                "buildCacheMB": {
+                  "description": "Persistent disk in MB for caching staging artifacts across builds.",
                   "type": "integer"
                 }
               },
-              "required": ["memoryMB", "diskMB"]
+              "required": ["memoryMB", "diskMB", "buildCacheMB"]
             }
           },
           "required": ["type", "stack", "stagingRequirements"]
@@ -266,20 +294,6 @@
           "description": "Reference to the controllers container image.",
           "type": "string"
         },
-        "reconcilers": {
-          "type": "object",
-          "properties": {
-            "build": {
-              "description": "ID of the image builder to set on all `BuildWorkload` objects. Has to match `api.builderName`. Defaults to `kpack-image-builder`.",
-              "type": "string"
-            },
-            "app": {
-              "description": "ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.",
-              "type": "string"
-            }
-          },
-          "required": ["build", "app"]
-        },
         "processDefaults": {
           "type": "object",
           "properties": {
@@ -323,7 +337,7 @@
           "minimum": 1
         }
       },
-      "required": ["image", "reconcilers", "taskTTL", "workloadsTLSSecret"],
+      "required": ["image", "taskTTL", "workloadsTLSSecret"],
       "type": "object"
     },
     "kpackImageBuilder": {
@@ -374,20 +388,29 @@
           "description": "The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.",
           "type": "string"
         },
+        "builderReadinessTimeout": {
+          "description": "The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.",
+          "type": "string"
+        },
+        "clusterStackID": {
+          "description": "The ID of the `ClusterStack`. Used when `clusterBuilderName` is blank.",
+          "type": "string"
+        },
         "clusterStackBuildImage": {
-          "description": "The image to use for building defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.",
+          "description": "The image to use for building defined in the `ClusterStack`. Used when `clusterBuilderName` is blank.",
           "type": "string"
         },
         "clusterStackRunImage": {
-          "description": "The image to use for running defined in the `ClusterStack`. Used when `kpack-image-builder` is blank.",
+          "description": "The image to use for running defined in the `ClusterStack`. Used when `clusterBuilderName` is blank.",
           "type": "string"
         },
         "builderRepository": {
           "description": "Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.",
-          "type": "string"
+          "type": "string",
+          "pattern": "^([a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*)?$"
         }
       },
-      "required": ["include"],
+      "required": ["include", "builderReadinessTimeout"],
       "type": "object"
     },
     "statefulsetRunner": {
@@ -498,6 +521,15 @@
         }
       },
       "required": ["include"],
+      "type": "object"
+    },
+    "helm": {
+      "properties": {
+        "hooksImage": {
+          "description": "Image for the helm hooks containing kubectl",
+          "type": "string"
+        }
+      },
       "type": "object"
     }
   },

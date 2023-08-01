@@ -20,10 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -39,10 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
 )
 
 // CFRouteReconciler reconciles a CFRoute object to create Contour resources
@@ -63,6 +59,11 @@ func NewCFRouteReconciler(
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute](log, client, &routeReconciler)
 }
 
+func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.CFRoute{})
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/finalizers,verbs=update
@@ -74,143 +75,150 @@ func NewCFRouteReconciler(
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", cfRoute.Namespace, "name", cfRoute.Name)
+	log := shared.ObjectLogger(r.log, cfRoute)
+	ctx = logr.NewContext(ctx, log)
+
+	var err error
 
 	if !cfRoute.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFRoute(ctx, log, cfRoute)
-	}
-
-	err := k8s.AddFinalizer(ctx, log, r.client, cfRoute, CFRouteFinalizerName)
-	if err != nil {
-		log.Info("error adding finalizer", "reason", err)
+		err = r.finalizeCFRoute(ctx, cfRoute)
+		if err != nil {
+			log.Info("failed to finalize cf route", "reason", err)
+		}
 		return ctrl.Result{}, err
 	}
 
-	var cfDomain korifiv1alpha1.CFDomain
-	err = r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, &cfDomain)
+	cfDomain := &korifiv1alpha1.CFDomain{}
+	err = r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			cfRoute.Status = createInvalidRouteStatus(cfRoute, "CFDomain not found", "InvalidDomainRef", err.Error())
+			cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "CFDomain not found", "InvalidDomainRef", err.Error())
 			return ctrl.Result{}, err
 		}
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error fetching domain reference", "FetchDomainRef", err.Error())
+		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error fetching domain reference", "FetchDomainRef", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchServices(ctx, log, cfRoute)
+	err = r.createOrPatchServices(ctx, cfRoute)
 	if err != nil {
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error creating/patching services", "CreatePatchServices", err.Error())
+		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching services", "CreatePatchServices", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchRouteProxy(ctx, log, cfRoute)
+	err = r.createOrPatchRouteProxy(ctx, cfRoute)
 	if err != nil {
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error creating/patching Route Proxy", "CreatePatchRouteProxy", err.Error())
+		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching Route Proxy", "CreatePatchRouteProxy", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	err = r.createOrPatchFQDNProxy(ctx, log, cfRoute, &cfDomain)
+	err = r.createOrPatchFQDNProxy(ctx, cfRoute, cfDomain)
 	if err != nil {
-		cfRoute.Status = createInvalidRouteStatus(cfRoute, "Error creating/patching FQDN Proxy", "CreatePatchFQDNProxy", err.Error())
+		cfRoute.Status = createInvalidRouteStatus(log, cfRoute, "Error creating/patching FQDN Proxy", "CreatePatchFQDNProxy", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	err = r.deleteOrphanedServices(ctx, log, cfRoute)
+	err = r.deleteOrphanedServices(ctx, cfRoute)
 	if err != nil {
 		// technically, failing to delete the orphaned services does not make the CFRoute invalid so we don't mess with the cfRoute status here
 		return ctrl.Result{}, err
 	}
 
-	cfRoute.Status = createValidRouteStatus(cfRoute, &cfDomain, "Valid CFRoute", "Valid", "Valid CFRoute")
+	cfRoute.Status = createValidRouteStatus(log, cfRoute, cfDomain, "Valid CFRoute", "Valid", "Valid CFRoute")
 	return ctrl.Result{}, nil
 }
 
-func createValidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain, description, reason, message string) korifiv1alpha1.CFRouteStatus {
-	fqdn := cfRoute.Spec.Host + "." + cfDomain.Spec.Name
+func createValidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain, description, reason, message string) korifiv1alpha1.CFRouteStatus {
+	fqdn := buildFQDN(cfRoute, cfDomain)
 	cfRouteStatus := korifiv1alpha1.CFRouteStatus{
-		FQDN:          fqdn,
-		URI:           fqdn + cfRoute.Spec.Path,
-		Destinations:  cfRoute.Spec.Destinations,
-		CurrentStatus: korifiv1alpha1.ValidStatus,
-		Description:   description,
-		Conditions:    cfRoute.Status.Conditions,
+		FQDN:               fqdn,
+		URI:                fqdn + cfRoute.Spec.Path,
+		Destinations:       cfRoute.Spec.Destinations,
+		CurrentStatus:      korifiv1alpha1.ValidStatus,
+		Description:        description,
+		Conditions:         cfRoute.Status.Conditions,
+		ObservedGeneration: cfRoute.Generation,
 	}
+	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
 	meta.SetStatusCondition(&cfRouteStatus.Conditions, metav1.Condition{
-		Type:    "Valid",
-		Status:  metav1.ConditionTrue,
-		Reason:  reason,
-		Message: message,
+		Type:               "Valid",
+		Status:             metav1.ConditionTrue,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: cfRoute.Generation,
 	})
 
 	return cfRouteStatus
 }
 
-func createInvalidRouteStatus(cfRoute *korifiv1alpha1.CFRoute, description, reason, message string) korifiv1alpha1.CFRouteStatus {
+func createInvalidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, description, reason, message string) korifiv1alpha1.CFRouteStatus {
 	cfRouteStatus := korifiv1alpha1.CFRouteStatus{
-		Description:   description,
-		CurrentStatus: korifiv1alpha1.InvalidStatus,
-		Conditions:    cfRoute.Status.Conditions,
+		CurrentStatus:      korifiv1alpha1.InvalidStatus,
+		Description:        description,
+		Conditions:         cfRoute.Status.Conditions,
+		ObservedGeneration: cfRoute.Generation,
 	}
+	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
 	meta.SetStatusCondition(&cfRouteStatus.Conditions, metav1.Condition{
-		Type:    "Valid",
-		Status:  metav1.ConditionFalse,
-		Reason:  reason,
-		Message: message,
+		Type:               "Valid",
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: cfRoute.Generation,
 	})
 
 	return cfRouteStatus
 }
 
-func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFRoute{})
-}
+func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCRRoute")
 
-func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
-	log = log.WithName("finalizeCRRoute")
-
-	if !controllerutil.ContainsFinalizer(cfRoute, CFRouteFinalizerName) {
-		return ctrl.Result{}, nil
+	if !controllerutil.ContainsFinalizer(cfRoute, korifiv1alpha1.CFRouteFinalizerName) {
+		return nil
 	}
 
-	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, log, cfRoute.Status.FQDN, cfRoute.Namespace, false)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Cleanup the FQDN HTTPProxy on delete
-	if foundFQDNProxy {
-		err := r.finalizeFQDNProxy(ctx, log, cfRoute.Name, fqdnHTTPProxy)
+	if cfRoute.Status.FQDN != "" {
+		fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, cfRoute.Status.FQDN, cfRoute.Namespace, false)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
+		}
+
+		// Cleanup the FQDN HTTPProxy on delete
+		if foundFQDNProxy {
+			log.V(1).Info("found FQDN proxy", "fqdn", cfRoute.Status.FQDN)
+			err := r.finalizeFQDNProxy(ctx, cfRoute.Name, fqdnHTTPProxy)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	if controllerutil.RemoveFinalizer(cfRoute, CFRouteFinalizerName) {
+	if controllerutil.RemoveFinalizer(cfRoute, korifiv1alpha1.CFRouteFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
-func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, log logr.Logger, cfRouteName string, fqdnProxy *contourv1.HTTPProxy) error {
+func (r *CFRouteReconciler) finalizeFQDNProxy(ctx context.Context, cfRouteName string, fqdnProxy *contourv1.HTTPProxy) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeFQDNProxy")
+
 	return k8s.PatchResource(ctx, r.client, fqdnProxy, func() {
 		var retainedIncludes []contourv1.Include
 		for _, include := range fqdnProxy.Spec.Includes {
 			if include.Name != cfRouteName {
 				retainedIncludes = append(retainedIncludes, include)
 			} else {
-				log.V(1).Info("removing sub-HTTPProxy from FQDN HTTPProxy")
+				log.V(1).Info("removing sub-HTTPProxy from FQDN HTTPProxy", "removed name", include.Name)
 			}
 		}
 		fqdnProxy.Spec.Includes = retainedIncludes
 	})
 }
 
-func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) error {
-	log = log.WithName("createOrPatchServices")
+func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchServices")
 
 	for i, destination := range cfRoute.Spec.Destinations {
 		serviceName := generateServiceName(&cfRoute.Spec.Destinations[i])
@@ -229,7 +237,7 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, log logr.
 				korifiv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 			}
 
-			err := controllerutil.SetOwnerReference(cfRoute, service, r.scheme)
+			err := controllerutil.SetControllerReference(cfRoute, service, r.scheme)
 			if err != nil {
 				loopLog.Info("failed to set OwnerRef on Service", "reason", err)
 				return err
@@ -256,8 +264,8 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, log logr.
 	return nil
 }
 
-func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) error {
-	log = log.WithName("createOrPatchRouteProxy").WithValues("httpProxyNamespace", cfRoute.Namespace, "httpProxyName", cfRoute.Name)
+func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchRouteProxy").WithValues("httpProxyNamespace", cfRoute.Namespace, "httpProxyName", cfRoute.Name)
 
 	services := make([]contourv1.Service, 0, len(cfRoute.Spec.Destinations))
 
@@ -290,7 +298,7 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, log log
 			}
 		}
 
-		err := controllerutil.SetOwnerReference(cfRoute, routeHTTPProxy, r.scheme)
+		err := controllerutil.SetControllerReference(cfRoute, routeHTTPProxy, r.scheme)
 		if err != nil {
 			log.Info("failed to set OwnerRef on route HTTPProxy", "reason", err)
 			return err
@@ -307,12 +315,12 @@ func (r *CFRouteReconciler) createOrPatchRouteProxy(ctx context.Context, log log
 	return nil
 }
 
-func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
-	fqdn := strings.ToLower(fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name))
+func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
+	fqdn := buildFQDN(cfRoute, cfDomain)
 
-	log = log.WithName("createOrPatchFQDNProxy").WithValues("fqdn", fqdn)
+	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchFQDNProxy").WithValues("fqdn", fqdn)
 
-	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, log, fqdn, cfRoute.Namespace, true)
+	fqdnHTTPProxy, foundFQDNProxy, err := r.getFQDNProxy(ctx, fqdn, cfRoute.Namespace, true)
 	if err != nil {
 		return err
 	}
@@ -349,6 +357,7 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, log logr
 			})
 		}
 
+		// Cannot use SetControllerReference here as multiple CFRoutes can "own" the same FQDN HTTPProxy.
 		err = controllerutil.SetOwnerReference(cfRoute, fqdnHTTPProxy, r.scheme)
 		if err != nil {
 			log.Info("failed to set OwnerRef on FQDN HTTPProxy", "reason", err)
@@ -362,12 +371,12 @@ func (r *CFRouteReconciler) createOrPatchFQDNProxy(ctx context.Context, log logr
 		return err
 	}
 
-	log.V(1).Info("reconciled FQDN HTTPProxy", "operation", result)
+	log.V(1).Info("FQDN HTTPProxy reconciled", "operation", result)
 	return nil
 }
 
-func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, log logr.Logger, fqdn, namespace string, checkAllNamespaces bool) (*contourv1.HTTPProxy, bool, error) {
-	log = log.WithName("getFQDNProxy")
+func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, fqdn, namespace string, checkAllNamespaces bool) (*contourv1.HTTPProxy, bool, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("getFQDNProxy")
 
 	var fqdnHTTPProxy contourv1.HTTPProxy
 
@@ -404,14 +413,14 @@ func (r *CFRouteReconciler) getFQDNProxy(ctx context.Context, log logr.Logger, f
 	return &fqdnHTTPProxy, found, nil
 }
 
-func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr.Logger, cfRoute *korifiv1alpha1.CFRoute) error {
-	log = log.WithName("deleteOrphanedServices")
+func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("deleteOrphanedServices")
 
 	matchingLabelSet := map[string]string{
 		korifiv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 	}
 
-	serviceList, err := r.fetchServicesByMatchingLabels(ctx, log, matchingLabelSet, cfRoute.Namespace)
+	serviceList, err := r.fetchServicesByMatchingLabels(ctx, matchingLabelSet, cfRoute.Namespace)
 	if err != nil {
 		log.Info("failed to fetch services using label", "label", korifiv1alpha1.CFRouteGUIDLabelKey, "value", cfRoute.Name, "reason", err)
 		return err
@@ -427,6 +436,7 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr
 				break
 			}
 		}
+
 		if isOrphan {
 			err = r.client.Delete(ctx, &serviceList.Items[i])
 			if err != nil {
@@ -439,7 +449,9 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, log logr
 	return nil
 }
 
-func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, log logr.Logger, labelSet map[string]string, namespace string) (*corev1.ServiceList, error) {
+func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, labelSet map[string]string, namespace string) (*corev1.ServiceList, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("fetchServicesByMatchingLabels")
+
 	selector, err := labels.ValidatedSelectorFromSet(labelSet)
 	if err != nil {
 		log.Info("error initializing label selector", "reason", err)
@@ -458,4 +470,8 @@ func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, l
 
 func generateServiceName(destination *korifiv1alpha1.Destination) string {
 	return fmt.Sprintf("s-%s", destination.GUID)
+}
+
+func buildFQDN(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) string {
+	return fmt.Sprintf("%s.%s", cfRoute.Spec.Host, cfDomain.Spec.Name)
 }

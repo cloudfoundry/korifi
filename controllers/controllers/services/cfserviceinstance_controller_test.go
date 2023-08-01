@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 
+	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -24,7 +25,7 @@ var _ = Describe("CFServiceInstance", func() {
 	BeforeEach(func() {
 		namespace = BuildNamespaceObject(GenerateGUID())
 		Expect(
-			k8sClient.Create(context.Background(), namespace),
+			adminClient.Create(context.Background(), namespace),
 		).To(Succeed())
 
 		secret = &corev1.Secret{
@@ -35,7 +36,7 @@ var _ = Describe("CFServiceInstance", func() {
 			StringData: map[string]string{"foo": "bar"},
 		}
 
-		Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+		Expect(adminClient.Create(ctx, secret)).To(Succeed())
 
 		cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -52,19 +53,18 @@ var _ = Describe("CFServiceInstance", func() {
 	})
 
 	AfterEach(func() {
-		Expect(k8sClient.Delete(context.Background(), namespace)).To(Succeed())
+		Expect(adminClient.Delete(context.Background(), namespace)).To(Succeed())
 	})
 
 	JustBeforeEach(func() {
-		Expect(k8sClient.Create(context.Background(), cfServiceInstance)).To(Succeed())
+		Expect(adminClient.Create(context.Background(), cfServiceInstance)).To(Succeed())
 	})
 
 	It("sets the BindingSecretAvailable condition to true in the CFServiceInstance status", func() {
 		Eventually(func(g Gomega) {
 			updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 			serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-			err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 
 			g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("secret-name"))
 			g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -76,6 +76,19 @@ var _ = Describe("CFServiceInstance", func() {
 		}).Should(Succeed())
 	})
 
+	It("sets the ObservedGeneration status field", func() {
+		Eventually(func(g Gomega) {
+			updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+			serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
+			g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
+			g.Expect(updatedCFServiceInstance.Status.ObservedGeneration).To(Equal(cfServiceInstance.Generation))
+		}).Should(Succeed())
+	})
+
+	It("writes a log message", func() {
+		Eventually(logOutput).Should(gbytes.Say("set observed generation"))
+	})
+
 	When("the referenced secret does not exist", func() {
 		BeforeEach(func() {
 			cfServiceInstance.Spec.SecretName = "other-secret-name"
@@ -85,8 +98,7 @@ var _ = Describe("CFServiceInstance", func() {
 			Eventually(func(g Gomega) {
 				updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 				serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-				err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
-				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 
 				g.Expect(updatedCFServiceInstance.Status.Binding).To(BeZero())
 				g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -100,7 +112,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 		When("the referenced secret is created afterwards", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Create(context.Background(), &corev1.Secret{
+				Expect(adminClient.Create(context.Background(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "other-secret-name",
 						Namespace: namespace.Name,
@@ -112,8 +124,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Eventually(func(g Gomega) {
 					updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 					serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-					err := k8sClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 
 					g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("other-secret-name"))
 					g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{

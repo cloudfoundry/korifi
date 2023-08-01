@@ -28,7 +28,11 @@ func NewAppWorkloadToStatefulsetConverter(scheme *runtime.Scheme) *AppWorkloadTo
 }
 
 func getStatefulSetName(appWorkload *korifiv1alpha1.AppWorkload) (string, error) {
-	nameSuffix, err := hash(fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, appWorkload.Spec.Version))
+	lastStopAppRev := appWorkload.Spec.Version
+	if annotationVal, ok := appWorkload.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]; ok {
+		lastStopAppRev = annotationVal
+	}
+	nameSuffix, err := hash(fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, lastStopAppRev))
 	if err != nil {
 		return "", fmt.Errorf("failed to generate hash for statefulset name: %w", err)
 	}
@@ -158,7 +162,7 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 		},
 	}
 
-	err = controllerutil.SetOwnerReference(appWorkload, statefulSet, r.scheme)
+	err = controllerutil.SetControllerReference(appWorkload, statefulSet, r.scheme)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set OwnerRef on StatefulSet :%w", err)
 	}
@@ -233,8 +237,7 @@ func toLabelSelectorRequirements(selector *metav1.LabelSelector) []metav1.LabelS
 func statefulSetLabelSelector(appWorkload *korifiv1alpha1.AppWorkload) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			LabelGUID:    appWorkload.Spec.GUID,
-			LabelVersion: appWorkload.Spec.Version,
+			LabelGUID: appWorkload.Spec.GUID,
 		},
 	}
 }

@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,13 +53,13 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 
 	err = k8sClient.Patch(ctx, obj, client.MergeFrom(objCopy))
 	if err != nil {
-		return err
+		return fmt.Errorf("patching-main-obj-failed: %w", err)
 	}
 
 	if objHasStatus {
 		err = k8sClient.Status().Patch(ctx, modifiedObj, client.MergeFrom(objCopy))
 		if err != nil {
-			return err
+			return fmt.Errorf("patching-status-failed: %w", err)
 		}
 
 		// Now that we have patched the status using the intermediate object

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -49,8 +50,9 @@ type DeleteRoleMessage struct {
 
 type RoleRecord struct {
 	GUID      string
-	CreatedAt string
-	UpdatedAt string
+	CreatedAt time.Time
+	UpdatedAt *time.Time
+	DeletedAt *time.Time
 	Type      string
 	Space     string
 	Org       string
@@ -155,8 +157,8 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 
 	roleRecord := RoleRecord{
 		GUID:      role.GUID,
-		CreatedAt: roleBinding.CreationTimestamp.Time.UTC().Format(TimestampFormat),
-		UpdatedAt: roleBinding.CreationTimestamp.Time.UTC().Format(TimestampFormat),
+		CreatedAt: roleBinding.CreationTimestamp.Time,
+		UpdatedAt: &roleBinding.CreationTimestamp.Time,
 		Type:      role.Type,
 		Space:     role.Space,
 		Org:       role.Org,
@@ -187,8 +189,13 @@ func (r *RoleRepo) validateOrgRequirements(ctx context.Context, role CreateRoleM
 	return nil
 }
 
-func calculateRoleBindingName(roleType, roleUser string) string {
-	plain := []byte(roleType + "::" + roleUser)
+func calculateRoleBindingName(roleType, roleServiceAccountNamespace, roleUser string) string {
+	roleBindingName := roleType + "::"
+	if roleServiceAccountNamespace != "" {
+		roleBindingName = roleBindingName + roleServiceAccountNamespace + "/"
+	}
+	roleBindingName = roleBindingName + roleUser
+	plain := []byte(roleBindingName)
 	sum := sha256.Sum256(plain)
 
 	return fmt.Sprintf("%s-%x", roleBindingNamePrefix, sum)
@@ -198,7 +205,7 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleServiceAccou
 	return rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      calculateRoleBindingName(roleType, roleUser),
+			Name:      calculateRoleBindingName(roleType, roleServiceAccountNamespace, roleUser),
 			Labels: map[string]string{
 				RoleGuidLabel: roleGUID,
 			},
@@ -330,12 +337,11 @@ func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, 
 }
 
 func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName string) RoleRecord {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&roleBinding.ObjectMeta)
-
 	record := RoleRecord{
 		GUID:      roleBinding.Labels[RoleGuidLabel],
-		CreatedAt: roleBinding.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		CreatedAt: roleBinding.CreationTimestamp.Time,
+		UpdatedAt: getLastUpdatedTime(&roleBinding),
+		DeletedAt: golangTime(roleBinding.DeletionTimestamp),
 		Type:      cfRoleName,
 		User:      roleBinding.Subjects[0].Name,
 		Kind:      roleBinding.Subjects[0].Kind,
@@ -353,4 +359,9 @@ func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName strin
 	}
 
 	return record
+}
+
+func (r *RoleRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, roleGUID string) (*time.Time, error) {
+	role, err := r.GetRole(ctx, authInfo, roleGUID)
+	return role.DeletedAt, err
 }

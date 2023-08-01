@@ -34,8 +34,8 @@ func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 	return OrgResponse{
 		Name:      org.Name,
 		GUID:      org.GUID,
-		CreatedAt: org.CreatedAt,
-		UpdatedAt: org.UpdatedAt,
+		CreatedAt: formatTimestamp(&org.CreatedAt),
+		UpdatedAt: formatTimestamp(org.UpdatedAt),
 		Suspended: org.Suspended,
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(org.Labels),

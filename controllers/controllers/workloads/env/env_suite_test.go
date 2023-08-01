@@ -7,6 +7,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -15,14 +16,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	servicebindingv1beta1 "github.com/servicebinding/service-binding-controller/apis/v1beta1"
+	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,14 +30,16 @@ import (
 )
 
 var (
-	cancel        context.CancelFunc
-	testEnv       *envtest.Environment
-	k8sClient     client.Client
-	rootNamespace string
-	cfOrg         *korifiv1alpha1.CFOrg
-	cfSpace       *korifiv1alpha1.CFSpace
-	ctx           context.Context
-	cfApp         *korifiv1alpha1.CFApp
+	stopManager       context.CancelFunc
+	stopClientCache   context.CancelFunc
+	testEnv           *envtest.Environment
+	adminClient       client.Client
+	controllersClient client.Client
+	rootNamespace     string
+	cfOrg             *korifiv1alpha1.CFOrg
+	cfSpace           *korifiv1alpha1.CFSpace
+	ctx               context.Context
+	cfApp             *korifiv1alpha1.CFApp
 )
 
 func TestEnvBuilders(t *testing.T) {
@@ -51,9 +53,6 @@ func TestEnvBuilders(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
 
-	mgrCtx, cancelFunc := context.WithCancel(context.TODO())
-	cancel = cancelFunc
-
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
@@ -61,36 +60,25 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 	}
 
-	cfg, err := testEnv.Start()
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	//+kubebuilder:scaffold:scheme
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
-	})
-	Expect(err).NotTo(HaveOccurred())
-	k8sClient = k8sManager.GetClient()
+	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
+	controllersClient = helpers.NewSyncClient(k8sManager.GetClient())
 
-	err = shared.SetupIndexWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(mgrCtx)
-		Expect(err).NotTo(HaveOccurred())
-	}()
+	stopManager = helpers.StartK8sManager(k8sManager)
 })
 
 var _ = AfterSuite(func() {
-	cancel()
+	stopClientCache()
+	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
@@ -111,7 +99,6 @@ var _ = BeforeEach(func() {
 	ensureCreate(cfOrg)
 	orgNSName := testutils.PrefixedGUID("org")
 	ensurePatch(cfOrg, func(cfOrg *korifiv1alpha1.CFOrg) {
-		cfOrg.Status.Conditions = []metav1.Condition{}
 		cfOrg.Status.GUID = orgNSName
 	})
 	createNamespace(cfOrg.Status.GUID)
@@ -128,7 +115,6 @@ var _ = BeforeEach(func() {
 	ensureCreate(cfSpace)
 	cfNSName := testutils.PrefixedGUID("space")
 	ensurePatch(cfSpace, func(cfSpace *korifiv1alpha1.CFSpace) {
-		cfSpace.Status.Conditions = []metav1.Condition{}
 		cfSpace.Status.GUID = cfNSName
 	})
 	createNamespace(cfSpace.Status.GUID)
@@ -150,7 +136,6 @@ var _ = BeforeEach(func() {
 	ensureCreate(cfApp)
 	ensurePatch(cfApp, func(app *korifiv1alpha1.CFApp) {
 		app.Status = korifiv1alpha1.CFAppStatus{
-			Conditions:                []metav1.Condition{},
 			VCAPServicesSecretName:    "app-guid-vcap-services",
 			VCAPApplicationSecretName: "app-guid-vcap-application",
 		}
@@ -169,23 +154,23 @@ func createNamespace(name string) *corev1.Namespace {
 			Name: name,
 		},
 	}
-	Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+	Expect(adminClient.Create(ctx, ns)).To(Succeed())
 	return ns
 }
 
 func ensureCreate(obj client.Object) {
-	Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+	Expect(controllersClient.Create(ctx, obj)).To(Succeed())
 	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+		g.Expect(controllersClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
 	}).Should(Succeed())
 }
 
 func ensurePatch[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, modifyFunc func(PT)) {
-	Expect(k8s.Patch(ctx, k8sClient, obj, func() {
+	Expect(k8s.Patch(ctx, controllersClient, obj, func() {
 		modifyFunc(obj)
 	})).To(Succeed())
 	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+		g.Expect(controllersClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
 		objCopy := obj.DeepCopy()
 		modifyFunc(objCopy)
 		g.Expect(equality.Semantic.DeepEqual(objCopy, obj)).To(BeTrue())
@@ -193,9 +178,9 @@ func ensurePatch[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, modifyFunc func(PT
 }
 
 func ensureDelete(obj client.Object) {
-	Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
+	Expect(controllersClient.Delete(ctx, obj)).To(Succeed())
 	Eventually(func(g Gomega) {
-		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+		err := controllersClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
 		g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 	}).Should(Succeed())
 }

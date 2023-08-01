@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -14,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -79,9 +81,10 @@ func (p PatchServiceInstanceMessage) Apply(cfServiceInstance *korifiv1alpha1.CFS
 }
 
 type ListServiceInstanceMessage struct {
-	Names          []string
-	SpaceGuids     []string
-	LabelSelectors []string
+	Names         []string
+	SpaceGUIDs    []string
+	GUIDs         []string
+	LabelSelector string
 }
 
 type DeleteServiceInstanceMessage struct {
@@ -99,8 +102,8 @@ type ServiceInstanceRecord struct {
 	PlanGUID    string
 	Labels      map[string]string
 	Annotations map[string]string
-	CreatedAt   string
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 	Parameters  map[string]any
 }
 
@@ -207,10 +210,25 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	preds := []func(korifiv1alpha1.CFServiceInstance) bool{
+		SetPredicate(message.Names, func(s korifiv1alpha1.CFServiceInstance) string { return s.Spec.DisplayName }),
+		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFServiceInstance) string { return s.Name }),
+	}
+
+	labelSelector, err := labels.Parse(message.LabelSelector)
+	if err != nil {
+		return []ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
+	}
+
+	spaceGUIDSet := NewSet(message.SpaceGUIDs...)
 	var filteredServiceInstances []korifiv1alpha1.CFServiceInstance
 	for ns := range nsList {
+		if len(spaceGUIDSet) > 0 && !spaceGUIDSet.Includes(ns) {
+			continue
+		}
+
 		serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns))
+		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
 		if k8serrors.IsForbidden(err) {
 			continue
 		}
@@ -220,7 +238,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 				apierrors.FromK8sError(err, ServiceInstanceResourceType),
 			)
 		}
-		filteredServiceInstances = append(filteredServiceInstances, applyServiceInstanceListFilter(serviceInstanceList.Items, message)...)
+		filteredServiceInstances = append(filteredServiceInstances, Filter(serviceInstanceList.Items, preds...)...)
 	}
 
 	return returnServiceInstanceList(filteredServiceInstances)
@@ -296,8 +314,6 @@ func (m CreateServiceInstanceMessage) toCFServiceInstance() (korifiv1alpha1.CFSe
 }
 
 func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) (ServiceInstanceRecord, error) {
-	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfServiceInstance.ObjectMeta)
-
 	parameters := map[string]any{}
 	if cfServiceInstance.Spec.Parameters != nil {
 		err := json.Unmarshal(cfServiceInstance.Spec.Parameters.Raw, &parameters)
@@ -305,7 +321,6 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.C
 			return ServiceInstanceRecord{}, fmt.Errorf("failed to unmarshal service parameters: %w", err)
 		}
 	}
-
 	return ServiceInstanceRecord{
 		Name:        cfServiceInstance.Spec.DisplayName,
 		GUID:        cfServiceInstance.Name,
@@ -316,8 +331,8 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.C
 		PlanGUID:    cfServiceInstance.Spec.ServicePlanGUID,
 		Labels:      cfServiceInstance.Labels,
 		Annotations: cfServiceInstance.Annotations,
-		CreatedAt:   cfServiceInstance.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt:   updatedAtTime,
+		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
+		UpdatedAt:   getLastUpdatedTime(&cfServiceInstance),
 		Parameters:  parameters,
 	}, nil
 }
@@ -341,23 +356,6 @@ func cfServiceInstanceToSecret(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 			},
 		},
 	}
-}
-
-func applyServiceInstanceListFilter(serviceInstanceList []korifiv1alpha1.CFServiceInstance, message ListServiceInstanceMessage) []korifiv1alpha1.CFServiceInstance {
-	if len(message.Names) == 0 && len(message.SpaceGuids) == 0 {
-		return serviceInstanceList
-	}
-
-	var filtered []korifiv1alpha1.CFServiceInstance
-	for _, serviceInstance := range serviceInstanceList {
-		if matchesFilter(serviceInstance.Spec.DisplayName, message.Names) &&
-			matchesFilter(serviceInstance.Namespace, message.SpaceGuids) &&
-			labelsFilters(serviceInstance.Labels, message.LabelSelectors) {
-			filtered = append(filtered, serviceInstance)
-		}
-	}
-
-	return filtered
 }
 
 func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceInstance) ([]ServiceInstanceRecord, error) {

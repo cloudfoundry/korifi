@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"archive/zip"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,15 +18,19 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
+	"github.com/onsi/gomega/types"
 	"gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -32,29 +38,29 @@ import (
 var (
 	correlationId string
 
-	adminClient             *helpers.CorrelatedRestyClient
-	certClient              *helpers.CorrelatedRestyClient
-	tokenClient             *helpers.CorrelatedRestyClient
-	longCertClient          *helpers.CorrelatedRestyClient
-	apiServerRoot           string
-	serviceAccountName      string
-	serviceAccountToken     string
-	certUserName            string
-	certPEM                 string
-	longCertUserName        string
-	longCertPEM             string
-	rootNamespace           string
-	appFQDN                 string
-	commonTestOrgGUID       string
-	commonTestOrgName       string
-	assetsTmpDir            string
-	clusterVersionMinor     int
-	clusterVersionMajor     int
-	nodeAppBitsFile         string
-	doraAppBitsFile         string
-	golangAppBitsFile       string
-	multiProcessAppBitsFile string
-	procfileAppBitsFile     string
+	adminClient                      *helpers.CorrelatedRestyClient
+	certClient                       *helpers.CorrelatedRestyClient
+	tokenClient                      *helpers.CorrelatedRestyClient
+	unprivilegedServiceAccountClient *helpers.CorrelatedRestyClient
+	longCertClient                   *helpers.CorrelatedRestyClient
+	apiServerRoot                    string
+	serviceAccountName               string
+	serviceAccountToken              string
+	unprivilegedServiceAccountName   string
+	unprivilegedServiceAccountToken  string
+	certUserName                     string
+	certPEM                          string
+	longCertUserName                 string
+	longCertPEM                      string
+	rootNamespace                    string
+	appFQDN                          string
+	commonTestOrgGUID                string
+	commonTestOrgName                string
+	assetsTmpDir                     string
+	clusterVersionMinor              int
+	clusterVersionMajor              int
+	defaultAppBitsFile               string
+	multiProcessAppBitsFile          string
 )
 
 type resource struct {
@@ -100,8 +106,9 @@ type bareResource struct {
 }
 
 type appResource struct {
-	resource `json:",inline"`
-	State    string `json:"state,omitempty"`
+	resource  `json:",inline"`
+	Lifecycle *lifecycle `json:"lifecycle,omitempty"`
+	State     string     `json:"state,omitempty"`
 }
 
 type taskResource struct {
@@ -164,6 +171,13 @@ type applicationResource struct {
 	Routes       []manifestRouteResource              `yaml:"routes"`
 	Memory       string                               `yaml:"memory,omitempty"`
 	Metadata     metadata                             `yaml:"metadata,omitempty"`
+	Buildpacks   []string                             `yaml:"buildpacks"`
+	Services     []serviceResource                    `yaml:"services"`
+}
+
+type serviceResource struct {
+	Name        string `yaml:"name"`
+	BindingName string `yaml:"binding_name"`
 }
 
 type manifestApplicationProcessResource struct {
@@ -221,6 +235,21 @@ type appLogResourceEnvelopes struct {
 	Batch []loggregator_v2.Envelope `json:"batch"`
 }
 
+type appUpdateResource struct {
+	Metadata  *metadataPatch `json:"metadata,omitempty"`
+	Lifecycle *lifecycle     `json:"lifecycle,omitempty"`
+	Name      *string        `json:"name,omitempty"`
+}
+
+type lifecycle struct {
+	Type string        `json:"type"`
+	Data lifecycleData `json:"data"`
+}
+
+type lifecycleData struct {
+	Buildpacks []string `json:"buildpacks"`
+}
+
 type cfErrs struct {
 	Errors []cfErr
 }
@@ -247,23 +276,40 @@ type cfErr struct {
 	Code   int    `json:"code"`
 }
 
-func getCorrelationId() string {
-	return correlationId
-}
-
 func TestE2E(t *testing.T) {
-	RegisterFailHandler(helpers.E2EFailHandler(getCorrelationId))
+	RegisterFailHandler(fail_handler.New("E2E Tests", map[types.GomegaMatcher]func(*rest.Config){
+		fail_handler.Always: func(config *rest.Config) {
+			fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
+				{
+					Namespace:     systemNamespace(),
+					LabelKey:      "app",
+					LabelValue:    "korifi-api",
+					Container:     "korifi-api",
+					CorrelationId: correlationId,
+				},
+				{
+					Namespace:  systemNamespace(),
+					LabelKey:   "app",
+					LabelValue: "korifi-controllers",
+					Container:  "manager",
+				},
+			})
+		},
+		ContainSubstring("Droplet not found"): func(config *rest.Config) {
+			printDropletNotFoundDebugInfo(config)
+		},
+		ContainSubstring("404"): func(config *rest.Config) {
+			printAllRoleBindings(config)
+		},
+	}))
 	RunSpecs(t, "E2E Suite")
 }
 
 type sharedSetupData struct {
 	CommonOrgName           string `json:"commonOrgName"`
 	CommonOrgGUID           string `json:"commonOrgGuid"`
-	NodeAppBitsFile         string `json:"nodeAppBitsFile"`
-	DoraAppBitsFile         string `json:"doraAppBitsFile"`
-	GolangAppBitsFile       string `json:"golangAppBitsFile"`
+	DefaultAppBitsFile      string `json:"defaultAppBitsFile"`
 	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
-	ProcfileAppBitsFile     string `json:"procfileAppBitsFile"`
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -276,51 +322,19 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	assetsTmpDir, err = os.MkdirTemp("", "e2e-test-assets")
 	Expect(err).NotTo(HaveOccurred())
 
-	// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
-	// The APP_BITS_PATH and APP_BITS_OUTPUT environment variables are a workaround to allow e2e tests to run
-	// with a different app in these environments.
-	// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-	appBitsPath, ok := os.LookupEnv("APP_BITS_PATH")
-	if !ok {
-		appBitsPath = "assets/procfile"
-	}
-
 	sharedData := sharedSetupData{
-		CommonOrgName:           commonTestOrgName,
-		CommonOrgGUID:           commonTestOrgGUID,
-		NodeAppBitsFile:         zipAsset("assets/vendored/node"),
-		DoraAppBitsFile:         zipAsset("assets/vendored/dora"),
-		GolangAppBitsFile:       zipAsset("assets/golang"),
-		MultiProcessAppBitsFile: zipAsset("assets/multi-process"),
-		ProcfileAppBitsFile:     zipAsset(appBitsPath),
+		CommonOrgName: commonTestOrgName,
+		CommonOrgGUID: commonTestOrgGUID,
+		// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
+		// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
+		// with a different app in these environments.
+		// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
+		DefaultAppBitsFile:      zipAsset(helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
+		MultiProcessAppBitsFile: zipAsset("../assets/multi-process"),
 	}
 
 	bs, err := json.Marshal(sharedData)
 	Expect(err).NotTo(HaveOccurred())
-
-	SetDefaultEventuallyTimeout(240 * time.Second)
-	SetDefaultEventuallyPollingInterval(2 * time.Second)
-
-	fmt.Print("Pushing apps to prevent BLOB_UNKNOWN error on GAR...")
-	t1 := time.Now()
-	blobsFlakeMitigationSpaceGUID := createSpace("blob-flake-mitigation", commonTestOrgGUID)
-	var wg sync.WaitGroup
-	wg.Add(5)
-	for _, f := range []string{
-		sharedData.ProcfileAppBitsFile,
-		sharedData.NodeAppBitsFile,
-		sharedData.DoraAppBitsFile,
-		sharedData.GolangAppBitsFile,
-		sharedData.MultiProcessAppBitsFile,
-	} {
-		go func(app string) {
-			defer GinkgoRecover()
-			pushTestApp(blobsFlakeMitigationSpaceGUID, app)
-			wg.Done()
-		}(f)
-	}
-	wg.Wait()
-	fmt.Printf(" done in %v\n", time.Since(t1))
 
 	return bs
 }, func(bs []byte) {
@@ -330,13 +344,16 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	commonTestOrgGUID = sharedSetup.CommonOrgGUID
 	commonTestOrgName = sharedSetup.CommonOrgName
-	procfileAppBitsFile = sharedSetup.ProcfileAppBitsFile
-	nodeAppBitsFile = sharedSetup.NodeAppBitsFile
-	doraAppBitsFile = sharedSetup.DoraAppBitsFile
-	golangAppBitsFile = sharedSetup.GolangAppBitsFile
+	defaultAppBitsFile = sharedSetup.DefaultAppBitsFile
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
 
-	SetDefaultEventuallyTimeout(240 * time.Second)
+	eventuallyTimeoutSeconds := 240
+	customEventuallyTimeoutSeconds := os.Getenv("E2E_EVENTUALLY_TIMEOUT_SECONDS")
+	if customEventuallyTimeoutSeconds != "" {
+		eventuallyTimeoutSeconds, err = strconv.Atoi(customEventuallyTimeoutSeconds)
+		Expect(err).NotTo(HaveOccurred())
+	}
+	SetDefaultEventuallyTimeout(time.Duration(eventuallyTimeoutSeconds) * time.Second)
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -354,14 +371,9 @@ var _ = BeforeEach(func() {
 	correlationId = uuid.NewString()
 })
 
-func mustHaveEnv(key string) string {
-	val, ok := os.LookupEnv(key)
-	ExpectWithOffset(1, ok).To(BeTrue(), "must set env var %q", key)
-
-	return val
-}
-
 func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
+	GinkgoHelper()
+
 	cert := os.Getenv(certEnvVar)
 	if cert != "" {
 		return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(cert).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
@@ -377,7 +389,9 @@ func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
 }
 
 func ensureServerIsUp() {
-	EventuallyWithOffset(1, func() (int, error) {
+	GinkgoHelper()
+
+	Eventually(func() (int, error) {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		resp, err := http.Get(apiServerRoot)
 		if err != nil {
@@ -397,14 +411,16 @@ func generateGUID(prefix string) string {
 }
 
 func deleteOrg(guid string) {
+	GinkgoHelper()
+
 	if guid == "" {
 		return
 	}
 
 	resp, err := adminClient.R().
 		Delete("/v3/organizations/" + guid)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func createOrgRaw(orgName string) (string, error) {
@@ -424,8 +440,10 @@ func createOrgRaw(orgName string) (string, error) {
 }
 
 func createOrg(orgName string) string {
+	GinkgoHelper()
+
 	orgGUID, err := createOrgRaw(orgName)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	return orgGUID
 }
@@ -467,24 +485,30 @@ func createSpaceRaw(spaceName, orgGUID string) (string, error) {
 }
 
 func deleteSpace(guid string) {
+	GinkgoHelper()
+
 	if guid == "" {
 		return
 	}
 
 	resp, err := adminClient.R().
 		Delete("/v3/spaces/" + guid)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
 }
 
 func createSpace(spaceName, orgGUID string) string {
+	GinkgoHelper()
+
 	spaceGUID, err := createSpaceRaw(spaceName, orgGUID)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
+	Expect(err).NotTo(HaveOccurred(), `create space "`+spaceName+`" in orgGUID "`+orgGUID+`" should have succeeded`)
 
 	return spaceGUID
 }
 
 func applySpaceManifest(manifest manifestResource, spaceGUID string) {
+	GinkgoHelper()
+
 	manifestBytes, err := yaml.Marshal(manifest)
 	Expect(err).NotTo(HaveOccurred())
 	resp, err := adminClient.R().
@@ -512,6 +536,8 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 // createRole creates an org or space role
 // You should probably invoke this via createOrgRole or createSpaceRole
 func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
+	GinkgoHelper()
+
 	rolesURL := apiServerRoot + "/v3/roles"
 
 	payload := typedResource{
@@ -532,21 +558,27 @@ func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
 		SetError(&resultErr).
 		Post(rolesURL)
 
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
-	ExpectWithOffset(2, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return createdRole.GUID
 }
 
 func createOrgRole(roleName, userName, orgGUID string) string {
+	GinkgoHelper()
+
 	return createRole(roleName, "organization", userName, orgGUID)
 }
 
 func createSpaceRole(roleName, userName, spaceGUID string) string {
+	GinkgoHelper()
+
 	return createRole(roleName, "space", userName, spaceGUID)
 }
 
 func createApp(spaceGUID, name string) string {
+	GinkgoHelper()
+
 	var app resource
 
 	resp, err := adminClient.R().
@@ -559,8 +591,8 @@ func createApp(spaceGUID, name string) string {
 		SetResult(&app).
 		Post("/v3/apps")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 	Expect(app.GUID).NotTo(BeEmpty())
 	Expect(app.Name).To(Equal(name))
 	Expect(app.CreatedAt).NotTo(BeEmpty())
@@ -572,6 +604,8 @@ func createApp(spaceGUID, name string) string {
 }
 
 func setEnv(appName string, envVars map[string]interface{}) {
+	GinkgoHelper()
+
 	resp, err := adminClient.R().
 		SetBody(
 			struct {
@@ -582,26 +616,30 @@ func setEnv(appName string, envVars map[string]interface{}) {
 		).
 		SetPathParam("appName", appName).
 		Patch("/v3/apps/{appName}/environment_variables")
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
-func getEnv(appName string) map[string]interface{} {
+func getAppEnv(appName string) map[string]interface{} {
+	GinkgoHelper()
+
 	var env map[string]interface{}
 
 	resp, err := adminClient.R().
 		SetResult(&env).
 		SetPathParam("appName", appName).
 		Get("/v3/apps/{appName}/env")
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 	return env
 }
 
 func getApp(appGUID string) appResource {
+	GinkgoHelper()
+
 	var app appResource
-	EventuallyWithOffset(1, func(g Gomega) {
+	Eventually(func(g Gomega) {
 		resp, err := adminClient.R().
 			SetResult(&app).
 			Get("/v3/apps/" + appGUID)
@@ -614,8 +652,10 @@ func getApp(appGUID string) appResource {
 }
 
 func getProcess(appGUID, processType string) processResource {
+	GinkgoHelper()
+
 	var process processResource
-	EventuallyWithOffset(1, func(g Gomega) {
+	Eventually(func(g Gomega) {
 		resp, err := adminClient.R().
 			SetResult(&process).
 			Get("/v3/apps/" + appGUID + "/processes/" + processType)
@@ -628,6 +668,8 @@ func getProcess(appGUID, processType string) processResource {
 }
 
 func createServiceInstance(spaceGUID, name string, credentials map[string]string) string {
+	GinkgoHelper()
+
 	var serviceInstance typedResource
 
 	resp, err := adminClient.R().
@@ -642,13 +684,15 @@ func createServiceInstance(spaceGUID, name string, credentials map[string]string
 		SetResult(&serviceInstance).
 		Post("/v3/service_instances")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated))
 
 	return serviceInstance.GUID
 }
 
 func listServiceInstances(names ...string) resourceList[serviceInstanceResource] {
+	GinkgoHelper()
+
 	var namesQuery string
 	if len(names) > 0 {
 		namesQuery = "?names=" + strings.Join(names, ",")
@@ -659,13 +703,15 @@ func listServiceInstances(names ...string) resourceList[serviceInstanceResource]
 		SetResult(&serviceInstances).
 		Get("/v3/service_instances" + namesQuery)
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK))
 
 	return serviceInstances
 }
 
 func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
+	GinkgoHelper()
+
 	var serviceCredentialBinding resource
 
 	resp, err := adminClient.R().
@@ -679,13 +725,63 @@ func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
 		SetResult(&serviceCredentialBinding).
 		Post("/v3/service_credential_bindings")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusCreated), string(resp.Body()))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusCreated), string(resp.Body()))
 
 	return serviceCredentialBinding.GUID
 }
 
+func addServiceBindingLabels(bindingGUID string, labels map[string]string) {
+	GinkgoHelper()
+
+	addLabels("/v3/service_credential_bindings/"+bindingGUID, labels)
+}
+
+func addServiceInstanceLabels(serviceInstanceGUID string, labels map[string]string) {
+	GinkgoHelper()
+
+	addLabels("/v3/service_instances/"+serviceInstanceGUID, labels)
+}
+
+func addAppLabels(appGUID string, labels map[string]string) {
+	GinkgoHelper()
+
+	addLabels("/v3/apps/"+appGUID, labels)
+}
+
+func addLabels(resourcePath string, labels map[string]string) {
+	GinkgoHelper()
+
+	var respResource responseResource
+	resp, err := adminClient.R().
+		SetBody(metadataResource{
+			Metadata: &metadataPatch{
+				Labels: &labels,
+			},
+		}).
+		SetResult(&respResource).
+		Patch(resourcePath)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+}
+
+func getServiceBindingsForApp(appGUID string) []resource {
+	GinkgoHelper()
+
+	var serviceBindings resourceList[resource]
+	resp, err := adminClient.R().
+		SetResult(&serviceBindings).
+		Get("/v3/service_credential_bindings?app_guids=" + appGUID)
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp.StatusCode()).To(Equal(http.StatusOK), string(resp.Body()))
+
+	return serviceBindings.Resources
+}
+
 func createPackage(appGUID string) string {
+	GinkgoHelper()
+
 	var pkg resource
 	resp, err := adminClient.R().
 		SetBody(typedResource{
@@ -699,13 +795,15 @@ func createPackage(appGUID string) string {
 		SetResult(&pkg).
 		Post("/v3/packages")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return pkg.GUID
 }
 
 func createBuild(packageGUID string) string {
+	GinkgoHelper()
+
 	var build resource
 
 	resp, err := adminClient.R().
@@ -713,14 +811,40 @@ func createBuild(packageGUID string) string {
 		SetResult(&build).
 		Post("/v3/builds")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return build.GUID
 }
 
+func createDeployment(appGUID string) string {
+	GinkgoHelper()
+
+	var deployment resource
+
+	resp, err := adminClient.R().
+		SetBody(resource{
+			Relationships: relationships{
+				"app": relationship{
+					Data: resource{
+						GUID: appGUID,
+					},
+				},
+			},
+		}).
+		SetResult(&deployment).
+		Post("/v3/deployments")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+
+	return deployment.GUID
+}
+
 func waitForDroplet(buildGUID string) {
-	EventuallyWithOffset(1, func() (*resty.Response, error) {
+	GinkgoHelper()
+
+	Eventually(func() (*resty.Response, error) {
 		resp, err := adminClient.R().
 			Get("/v3/droplets/" + buildGUID)
 		return resp, err
@@ -728,32 +852,40 @@ func waitForDroplet(buildGUID string) {
 }
 
 func setCurrentDroplet(appGUID, dropletGUID string) {
+	GinkgoHelper()
+
 	resp, err := adminClient.R().
 		SetBody(dropletResource{Data: resource{GUID: dropletGUID}}).
 		Patch("/v3/apps/" + appGUID + "/relationships/current_droplet")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func startApp(appGUID string) {
+	GinkgoHelper()
+
 	resp, err := adminClient.R().
 		Post("/v3/apps/" + appGUID + "/actions/start")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func uploadTestApp(pkgGUID, appBitsFile string) {
+	GinkgoHelper()
+
 	resp, err := adminClient.R().
 		SetFiles(map[string]string{
 			"bits": appBitsFile,
 		}).Post("/v3/packages/" + pkgGUID + "/upload")
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
 func getAppGUIDFromName(appName string) string {
+	GinkgoHelper()
+
 	var appGUID string
 	Eventually(func(g Gomega) {
 		var result resourceList[resource]
@@ -768,6 +900,8 @@ func getAppGUIDFromName(appName string) string {
 }
 
 func createAppViaManifest(spaceGUID, appName string) string {
+	GinkgoHelper()
+
 	manifest := manifestResource{
 		Version: 1,
 		Applications: []applicationResource{{
@@ -782,11 +916,15 @@ func createAppViaManifest(spaceGUID, appName string) string {
 }
 
 func pushTestApp(spaceGUID, appBitsFile string) (string, string) {
+	GinkgoHelper()
+
 	appName := generateGUID("app")
 	return pushTestAppWithName(spaceGUID, appBitsFile, appName), appName
 }
 
 func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
+	GinkgoHelper()
+
 	appGUID := createAppViaManifest(spaceGUID, appName)
 	pkgGUID := createPackage(appGUID)
 	uploadTestApp(pkgGUID, appBitsFile)
@@ -799,6 +937,8 @@ func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
 }
 
 func getAppRoute(appGUID string) string {
+	GinkgoHelper()
+
 	var routes resourceList[routeResource]
 	resp, err := adminClient.R().
 		SetResult(&routes).
@@ -818,6 +958,8 @@ var skipSSLClient = http.Client{
 }
 
 func curlApp(appGUID, path string) []byte {
+	GinkgoHelper()
+
 	url := getAppRoute(appGUID)
 	var body []byte
 	Eventually(func(g Gomega) {
@@ -833,13 +975,15 @@ func curlApp(appGUID, path string) []byte {
 }
 
 func getDomainGUID(domainName string) string {
+	GinkgoHelper()
+
 	res := resourceList[bareResource]{}
 	resp, err := adminClient.R().
 		SetResult(&res).
 		Get("/v3/domains")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 	for _, d := range res.Resources {
 		if d.Name == domainName {
@@ -853,6 +997,8 @@ func getDomainGUID(domainName string) string {
 }
 
 func createRoute(host, path string, spaceGUID, domainGUID string) string {
+	GinkgoHelper()
+
 	var route resource
 
 	resp, err := adminClient.R().
@@ -869,13 +1015,15 @@ func createRoute(host, path string, spaceGUID, domainGUID string) string {
 		SetResult(&route).
 		Post("/v3/routes")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusCreated))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
 	return route.GUID
 }
 
 func addDestinationForRoute(appGUID, routeGUID string) []string {
+	GinkgoHelper()
+
 	var destinations destinationsResource
 
 	resp, err := adminClient.R().
@@ -887,8 +1035,8 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 		SetResult(&destinations).
 		Post("/v3/routes/" + routeGUID + "/destinations")
 
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 	var destinationGUIDs []string
 	for _, destination := range destinations.Destinations {
@@ -899,8 +1047,10 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 }
 
 func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) {
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusNotFound))
-	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
+	GinkgoHelper()
+
+	Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
+	Expect(errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: resource + " not found. Ensure it exists and you have access to it.",
 			Title:  "CF-ResourceNotFound",
@@ -910,8 +1060,10 @@ func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) 
 }
 
 func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
-	ExpectWithOffset(1, resp.StatusCode()).To(Equal(http.StatusForbidden))
-	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
+	GinkgoHelper()
+
+	Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
+	Expect(errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: "You are not authorized to perform the requested action",
 			Title:  "CF-NotAuthorized",
@@ -921,8 +1073,10 @@ func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
 }
 
 func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail string) {
-	ExpectWithOffset(1, resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-	ExpectWithOffset(1, errResp.Errors).To(ConsistOf(
+	GinkgoHelper()
+
+	Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+	Expect(errResp.Errors).To(ConsistOf(
 		cfErr{
 			Detail: detail,
 			Title:  "CF-UnprocessableEntity",
@@ -932,31 +1086,36 @@ func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail
 }
 
 func commonTestSetup() {
-	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
-	rootNamespace = mustHaveEnv("ROOT_NAMESPACE")
-	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, mustHaveEnv("E2E_SERVICE_ACCOUNT"))
-	serviceAccountToken = mustHaveEnv("E2E_SERVICE_ACCOUNT_TOKEN")
+	apiServerRoot = helpers.GetRequiredEnvVar("API_SERVER_ROOT")
+	rootNamespace = helpers.GetRequiredEnvVar("ROOT_NAMESPACE")
+	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT"))
+	serviceAccountToken = helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT_TOKEN")
+	unprivilegedServiceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_UNPRIVILEGED_SERVICE_ACCOUNT"))
+	unprivilegedServiceAccountToken = helpers.GetRequiredEnvVar("E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN")
 
-	certUserName = mustHaveEnv("E2E_USER_NAME")
+	certUserName = helpers.GetRequiredEnvVar("E2E_USER_NAME")
 	certPEM = os.Getenv("E2E_USER_PEM")
 
-	longCertUserName = mustHaveEnv("E2E_LONGCERT_USER_NAME")
+	longCertUserName = helpers.GetRequiredEnvVar("E2E_LONGCERT_USER_NAME")
 	longCertPEM = os.Getenv("E2E_LONGCERT_USER_PEM")
 
-	appFQDN = mustHaveEnv("APP_FQDN")
+	appFQDN = helpers.GetRequiredEnvVar("APP_FQDN")
 
-	clusterVersionMinor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MINOR"))
-	clusterVersionMajor, _ = strconv.Atoi(mustHaveEnv("CLUSTER_VERSION_MAJOR"))
+	clusterVersionMinor, _ = strconv.Atoi(helpers.GetRequiredEnvVar("CLUSTER_VERSION_MINOR"))
+	clusterVersionMajor, _ = strconv.Atoi(helpers.GetRequiredEnvVar("CLUSTER_VERSION_MAJOR"))
 
 	ensureServerIsUp()
 
 	adminClient = makeClient("CF_ADMIN_PEM", "CF_ADMIN_TOKEN")
 	certClient = makeClient("E2E_USER_PEM", "E2E_USER_TOKEN")
 	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	unprivilegedServiceAccountClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(unprivilegedServiceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }
 
 func zipAsset(src string) string {
+	GinkgoHelper()
+
 	file, err := os.CreateTemp("", "*.zip")
 	if err != nil {
 		Expect(err).NotTo(HaveOccurred())
@@ -984,7 +1143,12 @@ func zipAsset(src string) string {
 			return err
 		}
 
-		f, err := w.Create(rel)
+		fh := &zip.FileHeader{
+			Name: rel,
+		}
+		fh.SetMode(info.Mode())
+
+		f, err := w.CreateHeader(fh)
 		if err != nil {
 			return err
 		}
@@ -1000,4 +1164,92 @@ func zipAsset(src string) string {
 	Expect(err).NotTo(HaveOccurred())
 
 	return file.Name()
+}
+
+func systemNamespace() string {
+	systemNS, found := os.LookupEnv("SYSTEM_NAMESPACE")
+	if found {
+		return systemNS
+	}
+
+	return "korifi"
+}
+
+func getCorrelationId() string {
+	return correlationId
+}
+
+func printDropletNotFoundDebugInfo(config *rest.Config) {
+	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet not found debug log (start) ==========\n")
+
+	fmt.Fprint(GinkgoWriter, "\n========== Kpack logs ==========\n")
+	fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
+		{
+			Namespace:  "kpack",
+			LabelKey:   "app",
+			LabelValue: "kpack-controller",
+		},
+		{
+			Namespace:  "kpack",
+			LabelKey:   "app",
+			LabelValue: "kpack-webhook",
+		},
+	})
+
+	dropletGUID, err := getDropletGUID(CurrentSpecReport().FailureMessage())
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "Failed to get droplet GUID from message %v\n", err)
+		return
+	}
+
+	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet build logs ==========\n")
+	fmt.Fprintf(GinkgoWriter, "DropletGUID: %q\n", dropletGUID)
+	fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
+		{
+			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
+			LabelValue: dropletGUID,
+		},
+	})
+	fail_handler.PrintPodEvents(config, []fail_handler.PodContainerDescriptor{
+		{
+			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
+			LabelValue: dropletGUID,
+		},
+	})
+
+	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet not found debug log (end) ==========\n\n")
+}
+
+func getDropletGUID(message string) (string, error) {
+	r := regexp.MustCompile(`Request.*droplets/(.*)`)
+	matches := r.FindStringSubmatch(message)
+	if len(matches) != 2 {
+		return "", fmt.Errorf("message does not match regex: %s", r.String())
+	}
+
+	return matches[1], nil
+}
+
+func printAllRoleBindings(config *rest.Config) {
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to create clientset: %v\n", err)
+		return
+	}
+
+	list, err := clientset.RbacV1().RoleBindings("").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("failed getting rolebindings: %v", err)
+		return
+	}
+
+	fmt.Fprint(GinkgoWriter, "\n\n========== Expected 404 debug log ==========\n\n")
+	for _, b := range list.Items {
+		fmt.Fprintf(GinkgoWriter, "Name: %s, Namespace: %s, RoleKind: %s, RoleName: %s, Subjects: \n",
+			b.Name, b.Namespace, b.RoleRef.Kind, b.RoleRef.Name)
+		for _, s := range b.Subjects {
+			fmt.Fprintf(GinkgoWriter, "\tKind: %s, Name: %s, Namespace: %s\n", s.Kind, s.Name, s.Namespace)
+		}
+	}
+	fmt.Fprint(GinkgoWriter, "\n\n========== Expected 404 debug log (end) ==========\n\n")
 }

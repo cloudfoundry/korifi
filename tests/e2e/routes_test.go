@@ -4,9 +4,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"os"
 
-	"code.cloudfoundry.org/korifi/tests/e2e/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -27,7 +26,7 @@ var _ = Describe("Routes", func() {
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
 
-		domainName = mustHaveEnv("APP_FQDN")
+		domainName = helpers.GetRequiredEnvVar("APP_FQDN")
 		domainGUID = getDomainGUID(domainName)
 
 		host = generateGUID("myapp")
@@ -71,7 +70,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is not authorized in the space", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				client = unprivilegedServiceAccountClient
 			})
 
 			It("returns a not found error", func() {
@@ -139,7 +138,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is not authorized in any space", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				client = unprivilegedServiceAccountClient
 			})
 
 			It("returns an empty list", func() {
@@ -177,7 +176,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user cannot access the space", func() {
 			BeforeEach(func() {
-				client = tokenClient
+				client = unprivilegedServiceAccountClient
 			})
 
 			It("returns an unprocessable entity error", func() {
@@ -316,15 +315,13 @@ var _ = Describe("Routes", func() {
 				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			Eventually(func(g Gomega) {
-				getRouteResp, err := client.R().Get("/v3/routes/" + routeGUID)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(getRouteResp).To(HaveRestyStatusCode(http.StatusNotFound))
-			}).Should(Succeed())
-		})
+			getRouteResp, err := client.R().Get("/v3/routes/" + routeGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getRouteResp).To(HaveRestyStatusCode(http.StatusNotFound))
 
-		It("frees up the deleted route's name for reuse", func() {
-			createRoute(host, path, spaceGUID, domainGUID)
+			By("freeing up the deleted route's name for reuse", func() {
+				createRoute(host, path, spaceGUID, domainGUID)
+			})
 		})
 	})
 
@@ -361,7 +358,7 @@ var _ = Describe("Routes", func() {
 
 		When("the user is a space developer in the space", func() {
 			BeforeEach(func() {
-				appGUID, _ = pushTestApp(spaceGUID, procfileAppBitsFile)
+				appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
 				createSpaceRole("space_developer", certUserName, spaceGUID)
 			})
 
@@ -381,13 +378,8 @@ var _ = Describe("Routes", func() {
 				Expect(result.Destinations).To(HaveLen(1))
 				Expect(result.Destinations[0].App.GUID).To(Equal(appGUID))
 
-				// This enables replacing the default app output via APP_BITS_PATH and APP_BITS_OUTPUT
-				expectedOutput, ok := os.LookupEnv("APP_BITS_OUTPUT")
-				if !ok {
-					expectedOutput = "hello-world"
-				}
-
-				Expect(resp.Body()).To(ContainSubstring(expectedOutput))
+				// This enables replacing the default app output via DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE
+				Expect(resp.Body()).To(ContainSubstring(helpers.GetDefaultedEnvVar("DEFAULT_APP_RESPONSE", "Hi, I'm Dorifi")))
 			})
 
 			When("an app from a different space is added", func() {

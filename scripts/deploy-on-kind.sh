@@ -5,6 +5,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="${ROOT_DIR}/scripts"
 
+LOCAL_DOCKER_REGISTRY_ADDRESS="localregistry-docker-registry.default.svc.cluster.local:30050"
+CLUSTER_NAME=""
+DEBUG="false"
+
 # workaround for https://github.com/carvel-dev/kbld/issues/213
 # kbld fails with git error messages in languages than other english
 export LC_ALL=en_US.UTF-8
@@ -15,15 +19,6 @@ Usage:
   $(basename "$0") <kind cluster name>
 
 flags:
-  -r, --use-custom-registry
-      Instead of using the default local registry, use the registry
-      described by the follow set of env vars:
-      - DOCKER_SERVER
-      - DOCKER_USERNAME
-      - DOCKER_PASSWORD
-      - REPOSITORY_PREFIX
-      - KPACK_BUILDER_REPOSITORY
-
   -v, --verbose
       Verbose output (bash -x).
 
@@ -40,68 +35,81 @@ EOF
   exit 1
 }
 
-cluster=""
-use_custom_registry=""
-debug=""
-use_registry_service_account=""
-
-while [[ $# -gt 0 ]]; do
-  i=$1
-  case $i in
-    -r | --use-custom-registry)
-      use_custom_registry="true"
-      # blow up if required vars not set
-      echo "$DOCKER_SERVER $DOCKER_USERNAME $DOCKER_PASSWORD $REPOSITORY_PREFIX $KPACK_BUILDER_REPOSITORY" >/dev/null
-      shift
-      ;;
-    -D | --debug)
-      debug="true"
-      shift
-      ;;
-    -v | --verbose)
-      set -x
-      shift
-      ;;
-    -s | --use-registry-service-account)
-      use_registry_service_account="true"
-      shift
-      ;;
-    -h | --help | help)
-      usage_text >&2
-      exit 0
-      ;;
-    *)
-      if [[ -n "${cluster}" ]]; then
-        echo -e "Error: Unexpected argument: ${i/=*/}\n" >&2
+function parse_cmdline_args() {
+  while [[ $# -gt 0 ]]; do
+    i=$1
+    case $i in
+      -D | --debug)
+        DEBUG="true"
+        shift
+        ;;
+      -v | --verbose)
+        set -x
+        shift
+        ;;
+      -h | --help | help)
         usage_text >&2
-        exit 1
-      fi
-      cluster=$1
-      shift
-      ;;
-  esac
-done
+        exit 0
+        ;;
+      *)
+        if [[ -n "$CLUSTER_NAME" ]]; then
+          echo -e "Error: Unexpected argument: ${i/=*/}\n" >&2
+          usage_text >&2
+          exit 1
+        fi
+        CLUSTER_NAME=$1
+        shift
+        ;;
+    esac
+  done
 
-if [[ -z "${cluster}" ]]; then
-  echo -e "Error: missing argument <kind cluster name>" >&2
-  usage_text >&2
-  exit 1
-fi
+  if [[ -z "$CLUSTER_NAME" ]]; then
+    echo -e "Error: missing argument <kind cluster name>" >&2
+    usage_text >&2
+    exit 1
+  fi
+}
 
-function ensure_kind_cluster() {
-  if ! kind get clusters | grep -q "${cluster}"; then
-    kind create cluster --name "${cluster}" --wait 5m --config="$SCRIPT_DIR/assets/kind-config.yaml"
+function install_yq() {
+  GOBIN="${ROOT_DIR}/bin" go install github.com/mikefarah/yq/v4@latest
+}
+
+function validate_registry_params() {
+  local registry_env_vars
+  registry_env_vars="\$DOCKER_SERVER \$DOCKER_USERNAME \$DOCKER_PASSWORD \$REPOSITORY_PREFIX \$KPACK_BUILDER_REPOSITORY"
+
+  if [ -z ${DOCKER_SERVER+x} ] &&
+    [ -z ${DOCKER_USERNAME+x} ] &&
+    [ -z ${DOCKER_PASSWORD+x} ] &&
+    [ -z ${REPOSITORY_PREFIX+x} ] &&
+    [ -z ${KPACK_BUILDER_REPOSITORY+x} ]; then
+
+    echo "None of $registry_env_vars are set. Assuming local registry."
+    DOCKER_SERVER="$LOCAL_DOCKER_REGISTRY_ADDRESS"
+    DOCKER_USERNAME="user"
+    DOCKER_PASSWORD="password"
+    REPOSITORY_PREFIX="$DOCKER_SERVER/"
+    KPACK_BUILDER_REPOSITORY="$DOCKER_SERVER/kpack-builder"
+
+    return
   fi
 
-  kind export kubeconfig --name "${cluster}"
+  echo "The following env vars should either be set together or none of them should be set: $registry_env_vars"
+  echo "$DOCKER_SERVER $DOCKER_USERNAME $DOCKER_PASSWORD $REPOSITORY_PREFIX $KPACK_BUILDER_REPOSITORY" >/dev/null
+}
+
+function ensure_kind_cluster() {
+  if ! kind get clusters | grep -q "$CLUSTER_NAME"; then
+    kind create cluster --name "$CLUSTER_NAME" --wait 5m --config="$SCRIPT_DIR/assets/kind-config.yaml"
+  fi
+
+  kind export kubeconfig --name "$CLUSTER_NAME"
 }
 
 function ensure_local_registry() {
-  if [[ -n "${use_custom_registry}" ]]; then return 0; fi
-
-  local sethtpasswd=('--set' 'secrets.htpasswd=user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2')
-  if [[ -n "${use_registry_service_account}" ]]; then
-    sethtpasswd=()
+  if [[ "$DOCKER_SERVER" != "$LOCAL_DOCKER_REGISTRY_ADDRESS" ]]; then
+    echo "Using custom registry. Skipping local docker registry deployment."
+    return
   fi
 
   helm repo add twuni https://helm.twun.io
@@ -111,16 +119,14 @@ function ensure_local_registry() {
     --set service.type=NodePort,service.nodePort=30050,service.port=30050 \
     --set persistence.enabled=true \
     --set persistence.deleteEnabled=true \
-    "${sethtpasswd[@]}"
+    --set secrets.htpasswd='user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2'
 
 }
 
 function install_dependencies() {
   pushd "${ROOT_DIR}" >/dev/null
   {
-    export INSECURE_TLS_METRICS_SERVER=true
-
-    "${SCRIPT_DIR}/install-dependencies.sh"
+    "${SCRIPT_DIR}/install-dependencies.sh" -i
   }
   popd >/dev/null
 }
@@ -135,17 +141,20 @@ function deploy_korifi() {
       make generate manifests
 
       kbld_file="scripts/assets/korifi-kbld.yml"
-      if [[ -n "$debug" ]]; then
+      if [[ "$DEBUG" == "true" ]]; then
         kbld_file="scripts/assets/korifi-debug-kbld.yml"
       fi
 
-      kbld \
-        -f "$kbld_file" \
-        -f "scripts/assets/values-template.yaml" \
-        --images-annotation=false >"scripts/assets/values.yaml"
+      VERSION=$(git describe --tags | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}')
+
+      "${ROOT_DIR}/bin/yq" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
+        kbld \
+          --images-annotation=false \
+          -f "scripts/assets/values-template.yaml" \
+          -f - >"scripts/assets/values.yaml"
 
       awk '/image:/ {print $2}' scripts/assets/values.yaml | while read -r img; do
-        kind load docker-image --name "$cluster" "$img"
+        kind load docker-image --name "$CLUSTER_NAME" "$img"
       done
 
       host_ip="$(curl -s ipecho.net/plain)"
@@ -156,112 +165,64 @@ function deploy_korifi() {
     echo "Deploying korifi..."
     helm dependency update helm/korifi
 
-    doDebug="false"
-    if [[ -n "${debug}" ]]; then
-      doDebug="true"
-    fi
-
     clusterDomain="$(docker network inspect -f '{{json .IPAM.Config}}' bridge | jq -r ".[0].Gateway").nip.io"
     apiServerUrl="api.$clusterDomain"
     logcacheUrl="logcache.$clusterDomain"
-    if [[ -n "$use_custom_registry" ]]; then
-      helm upgrade --install korifi helm/korifi \
-        --namespace korifi \
-        --values=scripts/assets/values.yaml \
-        --set=global.debug="$doDebug" \
-        --set=api.apiServer.url="$apiServerUrl" \
-        --set=api.logcache.url="$logcacheUrl" \
-        --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
-        --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
-        --wait
-    else
-      registry_configuration=()
-      if [[ -n "${use_registry_service_account}" ]]; then
-        registry_configuration=(
-          '--set' 'global.containerRegistryServiceAccount="registry-service-account"'
-        )
-      fi
-
-      helm upgrade --install korifi helm/korifi \
-        --namespace korifi \
-        --values=scripts/assets/values.yaml \
-        --set=global.debug="$doDebug" \
-        --set=api.apiServer.url="$apiServerUrl" \
-        --set=api.logcache.url="$logcacheUrl" \
-        ${registry_configuration[@]-} \
-        --wait
-    fi
+    helm upgrade --install korifi helm/korifi \
+      --namespace korifi \
+      --values=scripts/assets/values.yaml \
+      --set=global.debug="$DEBUG" \
+      --set=api.apiServer.url="$apiServerUrl" \
+      --set=api.logcache.url="$logcacheUrl" \
+      --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
+      --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+      --wait
   }
   popd >/dev/null
 }
 
 function create_namespaces() {
-  if [[ -n "${debug}" ]]; then
-    for ns in cf korifi; do
-      cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: $ns
-EOF
-    done
-  else
-    for ns in cf korifi; do
-      cat <<EOF | kubectl apply -f -
+  local security_policy
+
+  security_policy="restricted"
+  for ns in cf korifi; do
+    cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: $security_policy
+    pod-security.kubernetes.io/enforce: $security_policy
   name: $ns
 EOF
-    done
-  fi
-
-  if [[ -z "${use_custom_registry}" ]]; then
-    DOCKER_SERVER="localregistry-docker-registry.default.svc.cluster.local:30050"
-    DOCKER_USERNAME="user"
-    DOCKER_PASSWORD="password"
-  fi
-
-  if [[ -n "${DOCKER_SERVER:=}" && -n "${DOCKER_USERNAME:=}" && -n "${DOCKER_PASSWORD:=}" ]]; then
-    if kubectl get -n cf secret image-registry-credentials >/dev/null 2>&1; then
-      kubectl delete -n cf secret image-registry-credentials
-    fi
-
-    kubectl create secret -n cf docker-registry image-registry-credentials \
-      --docker-server=${DOCKER_SERVER} \
-      --docker-username=${DOCKER_USERNAME} \
-      --docker-password="${DOCKER_PASSWORD}"
-  fi
+  done
 }
 
-function create_registry_service_account() {
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations:
-    cloudfoundry.org/propagate-service-account: "true"
-  name: registry-service-account
-  namespace: cf
-EOF
+function create_registry_secret() {
+  local docker_server="$DOCKER_SERVER"
 
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: registry-service-account
-  namespace: korifi
-EOF
+  # docker hub is very picky about its server name
+  if [ "$docker_server" == "" ] || [ "$docker_server" == "index.docker.io" ]; then
+    docker_server="https://index.docker.io/v1/"
+  fi
+
+  kubectl delete -n cf secret image-registry-credentials --ignore-not-found
+  kubectl create secret -n cf docker-registry image-registry-credentials \
+    --docker-server="$docker_server" \
+    --docker-username="$DOCKER_USERNAME" \
+    --docker-password="$DOCKER_PASSWORD"
 }
 
-ensure_kind_cluster "${cluster}"
-ensure_local_registry
-install_dependencies
-create_namespaces
-if [[ -n "${use_registry_service_account}" ]]; then
-  create_registry_service_account
-fi
-deploy_korifi
+function main() {
+  parse_cmdline_args "$@"
+  install_yq
+  validate_registry_params
+  ensure_kind_cluster "$CLUSTER_NAME"
+  ensure_local_registry
+  install_dependencies
+  create_namespaces
+  create_registry_secret
+  deploy_korifi
+}
+
+main "$@"

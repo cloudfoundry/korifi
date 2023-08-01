@@ -2,4 +2,4 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-NON_RECURSIVE_TEST=true $SCRIPT_DIR/run-tests.sh $@
+NO_COVERAGE=true NON_RECURSIVE_TEST=true $SCRIPT_DIR/run-tests.sh $@
