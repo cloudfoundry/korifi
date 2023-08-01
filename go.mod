@@ -28,7 +28,7 @@ require (
 	github.com/onsi/gomega v1.27.10
 	github.com/pivotal/kpack v0.11.2
 	github.com/projectcontour/contour v1.25.2
-	github.com/servicebinding/runtime v0.3.1-0.20230606135102-748e4c252c2c
+	github.com/servicebinding/runtime v0.4.0
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	golang.org/x/text v0.11.0
 	gopkg.in/square/go-jose.v2 v2.6.0
