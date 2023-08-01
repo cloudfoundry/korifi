@@ -6,22 +6,22 @@ directories:
       url: https://api.github.com/repos/buildpacks-community/kpack/releases/111436159
     path: kpack
   - githubRelease:
-      tag: v0.3.0
-      url: https://api.github.com/repos/servicebinding/runtime/releases/91631479
+      tag: v0.4.0
+      url: https://api.github.com/repos/servicebinding/runtime/releases/114028583
     path: service-binding
   - githubRelease:
       tag: v0.6.4
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/113485257
     path: metrics-server-local
   - githubRelease:
-      tag: v1.12.2
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/108869090
+      tag: v1.12.3
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/113661979
     path: cert-manager
   - git:
-      commitTitle: Update Contour Docker image to v1.25.0....
-      sha: 29304312ceca63b8dfbb6c359dcc5cf006e868cc
+      commitTitle: Update Contour Docker image to v1.25.2....
+      sha: c9df5407beac6d6b6e6ed4900a5ad9205bdb77b2
       tags:
-      - v1.25.0
+      - v1.25.2
     path: contour
   path: vendor
 kind: LockConfig

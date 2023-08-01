@@ -23,8 +23,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.1
   name: clusterworkloadresourcemappings.servicebinding.io
 spec:
   group: servicebinding.io
@@ -243,8 +242,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.1
   name: servicebindings.servicebinding.io
 spec:
   group: servicebinding.io
@@ -849,7 +847,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: servicebinding-manager-role
 rules:
 - apiGroups:
@@ -1063,8 +1060,8 @@ metadata:
         url: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
       - origins:
         - preresolved:
-            url: ghcr.io/servicebinding/runtime/bundle@sha256:445b7ea9774fe71d2b6dc0d5dbe423fa37967cd9163627077030414bfc25f055
-        url: ghcr.io/servicebinding/runtime/bundle@sha256:445b7ea9774fe71d2b6dc0d5dbe423fa37967cd9163627077030414bfc25f055
+            url: ghcr.io/servicebinding/runtime/bundle@sha256:971bc1766c3ae2cb7ff17eb5eb7c25a84198220c39f89be8017cb6431bcb0540
+        url: ghcr.io/servicebinding/runtime/bundle@sha256:971bc1766c3ae2cb7ff17eb5eb7c25a84198220c39f89be8017cb6431bcb0540
   labels:
     control-plane: controller-manager
   name: servicebinding-controller-manager
@@ -1086,7 +1083,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
-        image: ghcr.io/servicebinding/runtime/bundle@sha256:445b7ea9774fe71d2b6dc0d5dbe423fa37967cd9163627077030414bfc25f055
+        image: ghcr.io/servicebinding/runtime/bundle@sha256:971bc1766c3ae2cb7ff17eb5eb7c25a84198220c39f89be8017cb6431bcb0540
         livenessProbe:
           httpGet:
             path: /healthz
