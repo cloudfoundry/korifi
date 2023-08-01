@@ -415,8 +415,8 @@ github.com/rogpeppe/go-internal v1.11.0 h1:cWPaGQEPrBb5/AsnsZesgZZ9yb1OQ+GOISoDN
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/sclevine/spec v1.4.0 h1:z/Q9idDcay5m5irkZ28M7PtQM4aOISzOpj4bUPkDee8=
 github.com/sergi/go-diff v1.2.0 h1:XU+rvMAioB0UC3q1MFrIQy4Vo5/4VsRDQQXHsEya6xQ=
-github.com/servicebinding/runtime v0.3.1-0.20230606135102-748e4c252c2c h1:ih9JMYfU9E+ST3dGz8vht1XC+0BCZyli1OhUvsiNXPA=
-github.com/servicebinding/runtime v0.3.1-0.20230606135102-748e4c252c2c/go.mod h1:wllrxbU4tH2L8svIEzbwaRfMHTZvL6rkAGv57SRr2d8=
+github.com/servicebinding/runtime v0.4.0 h1:k56caI9BacMWSoMk+vWoD7QPlE3P4gCgt6p5GUdBk94=
+github.com/servicebinding/runtime v0.4.0/go.mod h1:1upml5DZ7qaGsu91SL266T9oVldj85pFRTfY+2UL0gA=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.9.0/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
