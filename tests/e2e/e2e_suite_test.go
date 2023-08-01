@@ -741,40 +741,6 @@ func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
 	return serviceCredentialBinding.GUID
 }
 
-func addServiceBindingLabels(bindingGUID string, labels map[string]string) {
-	GinkgoHelper()
-
-	addLabels("/v3/service_credential_bindings/"+bindingGUID, labels)
-}
-
-func addServiceInstanceLabels(serviceInstanceGUID string, labels map[string]string) {
-	GinkgoHelper()
-
-	addLabels("/v3/service_instances/"+serviceInstanceGUID, labels)
-}
-
-func addAppLabels(appGUID string, labels map[string]string) {
-	GinkgoHelper()
-
-	addLabels("/v3/apps/"+appGUID, labels)
-}
-
-func addLabels(resourcePath string, labels map[string]string) {
-	GinkgoHelper()
-
-	var respResource responseResource
-	resp, err := adminClient.R().
-		SetBody(metadataResource{
-			Metadata: &metadataPatch{
-				Labels: &labels,
-			},
-		}).
-		SetResult(&respResource).
-		Patch(resourcePath)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-}
-
 func getServiceBindingsForApp(appGUID string) []resource {
 	GinkgoHelper()
 
@@ -1054,45 +1020,6 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 	}
 
 	return destinationGUIDs
-}
-
-func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) {
-	GinkgoHelper()
-
-	Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
-	Expect(errResp.Errors).To(ConsistOf(
-		cfErr{
-			Detail: resource + " not found. Ensure it exists and you have access to it.",
-			Title:  "CF-ResourceNotFound",
-			Code:   10010,
-		},
-	))
-}
-
-func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
-	GinkgoHelper()
-
-	Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
-	Expect(errResp.Errors).To(ConsistOf(
-		cfErr{
-			Detail: "You are not authorized to perform the requested action",
-			Title:  "CF-NotAuthorized",
-			Code:   10003,
-		},
-	))
-}
-
-func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail string) {
-	GinkgoHelper()
-
-	Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-	Expect(errResp.Errors).To(ConsistOf(
-		cfErr{
-			Detail: detail,
-			Title:  "CF-UnprocessableEntity",
-			Code:   10008,
-		},
-	))
 }
 
 func commonTestSetup() {
