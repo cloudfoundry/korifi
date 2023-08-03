@@ -38,15 +38,11 @@ func ForRoot(baseURL url.URL, uaaUrl string) RootResponse {
 			},
 			"network_policy_v0": nil,
 			"network_policy_v1": nil,
-			"login": {
-				Link: Link{
-					HRef: buildURL(baseURL).build(),
-				},
-			},
-			"uaa":     {Link: Link{HRef: uaaUrl}},
-			"credhub": nil,
-			"routing": nil,
-			"logging": nil,
+			"login":             {Link: Link{HRef: uaaUrl}},
+			"uaa":               {Link: Link{HRef: uaaUrl}},
+			"credhub":           nil,
+			"routing":           nil,
+			"logging":           nil,
 			"log_cache": {
 				Link: Link{
 					HRef: buildURL(baseURL).build(),
