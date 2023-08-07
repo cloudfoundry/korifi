@@ -39,7 +39,7 @@ require (
 	k8s.io/metrics v0.27.4
 	k8s.io/pod-security-admission v0.27.4
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
-	sigs.k8s.io/controller-runtime v0.15.0
+	sigs.k8s.io/controller-runtime v0.15.1
 	sigs.k8s.io/controller-tools v0.12.1
 )
 
