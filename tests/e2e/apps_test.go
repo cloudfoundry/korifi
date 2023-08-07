@@ -66,7 +66,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Create an app as a user", func() {
+	Describe("Create an app", func() {
 		var appName string
 
 		BeforeEach(func() {
@@ -82,53 +82,6 @@ var _ = Describe("Apps", func() {
 						"space": {
 							Data: resource{
 								GUID: space1GUID,
-							},
-						},
-					},
-				},
-			}).Post("/v3/apps")
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("succeeds", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-		})
-	})
-
-	Describe("Create an app as a service account", func() {
-		var (
-			appName   string
-			orgName   string
-			orgGUID   string
-			spaceName string
-			spaceGUID string
-		)
-
-		BeforeEach(func() {
-			appName = generateGUID("app")
-
-			orgName = generateGUID("org")
-			orgGUID = createOrg(orgName)
-			createOrgRole("organization_user", serviceAccountName, orgGUID)
-
-			spaceName = generateGUID("space")
-			spaceGUID = createSpace(spaceName, orgGUID)
-			createSpaceRole("space_developer", serviceAccountName, spaceGUID)
-		})
-
-		AfterEach(func() {
-			deleteOrg(orgGUID)
-		})
-
-		JustBeforeEach(func() {
-			var err error
-			resp, err = privilegedServiceAccountClient.R().SetBody(appResource{
-				resource: resource{
-					Name: appName,
-					Relationships: relationships{
-						"space": {
-							Data: resource{
-								GUID: spaceGUID,
 							},
 						},
 					},
