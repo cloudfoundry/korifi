@@ -66,3 +66,14 @@ func (f *ServiceAccountFactory) CreateServiceAccount(name string) string {
 
 	return string(serviceAccountSecret.Data[corev1.ServiceAccountTokenKey])
 }
+
+func (f *ServiceAccountFactory) DeleteServiceAccount(name string) {
+	GinkgoHelper()
+
+	Expect(f.k8sClient.Delete(context.Background(), &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: f.rootNamespace,
+			Name:      name,
+		},
+	})).To(Succeed())
+}
