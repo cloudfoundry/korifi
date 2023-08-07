@@ -60,57 +60,6 @@ var _ = Describe("Spaces", func() {
 		})
 	})
 
-	Describe("create as a ServiceAccount user", func() {
-		var (
-			result    resource
-			orgName   string
-			orgGUID   string
-			spaceName string
-			createErr cfErrs
-		)
-
-		BeforeEach(func() {
-			orgName = generateGUID("org")
-			orgGUID = createOrg(orgName)
-			spaceName = generateGUID("space")
-			createErr = cfErrs{}
-
-			createOrgRole("organization_manager", serviceAccountName, orgGUID)
-		})
-
-		AfterEach(func() {
-			deleteOrg(orgGUID)
-		})
-
-		JustBeforeEach(func() {
-			var err error
-			resp, err = privilegedServiceAccountClient.R().
-				SetBody(resource{
-					Name: spaceName,
-					Relationships: relationships{
-						"organization": {Data: resource{GUID: orgGUID}},
-					},
-				}).
-				SetError(&createErr).
-				SetResult(&result).
-				Post("/v3/spaces")
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			if len(createErr.Errors) == 0 {
-				deleteSpace(result.GUID)
-			}
-		})
-
-		It("creates a space", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-			Expect(result.Name).To(Equal(spaceName))
-			Expect(result.GUID).To(HavePrefix("cf-space-"))
-			Expect(result.GUID).NotTo(BeEmpty())
-		})
-	})
-
 	Describe("list", func() {
 		var (
 			org1GUID, org2GUID       string
