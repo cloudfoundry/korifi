@@ -12,7 +12,7 @@ import (
 
 var Always types.GomegaMatcher = gomega.ContainSubstring("")
 
-func New(name string, hooks map[types.GomegaMatcher]func(config *rest.Config)) func(message string, callerSkip ...int) {
+func New(name string, hooks map[types.GomegaMatcher]func(config *rest.Config, message string)) func(message string, callerSkip ...int) {
 	config, err := controllerruntime.GetConfig()
 	if err != nil {
 		panic(err)
@@ -40,7 +40,7 @@ func New(name string, hooks map[types.GomegaMatcher]func(config *rest.Config)) f
 			}
 
 			if matchingMessage {
-				hook(config)
+				hook(config, message)
 			}
 		}
 	}
