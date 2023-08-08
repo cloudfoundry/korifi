@@ -37,8 +37,8 @@ var (
 )
 
 func TestSmoke(t *testing.T) {
-	RegisterFailHandler(fail_handler.New("Smoke Tests", map[gomegatypes.GomegaMatcher]func(*rest.Config){
-		fail_handler.Always: func(config *rest.Config) {
+	RegisterFailHandler(fail_handler.New("Smoke Tests", map[gomegatypes.GomegaMatcher]func(*rest.Config, string){
+		fail_handler.Always: func(config *rest.Config, _ string) {
 			_, _ = runCfCmd("apps")
 			printCfApp(config)
 			fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{

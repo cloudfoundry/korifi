@@ -278,8 +278,8 @@ type cfErr struct {
 }
 
 func TestE2E(t *testing.T) {
-	RegisterFailHandler(fail_handler.New("E2E Tests", map[types.GomegaMatcher]func(*rest.Config){
-		fail_handler.Always: func(config *rest.Config) {
+	RegisterFailHandler(fail_handler.New("E2E Tests", map[types.GomegaMatcher]func(*rest.Config, string){
+		fail_handler.Always: func(config *rest.Config, _ string) {
 			fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
 				{
 					Namespace:     systemNamespace(),
@@ -296,10 +296,10 @@ func TestE2E(t *testing.T) {
 				},
 			})
 		},
-		ContainSubstring("Droplet not found"): func(config *rest.Config) {
-			printDropletNotFoundDebugInfo(config)
+		ContainSubstring("Droplet not found"): func(config *rest.Config, message string) {
+			printDropletNotFoundDebugInfo(config, message)
 		},
-		ContainSubstring("404"): func(config *rest.Config) {
+		ContainSubstring("404"): func(config *rest.Config, _ string) {
 			printAllRoleBindings(config)
 		},
 	}))
@@ -1112,7 +1112,7 @@ func getCorrelationId() string {
 	return correlationId
 }
 
-func printDropletNotFoundDebugInfo(config *rest.Config) {
+func printDropletNotFoundDebugInfo(config *rest.Config, message string) {
 	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet not found debug log (start) ==========\n")
 
 	fmt.Fprint(GinkgoWriter, "\n========== Kpack logs ==========\n")
@@ -1129,7 +1129,7 @@ func printDropletNotFoundDebugInfo(config *rest.Config) {
 		},
 	})
 
-	dropletGUID, err := getDropletGUID(CurrentSpecReport().FailureMessage())
+	dropletGUID, err := getDropletGUID(message)
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "Failed to get droplet GUID from message %v\n", err)
 		return
