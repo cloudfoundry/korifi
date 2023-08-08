@@ -9,8 +9,8 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
+	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
 )
 
 type ServiceAccountFactory struct {
