@@ -2,6 +2,8 @@ module code.cloudfoundry.org/korifi
 
 go 1.19
 
+replace sigs.k8s.io/controller-runtime v0.15.1 => sigs.k8s.io/controller-runtime v0.15.0
+
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
