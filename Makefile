@@ -70,7 +70,7 @@ test-smoke: build-dorifi
 
 
 build-dorifi:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dorifi/dorifi -C tests/assets/golang .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C tests/assets/golang -o ../dorifi/dorifi .
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:
