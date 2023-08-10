@@ -49,7 +49,6 @@ api:
       diskMB: 0
       buildCacheMB: 2048
 
-  builderName: kpack-image-builder
   userCertificateExpirationWarningDuration: 168h
 
   authProxy:
