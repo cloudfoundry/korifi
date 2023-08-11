@@ -18,7 +18,7 @@ data:
     defaultLifecycleConfig:
       type: {{ .Values.api.lifecycle.type }}
       stack: {{ .Values.api.lifecycle.stack }}
-      stagingMemoryMB: {{ .Values.api.lifecycle.stagingRequirements.memoryMB }}
+      stagingMemoryMB: {{ .Values.stagingRequirements.memoryMB }}
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     {{- if not .Values.global.eksContainerRegistryRoleARN }}
     {{- if .Values.global.containerRegistrySecrets }}

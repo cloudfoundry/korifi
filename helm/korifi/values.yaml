@@ -14,6 +14,10 @@ global:
     run: statefulset-runner
 
 adminUserName:
+stagingRequirements:
+  memoryMB: 0
+  diskMB: 0
+  buildCacheMB: 2048
 
 api:
   include: true
@@ -44,10 +48,6 @@ api:
   lifecycle:
     type: buildpack
     stack: cflinuxfs3
-    stagingRequirements:
-      memoryMB: 0
-      diskMB: 0
-      buildCacheMB: 2048
 
   userCertificateExpirationWarningDuration: 168h
 
