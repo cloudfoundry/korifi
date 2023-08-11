@@ -47,9 +47,9 @@ data:
     containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
     builderServiceAccount: kpack-service-account
     cfStagingResources:
-      buildCacheMB: {{ .Values.api.lifecycle.stagingRequirements.buildCacheMB }}
-      diskMB: {{ .Values.api.lifecycle.stagingRequirements.diskMB }}
-      memoryMB: {{ .Values.api.lifecycle.stagingRequirements.memoryMB }}
+      buildCacheMB: {{ .Values.stagingRequirements.buildCacheMB }}
+      diskMB: {{ .Values.stagingRequirements.diskMB }}
+      memoryMB: {{ .Values.stagingRequirements.memoryMB }}
     {{- if .Values.global.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}

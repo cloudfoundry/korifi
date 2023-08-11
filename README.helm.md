@@ -41,10 +41,6 @@ Here are all the values that can be set for the chart:
   - `include` (_Boolean_): Deploy the API component.
   - `lifecycle`: Default lifecycle for apps.
     - `stack` (_String_): Stack.
-    - `stagingRequirements`:
-      - `buildCacheMB` (_Integer_): Persistent disk in MB for caching staging artifacts across builds.
-      - `diskMB` (_Integer_): Ephemeral Disk request in MB for staging apps.
-      - `memoryMB` (_Integer_): Memory request in MB for staging.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
@@ -105,6 +101,10 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
+- `stagingRequirements`:
+  - `buildCacheMB` (_Integer_): Persistent disk in MB for caching staging artifacts across builds.
+  - `diskMB` (_Integer_): Ephemeral Disk request in MB for staging apps.
+  - `memoryMB` (_Integer_): Memory request in MB for staging.
 - `statefulsetRunner`:
   - `include` (_Boolean_): Deploy the `statefulset-runner` component.
   - `replicas` (_Integer_): Number of replicas.

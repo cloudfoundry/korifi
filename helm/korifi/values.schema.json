@@ -5,6 +5,24 @@
       "description": "Name of the admin user that will be bound to the Cloud Foundry Admin role.",
       "type": "string"
     },
+    "stagingRequirements": {
+      "type": "object",
+      "properties": {
+        "memoryMB": {
+          "description": "Memory request in MB for staging.",
+          "type": "integer"
+        },
+        "diskMB": {
+          "description": "Ephemeral Disk request in MB for staging apps.",
+          "type": "integer"
+        },
+        "buildCacheMB": {
+          "description": "Persistent disk in MB for caching staging artifacts across builds.",
+          "type": "integer"
+        }
+      },
+      "required": ["memoryMB", "diskMB", "buildCacheMB"]
+    },
     "global": {
       "description": "Global values that are shared between Korifi and its subcharts.",
       "properties": {
@@ -179,27 +197,9 @@
             "stack": {
               "description": "Stack.",
               "type": "string"
-            },
-            "stagingRequirements": {
-              "type": "object",
-              "properties": {
-                "memoryMB": {
-                  "description": "Memory request in MB for staging.",
-                  "type": "integer"
-                },
-                "diskMB": {
-                  "description": "Ephemeral Disk request in MB for staging apps.",
-                  "type": "integer"
-                },
-                "buildCacheMB": {
-                  "description": "Persistent disk in MB for caching staging artifacts across builds.",
-                  "type": "integer"
-                }
-              },
-              "required": ["memoryMB", "diskMB", "buildCacheMB"]
             }
           },
-          "required": ["type", "stack", "stagingRequirements"]
+          "required": ["type", "stack"]
         },
         "userCertificateExpirationWarningDuration": {
           "description": "Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.",
@@ -516,6 +516,7 @@
   "required": [
     "global",
     "adminUserName",
+    "stagingRequirements",
     "api",
     "controllers",
     "kpackImageBuilder",

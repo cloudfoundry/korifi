@@ -1,4 +1,6 @@
 adminUserName: cf-admin
+stagingRequirements:
+  buildCacheMB: 1024
 
 global:
   defaultAppDomainName: apps-127-0-0-1.nip.io
@@ -9,9 +11,6 @@ api:
   apiServer:
     url: localhost
   image: cloudfoundry/korifi-api:latest
-  lifecycle:
-    stagingRequirements:
-      buildCacheMB: 1024
 
 
 controllers:
