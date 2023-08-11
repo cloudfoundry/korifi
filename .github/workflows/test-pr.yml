@@ -23,7 +23,7 @@ jobs:
           ${{ runner.os }}-go-
     - uses: actions/setup-go@v4
       with:
-        go-version: 'stable'
+        go-version: '1.20.7'
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
     - name: staticcheck
@@ -48,7 +48,7 @@ jobs:
 
     - uses: actions/setup-go@v4
       with:
-        go-version: 'stable'
+        go-version: '1.20.7'
 
     - name: Run API unit tests
       run: make -C api test
@@ -70,7 +70,7 @@ jobs:
 
     - uses: actions/setup-go@v4
       with:
-        go-version: 'stable'
+        go-version: '1.20.7'
 
     - name: Run Controllers tests
       run: make -C controllers test
@@ -92,7 +92,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: 'stable'
+          go-version: '1.20.7'
 
       - name: Run job-task-runner tests
         run: make -C job-task-runner test
@@ -114,7 +114,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: 'stable'
+          go-version: '1.20.7'
 
       - name: Run kpack-image-builder tests
         run: make -C kpack-image-builder test
@@ -136,7 +136,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: 'stable'
+          go-version: '1.20.7'
 
       - name: Run statefulset-runner tests
         run: make -C statefulset-runner test
@@ -158,7 +158,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: 'stable'
+          go-version: '1.20.7'
 
       - name: Run tools tests
         run: make -C tools test
