@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -119,12 +121,11 @@ var _ = Describe("Orgs", func() {
 		// that gets called by the CLI on each login.
 		When("The client has a certificate with a long expiry date", func() {
 			BeforeEach(func() {
-				if longCertPEM == "" {
-					Skip("No certificate with a long expiry date provided")
-				}
-				restyClient = longCertClient
-				createOrgRole("organization_manager", longCertUserName, org2GUID)
+				userName := uuid.NewString()
+				restyClient = makeCertClientForUserName(userName, 365*24*time.Hour)
+				createOrgRole("organization_manager", userName, org2GUID)
 			})
+
 			It("returns orgs that the client has a role in and sets an HTTP warning header", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(resp).To(HaveRestyHeaderWithValue("X-Cf-Warnings", HavePrefix("Warning: The client certificate you provided for user authentication expires at")))

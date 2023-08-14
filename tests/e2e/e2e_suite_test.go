@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,20 +39,11 @@ import (
 var (
 	correlationId string
 
-	adminClient                    *helpers.CorrelatedRestyClient
-	privilegedServiceAccountClient *helpers.CorrelatedRestyClient
-	longCertClient                 *helpers.CorrelatedRestyClient
+	serviceAccountFactory *helpers.ServiceAccountFactory
+	adminServiceAccount   string
+	adminClient           *helpers.CorrelatedRestyClient
 
 	apiServerRoot string
-
-	serviceAccountName  string
-	serviceAccountToken string
-
-	certUserName string
-	certPEM      string
-
-	longCertUserName string
-	longCertPEM      string
 
 	rootNamespace           string
 	appFQDN                 string
@@ -307,14 +299,22 @@ func TestE2E(t *testing.T) {
 }
 
 type sharedSetupData struct {
-	CommonOrgName           string `json:"commonOrgName"`
-	CommonOrgGUID           string `json:"commonOrgGuid"`
-	DefaultAppBitsFile      string `json:"defaultAppBitsFile"`
-	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
+	CommonOrgName            string `json:"commonOrgName"`
+	CommonOrgGUID            string `json:"commonOrgGuid"`
+	DefaultAppBitsFile       string `json:"defaultAppBitsFile"`
+	MultiProcessAppBitsFile  string `json:"multiProcessAppBitsFile"`
+	AdminServiceAccount      string `json:"admin_service_account"`
+	AdminServiceAccountToken string `json:"admin_service_account_token"`
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestSetup()
+
+	adminServiceAccount = uuid.NewString()
+	adminServiceAccountToken := serviceAccountFactory.CreateAdminServiceAccount(adminServiceAccount)
+
+	adminClient = makeTokenClient(adminServiceAccountToken)
+
 	commonTestOrgName = generateGUID("common-test-org")
 	commonTestOrgGUID = createOrg(commonTestOrgName)
 
@@ -329,8 +329,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
 		// with a different app in these environments.
 		// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-		DefaultAppBitsFile:      zipAsset(helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
-		MultiProcessAppBitsFile: zipAsset("../assets/multi-process"),
+		DefaultAppBitsFile:       zipAsset(helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
+		MultiProcessAppBitsFile:  zipAsset("../assets/multi-process"),
+		AdminServiceAccount:      adminServiceAccount,
+		AdminServiceAccountToken: adminServiceAccountToken,
 	}
 
 	bs, err := json.Marshal(sharedData)
@@ -338,6 +340,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	return bs
 }, func(bs []byte) {
+	commonTestSetup()
+
 	var sharedSetup sharedSetupData
 	err := json.Unmarshal(bs, &sharedSetup)
 	Expect(err).NotTo(HaveOccurred())
@@ -346,46 +350,44 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgName = sharedSetup.CommonOrgName
 	defaultAppBitsFile = sharedSetup.DefaultAppBitsFile
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
+	adminServiceAccount = sharedSetup.AdminServiceAccount
+	adminClient = makeTokenClient(sharedSetup.AdminServiceAccountToken)
 
-	eventuallyTimeoutSeconds := 240
-	customEventuallyTimeoutSeconds := os.Getenv("E2E_EVENTUALLY_TIMEOUT_SECONDS")
-	if customEventuallyTimeoutSeconds != "" {
-		eventuallyTimeoutSeconds, err = strconv.Atoi(customEventuallyTimeoutSeconds)
-		Expect(err).NotTo(HaveOccurred())
-	}
-	SetDefaultEventuallyTimeout(time.Duration(eventuallyTimeoutSeconds) * time.Second)
+	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	commonTestSetup()
 })
 
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
 	os.RemoveAll(assetsTmpDir)
 	deleteOrg(commonTestOrgGUID)
+	serviceAccountFactory.DeleteServiceAccount(adminServiceAccount)
 })
 
 var _ = BeforeEach(func() {
 	correlationId = uuid.NewString()
 })
 
-func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
+func makeCertClientForUserName(userName string, validFor time.Duration) *helpers.CorrelatedRestyClient {
 	GinkgoHelper()
 
-	cert := os.Getenv(certEnvVar)
-	if cert != "" {
-		return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(cert).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	if os.Getenv("CLUSTER_TYPE") == "EKS" {
+		Skip("EKS does not support cert users: https://github.com/aws/containers-roadmap/issues/1604#issuecomment-1072660824")
 	}
 
-	token := os.Getenv(tokenEnvVar)
-	if token != "" {
-		return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(token).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	}
+	return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).
+		SetAuthScheme("ClientCert").
+		SetAuthToken(base64.StdEncoding.EncodeToString(helpers.CreateTrustedCertificatePEM(userName, validFor))).
+		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+}
 
-	Fail(fmt.Sprintf("One of %q or %q should have a value, but they are both empty", certEnvVar, tokenEnvVar))
-	return nil
+func makeTokenClient(token string) *helpers.CorrelatedRestyClient {
+	return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).
+		SetAuthScheme("Bearer").
+		SetAuthToken(token).
+		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }
 
 func ensureServerIsUp() {
@@ -1025,14 +1027,6 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 func commonTestSetup() {
 	apiServerRoot = helpers.GetRequiredEnvVar("API_SERVER_ROOT")
 	rootNamespace = helpers.GetRequiredEnvVar("ROOT_NAMESPACE")
-	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT"))
-	serviceAccountToken = helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT_TOKEN")
-
-	longCertUserName = helpers.GetRequiredEnvVar("E2E_LONGCERT_USER_NAME")
-	longCertPEM = os.Getenv("E2E_LONGCERT_USER_PEM")
-
-	certUserName = helpers.GetRequiredEnvVar("E2E_USER_NAME")
-	certPEM = os.Getenv("E2E_USER_PEM")
 
 	appFQDN = helpers.GetRequiredEnvVar("APP_FQDN")
 
@@ -1041,9 +1035,7 @@ func commonTestSetup() {
 
 	ensureServerIsUp()
 
-	adminClient = makeClient("CF_ADMIN_PEM", "CF_ADMIN_TOKEN")
-	privilegedServiceAccountClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	serviceAccountFactory = helpers.NewServiceAccountFactory(rootNamespace)
 }
 
 func zipAsset(src string) string {

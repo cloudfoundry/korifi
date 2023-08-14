@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"crypto/tls"
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
@@ -13,9 +12,6 @@ import (
 
 var _ = Describe("Authorization", func() {
 	var (
-		serviceaccountFactory *helpers.ServiceAccountFactory
-		svcAcctName           string
-
 		userName   string
 		userClient *helpers.CorrelatedRestyClient
 
@@ -24,18 +20,12 @@ var _ = Describe("Authorization", func() {
 	)
 
 	BeforeEach(func() {
-		serviceaccountFactory = helpers.NewServiceAccountFactory(rootNamespace)
-		svcAcctName = uuid.NewString()
-
-		userName = "system:serviceaccount:cf:" + svcAcctName
-		userToken := serviceaccountFactory.CreateServiceAccount(svcAcctName)
-		userClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).
-			SetAuthToken(userToken).
-			SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+		userName = uuid.NewString()
+		userClient = makeTokenClient(serviceAccountFactory.CreateServiceAccount(userName))
 	})
 
 	AfterEach(func() {
-		serviceaccountFactory.DeleteServiceAccount(svcAcctName)
+		serviceAccountFactory.DeleteServiceAccount(userName)
 	})
 
 	Describe("Unauthorized users", func() {
@@ -77,11 +67,11 @@ var _ = Describe("Authorization", func() {
 		BeforeEach(func() {
 			orgName := generateGUID("org")
 			orgGUID = createOrg(orgName)
-			createOrgRole("organization_user", userName, orgGUID)
+			createOrgRole("organization_user", serviceAccountFactory.FullyQualifiedName(userName), orgGUID)
 
 			spaceName := generateGUID("space")
 			spaceGUID = createSpace(spaceName, orgGUID)
-			createSpaceRole("space_developer", userName, spaceGUID)
+			createSpaceRole("space_developer", serviceAccountFactory.FullyQualifiedName(userName), spaceGUID)
 		})
 
 		AfterEach(func() {
