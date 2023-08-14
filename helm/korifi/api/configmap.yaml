@@ -12,35 +12,35 @@ data:
     readTimeout: {{ .Values.api.apiServer.timeouts.read }}
     readHeaderTimeout: {{ .Values.api.apiServer.timeouts.readHeader }}
     writeTimeout: {{ .Values.api.apiServer.timeouts.write }}
-    rootNamespace: {{ .Values.global.rootNamespace }}
-    builderName: {{ .Values.global.reconcilers.build }}
-    runnerName: {{ .Values.global.reconcilers.run }}
+    rootNamespace: {{ .Values.rootNamespace }}
+    builderName: {{ .Values.reconcilers.build }}
+    runnerName: {{ .Values.reconcilers.run }}
     defaultLifecycleConfig:
       type: {{ .Values.api.lifecycle.type }}
       stack: {{ .Values.api.lifecycle.stack }}
       stagingMemoryMB: {{ .Values.stagingRequirements.memoryMB }}
-    containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
-    {{- if not .Values.global.eksContainerRegistryRoleARN }}
-    {{- if .Values.global.containerRegistrySecrets }}
+    containerRepositoryPrefix: {{ .Values.containerRepositoryPrefix | quote }}
+    {{- if not .Values.eksContainerRegistryRoleARN }}
+    {{- if .Values.containerRegistrySecrets }}
     packageRegistrySecretNames:
-    {{- range .Values.global.containerRegistrySecrets }}
+    {{- range .Values.containerRegistrySecrets }}
     - {{ . | quote }}
     {{- end }}
-    {{- else if .Values.global.containerRegistrySecret }}
+    {{- else if .Values.containerRegistrySecret }}
     packageRegistrySecretNames:
-    - {{ .Values.global.containerRegistrySecret | quote }}
+    - {{ .Values.containerRegistrySecret | quote }}
     {{- else }}
-    {{ required "global.containerRegistrySecrets is required when global.eksContainerRegistryRoleARN is not set" .Values.global.containerRegistrySecrets }}
+    {{ required "containerRegistrySecrets is required when eksContainerRegistryRoleARN is not set" .Values.containerRegistrySecrets }}
     {{- end }}
     {{- end }}
-    defaultDomainName: {{ .Values.global.defaultAppDomainName }}
+    defaultDomainName: {{ .Values.defaultAppDomainName }}
     userCertificateExpirationWarningDuration: {{ .Values.api.userCertificateExpirationWarningDuration }}
     {{- if .Values.api.authProxy }}
     authProxyHost: {{ .Values.api.authProxy.host | quote }}
     authProxyCACert: {{ .Values.api.authProxy.caCert | quote }}
     {{- end }}
-    logLevel: {{ .Values.global.logLevel }}
-    {{- if .Values.global.eksContainerRegistryRoleARN }}
+    logLevel: {{ .Values.logLevel }}
+    {{- if .Values.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}
   role_mappings_config.yaml: |

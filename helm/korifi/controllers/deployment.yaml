@@ -27,7 +27,7 @@ spec:
         - name: CONTROLLERSCONFIG
           value: /etc/korifi-controllers-config
         image: {{ .Values.controllers.image }}
-{{- if .Values.global.debug }}
+{{- if .Values.debug }}
         command:
         - "/dlv"
         args:

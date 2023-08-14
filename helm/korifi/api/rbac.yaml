@@ -3,9 +3,9 @@ kind: ServiceAccount
 metadata:
   name: korifi-api-system-serviceaccount
   namespace: {{ .Release.Namespace }}
-  {{- if .Values.global.eksContainerRegistryRoleARN }}
+  {{- if .Values.eksContainerRegistryRoleARN }}
   annotations:
-    eks.amazonaws.com/role-arn: {{ .Values.global.eksContainerRegistryRoleARN }}
+    eks.amazonaws.com/role-arn: {{ .Values.eksContainerRegistryRoleARN }}
   {{- end }}
 
 ---
@@ -27,7 +27,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: korifi-api-system-rolebinding
-  namespace: {{ .Values.global.rootNamespace }}
+  namespace: {{ .Values.rootNamespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

@@ -9,21 +9,21 @@ data:
     includeJobTaskRunner: {{ .Values.jobTaskRunner.include }}
     includeStatefulsetRunner: {{ .Values.statefulsetRunner.include }}
     includeContourRouter: {{ .Values.contourRouter.include }}
-    builderName: {{ .Values.global.reconcilers.build }}
-    runnerName: {{ .Values.global.reconcilers.run }}
+    builderName: {{ .Values.reconcilers.build }}
+    runnerName: {{ .Values.reconcilers.run }}
     cfProcessDefaults:
       memoryMB: {{ .Values.controllers.processDefaults.memoryMB }}
       diskQuotaMB: {{ .Values.controllers.processDefaults.diskQuotaMB }}
-    cfRootNamespace: {{ .Values.global.rootNamespace }}
-    {{- if not .Values.global.eksContainerRegistryRoleARN }}
-    {{- if .Values.global.containerRegistrySecrets }}
+    cfRootNamespace: {{ .Values.rootNamespace }}
+    {{- if not .Values.eksContainerRegistryRoleARN }}
+    {{- if .Values.containerRegistrySecrets }}
     containerRegistrySecretNames:
-    {{- range .Values.global.containerRegistrySecrets }}
+    {{- range .Values.containerRegistrySecrets }}
     - {{ . | quote }}
     {{- end }}
     {{- else }}
     containerRegistrySecretNames:
-    - {{ .Values.global.containerRegistrySecret | quote }}
+    - {{ .Values.containerRegistrySecret | quote }}
     {{- end }}
     {{- end }}
     taskTTL: {{ .Values.controllers.taskTTL }}
@@ -40,17 +40,17 @@ data:
     {{- end }}
     maxRetainedPackagesPerApp: {{ .Values.controllers.maxRetainedPackagesPerApp }}
     maxRetainedBuildsPerApp: {{ .Values.controllers.maxRetainedBuildsPerApp }}
-    logLevel: {{ .Values.global.logLevel }}
+    logLevel: {{ .Values.logLevel }}
     {{- if .Values.kpackImageBuilder.include }}
     clusterBuilderName: {{ .Values.kpackImageBuilder.clusterBuilderName | default "cf-kpack-cluster-builder" }}
     builderReadinessTimeout: {{ required "builderReadinessTimeout is required" .Values.kpackImageBuilder.builderReadinessTimeout }}
-    containerRepositoryPrefix: {{ .Values.global.containerRepositoryPrefix | quote }}
+    containerRepositoryPrefix: {{ .Values.containerRepositoryPrefix | quote }}
     builderServiceAccount: kpack-service-account
     cfStagingResources:
       buildCacheMB: {{ .Values.stagingRequirements.buildCacheMB }}
       diskMB: {{ .Values.stagingRequirements.diskMB }}
       memoryMB: {{ .Values.stagingRequirements.memoryMB }}
-    {{- if .Values.global.eksContainerRegistryRoleARN }}
+    {{- if .Values.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}
     {{- end }}

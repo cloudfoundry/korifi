@@ -256,14 +256,14 @@ Use the following Helm command to install Korifi:
 ```sh
 helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<VERSION>/korifi-<VERSION>.tgz \
   --namespace="$KORIFI_NAMESPACE" \
-  --set=global.generateIngressCertificates=true \
-  --set=global.rootNamespace="${ROOT_NAMESPACE}" \
+  --set=generateIngressCertificates=true \
+  --set=rootNamespace="${ROOT_NAMESPACE}" \
   --set=adminUserName="${ADMIN_USERNAME}" \
   --set=api.apiServer.url="api.${BASE_DOMAIN}" \
-  --set=global.defaultAppDomainName="apps.${BASE_DOMAIN}" \
-  --set=global.containerRepositoryPrefix="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${CLUSTER_NAME}/" \
-  --set=global.containerRegistrySecrets={} \
-  --set=global.eksContainerRegistryRoleARN="${ECR_ROLE_ARN}" \
+  --set=defaultAppDomainName="apps.${BASE_DOMAIN}" \
+  --set=containerRepositoryPrefix="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${CLUSTER_NAME}/" \
+  --set=containerRegistrySecrets={} \
+  --set=eksContainerRegistryRoleARN="${ECR_ROLE_ARN}" \
   --set=kpackImageBuilder.builderRepository="${KPACK_BUILDER_REPO}" \
   --wait
 ```

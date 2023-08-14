@@ -164,8 +164,8 @@ function deploy_korifi() {
     helm upgrade --install korifi helm/korifi \
       --namespace korifi \
       --values=scripts/assets/values.yaml \
-      --set=global.debug="$DEBUG" \
-      --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
+      --set=debug="$DEBUG" \
+      --set=containerRepositoryPrefix="$REPOSITORY_PREFIX" \
       --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
       --wait
   }

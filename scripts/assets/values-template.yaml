@@ -1,11 +1,9 @@
 adminUserName: cf-admin
+defaultAppDomainName: apps-127-0-0-1.nip.io
+generateIngressCertificates: true
+logLevel: debug
 stagingRequirements:
   buildCacheMB: 1024
-
-global:
-  defaultAppDomainName: apps-127-0-0-1.nip.io
-  generateIngressCertificates: true
-  logLevel: debug
 
 api:
   apiServer:

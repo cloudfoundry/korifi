@@ -18,7 +18,7 @@ spec:
   type: ClusterIP
 
 ---
-{{- if .Values.global.debug }}
+{{- if .Values.debug }}
 apiVersion: v1
 kind: Service
 metadata:

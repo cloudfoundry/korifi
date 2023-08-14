@@ -123,9 +123,9 @@ Make sure the value of `--docker-server` is a valid [URI authority](https://data
 
 ### TLS certificates
 
-Self-signed TLS certificates are generated automatically by the installation if `global.generateIngressCertificates` has been set to `true`.
+Self-signed TLS certificates are generated automatically by the installation if `generateIngressCertificates` has been set to `true`.
 
-If you want to generate certificates yourself, you should not set the `global.generateIngressCertificates` value, and instead provide your certificates to Korifi by creating two TLS secrets in `$KORIFI_NAMESPACE`:
+If you want to generate certificates yourself, you should not set the `generateIngressCertificates` value, and instead provide your certificates to Korifi by creating two TLS secrets in `$KORIFI_NAMESPACE`:
 
 1. `korifi-api-ingress-cert`;
 1. `korifi-workloads-ingress-cert`.
@@ -139,7 +139,7 @@ kubectl --namespace "$KORIFI_NAMESPACE" create secret generic <registry-ca-secre
     --from-file=ca.crt=</path/to/ca-certificate>
 ```
 
-You can then specify the `<registry-ca-secret-name>` using the `global.containerRegistryCACertSecret`.
+You can then specify the `<registry-ca-secret-name>` using the `containerRegistryCACertSecret`.
 
 > **Warning**
 > Kpack does not support self-signed/internal CA configuration out of the box (see [pivotal/kpack#207](https://github.com/pivotal/kpack/issues/207)).
@@ -156,17 +156,17 @@ For example:
 ```sh
 helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<VERSION>/korifi-<VERSION>.tgz \
     --namespace="$KORIFI_NAMESPACE" \
-    --set=global.generateIngressCertificates=true \
-    --set=global.rootNamespace="$ROOT_NAMESPACE" \
+    --set=generateIngressCertificates=true \
+    --set=rootNamespace="$ROOT_NAMESPACE" \
     --set=adminUserName="$ADMIN_USERNAME" \
     --set=api.apiServer.url="api.$BASE_DOMAIN" \
-    --set=global.defaultAppDomainName="apps.$BASE_DOMAIN" \
-    --set=global.containerRepositoryPrefix=europe-docker.pkg.dev/my-project/korifi/ \
+    --set=defaultAppDomainName="apps.$BASE_DOMAIN" \
+    --set=containerRepositoryPrefix=europe-docker.pkg.dev/my-project/korifi/ \
     --set=kpackImageBuilder.builderRepository=europe-docker.pkg.dev/my-project/korifi/kpack-builder \
     --wait
 ```
 
-`global.containerRepositoryPrefix` is used to determine the container repository for the package and droplet images produced by Korifi.
+`containerRepositoryPrefix` is used to determine the container repository for the package and droplet images produced by Korifi.
 In particular, the app GUID and image type (`packages` or `droplets`) are appended to form the name of the repository.
 For example:
 
@@ -200,7 +200,7 @@ Make sure your ingress targets a service with name `korifi-api-svc` and port `44
 Create DNS entries for the Korifi API and for the apps running on Korifi. They should match the Helm values used to [deploy Korifi](#deploy-korifi):
 
 -   The Korifi API entry should match the `api.apiServer.url` value. In our example, that would be `api.korifi.example.org`.
--   The apps entry should be a wildcard matching the `global.defaultAppDomainName` value. In our example, `*.apps.korifi.example.org`.
+-   The apps entry should be a wildcard matching the `defaultAppDomainName` value. In our example, `*.apps.korifi.example.org`.
 
 The DNS entries should point to the load balancer endpoint created by Contour when installed. To discover your endpoint, run:
 

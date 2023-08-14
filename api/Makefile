@@ -42,7 +42,7 @@ manifests: install-controller-gen install-yq
 		output:rbac:artifacts:config=../helm/korifi/api \
 		rbac:roleName=korifi-api-system-role
 
-	$(YQ) -i 'with(.metadata | select(.namespace == "ROOT_NAMESPACE"); .namespace="{{ .Values.global.rootNamespace }}")' ../helm/korifi/api/role.yaml
+	$(YQ) -i 'with(.metadata | select(.namespace == "ROOT_NAMESPACE"); .namespace="{{ .Values.rootNamespace }}")' ../helm/korifi/api/role.yaml
 
 test: install-ginkgo
 	../scripts/run-tests.sh --skip-package=test
