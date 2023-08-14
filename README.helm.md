@@ -9,19 +9,6 @@ See [_Customizing the Chart Before Installing_](https://helm.sh/docs/intro/using
 
 Here are all the values that can be set for the chart:
 
-- `global`: Global values that are shared between Korifi and its subcharts.
-  - `containerRegistrySecret` (_String_): Deprecated in favor of containerRegistrySecrets.
-  - `containerRegistrySecrets` (_Array_): List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
-  - `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.
-  - `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).
-  - `defaultAppDomainName` (_String_): Base domain name for application URLs.
-  - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
-  - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
-  - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
-  - `reconcilers`:
-    - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
-    - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Defaults to `kpack-image-builder`.
-  - `rootNamespace` (_String_): Root of the Cloud Foundry namespace hierarchy.
 - `adminUserName` (_String_): Name of the admin user that will be bound to the Cloud Foundry Admin role.
 - `api`:
   - `apiServer`:
@@ -51,6 +38,9 @@ Here are all the values that can be set for the chart:
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
   - `userCertificateExpirationWarningDuration` (_String_): Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
+- `containerRegistrySecret` (_String_): Deprecated in favor of containerRegistrySecrets.
+- `containerRegistrySecrets` (_Array_): List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
+- `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.
 - `contourRouter`:
   - `include` (_Boolean_): Deploy the `contour-router` component.
 - `controllers`:
@@ -72,6 +62,10 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `workloadsTLSSecret` (_String_): TLS secret used when setting up an app routes.
+- `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).
+- `defaultAppDomainName` (_String_): Base domain name for application URLs.
+- `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
+- `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl
 - `jobTaskRunner`:
@@ -101,6 +95,11 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
+- `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
+- `reconcilers`:
+  - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
+  - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Defaults to `kpack-image-builder`.
+- `rootNamespace` (_String_): Root of the Cloud Foundry namespace hierarchy.
 - `stagingRequirements`:
   - `buildCacheMB` (_Integer_): Persistent disk in MB for caching staging artifacts across builds.
   - `diskMB` (_Integer_): Ephemeral Disk request in MB for staging apps.

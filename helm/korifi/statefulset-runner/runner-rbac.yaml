@@ -5,4 +5,4 @@ metadata:
     cloudfoundry.org/propagate-service-account: "true"
     cloudfoundry.org/propagate-deletion: "false"
   name: korifi-app
-  namespace: {{ .Values.global.rootNamespace }}
+  namespace: {{ .Values.rootNamespace }}

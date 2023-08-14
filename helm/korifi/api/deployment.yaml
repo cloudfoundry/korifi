@@ -24,7 +24,7 @@ spec:
         - name: TLSCONFIG
           value: /etc/korifi-tls-config
         image: {{ .Values.api.image }}
-{{- if .Values.global.debug }}
+{{- if .Values.debug }}
         command:
         - "/dlv"
         args:
@@ -49,7 +49,7 @@ spec:
         - mountPath: /etc/korifi-tls-config
           name: korifi-tls-config
           readOnly: true
-{{- if .Values.global.containerRegistryCACertSecret }}
+{{- if .Values.containerRegistryCACertSecret }}
         - mountPath: /etc/ssl/certs/registry-ca.crt
           name: korifi-registry-ca-cert
           subPath: ca.crt
@@ -64,8 +64,8 @@ spec:
       - name: korifi-tls-config
         secret:
           secretName: korifi-api-internal-cert
-{{- if .Values.global.containerRegistryCACertSecret }}
+{{- if .Values.containerRegistryCACertSecret }}
       - name: korifi-registry-ca-cert
         secret:
-          secretName: {{ .Values.global.containerRegistryCACertSecret }}
+          secretName: {{ .Values.containerRegistryCACertSecret }}
 {{- end }}

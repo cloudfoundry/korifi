@@ -28,18 +28,18 @@ securityContext:
   capabilities:
     drop:
     - ALL
-{{- if .Values.global.debug }}
+{{- if .Values.debug }}
     add:
     - SYS_PTRACE
 {{- end }}
-  runAsNonRoot: {{ not .Values.global.debug }}
+  runAsNonRoot: {{ not .Values.debug }}
   seccompProfile:
     type: RuntimeDefault
 {{- end }}
 
 {{- define "korifi.podSecurityContext" }}
 securityContext:
-  runAsNonRoot: {{ not .Values.global.debug }}
+  runAsNonRoot: {{ not .Values.debug }}
   seccompProfile:
     type: RuntimeDefault
 {{- end }}

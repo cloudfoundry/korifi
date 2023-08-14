@@ -64,9 +64,9 @@ No changes here, follow the [common instructions](./INSTALL.md#install-korifi).
 If using DockerHub as recommended above, set the following values:
 
 -   `kpackImageBuilder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
--   `global.containerRepositoryPrefix`: `index.docker.io/<username>/`;
+-   `containerRepositoryPrefix`: `index.docker.io/<username>/`;
 
-Remember to set `global.generateIngressCertificates` to `true` if you want to use self-signed TLS certificates.
+Remember to set `generateIngressCertificates` to `true` if you want to use self-signed TLS certificates.
 
 If `$KORIFI_NAMESPACE` doesn't exist yet, you can add the `--create-namespace` flag to the `helm` invocation.
 

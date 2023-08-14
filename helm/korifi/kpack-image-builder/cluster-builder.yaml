@@ -31,7 +31,7 @@ metadata:
 spec:
   serviceAccountRef:
     name: kpack-service-account
-    namespace: {{ .Values.global.rootNamespace }}
+    namespace: {{ .Values.rootNamespace }}
   tag: {{ required "builderRepository is required when clusterBuilderName is unset" .Values.kpackImageBuilder.builderRepository }}
   stack:
     name: cf-default-stack

@@ -1,19 +1,18 @@
-global:
-  rootNamespace: cf
-  debug: false
-  logLevel: info
-  defaultAppDomainName:
-  generateIngressCertificates: false
-  containerRegistrySecrets:
-  - image-registry-credentials
-  eksContainerRegistryRoleARN: ""
-  containerRegistryCACertSecret:
-
-  reconcilers:
-    build: kpack-image-builder
-    run: statefulset-runner
-
 adminUserName:
+rootNamespace: cf
+debug: false
+logLevel: info
+defaultAppDomainName:
+generateIngressCertificates: false
+containerRegistrySecrets:
+- image-registry-credentials
+eksContainerRegistryRoleARN: ""
+containerRegistryCACertSecret:
+
+reconcilers:
+  build: kpack-image-builder
+  run: statefulset-runner
+
 stagingRequirements:
   memoryMB: 0
   diskMB: 0
