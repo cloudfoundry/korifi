@@ -2,12 +2,15 @@ package helpers
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
 	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
@@ -36,12 +39,49 @@ func NewServiceAccountFactory(rootNamespace string) *ServiceAccountFactory {
 func (f *ServiceAccountFactory) CreateServiceAccount(name string) string {
 	GinkgoHelper()
 
-	Expect(f.k8sClient.Create(context.Background(), &corev1.ServiceAccount{
+	_, serviceAccountToken := f.createServiceAccount(name)
+	return serviceAccountToken
+}
+
+func (f *ServiceAccountFactory) CreateAdminServiceAccount(adminServiceAccount string) string {
+	GinkgoHelper()
+
+	serviceAccount, adminServiceAccountToken := f.createServiceAccount(adminServiceAccount)
+
+	adminRoleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: f.rootNamespace,
+			Name:      adminServiceAccount,
+			Annotations: map[string]string{
+				"cloudfoundry.org/propagate-cf-role": "true",
+			},
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      rbacv1.ServiceAccountKind,
+			Name:      adminServiceAccount,
+			Namespace: f.rootNamespace,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: "korifi-controllers-admin",
+		},
+	}
+	Expect(controllerutil.SetOwnerReference(serviceAccount, adminRoleBinding, scheme.Scheme)).To(Succeed())
+	Expect(f.k8sClient.Create(context.Background(), adminRoleBinding)).To(Succeed())
+
+	return adminServiceAccountToken
+}
+
+func (f *ServiceAccountFactory) createServiceAccount(name string) (*corev1.ServiceAccount, string) {
+	GinkgoHelper()
+
+	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: f.rootNamespace,
 			Name:      name,
 		},
-	})).To(Succeed())
+	}
+	Expect(f.k8sClient.Create(context.Background(), serviceAccount)).To(Succeed())
 
 	serviceAccountSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -64,7 +104,7 @@ func (f *ServiceAccountFactory) CreateServiceAccount(name string) string {
 		g.Expect(serviceAccountSecret.Data).To(HaveKey(corev1.ServiceAccountTokenKey))
 	}).Should(Succeed())
 
-	return string(serviceAccountSecret.Data[corev1.ServiceAccountTokenKey])
+	return serviceAccount, string(serviceAccountSecret.Data[corev1.ServiceAccountTokenKey])
 }
 
 func (f *ServiceAccountFactory) DeleteServiceAccount(name string) {
@@ -76,4 +116,8 @@ func (f *ServiceAccountFactory) DeleteServiceAccount(name string) {
 			Name:      name,
 		},
 	})).To(Succeed())
+}
+
+func (f *ServiceAccountFactory) FullyQualifiedName(svcAcctName string) string {
+	return fmt.Sprintf("system:serviceaccount:%s:%s", f.rootNamespace, svcAcctName)
 }

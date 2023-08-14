@@ -237,7 +237,7 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 
 		When("the cert is not valid on this cluster", func() {
 			BeforeEach(func() {
-				authInfo.CertData = helpers.CreateCertificatePEM()
+				authInfo.CertData = helpers.CreateSelfSignedCertificatePEM()
 			})
 
 			It("creates an unusable client", func() {

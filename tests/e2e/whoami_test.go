@@ -4,9 +4,11 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"net/http"
+	"time"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -19,14 +21,10 @@ type identityResource struct {
 
 var _ = Describe("WhoAmI", func() {
 	var (
-		client   *resty.Client
+		client   *helpers.CorrelatedRestyClient
 		httpResp *resty.Response
 		result   identityResource
 	)
-
-	BeforeEach(func() {
-		client = resty.New().SetBaseURL(apiServerRoot).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	})
 
 	JustBeforeEach(func() {
 		var err error
@@ -37,13 +35,21 @@ var _ = Describe("WhoAmI", func() {
 	})
 
 	When("authenticating with a Bearer token", func() {
+		var svcAcctName string
+
 		BeforeEach(func() {
-			client = client.SetAuthToken(serviceAccountToken)
+			svcAcctName = uuid.NewString()
+			serviceAccountToken := serviceAccountFactory.CreateServiceAccount(svcAcctName)
+			client = makeTokenClient(serviceAccountToken)
+		})
+
+		AfterEach(func() {
+			serviceAccountFactory.DeleteServiceAccount(svcAcctName)
 		})
 
 		It("returns the user identity", func() {
 			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Name).To(Equal(serviceAccountName))
+			Expect(result.Name).To(Equal(serviceAccountFactory.FullyQualifiedName(svcAcctName)))
 			Expect(result.Kind).To(Equal(rbacv1.ServiceAccountKind))
 		})
 
@@ -59,16 +65,16 @@ var _ = Describe("WhoAmI", func() {
 	})
 
 	When("authenticating with a client certificate", func() {
+		var userName string
+
 		BeforeEach(func() {
-			if certPEM == "" {
-				Skip("No certificate provided.")
-			}
-			client = client.SetAuthScheme("ClientCert").SetAuthToken(certPEM)
+			userName = uuid.NewString()
+			client = makeCertClientForUserName(userName, time.Hour)
 		})
 
 		It("returns the user identity", func() {
 			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-			Expect(result.Name).To(Equal(certUserName))
+			Expect(result.Name).To(Equal(userName))
 			Expect(result.Kind).To(Equal(rbacv1.UserKind))
 		})
 
@@ -84,8 +90,7 @@ var _ = Describe("WhoAmI", func() {
 
 		When("the cert is unauthorized", func() {
 			BeforeEach(func() {
-				unauthorisedCertPEM := base64.StdEncoding.EncodeToString(helpers.CreateCertificatePEM())
-				client = client.SetAuthToken(unauthorisedCertPEM)
+				client = client.SetAuthToken(base64.StdEncoding.EncodeToString(helpers.CreateSelfSignedCertificatePEM()))
 			})
 
 			It("returns an unauthorized error", func() {
@@ -95,6 +100,9 @@ var _ = Describe("WhoAmI", func() {
 	})
 
 	When("no Authorization header is available in the request", func() {
+		BeforeEach(func() {
+			client = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+		})
 		It("returns unauthorized error", func() {
 			Expect(httpResp).To(HaveRestyStatusCode(http.StatusUnauthorized))
 		})
