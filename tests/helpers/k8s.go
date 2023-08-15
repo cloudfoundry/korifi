@@ -1,12 +1,15 @@
 package helpers
 
 import (
+	"encoding/pem"
 	"fmt"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
 	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
@@ -38,4 +41,25 @@ func GetClusterVersion() (int, int) {
 	}
 
 	return majorVersion, minorVersion
+}
+
+func AddUserToKubeKonfig(userName string, userPem []byte) {
+	GinkgoHelper()
+
+	cert, rest := pem.Decode(userPem)
+	Expect(cert).NotTo(BeNil())
+	key, _ := pem.Decode(rest)
+	Expect(key).NotTo(BeNil())
+
+	authInfo := clientcmdapi.NewAuthInfo()
+	authInfo.ClientCertificateData = pem.EncodeToMemory(cert)
+	authInfo.ClientKeyData = pem.EncodeToMemory(key)
+	authInfo.Username = userName
+
+	configAccess := clientcmd.NewDefaultPathOptions()
+	config, err := configAccess.GetStartingConfig()
+	Expect(err).NotTo(HaveOccurred())
+	config.AuthInfos[userName] = authInfo
+
+	Expect(clientcmd.ModifyConfig(configAccess, *config, false)).To(Succeed())
 }
