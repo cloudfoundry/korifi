@@ -55,6 +55,9 @@ func kubectlWithCustomReporter(cmdStarter *commandstarter.CommandStarter, report
 }
 
 func loginAs(apiEndpoint string, skipSSL bool, user string) {
+	userPem := helpers.CreateTrustedCertificatePEM(user, time.Hour)
+	helpers.AddUserToKubeKonfig(user, userPem)
+
 	apiArguments := []string{"api", apiEndpoint}
 	if skipSSL {
 		apiArguments = append(apiArguments, "--skip-ssl-validation")

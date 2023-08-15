@@ -4,6 +4,7 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/cloudfoundry/cf-test-helpers/cf"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
@@ -27,10 +28,10 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		spaceGUID = PrefixedGUID("space")
 		spaceDisplayName = PrefixedGUID("Space")
 
-		testCLIUser = helpers.GetRequiredEnvVar("CRDS_TEST_CLI_USER")
 		korifiAPIEndpoint = helpers.GetRequiredEnvVar("CRDS_TEST_API_ENDPOINT")
 		skipSSL = helpers.GetDefaultedEnvVar("CRDS_TEST_SKIP_SSL", "false")
 
+		testCLIUser = uuid.NewString()
 		cfUserRoleBindingName = testCLIUser + "-root-namespace-user"
 	})
 
