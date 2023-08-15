@@ -18,7 +18,6 @@ import (
 	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -149,11 +148,6 @@ func generateCSR(k8sClient client.Client, key *rsa.PrivateKey, userName string, 
 func approveCSR(csr *certv1.CertificateSigningRequest) {
 	GinkgoHelper()
 
-	config, err := controllerruntime.GetConfig()
-	Expect(err).NotTo(HaveOccurred())
-	clientSet, err := kubernetes.NewForConfig(config)
-	Expect(err).NotTo(HaveOccurred())
-
 	csr.Status.Conditions = append(csr.Status.Conditions, certv1.CertificateSigningRequestCondition{
 		Type:           certv1.RequestConditionType(certv1.CertificateApproved),
 		Status:         corev1.ConditionTrue,
@@ -162,7 +156,7 @@ func approveCSR(csr *certv1.CertificateSigningRequest) {
 		LastUpdateTime: metav1.Now(),
 	})
 
-	_, err = clientSet.CertificatesV1().CertificateSigningRequests().UpdateApproval(
+	_, err := getClientSet().CertificatesV1().CertificateSigningRequests().UpdateApproval(
 		context.Background(),
 		csr.Name,
 		csr,
