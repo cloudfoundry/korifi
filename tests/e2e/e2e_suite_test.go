@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -50,8 +49,6 @@ var (
 	commonTestOrgGUID       string
 	commonTestOrgName       string
 	assetsTmpDir            string
-	clusterVersionMinor     int
-	clusterVersionMajor     int
 	defaultAppBitsFile      string
 	multiProcessAppBitsFile string
 )
@@ -1029,9 +1026,6 @@ func commonTestSetup() {
 	rootNamespace = helpers.GetRequiredEnvVar("ROOT_NAMESPACE")
 
 	appFQDN = helpers.GetRequiredEnvVar("APP_FQDN")
-
-	clusterVersionMinor, _ = strconv.Atoi(helpers.GetRequiredEnvVar("CLUSTER_VERSION_MINOR"))
-	clusterVersionMajor, _ = strconv.Atoi(helpers.GetRequiredEnvVar("CLUSTER_VERSION_MAJOR"))
 
 	ensureServerIsUp()
 
