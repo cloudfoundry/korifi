@@ -63,10 +63,10 @@ test-e2e: build-dorifi
 	./scripts/run-tests.sh tests/e2e
 
 test-crds: build-dorifi
-	./tests/crds/run-tests.sh
+	./scripts/run-tests.sh tests/crds
 
 test-smoke: build-dorifi
-	./tests/smoke/run-tests.sh
+	./scripts/run-tests.sh tests/smoke
 
 
 build-dorifi:
