@@ -3,7 +3,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "${SCRIPT_DIR}/common.sh"
 
 function getTestDir() {
   for arg in "$@"; do
@@ -44,11 +43,6 @@ else
 
   if [ -z "${SKIP_DEPLOY:-}" ]; then
     "${SCRIPT_DIR}/deploy-on-kind.sh" e2e
-  fi
-
-  # creates user keys/certs and service accounts and exports vars for them
-  if [[ "${CLUSTER_TYPE:-}" != "EKS" ]]; then
-    source "$SCRIPT_DIR/account-creation.sh" "${SCRIPT_DIR}"
   fi
 
   extra_args+=("--poll-progress-after=3m30s")
