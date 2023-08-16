@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"encoding/pem"
 	"fmt"
 	"strconv"
 
@@ -43,23 +42,25 @@ func GetClusterVersion() (int, int) {
 	return majorVersion, minorVersion
 }
 
-func AddUserToKubeKonfig(userName string, userPem []byte) {
+func AddUserToKubeConfig(userName, userToken string) {
 	GinkgoHelper()
 
-	cert, rest := pem.Decode(userPem)
-	Expect(cert).NotTo(BeNil())
-	key, _ := pem.Decode(rest)
-	Expect(key).NotTo(BeNil())
-
 	authInfo := clientcmdapi.NewAuthInfo()
-	authInfo.ClientCertificateData = pem.EncodeToMemory(cert)
-	authInfo.ClientKeyData = pem.EncodeToMemory(key)
-	authInfo.Username = userName
+	authInfo.Token = userToken
 
 	configAccess := clientcmd.NewDefaultPathOptions()
 	config, err := configAccess.GetStartingConfig()
 	Expect(err).NotTo(HaveOccurred())
 	config.AuthInfos[userName] = authInfo
+
+	Expect(clientcmd.ModifyConfig(configAccess, *config, false)).To(Succeed())
+}
+
+func RemoveUserFromKubeConfig(userName string) {
+	configAccess := clientcmd.NewDefaultPathOptions()
+	config, err := configAccess.GetStartingConfig()
+	Expect(err).NotTo(HaveOccurred())
+	delete(config.AuthInfos, userName)
 
 	Expect(clientcmd.ModifyConfig(configAccess, *config, false)).To(Succeed())
 }
