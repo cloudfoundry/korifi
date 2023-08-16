@@ -370,8 +370,8 @@ var _ = BeforeEach(func() {
 func makeCertClientForUserName(userName string, validFor time.Duration) *helpers.CorrelatedRestyClient {
 	GinkgoHelper()
 
-	if os.Getenv("CLUSTER_TYPE") == "EKS" {
-		Skip("EKS does not support cert users: https://github.com/aws/containers-roadmap/issues/1604#issuecomment-1072660824")
+	if _, ok := os.LookupEnv("CSR_SIGNING_DISALLOWED"); ok {
+		Skip("CSR singing is not allowed on this environment")
 	}
 
 	return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).
