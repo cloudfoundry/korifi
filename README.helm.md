@@ -2,8 +2,9 @@
 
 This documents the [Helm](https://helm.sh/) chart for [Korifi](https://github.com/cloudfoundry/korifi).
 
-The chart is a composition of subcharts, one per component, with each individual component configuration nested under a top-level key named after the component itself.
-Values under the top-level `global` key apply to all components.
+The configuration for each individual component is nested under a top-level key named after the component itself.
+Values at the top-level apply to all components.
+
 Each component can be excluded from the deployment by the setting its `include` value to `false`.
 See [_Customizing the Chart Before Installing_](https://helm.sh/docs/intro/using_helm/#customizing-the-chart-before-installing) for details on how to specify values when installing a Helm chart.
 
