@@ -85,7 +85,8 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 func builderInfoToBuildpackRecords(info v1alpha1.BuilderInfo) []BuildpackRecord {
 	buildpackRecords := make([]BuildpackRecord, 0, len(info.Status.Buildpacks))
 
-	for i, b := range info.Status.Buildpacks {
+	for i := range info.Status.Buildpacks {
+		b := info.Status.Buildpacks[i]
 		currentRecord := BuildpackRecord{
 			Name:      b.Name,
 			Version:   b.Version,
