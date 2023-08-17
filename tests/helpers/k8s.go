@@ -1,9 +1,6 @@
 package helpers
 
 import (
-	"fmt"
-	"strconv"
-
 	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
 	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
 	"k8s.io/client-go/kubernetes"
@@ -21,25 +18,6 @@ func getClientSet() *kubernetes.Clientset {
 	Expect(err).NotTo(HaveOccurred())
 
 	return clientSet
-}
-
-func GetClusterVersion() (int, int) {
-	GinkgoHelper()
-
-	serverVersion, err := getClientSet().ServerVersion()
-	Expect(err).NotTo(HaveOccurred())
-
-	majorVersion, err := strconv.Atoi(serverVersion.Major)
-	if err != nil {
-		Skip(fmt.Sprintf("cannot determine kubernetes server major version: %v", err))
-	}
-
-	minorVersion, err := strconv.Atoi(serverVersion.Minor)
-	if err != nil {
-		Skip(fmt.Sprintf("cannot determine kubernetes server minor version: %v", err))
-	}
-
-	return majorVersion, minorVersion
 }
 
 func AddUserToKubeConfig(userName, userToken string) {
