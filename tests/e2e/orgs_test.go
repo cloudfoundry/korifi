@@ -105,12 +105,7 @@ var _ = Describe("Orgs", func() {
 			))
 		})
 
-		It("doesn't set an HTTP warning header for long certs", func() {
-			clusterVersionMajor, clusterVersionMinor := helpers.GetClusterVersion()
-			if clusterVersionMajor < 1 || (clusterVersionMajor == 1 && clusterVersionMinor < 22) {
-				GinkgoWriter.Printf("Skipping certificate warning test as k8s v%d.%d doesn't support creation of short lived test client certificates\n", clusterVersionMajor, clusterVersionMinor)
-				return
-			}
+		It("doesn't set an HTTP warning header for short lived certs", func() {
 			Expect(resp.Header().Get("X-Cf-Warnings")).To(BeEmpty())
 		})
 

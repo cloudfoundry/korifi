@@ -17,10 +17,7 @@ createCert() {
     -nodes \
     -subj "/CN=${username}" 2>/dev/null
 
-  # note: we need 'validate=false' here in order to install on k8s clusters with
-  #  version <= 1.21, which don't support expirationSeconds. Those environments will
-  #  end up with long-lived certificates.
-  cat <<EOF | kubectl create --validate=false -f -
+  cat <<EOF | kubectl create -f -
 apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
 metadata:
