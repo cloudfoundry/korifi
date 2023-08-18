@@ -39,11 +39,12 @@ func LogAndReturn(logger logr.Logger, err error, msg string, keysAndValues ...in
 }
 
 type apiError struct {
-	cause      error
-	detail     string
-	title      string
-	code       int
-	httpStatus int
+	cause             error
+	detail            string
+	title             string
+	code              int
+	httpStatus        int
+	additionalDetails map[string]string
 }
 
 func (e apiError) Error() string {
@@ -59,7 +60,11 @@ func (e apiError) Unwrap() error {
 }
 
 func (e apiError) Detail() string {
-	return e.detail
+	detail := e.detail
+	for k, v := range e.additionalDetails {
+		detail += fmt.Sprintf(" %s=%q", k, v)
+	}
+	return detail
 }
 
 func (e apiError) Title() string {
@@ -72,6 +77,21 @@ func (e apiError) Code() int {
 
 func (e apiError) HttpStatus() int {
 	return e.httpStatus
+}
+
+func toKeyValues(s ...string) map[string]string {
+	result := map[string]string{}
+
+	for i := 0; i < len(s); i += 2 {
+		key := s[i]
+		val := ""
+		if i+1 < len(s) {
+			val = s[i+1]
+		}
+		result[key] = val
+	}
+
+	return result
 }
 
 type UnprocessableEntityError struct {
@@ -134,14 +154,15 @@ type NotFoundError struct {
 	apiError
 }
 
-func NewNotFoundError(cause error, resourceType string) NotFoundError {
+func NewNotFoundError(cause error, resourceType string, additionalDetails ...string) NotFoundError {
 	return NotFoundError{
 		apiError{
-			cause:      cause,
-			title:      "CF-ResourceNotFound",
-			detail:     fmt.Sprintf("%s not found. Ensure it exists and you have access to it.", resourceType),
-			code:       10010,
-			httpStatus: http.StatusNotFound,
+			cause:             cause,
+			title:             "CF-ResourceNotFound",
+			detail:            fmt.Sprintf("%s not found. Ensure it exists and you have access to it.", resourceType),
+			additionalDetails: toKeyValues(additionalDetails...),
+			code:              10010,
+			httpStatus:        http.StatusNotFound,
 		},
 	}
 }
