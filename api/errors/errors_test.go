@@ -306,6 +306,43 @@ var _ = Describe("LogAndReturn", func() {
 	})
 })
 
+var _ = Describe("Additional details", func() {
+	var (
+		err     apierrors.ApiError
+		details []string
+	)
+
+	BeforeEach(func() {
+		details = []string{"foo", "FOO", "bar", "BAR"}
+	})
+
+	JustBeforeEach(func() {
+		err = apierrors.NewNotFoundError(nil, "my-resource", details...)
+	})
+
+	It("displays the additional details in the detail message", func() {
+		Expect(err.Detail()).To(SatisfyAll(
+			HavePrefix("my-resource not found. Ensure it exists and you have access to it."),
+			ContainSubstring(`foo="FOO"`),
+			ContainSubstring(`bar="BAR"`),
+		))
+	})
+
+	When("the details count is odd", func() {
+		BeforeEach(func() {
+			details = []string{"foo", "FOO", "bar"}
+		})
+
+		It("displays an empty string for the last key", func() {
+			Expect(err.Detail()).To(SatisfyAll(
+				HavePrefix("my-resource not found. Ensure it exists and you have access to it."),
+				ContainSubstring(`foo="FOO"`),
+				ContainSubstring(`bar=""`),
+			))
+		})
+	})
+})
+
 var _ = Describe("invalid lists", func() {
 	It("formats the invalid keys correctly", func() {
 		err := apierrors.NewUnknownKeyError(errors.New("oops"), []string{"one", "two"})

@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/actions/manifest"
 	"code.cloudfoundry.org/korifi/api/actions/shared/fake"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
@@ -455,21 +456,18 @@ var _ = Describe("Applier", func() {
 	Describe("applying services", func() {
 		BeforeEach(func() {
 			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-				{
-					Name: "service-name",
-					GUID: "service-guid",
-				},
+				{Name: "service-name", GUID: "service-guid"},
 			}, nil)
 
 			appState.App.GUID = "app-guid"
 			appState.App.SpaceGUID = "space-guid"
 			appState.ServiceBindings = map[string]repositories.ServiceBindingRecord{
-				"another-service-name": {},
+				"already-bound-service-name": {},
 			}
 
 			appInfo.Services = []payloads.ManifestApplicationService{
 				{Name: "service-name"},
-				{Name: "another-service-name"},
+				{Name: "already-bound-service-name"},
 			}
 		})
 
@@ -495,7 +493,7 @@ var _ = Describe("Applier", func() {
 			BeforeEach(func() {
 				appInfo.Services = []payloads.ManifestApplicationService{
 					{Name: "service-name", BindingName: tools.PtrTo("service-binding")},
-					{Name: "another-service-name"},
+					{Name: "already-bound-service-name"},
 				}
 			})
 
@@ -536,13 +534,29 @@ var _ = Describe("Applier", func() {
 		When("the app is already bound to all the services in the manifest", func() {
 			BeforeEach(func() {
 				appState.ServiceBindings = map[string]repositories.ServiceBindingRecord{
-					"service-name":         {},
-					"another-service-name": {},
+					"service-name":               {},
+					"already-bound-service-name": {},
 				}
 			})
 
 			It("does not bind the app again", func() {
 				Expect(applierErr).NotTo(HaveOccurred())
+				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(BeZero())
+			})
+		})
+
+		When("the manifest references service instances that do not exist", func() {
+			BeforeEach(func() {
+				appInfo.Services = []payloads.ManifestApplicationService{
+					{Name: "unexisting-service"},
+				}
+			})
+
+			It("returns a not found error error", func() {
+				Expect(applierErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
+				notFoundErr := applierErr.(apierrors.NotFoundError)
+				Expect(notFoundErr.Detail()).To(ContainSubstring("unexisting-service"))
+
 				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(BeZero())
 			})
 		})

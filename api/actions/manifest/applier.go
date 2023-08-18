@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/authorization"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -219,15 +220,30 @@ func (a *Applier) applyServices(ctx context.Context, authInfo authorization.Info
 		return err
 	}
 
+	serviceNameToServiceInstance := map[string]repositories.ServiceInstanceRecord{}
+	for _, serviceInstance := range serviceInstances {
+		serviceNameToServiceInstance[serviceInstance.Name] = serviceInstance
+	}
+
 	serviceNameToServiceBinding := map[string]*string{}
 	for _, manifestService := range appInfo.Services {
 		serviceNameToServiceBinding[manifestService.Name] = manifestService.BindingName
 	}
 
-	for _, si := range serviceInstances {
+	for serviceName := range desiredServiceNames {
+		serviceInstance, ok := serviceNameToServiceInstance[serviceName]
+		if !ok {
+			return apierrors.NewNotFoundError(
+				nil,
+				repositories.ServiceInstanceResourceType,
+				"application", appInfo.Name,
+				"service", serviceName,
+			)
+		}
+
 		_, err := a.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, repositories.CreateServiceBindingMessage{
-			Name:                serviceNameToServiceBinding[si.Name],
-			ServiceInstanceGUID: si.GUID,
+			Name:                serviceNameToServiceBinding[serviceName],
+			ServiceInstanceGUID: serviceInstance.GUID,
 			AppGUID:             appState.App.GUID,
 			SpaceGUID:           appState.App.SpaceGUID,
 		})
