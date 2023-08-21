@@ -17,10 +17,10 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
+	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -370,7 +370,8 @@ var _ = BeforeEach(func() {
 func makeCertClientForUserName(userName string, validFor time.Duration) *helpers.CorrelatedRestyClient {
 	GinkgoHelper()
 
-	if _, ok := os.LookupEnv("CSR_SIGNING_DISALLOWED"); ok {
+	disallowed, found := os.LookupEnv("CSR_SIGNING_DISALLOWED")
+	if found && disallowed == "true" {
 		Skip("CSR singing is not allowed on this environment")
 	}
 
