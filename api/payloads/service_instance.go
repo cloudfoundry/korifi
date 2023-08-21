@@ -45,7 +45,7 @@ func validateTagLength(tags any) error {
 func (c ServiceInstanceCreate) Validate() error {
 	return jellidation.ValidateStruct(&c,
 		jellidation.Field(&c.Name, jellidation.Required),
-		jellidation.Field(&c.Type, jellidation.Required, validation.OneOf("user-provided")),
+		jellidation.Field(&c.Type, jellidation.Required, validation.OneOf("user-provided", "managed")),
 		jellidation.Field(&c.Tags, jellidation.By(validateTagLength)),
 		jellidation.Field(&c.Relationships, jellidation.NotNil),
 		jellidation.Field(&c.Metadata),
