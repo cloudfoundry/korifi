@@ -1,3 +1,4 @@
+{{- if .Values.api.expose }}
 apiVersion: projectcontour.io/v1
 kind: TLSCertificateDelegation
 metadata:
@@ -8,3 +9,4 @@ spec:
   - secretName: korifi-workloads-ingress-cert
     targetNamespaces:
     - '*'
+{{- end }}
