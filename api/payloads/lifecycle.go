@@ -22,12 +22,6 @@ type LifecycleData struct {
 	Stack      string   `json:"stack"`
 }
 
-func (d LifecycleData) Validate() error {
-	return jellidation.ValidateStruct(&d,
-		jellidation.Field(&d.Stack, jellidation.Required),
-	)
-}
-
 type LifecyclePatch struct {
 	Type string              `json:"type"`
 	Data *LifecycleDataPatch `json:"data"`
