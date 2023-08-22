@@ -5,7 +5,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   korifi_api_config.yaml: |
-    uaaURL: {{ .Values.api.uaaURL }}
     externalFQDN: {{ .Values.api.apiServer.url }}
     externalPort: {{ .Values.api.apiServer.port | default 0 }}
     internalPort: {{ .Values.api.apiServer.internalPort }}

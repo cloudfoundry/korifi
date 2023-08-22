@@ -18,7 +18,6 @@ adminUserName:
 api:
   include: true
   expose: true
-  uaaURL: ""
 
   image: cloudfoundry/korifi-api:latest
 

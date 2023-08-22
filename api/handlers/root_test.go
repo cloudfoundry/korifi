@@ -14,7 +14,7 @@ var _ = Describe("Root", func() {
 	var req *http.Request
 
 	BeforeEach(func() {
-		apiHandler := handlers.NewRoot(*serverURL, "uaaaa")
+		apiHandler := handlers.NewRoot(*serverURL)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
