@@ -67,15 +67,11 @@ var _ = Describe("Apps", func() {
 	})
 
 	Describe("Create an app", func() {
-		var appName string
+		var appRes appResource
 
 		BeforeEach(func() {
-			appName = generateGUID("app")
-		})
-
-		JustBeforeEach(func() {
-			var err error
-			resp, err = adminClient.R().SetBody(appResource{
+			appName := generateGUID("app")
+			appRes = appResource{
 				resource: resource{
 					Name: appName,
 					Relationships: relationships{
@@ -86,12 +82,35 @@ var _ = Describe("Apps", func() {
 						},
 					},
 				},
-			}).Post("/v3/apps")
+				Lifecycle: &lifecycle{
+					Type: "buildpack",
+					Data: lifecycleData{
+						Stack: "cflinuxfs3",
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().SetBody(appRes).Post("/v3/apps")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("succeeds", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+		})
+
+		When("the lifecycle is docker", func() {
+			BeforeEach(func() {
+				appRes.Lifecycle = &lifecycle{
+					Type: "docker",
+				}
+			})
+
+			It("succeeds", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+			})
 		})
 	})
 

@@ -59,10 +59,7 @@ var _ = Describe("Droplet", func() {
 			"error": null,
 			"lifecycle": {
 				"type": "buildpack",
-				"data": {
-					"buildpacks": [],
-					"stack": ""
-				}
+				"data": {}
 			},
 			"execution_metadata": "",
 			"process_types": {

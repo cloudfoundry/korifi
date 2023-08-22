@@ -56,6 +56,7 @@ func (p AppCreate) ToAppCreateMessage() repositories.CreateAppMessage {
 		},
 	}
 	if p.Lifecycle != nil {
+		lifecycleBlock.Type = p.Lifecycle.Type
 		lifecycleBlock.Data.Stack = p.Lifecycle.Data.Stack
 		lifecycleBlock.Data.Buildpacks = p.Lifecycle.Data.Buildpacks
 	}

@@ -154,10 +154,6 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the App", func() {
-			Expect(appRepo.CreateAppCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := appRepo.CreateAppArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-
 			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
@@ -166,6 +162,67 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.state", "STOPPED"),
 				MatchJSONPath("$.links.self.href", HavePrefix("https://api.example.org")),
 			)))
+		})
+
+		It("sends an AppCreate message with default lifecycle to the repository", func() {
+			Expect(appRepo.CreateAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualCreateMessage := appRepo.CreateAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualCreateMessage).To(Equal(repositories.CreateAppMessage{
+				Name:      appName,
+				SpaceGUID: spaceGUID,
+				State:     "STOPPED",
+				Lifecycle: repositories.Lifecycle{
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Stack: "cflinuxfs3",
+					},
+				},
+			}))
+		})
+
+		When("the app has buildpack lifecycle", func() {
+			BeforeEach(func() {
+				payload.Lifecycle = &payloads.Lifecycle{
+					Type: "buildpack",
+					Data: &payloads.LifecycleData{
+						Buildpacks: []string{"bp1"},
+						Stack:      "my-stack",
+					},
+				}
+			})
+
+			It("sends an AppCreate message with buildpack lifecycle", func() {
+				Expect(appRepo.CreateAppCallCount()).To(Equal(1))
+				_, _, actualCreateMessage := appRepo.CreateAppArgsForCall(0)
+				Expect(actualCreateMessage.Lifecycle).To(Equal(
+					repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Stack:      "my-stack",
+							Buildpacks: []string{"bp1"},
+						},
+					}))
+			})
+		})
+
+		When("the app has docker lifecycle", func() {
+			BeforeEach(func() {
+				payload.Lifecycle = &payloads.Lifecycle{
+					Type: "docker",
+					Data: &payloads.LifecycleData{},
+				}
+			})
+
+			It("sends an AppCreate message with docker lifecycle and empty data", func() {
+				Expect(appRepo.CreateAppCallCount()).To(Equal(1))
+				_, _, actualCreateMessage := appRepo.CreateAppArgsForCall(0)
+				Expect(actualCreateMessage.Lifecycle).To(Equal(
+					repositories.Lifecycle{
+						Type: "docker",
+						Data: repositories.LifecycleData{},
+					}))
+			})
 		})
 
 		It("creates the `web` process", func() {

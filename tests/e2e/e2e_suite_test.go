@@ -238,6 +238,7 @@ type lifecycle struct {
 
 type lifecycleData struct {
 	Buildpacks []string `json:"buildpacks"`
+	Stack      string   `json:"stack"`
 }
 
 type cfErrs struct {
