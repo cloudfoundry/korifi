@@ -505,6 +505,7 @@ var _ = Describe("AppRepository", func() {
 				Expect(createdAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"))
 				Expect(createdAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
 				Expect(createdAppRecord.Name).To(Equal(testAppName))
+				Expect(createdAppRecord.Lifecycle.Type).To(Equal("buildpack"))
 				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
 
 				Expect(createdAppRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
@@ -573,6 +574,28 @@ var _ = Describe("AppRepository", func() {
 
 				It("returns an AppRecord with the buildpacks set", func() {
 					Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
+				})
+			})
+
+			When("the lifecycle is docker", func() {
+				BeforeEach(func() {
+					appCreateMessage.Lifecycle = Lifecycle{
+						Type: "docker",
+					}
+				})
+
+				It("creates an app with docker lifecycle", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+					Expect(createdAppRecord.Lifecycle).To(Equal(Lifecycle{
+						Type: "docker",
+					}))
+
+					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
+					createdCFApp := new(korifiv1alpha1.CFApp)
+					Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+					Expect(createdCFApp.Spec.Lifecycle).To(Equal(korifiv1alpha1.Lifecycle{
+						Type: "docker",
+					}))
 				})
 			})
 		})

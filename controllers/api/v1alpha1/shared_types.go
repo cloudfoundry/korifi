@@ -29,15 +29,15 @@ const (
 
 type Lifecycle struct {
 	// The CF Lifecycle type.
-	// Only "buildpack" is currently allowed
+	// Only "buildpack" and "docker" are currently allowed
 	Type LifecycleType `json:"type"`
 	// Data used to specify details for the Lifecycle
 	Data LifecycleData `json:"data"`
 }
 
 // LifecycleType inform the platform of how to build droplets and run apps
-// allow only values "buildpack"
-// +kubebuilder:validation:Enum=buildpack
+// allow only values "buildpack" or "docker"
+// +kubebuilder:validation:Enum=buildpack;docker
 type LifecycleType string
 
 // LifecycleData is shared by CFApp and CFBuild

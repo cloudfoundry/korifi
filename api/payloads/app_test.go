@@ -65,96 +65,190 @@ var _ = Describe("App payload validation", func() {
 	var validatorErr error
 
 	Describe("AppCreate", func() {
-		var (
-			payload        payloads.AppCreate
-			decodedPayload *payloads.AppCreate
-		)
+		Describe("Decoding", func() {
+			var (
+				payload        payloads.AppCreate
+				decodedPayload *payloads.AppCreate
+			)
 
-		BeforeEach(func() {
-			payload = payloads.AppCreate{
-				Name: "my-app",
-				Relationships: &payloads.AppRelationships{
-					Space: &payloads.Relationship{
-						Data: &payloads.RelationshipData{
-							GUID: "app-guid",
+			BeforeEach(func() {
+				payload = payloads.AppCreate{
+					Name: "my-app",
+					Relationships: &payloads.AppRelationships{
+						Space: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "app-guid",
+							},
 						},
 					},
-				},
-			}
+				}
 
-			decodedPayload = new(payloads.AppCreate)
+				decodedPayload = new(payloads.AppCreate)
+			})
+
+			JustBeforeEach(func() {
+				validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
+			})
+
+			It("succeeds", func() {
+				Expect(validatorErr).NotTo(HaveOccurred())
+				Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
+			})
+
+			When("name is not set", func() {
+				BeforeEach(func() {
+					payload.Name = ""
+				})
+
+				It("returns an error", func() {
+					expectUnprocessableEntityError(validatorErr, "name cannot be blank")
+				})
+			})
+
+			When("name is invalid", func() {
+				BeforeEach(func() {
+					payload.Name = "!@#"
+				})
+
+				It("returns an error", func() {
+					expectUnprocessableEntityError(validatorErr, "name must consist only of letters, numbers, underscores and dashes")
+				})
+			})
+
+			When("lifecycle is invalid", func() {
+				BeforeEach(func() {
+					payload.Lifecycle = &payloads.Lifecycle{}
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(validatorErr, "lifecycle.type cannot be blank")
+				})
+			})
+
+			When("relationships are not set", func() {
+				BeforeEach(func() {
+					payload.Relationships = nil
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(validatorErr, "relationships is required")
+				})
+			})
+
+			When("relationships space is not set", func() {
+				BeforeEach(func() {
+					payload.Relationships.Space = nil
+				})
+
+				It("returns an unprocessable entity error", func() {
+					expectUnprocessableEntityError(validatorErr, "relationships.space is required")
+				})
+			})
+
+			When("metadata is invalid", func() {
+				BeforeEach(func() {
+					payload.Metadata = payloads.Metadata{
+						Labels: map[string]string{
+							"foo.cloudfoundry.org/bar": "jim",
+						},
+					}
+				})
+
+				It("returns an appropriate error", func() {
+					expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+				})
+			})
 		})
 
-		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
-		})
+		Describe("ToAppCreateMessage", func() {
+			var (
+				payload     payloads.AppCreate
+				repoMessage repositories.CreateAppMessage
+			)
 
-		It("succeeds", func() {
-			Expect(validatorErr).NotTo(HaveOccurred())
-			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
-		})
-
-		When("name is not set", func() {
 			BeforeEach(func() {
-				payload.Name = ""
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "name cannot be blank")
-			})
-		})
-
-		When("name is invalid", func() {
-			BeforeEach(func() {
-				payload.Name = "!@#"
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "name must consist only of letters, numbers, underscores and dashes")
-			})
-		})
-
-		When("lifecycle is invalid", func() {
-			BeforeEach(func() {
-				payload.Lifecycle = &payloads.Lifecycle{}
-			})
-
-			It("returns an unprocessable entity error", func() {
-				expectUnprocessableEntityError(validatorErr, "lifecycle.type cannot be blank")
-			})
-		})
-
-		When("relationships are not set", func() {
-			BeforeEach(func() {
-				payload.Relationships = nil
-			})
-
-			It("returns an unprocessable entity error", func() {
-				expectUnprocessableEntityError(validatorErr, "relationships is required")
-			})
-		})
-
-		When("relationships space is not set", func() {
-			BeforeEach(func() {
-				payload.Relationships.Space = nil
-			})
-
-			It("returns an unprocessable entity error", func() {
-				expectUnprocessableEntityError(validatorErr, "relationships.space is required")
-			})
-		})
-
-		When("metadata is invalid", func() {
-			BeforeEach(func() {
-				payload.Metadata = payloads.Metadata{
-					Labels: map[string]string{
-						"foo.cloudfoundry.org/bar": "jim",
+				payload = payloads.AppCreate{
+					Name: "app-name",
+					EnvironmentVariables: map[string]string{
+						"foo": "bar",
+					},
+					Relationships: &payloads.AppRelationships{
+						Space: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "space-guid",
+							},
+						},
+					},
+					Metadata: payloads.Metadata{
+						Labels: map[string]string{
+							"l1": "v1",
+						},
 					},
 				}
 			})
 
-			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+			JustBeforeEach(func() {
+				repoMessage = payload.ToAppCreateMessage()
+			})
+
+			It("creates an app create message with default lifecycle", func() {
+				Expect(repoMessage).To(Equal(repositories.CreateAppMessage{
+					Name:      "app-name",
+					SpaceGUID: "space-guid",
+					State:     repositories.StoppedState,
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Stack: "cflinuxfs3",
+						},
+					},
+					EnvironmentVariables: map[string]string{
+						"foo": "bar",
+					},
+					Metadata: repositories.Metadata{
+						Labels: map[string]string{
+							"l1": "v1",
+						},
+					},
+				}))
+			})
+
+			When("the lifecycle is buildpack", func() {
+				BeforeEach(func() {
+					payload.Lifecycle = &payloads.Lifecycle{
+						Type: "buildpack",
+						Data: &payloads.LifecycleData{
+							Buildpacks: []string{"my-bp"},
+							Stack:      "my-stack",
+						},
+					}
+				})
+
+				It("sets the lifecycle to the repo message", func() {
+					Expect(repoMessage.Lifecycle).To(Equal(repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{"my-bp"},
+							Stack:      "my-stack",
+						},
+					}))
+				})
+			})
+
+			When("the lifecycle is docker", func() {
+				BeforeEach(func() {
+					payload.Lifecycle = &payloads.Lifecycle{
+						Type: "docker",
+						Data: &payloads.LifecycleData{},
+					}
+				})
+
+				It("sets the lifecycle to the repo message", func() {
+					Expect(repoMessage.Lifecycle).To(Equal(repositories.Lifecycle{
+						Type: "docker",
+						Data: repositories.LifecycleData{},
+					}))
+				})
 			})
 		})
 	})
