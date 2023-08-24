@@ -82,6 +82,11 @@ type CreatePackageMessage struct {
 	AppGUID   string
 	SpaceGUID string
 	Metadata  Metadata
+	Data      *PackageData
+}
+
+type PackageData struct {
+	Image string
 }
 
 func (message CreatePackageMessage) toCFPackage() *korifiv1alpha1.CFPackage {
@@ -103,6 +108,10 @@ func (message CreatePackageMessage) toCFPackage() *korifiv1alpha1.CFPackage {
 				Name: message.AppGUID,
 			},
 		},
+	}
+
+	if message.Type == "docker" {
+		pkg.Spec.Source.Registry.Image = message.Data.Image
 	}
 
 	return pkg
@@ -132,9 +141,11 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
 	}
 
-	err = r.repositoryCreator.CreateRepository(ctx, r.repositoryRef(message.AppGUID))
-	if err != nil {
-		return PackageRecord{}, fmt.Errorf("failed to create package repository: %w", err)
+	if cfPackage.Spec.Type == "bits" {
+		err = r.repositoryCreator.CreateRepository(ctx, r.repositoryRef(cfPackage))
+		if err != nil {
+			return PackageRecord{}, fmt.Errorf("failed to create package repository: %w", err)
+		}
 	}
 
 	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, workloads.InitializedConditionType)
@@ -275,7 +286,7 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage *korifiv1alpha1.CFPacka
 		UpdatedAt:   getLastUpdatedTime(cfPackage),
 		Labels:      cfPackage.Labels,
 		Annotations: cfPackage.Annotations,
-		ImageRef:    r.repositoryRef(cfPackage.Spec.AppRef.Name),
+		ImageRef:    r.repositoryRef(cfPackage),
 	}
 }
 
@@ -288,6 +299,10 @@ func (r *PackageRepo) convertToPackageRecords(packages []korifiv1alpha1.CFPackag
 	return packageRecords
 }
 
-func (r *PackageRepo) repositoryRef(appGUID string) string {
-	return r.repositoryPrefix + appGUID + "-packages"
+func (r *PackageRepo) repositoryRef(cfPackage *korifiv1alpha1.CFPackage) string {
+	if cfPackage.Spec.Type == "docker" {
+		return cfPackage.Spec.Source.Registry.Image
+	}
+
+	return r.repositoryPrefix + cfPackage.Spec.AppRef.Name + "-packages"
 }

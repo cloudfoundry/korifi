@@ -85,7 +85,6 @@ var _ = Describe("PackageRepository", func() {
 
 		BeforeEach(func() {
 			packageCreate = repositories.CreatePackageMessage{
-				Type:      "bits",
 				AppGUID:   app.Name,
 				SpaceGUID: space.Name,
 				Metadata: repositories.Metadata{
@@ -112,50 +111,101 @@ var _ = Describe("PackageRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			It("creates a Package record", func() {
-				Expect(createErr).NotTo(HaveOccurred())
-
-				packageGUID := createdPackage.GUID
-				Expect(packageGUID).NotTo(BeEmpty())
-				Expect(createdPackage.Type).To(Equal("bits"))
-				Expect(createdPackage.AppGUID).To(Equal(app.Name))
-				Expect(createdPackage.State).To(Equal("AWAITING_UPLOAD"))
-				Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
-				Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
-				Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
-
-				Expect(createdPackage.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-
-				Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
-
-				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
-				createdCFPackage := new(korifiv1alpha1.CFPackage)
-				Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
-
-				Expect(createdCFPackage.Name).To(Equal(packageGUID))
-				Expect(createdCFPackage.Namespace).To(Equal(space.Name))
-				Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("bits")))
-				Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(app.Name))
-
-				Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
-				Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
-
-				Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, "Initialized")).To(BeTrue())
-			})
-
-			It("creates a package repository", func() {
-				Expect(repoCreator.CreateRepositoryCallCount()).To(Equal(1))
-				_, repoName := repoCreator.CreateRepositoryArgsForCall(0)
-				Expect(repoName).To(Equal("container.registry/foo/my/prefix-" + app.Name + "-packages"))
-			})
-
-			When("repo creation errors", func() {
+			Describe("bits package", func() {
 				BeforeEach(func() {
-					repoCreator.CreateRepositoryReturns(errors.New("repo create error"))
+					packageCreate.Type = "bits"
 				})
 
-				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("repo create error")))
+				It("creates a Package record", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+
+					packageGUID := createdPackage.GUID
+					Expect(packageGUID).NotTo(BeEmpty())
+					Expect(createdPackage.Type).To(Equal("bits"))
+					Expect(createdPackage.AppGUID).To(Equal(app.Name))
+					Expect(createdPackage.State).To(Equal("AWAITING_UPLOAD"))
+					Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+					Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+					Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
+
+					Expect(createdPackage.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+
+					Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+
+					packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
+					createdCFPackage := new(korifiv1alpha1.CFPackage)
+					Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
+
+					Expect(createdCFPackage.Name).To(Equal(packageGUID))
+					Expect(createdCFPackage.Namespace).To(Equal(space.Name))
+					Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("bits")))
+					Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(app.Name))
+
+					Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+					Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+
+					Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, "Initialized")).To(BeTrue())
+				})
+
+				It("creates a package repository", func() {
+					Expect(repoCreator.CreateRepositoryCallCount()).To(Equal(1))
+					_, repoName := repoCreator.CreateRepositoryArgsForCall(0)
+					Expect(repoName).To(Equal("container.registry/foo/my/prefix-" + app.Name + "-packages"))
+				})
+
+				When("repo creation errors", func() {
+					BeforeEach(func() {
+						repoCreator.CreateRepositoryReturns(errors.New("repo create error"))
+					})
+
+					It("returns an error", func() {
+						Expect(createErr).To(MatchError(ContainSubstring("repo create error")))
+					})
+				})
+			})
+
+			Describe("docker package", func() {
+				BeforeEach(func() {
+					packageCreate.Type = "docker"
+					packageCreate.Data = &repositories.PackageData{
+						Image: "some/image",
+					}
+				})
+
+				It("creates a Package record", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+
+					packageGUID := createdPackage.GUID
+					Expect(packageGUID).NotTo(BeEmpty())
+					Expect(createdPackage.Type).To(Equal("docker"))
+					Expect(createdPackage.AppGUID).To(Equal(app.Name))
+					Expect(createdPackage.State).To(Equal("READY"))
+					Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+					Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+					Expect(createdPackage.ImageRef).To(Equal("some/image"))
+
+					Expect(createdPackage.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+					Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+
+					packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
+					createdCFPackage := new(korifiv1alpha1.CFPackage)
+					Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
+
+					Expect(createdCFPackage.Name).To(Equal(packageGUID))
+					Expect(createdCFPackage.Namespace).To(Equal(space.Name))
+					Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("docker")))
+					Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(app.Name))
+					Expect(createdCFPackage.Spec.Source.Registry.Image).To(Equal("some/image"))
+
+					Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+					Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+
+					Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, "Initialized")).To(BeTrue())
+					Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, "Ready")).To(BeTrue())
+				})
+
+				It("does not create repository", func() {
+					Expect(repoCreator.CreateRepositoryCallCount()).To(BeZero())
 				})
 			})
 		})

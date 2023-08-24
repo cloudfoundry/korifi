@@ -32,10 +32,11 @@ var _ = Describe("Package", func() {
 	})
 
 	Describe("Create", func() {
-		JustBeforeEach(func() {
-			var err error
-			resp, err = adminClient.R().
-				SetBody(typedResource{
+		var packageRequest packageResource
+
+		BeforeEach(func() {
+			packageRequest = packageResource{
+				typedResource: typedResource{
 					Type: "bits",
 					resource: resource{
 						Relationships: relationships{
@@ -50,7 +51,14 @@ var _ = Describe("Package", func() {
 							"foo.bar.com/baz": "18",
 						},
 					},
-				}).
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetBody(packageRequest).
 				SetError(&resultErr).
 				SetResult(&result).
 				Post("/v3/packages")
@@ -61,6 +69,7 @@ var _ = Describe("Package", func() {
 			Expect(resultErr.Errors).To(BeEmpty())
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.GUID).ToNot(BeEmpty())
+			Expect(result.Type).To(Equal("bits"))
 		})
 
 		When("a new package is created for the same app", func() {
@@ -83,6 +92,22 @@ var _ = Describe("Package", func() {
 
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+			})
+		})
+
+		When("the package is of type docker", func() {
+			BeforeEach(func() {
+				packageRequest.Type = "docker"
+				packageRequest.Data = &packageData{
+					Image: "eirini/dorini",
+				}
+			})
+
+			It("succeeds", func() {
+				Expect(resultErr.Errors).To(BeEmpty())
+				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+				Expect(result.GUID).ToNot(BeEmpty())
+				Expect(result.Type).To(Equal("docker"))
 			})
 		})
 	})
