@@ -22,7 +22,9 @@ type PackageResponse struct {
 	UpdatedAt     string        `json:"updated_at"`
 }
 
-type PackageData struct{}
+type PackageData struct {
+	Image string `json:"image,omitempty"`
+}
 
 type PackageLinks struct {
 	Self     Link `json:"self"`
@@ -64,6 +66,9 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageRespo
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(record.Labels),
 			Annotations: emptyMapIfNil(record.Annotations),
+		},
+		Data: PackageData{
+			Image: record.ImageRef,
 		},
 	}
 }

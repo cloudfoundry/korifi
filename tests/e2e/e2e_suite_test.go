@@ -113,6 +113,15 @@ type typedResource struct {
 	Metadata *metadata `json:"metadata,omitempty"`
 }
 
+type packageResource struct {
+	typedResource `json:",inline"`
+	Data          *packageData `json:"data,omitempty"`
+}
+
+type packageData struct {
+	Image string `json:"image"`
+}
+
 type metadata struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`

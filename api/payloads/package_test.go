@@ -2,6 +2,7 @@ package payloads_test
 
 import (
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -9,14 +10,9 @@ import (
 )
 
 var _ = Describe("PackageCreate", func() {
-	var (
-		createPayload payloads.PackageCreate
-		packageCreate *payloads.PackageCreate
-		validatorErr  error
-	)
+	var createPayload payloads.PackageCreate
 
 	BeforeEach(func() {
-		packageCreate = new(payloads.PackageCreate)
 		createPayload = payloads.PackageCreate{
 			Type: "bits",
 			Relationships: &payloads.PackageRelationships{
@@ -37,76 +33,176 @@ var _ = Describe("PackageCreate", func() {
 		}
 	})
 
-	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), packageCreate)
-	})
+	Describe("Validate", func() {
+		var (
+			packageCreate *payloads.PackageCreate
+			validatorErr  error
+		)
 
-	It("succeeds", func() {
-		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(packageCreate).To(gstruct.PointTo(Equal(createPayload)))
-	})
-
-	When("type is empty", func() {
 		BeforeEach(func() {
-			createPayload.Type = ""
+			packageCreate = new(payloads.PackageCreate)
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "type cannot be blank")
+		JustBeforeEach(func() {
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), packageCreate)
+		})
+
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(packageCreate).To(gstruct.PointTo(Equal(createPayload)))
+		})
+
+		When("data is specified", func() {
+			BeforeEach(func() {
+				createPayload.Data = &payloads.PackageData{}
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "data must be blank")
+			})
+		})
+
+		When("type is docker", func() {
+			BeforeEach(func() {
+				createPayload.Type = "docker"
+				createPayload.Data = &payloads.PackageData{
+					Image: "some/image",
+				}
+			})
+
+			It("succeeds", func() {
+				Expect(validatorErr).NotTo(HaveOccurred())
+				Expect(packageCreate).To(gstruct.PointTo(Equal(createPayload)))
+			})
+
+			When("image is not specified", func() {
+				BeforeEach(func() {
+					createPayload.Data = &payloads.PackageData{}
+				})
+
+				It("returns an appropriate error", func() {
+					expectUnprocessableEntityError(validatorErr, "data.image cannot be blank")
+				})
+			})
+		})
+
+		When("type is empty", func() {
+			BeforeEach(func() {
+				createPayload.Type = ""
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "type cannot be blank")
+			})
+		})
+
+		When("type is not in the allowed list", func() {
+			BeforeEach(func() {
+				createPayload.Type = "foo"
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "type value must be one of: bits")
+			})
+		})
+
+		When("relationships is not set", func() {
+			BeforeEach(func() {
+				createPayload.Relationships = nil
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "relationships is required")
+			})
+		})
+
+		When("relationships.app is not set", func() {
+			BeforeEach(func() {
+				createPayload.Relationships.App = nil
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "app is required")
+			})
+		})
+
+		When("relationships.app is invalid", func() {
+			BeforeEach(func() {
+				createPayload.Relationships.App.Data.GUID = ""
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "guid cannot be blank")
+			})
+		})
+
+		When("metadata is invalid", func() {
+			BeforeEach(func() {
+				createPayload.Metadata = payloads.Metadata{
+					Labels: map[string]string{
+						"foo.cloudfoundry.org/bar": "jim",
+					},
+				}
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+			})
 		})
 	})
 
-	When("type is not in the allowed list", func() {
-		BeforeEach(func() {
-			createPayload.Type = "foo"
+	Describe("ToMessage", func() {
+		var createMessage repositories.CreatePackageMessage
+
+		JustBeforeEach(func() {
+			createMessage = createPayload.ToMessage(repositories.AppRecord{
+				GUID:      "guid",
+				SpaceGUID: "space-guid",
+			})
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "type value must be one of: bits")
-		})
-	})
-
-	When("relationships is not set", func() {
-		BeforeEach(func() {
-			createPayload.Relationships = nil
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "relationships is required")
-		})
-	})
-
-	When("relationships.app is not set", func() {
-		BeforeEach(func() {
-			createPayload.Relationships.App = nil
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "app is required")
-		})
-	})
-
-	When("relationships.app is invalid", func() {
-		BeforeEach(func() {
-			createPayload.Relationships.App.Data.GUID = ""
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "guid cannot be blank")
-		})
-	})
-
-	When("metadata is invalid", func() {
-		BeforeEach(func() {
-			createPayload.Metadata = payloads.Metadata{
-				Labels: map[string]string{
-					"foo.cloudfoundry.org/bar": "jim",
+		It("create the message", func() {
+			Expect(createMessage).To(Equal(repositories.CreatePackageMessage{
+				Type:      "bits",
+				AppGUID:   "guid",
+				SpaceGUID: "space-guid",
+				Metadata: repositories.Metadata{
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Annotations: map[string]string{
+						"example.org/jim": "hello",
+					},
 				},
-			}
+			}))
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+		When("package type is docker", func() {
+			BeforeEach(func() {
+				createPayload.Type = "docker"
+				createPayload.Data = &payloads.PackageData{
+					Image: "some/image",
+				}
+			})
+
+			It("create the message", func() {
+				Expect(createMessage).To(Equal(repositories.CreatePackageMessage{
+					Type:      "docker",
+					AppGUID:   "guid",
+					SpaceGUID: "space-guid",
+					Metadata: repositories.Metadata{
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+						Annotations: map[string]string{
+							"example.org/jim": "hello",
+						},
+					},
+					Data: &repositories.PackageData{
+						Image: "some/image",
+					},
+				}))
+			})
 		})
 	})
 })

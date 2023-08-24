@@ -13,18 +13,20 @@ type PackageCreate struct {
 	Type          string                `json:"type"`
 	Relationships *PackageRelationships `json:"relationships"`
 	Metadata      Metadata              `json:"metadata"`
+	Data          *PackageData          `json:"data"`
 }
 
 func (c PackageCreate) Validate() error {
 	return jellidation.ValidateStruct(&c,
-		jellidation.Field(&c.Type, validation.OneOf("bits"), jellidation.Required),
+		jellidation.Field(&c.Type, validation.OneOf("bits", "docker"), jellidation.Required),
 		jellidation.Field(&c.Relationships, jellidation.NotNil),
 		jellidation.Field(&c.Metadata),
+		jellidation.Field(&c.Data, jellidation.When(c.Type == "docker", jellidation.Required).Else(jellidation.Nil)),
 	)
 }
 
 func (c PackageCreate) ToMessage(record repositories.AppRecord) repositories.CreatePackageMessage {
-	return repositories.CreatePackageMessage{
+	message := repositories.CreatePackageMessage{
 		Type:      c.Type,
 		AppGUID:   record.GUID,
 		SpaceGUID: record.SpaceGUID,
@@ -33,6 +35,24 @@ func (c PackageCreate) ToMessage(record repositories.AppRecord) repositories.Cre
 			Labels:      c.Metadata.Labels,
 		},
 	}
+
+	if c.Type == "docker" {
+		message.Data = &repositories.PackageData{
+			Image: c.Data.Image,
+		}
+	}
+
+	return message
+}
+
+type PackageData struct {
+	Image string `json:"image"`
+}
+
+func (d PackageData) Validate() error {
+	return jellidation.ValidateStruct(&d,
+		jellidation.Field(&d.Image, jellidation.Required),
+	)
 }
 
 type PackageRelationships struct {
