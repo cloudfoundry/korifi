@@ -53,6 +53,7 @@ type DropletRecord struct {
 	PackageGUID     string
 	Labels          map[string]string
 	Annotations     map[string]string
+	Image           string
 }
 
 type ListDropletsMessage struct {
@@ -105,7 +106,7 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 		processTypesMap[processTypesArrayObject[index].Type] = processTypesArrayObject[index].Command
 	}
 
-	return DropletRecord{
+	result := DropletRecord{
 		GUID:      cfBuild.Name,
 		State:     "STAGED",
 		CreatedAt: cfBuild.CreationTimestamp.Time,
@@ -124,6 +125,15 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 		Labels:       cfBuild.Labels,
 		Annotations:  cfBuild.Annotations,
 	}
+
+	if cfBuild.Spec.Lifecycle.Type == "docker" {
+		result.Lifecycle.Data = LifecycleData{}
+		if cfBuild.Status.Droplet != nil {
+			result.Image = cfBuild.Status.Droplet.Registry.Image
+		}
+	}
+
+	return result
 }
 
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {

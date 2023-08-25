@@ -6,23 +6,28 @@ import (
 	"github.com/onsi/gomega/gstruct"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 var _ = Describe("BuildCreate", func() {
+	var createPayload payloads.BuildCreate
+
+	BeforeEach(func() {
+		createPayload = payloads.BuildCreate{
+			Package: &payloads.RelationshipData{
+				GUID: "some-build-guid",
+			},
+		}
+	})
+
 	Describe("Decode", func() {
 		var (
-			createPayload       payloads.BuildCreate
 			decodedBuildPayload *payloads.BuildCreate
 			validatorErr        error
 		)
 
 		BeforeEach(func() {
 			decodedBuildPayload = new(payloads.BuildCreate)
-			createPayload = payloads.BuildCreate{
-				Package: &payloads.RelationshipData{
-					GUID: "some-build-guid",
-				},
-			}
 		})
 
 		JustBeforeEach(func() {
@@ -76,6 +81,39 @@ var _ = Describe("BuildCreate", func() {
 			It("says labels and annotations are not supported", func() {
 				expectUnprocessableEntityError(validatorErr, "metadata.labels must be blank")
 			})
+		})
+
+		When("the lifecycle is invalid", func() {
+			BeforeEach(func() {
+				createPayload.Lifecycle = &payloads.Lifecycle{
+					Type: "invalid",
+				}
+			})
+
+			It("says lifecycle is invalid", func() {
+				expectUnprocessableEntityError(validatorErr, "lifecycle.type value must be one of: buildpack, docker")
+			})
+		})
+	})
+
+	Describe("ToMessage", func() {
+		It("translates to create build repo message", func() {
+			createMessage := createPayload.ToMessage(repositories.AppRecord{
+				GUID:      "guid",
+				SpaceGUID: "space-guid",
+				Lifecycle: repositories.Lifecycle{
+					Type: "my-type",
+				},
+			})
+			Expect(createMessage).To(Equal(repositories.CreateBuildMessage{
+				AppGUID:         "guid",
+				PackageGUID:     "some-build-guid",
+				SpaceGUID:       "space-guid",
+				StagingMemoryMB: payloads.DefaultLifecycleConfig.StagingMemoryMB,
+				Lifecycle: repositories.Lifecycle{
+					Type: "my-type",
+				},
+			}))
 		})
 	})
 })

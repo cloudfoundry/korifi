@@ -17,8 +17,8 @@ var _ = Describe("Droplets", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-		appGUID := createApp(spaceGUID, generateGUID("app"))
-		pkgGUID := createPackage(appGUID)
+		appGUID := createBuildpackApp(spaceGUID, generateGUID("app"))
+		pkgGUID := createBitsPackage(appGUID)
 		uploadTestApp(pkgGUID, defaultAppBitsFile)
 		buildGUID = createBuild(pkgGUID)
 	})
@@ -38,6 +38,38 @@ var _ = Describe("Droplets", func() {
 
 		It("returns the droplet", func() {
 			Expect(result.GUID).To(Equal(buildGUID))
+		})
+
+		When("the lifecycle type is docker", func() {
+			BeforeEach(func() {
+				appGUID := createApp(appResource{
+					resource: resource{
+						Name:          generateGUID("app"),
+						Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
+					},
+					Lifecycle: &lifecycle{
+						Type: "docker",
+					},
+				})
+				pkgGUID := createPackage(appGUID, packageResource{
+					typedResource: typedResource{
+						Type: "docker",
+						resource: resource{
+							Relationships: relationships{
+								"app": relationship{Data: resource{GUID: appGUID}},
+							},
+						},
+					},
+					Data: &packageData{
+						Image: "eirini/dorini",
+					},
+				})
+				buildGUID = createBuild(pkgGUID)
+			})
+
+			It("returns the droplet", func() {
+				Expect(result.GUID).To(Equal(buildGUID))
+			})
 		})
 	})
 

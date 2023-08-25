@@ -53,12 +53,15 @@ type BuildDropletStatus struct {
 	Registry Registry `json:"registry"`
 
 	// The stack used to build the Droplet
+	//+kubebuilder:validation:Optional
 	Stack string `json:"stack"`
 
 	// The process types and associated start commands for the Droplet
+	//+kubebuilder:validation:Optional
 	ProcessTypes []ProcessType `json:"processTypes"`
 
 	// The exposed ports for the application
+	//+kubebuilder:validation:Optional
 	Ports []int32 `json:"ports"`
 }
 

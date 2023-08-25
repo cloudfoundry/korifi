@@ -106,6 +106,70 @@ var _ = Describe("Droplet", func() {
 		}`))
 	})
 
+	When("the lifecycle is docker", func() {
+		BeforeEach(func() {
+			record.Lifecycle = repositories.Lifecycle{
+				Type: "docker",
+				Data: repositories.LifecycleData{},
+			}
+			record.Image = "some/image"
+		})
+
+		It("produces expected droplet json", func() {
+			Expect(output).To(MatchJSON(`{
+			"guid": "the-droplet-guid",
+			"state": "STAGED",
+			"error": null,
+			"lifecycle": {
+				"type": "docker",
+				"data": {}
+			},
+			"execution_metadata": "",
+			"process_types": {
+				"rake": "bundle exec rake",
+				"web": "bundle exec rackup config.ru -p $PORT"
+			},
+			"checksum": null,
+			"buildpacks": [],
+			"stack": "cflinuxfs3",
+			"image": "some/image",
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
+			"relationships": {
+				"app": {
+					"data": {
+						"guid": "the-app-guid"
+					}
+				}
+			},
+			"links": {
+				"self": {
+					"href": "https://api.example.org/v3/droplets/the-droplet-guid"
+				},
+				"package": {
+					"href": "https://api.example.org/v3/packages/the-package-guid"
+				},
+				"app": {
+					"href": "https://api.example.org/v3/apps/the-app-guid"
+				},
+				"assign_current_droplet": {
+					"href": "https://api.example.org/v3/apps/the-app-guid/relationships/current_droplet",
+					"method": "PATCH"
+				},
+				"download": null
+			},
+			"metadata": {
+				"labels": {
+					"label-key": "label-val"
+				},
+				"annotations": {
+					"annotation-key": "annotation-val"
+				}
+			}
+		}`))
+		})
+	})
+
 	When("labels is nil", func() {
 		BeforeEach(func() {
 			record.Labels = nil

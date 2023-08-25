@@ -159,15 +159,26 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (workloadscontrollers.NewCFBuildReconciler(
+		buildCleaner := cleanup.NewBuildCleaner(mgr.GetClient(), controllerConfig.MaxRetainedBuildsPerApp)
+		if err = (workloadscontrollers.NewCFBuildpackBuildReconciler(
 			mgr.GetClient(),
-			cleanup.NewBuildCleaner(mgr.GetClient(), controllerConfig.MaxRetainedBuildsPerApp),
+			buildCleaner,
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFBuild"),
+			ctrl.Log.WithName("controllers").WithName("CFBuildpackBuild"),
 			controllerConfig,
 			env.NewWorkloadEnvBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
+			setupLog.Error(err, "unable to create controller", "controller", "CFBuildpackBuild")
+			os.Exit(1)
+		}
+
+		if err = (workloadscontrollers.NewCFDockerBuildReconciler(
+			mgr.GetClient(),
+			buildCleaner,
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFDockerBuild")
 			os.Exit(1)
 		}
 

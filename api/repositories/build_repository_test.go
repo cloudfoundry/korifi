@@ -360,8 +360,8 @@ var _ = Describe("BuildRepository", func() {
 
 			buildStagingState = "STAGING"
 
-			buildLifecycleType = "buildpack"
-			buildStack         = "cflinuxfs3"
+			buildpackLifecycleType = "buildpack"
+			buildStack             = "cflinuxfs3"
 
 			stagingMemory = 1024
 			stagingDisk   = 2048
@@ -389,7 +389,7 @@ var _ = Describe("BuildRepository", func() {
 				StagingMemoryMB: stagingMemory,
 				StagingDiskMB:   stagingDisk,
 				Lifecycle: repositories.Lifecycle{
-					Type: buildLifecycleType,
+					Type: buildpackLifecycleType,
 					Data: repositories.LifecycleData{
 						Buildpacks: []string{},
 						Stack:      buildStack,
@@ -430,7 +430,7 @@ var _ = Describe("BuildRepository", func() {
 				Expect(buildCreateRecord.StagingErrorMsg).To(BeEmpty())
 				Expect(buildCreateRecord.StagingMemoryMB).To(Equal(stagingMemory))
 				Expect(buildCreateRecord.StagingDiskMB).To(Equal(stagingDisk))
-				Expect(buildCreateRecord.Lifecycle.Type).To(Equal(buildLifecycleType))
+				Expect(buildCreateRecord.Lifecycle.Type).To(Equal(buildpackLifecycleType))
 				Expect(buildCreateRecord.Lifecycle.Data.Stack).To(Equal(buildStack))
 				Expect(buildCreateRecord.PackageGUID).To(Equal(packageGUID))
 				Expect(buildCreateRecord.DropletGUID).To(BeEmpty())
@@ -454,8 +454,34 @@ var _ = Describe("BuildRepository", func() {
 				Expect(cfBuild.Spec.AppRef.Name).To(Equal(appGUID))
 				Expect(cfBuild.Spec.StagingMemoryMB).To(Equal(stagingMemory))
 				Expect(cfBuild.Spec.StagingDiskMB).To(Equal(stagingDisk))
-				Expect(cfBuild.Spec.Lifecycle.Type).To(Equal(korifiv1alpha1.LifecycleType(buildLifecycleType)))
+				Expect(cfBuild.Spec.Lifecycle.Type).To(Equal(korifiv1alpha1.LifecycleType(buildpackLifecycleType)))
 				Expect(cfBuild.Spec.Lifecycle.Data.Stack).To(Equal(buildStack))
+			})
+
+			When("the lifecycle type is docker", func() {
+				BeforeEach(func() {
+					buildCreateMsg.Lifecycle = repositories.Lifecycle{
+						Type: "docker",
+					}
+				})
+
+				It("returns correct build record", func() {
+					Expect(buildCreateErr).NotTo(HaveOccurred())
+
+					Expect(buildCreateRecord.GUID).NotTo(BeEmpty())
+					Expect(buildCreateRecord.Lifecycle.Type).To(Equal("docker"))
+					Expect(buildCreateRecord.Lifecycle.Data).To(Equal(repositories.LifecycleData{}))
+				})
+
+				It("creates a new Build CR", func() {
+					cfBuildLookupKey := types.NamespacedName{Name: buildCreateRecord.GUID, Namespace: spaceGUID}
+
+					cfBuild := korifiv1alpha1.CFBuild{}
+					Expect(k8sClient.Get(ctx, cfBuildLookupKey, &cfBuild)).To(Succeed())
+
+					Expect(cfBuild.Spec.Lifecycle.Type).To(Equal(korifiv1alpha1.LifecycleType("docker")))
+					Expect(cfBuild.Spec.Lifecycle.Data).To(Equal(korifiv1alpha1.LifecycleData{}))
+				})
 			})
 		})
 
