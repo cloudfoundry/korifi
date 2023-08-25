@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,10 +74,6 @@ var _ = Describe("DropletRepository", func() {
 				StagingDiskMB:   stagingDisk,
 				Lifecycle: korifiv1alpha1.Lifecycle{
 					Type: "buildpack",
-					Data: korifiv1alpha1.LifecycleData{
-						Buildpacks: []string{},
-						Stack:      "",
-					},
 				},
 			},
 		}
@@ -147,52 +144,42 @@ var _ = Describe("DropletRepository", func() {
 					Expect(fetchErr).NotTo(HaveOccurred())
 
 					Expect(dropletRecord.State).To(Equal("STAGED"))
+					Expect(dropletRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+					Expect(dropletRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+					Expect(dropletRecord.Stack).To(Equal(build.Status.Droplet.Stack))
+					Expect(dropletRecord.Lifecycle.Type).To(Equal(string(build.Spec.Lifecycle.Type)))
+					Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
+					Expect(dropletRecord.Lifecycle.Data.Stack).To(Equal(build.Spec.Lifecycle.Data.Stack))
+					Expect(dropletRecord.Image).To(BeEmpty())
+					Expect(dropletRecord.AppGUID).To(Equal(build.Spec.AppRef.Name))
+					Expect(dropletRecord.PackageGUID).To(Equal(build.Spec.PackageRef.Name))
+					Expect(dropletRecord.Labels).To(Equal(map[string]string{
+						"key1": "val1",
+						"key2": "val2",
+					}))
+					Expect(dropletRecord.Annotations).To(Equal(map[string]string{
+						"key1": "val1",
+						"key2": "val2",
+					}))
 
-					By("returning a record with a CreatedAt field from the CR", func() {
-						Expect(dropletRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+					processTypesArray := build.Status.Droplet.ProcessTypes
+					for index := range processTypesArray {
+						Expect(dropletRecord.ProcessTypes).To(HaveKeyWithValue(processTypesArray[index].Type, processTypesArray[index].Command))
+					}
+				})
+
+				When("the droplet is of type docker", func() {
+					BeforeEach(func() {
+						Expect(k8s.Patch(ctx, k8sClient, build, func() {
+							build.Spec.Lifecycle.Type = "docker"
+							build.Status.Droplet.Registry.Image = "some/image"
+						})).To(Succeed())
 					})
 
-					By("returning a record with a UpdatedAt field from the CR", func() {
-						Expect(dropletRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
-					})
-
-					By("returning a record with stack field matching the CR", func() {
-						Expect(dropletRecord.Stack).To(Equal(build.Status.Droplet.Stack))
-					})
-
-					By("returning a record with Lifecycle fields matching the CR", func() {
-						Expect(dropletRecord.Lifecycle.Type).To(Equal(string(build.Spec.Lifecycle.Type)), "returned record lifecycle.type did not match CR")
-						Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(BeEmpty(), "returned record lifecycle.data.buildpacks did not match CR")
-						Expect(dropletRecord.Lifecycle.Data.Stack).To(Equal(build.Spec.Lifecycle.Data.Stack), "returned record lifecycle.data.stack did not match CR")
-					})
-
-					By("returning a record with an AppGUID field matching the CR", func() {
-						Expect(dropletRecord.AppGUID).To(Equal(build.Spec.AppRef.Name))
-					})
-
-					By("returning a record with a PackageGUID field matching the CR", func() {
-						Expect(dropletRecord.PackageGUID).To(Equal(build.Spec.PackageRef.Name))
-					})
-
-					By("returning a record with all process types and commands matching the CR", func() {
-						processTypesArray := build.Status.Droplet.ProcessTypes
-						for index := range processTypesArray {
-							Expect(dropletRecord.ProcessTypes).To(HaveKeyWithValue(processTypesArray[index].Type, processTypesArray[index].Command))
-						}
-					})
-
-					By("returns a record with a Label field matching the CR", func() {
-						Expect(dropletRecord.Labels).To(Equal(map[string]string{
-							"key1": "val1",
-							"key2": "val2",
-						}))
-					})
-
-					By("returns a record with an Annotation field matching the CR", func() {
-						Expect(dropletRecord.Annotations).To(Equal(map[string]string{
-							"key1": "val1",
-							"key2": "val2",
-						}))
+					It("returns a droplet with docker lifecycle", func() {
+						Expect(dropletRecord.Lifecycle.Type).To(Equal("docker"))
+						Expect(dropletRecord.Lifecycle.Data).To(Equal(repositories.LifecycleData{}))
+						Expect(dropletRecord.Image).To(Equal("some/image"))
 					})
 				})
 			})

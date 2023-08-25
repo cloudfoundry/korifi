@@ -135,15 +135,24 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	buildCleaner = new(fake.BuildCleaner)
-	cfBuildReconciler := NewCFBuildReconciler(
+	cfBuildpackBuildReconciler := NewCFBuildpackBuildReconciler(
 		k8sManager.GetClient(),
 		buildCleaner,
 		k8sManager.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ctrl.Log.WithName("controllers").WithName("CFBuildpackBuild"),
 		controllerConfig,
 		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
 	)
-	err = (cfBuildReconciler).SetupWithManager(k8sManager)
+	err = (cfBuildpackBuildReconciler).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	cfDockerBuildReconciler := NewCFDockerBuildReconciler(
+		k8sManager.GetClient(),
+		buildCleaner,
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),
+	)
+	err = (cfDockerBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (NewCFProcessReconciler(

@@ -247,7 +247,7 @@ var _ = Describe("Routes", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = createApp(spaceGUID, generateGUID("app"))
+			appGUID = createBuildpackApp(spaceGUID, generateGUID("app"))
 			routeGUID = createRoute(host, generateGUID("/some-path"), spaceGUID, domainGUID)
 			destinationGUIDs = addDestinationForRoute(appGUID, routeGUID)
 			Expect(destinationGUIDs).To(HaveLen(1))
@@ -278,7 +278,7 @@ var _ = Describe("Routes", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = createApp(spaceGUID, generateGUID("app"))
+			appGUID = createBuildpackApp(spaceGUID, generateGUID("app"))
 			routeGUID = createRoute(host, generateGUID("/some-path"), spaceGUID, domainGUID)
 			destinationGUIDs = addDestinationForRoute(appGUID, routeGUID)
 			Expect(destinationGUIDs).To(HaveLen(1))

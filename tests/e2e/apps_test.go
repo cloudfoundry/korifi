@@ -42,8 +42,8 @@ var _ = Describe("Apps", func() {
 
 			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
 
-			app1GUID = createApp(space1GUID, generateGUID("app1"))
-			app2GUID = createApp(space2GUID, generateGUID("app2"))
+			app1GUID = createBuildpackApp(space1GUID, generateGUID("app1"))
+			app2GUID = createBuildpackApp(space2GUID, generateGUID("app2"))
 		})
 
 		AfterEach(func() {
@@ -124,8 +124,8 @@ var _ = Describe("Apps", func() {
 
 		BeforeEach(func() {
 			appName := generateGUID("app")
-			appGUID = createApp(space1GUID, appName)
-			pkgGUID = createPackage(appGUID)
+			appGUID = createBuildpackApp(space1GUID, appName)
+			pkgGUID = createBitsPackage(appGUID)
 			buildGUID = createBuild(pkgGUID)
 			processType = "web"
 
@@ -187,7 +187,7 @@ var _ = Describe("Apps", func() {
 		var result resource
 
 		BeforeEach(func() {
-			appGUID = createApp(space1GUID, generateGUID("app1"))
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app1"))
 		})
 
 		JustBeforeEach(func() {
@@ -206,7 +206,7 @@ var _ = Describe("Apps", func() {
 		var result resourceList[typedResource]
 
 		BeforeEach(func() {
-			appGUID = createApp(space1GUID, generateGUID("app"))
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
 		})
 
 		JustBeforeEach(func() {
@@ -252,8 +252,8 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = createApp(space1GUID, generateGUID("app"))
-			pkgGUID = createPackage(appGUID)
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
+			pkgGUID = createBitsPackage(appGUID)
 			uploadTestApp(pkgGUID, defaultAppBitsFile)
 		})
 
@@ -274,7 +274,7 @@ var _ = Describe("Apps", func() {
 		var result resourceList[resource]
 
 		BeforeEach(func() {
-			appGUID = createApp(space1GUID, generateGUID("app"))
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
 		})
 
 		JustBeforeEach(func() {
@@ -310,7 +310,7 @@ var _ = Describe("Apps", func() {
 			applySpaceManifest(manifest, space1GUID)
 
 			appGUID = getAppGUIDFromName(manifest.Applications[0].Name)
-			pkgGUID := createPackage(appGUID)
+			pkgGUID := createBitsPackage(appGUID)
 			uploadTestApp(pkgGUID, defaultAppBitsFile)
 			buildGUID = createBuild(pkgGUID)
 		})
@@ -328,8 +328,8 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = createApp(space1GUID, generateGUID("app"))
-			pkgGUID = createPackage(appGUID)
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
+			pkgGUID = createBitsPackage(appGUID)
 			uploadTestApp(pkgGUID, defaultAppBitsFile)
 			buildGUID = createBuild(pkgGUID)
 			waitForDroplet(buildGUID)
@@ -667,7 +667,7 @@ var _ = Describe("Apps", func() {
 
 		BeforeEach(func() {
 			appName = generateGUID("app1")
-			appGUID = createApp(space1GUID, appName)
+			appGUID = createBuildpackApp(space1GUID, appName)
 			setEnv(appGUID, map[string]interface{}{
 				"foo": "var",
 			})
@@ -787,7 +787,7 @@ var _ = Describe("Apps", func() {
 
 		BeforeEach(func() {
 			newAppName = generateGUID("another-app-name-")
-			appGUID = createApp(space1GUID, generateGUID("app1"))
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app1"))
 		})
 
 		JustBeforeEach(func() {

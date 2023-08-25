@@ -179,6 +179,10 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRe
 		Annotations: cfBuild.Annotations,
 	}
 
+	if cfBuild.Spec.Lifecycle.Type == "docker" {
+		toReturn.Lifecycle.Data = LifecycleData{}
+	}
+
 	if cfBuild.Spec.Lifecycle.Data.Buildpacks != nil {
 		toReturn.Lifecycle.Data.Buildpacks = cfBuild.Spec.Lifecycle.Data.Buildpacks
 	}

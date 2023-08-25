@@ -596,31 +596,33 @@ func createSpaceRole(roleName, userName, spaceGUID string) string {
 	return createRole(roleName, "space", userName, spaceGUID)
 }
 
-func createApp(spaceGUID, name string) string {
+func createBuildpackApp(spaceGUID, name string) string {
 	GinkgoHelper()
 
-	var app resource
+	return createApp(appResource{
+		resource: resource{
+			Name:          name,
+			Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
+		},
+	})
+}
+
+func createApp(app appResource) string {
+	GinkgoHelper()
+
+	var result resource
 
 	resp, err := adminClient.R().
-		SetBody(appResource{
-			resource: resource{
-				Name:          name,
-				Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
-			},
-		}).
-		SetResult(&app).
+		SetBody(app).
+		SetResult(&result).
 		Post("/v3/apps")
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-	Expect(app.GUID).NotTo(BeEmpty())
-	Expect(app.Name).To(Equal(name))
-	Expect(app.CreatedAt).NotTo(BeEmpty())
-	Expect(app.Relationships).NotTo(BeNil())
-	Expect(app.Relationships).To(HaveKey("space"))
-	Expect(app.Relationships["space"].Data.GUID).To(Equal(spaceGUID))
+	Expect(result.GUID).NotTo(BeEmpty())
+	Expect(result.Name).To(Equal(app.Name))
 
-	return app.GUID
+	return result.GUID
 }
 
 func setEnv(appName string, envVars map[string]interface{}) {
@@ -765,26 +767,32 @@ func getServiceBindingsForApp(appGUID string) []resource {
 	return serviceBindings.Resources
 }
 
-func createPackage(appGUID string) string {
+func createBitsPackage(appGUID string) string {
 	GinkgoHelper()
 
-	var pkg resource
-	resp, err := adminClient.R().
-		SetBody(typedResource{
+	return createPackage(appGUID, packageResource{
+		typedResource: typedResource{
 			Type: "bits",
 			resource: resource{
 				Relationships: relationships{
 					"app": relationship{Data: resource{GUID: appGUID}},
 				},
 			},
-		}).
-		SetResult(&pkg).
+		},
+	})
+}
+
+func createPackage(appGUID string, pkg packageResource) string {
+	var result resource
+	resp, err := adminClient.R().
+		SetBody(pkg).
+		SetResult(&result).
 		Post("/v3/packages")
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
-	return pkg.GUID
+	return result.GUID
 }
 
 func createBuild(packageGUID string) string {
@@ -912,7 +920,7 @@ func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
 	GinkgoHelper()
 
 	appGUID := createAppViaManifest(spaceGUID, appName)
-	pkgGUID := createPackage(appGUID)
+	pkgGUID := createBitsPackage(appGUID)
 	uploadTestApp(pkgGUID, appBitsFile)
 	buildGUID := createBuild(pkgGUID)
 	waitForDroplet(buildGUID)

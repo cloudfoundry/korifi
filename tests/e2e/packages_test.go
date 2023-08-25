@@ -21,7 +21,7 @@ var _ = Describe("Package", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
-		appGUID = createApp(spaceGUID, generateGUID("app"))
+		appGUID = createBuildpackApp(spaceGUID, generateGUID("app"))
 
 		result = typedResource{}
 		resultErr = cfErrs{}
@@ -114,7 +114,7 @@ var _ = Describe("Package", func() {
 
 	Describe("Update", func() {
 		BeforeEach(func() {
-			packageGUID = createPackage(appGUID)
+			packageGUID = createBitsPackage(appGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -145,7 +145,7 @@ var _ = Describe("Package", func() {
 
 	Describe("Upload", func() {
 		BeforeEach(func() {
-			packageGUID = createPackage(appGUID)
+			packageGUID = createBitsPackage(appGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -167,7 +167,7 @@ var _ = Describe("Package", func() {
 		var result resource
 
 		BeforeEach(func() {
-			packageGUID = createPackage(appGUID)
+			packageGUID = createBitsPackage(appGUID)
 		})
 
 		JustBeforeEach(func() {
@@ -190,7 +190,7 @@ var _ = Describe("Package", func() {
 
 		BeforeEach(func() {
 			resultList = resourceList[resource]{}
-			packageGUID = createPackage(appGUID)
+			packageGUID = createBitsPackage(appGUID)
 			uploadTestApp(packageGUID, defaultAppBitsFile)
 			buildGUID = createBuild(packageGUID)
 
@@ -225,9 +225,9 @@ var _ = Describe("Package", func() {
 		BeforeEach(func() {
 			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
 
-			package1GUID = createPackage(appGUID)
-			app2GUID := createApp(space2GUID, generateGUID("app2"))
-			package2GUID = createPackage(app2GUID)
+			package1GUID = createBitsPackage(appGUID)
+			app2GUID := createBuildpackApp(space2GUID, generateGUID("app2"))
+			package2GUID = createBitsPackage(app2GUID)
 		})
 
 		AfterEach(func() {

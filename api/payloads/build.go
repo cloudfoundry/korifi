@@ -18,6 +18,7 @@ func (b BuildCreate) Validate() error {
 	return validation.ValidateStruct(&b,
 		validation.Field(&b.Package, payload_validation.StrictlyRequired),
 		validation.Field(&b.Metadata),
+		validation.Field(&b.Lifecycle),
 	)
 }
 

@@ -21,7 +21,7 @@ var _ = Describe("Service Bindings", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-		appGUID = createApp(spaceGUID, generateGUID("app"))
+		appGUID = createBuildpackApp(spaceGUID, generateGUID("app"))
 		instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"), nil)
 	})
 
