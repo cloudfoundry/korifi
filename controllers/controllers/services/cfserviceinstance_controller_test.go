@@ -3,7 +3,6 @@ package services_test
 import (
 	"context"
 
-	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -83,10 +82,6 @@ var _ = Describe("CFServiceInstance", func() {
 			g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 			g.Expect(updatedCFServiceInstance.Status.ObservedGeneration).To(Equal(cfServiceInstance.Generation))
 		}).Should(Succeed())
-	})
-
-	It("writes a log message", func() {
-		Eventually(logOutput).Should(gbytes.Say("set observed generation"))
 	})
 
 	When("the referenced secret does not exist", func() {

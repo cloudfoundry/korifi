@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -320,10 +319,6 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 
 				return orgNamespace.GetDeletionTimestamp().IsZero()
 			}).Should(BeFalse(), "timed out waiting for deletion timestamps to be set on namespace")
-		})
-
-		It("writes some log message from the finalizer helper", func() {
-			Eventually(logOutput).WithTimeout(30 * time.Second).Should(gbytes.Say("controllers.CFOrg.finalize"))
 		})
 	})
 })

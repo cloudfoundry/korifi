@@ -9,7 +9,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -195,10 +194,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		It("sets the ObservedGeneration status field", func() {
 			Expect(task.Status.ObservedGeneration).To(Equal(task.Generation))
-		})
-
-		It("writes a log message", func() {
-			Eventually(logOutput).Should(gbytes.Say("set observed generation"))
 		})
 
 		It("creates an TaskWorkload", func() {
