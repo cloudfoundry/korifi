@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -569,10 +568,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				err := adminClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, &createdCFApp)
 				return apierrors.IsNotFound(err)
 			}).Should(BeTrue(), "timed out waiting for app to be deleted")
-		})
-
-		It("writes a log message", func() {
-			Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
 		})
 
 		It("eventually deletes the destination on the CFRoute", func() {

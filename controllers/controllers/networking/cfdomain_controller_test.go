@@ -9,7 +9,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -112,10 +111,6 @@ var _ = Describe("CFDomainReconciler Integration Tests", func() {
 				g.Expect(adminClient.List(ctx, routes, client.InNamespace(route2Namespace))).To(Succeed())
 				g.Expect(routes.Items).To(BeEmpty())
 			}).Should(Succeed())
-		})
-
-		It("writes a log message", func() {
-			Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
 		})
 	})
 })

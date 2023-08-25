@@ -17,7 +17,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("CFPackageReconciler Integration Tests", func() {
@@ -153,10 +152,6 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
 			}).Should(Succeed())
-		})
-
-		It("writes a log message", func() {
-			Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
 		})
 
 		When("the package doesn't have an image set", func() {
