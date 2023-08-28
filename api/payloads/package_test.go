@@ -203,6 +203,34 @@ var _ = Describe("PackageCreate", func() {
 					},
 				}))
 			})
+
+			When("the image is private", func() {
+				BeforeEach(func() {
+					createPayload.Data.Username = tools.PtrTo("user")
+					createPayload.Data.Password = tools.PtrTo("pass")
+				})
+
+				It("create the message", func() {
+					Expect(createMessage).To(Equal(repositories.CreatePackageMessage{
+						Type:      "docker",
+						AppGUID:   "guid",
+						SpaceGUID: "space-guid",
+						Metadata: repositories.Metadata{
+							Labels: map[string]string{
+								"foo": "bar",
+							},
+							Annotations: map[string]string{
+								"example.org/jim": "hello",
+							},
+						},
+						Data: &repositories.PackageData{
+							Image:    "some/image",
+							Username: tools.PtrTo("user"),
+							Password: tools.PtrTo("pass"),
+						},
+					}))
+				})
+			})
 		})
 	})
 })

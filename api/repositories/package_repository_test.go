@@ -196,6 +196,7 @@ var _ = Describe("PackageRepository", func() {
 					Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("docker")))
 					Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(app.Name))
 					Expect(createdCFPackage.Spec.Source.Registry.Image).To(Equal("some/image"))
+					Expect(createdCFPackage.Spec.Source.Registry.ImagePullSecrets).To(BeEmpty())
 
 					Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
 					Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
@@ -204,8 +205,45 @@ var _ = Describe("PackageRepository", func() {
 					Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, "Ready")).To(BeTrue())
 				})
 
-				It("does not create repository", func() {
+				It("does not create source image repository", func() {
 					Expect(repoCreator.CreateRepositoryCallCount()).To(BeZero())
+				})
+
+				When("the image is private", func() {
+					BeforeEach(func() {
+						packageCreate.Data.Username = tools.PtrTo("bob")
+						packageCreate.Data.Password = tools.PtrTo("paswd")
+					})
+
+					It("generates an image pull secret", func() {
+						Expect(createErr).NotTo(HaveOccurred())
+
+						createdCFPackage := &korifiv1alpha1.CFPackage{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: space.Name,
+								Name:      createdPackage.GUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(createdCFPackage), createdCFPackage)).To(Succeed())
+						Expect(createdCFPackage.Spec.Source.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: createdPackage.GUID}))
+
+						imgPullSecret := &corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: space.Name,
+								Name:      createdPackage.GUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(imgPullSecret), imgPullSecret)).To(Succeed())
+						Expect(imgPullSecret.Type).To(Equal(corev1.SecretTypeDockerConfigJson))
+						Expect(imgPullSecret.Data).NotTo(BeEmpty())
+
+						Expect(imgPullSecret.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
+							UID:        createdCFPackage.UID,
+							Kind:       "CFPackage",
+							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+							Name:       createdCFPackage.Name,
+						}))
+					})
 				})
 			})
 		})

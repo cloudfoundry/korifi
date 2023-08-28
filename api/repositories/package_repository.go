@@ -8,18 +8,22 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
+	"code.cloudfoundry.org/korifi/api/repositories/dockercfg"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/uuid"
+
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -86,18 +90,20 @@ type CreatePackageMessage struct {
 }
 
 type PackageData struct {
-	Image string
+	Image    string
+	Username *string
+	Password *string
 }
 
 func (message CreatePackageMessage) toCFPackage() *korifiv1alpha1.CFPackage {
-	guid := uuid.NewString()
+	packageGUID := uuid.NewString()
 	pkg := &korifiv1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       kind,
 			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        guid,
+			Name:        packageGUID,
 			Namespace:   message.SpaceGUID,
 			Labels:      message.Metadata.Labels,
 			Annotations: message.Metadata.Annotations,
@@ -148,12 +154,66 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 		}
 	}
 
+	if isPrivateDockerImage(message) {
+		err = createImagePullSecret(ctx, userClient, cfPackage, message)
+		if err != nil {
+			return PackageRecord{}, fmt.Errorf("failed to build docker image pull secret: %w", err)
+		}
+	}
+
 	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, workloads.InitializedConditionType)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed waiting for Initialized condition: %w", err)
 	}
 
 	return r.cfPackageToPackageRecord(cfPackage), nil
+}
+
+func isPrivateDockerImage(message CreatePackageMessage) bool {
+	return message.Type == "docker" &&
+		message.Data.Username != nil &&
+		message.Data.Password != nil
+}
+
+func createImagePullSecret(ctx context.Context, userClient client.Client, cfPackage *korifiv1alpha1.CFPackage, message CreatePackageMessage) error {
+	ref, err := name.ParseReference(message.Data.Image)
+	if err != nil {
+		return fmt.Errorf("failed to parse image ref: %w", err)
+	}
+	dockerCfg, err := dockercfg.GenerateDockerCfgSecretData(*message.Data.Username, *message.Data.Password, ref.Context().RegistryStr())
+	if err != nil {
+		return fmt.Errorf("failed to generate dockercfgjson: %w", err)
+	}
+
+	imgPullSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfPackage.Namespace,
+			Name:      cfPackage.Name,
+		},
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: dockerCfg,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+	}
+
+	err = controllerutil.SetOwnerReference(cfPackage, &imgPullSecret, scheme.Scheme)
+	if err != nil {
+		return fmt.Errorf("failed to set ownership from the package to the image pull secret: %w", err)
+	}
+
+	err = userClient.Create(ctx, &imgPullSecret)
+	if err != nil {
+		return fmt.Errorf("failed create the image pull secret: %w", err)
+	}
+
+	err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
+		cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: imgPullSecret.Name}}
+	})
+	if err != nil {
+		return fmt.Errorf("failed set the package image pull secret: %w", err)
+	}
+
+	return nil
 }
 
 func (r *PackageRepo) UpdatePackage(ctx context.Context, authInfo authorization.Info, updateMessage UpdatePackageMessage) (PackageRecord, error) {
