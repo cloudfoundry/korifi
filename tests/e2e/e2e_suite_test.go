@@ -172,6 +172,11 @@ type applicationResource struct {
 	Metadata     metadata                             `yaml:"metadata,omitempty"`
 	Buildpacks   []string                             `yaml:"buildpacks"`
 	Services     []serviceResource                    `yaml:"services"`
+	Docker       dockerResource                       `yaml:"docker,omitempty"`
+}
+
+type dockerResource struct {
+	Image string `yaml:"image"`
 }
 
 type serviceResource struct {

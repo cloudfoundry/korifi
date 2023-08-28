@@ -3,6 +3,7 @@ package payloads_test
 import (
 	. "code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -221,6 +222,177 @@ var _ = Describe("Manifest payload", func() {
 
 				It("does not return a validation error", func() {
 					Expect(validateErr).NotTo(HaveOccurred())
+				})
+			})
+
+			When("buildpack is specified", func() {
+				BeforeEach(func() {
+					testManifest.Buildpack = tools.PtrTo("foo")
+				})
+
+				It("does not return a validation error", func() {
+					Expect(validateErr).NotTo(HaveOccurred())
+				})
+
+				When("docker is specified", func() {
+					BeforeEach(func() {
+						testManifest.Docker = &ManifestApplicationDocker{}
+					})
+				})
+			})
+
+			When("buildpacks are specified", func() {
+				BeforeEach(func() {
+					testManifest.Buildpacks = []string{"foo"}
+				})
+
+				It("does not return a validation error", func() {
+					Expect(validateErr).NotTo(HaveOccurred())
+				})
+
+				When("docker is specified", func() {
+					BeforeEach(func() {
+						testManifest.Docker = &ManifestApplicationDocker{}
+					})
+				})
+			})
+
+			When("docker is specified", func() {
+				BeforeEach(func() {
+					testManifest.Docker = &ManifestApplicationDocker{
+						Image: "some/image",
+					}
+				})
+
+				It("does not return a validation error", func() {
+					Expect(validateErr).NotTo(HaveOccurred())
+				})
+
+				When("buildpack is specified", func() {
+					BeforeEach(func() {
+						testManifest.Buildpack = tools.PtrTo("foo")
+					})
+
+					It("response with an unprocessable entity error", func() {
+						expectUnprocessableEntityError(validateErr, "docker must be blank when buildpacks are specified")
+					})
+				})
+
+				When("buildpacks are specified", func() {
+					BeforeEach(func() {
+						testManifest.Buildpacks = []string{"foo"}
+					})
+
+					It("response with an unprocessable entity error", func() {
+						expectUnprocessableEntityError(validateErr, "docker must be blank when buildpacks are specified")
+					})
+				})
+
+				When("docker image is not specified", func() {
+					BeforeEach(func() {
+						testManifest.Docker.Image = ""
+					})
+
+					It("response with an unprocessable entity error", func() {
+						expectUnprocessableEntityError(validateErr, "docker.image cannot be blank")
+					})
+				})
+			})
+		})
+
+		Describe("ToAppCreateMessage", func() {
+			var createMessage repositories.CreateAppMessage
+
+			JustBeforeEach(func() {
+				createMessage = testManifest.ToAppCreateMessage(spaceGUID)
+			})
+
+			Describe("buildpack app", func() {
+				BeforeEach(func() {
+					testManifest = ManifestApplication{
+						Name:       "my-app",
+						Buildpacks: []string{"bp1"},
+						Env: map[string]string{
+							"e1": "env1",
+						},
+						Metadata: MetadataPatch{
+							Annotations: map[string]*string{
+								"a1": tools.PtrTo("v1"),
+							},
+							Labels: map[string]*string{
+								"l2": tools.PtrTo("v2"),
+							},
+						},
+					}
+				})
+
+				It("creates a buildpack app create message", func() {
+					Expect(createMessage).To(Equal(repositories.CreateAppMessage{
+						Name:      "my-app",
+						SpaceGUID: spaceGUID,
+						State:     repositories.DesiredState(korifiv1alpha1.StoppedState),
+						Lifecycle: repositories.Lifecycle{
+							Type: string(korifiv1alpha1.BuildpackLifecycle),
+							Data: repositories.LifecycleData{
+								Buildpacks: []string{"bp1"},
+							},
+						},
+						EnvironmentVariables: map[string]string{
+							"e1": "env1",
+						},
+						Metadata: repositories.Metadata{
+							Annotations: map[string]string{
+								"a1": "v1",
+							},
+							Labels: map[string]string{
+								"l2": "v2",
+							},
+						},
+					}))
+				})
+			})
+
+			Describe("docker app", func() {
+				BeforeEach(func() {
+					testManifest = ManifestApplication{
+						Name: "my-app",
+						Env: map[string]string{
+							"e1": "env1",
+						},
+						Metadata: MetadataPatch{
+							Annotations: map[string]*string{
+								"a1": tools.PtrTo("v1"),
+							},
+							Labels: map[string]*string{
+								"l2": tools.PtrTo("v2"),
+							},
+						},
+						Docker: &ManifestApplicationDocker{
+							Image: "some/image",
+						},
+					}
+				})
+
+				It("creates a buildpack app create message", func() {
+					Expect(createMessage).To(Equal(repositories.CreateAppMessage{
+						Name:      "my-app",
+						SpaceGUID: spaceGUID,
+						State:     repositories.DesiredState(korifiv1alpha1.StoppedState),
+						Lifecycle: repositories.Lifecycle{
+							Type: string(korifiv1alpha1.DockerPackage),
+						},
+						EnvironmentVariables: map[string]string{
+							"e1": "env1",
+						},
+						Metadata: repositories.Metadata{
+							Annotations: map[string]string{
+								"a1": "v1",
+							},
+							Labels: map[string]string{
+								"l2": "v2",
+							},
+						},
+					}))
 				})
 			})
 		})

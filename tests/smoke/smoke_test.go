@@ -18,24 +18,31 @@ import (
 )
 
 var _ = Describe("Smoke Tests", func() {
-	Describe("pushed app", func() {
-		It("is reachable via its route", func() {
-			appResponseShould("/", SatisfyAll(
+	Describe("apps", func() {
+		It("buildpack app is reachable via its route", func() {
+			appResponseShould(buildpackAppName, "/", SatisfyAll(
 				HaveHTTPStatus(http.StatusOK),
 				HaveHTTPBody(ContainSubstring("Hi, I'm Dorifi!")),
+			))
+		})
+
+		It("docker app is reachable via its route", func() {
+			appResponseShould(dockerAppName, "/", SatisfyAll(
+				HaveHTTPStatus(http.StatusOK),
+				HaveHTTPBody(ContainSubstring("Hi, I'm not Dora!")),
 			))
 		})
 	})
 
 	Describe("cf logs", func() {
 		It("prints app logs", func() {
-			Eventually(cf.Cf("logs", appName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
+			Eventually(cf.Cf("logs", buildpackAppName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
 		})
 	})
 
 	Describe("cf run-task", func() {
 		It("succeeds", func() {
-			Eventually(cf.Cf("run-task", appName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
+			Eventually(cf.Cf("run-task", buildpackAppName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
 		})
 	})
 
@@ -47,12 +54,12 @@ var _ = Describe("Smoke Tests", func() {
 				cf.Cf("create-user-provided-service", serviceName, "-p", `{"key1":"value1","key2":"value2"}`),
 			).Should(Exit(0))
 
-			Eventually(cf.Cf("bind-service", appName, serviceName)).Should(Exit(0))
-			Eventually(cf.Cf("restart", appName)).Should(Exit(0))
+			Eventually(cf.Cf("bind-service", buildpackAppName, serviceName)).Should(Exit(0))
+			Eventually(cf.Cf("restart", buildpackAppName)).Should(Exit(0))
 		})
 
 		It("binds the service to the app", func() {
-			appResponseShould("/env.json", SatisfyAll(
+			appResponseShould(buildpackAppName, "/env.json", SatisfyAll(
 				HaveHTTPStatus(http.StatusOK),
 				HaveHTTPBody(
 					MatchJSONPath("$.VCAP_SERVICES", SatisfyAll(
@@ -89,7 +96,7 @@ func loginAs(user string) {
 	Eventually(loginSession).Should(Exit(0))
 }
 
-func appResponseShould(requestPath string, matchExpectations types.GomegaMatcher) {
+func appResponseShould(appName, requestPath string, matchExpectations types.GomegaMatcher) {
 	var httpClient http.Client
 	httpClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},

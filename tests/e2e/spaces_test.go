@@ -358,6 +358,40 @@ var _ = Describe("Spaces", func() {
 					Expect(getProcess(app2GUID, "bob").Instances).To(Equal(0))
 				})
 			})
+
+			When("the manifest type is docker", func() {
+				BeforeEach(func() {
+					manifest = manifestResource{
+						Version: 1,
+						Applications: []applicationResource{{
+							Name: app1Name,
+							Docker: dockerResource{
+								Image: "eirini/dorini",
+							},
+							DefaultRoute: true,
+						}},
+					}
+				})
+
+				It("succeeds", func() {
+					Expect(resp).To(SatisfyAll(
+						HaveRestyStatusCode(http.StatusAccepted),
+						HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
+					))
+
+					jobURL := resp.Header().Get("Location")
+					Eventually(func(g Gomega) {
+						jobResp, err := adminClient.R().Get(jobURL)
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+						Expect(getAppGUIDFromName(app1Name)).NotTo(BeEmpty())
+					}).Should(Succeed())
+
+					app1GUID := getAppGUIDFromName(app1Name)
+					app1 := getApp(app1GUID)
+					Expect(app1.Lifecycle.Type).To(Equal("docker"))
+				})
+			})
 		})
 	})
 

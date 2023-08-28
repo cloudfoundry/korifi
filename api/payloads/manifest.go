@@ -40,9 +40,10 @@ type ManifestApplication struct {
 	Routes                       []ManifestRoute              `json:"routes" yaml:"routes"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
 	// Deprecated: Use Buildpacks instead
-	Buildpack string                       `json:"buildpack" yaml:"buildpack"`
+	Buildpack *string                      `json:"buildpack" yaml:"buildpack"`
 	Metadata  MetadataPatch                `json:"metadata" yaml:"metadata"`
 	Services  []ManifestApplicationService `json:"services" yaml:"services"`
+	Docker    *ManifestApplicationDocker   `json:"docker,omitempty" yaml:"docker,omitempty"`
 }
 
 // TODO: Why is kebab-case used everywhere anyway and we have a deprecated field that claims to use
@@ -73,16 +74,28 @@ type ManifestRoute struct {
 	Route *string `json:"route" yaml:"route"`
 }
 
+type ManifestApplicationDocker struct {
+	Image string `json:"image" yaml:"image"`
+}
+
 func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.CreateAppMessage {
-	return repositories.CreateAppMessage{
-		Name:      a.Name,
-		SpaceGUID: spaceGUID,
-		Lifecycle: repositories.Lifecycle{
-			Type: string(korifiv1alpha1.BuildpackLifecycle),
-			Data: repositories.LifecycleData{
-				Buildpacks: a.Buildpacks,
-			},
+	lifecycle := repositories.Lifecycle{
+		Type: string(korifiv1alpha1.BuildpackLifecycle),
+		Data: repositories.LifecycleData{
+			Buildpacks: a.Buildpacks,
 		},
+	}
+
+	if a.Docker != nil {
+		lifecycle = repositories.Lifecycle{
+			Type: string(korifiv1alpha1.DockerPackage),
+		}
+	}
+
+	return repositories.CreateAppMessage{
+		Name:                 a.Name,
+		SpaceGUID:            spaceGUID,
+		Lifecycle:            lifecycle,
 		State:                repositories.DesiredState(korifiv1alpha1.StoppedState),
 		EnvironmentVariables: a.Env,
 		Metadata: repositories.Metadata{
@@ -207,6 +220,9 @@ func (a ManifestApplication) Validate() error {
 		validation.Field(&a.Timeout, validation.Min(1), validation.NilOrNotEmpty.Error("must be no less than 1")),
 		validation.Field(&a.Processes),
 		validation.Field(&a.Routes),
+		validation.Field(&a.Docker, validation.When(len(a.Buildpacks) > 0 || a.Buildpack != nil,
+			validation.Nil.Error("must be blank when buildpacks are specified"),
+		)),
 	)
 }
 
@@ -233,6 +249,10 @@ func (m ManifestRoute) Validate() error {
 
 func (s ManifestApplicationService) Validate() error {
 	return validation.ValidateStruct(&s, validation.Field(&s.Name, validation.Required))
+}
+
+func (d ManifestApplicationDocker) Validate() error {
+	return validation.ValidateStruct(&d, validation.Field(&d.Image, validation.Required))
 }
 
 var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|MB|G|GB|T|TB)$`)
