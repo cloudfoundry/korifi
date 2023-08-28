@@ -89,7 +89,7 @@ var _ = Describe("Normalizer", func() {
 		When("deprecated 'buildpack' is specified", func() {
 			BeforeEach(func() {
 				//lint:ignore SA1019 we have to deal with this deprecation
-				appInfo.Buildpack = "deprecated-buildpack"
+				appInfo.Buildpack = tools.PtrTo("deprecated-buildpack")
 			})
 
 			It("adds it to the buildpacks list", func() {
@@ -101,7 +101,7 @@ var _ = Describe("Normalizer", func() {
 			When("set to 'default'", func() {
 				BeforeEach(func() {
 					//lint:ignore SA1019 we have to deal with this deprecation
-					appInfo.Buildpack = "default"
+					appInfo.Buildpack = tools.PtrTo("default")
 				})
 
 				It("ignores it", func() {
@@ -114,7 +114,7 @@ var _ = Describe("Normalizer", func() {
 			When("set to 'null'", func() {
 				BeforeEach(func() {
 					//lint:ignore SA1019 we have to deal with this deprecation
-					appInfo.Buildpack = "null"
+					appInfo.Buildpack = tools.PtrTo("null")
 				})
 
 				It("ignores it", func() {
@@ -122,6 +122,21 @@ var _ = Describe("Normalizer", func() {
 						ConsistOf("buildpack-one", "buildpack-two"),
 					)
 				})
+			})
+		})
+
+		When("the app is of type docker", func() {
+			BeforeEach(func() {
+				appInfo = payloads.ManifestApplication{
+					Name: "my-app",
+					Docker: &payloads.ManifestApplicationDocker{
+						Image: "some/image",
+					},
+				}
+			})
+
+			It("preserves the necessary app fields", func() {
+				Expect(normalizedAppInfo.Docker).To(gstruct.PointTo(Equal(*appInfo.Docker)))
 			})
 		})
 	})

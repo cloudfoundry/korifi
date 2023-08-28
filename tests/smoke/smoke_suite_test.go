@@ -31,7 +31,8 @@ const NamePrefix = "cf-on-k8s-smoke"
 var (
 	orgName          string
 	spaceName        string
-	appName          string
+	buildpackAppName string
+	dockerAppName    string
 	appsDomain       string
 	appRouteProtocol string
 )
@@ -71,27 +72,30 @@ var _ = BeforeSuite(func() {
 	appsDomain = helpers.GetRequiredEnvVar("SMOKE_TEST_APPS_DOMAIN")
 	orgName = generator.PrefixedRandomName(NamePrefix, "org")
 	spaceName = generator.PrefixedRandomName(NamePrefix, "space")
-	appName = generator.PrefixedRandomName(NamePrefix, "app")
+	buildpackAppName = generator.PrefixedRandomName(NamePrefix, "buildpackapp")
+	dockerAppName = generator.PrefixedRandomName(NamePrefix, "dockerapp")
 
 	Eventually(cf.Cf("create-org", orgName)).Should(Exit(0))
 	Eventually(cf.Cf("create-space", "-o", orgName, spaceName)).Should(Exit(0))
 	Eventually(cf.Cf("target", "-o", orgName, "-s", spaceName)).Should(Exit(0))
 
 	Eventually(
-		cf.Cf("push", appName, "-p", "../assets/dorifi"),
+		cf.Cf("push", buildpackAppName, "-p", "../assets/dorifi"),
+	).Should(Exit(0))
+
+	Eventually(
+		cf.Cf("push", dockerAppName, "-o", "eirini/dorini"),
 	).Should(Exit(0))
 })
 
 var _ = AfterSuite(func() {
 	if CurrentSpecReport().State.Is(types.SpecStateFailed) {
-		printAppReport(appName)
+		printAppReport(buildpackAppName)
 	}
 
-	if orgName != "" {
-		Eventually(func() *Session {
-			return cf.Cf("delete-org", orgName, "-f").Wait()
-		}).Should(Exit(0))
-	}
+	Eventually(func() *Session {
+		return cf.Cf("delete-org", orgName, "-f").Wait()
+	}).Should(Exit(0))
 })
 
 func runCfCmd(args ...string) (string, error) {
@@ -118,7 +122,7 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
-	cfAppGUID, err := runCfCmd("app", appName, "--guid")
+	cfAppGUID, err := runCfCmd("app", buildpackAppName, "--guid")
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed to get app guid: %v\n", err)
 		return
