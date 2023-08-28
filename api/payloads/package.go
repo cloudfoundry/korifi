@@ -38,7 +38,9 @@ func (c PackageCreate) ToMessage(record repositories.AppRecord) repositories.Cre
 
 	if c.Type == "docker" {
 		message.Data = &repositories.PackageData{
-			Image: c.Data.Image,
+			Image:    c.Data.Image,
+			Username: c.Data.Username,
+			Password: c.Data.Password,
 		}
 	}
 
@@ -46,7 +48,9 @@ func (c PackageCreate) ToMessage(record repositories.AppRecord) repositories.Cre
 }
 
 type PackageData struct {
-	Image string `json:"image"`
+	Image    string  `json:"image"`
+	Username *string `json:"username"`
+	Password *string `json:"password"`
 }
 
 func (d PackageData) Validate() error {
