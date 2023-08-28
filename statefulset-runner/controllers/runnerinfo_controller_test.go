@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -26,7 +25,6 @@ var _ = Describe("RunnerInfo Reconcile", func() {
 		reconciler         *k8s.PatchingReconciler[korifiv1alpha1.RunnerInfo, *korifiv1alpha1.RunnerInfo]
 		reconcileResult    ctrl.Result
 		reconcileErr       error
-		ctx                context.Context
 		req                ctrl.Request
 		getRunnerInfoError error
 		runnerInfo         *korifiv1alpha1.RunnerInfo
@@ -58,9 +56,12 @@ var _ = Describe("RunnerInfo Reconcile", func() {
 			}
 		}
 
-		reconciler = controllers.NewRunnerInfoReconciler(fakeClient, scheme.Scheme, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-		reconcileResult, reconcileErr = reconciler.Reconcile(ctx, req)
+		reconciler = controllers.NewRunnerInfoReconciler(
+			fakeClient,
+			scheme.Scheme,
+			ctrl.Log.WithName("controllers").WithName("TestRunnerInfo"),
+		)
+		reconcileResult, reconcileErr = reconciler.Reconcile(context.Background(), req)
 	})
 
 	When("the RunnerInfo is being reconciled", func() {

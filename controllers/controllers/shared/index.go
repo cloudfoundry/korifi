@@ -7,7 +7,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -139,8 +138,4 @@ func RemovePackageManagerKeys(src map[string]string, log logr.Logger) map[string
 	}
 
 	return dest
-}
-
-func ObjectLogger(log logr.Logger, obj client.Object) logr.Logger {
-	return log.WithValues("namespace", obj.GetNamespace(), "name", obj.GetName(), "logID", uuid.NewString())
 }

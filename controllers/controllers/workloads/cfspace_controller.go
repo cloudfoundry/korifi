@@ -137,8 +137,7 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequestsForServiceAccount(ctx context.
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;patch;delete
 
 func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfSpace)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	cfSpace.Status.ObservedGeneration = cfSpace.Generation
 	log.V(1).Info("set observed generation", "generation", cfSpace.Status.ObservedGeneration)

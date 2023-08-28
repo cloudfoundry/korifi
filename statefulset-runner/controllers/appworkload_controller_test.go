@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -89,7 +88,7 @@ var _ = Describe("AppWorkload Reconcile", func() {
 			}
 		}
 
-		fakeClient.CreateStub = func(ctx context.Context, obj client.Object, option ...client.CreateOption) error {
+		fakeClient.CreateStub = func(_ context.Context, obj client.Object, _ ...client.CreateOption) error {
 			switch obj.(type) {
 			case *v1.StatefulSet:
 				return createStatefulSetError
@@ -98,7 +97,13 @@ var _ = Describe("AppWorkload Reconcile", func() {
 			}
 		}
 
-		reconciler = controllers.NewAppWorkloadReconciler(fakeClient, scheme.Scheme, fakeWorkloadToStSet, fakePDB, zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+		reconciler = controllers.NewAppWorkloadReconciler(
+			fakeClient,
+			scheme.Scheme,
+			fakeWorkloadToStSet,
+			fakePDB,
+			ctrl.Log.WithName("controllers").WithName("TestAppWorkload"),
+		)
 	})
 
 	JustBeforeEach(func() {

@@ -69,7 +69,7 @@ func filterRunnerInfos(object client.Object) bool {
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runnerinfos/status,verbs=get;patch
 
 func (r *RunnerInfoReconciler) ReconcileResource(ctx context.Context, runnerInfo *korifiv1alpha1.RunnerInfo) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", runnerInfo.Namespace, "name", runnerInfo.Name)
+	log := logr.FromContextOrDiscard(ctx)
 
 	runnerInfo.Status.ObservedGeneration = runnerInfo.Generation
 	log.V(1).Info("set observed generation", "generation", runnerInfo.Status.ObservedGeneration)

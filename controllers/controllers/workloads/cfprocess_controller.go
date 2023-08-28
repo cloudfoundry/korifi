@@ -103,8 +103,7 @@ func (r *CFProcessReconciler) enqueueCFProcessRequests(ctx context.Context, o cl
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
 func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfProcess)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	cfProcess.Status.ObservedGeneration = cfProcess.Generation
 	log.V(1).Info("set observed generation", "generation", cfProcess.Status.ObservedGeneration)

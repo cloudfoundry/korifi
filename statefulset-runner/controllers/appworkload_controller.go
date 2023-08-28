@@ -149,7 +149,7 @@ func filterAppWorkloads(object client.Object) bool {
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=create;patch;deletecollection
 
 func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", appWorkload.Namespace, "name", appWorkload.Name)
+	log := logr.FromContextOrDiscard(ctx)
 
 	if appWorkload.Spec.RunnerName != AppWorkloadReconcilerName {
 		return ctrl.Result{}, nil
