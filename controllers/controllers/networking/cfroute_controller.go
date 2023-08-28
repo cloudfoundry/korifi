@@ -23,7 +23,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -75,8 +74,7 @@ func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfRoute)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	var err error
 

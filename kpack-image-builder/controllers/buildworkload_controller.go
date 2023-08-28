@@ -171,7 +171,7 @@ func filterBuildWorkloads(object client.Object) bool {
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/status;secrets/status,verbs=get
 
 func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", buildWorkload.Namespace, "name", buildWorkload.Name)
+	log := logr.FromContextOrDiscard(ctx)
 
 	buildWorkload.Status.ObservedGeneration = buildWorkload.Generation
 	log.V(1).Info("set observed generation", "generation", buildWorkload.Status.ObservedGeneration)

@@ -101,8 +101,7 @@ func serviceBindingToApp(ctx context.Context, o client.Object) []reconcile.Reque
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;patch
 
 func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfApp)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	cfApp.Status.ObservedGeneration = cfApp.Generation
 	log.V(1).Info("set observed generation", "generation", cfApp.Status.ObservedGeneration)

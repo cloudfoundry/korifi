@@ -89,8 +89,7 @@ func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builde
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/finalizers,verbs=get;update;patch
 
 func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfPackage)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	cfPackage.Status.ObservedGeneration = cfPackage.Generation
 	log.V(1).Info("set observed generation", "generation", cfPackage.Status.ObservedGeneration)

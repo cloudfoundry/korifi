@@ -122,8 +122,7 @@ func (r *CFOrgReconciler) enqueueCFOrgRequests(ctx context.Context, object clien
 //+kubebuilder:rbac:groups="policy",resources=podsecuritypolicies,verbs=use
 
 func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfOrg)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	cfOrg.Status.ObservedGeneration = cfOrg.Generation
 	log.V(1).Info("set observed generation", "generation", cfOrg.Status.ObservedGeneration)

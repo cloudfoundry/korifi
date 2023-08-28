@@ -88,8 +88,7 @@ func (r *CFTaskReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifiv1alpha1.CFTask) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfTask)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	cfTask.Status.ObservedGeneration = cfTask.Generation
 	log.V(1).Info("set observed generation", "generation", cfTask.Status.ObservedGeneration)
