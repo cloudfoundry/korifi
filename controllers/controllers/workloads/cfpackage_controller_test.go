@@ -154,6 +154,18 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
+		When("the package type is docker", func() {
+			BeforeEach(func() {
+				cfPackage.Spec.Type = "docker"
+			})
+
+			It("does not delete the image", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(imageDeleter.DeleteCallCount()).To(Equal(deleteCount))
+				}).Should(Succeed())
+			})
+		})
+
 		When("the package doesn't have an image set", func() {
 			BeforeEach(func() {
 				cfPackage.Spec.Source.Registry.Image = ""
