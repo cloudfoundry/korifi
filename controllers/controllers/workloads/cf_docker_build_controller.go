@@ -105,7 +105,7 @@ func (r *dockerBuildReconciler) ReconcileBuild(
 
 	cfBuild.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 		Registry: korifiv1alpha1.Registry{
-			Image: "eirini/dorini",
+			Image: cfPackage.Spec.Source.Registry.Image,
 		},
 	}
 
