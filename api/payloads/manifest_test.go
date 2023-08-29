@@ -236,7 +236,7 @@ var _ = Describe("Manifest payload", func() {
 
 				When("docker is specified", func() {
 					BeforeEach(func() {
-						testManifest.Docker = &ManifestApplicationDocker{}
+						testManifest.Docker = struct{}{}
 					})
 				})
 			})
@@ -252,16 +252,14 @@ var _ = Describe("Manifest payload", func() {
 
 				When("docker is specified", func() {
 					BeforeEach(func() {
-						testManifest.Docker = &ManifestApplicationDocker{}
+						testManifest.Docker = struct{}{}
 					})
 				})
 			})
 
 			When("docker is specified", func() {
 				BeforeEach(func() {
-					testManifest.Docker = &ManifestApplicationDocker{
-						Image: "some/image",
-					}
+					testManifest.Docker = struct{}{}
 				})
 
 				It("does not return a validation error", func() {
@@ -285,16 +283,6 @@ var _ = Describe("Manifest payload", func() {
 
 					It("response with an unprocessable entity error", func() {
 						expectUnprocessableEntityError(validateErr, "docker must be blank when buildpacks are specified")
-					})
-				})
-
-				When("docker image is not specified", func() {
-					BeforeEach(func() {
-						testManifest.Docker.Image = ""
-					})
-
-					It("response with an unprocessable entity error", func() {
-						expectUnprocessableEntityError(validateErr, "docker.image cannot be blank")
 					})
 				})
 			})
@@ -367,9 +355,7 @@ var _ = Describe("Manifest payload", func() {
 								"l2": tools.PtrTo("v2"),
 							},
 						},
-						Docker: &ManifestApplicationDocker{
-							Image: "some/image",
-						},
+						Docker: struct{}{},
 					}
 				})
 
