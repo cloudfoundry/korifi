@@ -148,6 +148,8 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
+		imageClient := image.NewClient(k8sClient)
+
 		if err = (workloadscontrollers.NewCFAppReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
@@ -175,6 +177,7 @@ func main() {
 		if err = (workloadscontrollers.NewCFDockerBuildReconciler(
 			mgr.GetClient(),
 			buildCleaner,
+			imageClient,
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),
 		)).SetupWithManager(mgr); err != nil {
@@ -186,7 +189,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),
-			image.NewClient(k8sClient),
+			imageClient,
 			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
 			controllerConfig.ContainerRegistrySecretNames,
 		)).SetupWithManager(mgr); err != nil {
@@ -302,7 +305,7 @@ func main() {
 				mgr.GetScheme(),
 				ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
 				controllerConfig,
-				image.NewClient(k8sClient),
+				imageClient,
 				controllerConfig.ContainerRepositoryPrefix,
 				registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
 				builderReadinessTimeout,
@@ -325,7 +328,7 @@ func main() {
 			if err = controllers.NewKpackBuildController(
 				mgr.GetClient(),
 				ctrl.Log.WithName("kpack-image-builder").WithName("KpackBuild"),
-				image.NewClient(k8sClient),
+				imageClient,
 				controllerConfig.BuilderServiceAccount,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "KpackBuild")

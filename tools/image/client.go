@@ -38,6 +38,7 @@ type Creds struct {
 
 type Config struct {
 	Labels       map[string]string
+	User         string
 	ExposedPorts []int32
 }
 
@@ -137,6 +138,7 @@ func (c Client) Config(ctx context.Context, creds Creds, imageRef string) (Confi
 
 	return Config{
 		Labels:       cfgFile.Config.Labels,
+		User:         cfgFile.Config.User,
 		ExposedPorts: ports,
 	}, nil
 }

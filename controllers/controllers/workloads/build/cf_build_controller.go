@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-//counterfeiter:generate -o ../fake -fake-name BuildCleaner . BuildCleaner
+//counterfeiter:generate -o fake -fake-name BuildCleaner . BuildCleaner
 
 type BuildCleaner interface {
 	Clean(ctx context.Context, app types.NamespacedName) error

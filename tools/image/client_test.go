@@ -140,6 +140,7 @@ var _ = Describe("Client", func() {
 
 		It("fetches the image config", func() {
 			Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
+			Expect(config.User).To(Equal("my-user"))
 			Expect(config.ExposedPorts).To(ConsistOf(int32(123), int32(456)))
 		})
 
@@ -388,6 +389,7 @@ func pushImgWithLabelsAndPorts(repoRef string, labels map[string]string, ports [
 		Config: v1.Config{
 			Labels:       labels,
 			ExposedPorts: portsMap,
+			User:         "my-user",
 		},
 	})
 	Expect(err).NotTo(HaveOccurred())
