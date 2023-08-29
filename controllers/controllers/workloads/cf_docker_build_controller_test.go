@@ -53,7 +53,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 				},
 				Source: korifiv1alpha1.PackageSource{
 					Registry: korifiv1alpha1.Registry{
-						Image: "eirini/dorini",
+						Image: "some/image",
 					},
 				},
 			},
@@ -122,7 +122,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
 			g.Expect(meta.IsStatusConditionTrue(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
 			g.Expect(cfBuild.Status.Droplet).NotTo(BeNil())
-			g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal("eirini/dorini"))
+			g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal("some/image"))
 		}).Should(Succeed())
 	})
 })
