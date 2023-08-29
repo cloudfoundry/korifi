@@ -53,7 +53,8 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 				},
 				Source: korifiv1alpha1.PackageSource{
 					Registry: korifiv1alpha1.Registry{
-						Image: "some/image",
+						Image:            "some/image",
+						ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-image-secret"}},
 					},
 				},
 			},
@@ -123,6 +124,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			g.Expect(meta.IsStatusConditionTrue(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
 			g.Expect(cfBuild.Status.Droplet).NotTo(BeNil())
 			g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal("some/image"))
+			g.Expect(cfBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: "source-image-secret"}))
 		}).Should(Succeed())
 	})
 })
