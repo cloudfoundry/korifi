@@ -4,6 +4,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/image"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,6 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
@@ -22,6 +24,12 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
+		imageConfigGetter.ConfigReturns(image.Config{
+			Labels:       map[string]string{},
+			ExposedPorts: []int32{},
+			User:         "1000",
+		}, nil)
+
 		cfSpace = createSpace(cfOrg)
 
 		cfApp = &korifiv1alpha1.CFApp{
@@ -77,6 +85,9 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 				},
 			},
 		}
+	})
+
+	JustBeforeEach(func() {
 		Expect(adminClient.Create(ctx, cfBuild)).To(Succeed())
 	})
 
@@ -126,5 +137,82 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal("some/image"))
 			g.Expect(cfBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: "source-image-secret"}))
 		}).Should(Succeed())
+	})
+
+	It("fetches the image config", func() {
+		Expect(imageConfigGetter.ConfigCallCount()).NotTo(BeZero())
+		_, creds, imageRef := imageConfigGetter.ConfigArgsForCall(imageConfigGetter.ConfigCallCount() - 1)
+		Expect(imageRef).To(Equal("some/image"))
+		Expect(creds).To(Equal(image.Creds{
+			Namespace:   cfSpace.Status.GUID,
+			SecretNames: []string{"source-image-secret"},
+		}))
+	})
+
+	Describe("privileged images", func() {
+		succeededCondition := func(g Gomega) metav1.Condition {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+			g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
+			succeedCondition := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+			g.Expect(succeedCondition).NotTo(BeNil())
+
+			return *succeedCondition
+		}
+
+		haveFailed := gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Status":  Equal(metav1.ConditionFalse),
+			"Reason":  Equal("BuildFailed"),
+			"Message": ContainSubstring("not supported"),
+		})
+
+		When("the user is not specified", func() {
+			BeforeEach(func() {
+				imageConfigGetter.ConfigReturns(image.Config{}, nil)
+			})
+
+			It("fails the build", func() {
+				Eventually(succeededCondition).Should(haveFailed)
+			})
+		})
+
+		When("the user is 'root'", func() {
+			BeforeEach(func() {
+				imageConfigGetter.ConfigReturns(image.Config{User: "root"}, nil)
+			})
+
+			It("fails the build", func() {
+				Eventually(succeededCondition).Should(haveFailed)
+			})
+		})
+
+		When("the user is '0'", func() {
+			BeforeEach(func() {
+				imageConfigGetter.ConfigReturns(image.Config{User: "0"}, nil)
+			})
+
+			It("fails the build", func() {
+				Eventually(succeededCondition).Should(haveFailed)
+			})
+		})
+
+		When("the user is 'root:rootgroup'", func() {
+			BeforeEach(func() {
+				imageConfigGetter.ConfigReturns(image.Config{User: "root:rootgroup"}, nil)
+			})
+
+			It("fails the build", func() {
+				Eventually(succeededCondition).Should(haveFailed)
+			})
+		})
+
+		When("the user is '0:rootgroup'", func() {
+			BeforeEach(func() {
+				imageConfigGetter.ConfigReturns(image.Config{User: "0:rootgroup"}, nil)
+			})
+
+			It("fails the build", func() {
+				Eventually(succeededCondition).Should(haveFailed)
+			})
+		})
 	})
 })

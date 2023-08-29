@@ -18,12 +18,14 @@ package workloads
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/build"
+	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,9 +36,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
+//counterfeiter:generate -o fake -fake-name ImageConfigGetter . ImageConfigGetter
+
+type ImageConfigGetter interface {
+	Config(context.Context, image.Creds, string) (image.Config, error)
+}
+
 func NewCFDockerBuildReconciler(
 	k8sClient client.Client,
 	buildCleaner build.BuildCleaner,
+	imageConfigGetter ImageConfigGetter,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild] {
@@ -49,13 +58,15 @@ func NewCFDockerBuildReconciler(
 			scheme,
 			buildCleaner,
 			&dockerBuildReconciler{
-				k8sClient: k8sClient,
+				k8sClient:         k8sClient,
+				imageConfigGetter: imageConfigGetter,
 			},
 		))
 }
 
 type dockerBuildReconciler struct {
-	k8sClient client.Client
+	k8sClient         client.Client
+	imageConfigGetter ImageConfigGetter
 }
 
 func (r *dockerBuildReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
@@ -89,12 +100,44 @@ func (r *dockerBuildReconciler) ReconcileBuild(
 		return ctrl.Result{}, nil
 	}
 
+	secretNames := []string{}
+	for _, secretRef := range cfPackage.Spec.Source.Registry.ImagePullSecrets {
+		secretNames = append(secretNames, secretRef.Name)
+	}
+
+	imageConfig, err := r.imageConfigGetter.Config(
+		ctx,
+		image.Creds{
+			Namespace:   cfPackage.Namespace,
+			SecretNames: secretNames,
+		},
+		cfPackage.Spec.Source.Registry.Image,
+	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
 		Type:               korifiv1alpha1.StagingConditionType,
 		Status:             metav1.ConditionFalse,
 		Reason:             "BuildNotRunning",
 		ObservedGeneration: cfBuild.Generation,
 	})
+
+	if isRoot(imageConfig.User) {
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:   korifiv1alpha1.SucceededConditionType,
+			Status: metav1.ConditionFalse,
+			Reason: "BuildFailed",
+			Message: fmt.Sprintf(
+				"Image %q is configured to run as the root user. That is insecure on Kubernetes and therefore not supported by Korifi.",
+				cfPackage.Spec.Source.Registry.Image,
+			),
+			ObservedGeneration: cfBuild.Generation,
+		})
+
+		return ctrl.Result{}, nil
+	}
 
 	meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
 		Type:               korifiv1alpha1.SucceededConditionType,
@@ -108,4 +151,9 @@ func (r *dockerBuildReconciler) ReconcileBuild(
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func isRoot(user string) bool {
+	user = strings.Split(user, ":")[0]
+	return user == "" || user == "root" || user == "0"
 }

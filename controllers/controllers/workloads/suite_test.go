@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	buildfake "code.cloudfoundry.org/korifi/controllers/controllers/workloads/build/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
@@ -56,8 +57,9 @@ var (
 	imageRegistrySecret2 *corev1.Secret
 	imageDeleter         *fake.ImageDeleter
 	packageCleaner       *fake.PackageCleaner
+	imageConfigGetter    *fake.ImageConfigGetter
 	eventRecorder        *controllerfake.EventRecorder
-	buildCleaner         *fake.BuildCleaner
+	buildCleaner         *buildfake.BuildCleaner
 )
 
 const (
@@ -130,7 +132,7 @@ var _ = BeforeSuite(func() {
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	buildCleaner = new(fake.BuildCleaner)
+	buildCleaner = new(buildfake.BuildCleaner)
 	cfBuildpackBuildReconciler := NewCFBuildpackBuildReconciler(
 		k8sManager.GetClient(),
 		buildCleaner,
@@ -142,9 +144,11 @@ var _ = BeforeSuite(func() {
 	err = (cfBuildpackBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	imageConfigGetter = new(fake.ImageConfigGetter)
 	cfDockerBuildReconciler := NewCFDockerBuildReconciler(
 		k8sManager.GetClient(),
 		buildCleaner,
+		imageConfigGetter,
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),
 	)
