@@ -193,6 +193,17 @@ var _ = Describe("Client", func() {
 				})
 			})
 		})
+
+		When("ports are in the format 'port/protocol'", func() {
+			BeforeEach(func() {
+				pushImgWithLabelsAndPorts(pushRef, map[string]string{"foo": "bar"}, []string{"123/protocol"})
+			})
+
+			It("succeeds", func() {
+				Expect(testErr).NotTo(HaveOccurred())
+				Expect(config.ExposedPorts).To(ConsistOf(int32(123)))
+			})
+		})
 	})
 
 	Describe("Delete", func() {
