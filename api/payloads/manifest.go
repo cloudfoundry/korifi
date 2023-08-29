@@ -43,7 +43,7 @@ type ManifestApplication struct {
 	Buildpack *string                      `json:"buildpack" yaml:"buildpack"`
 	Metadata  MetadataPatch                `json:"metadata" yaml:"metadata"`
 	Services  []ManifestApplicationService `json:"services" yaml:"services"`
-	Docker    *ManifestApplicationDocker   `json:"docker,omitempty" yaml:"docker,omitempty"`
+	Docker    any                          `json:"docker,omitempty" yaml:"docker,omitempty"`
 }
 
 // TODO: Why is kebab-case used everywhere anyway and we have a deprecated field that claims to use
@@ -72,10 +72,6 @@ type ManifestApplicationService struct {
 
 type ManifestRoute struct {
 	Route *string `json:"route" yaml:"route"`
-}
-
-type ManifestApplicationDocker struct {
-	Image string `json:"image" yaml:"image"`
 }
 
 func (a ManifestApplication) ToAppCreateMessage(spaceGUID string) repositories.CreateAppMessage {
@@ -249,10 +245,6 @@ func (m ManifestRoute) Validate() error {
 
 func (s ManifestApplicationService) Validate() error {
 	return validation.ValidateStruct(&s, validation.Field(&s.Name, validation.Required))
-}
-
-func (d ManifestApplicationDocker) Validate() error {
-	return validation.ValidateStruct(&d, validation.Field(&d.Image, validation.Required))
 }
 
 var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|MB|G|GB|T|TB)$`)

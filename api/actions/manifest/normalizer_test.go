@@ -128,15 +128,13 @@ var _ = Describe("Normalizer", func() {
 		When("the app is of type docker", func() {
 			BeforeEach(func() {
 				appInfo = payloads.ManifestApplication{
-					Name: "my-app",
-					Docker: &payloads.ManifestApplicationDocker{
-						Image: "some/image",
-					},
+					Name:   "my-app",
+					Docker: struct{}{},
 				}
 			})
 
 			It("preserves the necessary app fields", func() {
-				Expect(normalizedAppInfo.Docker).To(gstruct.PointTo(Equal(*appInfo.Docker)))
+				Expect(normalizedAppInfo.Docker).To(Equal(struct{}{}))
 			})
 		})
 	})
