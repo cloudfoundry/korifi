@@ -148,7 +148,7 @@ func (r *CFPackageReconciler) finalize(ctx context.Context, cfPackage *korifiv1a
 		return ctrl.Result{}, nil
 	}
 
-	if cfPackage.Spec.Source.Registry.Image != "" {
+	if cfPackage.Spec.Type != "docker" && cfPackage.Spec.Source.Registry.Image != "" {
 		if err := r.imageDeleter.Delete(ctx, image.Creds{
 			Namespace:   cfPackage.Namespace,
 			SecretNames: r.packageRepoSecretNames,
