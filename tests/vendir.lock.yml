@@ -18,10 +18,10 @@ directories:
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/113661979
     path: cert-manager
   - git:
-      commitTitle: Update Contour Docker image to v1.25.2....
-      sha: c9df5407beac6d6b6e6ed4900a5ad9205bdb77b2
+      commitTitle: Update Contour Docker image to v1.26.0....
+      sha: 5b58e34b11393453632471838db2c1db299926f5
       tags:
-      - v1.25.2
+      - v1.26.0
     path: contour
   path: vendor
 kind: LockConfig
