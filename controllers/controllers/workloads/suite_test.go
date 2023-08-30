@@ -24,7 +24,9 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers/oci"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,6 +37,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,9 +60,10 @@ var (
 	imageRegistrySecret2 *corev1.Secret
 	imageDeleter         *fake.ImageDeleter
 	packageCleaner       *fake.PackageCleaner
-	imageConfigGetter    *fake.ImageConfigGetter
 	eventRecorder        *controllerfake.EventRecorder
 	buildCleaner         *buildfake.BuildCleaner
+	imageClient          image.Client
+	containerRegistry    *oci.Registry
 )
 
 const (
@@ -83,6 +87,8 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
 
 	ctx = context.Background()
+
+	containerRegistry = oci.NewContainerRegistry("user", "password")
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -121,6 +127,10 @@ var _ = BeforeSuite(func() {
 		SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(2)),
 	}
 
+	k8sClient, err := k8sclient.NewForConfig(k8sManager.GetConfig())
+	Expect(err).NotTo(HaveOccurred())
+	imageClient = image.NewClient(k8sClient)
+
 	eventRecorder = new(controllerfake.EventRecorder)
 
 	err = (NewCFAppReconciler(
@@ -144,11 +154,10 @@ var _ = BeforeSuite(func() {
 	err = (cfBuildpackBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	imageConfigGetter = new(fake.ImageConfigGetter)
 	cfDockerBuildReconciler := NewCFDockerBuildReconciler(
 		k8sManager.GetClient(),
 		buildCleaner,
-		imageConfigGetter,
+		imageClient,
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),
 	)
