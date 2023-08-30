@@ -2,16 +2,11 @@ package image_test
 
 import (
 	"os"
-	"strings"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tests/helpers/oci"
 	"code.cloudfoundry.org/korifi/tools/image"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -22,6 +17,7 @@ var _ = Describe("Client", func() {
 		otherZipFile *os.File
 		testErr      error
 		pushRef      string
+		imgCfg       *v1.ConfigFile
 		imgRef       string
 		creds        image.Creds
 	)
@@ -35,7 +31,19 @@ var _ = Describe("Client", func() {
 		otherZipFile, err = os.Open("fixtures/anotherLayer.zip")
 		Expect(err).NotTo(HaveOccurred())
 
-		pushRef = strings.Replace(authRegistryServer.URL+"/foo/bar", "http://", "", 1)
+		pushRef = containerRegistry.ImageRef("foo/bar")
+		imgCfg = &v1.ConfigFile{
+			Config: v1.Config{
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				ExposedPorts: map[string]struct{}{
+					"123": {},
+					"456": {},
+				},
+				User: "my-user",
+			},
+		}
 
 		imgClient = image.NewClient(k8sClientset)
 		creds = image.Creds{
@@ -107,21 +115,16 @@ var _ = Describe("Client", func() {
 			})
 		})
 
-		When("simulating ECR", func() {
+		When("seret name is empty (simulating ECR)", func() {
 			BeforeEach(func() {
-				pushRef = strings.Replace(noAuthRegistryServer.URL+"/foo/bar", "http://", "", 1)
+				ecrRegistry := oci.NewNoAuthContainerRegistry()
+				pushRef = ecrRegistry.ImageRef("foo/bar")
+				creds.SecretNames = []string{}
 			})
 
-			When("the secret name is empty", func() {
-				BeforeEach(func() {
-					imgClient = image.NewClient(k8sClientset)
-				})
-
-				It("succeeds", func() {
-					Expect(testErr).NotTo(HaveOccurred())
-
-					Expect(imgRef).To(HavePrefix(pushRef))
-				})
+			It("succeeds", func() {
+				Expect(testErr).NotTo(HaveOccurred())
+				Expect(imgRef).To(HavePrefix(pushRef))
 			})
 		})
 	})
@@ -131,7 +134,7 @@ var _ = Describe("Client", func() {
 
 		BeforeEach(func() {
 			pushRef += "/with/labels"
-			pushImgWithLabelsAndPorts(pushRef, map[string]string{"foo": "bar"}, []string{"123", "456"})
+			containerRegistry.PushImage(pushRef, imgCfg)
 		})
 
 		JustBeforeEach(func() {
@@ -176,28 +179,27 @@ var _ = Describe("Client", func() {
 			})
 		})
 
-		When("simulating ECR", func() {
+		When("secret name is empty (simulating ECR)", func() {
 			BeforeEach(func() {
-				pushRef = strings.Replace(noAuthRegistryServer.URL+"/foo/bar/with/labels", "http://", "", 1)
-				pushImgWithLabelsAndPorts(pushRef, map[string]string{"foo": "bar"}, []string{"123", "456"})
+				ecrRegistry := oci.NewNoAuthContainerRegistry()
+				pushRef = ecrRegistry.ImageRef("foo/bar/with/labels")
+				ecrRegistry.PushImage(pushRef, imgCfg)
+				creds.SecretNames = []string{}
 			})
 
-			When("the secret name is empty", func() {
-				BeforeEach(func() {
-					imgClient = image.NewClient(k8sClientset)
-				})
-
-				It("succeeds", func() {
-					Expect(testErr).NotTo(HaveOccurred())
-					Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
-					Expect(config.ExposedPorts).To(ConsistOf(int32(123), int32(456)))
-				})
+			It("succeeds", func() {
+				Expect(testErr).NotTo(HaveOccurred())
+				Expect(config.Labels).To(Equal(map[string]string{"foo": "bar"}))
+				Expect(config.ExposedPorts).To(ConsistOf(int32(123), int32(456)))
 			})
 		})
 
 		When("ports are in the format 'port/protocol'", func() {
 			BeforeEach(func() {
-				pushImgWithLabelsAndPorts(pushRef, map[string]string{"foo": "bar"}, []string{"123/protocol"})
+				imgCfg.Config.ExposedPorts = map[string]struct{}{
+					"123/protocol": {},
+				}
+				containerRegistry.PushImage(pushRef, imgCfg)
 			})
 
 			It("succeeds", func() {
@@ -280,9 +282,10 @@ var _ = Describe("Client", func() {
 			})
 		})
 
-		When("simulating ECR", func() {
+		When("the secret name is empty (simulating ECR)", func() {
 			BeforeEach(func() {
-				pushRef = strings.Replace(noAuthRegistryServer.URL+"/foo/bar", "http://", "", 1)
+				ecrRegistry := oci.NewNoAuthContainerRegistry()
+				pushRef = ecrRegistry.ImageRef("foo/bar")
 				_, err := zipFile.Seek(0, 0)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -291,17 +294,11 @@ var _ = Describe("Client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			When("the secret name is empty", func() {
-				BeforeEach(func() {
-					imgClient = image.NewClient(k8sClientset)
-				})
+			It("succeeds", func() {
+				Expect(testErr).NotTo(HaveOccurred())
 
-				It("succeeds", func() {
-					Expect(testErr).NotTo(HaveOccurred())
-
-					_, err := imgClient.Config(ctx, creds, imgRef)
-					Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
-				})
+				_, err := imgClient.Config(ctx, creds, imgRef)
+				Expect(err).To(MatchError(ContainSubstring("MANIFEST_UNKNOWN")))
 			})
 		})
 	})
@@ -378,27 +375,3 @@ var _ = Describe("Client", func() {
 		})
 	}
 })
-
-func pushImgWithLabelsAndPorts(repoRef string, labels map[string]string, ports []string) {
-	portsMap := map[string]struct{}{}
-	for _, port := range ports {
-		portsMap[port] = struct{}{}
-	}
-
-	image, err := mutate.ConfigFile(empty.Image, &v1.ConfigFile{
-		Config: v1.Config{
-			Labels:       labels,
-			ExposedPorts: portsMap,
-			User:         "my-user",
-		},
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	ref, err := name.ParseReference(repoRef)
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(remote.Write(ref, image, remote.WithAuth(&authn.Basic{
-		Username: "user",
-		Password: "password",
-	}))).To(Succeed())
-}

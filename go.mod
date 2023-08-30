@@ -14,6 +14,7 @@ require (
 	github.com/buildpacks/pack v0.30.0
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
 	github.com/distribution/distribution/v3 v3.0.0-20230223072852-e5d5810851d1
+	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-logr/logr v1.2.4
 	github.com/go-resty/resty/v2 v2.7.0
@@ -44,6 +45,7 @@ require (
 )
 
 require (
+	github.com/GehirnInc/crypt v0.0.0-20190301055215-6c0105aabd46 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/vmware-labs/reconciler-runtime v0.12.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc // indirect
