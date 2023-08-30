@@ -4,12 +4,13 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/image"
+	"code.cloudfoundry.org/korifi/tools/dockercfg"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -17,6 +18,10 @@ import (
 
 var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	var (
+		imageSecret *corev1.Secret
+		imageConfig *v1.ConfigFile
+		imageRef    string
+
 		cfSpace       *korifiv1alpha1.CFSpace
 		cfApp         *korifiv1alpha1.CFApp
 		cfPackageGUID string
@@ -24,13 +29,27 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		imageConfigGetter.ConfigReturns(image.Config{
-			Labels:       map[string]string{},
-			ExposedPorts: []int32{},
-			User:         "1000",
-		}, nil)
+		imageRef = containerRegistry.ImageRef("foo/bar")
+		imageConfig = &v1.ConfigFile{
+			Config: v1.Config{
+				User: "1000",
+			},
+		}
 
 		cfSpace = createSpace(cfOrg)
+
+		var err error
+		imageSecret, err = dockercfg.CreateDockerConfigSecret(
+			cfSpace.Status.GUID,
+			PrefixedGUID("image-secret"),
+			dockercfg.DockerServerConfig{
+				Server:   containerRegistry.URL(),
+				Username: "user",
+				Password: "password",
+			},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(adminClient.Create(ctx, imageSecret)).To(Succeed())
 
 		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -61,8 +80,8 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 				},
 				Source: korifiv1alpha1.PackageSource{
 					Registry: korifiv1alpha1.Registry{
-						Image:            "some/image",
-						ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-image-secret"}},
+						Image:            imageRef,
+						ImagePullSecrets: []corev1.LocalObjectReference{{Name: imageSecret.Name}},
 					},
 				},
 			},
@@ -88,6 +107,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	})
 
 	JustBeforeEach(func() {
+		containerRegistry.PushImage(containerRegistry.ImageRef("foo/bar"), imageConfig)
 		Expect(adminClient.Create(ctx, cfBuild)).To(Succeed())
 	})
 
@@ -134,19 +154,9 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
 			g.Expect(meta.IsStatusConditionTrue(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
 			g.Expect(cfBuild.Status.Droplet).NotTo(BeNil())
-			g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal("some/image"))
-			g.Expect(cfBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: "source-image-secret"}))
+			g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal(imageRef))
+			g.Expect(cfBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imageSecret.Name}))
 		}).Should(Succeed())
-	})
-
-	It("fetches the image config", func() {
-		Expect(imageConfigGetter.ConfigCallCount()).NotTo(BeZero())
-		_, creds, imageRef := imageConfigGetter.ConfigArgsForCall(imageConfigGetter.ConfigCallCount() - 1)
-		Expect(imageRef).To(Equal("some/image"))
-		Expect(creds).To(Equal(image.Creds{
-			Namespace:   cfSpace.Status.GUID,
-			SecretNames: []string{"source-image-secret"},
-		}))
 	})
 
 	Describe("privileged images", func() {
@@ -167,7 +177,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 
 		When("the user is not specified", func() {
 			BeforeEach(func() {
-				imageConfigGetter.ConfigReturns(image.Config{}, nil)
+				imageConfig.Config.User = ""
 			})
 
 			It("fails the build", func() {
@@ -177,7 +187,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 
 		When("the user is 'root'", func() {
 			BeforeEach(func() {
-				imageConfigGetter.ConfigReturns(image.Config{User: "root"}, nil)
+				imageConfig.Config.User = "root"
 			})
 
 			It("fails the build", func() {
@@ -187,7 +197,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 
 		When("the user is '0'", func() {
 			BeforeEach(func() {
-				imageConfigGetter.ConfigReturns(image.Config{User: "0"}, nil)
+				imageConfig.Config.User = "0"
 			})
 
 			It("fails the build", func() {
@@ -197,7 +207,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 
 		When("the user is 'root:rootgroup'", func() {
 			BeforeEach(func() {
-				imageConfigGetter.ConfigReturns(image.Config{User: "root:rootgroup"}, nil)
+				imageConfig.Config.User = "root:rootgroup"
 			})
 
 			It("fails the build", func() {
@@ -207,7 +217,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 
 		When("the user is '0:rootgroup'", func() {
 			BeforeEach(func() {
-				imageConfigGetter.ConfigReturns(image.Config{User: "0:rootgroup"}, nil)
+				imageConfig.Config.User = "0:rootgroup"
 			})
 
 			It("fails the build", func() {

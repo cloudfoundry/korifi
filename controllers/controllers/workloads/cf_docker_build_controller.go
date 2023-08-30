@@ -36,8 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-//counterfeiter:generate -o fake -fake-name ImageConfigGetter . ImageConfigGetter
-
 type ImageConfigGetter interface {
 	Config(context.Context, image.Creds, string) (image.Config, error)
 }
