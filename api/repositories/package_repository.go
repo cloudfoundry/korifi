@@ -8,10 +8,10 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
-	"code.cloudfoundry.org/korifi/api/repositories/dockercfg"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/tools/dockercfg"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/uuid"
@@ -180,28 +180,26 @@ func createImagePullSecret(ctx context.Context, userClient client.Client, cfPack
 	if err != nil {
 		return fmt.Errorf("failed to parse image ref: %w", err)
 	}
-	dockerCfg, err := dockercfg.GenerateDockerCfgSecretData(*message.Data.Username, *message.Data.Password, ref.Context().RegistryStr())
+
+	imgPullSecret, err := dockercfg.CreateDockerConfigSecret(
+		cfPackage.Namespace,
+		cfPackage.Name,
+		dockercfg.DockerServerConfig{
+			Server:   ref.Context().RegistryStr(),
+			Username: *message.Data.Username,
+			Password: *message.Data.Password,
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to generate dockercfgjson: %w", err)
+		return fmt.Errorf("failed to generate image pull secret: %w", err)
 	}
 
-	imgPullSecret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfPackage.Namespace,
-			Name:      cfPackage.Name,
-		},
-		Data: map[string][]byte{
-			corev1.DockerConfigJsonKey: dockerCfg,
-		},
-		Type: corev1.SecretTypeDockerConfigJson,
-	}
-
-	err = controllerutil.SetOwnerReference(cfPackage, &imgPullSecret, scheme.Scheme)
+	err = controllerutil.SetOwnerReference(cfPackage, imgPullSecret, scheme.Scheme)
 	if err != nil {
 		return fmt.Errorf("failed to set ownership from the package to the image pull secret: %w", err)
 	}
 
-	err = userClient.Create(ctx, &imgPullSecret)
+	err = userClient.Create(ctx, imgPullSecret)
 	if err != nil {
 		return fmt.Errorf("failed create the image pull secret: %w", err)
 	}
