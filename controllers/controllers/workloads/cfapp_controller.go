@@ -203,7 +203,7 @@ func (r *CFAppReconciler) startApp(ctx context.Context, cfApp *korifiv1alpha1.CF
 		}
 
 		if existingProcess != nil {
-			err = r.updateCFProcessCommand(ctx, existingProcess, dropletProcess.Command)
+			err = r.updateCFProcess(ctx, existingProcess, dropletProcess.Command, droplet.Ports)
 			if err != nil {
 				loopLog.Info("error updating CFProcess", "reason", err)
 				return err
@@ -230,9 +230,10 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 	return append([]korifiv1alpha1.ProcessType{{Type: korifiv1alpha1.ProcessTypeWeb}}, processTypes...)
 }
 
-func (r *CFAppReconciler) updateCFProcessCommand(ctx context.Context, process *korifiv1alpha1.CFProcess, command string) error {
+func (r *CFAppReconciler) updateCFProcess(ctx context.Context, process *korifiv1alpha1.CFProcess, command string, ports []int32) error {
 	return k8s.Patch(ctx, r.k8sClient, process, func() {
 		process.Spec.DetectedCommand = command
+		process.Spec.Ports = ports
 	})
 }
 
