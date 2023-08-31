@@ -146,6 +146,7 @@ func (r *dockerBuildReconciler) ReconcileBuild(
 
 	cfBuild.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 		Registry: cfPackage.Spec.Source.Registry,
+		Ports:    imageConfig.ExposedPorts,
 	}
 
 	return ctrl.Result{}, nil
