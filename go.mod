@@ -31,7 +31,7 @@ require (
 	github.com/projectcontour/contour v1.26.0
 	github.com/servicebinding/runtime v0.4.0
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
-	golang.org/x/text v0.12.0
+	golang.org/x/text v0.13.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.28.1
