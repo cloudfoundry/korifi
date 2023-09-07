@@ -155,21 +155,11 @@ func (dc RouteDestinationCreate) ToMessage(routeRecord repositories.RouteRecord)
 			processType = destination.App.Process.Type
 		}
 
-		port := 8080
-		if destination.Port != nil {
-			port = *destination.Port
-		}
-
-		protocol := "http1"
-		if destination.Protocol != nil {
-			protocol = *destination.Protocol
-		}
-
 		addDestinations = append(addDestinations, repositories.DestinationMessage{
 			AppGUID:     destination.App.GUID,
 			ProcessType: processType,
-			Port:        port,
-			Protocol:    protocol,
+			Port:        destination.Port,
+			Protocol:    destination.Protocol,
 		})
 	}
 	return repositories.AddDestinationsToRouteMessage{

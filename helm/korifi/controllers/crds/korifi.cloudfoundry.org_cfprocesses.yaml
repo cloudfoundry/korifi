@@ -100,7 +100,7 @@ spec:
                 format: int64
                 type: integer
               ports:
-                description: The ports to expose
+                description: 'The ports to expose Deprecated: No longer used'
                 items:
                   format: int32
                   type: integer
@@ -113,7 +113,6 @@ spec:
             - diskQuotaMB
             - healthCheck
             - memoryMB
-            - ports
             - processType
             type: object
           status:

@@ -44,7 +44,6 @@ type ProcessRecord struct {
 	DesiredInstances int
 	MemoryMB         int64
 	DiskQuotaMB      int64
-	Ports            []int32
 	HealthCheck      HealthCheck
 	Labels           map[string]string
 	Annotations      map[string]string
@@ -211,7 +210,6 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 			DesiredInstances: message.DesiredInstances,
 			MemoryMB:         message.MemoryMB,
 			DiskQuotaMB:      message.DiskQuotaMB,
-			Ports:            []int32{},
 		},
 	}
 	process.SetStableName(message.AppGUID)
@@ -328,7 +326,6 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		DesiredInstances: *cfProcess.Spec.DesiredInstances,
 		MemoryMB:         cfProcess.Spec.MemoryMB,
 		DiskQuotaMB:      cfProcess.Spec.DiskQuotaMB,
-		Ports:            cfProcess.Spec.Ports,
 		HealthCheck: HealthCheck{
 			Type: string(cfProcess.Spec.HealthCheck.Type),
 			Data: HealthCheckData{

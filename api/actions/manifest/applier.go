@@ -147,14 +147,10 @@ func (a *Applier) createOrUpdateRoute(ctx context.Context, authInfo authorizatio
 		RouteGUID:            routeRecord.GUID,
 		SpaceGUID:            routeRecord.SpaceGUID,
 		ExistingDestinations: routeRecord.Destinations,
-		NewDestinations: []repositories.DestinationMessage{
-			{
-				AppGUID:     appState.App.GUID,
-				ProcessType: korifiv1alpha1.ProcessTypeWeb,
-				Port:        8080,
-				Protocol:    "http1",
-			},
-		},
+		NewDestinations: []repositories.DestinationMessage{{
+			AppGUID:     appState.App.GUID,
+			ProcessType: korifiv1alpha1.ProcessTypeWeb,
+		}},
 	})
 	if err != nil {
 		return fmt.Errorf("addDestinationsToRoute: %w", err)

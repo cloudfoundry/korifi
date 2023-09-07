@@ -74,7 +74,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Type:    "web",
 				Command: "cmd",
 			}},
-			Ports: []int32{8080},
 		}
 		meta.SetStatusCondition(&cfDropletCopy.Status.Conditions, metav1.Condition{
 			Type:   "type",
@@ -115,7 +114,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				HealthCheck: korifiv1alpha1.HealthCheck{
 					Type: "process",
 				},
-				Ports: []int32{8080},
 			},
 		}
 		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())

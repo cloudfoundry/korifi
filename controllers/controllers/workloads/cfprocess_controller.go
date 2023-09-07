@@ -178,10 +178,9 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 		return errors.New("no build droplet status on CFBuild")
 	}
 
-	var appPort int
-	appPort, err = r.getPort(ctx, cfProcess, cfApp)
+	appPorts, err := r.getPorts(ctx, cfProcess.Spec.ProcessType, cfApp)
 	if err != nil {
-		log.Info("error when trying to fetch routes for CFApp", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
+		log.Info("error when trying to fetch ports for CFApp", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
 		return err
 	}
 
@@ -199,7 +198,7 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	}
 
 	var desiredAppWorkload *korifiv1alpha1.AppWorkload
-	desiredAppWorkload, err = r.generateAppWorkload(actualAppWorkload, cfApp, cfProcess, cfBuild, appPort, envVars, cfAppRev, cfLastStopAppRev)
+	desiredAppWorkload, err = r.generateAppWorkload(actualAppWorkload, cfApp, cfProcess, cfBuild, appPorts, envVars, cfAppRev, cfLastStopAppRev)
 	if err != nil { // untested
 		log.Info("error when initializing AppWorkload", "reason", err)
 		return err
@@ -255,7 +254,7 @@ func appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload *korifiv1al
 	}
 }
 
-func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alpha1.AppWorkload, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPort int, envVars []corev1.EnvVar, cfAppRev, cfLastStopAppRev string) (*korifiv1alpha1.AppWorkload, error) {
+func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alpha1.AppWorkload, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPorts []int32, envVars []corev1.EnvVar, cfAppRev, cfLastStopAppRev string) (*korifiv1alpha1.AppWorkload, error) {
 	var desiredAppWorkload korifiv1alpha1.AppWorkload
 	actualAppWorkload.DeepCopyInto(&desiredAppWorkload)
 
@@ -284,14 +283,15 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 	desiredAppWorkload.Spec.AppGUID = cfApp.Name
 	desiredAppWorkload.Spec.Image = cfBuild.Status.Droplet.Registry.Image
 	desiredAppWorkload.Spec.ImagePullSecrets = cfBuild.Status.Droplet.Registry.ImagePullSecrets
-	desiredAppWorkload.Spec.Ports = cfProcess.Spec.Ports
+
+	desiredAppWorkload.Spec.Ports = appPorts
 	if cfProcess.Spec.DesiredInstances != nil {
 		desiredAppWorkload.Spec.Instances = int32(*cfProcess.Spec.DesiredInstances)
 	}
 
-	desiredAppWorkload.Spec.Env = generateEnvVars(appPort, envVars)
-	desiredAppWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPort)
-	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPort)
+	desiredAppWorkload.Spec.Env = generateEnvVars(appPorts[0], envVars)
+	desiredAppWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPorts[0])
+	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPorts[0])
 	desiredAppWorkload.Spec.RunnerName = r.controllerConfig.RunnerName
 
 	err := controllerutil.SetControllerReference(cfProcess, &desiredAppWorkload, r.scheme)
@@ -339,12 +339,11 @@ func (r *CFProcessReconciler) fetchAppWorkloadsForProcess(ctx context.Context, c
 	return appWorkloadsForProcess, err
 }
 
-func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, cfApp *korifiv1alpha1.CFApp) (int, error) {
-	// Get Routes for the process
+func (r *CFProcessReconciler) getPorts(ctx context.Context, processType string, cfApp *korifiv1alpha1.CFApp) ([]int32, error) {
 	var cfRoutesForProcess korifiv1alpha1.CFRouteList
 	err := r.k8sClient.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.IndexRouteDestinationAppName: cfApp.Name})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	// In case there are multiple routes, prefer the oldest one
@@ -352,24 +351,29 @@ func (r *CFProcessReconciler) getPort(ctx context.Context, cfProcess *korifiv1al
 		return cfRoutesForProcess.Items[i].CreationTimestamp.Before(&cfRoutesForProcess.Items[j].CreationTimestamp)
 	})
 
-	// Filter those destinations
+	ports := []int32{}
 	for _, cfRoute := range cfRoutesForProcess.Items {
 		for _, destination := range cfRoute.Status.Destinations {
-			if destination.AppRef.Name == cfApp.Name && destination.ProcessType == cfProcess.Spec.ProcessType && destination.Port != 0 {
-				// Just use the first candidate port
-				return destination.Port, nil
+			if destination.AppRef.Name == cfApp.Name &&
+				destination.ProcessType == processType &&
+				destination.Port != nil {
+				ports = append(ports, int32(*destination.Port))
 			}
 		}
 	}
 
-	return 8080, nil
+	if len(ports) == 0 {
+		return nil, fmt.Errorf("no ports for process %s for app %s/%s available", processType, cfApp.GetNamespace(), cfApp.GetName())
+	}
+
+	return ports, nil
 }
 
-func generateEnvVars(port int, commonEnv []corev1.EnvVar) []corev1.EnvVar {
+func generateEnvVars(port int32, commonEnv []corev1.EnvVar) []corev1.EnvVar {
 	var result []corev1.EnvVar
 	result = append(result, commonEnv...)
 
-	portString := strconv.Itoa(port)
+	portString := strconv.Itoa(int(port))
 	result = append(result,
 		corev1.EnvVar{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 		corev1.EnvVar{Name: "VCAP_APP_PORT", Value: portString},
@@ -401,25 +405,25 @@ func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CF
 	return []string{"/bin/sh", "-c", cmd}
 }
 
-func makeProbeHandler(cfProcess *korifiv1alpha1.CFProcess, port int) corev1.ProbeHandler {
+func makeProbeHandler(cfProcess *korifiv1alpha1.CFProcess, port int32) corev1.ProbeHandler {
 	var probeHandler corev1.ProbeHandler
 
 	switch cfProcess.Spec.HealthCheck.Type {
 	case korifiv1alpha1.HTTPHealthCheckType:
 		probeHandler.HTTPGet = &corev1.HTTPGetAction{
 			Path: cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
-			Port: intstr.FromInt(port),
+			Port: intstr.FromInt32(port),
 		}
 	case korifiv1alpha1.PortHealthCheckType:
 		probeHandler.TCPSocket = &corev1.TCPSocketAction{
-			Port: intstr.FromInt(port),
+			Port: intstr.FromInt32(port),
 		}
 	}
 
 	return probeHandler
 }
 
-func startupProbe(cfProcess *korifiv1alpha1.CFProcess, port int) *corev1.Probe {
+func startupProbe(cfProcess *korifiv1alpha1.CFProcess, port int32) *corev1.Probe {
 	if cfProcess.Spec.HealthCheck.Type == korifiv1alpha1.ProcessHealthCheckType {
 		return nil
 	}
@@ -433,7 +437,7 @@ func startupProbe(cfProcess *korifiv1alpha1.CFProcess, port int) *corev1.Probe {
 	}
 }
 
-func livenessProbe(cfProcess *korifiv1alpha1.CFProcess, port int) *corev1.Probe {
+func livenessProbe(cfProcess *korifiv1alpha1.CFProcess, port int32) *corev1.Probe {
 	if cfProcess.Spec.HealthCheck.Type == korifiv1alpha1.ProcessHealthCheckType {
 		return nil
 	}

@@ -203,13 +203,13 @@ func (r *CFAppReconciler) startApp(ctx context.Context, cfApp *korifiv1alpha1.CF
 		}
 
 		if existingProcess != nil {
-			err = r.updateCFProcessCommand(ctx, existingProcess, dropletProcess.Command)
+			err = r.updateCFProcess(ctx, existingProcess, dropletProcess.Command)
 			if err != nil {
 				loopLog.Info("error updating CFProcess", "reason", err)
 				return err
 			}
 		} else {
-			err = r.createCFProcess(ctx, dropletProcess, droplet.Ports, cfApp)
+			err = r.createCFProcess(ctx, dropletProcess, cfApp)
 			if err != nil {
 				loopLog.Info("error creating CFProcess", "reason", err)
 				return err
@@ -230,13 +230,13 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 	return append([]korifiv1alpha1.ProcessType{{Type: korifiv1alpha1.ProcessTypeWeb}}, processTypes...)
 }
 
-func (r *CFAppReconciler) updateCFProcessCommand(ctx context.Context, process *korifiv1alpha1.CFProcess, command string) error {
+func (r *CFAppReconciler) updateCFProcess(ctx context.Context, process *korifiv1alpha1.CFProcess, command string) error {
 	return k8s.Patch(ctx, r.k8sClient, process, func() {
 		process.Spec.DetectedCommand = command
 	})
 }
 
-func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, ports []int32, cfApp *korifiv1alpha1.CFApp) error {
+func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, cfApp *korifiv1alpha1.CFApp) error {
 	desiredCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfApp.Namespace,
@@ -249,7 +249,6 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 			AppRef:          corev1.LocalObjectReference{Name: cfApp.Name},
 			ProcessType:     process.Type,
 			DetectedCommand: process.Command,
-			Ports:           ports,
 		},
 	}
 	desiredCFProcess.SetStableName(cfApp.Name)

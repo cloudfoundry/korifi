@@ -603,17 +603,17 @@ var _ = Describe("Route", func() {
 			Expect(message.RouteGUID).To(Equal("test-route-guid"))
 			Expect(message.SpaceGUID).To(Equal("test-space-guid"))
 			Expect(message.NewDestinations).To(ConsistOf(
-				MatchAllFields(Fields{
+				MatchFields(IgnoreExtras, Fields{
 					"AppGUID":     Equal("app-1-guid"),
 					"ProcessType": Equal("web"),
-					"Port":        Equal(8080),
-					"Protocol":    Equal("http1"),
+					"Port":        BeNil(),
+					"Protocol":    BeNil(),
 				}),
-				MatchAllFields(Fields{
+				MatchFields(IgnoreExtras, Fields{
 					"AppGUID":     Equal("app-2-guid"),
 					"ProcessType": Equal("queue"),
-					"Port":        Equal(1234),
-					"Protocol":    Equal("http1"),
+					"Port":        PointTo(Equal(1234)),
+					"Protocol":    PointTo(Equal("http1")),
 				}),
 			))
 

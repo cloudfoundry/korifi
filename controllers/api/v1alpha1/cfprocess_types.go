@@ -55,7 +55,9 @@ type CFProcessSpec struct {
 	DiskQuotaMB int64 `json:"diskQuotaMB"`
 
 	// The ports to expose
-	Ports []int32 `json:"ports"`
+	// Deprecated: No longer used
+	// +kubebuilder:validation:Optional
+	Ports []int32 `json:"ports,omitempty"`
 }
 
 type HealthCheck struct {

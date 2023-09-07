@@ -102,42 +102,42 @@ var _ = Describe("DropletRepository", func() {
 
 			When("status.Droplet is set", func() {
 				BeforeEach(func() {
-					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-						Type:    "Staging",
-						Status:  metav1.ConditionFalse,
-						Reason:  "kpack",
-						Message: "kpack",
-					})
-					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-						Type:    "Succeeded",
-						Status:  metav1.ConditionTrue,
-						Reason:  "Unknown",
-						Message: "Unknown",
-					})
-					build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
-						Stack: dropletStack,
-						Registry: korifiv1alpha1.Registry{
-							Image: registryImage,
-							ImagePullSecrets: []corev1.LocalObjectReference{
-								{
-									Name: registryImageSecret,
+					Expect(k8s.Patch(testCtx, k8sClient, build, func() {
+						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
+							Type:    "Staging",
+							Status:  metav1.ConditionFalse,
+							Reason:  "kpack",
+							Message: "kpack",
+						})
+						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
+							Type:    "Succeeded",
+							Status:  metav1.ConditionTrue,
+							Reason:  "Unknown",
+							Message: "Unknown",
+						})
+						build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+							Stack: dropletStack,
+							Registry: korifiv1alpha1.Registry{
+								Image: registryImage,
+								ImagePullSecrets: []corev1.LocalObjectReference{
+									{
+										Name: registryImageSecret,
+									},
 								},
 							},
-						},
-						ProcessTypes: []korifiv1alpha1.ProcessType{
-							{
-								Type:    "rake",
-								Command: "bundle exec rake",
+							ProcessTypes: []korifiv1alpha1.ProcessType{
+								{
+									Type:    "rake",
+									Command: "bundle exec rake",
+								},
+								{
+									Type:    "web",
+									Command: "bundle exec rackup config.ru -p $PORT",
+								},
 							},
-							{
-								Type:    "web",
-								Command: "bundle exec rackup config.ru -p $PORT",
-							},
-						},
-						Ports: []int32{8080, 443},
-					}
-					// Update Build Status based on changes made to local copy
-					Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
+							Ports: []int32{1234, 2345},
+						}
+					})).To(Succeed())
 				})
 
 				It("should eventually return a droplet record with fields set to expected values", func() {
@@ -151,6 +151,7 @@ var _ = Describe("DropletRepository", func() {
 					Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
 					Expect(dropletRecord.Lifecycle.Data.Stack).To(Equal(build.Spec.Lifecycle.Data.Stack))
 					Expect(dropletRecord.Image).To(BeEmpty())
+					Expect(dropletRecord.Ports).To(ConsistOf(int32(1234), int32(2345)))
 					Expect(dropletRecord.AppGUID).To(Equal(build.Spec.AppRef.Name))
 					Expect(dropletRecord.PackageGUID).To(Equal(build.Spec.PackageRef.Name))
 					Expect(dropletRecord.Labels).To(Equal(map[string]string{

@@ -267,6 +267,7 @@ var _ = Describe("Applier", func() {
 		BeforeEach(func() {
 			appState.App.GUID = "app-guid"
 			appState.App.SpaceGUID = "space-guid"
+			appState.App.DropletGUID = "droplet-guid"
 			appInfo.Routes = []payloads.ManifestRoute{
 				{Route: tools.PtrTo("r1.my.domain/my-path")},
 			}
@@ -302,7 +303,7 @@ var _ = Describe("Applier", func() {
 			}))
 		})
 
-		It("adds a destination to the route", func() {
+		It("adds a destination for the web process to the route without port", func() {
 			Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
 			_, _, addDestinationMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
 			Expect(addDestinationMessage).To(Equal(repositories.AddDestinationsToRouteMessage{
@@ -312,8 +313,6 @@ var _ = Describe("Applier", func() {
 				NewDestinations: []repositories.DestinationMessage{{
 					AppGUID:     "app-guid",
 					ProcessType: "web",
-					Port:        8080,
-					Protocol:    "http1",
 				}},
 			}))
 		})

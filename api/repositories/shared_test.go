@@ -152,7 +152,6 @@ func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, 
 			DesiredInstances: tools.PtrTo(1),
 			MemoryMB:         500,
 			DiskQuotaMB:      512,
-			Ports:            []int32{8080},
 		},
 	}
 	Expect(

@@ -45,6 +45,9 @@ func TestNetworkingControllers(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
+	SetDefaultConsistentlyDuration(5 * time.Second)
+	SetDefaultConsistentlyPollingInterval(250 * time.Millisecond)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Networking Controllers Integration Suite")
 }
@@ -99,6 +102,7 @@ var _ = BeforeSuite(func() {
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	(&workloads.AppRevWebhook{}).SetupWebhookWithManager(k8sManager)
 	Expect(workloads.NewCFAppValidator(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.AppEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
@@ -109,6 +113,7 @@ var _ = BeforeSuite(func() {
 		rootNamespace,
 		k8sManager.GetClient(),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect(adminClient.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
