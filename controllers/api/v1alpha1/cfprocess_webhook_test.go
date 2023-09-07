@@ -40,7 +40,6 @@ var _ = Describe("CFProcessMutatingWebhook", func() {
 					Name: cfAppGUID,
 				},
 				ProcessType: "test-process-type",
-				Ports:       []int32{},
 			},
 		}
 	})

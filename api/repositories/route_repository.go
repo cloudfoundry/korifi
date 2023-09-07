@@ -40,8 +40,8 @@ type DestinationRecord struct {
 	GUID        string
 	AppGUID     string
 	ProcessType string
-	Port        int
-	Protocol    string
+	Port        *int
+	Protocol    *string
 	// Weight intentionally omitted as experimental features
 }
 
@@ -76,8 +76,8 @@ type RemoveDestinationFromRouteMessage struct {
 type DestinationMessage struct {
 	AppGUID     string
 	ProcessType string
-	Port        int
-	Protocol    string
+	Port        *int
+	Protocol    *string
 	// Weight intentionally omitted as experimental features
 }
 
@@ -260,10 +260,6 @@ func returnRouteList(routeList []korifiv1alpha1.CFRoute) []RouteRecord {
 }
 
 func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
-	destinations := []DestinationRecord{}
-	for _, destination := range cfRoute.Spec.Destinations {
-		destinations = append(destinations, cfRouteDestinationToDestination(destination))
-	}
 	return RouteRecord{
 		GUID:      cfRoute.Name,
 		SpaceGUID: cfRoute.Namespace,
@@ -273,7 +269,7 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 		Host:         cfRoute.Spec.Host,
 		Path:         cfRoute.Spec.Path,
 		Protocol:     "http", // TODO: Create a mutating webhook to set this default on the CFRoute
-		Destinations: destinations,
+		Destinations: cfRouteDestinationsToDestinationRecords(cfRoute),
 		CreatedAt:    cfRoute.CreationTimestamp.Time,
 		UpdatedAt:    getLastUpdatedTime(&cfRoute),
 		DeletedAt:    golangTime(cfRoute.DeletionTimestamp),
@@ -282,14 +278,40 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 	}
 }
 
-func cfRouteDestinationToDestination(cfRouteDestination korifiv1alpha1.Destination) DestinationRecord {
-	return DestinationRecord{
-		GUID:        cfRouteDestination.GUID,
-		AppGUID:     cfRouteDestination.AppRef.Name,
-		ProcessType: cfRouteDestination.ProcessType,
-		Port:        cfRouteDestination.Port,
-		Protocol:    cfRouteDestination.Protocol,
+func cfRouteDestinationsToDestinationRecords(cfRoute korifiv1alpha1.CFRoute) []DestinationRecord {
+	result := []DestinationRecord{}
+
+	for _, specDestination := range cfRoute.Spec.Destinations {
+		record := DestinationRecord{
+			GUID:        specDestination.GUID,
+			AppGUID:     specDestination.AppRef.Name,
+			ProcessType: specDestination.ProcessType,
+			Port:        specDestination.Port,
+			Protocol:    specDestination.Protocol,
+		}
+
+		if record.Port == nil {
+			effectiveDestination := findEffectiveDestination(specDestination.GUID, cfRoute.Status.Destinations)
+			if effectiveDestination != nil {
+				record.Protocol = effectiveDestination.Protocol
+				record.Port = effectiveDestination.Port
+			}
+		}
+
+		result = append(result, record)
 	}
+
+	return result
+}
+
+func findEffectiveDestination(destGUID string, effectiveDestinations []korifiv1alpha1.Destination) *korifiv1alpha1.Destination {
+	for _, dest := range effectiveDestinations {
+		if dest.GUID == destGUID {
+			return &dest
+		}
+	}
+
+	return nil
 }
 
 func (r *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
@@ -396,23 +418,43 @@ func (r *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 	return cfRouteToRouteRecord(*cfRoute), err
 }
 
-func mergeDestinations(existingDestinations []DestinationRecord, newDestinations []DestinationMessage) []korifiv1alpha1.Destination {
-	result := destinationRecordsToCFDestinations(existingDestinations)
+func mergeDestinations(existingDestinations []DestinationRecord, desiredDestinations []DestinationMessage) []korifiv1alpha1.Destination {
+	destinations := destinationRecordsToCFDestinations(existingDestinations)
 
-outer:
-	for _, newDest := range newDestinations {
-		for _, oldDest := range result {
-			if newDest.AppGUID == oldDest.AppRef.Name &&
-				newDest.ProcessType == oldDest.ProcessType &&
-				newDest.Port == oldDest.Port &&
-				newDest.Protocol == oldDest.Protocol {
-				continue outer
-			}
+	for _, desired := range desiredDestinations {
+		if contains(destinations, desired) {
+			continue
 		}
-		result = append(result, newDest.toCFDestination())
+
+		destinations = append(destinations, desired.toCFDestination())
 	}
 
-	return result
+	return destinations
+}
+
+func contains(existingDestinations []korifiv1alpha1.Destination, desired DestinationMessage) bool {
+	for _, dest := range existingDestinations {
+		if desired.AppGUID == dest.AppRef.Name &&
+			desired.ProcessType == dest.ProcessType &&
+			equal(desired.Port, dest.Port) &&
+			equal(desired.Protocol, dest.Protocol) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func equal[T comparable](v1, v2 *T) bool {
+	if v1 == nil && v2 == nil {
+		return true
+	}
+
+	if v1 != nil && v2 != nil {
+		return *v1 == *v2
+	}
+
+	return false
 }
 
 func (r *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, bool, error) {

@@ -37,7 +37,6 @@ var _ = Describe("Process", func() {
 				DesiredInstances: 5,
 				MemoryMB:         256,
 				DiskQuotaMB:      1024,
-				Ports:            []int32{8080},
 				HealthCheck: repositories.HealthCheck{
 					Type: "port",
 				},

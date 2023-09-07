@@ -64,14 +64,15 @@ spec:
                       type: string
                     port:
                       description: The port to use for the destination. Port is optional,
-                        and defaults to ProcessModel::DEFAULT_HTTP_PORT
+                        and defaults to either the droplet port, or 8080 if no ports
+                        are available in the droplet
                       type: integer
                     processType:
                       description: The process type on the CFApp app which will receive
                         traffic
                       type: string
                     protocol:
-                      description: Protocol is required, must be "http1"
+                      description: Protocol is optional, when set must be "http1"
                       enum:
                       - http1
                       type: string
@@ -79,7 +80,6 @@ spec:
                   - appRef
                   - guid
                   - processType
-                  - protocol
                   type: object
                 type: array
               domainRef:
@@ -241,14 +241,15 @@ spec:
                       type: string
                     port:
                       description: The port to use for the destination. Port is optional,
-                        and defaults to ProcessModel::DEFAULT_HTTP_PORT
+                        and defaults to either the droplet port, or 8080 if no ports
+                        are available in the droplet
                       type: integer
                     processType:
                       description: The process type on the CFApp app which will receive
                         traffic
                       type: string
                     protocol:
-                      description: Protocol is required, must be "http1"
+                      description: Protocol is optional, when set must be "http1"
                       enum:
                       - http1
                       type: string
@@ -256,7 +257,6 @@ spec:
                   - appRef
                   - guid
                   - processType
-                  - protocol
                   type: object
                 type: array
               fqdn:

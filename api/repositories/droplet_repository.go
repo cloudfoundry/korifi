@@ -54,6 +54,7 @@ type DropletRecord struct {
 	Labels          map[string]string
 	Annotations     map[string]string
 	Image           string
+	Ports           []int32
 }
 
 type ListDropletsMessage struct {
@@ -124,13 +125,12 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 		PackageGUID:  cfBuild.Spec.PackageRef.Name,
 		Labels:       cfBuild.Labels,
 		Annotations:  cfBuild.Annotations,
+		Ports:        cfBuild.Status.Droplet.Ports,
 	}
 
 	if cfBuild.Spec.Lifecycle.Type == "docker" {
 		result.Lifecycle.Data = LifecycleData{}
-		if cfBuild.Status.Droplet != nil {
-			result.Image = cfBuild.Status.Droplet.Registry.Image
-		}
+		result.Image = cfBuild.Status.Droplet.Registry.Image
 	}
 
 	return result

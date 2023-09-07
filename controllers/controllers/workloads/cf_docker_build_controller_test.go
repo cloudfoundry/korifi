@@ -156,7 +156,23 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			g.Expect(cfBuild.Status.Droplet).NotTo(BeNil())
 			g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal(imageRef))
 			g.Expect(cfBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imageSecret.Name}))
+			g.Expect(cfBuild.Status.Droplet.Ports).To(BeEmpty())
 		}).Should(Succeed())
+	})
+
+	When("the image specifies ExposedPorts in its config", func() {
+		BeforeEach(func() {
+			imageConfig.Config.ExposedPorts = map[string]struct{}{"8888": {}, "9999": {}}
+		})
+
+		It("sets them into the droplet", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
+				g.Expect(cfBuild.Status.Droplet).NotTo(BeNil())
+				g.Expect(cfBuild.Status.Droplet.Ports).To(ConsistOf(int32(8888), int32(9999)))
+			}).Should(Succeed())
+		})
 	})
 
 	Describe("privileged images", func() {
