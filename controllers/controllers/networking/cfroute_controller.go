@@ -313,13 +313,7 @@ func (r *CFRouteReconciler) buildEffectiveDestinations(ctx context.Context, cfRo
 	effectiveDestinations := []korifiv1alpha1.Destination{}
 
 	for _, dest := range cfRoute.Spec.Destinations {
-		effectiveDest := korifiv1alpha1.Destination{
-			GUID:        dest.GUID,
-			Port:        dest.Port,
-			AppRef:      corev1.LocalObjectReference{Name: dest.AppRef.Name},
-			ProcessType: dest.ProcessType,
-			Protocol:    dest.Protocol,
-		}
+		effectiveDest := dest.DeepCopy()
 
 		if effectiveDest.Protocol == nil {
 			effectiveDest.Protocol = tools.PtrTo("http1")
@@ -341,7 +335,7 @@ func (r *CFRouteReconciler) buildEffectiveDestinations(ctx context.Context, cfRo
 			}
 		}
 
-		effectiveDestinations = append(effectiveDestinations, effectiveDest)
+		effectiveDestinations = append(effectiveDestinations, *effectiveDest)
 	}
 
 	return effectiveDestinations, nil
