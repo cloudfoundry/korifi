@@ -2,6 +2,7 @@ package workloads_test
 
 import (
 	"context"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -445,9 +446,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			})).To(Succeed())
+
+			// we need to delay the creation of the other cfroute in the
+			// JustBeforeEach buecause kubernetes creation timestamps are with
+			// a second granularity
+			time.Sleep(time.Second)
 		})
 
-		It("eventually reconciles the CFProcess into an AppWorkload with VCAP env set according to the destination port", func() {
+		It("uses the oldest route destination port for VCAP_APP_PORT and PORT env vars", func() {
 			eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 				g.Expect(appWorkload.Spec.Env).To(ContainElements(
 					Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: "9000"}),
@@ -465,7 +471,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				})).To(Succeed())
 			})
 
-			It("eventually sets the correct health check port on the AppWorkload", func() {
+			It("sets the health check port on the AppWorkload using the oldes route destination port", func() {
 				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.StartupProbe).ToNot(BeNil())
 					g.Expect(appWorkload.Spec.StartupProbe.HTTPGet.Port.IntValue()).To(BeEquivalentTo(9000))
