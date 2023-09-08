@@ -67,6 +67,13 @@ func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
 	}
 
+	if app.Spec.Lifecycle.Type != oldApp.Spec.Lifecycle.Type {
+		return nil, webhooks.ValidationError{
+			Type:    "ImmutableFieldError",
+			Message: "CFApp.Spec.Lifecycle.Type is immutable",
+		}.ExportJSONError()
+	}
+
 	return nil, v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, oldApp, app)
 }
 
