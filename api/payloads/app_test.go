@@ -340,6 +340,7 @@ var _ = Describe("App payload validation", func() {
 					AppGUID:   "app-guid",
 					SpaceGUID: "space-guid",
 					Lifecycle: &repositories.LifecyclePatch{
+						Type: tools.PtrTo("buildpack"),
 						Data: &repositories.LifecycleDataPatch{
 							Buildpacks: &[]string{"buildpack"},
 							Stack:      "mystack",

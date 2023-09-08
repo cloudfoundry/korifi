@@ -507,6 +507,7 @@ var _ = Describe("App", func() {
 			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
 			Expect(msg.Labels).To(HaveKeyWithValue("foo.example.com/my-identifier", PointTo(Equal("aruba"))))
 			Expect(*msg.Lifecycle).To(Equal(repositories.LifecyclePatch{
+				Type: tools.PtrTo("buildpack"),
 				Data: &repositories.LifecycleDataPatch{
 					Buildpacks: &[]string{"my-buildpack"},
 					Stack:      "cflinuxfs3",

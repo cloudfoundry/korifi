@@ -92,6 +92,7 @@ type LifecycleData struct {
 }
 
 type LifecyclePatch struct {
+	Type *string
 	Data *LifecycleDataPatch
 }
 
@@ -625,6 +626,10 @@ func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
 	}
 
 	if m.Lifecycle != nil {
+		if m.Lifecycle.Type != nil {
+			app.Spec.Lifecycle.Type = korifiv1alpha1.LifecycleType(*m.Lifecycle.Type)
+		}
+
 		if m.Lifecycle.Data.Buildpacks != nil {
 			app.Spec.Lifecycle.Data.Buildpacks = *m.Lifecycle.Data.Buildpacks
 		}

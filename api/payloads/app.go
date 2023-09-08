@@ -189,6 +189,10 @@ func (a *AppPatch) ToMessage(appGUID, spaceGUID string) repositories.PatchAppMes
 	if a.Lifecycle != nil {
 		msg.Lifecycle = &repositories.LifecyclePatch{}
 
+		if a.Lifecycle.Type != "" {
+			msg.Lifecycle.Type = &a.Lifecycle.Type
+		}
+
 		if a.Lifecycle.Data != nil {
 			msg.Lifecycle.Data = &repositories.LifecycleDataPatch{
 				Stack:      a.Lifecycle.Data.Stack,

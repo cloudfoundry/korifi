@@ -616,7 +616,24 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			appPatchMessage = initializeAppPatchMessage(cfApp.Spec.DisplayName, cfApp.Name, cfSpace.Name)
+			appPatchMessage = PatchAppMessage{
+				Name:      cfApp.Spec.DisplayName,
+				AppGUID:   cfApp.Name,
+				SpaceGUID: cfSpace.Name,
+				Lifecycle: &LifecyclePatch{
+					Type: tools.PtrTo("docker"),
+					Data: &LifecycleDataPatch{
+						Buildpacks: &[]string{
+							"some-buildpack",
+						},
+						Stack: "cflinuxfs3",
+					},
+				},
+				MetadataPatch: MetadataPatch{
+					Labels:      map[string]*string{"l": tools.PtrTo("lv")},
+					Annotations: map[string]*string{"a": tools.PtrTo("av")},
+				},
+			}
 		})
 
 		JustBeforeEach(func() {
@@ -637,7 +654,7 @@ var _ = Describe("AppRepository", func() {
 				Expect(patchedAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
 				Expect(patchedAppRecord.Name).To(Equal(appPatchMessage.Name))
 				Expect(patchedAppRecord.Lifecycle).To(Equal(Lifecycle{
-					Type: string(cfApp.Spec.Lifecycle.Type),
+					Type: "docker",
 					Data: LifecycleData{
 						Buildpacks: []string{"some-buildpack"},
 						Stack:      "cflinuxfs3",
@@ -646,7 +663,7 @@ var _ = Describe("AppRepository", func() {
 
 				Expect(cfApp.Spec.DisplayName).To(Equal(appPatchMessage.Name))
 				Expect(cfApp.Spec.Lifecycle).To(Equal(korifiv1alpha1.Lifecycle{
-					Type: "buildpack",
+					Type: "docker",
 					Data: korifiv1alpha1.LifecycleData{
 						Buildpacks: []string{"some-buildpack"},
 						Stack:      "cflinuxfs3",

@@ -238,26 +238,6 @@ func initializeAppCreateMessage(appName string, spaceGUID string) CreateAppMessa
 	}
 }
 
-func initializeAppPatchMessage(appName, appGUID, spaceGUID string) PatchAppMessage {
-	return PatchAppMessage{
-		Name:      appName,
-		AppGUID:   appGUID,
-		SpaceGUID: spaceGUID,
-		Lifecycle: &LifecyclePatch{
-			Data: &LifecycleDataPatch{
-				Buildpacks: &[]string{
-					"some-buildpack",
-				},
-				Stack: "cflinuxfs3",
-			},
-		},
-		MetadataPatch: MetadataPatch{
-			Labels:      map[string]*string{"l": tools.PtrTo("lv")},
-			Annotations: map[string]*string{"a": tools.PtrTo("av")},
-		},
-	}
-}
-
 func generateAppEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }
