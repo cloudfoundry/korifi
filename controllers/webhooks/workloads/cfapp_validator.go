@@ -70,7 +70,7 @@ func (v *CFAppValidator) ValidateUpdate(ctx context.Context, oldObj, obj runtime
 	if app.Spec.Lifecycle.Type != oldApp.Spec.Lifecycle.Type {
 		return nil, webhooks.ValidationError{
 			Type:    "ImmutableFieldError",
-			Message: "CFApp.Spec.Lifecycle.Type is immutable",
+			Message: fmt.Sprintf("Lifecycle type cannot be changed from %s to %s", oldApp.Spec.Lifecycle.Type, app.Spec.Lifecycle.Type),
 		}.ExportJSONError()
 	}
 

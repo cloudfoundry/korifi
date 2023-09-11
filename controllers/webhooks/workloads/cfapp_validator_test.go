@@ -186,7 +186,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 			})
 
 			It("should fail", func() {
-				Expect(updateErr).To(MatchError(ContainSubstring("immutable")))
+				Expect(updateErr).To(MatchError(ContainSubstring("cannot be changed from buildpack to docker")))
 			})
 		})
 	})
