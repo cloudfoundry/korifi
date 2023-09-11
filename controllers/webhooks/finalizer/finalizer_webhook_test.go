@@ -13,34 +13,51 @@ import (
 )
 
 var _ = Describe("Controllers Finalizers Webhook", func() {
+	namespace := "ns" + uuid.NewString()
+	cfAppGUID := "app" + uuid.NewString()
+
+	BeforeEach(func() {
+		Expect(client.IgnoreAlreadyExists(adminClient.Create(context.Background(), &korifiv1alpha1.CFOrg{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespace,
+				Namespace: rootNamespace,
+			},
+			Spec: korifiv1alpha1.CFOrgSpec{
+				DisplayName: uuid.NewString(),
+			},
+		}))).To(Succeed())
+
+		Expect(client.IgnoreAlreadyExists(adminClient.Create(context.Background(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   namespace,
+				Labels: map[string]string{korifiv1alpha1.OrgNameKey: namespace},
+			},
+		}))).To(Succeed())
+
+		Expect(client.IgnoreAlreadyExists(adminClient.Create(context.Background(), &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      cfAppGUID,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName: uuid.NewString(),
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+				},
+				DesiredState: "STOPPED",
+			},
+		}))).To(Succeed())
+	})
+
 	DescribeTable("Adding finalizers",
 		func(obj client.Object, expectedFinalizers ...string) {
-			if obj.GetNamespace() != rootNamespace {
-				Expect(adminClient.Create(context.Background(), &korifiv1alpha1.CFOrg{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      obj.GetNamespace(),
-						Namespace: rootNamespace,
-					},
-					Spec: korifiv1alpha1.CFOrgSpec{
-						DisplayName: obj.GetNamespace(),
-					},
-				})).To(Succeed())
-
-				Expect(adminClient.Create(context.Background(), &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   obj.GetNamespace(),
-						Labels: map[string]string{korifiv1alpha1.OrgNameKey: obj.GetNamespace()},
-					},
-				})).To(Succeed())
-			}
-
 			Expect(adminClient.Create(context.Background(), obj)).To(Succeed())
 			Expect(obj.GetFinalizers()).To(ConsistOf(expectedFinalizers))
 		},
 		Entry("cfapp",
 			&korifiv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-org-" + uuid.NewString(),
+					Namespace: namespace,
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFAppSpec{
@@ -56,7 +73,7 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 		Entry("cfspace",
 			&korifiv1alpha1.CFSpace{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-org-" + uuid.NewString(),
+					Namespace: namespace,
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFSpaceSpec{
@@ -68,11 +85,14 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 		Entry("cfpackage",
 			&korifiv1alpha1.CFPackage{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-org-" + uuid.NewString(),
+					Namespace: namespace,
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFPackageSpec{
 					Type: "bits",
+					AppRef: corev1.LocalObjectReference{
+						Name: cfAppGUID,
+					},
 				},
 			},
 			korifiv1alpha1.CFPackageFinalizerName,
@@ -92,7 +112,7 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 		Entry("cfroute",
 			&korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-org-" + uuid.NewString(),
+					Namespace: namespace,
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{

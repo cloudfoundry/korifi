@@ -156,6 +156,23 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 		When("the package type is docker", func() {
 			BeforeEach(func() {
+				cfAppGUID = GenerateGUID()
+				cfApp = &korifiv1alpha1.CFApp{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cfAppGUID,
+						Namespace: cfSpace.Status.GUID,
+					},
+					Spec: korifiv1alpha1.CFAppSpec{
+						DisplayName:  "docker-test-app-name",
+						DesiredState: "STOPPED",
+						Lifecycle: korifiv1alpha1.Lifecycle{
+							Type: "docker",
+						},
+					},
+				}
+				Expect(adminClient.Create(context.Background(), cfApp)).To(Succeed())
+
+				cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, imageRef)
 				cfPackage.Spec.Type = "docker"
 			})
 

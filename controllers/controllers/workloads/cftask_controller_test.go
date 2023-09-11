@@ -29,7 +29,56 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	BeforeEach(func() {
 		cfSpace = createSpace(cfOrg)
 
-		cfAppName := testutils.PrefixedGUID("app")
+		envSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testutils.PrefixedGUID("env-secret"),
+				Namespace: cfSpace.Status.GUID,
+			},
+			StringData: map[string]string{
+				"BOB":  "flemming",
+				"FAST": "show",
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+		Expect(adminClient.Create(ctx, envSecret)).To(Succeed())
+
+		cfApp = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfSpace.Status.GUID,
+				Name:      testutils.PrefixedGUID("app"),
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				Lifecycle:     korifiv1alpha1.Lifecycle{Type: "buildpack"},
+				DesiredState:  "STOPPED",
+				DisplayName:   "app",
+				EnvSecretName: envSecret.Name,
+			},
+		}
+
+		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
+
+		cfProcess := &korifiv1alpha1.CFProcess{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfSpace.Status.GUID,
+				Name:      testutils.PrefixedGUID("web-process"),
+				Labels: map[string]string{
+					korifiv1alpha1.CFProcessTypeLabelKey: "web",
+					korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
+				},
+			},
+			Spec: korifiv1alpha1.CFProcessSpec{
+				AppRef: corev1.LocalObjectReference{
+					Name: cfApp.Name,
+				},
+				ProcessType: "web",
+				Command:     "echo hello",
+				MemoryMB:    768,
+				HealthCheck: korifiv1alpha1.HealthCheck{
+					Type: "process",
+				},
+			},
+		}
+		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
 
 		cfPackage := &korifiv1alpha1.CFPackage{
 			ObjectMeta: metav1.ObjectMeta{
@@ -39,7 +88,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Spec: korifiv1alpha1.CFPackageSpec{
 				Type: "bits",
 				AppRef: corev1.LocalObjectReference{
-					Name: cfAppName,
+					Name: cfApp.Name,
 				},
 			},
 		}
@@ -55,85 +104,35 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 					Name: cfPackage.Name,
 				},
 				AppRef: corev1.LocalObjectReference{
-					Name: cfAppName,
+					Name: cfApp.Name,
 				},
 				Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
 			},
 		}
 		Expect(adminClient.Create(ctx, cfDroplet)).To(Succeed())
-
-		cfDropletCopy := cfDroplet.DeepCopy()
-		cfDropletCopy.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
-			Registry: korifiv1alpha1.Registry{
-				Image: "registry.io/my/image",
-				ImagePullSecrets: []corev1.LocalObjectReference{{
-					Name: "registry-secret",
+		Expect(k8s.Patch(ctx, adminClient, cfDroplet, func() {
+			cfDroplet.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
+				Registry: korifiv1alpha1.Registry{
+					Image: "registry.io/my/image",
+					ImagePullSecrets: []corev1.LocalObjectReference{{
+						Name: "registry-secret",
+					}},
+				},
+				ProcessTypes: []korifiv1alpha1.ProcessType{{
+					Type:    "web",
+					Command: "cmd",
 				}},
-			},
-			ProcessTypes: []korifiv1alpha1.ProcessType{{
-				Type:    "web",
-				Command: "cmd",
-			}},
-		}
-		meta.SetStatusCondition(&cfDropletCopy.Status.Conditions, metav1.Condition{
-			Type:   "type",
-			Status: "Unknown",
-			Reason: "reason",
-		})
-		Expect(adminClient.Status().Patch(ctx, cfDropletCopy, client.MergeFrom(cfDroplet))).To(Succeed())
+			}
+			meta.SetStatusCondition(&cfDroplet.Status.Conditions, metav1.Condition{
+				Type:   "type",
+				Status: "Unknown",
+				Reason: "reason",
+			})
+		})).To(Succeed())
 
-		envSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testutils.PrefixedGUID("env-secret"),
-				Namespace: cfSpace.Status.GUID,
-			},
-			StringData: map[string]string{
-				"BOB":  "flemming",
-				"FAST": "show",
-			},
-			Type: corev1.SecretTypeOpaque,
-		}
-		Expect(adminClient.Create(ctx, envSecret)).To(Succeed())
-
-		cfProcess := &korifiv1alpha1.CFProcess{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfSpace.Status.GUID,
-				Name:      testutils.PrefixedGUID("web-process"),
-				Labels: map[string]string{
-					korifiv1alpha1.CFProcessTypeLabelKey: "web",
-					korifiv1alpha1.CFAppGUIDLabelKey:     cfAppName,
-				},
-			},
-			Spec: korifiv1alpha1.CFProcessSpec{
-				AppRef: corev1.LocalObjectReference{
-					Name: cfAppName,
-				},
-				ProcessType: "web",
-				Command:     "echo hello",
-				MemoryMB:    768,
-				HealthCheck: korifiv1alpha1.HealthCheck{
-					Type: "process",
-				},
-			},
-		}
-		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
-
-		cfApp = &korifiv1alpha1.CFApp{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfSpace.Status.GUID,
-				Name:      cfAppName,
-			},
-			Spec: korifiv1alpha1.CFAppSpec{
-				Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"},
-				CurrentDropletRef: corev1.LocalObjectReference{
-					Name: cfDroplet.Name,
-				},
-				DesiredState:  "STOPPED",
-				DisplayName:   "app",
-				EnvSecretName: envSecret.Name,
-			},
-		}
-		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
+		Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
+			cfApp.Spec.CurrentDropletRef.Name = cfDroplet.Name
+		})).To(Succeed())
 
 		cfTask = &korifiv1alpha1.CFTask{
 			ObjectMeta: metav1.ObjectMeta{

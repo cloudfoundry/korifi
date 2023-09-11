@@ -97,9 +97,19 @@ var _ = Describe("Package", func() {
 
 		When("the package is of type docker", func() {
 			BeforeEach(func() {
-				packageRequest.Type = "docker"
-				packageRequest.Data = &packageData{
-					Image: "eirini/dorini",
+				appGUID = createDockerApp(spaceGUID, generateGUID("app"))
+				packageRequest = packageResource{
+					typedResource: typedResource{
+						Type: "docker",
+						resource: resource{
+							Relationships: relationships{
+								"app": relationship{Data: resource{GUID: appGUID}},
+							},
+						},
+					},
+					Data: &packageData{
+						Image: "eirini/dorini",
+					},
 				}
 			})
 

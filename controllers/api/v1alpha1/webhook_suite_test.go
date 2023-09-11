@@ -128,6 +128,7 @@ var _ = BeforeSuite(func() {
 	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
+	Expect(workloads.NewCFPackageValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect(adminClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

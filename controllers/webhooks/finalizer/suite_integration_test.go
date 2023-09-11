@@ -102,6 +102,7 @@ var _ = BeforeSuite(func() {
 		rootNamespace,
 		k8sManager.GetClient(),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(workloads.NewCFPackageValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 

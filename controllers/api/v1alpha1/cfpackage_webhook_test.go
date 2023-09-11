@@ -1,9 +1,13 @@
 package v1alpha1_test
 
 import (
+	"context"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -18,6 +22,21 @@ var _ = Describe("CFPackageMutatingWebhook", func() {
 
 	BeforeEach(func() {
 		cfAppGUID = GenerateGUID()
+
+		cfApp := &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      cfAppGUID,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName: uuid.NewString(),
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+				},
+				DesiredState: "STOPPED",
+			},
+		}
+		Expect(client.IgnoreAlreadyExists(adminClient.Create(context.Background(), cfApp))).To(Succeed())
 
 		cfPackage = &korifiv1alpha1.CFPackage{
 			ObjectMeta: metav1.ObjectMeta{

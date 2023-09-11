@@ -65,6 +65,7 @@ var _ = Describe("Builds", func() {
 
 		When("the package type is docker", func() {
 			BeforeEach(func() {
+				appGUID = createDockerApp(spaceGUID, generateGUID("app"))
 				pkgGUID = createPackage(appGUID, packageResource{
 					typedResource: typedResource{
 						Type: "docker",

@@ -612,6 +612,20 @@ func createBuildpackApp(spaceGUID, name string) string {
 	})
 }
 
+func createDockerApp(spaceGUID, name string) string {
+	GinkgoHelper()
+
+	return createApp(appResource{
+		Lifecycle: &lifecycle{
+			Type: "docker",
+		},
+		resource: resource{
+			Name:          name,
+			Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
+		},
+	})
+}
+
 func createApp(app appResource) string {
 	GinkgoHelper()
 

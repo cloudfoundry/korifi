@@ -24,7 +24,10 @@ const (
 var _ = Describe("Setting the version annotation", func() {
 	Describe("create", func() {
 		var testObjects []client.Object
+
 		createObject := func(obj client.Object) client.Object {
+			GinkgoHelper()
+
 			Expect(adminClient.Create(context.Background(), obj)).To(Succeed())
 			return obj
 		}
@@ -39,6 +42,7 @@ var _ = Describe("Setting the version annotation", func() {
 			})).To(Succeed())
 
 			domainName := uuid.NewString()
+			cfAppGUID := uuid.NewString()
 			testObjects = []client.Object{
 				createObject(&korifiv1alpha1.CFOrg{
 					ObjectMeta: metav1.ObjectMeta{
@@ -85,7 +89,7 @@ var _ = Describe("Setting the version annotation", func() {
 				createObject(&korifiv1alpha1.CFApp{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: orgNamespace,
-						Name:      uuid.NewString(),
+						Name:      cfAppGUID,
 					},
 					Spec: korifiv1alpha1.CFAppSpec{
 						DisplayName:  "cfapp",
@@ -102,6 +106,9 @@ var _ = Describe("Setting the version annotation", func() {
 					},
 					Spec: korifiv1alpha1.CFPackageSpec{
 						Type: "bits",
+						AppRef: corev1.LocalObjectReference{
+							Name: cfAppGUID,
+						},
 					},
 				}),
 				createObject(&korifiv1alpha1.CFTask{
