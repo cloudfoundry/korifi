@@ -264,20 +264,21 @@ var _ = Describe("Spaces", func() {
 				Expect(app1ServiceBindings[0].Relationships["app"].Data.GUID).To(Equal(app1GUID))
 				Expect(app1ServiceBindings[0].Relationships["service_instance"].Data.GUID).To(Equal(serviceGUID))
 
-				app1Env := getAppEnv(app1GUID)
-				Expect(app1Env).To(
-					HaveKeyWithValue("system_env_json",
-						HaveKeyWithValue("VCAP_SERVICES",
-							HaveKeyWithValue("user-provided",
-								ContainElement(SatisfyAll(
-									HaveKeyWithValue("instance_guid", serviceGUID),
-									HaveKeyWithValue("instance_name", serviceName),
-									HaveKeyWithValue("binding_name", serviceBindingName),
-								)),
+				Eventually(func(g Gomega) {
+					g.Expect(getAppEnv(app1GUID)).To(
+						HaveKeyWithValue("system_env_json",
+							HaveKeyWithValue("VCAP_SERVICES",
+								HaveKeyWithValue("user-provided",
+									ContainElement(SatisfyAll(
+										HaveKeyWithValue("instance_guid", serviceGUID),
+										HaveKeyWithValue("instance_name", serviceName),
+										HaveKeyWithValue("binding_name", serviceBindingName),
+									)),
+								),
 							),
 						),
-					),
-				)
+					)
+				}).Should(Succeed())
 
 				app2GUID := getAppGUIDFromName(app2Name)
 				Expect(getProcess(app2GUID, "web").Instances).To(Equal(1))
