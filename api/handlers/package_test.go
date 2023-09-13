@@ -742,6 +742,24 @@ var _ = Describe("Package", func() {
 				}`)))
 			})
 		})
+
+		When("the package type is not bits", func() {
+			BeforeEach(func() {
+				packageRepo.GetPackageReturns(repositories.PackageRecord{
+					Type:      "docker",
+					AppGUID:   appGUID,
+					SpaceGUID: spaceGUID,
+					GUID:      packageGUID,
+					State:     "READY",
+					CreatedAt: createdAt,
+					UpdatedAt: updatedAt,
+				}, nil)
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("Package type must be bits.")
+			})
+		})
 	})
 
 	Describe("the GET /v3/packages/:guid/droplets endpoint", func() {
