@@ -200,7 +200,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = adminClient.Delete(ctx, app1)
+			deleteErr = adminNonSyncClient.Delete(ctx, app1)
 		})
 
 		It("succeeds", func() {

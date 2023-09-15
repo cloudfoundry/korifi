@@ -32,10 +32,11 @@ import (
 )
 
 var (
-	stopManager     context.CancelFunc
-	stopClientCache context.CancelFunc
-	testEnv         *envtest.Environment
-	adminClient     client.Client
+	stopManager        context.CancelFunc
+	stopClientCache    context.CancelFunc
+	testEnv            *envtest.Environment
+	adminClient        client.Client
+	adminNonSyncClient client.Client
 )
 
 const rootNamespace = "cf"
@@ -73,6 +74,11 @@ var _ = BeforeSuite(func() {
 
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
+
+	adminNonSyncClient, err = client.New(testEnv.Config, client.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).NotTo(HaveOccurred())
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
