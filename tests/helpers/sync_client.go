@@ -3,9 +3,13 @@ package helpers
 import (
 	"context"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
 	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -48,6 +52,39 @@ func (c *SyncClient) Patch(ctx context.Context, obj client.Object, patch client.
 	}).Should(Succeed())
 
 	return nil
+}
+
+func (c *SyncClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	GinkgoHelper()
+
+	err := c.Client.Delete(ctx, obj, opts...)
+	if err != nil {
+		return err
+	}
+
+	Eventually(func(g Gomega) {
+		notFound := k8serrors.IsNotFound(c.Client.Get(ctx, client.ObjectKeyFromObject(obj), obj))
+		if c.isDeletedByTestEnv(ctx, obj) {
+			g.Expect(notFound).To(BeTrue(), "object not deleted yet:%+v\n", obj)
+		} else {
+			g.Expect(obj.GetDeletionTimestamp().IsZero()).To(BeFalse())
+		}
+	}).Should(Succeed())
+
+	return nil
+}
+
+func (c *SyncClient) isDeletedByTestEnv(ctx context.Context, obj client.Object) bool {
+	switch obj.(type) {
+	case *corev1.Namespace:
+		return false
+	case *korifiv1alpha1.CFOrg:
+		return k8serrors.IsNotFound(c.Client.Get(ctx, types.NamespacedName{Name: obj.GetName()}, &corev1.Namespace{}))
+	case *korifiv1alpha1.CFSpace:
+		return k8serrors.IsNotFound(c.Client.Get(ctx, types.NamespacedName{Name: obj.GetName()}, &corev1.Namespace{}))
+	default:
+		return true
+	}
 }
 
 func (c *SyncClient) Status() client.SubResourceWriter {

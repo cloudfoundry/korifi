@@ -142,7 +142,7 @@ var _ = Describe("CFSpaceValidatingWebhook", func() {
 		})
 
 		It("can delete the space", func() {
-			Expect(adminClient.Delete(ctx, cfSpace)).To(Succeed())
+			Expect(adminNonSyncClient.Delete(ctx, cfSpace)).To(Succeed())
 		})
 	})
 })
