@@ -357,6 +357,26 @@ webhooks:
       service:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
+        path: /validate-korifi-cloudfoundry-org-v1alpha1-cfpackage
+    failurePolicy: Fail
+    name: vcfpackage.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - UPDATE
+        resources:
+          - cfpackages
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfspace
     failurePolicy: Fail
     name: vcfspace.korifi.cloudfoundry.org

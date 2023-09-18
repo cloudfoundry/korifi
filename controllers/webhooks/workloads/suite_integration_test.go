@@ -104,6 +104,7 @@ var _ = BeforeSuite(func() {
 	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
+	Expect(workloads.NewCFPackageValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 

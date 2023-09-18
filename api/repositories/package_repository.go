@@ -35,6 +35,11 @@ const (
 	PackageResourceType = "Package"
 )
 
+var packageTypeToLifecycleType = map[korifiv1alpha1.PackageType]korifiv1alpha1.LifecycleType{
+	"bits":   "buildpack",
+	"docker": "docker",
+}
+
 type PackageRepo struct {
 	userClientFactory    authorization.UserK8sClientFactory
 	namespaceRetriever   NamespaceRetriever
@@ -141,10 +146,32 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 		return PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.SpaceGUID,
+			Name:      message.AppGUID,
+		},
+	}
+
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)
+	if err != nil {
+		return PackageRecord{},
+			apierrors.AsUnprocessableEntity(
+				apierrors.FromK8sError(err, ServiceBindingResourceType),
+				"Referenced app not found. Ensure that the app exists and you have access to it.",
+				apierrors.ForbiddenError{},
+				apierrors.NotFoundError{},
+			)
+	}
+
 	cfPackage := message.toCFPackage()
 	err = userClient.Create(ctx, cfPackage)
 	if err != nil {
 		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
+	}
+
+	if packageTypeToLifecycleType[cfPackage.Spec.Type] != cfApp.Spec.Lifecycle.Type {
+		return PackageRecord{}, apierrors.NewUnprocessableEntityError(nil, fmt.Sprintf("cannot create %s package for a %s app", cfPackage.Spec.Type, cfApp.Spec.Lifecycle.Type))
 	}
 
 	if cfPackage.Spec.Type == "bits" {

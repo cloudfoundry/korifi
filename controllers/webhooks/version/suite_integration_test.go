@@ -111,6 +111,7 @@ var _ = BeforeSuite(func() {
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), services.ServiceBindingEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
+	Expect(workloads.NewCFPackageValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 
