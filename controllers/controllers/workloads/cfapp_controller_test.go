@@ -29,7 +29,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 		cfDomainGUID = PrefixedGUID("test-domain")
 		cfDomain := &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{

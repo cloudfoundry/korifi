@@ -18,25 +18,20 @@ package workloads
 
 import (
 	"context"
-	"fmt"
 	"strings"
-	"time"
-
-	"k8s.io/apimachinery/pkg/types"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/k8sns"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,31 +43,39 @@ import (
 // CFSpaceReconciler reconciles a CFSpace object
 type CFSpaceReconciler struct {
 	client                       client.Client
-	scheme                       *runtime.Scheme
-	log                          logr.Logger
+	namespaceReconciler          *k8sns.Reconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace]
 	containerRegistrySecretNames []string
 	rootNamespace                string
 	appDeletionTimeout           int64
-	labelCompiler                labels.Compiler
 }
 
 func NewCFSpaceReconciler(
 	client client.Client,
-	scheme *runtime.Scheme,
 	log logr.Logger,
 	containerRegistrySecretNames []string,
 	rootNamespace string,
 	appDeletionTimeout int64,
 	labelCompiler labels.Compiler,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace] {
+	namespaceController := k8sns.NewReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](
+		client,
+		k8sns.NewNamespaceFinalizer[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](
+			client,
+			k8sns.NewSpaceAppsFinalizer(client, appDeletionTimeout),
+			korifiv1alpha1.CFSpaceFinalizerName,
+		),
+		&cfSpaceMetadataCompiler{
+			labelCompiler: labelCompiler,
+		},
+		containerRegistrySecretNames,
+	)
+
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](log, client, &CFSpaceReconciler{
 		client:                       client,
-		scheme:                       scheme,
-		log:                          log,
-		containerRegistrySecretNames: containerRegistrySecretNames,
+		namespaceReconciler:          namespaceController,
 		rootNamespace:                rootNamespace,
 		appDeletionTimeout:           appDeletionTimeout,
-		labelCompiler:                labelCompiler,
+		containerRegistrySecretNames: containerRegistrySecretNames,
 	})
 }
 
@@ -137,47 +140,26 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequestsForServiceAccount(ctx context.
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;patch;delete
 
 func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) (ctrl.Result, error) {
+	nsReconcileResult, err := r.namespaceReconciler.ReconcileResource(ctx, cfSpace)
+	if (nsReconcileResult != ctrl.Result{}) || (err != nil) {
+		return nsReconcileResult, err
+	}
+
 	log := logr.FromContextOrDiscard(ctx)
-
-	cfSpace.Status.ObservedGeneration = cfSpace.Generation
-	log.V(1).Info("set observed generation", "generation", cfSpace.Status.ObservedGeneration)
-
-	if !cfSpace.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, cfSpace)
-	}
-
-	shared.GetConditionOrSetAsUnknown(&cfSpace.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfSpace.Generation)
-
-	cfSpace.Status.GUID = cfSpace.GetName()
-
-	err := createOrPatchNamespace(ctx, r.client, cfSpace, r.labelCompiler.Compile(map[string]string{
-		korifiv1alpha1.SpaceNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
-		korifiv1alpha1.SpaceGUIDKey: cfSpace.Name,
-	}), map[string]string{
-		korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName,
-	})
-	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error creating namespace: %w", err), log, &cfSpace.Status.Conditions, "NamespaceCreation", cfSpace.Generation)
-	}
-
-	err = getNamespace(ctx, r.client, cfSpace.Name)
-	if err != nil {
-		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
-	}
-
-	err = propagateSecrets(ctx, r.client, cfSpace, r.containerRegistrySecretNames)
-	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error propagating secrets: %w", err), log, &cfSpace.Status.Conditions, "RegistrySecretPropagation", cfSpace.Generation)
-	}
-
-	err = reconcileRoleBindings(ctx, r.client, cfSpace)
-	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error propagating role-bindings: %w", err), log, &cfSpace.Status.Conditions, "RoleBindingPropagation", cfSpace.Generation)
-	}
 
 	err = r.reconcileServiceAccounts(ctx, cfSpace)
 	if err != nil {
-		return logAndSetReadyStatus(fmt.Errorf("error propagating service accounts: %w", err), log, &cfSpace.Status.Conditions, "ServiceAccountPropagation", cfSpace.Generation)
+		log.Info("not ready yet", "reason", "error propagating service accounts", "error", err)
+
+		meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
+			Type:               shared.StatusConditionReady,
+			Status:             metav1.ConditionFalse,
+			Reason:             "ServiceAccountPropagation",
+			Message:            err.Error(),
+			ObservedGeneration: cfSpace.Generation,
+		})
+
+		return ctrl.Result{}, err
 	}
 
 	meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
@@ -314,78 +296,19 @@ func keepImagePullSecrets(serviceAccountName string, secretRefs []corev1.LocalOb
 	return results
 }
 
-func (r *CFSpaceReconciler) finalize(ctx context.Context, space client.Object) (ctrl.Result, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("finalize")
+type cfSpaceMetadataCompiler struct {
+	labelCompiler labels.Compiler
+}
 
-	if !controllerutil.ContainsFinalizer(space, korifiv1alpha1.CFSpaceFinalizerName) {
-		return ctrl.Result{}, nil
+func (c *cfSpaceMetadataCompiler) CompileLabels(cfSpace *korifiv1alpha1.CFSpace) map[string]string {
+	return c.labelCompiler.Compile(map[string]string{
+		korifiv1alpha1.SpaceNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
+		korifiv1alpha1.SpaceGUIDKey: cfSpace.Name,
+	})
+}
+
+func (c *cfSpaceMetadataCompiler) CompileAnnotations(cfSpace *korifiv1alpha1.CFSpace) map[string]string {
+	return map[string]string{
+		korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName,
 	}
-
-	duration := time.Since(space.GetDeletionTimestamp().Time)
-	log.V(1).Info("finalizing CFSpace", "duration", duration.Seconds())
-
-	spaceNamespace := new(corev1.Namespace)
-	err := r.client.Get(ctx, types.NamespacedName{Name: space.GetName()}, spaceNamespace)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			log.V(1).Info("namespace not found")
-			if controllerutil.RemoveFinalizer(space, korifiv1alpha1.CFSpaceFinalizerName) {
-				log.V(1).Info("finalizer removed")
-			}
-
-			return ctrl.Result{}, nil
-		}
-
-		log.Info("failed to get namespace", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	log.V(1).Info("namespace found")
-
-	if !spaceNamespace.GetDeletionTimestamp().IsZero() {
-		log.V(1).Info("requeuing waiting for namespace deletion")
-
-		return ctrl.Result{RequeueAfter: time.Second}, nil
-	}
-
-	appList := korifiv1alpha1.CFAppList{}
-	err = r.client.List(ctx, &appList, client.InNamespace(space.GetName()))
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to list CFApps: %w", err)
-	}
-
-	timedOut := duration >= time.Duration(r.appDeletionTimeout)*time.Second
-
-	if len(appList.Items) > 0 && !timedOut {
-		log.V(1).Info("deleting all CFApps in namespace")
-		err = r.client.DeleteAllOf(ctx, new(korifiv1alpha1.CFApp), client.InNamespace(space.GetName()), client.PropagationPolicy(metav1.DeletePropagationForeground))
-		if err != nil {
-			log.Info("failed to delete CFApps", "reason", err)
-		}
-
-		log.V(1).Info("requeuing waiting for CFApp deletion")
-
-		return ctrl.Result{RequeueAfter: 500 * time.Millisecond}, nil
-	} else if len(appList.Items) == 0 {
-		log.V(1).Info("all CFApps deleted")
-	} else {
-		log.Info("timed out deleting CFApps")
-	}
-
-	log.V(1).Info("deleting namespace")
-	err = r.client.Delete(ctx, spaceNamespace)
-	if k8serrors.IsNotFound(err) {
-		if controllerutil.RemoveFinalizer(space, korifiv1alpha1.CFSpaceFinalizerName) {
-			log.V(1).Info("finalizer removed")
-		}
-
-		return ctrl.Result{}, nil
-	}
-	if err != nil {
-		log.Info("failed to delete namespace", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	log.V(1).Info("requeuing waiting for namespace deletion")
-	return ctrl.Result{RequeueAfter: time.Second}, nil
 }

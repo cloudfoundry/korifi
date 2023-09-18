@@ -235,7 +235,6 @@ func main() {
 
 		if err = workloadscontrollers.NewCFOrgReconciler(
 			mgr.GetClient(),
-			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFOrg"),
 			controllerConfig.ContainerRegistrySecretNames,
 			labelCompiler,
@@ -246,7 +245,6 @@ func main() {
 
 		if err = workloadscontrollers.NewCFSpaceReconciler(
 			mgr.GetClient(),
-			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
 			controllerConfig.ContainerRegistrySecretNames,
 			controllerConfig.CFRootNamespace,

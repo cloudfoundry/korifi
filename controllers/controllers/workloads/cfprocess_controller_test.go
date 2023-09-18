@@ -49,7 +49,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 		testAppGUID = GenerateGUID()
 		testProcessGUID = GenerateGUID()
 		testBuildGUID = GenerateGUID()

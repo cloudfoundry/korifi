@@ -29,7 +29,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 		cfAppGUID = GenerateGUID()
 		cfPackageGUID = GenerateGUID()
 
