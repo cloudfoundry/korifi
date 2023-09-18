@@ -2,11 +2,13 @@ package build
 
 import (
 	"context"
+	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,6 +24,8 @@ type BuildCleaner interface {
 	Clean(ctx context.Context, app types.NamespacedName) error
 }
 
+//counterfeiter:generate -o fake -fake-name BuildReconciler . BuildReconciler
+
 type BuildReconciler interface {
 	ReconcileBuild(context.Context, *korifiv1alpha1.CFBuild, *korifiv1alpha1.CFApp, *korifiv1alpha1.CFPackage) (ctrl.Result, error)
 	SetupWithManager(ctrl.Manager) *builder.Builder
@@ -33,6 +37,11 @@ type CFBuildReconciler struct {
 	scheme       *runtime.Scheme
 	buildCleaner BuildCleaner
 	delegate     BuildReconciler
+}
+
+var packageTypeToBuildType = map[korifiv1alpha1.PackageType]korifiv1alpha1.LifecycleType{
+	"bits":   "buildpack",
+	"docker": "docker",
 }
 
 func NewCFBuildReconciler(
@@ -90,6 +99,29 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 	if err != nil {
 		log.Info("error when fetching CFPackage", "reason", err)
 		return ctrl.Result{}, err
+	}
+
+	if cfBuild.Spec.Lifecycle.Type != packageTypeToBuildType[cfPackage.Spec.Type] {
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:   korifiv1alpha1.SucceededConditionType,
+			Status: metav1.ConditionFalse,
+			Reason: "BuildFailed",
+			Message: fmt.Sprintf(
+				"Cannot build %s package with %s build",
+				cfPackage.Spec.Type,
+				cfBuild.Spec.Lifecycle.Type,
+			),
+			ObservedGeneration: cfBuild.Generation,
+		})
+
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.StagingConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "BuildNotRunning",
+			ObservedGeneration: cfBuild.Generation,
+		})
+
+		return ctrl.Result{}, nil
 	}
 
 	return r.delegate.ReconcileBuild(ctx, cfBuild, cfApp, cfPackage)

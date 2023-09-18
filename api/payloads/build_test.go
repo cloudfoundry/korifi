@@ -17,6 +17,13 @@ var _ = Describe("BuildCreate", func() {
 			Package: &payloads.RelationshipData{
 				GUID: "some-build-guid",
 			},
+			Lifecycle: &payloads.Lifecycle{
+				Type: "buildpack",
+				Data: &payloads.LifecycleData{
+					Buildpacks: []string{"bp1"},
+					Stack:      "stack",
+				},
+			},
 		}
 	})
 
@@ -97,23 +104,44 @@ var _ = Describe("BuildCreate", func() {
 	})
 
 	Describe("ToMessage", func() {
-		It("translates to create build repo message", func() {
-			createMessage := createPayload.ToMessage(repositories.AppRecord{
+		var createMessage repositories.CreateBuildMessage
+
+		JustBeforeEach(func() {
+			createMessage = createPayload.ToMessage(repositories.AppRecord{
 				GUID:      "guid",
 				SpaceGUID: "space-guid",
 				Lifecycle: repositories.Lifecycle{
-					Type: "my-type",
+					Type: "docker",
 				},
 			})
+		})
+
+		It("translates to create build repo message", func() {
 			Expect(createMessage).To(Equal(repositories.CreateBuildMessage{
 				AppGUID:         "guid",
 				PackageGUID:     "some-build-guid",
 				SpaceGUID:       "space-guid",
 				StagingMemoryMB: payloads.DefaultLifecycleConfig.StagingMemoryMB,
 				Lifecycle: repositories.Lifecycle{
-					Type: "my-type",
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{"bp1"},
+						Stack:      "stack",
+					},
 				},
 			}))
+		})
+
+		When("the create message lifecycle data is not specified", func() {
+			BeforeEach(func() {
+				createPayload.Lifecycle = nil
+			})
+
+			It("defaults the lifecycle to the app's one", func() {
+				Expect(createMessage.Lifecycle).To(Equal(repositories.Lifecycle{
+					Type: "docker",
+				}))
+			})
 		})
 	})
 })

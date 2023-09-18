@@ -3,7 +3,6 @@ package workloads_test
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/dockercfg"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -109,43 +108,6 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	JustBeforeEach(func() {
 		containerRegistry.PushImage(containerRegistry.ImageRef("foo/bar"), imageConfig)
 		Expect(adminClient.Create(ctx, cfBuild)).To(Succeed())
-	})
-
-	It("sets the observed generation in the status", func() {
-		Eventually(func(g Gomega) {
-			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
-			g.Expect(cfBuild.Status.ObservedGeneration).To(Equal(cfBuild.Generation))
-		}).Should(Succeed())
-	})
-
-	It("sets the app as build owner", func() {
-		Eventually(func(g Gomega) {
-			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
-			g.Expect(cfBuild.GetOwnerReferences()).To(ConsistOf(
-				metav1.OwnerReference{
-					APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
-					Kind:               "CFApp",
-					Name:               cfApp.Name,
-					UID:                cfApp.UID,
-					Controller:         tools.PtrTo(true),
-					BlockOwnerDeletion: tools.PtrTo(true),
-				},
-			))
-		}).Should(Succeed())
-	})
-
-	It("cleans up older builds and droplets", func() {
-		Eventually(func(g Gomega) {
-			found := false
-			for i := 0; i < buildCleaner.CleanCallCount(); i++ {
-				_, app := buildCleaner.CleanArgsForCall(i)
-				if app.Name == cfApp.Name && app.Namespace == cfSpace.Status.GUID {
-					found = true
-					break
-				}
-			}
-			g.Expect(found).To(BeTrue())
-		}).Should(Succeed())
 	})
 
 	It("makes the build succeed", func() {
