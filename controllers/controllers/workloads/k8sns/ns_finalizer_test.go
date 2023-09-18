@@ -32,12 +32,12 @@ var _ = Describe("NamespaceFinalizer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:  rootNamespace,
 				Name:       namespace,
-				Finalizers: []string{"dummy-finalizer"},
+				Finalizers: []string{"example-finalizer"},
 			},
 		}
 
 		delegateFinalizer = &mockFinalizer[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg]{}
-		nsFinalizer = k8sns.NewNamespaceFinalizer[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](controllersClient, delegateFinalizer, "dummy-finalizer")
+		nsFinalizer = k8sns.NewNamespaceFinalizer[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](controllersClient, delegateFinalizer, "example-finalizer")
 	})
 
 	JustBeforeEach(func() {
@@ -76,7 +76,7 @@ var _ = Describe("NamespaceFinalizer", func() {
 			Expect(result).To(Equal(ctrl.Result{RequeueAfter: 123 * time.Second}))
 			Expect(finalizeErr).NotTo(HaveOccurred())
 
-			Expect(cfOrg.Finalizers).To(ConsistOf("dummy-finalizer"))
+			Expect(cfOrg.Finalizers).To(ConsistOf("example-finalizer"))
 
 			Expect(getNamespace(cfOrg.Name).DeletionTimestamp.IsZero()).To(BeTrue())
 		})
@@ -90,7 +90,7 @@ var _ = Describe("NamespaceFinalizer", func() {
 		It("does not delete the object, nor its namespace", func() {
 			Expect(finalizeErr).To(MatchError("finalize-err"))
 
-			Expect(cfOrg.Finalizers).To(ConsistOf("dummy-finalizer"))
+			Expect(cfOrg.Finalizers).To(ConsistOf("example-finalizer"))
 
 			Expect(getNamespace(cfOrg.Name).DeletionTimestamp.IsZero()).To(BeTrue())
 		})
