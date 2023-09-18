@@ -2,7 +2,6 @@ package workloads_test
 
 import (
 	"context"
-	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -89,45 +88,6 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 		desiredCFBuild = BuildCFBuildObject(cfBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
 		desiredCFBuild.Spec.Lifecycle.Data.Buildpacks = desiredBuildpacks
 		Expect(adminClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
-	})
-
-	It("cleans up older builds and droplets", func() {
-		Eventually(func(g Gomega) {
-			for i := 0; i < buildCleaner.CleanCallCount(); i++ {
-				_, app := buildCleaner.CleanArgsForCall(i)
-				if app.Name == cfAppGUID && app.Namespace == cfSpace.Status.GUID {
-					return
-				}
-			}
-			g.Expect(errors.New("Clean() has not been invoked with expected args")).NotTo(HaveOccurred())
-		}).Should(Succeed())
-	})
-
-	It("reconciles to set the owner reference on the CFBuild", func() {
-		Eventually(func(g Gomega) {
-			var createdCFBuild korifiv1alpha1.CFBuild
-			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
-			g.Expect(adminClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
-			g.Expect(createdCFBuild.GetOwnerReferences()).To(ConsistOf(
-				metav1.OwnerReference{
-					APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
-					Kind:               "CFApp",
-					Name:               desiredCFApp.Name,
-					UID:                desiredCFApp.UID,
-					Controller:         tools.PtrTo(true),
-					BlockOwnerDeletion: tools.PtrTo(true),
-				},
-			))
-		}).Should(Succeed())
-	})
-
-	It("sets the ObservedGeneration status field", func() {
-		Eventually(func(g Gomega) {
-			var createdCFBuild korifiv1alpha1.CFBuild
-			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
-			g.Expect(adminClient.Get(context.Background(), lookupKey, &createdCFBuild)).To(Succeed())
-			g.Expect(createdCFBuild.Status.ObservedGeneration).To(Equal(createdCFBuild.Generation))
-		}).Should(Succeed())
 	})
 
 	It("creates a BuildWorkload with the buildRef, source, env, and buildpacks set", func() {

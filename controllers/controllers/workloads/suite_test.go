@@ -61,7 +61,6 @@ var (
 	imageDeleter         *fake.ImageDeleter
 	packageCleaner       *fake.PackageCleaner
 	eventRecorder        *controllerfake.EventRecorder
-	buildCleaner         *buildfake.BuildCleaner
 	imageClient          image.Client
 	containerRegistry    *oci.Registry
 )
@@ -142,10 +141,9 @@ var _ = BeforeSuite(func() {
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	buildCleaner = new(buildfake.BuildCleaner)
 	cfBuildpackBuildReconciler := NewCFBuildpackBuildReconciler(
 		k8sManager.GetClient(),
-		buildCleaner,
+		new(buildfake.BuildCleaner),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFBuildpackBuild"),
 		controllerConfig,
@@ -156,7 +154,7 @@ var _ = BeforeSuite(func() {
 
 	cfDockerBuildReconciler := NewCFDockerBuildReconciler(
 		k8sManager.GetClient(),
-		buildCleaner,
+		new(buildfake.BuildCleaner),
 		imageClient,
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),

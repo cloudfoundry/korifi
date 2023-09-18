@@ -23,12 +23,23 @@ func (b BuildCreate) Validate() error {
 }
 
 func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord) repositories.CreateBuildMessage {
+	lifecycle := appRecord.Lifecycle
+	if c.Lifecycle != nil {
+		lifecycle = repositories.Lifecycle{
+			Type: c.Lifecycle.Type,
+			Data: repositories.LifecycleData{
+				Buildpacks: c.Lifecycle.Data.Buildpacks,
+				Stack:      c.Lifecycle.Data.Stack,
+			},
+		}
+	}
+
 	toReturn := repositories.CreateBuildMessage{
 		AppGUID:         appRecord.GUID,
 		PackageGUID:     c.Package.GUID,
 		SpaceGUID:       appRecord.SpaceGUID,
 		StagingMemoryMB: DefaultLifecycleConfig.StagingMemoryMB,
-		Lifecycle:       appRecord.Lifecycle,
+		Lifecycle:       lifecycle,
 		Labels:          c.Metadata.Labels,
 		Annotations:     c.Metadata.Annotations,
 	}
