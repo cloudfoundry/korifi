@@ -120,37 +120,16 @@ var _ = Describe("CFBuildReconciler", func() {
 		}).Should(Succeed())
 	})
 
-	Describe("package type and build type match", func() {
-		When("the package type is bits and build type is buildpack", func() {
-			BeforeEach(func() {
-				cfPackage.Spec.Type = "bits"
-				cfBuild.Spec.Lifecycle.Type = "buildpack"
-			})
-
-			It("reconciles the build", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(reconciledBuilds()).To(HaveKey(cfBuild.Name))
-				}).Should(Succeed())
-			})
-		})
-
-		When("the package type is docker and build type is docker", func() {
-			BeforeEach(func() {
-				cfPackage.Spec.Type = "docker"
-				cfBuild.Spec.Lifecycle.Type = "docker"
-			})
-
-			It("reconciles the build", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(reconciledBuilds()).To(HaveKey(cfBuild.Name))
-				}).Should(Succeed())
-			})
-		})
+	It("reconciles the build", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(reconciledBuilds()).To(HaveKey(cfBuild.Name))
+		}).Should(Succeed())
 	})
 
 	Describe("package type and build type mismatch", func() {
 		When("the package type is bits and build type is docker", func() {
 			BeforeEach(func() {
+				cfApp.Spec.Lifecycle.Type = "buildpack"
 				cfPackage.Spec.Type = "bits"
 				cfBuild.Spec.Lifecycle.Type = "docker"
 			})
@@ -166,7 +145,42 @@ var _ = Describe("CFBuildReconciler", func() {
 
 		When("the package type is docker and build type is buildpack", func() {
 			BeforeEach(func() {
+				cfApp.Spec.Lifecycle.Type = "docker"
 				cfPackage.Spec.Type = "docker"
+				cfBuild.Spec.Lifecycle.Type = "buildpack"
+			})
+
+			It("fails the build", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+					g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
+					g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
+	})
+
+	Describe("app type and package type mismatch", func() {
+		When("the app lifecycle type is buildpack and the package type is docker", func() {
+			BeforeEach(func() {
+				cfApp.Spec.Lifecycle.Type = "buildpack"
+				cfPackage.Spec.Type = "docker"
+				cfBuild.Spec.Lifecycle.Type = "docker"
+			})
+
+			It("fails the build", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+					g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
+					g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
+
+		When("the app lifecycle type is docker and the package type is bits", func() {
+			BeforeEach(func() {
+				cfApp.Spec.Lifecycle.Type = "docker"
+				cfPackage.Spec.Type = "bits"
 				cfBuild.Spec.Lifecycle.Type = "buildpack"
 			})
 

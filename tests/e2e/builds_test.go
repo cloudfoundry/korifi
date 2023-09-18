@@ -62,29 +62,6 @@ var _ = Describe("Builds", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Package.GUID).To(Equal(pkgGUID))
 		})
-
-		When("the package type is docker", func() {
-			BeforeEach(func() {
-				pkgGUID = createPackage(appGUID, packageResource{
-					typedResource: typedResource{
-						Type: "docker",
-						resource: resource{
-							Relationships: relationships{
-								"app": relationship{Data: resource{GUID: appGUID}},
-							},
-						},
-					},
-					Data: &packageData{
-						Image: "eirini/dorini",
-					},
-				})
-			})
-
-			It("returns the build", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-				Expect(result.Package.GUID).To(Equal(pkgGUID))
-			})
-		})
 	})
 
 	Describe("update", func() {

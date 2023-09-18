@@ -39,7 +39,7 @@ type CFBuildReconciler struct {
 	delegate     BuildReconciler
 }
 
-var packageTypeToBuildType = map[korifiv1alpha1.PackageType]korifiv1alpha1.LifecycleType{
+var packageTypeToLifecycleType = map[korifiv1alpha1.PackageType]korifiv1alpha1.LifecycleType{
 	"bits":   "buildpack",
 	"docker": "docker",
 }
@@ -101,16 +101,13 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 		return ctrl.Result{}, err
 	}
 
-	if cfBuild.Spec.Lifecycle.Type != packageTypeToBuildType[cfPackage.Spec.Type] {
+	err = validateLifecycleTypes(cfApp, cfPackage, cfBuild)
+	if err != nil {
 		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
-			Type:   korifiv1alpha1.SucceededConditionType,
-			Status: metav1.ConditionFalse,
-			Reason: "BuildFailed",
-			Message: fmt.Sprintf(
-				"Cannot build %s package with %s build",
-				cfPackage.Spec.Type,
-				cfBuild.Spec.Lifecycle.Type,
-			),
+			Type:               korifiv1alpha1.SucceededConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "BuildFailed",
+			Message:            err.Error(),
 			ObservedGeneration: cfBuild.Generation,
 		})
 
@@ -125,4 +122,28 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 	}
 
 	return r.delegate.ReconcileBuild(ctx, cfBuild, cfApp, cfPackage)
+}
+
+func validateLifecycleTypes(
+	cfApp *korifiv1alpha1.CFApp,
+	cfPackage *korifiv1alpha1.CFPackage,
+	cfBuild *korifiv1alpha1.CFBuild,
+) error {
+	if cfBuild.Spec.Lifecycle.Type != packageTypeToLifecycleType[cfPackage.Spec.Type] {
+		return fmt.Errorf(
+			"cannot build %s package with %s build",
+			cfPackage.Spec.Type,
+			cfBuild.Spec.Lifecycle.Type,
+		)
+	}
+
+	if cfApp.Spec.Lifecycle.Type != packageTypeToLifecycleType[cfPackage.Spec.Type] {
+		return fmt.Errorf(
+			"cannot build %s package for %s app",
+			cfPackage.Spec.Type,
+			cfApp.Spec.Lifecycle.Type,
+		)
+	}
+
+	return nil
 }

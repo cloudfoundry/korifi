@@ -94,22 +94,6 @@ var _ = Describe("Package", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			})
 		})
-
-		When("the package is of type docker", func() {
-			BeforeEach(func() {
-				packageRequest.Type = "docker"
-				packageRequest.Data = &packageData{
-					Image: "eirini/dorini",
-				}
-			})
-
-			It("succeeds", func() {
-				Expect(resultErr.Errors).To(BeEmpty())
-				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-				Expect(result.GUID).ToNot(BeEmpty())
-				Expect(result.Type).To(Equal("docker"))
-			})
-		})
 	})
 
 	Describe("Update", func() {

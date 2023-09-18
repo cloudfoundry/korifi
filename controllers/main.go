@@ -492,6 +492,11 @@ func main() {
 		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
 		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
 
+		if err = workloads.NewCFPackageValidator().SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
+			os.Exit(1)
+		}
+
 		if controllerConfig.IncludeStatefulsetRunner {
 			if err = statesetfulrunnerv1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
