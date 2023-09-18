@@ -35,7 +35,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			},
 		}
 
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 
 		var err error
 		imageSecret, err = dockercfg.CreateDockerConfigSecret(

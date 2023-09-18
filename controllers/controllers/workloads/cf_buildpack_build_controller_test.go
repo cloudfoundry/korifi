@@ -45,7 +45,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 	}
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 		cfAppGUID = PrefixedGUID("cf-app")
 		cfPackageGUID = PrefixedGUID("cf-package")
 

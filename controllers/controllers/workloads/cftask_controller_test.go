@@ -27,7 +27,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 
 		cfAppName := testutils.PrefixedGUID("app")
 
