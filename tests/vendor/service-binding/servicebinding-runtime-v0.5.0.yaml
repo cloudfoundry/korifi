@@ -23,7 +23,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.13.0
   name: clusterworkloadresourcemappings.servicebinding.io
 spec:
   group: servicebinding.io
@@ -128,9 +128,7 @@ spec:
                         to `.spec.template.spec.volumes`.
                       type: string
                   required:
-                  - annotations
                   - version
-                  - volumes
                   type: object
                 type: array
             type: object
@@ -242,7 +240,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.13.0
   name: servicebindings.servicebinding.io
 spec:
   group: servicebinding.io
@@ -1060,8 +1058,8 @@ metadata:
         url: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
       - origins:
         - preresolved:
-            url: ghcr.io/servicebinding/runtime/bundle@sha256:971bc1766c3ae2cb7ff17eb5eb7c25a84198220c39f89be8017cb6431bcb0540
-        url: ghcr.io/servicebinding/runtime/bundle@sha256:971bc1766c3ae2cb7ff17eb5eb7c25a84198220c39f89be8017cb6431bcb0540
+            url: ghcr.io/servicebinding/runtime/bundle@sha256:65d135497601a2e88a21a5caf53745c83ca98226f4ca21ca04358329b2d04056
+        url: ghcr.io/servicebinding/runtime/bundle@sha256:65d135497601a2e88a21a5caf53745c83ca98226f4ca21ca04358329b2d04056
   labels:
     control-plane: controller-manager
   name: servicebinding-controller-manager
@@ -1083,7 +1081,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
-        image: ghcr.io/servicebinding/runtime/bundle@sha256:971bc1766c3ae2cb7ff17eb5eb7c25a84198220c39f89be8017cb6431bcb0540
+        image: ghcr.io/servicebinding/runtime/bundle@sha256:65d135497601a2e88a21a5caf53745c83ca98226f4ca21ca04358329b2d04056
         livenessProbe:
           httpGet:
             path: /healthz
@@ -1233,12 +1231,11 @@ webhooks:
       namespace: servicebinding-system
       path: /validate-servicebinding-io-v1beta1-clusterworkloadresourcemapping
   failurePolicy: Fail
-  name: vclusterworkloadresourcemapping.kb.io
+  name: v1beta1.clusterworkloadresourcemappings.servicebinding.io
   rules:
   - apiGroups:
     - servicebinding.io
     apiVersions:
-    - v1alpha3
     - v1beta1
     operations:
     - CREATE
@@ -1255,13 +1252,54 @@ webhooks:
       namespace: servicebinding-system
       path: /validate-servicebinding-io-v1beta1-servicebinding
   failurePolicy: Fail
-  name: vservicebinding.kb.io
+  name: v1beta1.servicebindings.servicebinding.io
+  rules:
+  - apiGroups:
+    - servicebinding.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - servicebindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: servicebinding-webhook-service
+      namespace: servicebinding-system
+      path: /validate-servicebinding-io-v1alpha3-clusterworkloadresourcemapping
+  failurePolicy: Fail
+  name: v1alpha3.clusterworkloadresourcemappings.servicebinding.io
   rules:
   - apiGroups:
     - servicebinding.io
     apiVersions:
     - v1alpha3
-    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterworkloadresourcemappings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: servicebinding-webhook-service
+      namespace: servicebinding-system
+      path: /validate-servicebinding-io-v1alpha3-servicebinding
+  failurePolicy: Fail
+  name: v1alpha3.servicebindings.servicebinding.io
+  rules:
+  - apiGroups:
+    - servicebinding.io
+    apiVersions:
+    - v1alpha3
     operations:
     - CREATE
     - UPDATE
