@@ -82,13 +82,30 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		var serviceAccount *corev1.ServiceAccount
 
 		BeforeEach(func() {
-			serviceAccount = createServiceAccount(ctx, PrefixedGUID("service-account"), cfRootNamespace, map[string]string{
-				"kapp.k14s.io/baz": "foo",
-				"meta.helm.sh/foo": "bar",
-			})
+			serviceAccountName := PrefixedGUID("service-account")
+			serviceAccount = &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceAccountName,
+					Namespace: cfRootNamespace,
+					Annotations: map[string]string{
+						"kapp.k14s.io/baz": "foo",
+						"meta.helm.sh/foo": "bar",
+					},
+				},
+				Secrets: []corev1.ObjectReference{
+					{Name: serviceAccountName + "-token-someguid"},
+					{Name: serviceAccountName + "-dockercfg-someguid"},
+					{Name: packageRegistrySecretName},
+				},
+				ImagePullSecrets: []corev1.LocalObjectReference{
+					{Name: serviceAccountName + "-dockercfg-someguid"},
+					{Name: packageRegistrySecretName},
+				},
+			}
 		})
 
 		JustBeforeEach(func() {
+			Expect(adminClient.Create(ctx, serviceAccount)).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, "Ready")).To(BeTrue())
@@ -107,11 +124,9 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 		When("the service account is annotated as \"cloudfoundry.org/propagate-service-account\" set to \"false\"", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, adminClient, serviceAccount, func() {
-					serviceAccount.Annotations = map[string]string{
-						korifiv1alpha1.PropagateServiceAccountAnnotation: "false",
-					}
-				})).To(Succeed())
+				serviceAccount.Annotations = map[string]string{
+					korifiv1alpha1.PropagateServiceAccountAnnotation: "false",
+				}
 			})
 
 			It("does not propagate it ", func() {
@@ -127,11 +142,9 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 		When("the service account is annotated as \"cloudfoundry.org/propagate-service-account\" set to \"true\"", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, adminClient, serviceAccount, func() {
-					serviceAccount.Annotations = map[string]string{
-						korifiv1alpha1.PropagateServiceAccountAnnotation: "true",
-					}
-				})).To(Succeed())
+				serviceAccount.Annotations = map[string]string{
+					korifiv1alpha1.PropagateServiceAccountAnnotation: "true",
+				}
 			})
 
 			It("propagates it", func() {
@@ -182,9 +195,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 				When("the service account is annotated not to propagate deletions", func() {
 					BeforeEach(func() {
-						Expect(k8s.PatchResource(ctx, adminClient, serviceAccount, func() {
-							serviceAccount.Annotations[korifiv1alpha1.PropagateDeletionAnnotation] = "false"
-						})).To(Succeed())
+						serviceAccount.Annotations[korifiv1alpha1.PropagateDeletionAnnotation] = "false"
 					})
 
 					It("doesn't delete the corresponding service account in the CFSpace", func() {
