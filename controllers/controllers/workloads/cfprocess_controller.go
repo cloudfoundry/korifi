@@ -74,15 +74,23 @@ func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builde
 		For(&korifiv1alpha1.CFProcess{}).
 		Watches(
 			&korifiv1alpha1.CFApp{},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueCFProcessRequests),
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFProcessRequestsForApp),
+		).
+		Watches(
+			&korifiv1alpha1.CFRoute{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueCFProcessRequestsForRoute),
 		)
 }
 
-func (r *CFProcessReconciler) enqueueCFProcessRequests(ctx context.Context, o client.Object) []reconcile.Request {
+func (r *CFProcessReconciler) enqueueCFProcessRequestsForApp(ctx context.Context, o client.Object) []reconcile.Request {
+	return r.cfProcessRequestsForAppGUID(ctx, o.GetNamespace(), o.GetName())
+}
+
+func (r *CFProcessReconciler) cfProcessRequestsForAppGUID(ctx context.Context, cfAppNamespace, cfAppGUID string) []reconcile.Request {
 	processList := &korifiv1alpha1.CFProcessList{}
-	err := r.k8sClient.List(ctx, processList, client.InNamespace(o.GetNamespace()), client.MatchingLabels{korifiv1alpha1.CFAppGUIDLabelKey: o.GetName()})
+	err := r.k8sClient.List(ctx, processList, client.InNamespace(cfAppNamespace), client.MatchingLabels{korifiv1alpha1.CFAppGUIDLabelKey: cfAppGUID})
 	if err != nil {
-		r.log.Info("error when trying to list CFProcesses in namespace", "namespace", o.GetNamespace(), "reason", err)
+		r.log.Error(fmt.Errorf("listing CFProcesses for CFApp guid failed: %w", err), "cfAppGUID", cfAppGUID)
 		return []reconcile.Request{}
 	}
 
@@ -92,6 +100,21 @@ func (r *CFProcessReconciler) enqueueCFProcessRequests(ctx context.Context, o cl
 	}
 
 	return requests
+}
+
+func (r *CFProcessReconciler) enqueueCFProcessRequestsForRoute(ctx context.Context, o client.Object) []reconcile.Request {
+	cfRoute, ok := o.(*korifiv1alpha1.CFRoute)
+	if !ok {
+		r.log.Error(errors.New("listing CFProcesses for route failed"), "expected", "CFRoute", "got", o)
+		return []reconcile.Request{}
+	}
+
+	result := []reconcile.Request{}
+	for _, destination := range cfRoute.Status.Destinations {
+		result = append(result, r.cfProcessRequestsForAppGUID(ctx, cfRoute.Namespace, destination.AppRef.Name)...)
+	}
+
+	return result
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfprocesses,verbs=get;list;watch;create;update;patch;delete
@@ -289,9 +312,10 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 		desiredAppWorkload.Spec.Instances = int32(*cfProcess.Spec.DesiredInstances)
 	}
 
-	desiredAppWorkload.Spec.Env = generateEnvVars(appPorts[0], envVars)
-	desiredAppWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPorts[0])
-	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPorts[0])
+	desiredAppWorkload.Spec.Env = generateEnvVars(appPorts, envVars)
+
+	desiredAppWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPorts)
+	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPorts)
 	desiredAppWorkload.Spec.RunnerName = r.controllerConfig.RunnerName
 
 	err := controllerutil.SetControllerReference(cfProcess, &desiredAppWorkload, r.scheme)
@@ -362,23 +386,22 @@ func (r *CFProcessReconciler) getPorts(ctx context.Context, processType string, 
 		}
 	}
 
-	if len(ports) == 0 {
-		return nil, fmt.Errorf("no ports for process %s for app %s/%s available", processType, cfApp.GetNamespace(), cfApp.GetName())
-	}
-
 	return ports, nil
 }
 
-func generateEnvVars(port int32, commonEnv []corev1.EnvVar) []corev1.EnvVar {
-	var result []corev1.EnvVar
+func generateEnvVars(ports []int32, commonEnv []corev1.EnvVar) []corev1.EnvVar {
+	result := []corev1.EnvVar{
+		{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+	}
 	result = append(result, commonEnv...)
 
-	portString := strconv.Itoa(int(port))
-	result = append(result,
-		corev1.EnvVar{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
-		corev1.EnvVar{Name: "VCAP_APP_PORT", Value: portString},
-		corev1.EnvVar{Name: "PORT", Value: portString},
-	)
+	if len(ports) != 0 {
+		portString := strconv.Itoa(int(ports[0]))
+		result = append(result,
+			corev1.EnvVar{Name: "VCAP_APP_PORT", Value: portString},
+			corev1.EnvVar{Name: "PORT", Value: portString},
+		)
+	}
 
 	// Sort env vars to guarantee idempotency
 	sort.SliceStable(result, func(i, j int) bool {
@@ -423,13 +446,17 @@ func makeProbeHandler(cfProcess *korifiv1alpha1.CFProcess, port int32) corev1.Pr
 	return probeHandler
 }
 
-func startupProbe(cfProcess *korifiv1alpha1.CFProcess, port int32) *corev1.Probe {
+func startupProbe(cfProcess *korifiv1alpha1.CFProcess, ports []int32) *corev1.Probe {
 	if cfProcess.Spec.HealthCheck.Type == korifiv1alpha1.ProcessHealthCheckType {
 		return nil
 	}
 
+	if len(ports) == 0 {
+		return nil
+	}
+
 	return &corev1.Probe{
-		ProbeHandler:   makeProbeHandler(cfProcess, port),
+		ProbeHandler:   makeProbeHandler(cfProcess, ports[0]),
 		TimeoutSeconds: int32(cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds),
 		PeriodSeconds:  2,
 		FailureThreshold: int32(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds/2 +
@@ -437,13 +464,17 @@ func startupProbe(cfProcess *korifiv1alpha1.CFProcess, port int32) *corev1.Probe
 	}
 }
 
-func livenessProbe(cfProcess *korifiv1alpha1.CFProcess, port int32) *corev1.Probe {
+func livenessProbe(cfProcess *korifiv1alpha1.CFProcess, ports []int32) *corev1.Probe {
 	if cfProcess.Spec.HealthCheck.Type == korifiv1alpha1.ProcessHealthCheckType {
 		return nil
 	}
 
+	if len(ports) == 0 {
+		return nil
+	}
+
 	return &corev1.Probe{
-		ProbeHandler:     makeProbeHandler(cfProcess, port),
+		ProbeHandler:     makeProbeHandler(cfProcess, ports[0]),
 		TimeoutSeconds:   int32(cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds),
 		PeriodSeconds:    30,
 		FailureThreshold: 1,

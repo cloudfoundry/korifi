@@ -277,6 +277,30 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
+		When("there are no route destinations for the process app", func() {
+			JustBeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, cfRoute, func() {
+					cfRoute.Status.Destinations = []korifiv1alpha1.Destination{}
+				})).To(Succeed())
+			})
+
+			It("does not create startup and liveness probes on the app workload", func() {
+				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(appWorkload.Spec.StartupProbe).To(BeNil())
+					g.Expect(appWorkload.Spec.LivenessProbe).To(BeNil())
+				})
+			})
+
+			It("does not set port related environment variables on the app workload", func() {
+				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(appWorkload.Spec.Env).NotTo(ContainElements(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal("VCAP_APP_PORT")}),
+						MatchFields(IgnoreExtras, Fields{"Name": Equal("PORT")}),
+					))
+				})
+			})
+		})
+
 		When("a CFApp desired state is updated to STOPPED", func() {
 			JustBeforeEach(func() {
 				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
