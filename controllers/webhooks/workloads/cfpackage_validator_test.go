@@ -53,7 +53,7 @@ var _ = Describe("CFPackage Validation", func() {
 		When("the package is being deleted", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(context.Background(), adminClient, cfPackage, func() {
-					cfPackage.Finalizers = append(cfPackage.Finalizers, "dummy")
+					cfPackage.Finalizers = append(cfPackage.Finalizers, "some-finalizer")
 				})).To(Succeed())
 				Expect(adminNonSyncClient.Delete(context.Background(), cfPackage)).To(Succeed())
 			})
