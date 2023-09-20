@@ -1,9 +1,8 @@
 package payloads_test
 
 import (
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -137,27 +136,36 @@ var _ = Describe("Space", func() {
 	})
 
 	Describe("SpaceList", func() {
-		Describe("decoding from url values", func() {
-			It("gets the names and organization_guids param and allows order_by", func() {
-				spaceList := payloads.SpaceList{}
-				req, err := http.NewRequest("GET", "http://foo.com/bar?names=foo,bar&organization_guids=o1,o2&order_by=name", nil)
-				Expect(err).NotTo(HaveOccurred())
-				err = validator.DecodeAndValidateURLValues(req, &spaceList)
+		Describe("Validation", func() {
+			DescribeTable("valid query",
+				func(query string, expectedSpaceList payloads.SpaceList) {
+					actualSpaceList, decodeErr := decodeQuery[payloads.SpaceList](query)
 
-				Expect(err).NotTo(HaveOccurred())
-				Expect(spaceList.Names).To(Equal("foo,bar"))
-				Expect(spaceList.OrganizationGUIDs).To(Equal("o1,o2"))
-			})
+					Expect(decodeErr).NotTo(HaveOccurred())
+					Expect(*actualSpaceList).To(Equal(expectedSpaceList))
+				},
+
+				Entry("names", "names=name", payloads.SpaceList{Names: "name"}),
+				Entry("guids", "guids=guid", payloads.SpaceList{GUIDs: "guid"}),
+				Entry("organization_guids", "organization_guids=org-guid", payloads.SpaceList{OrganizationGUIDs: "org-guid"}),
+				Entry("order_by", "order_by=something", payloads.SpaceList{}),
+				Entry("per_page", "per_page=few", payloads.SpaceList{}),
+				Entry("page", "page=3", payloads.SpaceList{}),
+			)
 		})
 
 		Describe("ToMessage", func() {
 			It("splits names to strings", func() {
 				spaceList := payloads.SpaceList{
 					Names:             "foo,bar",
+					GUIDs:             "g1,g2",
 					OrganizationGUIDs: "org1,org2",
 				}
-				Expect(spaceList.ToMessage().Names).To(ConsistOf("foo", "bar"))
-				Expect(spaceList.ToMessage().OrganizationGUIDs).To(ConsistOf("org1", "org2"))
+				Expect(spaceList.ToMessage()).To(Equal(repositories.ListSpacesMessage{
+					Names:             []string{"foo", "bar"},
+					GUIDs:             []string{"g1", "g2"},
+					OrganizationGUIDs: []string{"org1", "org2"},
+				}))
 			})
 		})
 	})

@@ -174,38 +174,6 @@ var _ = Describe("Space", func() {
 				expectUnknownError()
 			})
 		})
-
-		When("organization_guids are provided as a comma-separated list", func() {
-			BeforeEach(func() {
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{
-					OrganizationGUIDs: "org1,org2",
-				})
-			})
-
-			It("filters spaces by them", func() {
-				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-				_, info, message := spaceRepo.ListSpacesArgsForCall(0)
-				Expect(info).To(Equal(authInfo))
-				Expect(message.OrganizationGUIDs).To(ConsistOf("org1", "org2"))
-				Expect(message.Names).To(BeEmpty())
-			})
-		})
-
-		When("names are provided as a comma-separated list", func() {
-			BeforeEach(func() {
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{
-					Names: "name1,name2",
-				})
-			})
-
-			It("filters spaces by them", func() {
-				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
-				_, info, message := spaceRepo.ListSpacesArgsForCall(0)
-				Expect(info).To(Equal(authInfo))
-				Expect(message.OrganizationGUIDs).To(BeEmpty())
-				Expect(message.Names).To(ConsistOf("name1", "name2"))
-			})
-		})
 	})
 
 	Describe("Deleting a Space", func() {
