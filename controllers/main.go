@@ -220,15 +220,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (servicescontrollers.NewManagedCFServiceBindingReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceBinding"),
-		)).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ManagedCFServiceBinding")
-			os.Exit(1)
-		}
-
 		labelCompiler := labels.NewCompiler().
 			Defaults(map[string]string{
 				admission.EnforceLevelLabel: string(admission.LevelRestricted),

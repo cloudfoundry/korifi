@@ -19,16 +19,22 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	btpv1 "github.com/SAP/sap-btp-service-operator/api/v1"
 	"github.com/go-logr/logr"
@@ -67,6 +73,7 @@ func NewManagedCFServiceInstanceReconciler(
 //+kubebuilder:rbac:groups=extensions.korifi.cloudfoundry.org,resources=cfserviceplans,verbs=get;list;watch;create;update;patch;delete
 
 // +kubebuilder:rbac:groups=services.cloud.sap.com,resources=serviceinstances,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=services.cloud.sap.com,resources=servicebindings,verbs=get;list;create;update;patch;watch
 
 func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	servicePlan, err := r.getServicePlan(ctx, cfServiceInstance.Spec.ServicePlanGUID)
@@ -98,6 +105,42 @@ func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Conte
 		return ctrl.Result{}, err
 	}
 
+	btpServiceBinding := &btpv1.ServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceInstance.Namespace,
+			Name:      cfServiceInstance.Name,
+		},
+		Spec: btpv1.ServiceBindingSpec{
+			ServiceInstanceName: cfServiceInstance.Name,
+			SecretName:          cfServiceInstance.Spec.SecretName,
+		},
+	}
+
+	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, btpServiceBinding, func() error {
+		return controllerutil.SetOwnerReference(cfServiceInstance, btpServiceBinding, r.scheme)
+	})
+
+	if err != nil {
+		r.log.Error(err, "failed to create btp service binding")
+		return ctrl.Result{}, err
+	}
+
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Namespace: btpServiceBinding.Namespace, Name: btpServiceBinding.Spec.SecretName}, &corev1.Secret{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			r.log.Info("btp service binding secret not yet found", "secretName", btpServiceBinding.Spec.SecretName)
+			cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "BTPSecretNotAvailable", "BTP service secret not available yet")
+			return ctrl.Result{
+				RequeueAfter: time.Second,
+			}, nil
+		}
+
+		r.log.Error(err, "failed to get btp service binding secret")
+		cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "UnknownError", "BTP service secret could not be retrieved: "+err.Error())
+		return ctrl.Result{}, err
+	}
+
+	cfServiceInstance.Status = bindSecretAvailableStatus(cfServiceInstance)
 	return ctrl.Result{}, nil
 }
 
@@ -132,7 +175,8 @@ func (r *ManagedCFServiceInstanceReconciler) getServiceOffering(ctx context.Cont
 func (r *ManagedCFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceInstance{}).
-		WithEventFilter(predicate.NewPredicateFuncs(r.isManaged))
+		WithEventFilter(predicate.NewPredicateFuncs(r.isManaged)).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(r.secretToCfServiceInstance))
 }
 
 func (r *ManagedCFServiceInstanceReconciler) isManaged(object client.Object) bool {
@@ -142,4 +186,28 @@ func (r *ManagedCFServiceInstanceReconciler) isManaged(object client.Object) boo
 	}
 
 	return serviceInstance.Spec.Type == "managed"
+}
+
+func (r *ManagedCFServiceInstanceReconciler) secretToCfServiceInstance(ctx context.Context, object client.Object) []reconcile.Request {
+	secret, ok := object.(*corev1.Secret)
+	if !ok {
+		r.log.Error(fmt.Errorf("unexpected object %T, expected corev1.Secret", object), "object", object)
+		return []reconcile.Request{}
+	}
+
+	cfServiceInstanceList := &korifiv1alpha1.CFServiceInstanceList{}
+	err := r.k8sClient.List(ctx, cfServiceInstanceList, client.InNamespace(secret.Namespace))
+	if err != nil {
+		r.log.Error(err, "failed to list service bindings in namespace", "namespace", secret.Namespace)
+		return []reconcile.Request{}
+	}
+
+	result := []reconcile.Request{}
+	for _, cfServiceInstance := range cfServiceInstanceList.Items {
+		if cfServiceInstance.Spec.SecretName == secret.Name {
+			result = append(result, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cfServiceInstance)})
+		}
+	}
+
+	return result
 }

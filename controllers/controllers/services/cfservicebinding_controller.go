@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
@@ -240,27 +239,5 @@ func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.S
 // SetupWithManager sets up the controller with the Manager.
 func (r *CFServiceBindingReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFServiceBinding{}).
-		WithEventFilter(predicate.NewPredicateFuncs(r.isUPSI))
-}
-
-func (r *CFServiceBindingReconciler) isUPSI(object client.Object) bool {
-	serviceBinding, ok := object.(*korifiv1alpha1.CFServiceBinding)
-	if !ok {
-		return true
-	}
-
-	serviceInstance := &korifiv1alpha1.CFServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: serviceBinding.Namespace,
-			Name:      serviceBinding.Spec.Service.Name,
-		},
-	}
-
-	err := r.k8sClient.Get(context.Background(), client.ObjectKeyFromObject(serviceInstance), serviceInstance)
-	if err != nil {
-		return false
-	}
-
-	return serviceInstance.Spec.Type == "user-provided"
+		For(&korifiv1alpha1.CFServiceBinding{})
 }
