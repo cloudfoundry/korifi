@@ -345,22 +345,30 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			Expect(adminClient.Create(ctx, cfTask)).To(Succeed())
 
-			// wait for reconciler to set initialized condition to avoid it overwriting the succeeded condition
 			Eventually(func(g Gomega) {
-				g.Expect(controllersClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
-				g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+				var taskWorkloads korifiv1alpha1.TaskWorkloadList
+
+				g.Expect(adminClient.List(ctx, &taskWorkloads,
+					client.InNamespace(cfSpace.Status.GUID),
+					client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
+				)).To(Succeed())
+				g.Expect(taskWorkloads.Items).To(HaveLen(1))
+
+				g.Expect(k8s.Patch(ctx, adminClient, &taskWorkloads.Items[0], func() {
+					meta.SetStatusCondition(&taskWorkloads.Items[0].Status.Conditions, metav1.Condition{
+						Type:               korifiv1alpha1.TaskSucceededConditionType,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.Now(),
+						Reason:             "succeeded",
+						Message:            "succeeded",
+					})
+				})).To(Succeed())
 			}).Should(Succeed())
 
-			Expect(k8s.Patch(ctx, adminClient, cfTask, func() {
-				cfTask.Annotations = map[string]string{"trigger-the": "reconciler"}
-				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-					Type:               korifiv1alpha1.TaskSucceededConditionType,
-					Status:             metav1.ConditionTrue,
-					LastTransitionTime: metav1.Now(),
-					Reason:             "succeeded",
-					Message:            "succeeded",
-				})
-			})).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType)).To(BeTrue())
+			}).Should(Succeed())
 		})
 
 		It("it can get the task shortly after completion", func() {
