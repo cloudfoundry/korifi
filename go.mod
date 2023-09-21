@@ -27,7 +27,7 @@ require (
 	github.com/mileusna/useragent v1.3.4
 	github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.27.10
-	github.com/pivotal/kpack v0.12.0
+	github.com/pivotal/kpack v0.12.1
 	github.com/projectcontour/contour v1.26.0
 	github.com/servicebinding/runtime v0.5.0
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
