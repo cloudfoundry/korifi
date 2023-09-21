@@ -395,6 +395,7 @@ This endpoint is fully supported.
 #### Supported query parameters:
 
 -   `names`
+-   `guids`
 -   `organization_guids`
 
 ### [Delete a space](https://v3-apidocs.cloudfoundry.org/#delete-a-space)
