@@ -1,8 +1,14 @@
 package helpers
 
 import (
-	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
-	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
+	"fmt"
+	"strings"
+
+	"github.com/cloudfoundry/cf-test-helpers/commandreporter"
+	"github.com/cloudfoundry/cf-test-helpers/commandstarter"
+	. "github.com/onsi/ginkgo/v2"    //lint:ignore ST1001 this is a test file
+	. "github.com/onsi/gomega"       //lint:ignore ST1001 this is a test file
+	. "github.com/onsi/gomega/gexec" //lint:ignore ST1001 this is a test file
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -41,4 +47,27 @@ func RemoveUserFromKubeConfig(userName string) {
 	delete(config.AuthInfos, userName)
 
 	Expect(clientcmd.ModifyConfig(configAccess, *config, false)).To(Succeed())
+}
+
+func Kubectl(args ...string) *Session {
+	cmdStarter := commandstarter.NewCommandStarter()
+	return KubectlWithCustomReporter(cmdStarter, commandreporter.NewCommandReporter(), args...)
+}
+
+func KubectlApply(stdinText string, sprintfArgs ...any) *Session {
+	cmdStarter := commandstarter.NewCommandStarterWithStdin(
+		strings.NewReader(
+			fmt.Sprintf(stdinText, sprintfArgs...),
+		),
+	)
+	return KubectlWithCustomReporter(cmdStarter, commandreporter.NewCommandReporter(), "apply", "-f=-")
+}
+
+func KubectlWithCustomReporter(cmdStarter *commandstarter.CommandStarter, reporter *commandreporter.CommandReporter, args ...string) *Session {
+	request, err := cmdStarter.Start(reporter, "kubectl", args...)
+	if err != nil {
+		panic(err)
+	}
+
+	return request
 }

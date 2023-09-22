@@ -1,13 +1,13 @@
 package smoke_test
 
 import (
-	"bytes"
 	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strings"
 
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+
 	"github.com/cloudfoundry/cf-test-helpers/cf"
 	"github.com/cloudfoundry/cf-test-helpers/generator"
 	. "github.com/onsi/ginkgo/v2"
@@ -88,14 +88,6 @@ func printAppReportBanner(announcement string) {
 	fmt.Fprintf(GinkgoWriter, "\n\n%s\n%s\n%s\n", sequence, announcement, sequence)
 }
 
-func loginAs(user string) {
-	// Stdin contains username followed by 2 return carriages. Firtst one
-	// enters the username and second one skips the org selection prompt that
-	// is presented if there is more than one org
-	loginSession := cf.CfWithStdin(bytes.NewBufferString(user+"\n\n"), "login")
-	Eventually(loginSession).Should(Exit(0))
-}
-
 func appResponseShould(appName, requestPath string, matchExpectations types.GomegaMatcher) {
 	var httpClient http.Client
 	httpClient.Transport = &http.Transport{
@@ -103,7 +95,7 @@ func appResponseShould(appName, requestPath string, matchExpectations types.Gome
 	}
 
 	Eventually(func(g Gomega) {
-		resp, err := httpClient.Get(fmt.Sprintf("%s://%s.%s%s", appRouteProtocol, appName, appsDomain, requestPath))
+		resp, err := httpClient.Get(fmt.Sprintf("https://%s.%s%s", appName, appsDomain, requestPath))
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(resp).To(matchExpectations)
 	}).Should(Succeed())

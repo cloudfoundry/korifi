@@ -27,9 +27,9 @@ function deploy_korifi() {
 }
 
 function configure_e2e_tests() {
-  export ROOT_NAMESPACE="${ROOT_NAMESPACE:-cf}"
-  export APP_FQDN="${APP_FQDN:-apps-127-0-0-1.nip.io}"
   export API_SERVER_ROOT="${API_SERVER_ROOT:-https://localhost}"
+  export APP_FQDN="${APP_FQDN:-apps-127-0-0-1.nip.io}"
+  export ROOT_NAMESPACE="${ROOT_NAMESPACE:-cf}"
 
   deploy_korifi
 
@@ -37,20 +37,16 @@ function configure_e2e_tests() {
 }
 
 function configure_crd_tests() {
+  export API_SERVER_ROOT="${API_SERVER_ROOT:-https://localhost}"
   export NO_PARALLEL=true
-  export CRDS_TEST_API_ENDPOINT="${CRDS_TEST_API_ENDPOINT:-https://localhost}"
-  export CRDS_TEST_SKIP_SSL="${CRDS_TEST_SKIP_SSL:-true}"
 
   deploy_korifi
 }
 
 function configure_smoke_tests() {
+  export API_SERVER_ROOT="${API_SERVER_ROOT:-https://localhost}"
+  export APP_FQDN="${APP_FQDN:-apps-127-0-0-1.nip.io}"
   export NO_PARALLEL=true
-  export SMOKE_TEST_USER="${SMOKE_TEST_USER:-cf-admin}"
-  export SMOKE_TEST_APPS_DOMAIN="${SMOKE_TEST_APPS_DOMAIN:-apps-127-0-0-1.nip.io}"
-  export SMOKE_TEST_APP_ROUTE_PROTOCOL="${SMOKE_TEST_APP_ROUTE_PROTOCOL:-https}"
-  export SMOKE_TEST_API_ENDPOINT="${SMOKE_TEST_API_ENDPOINT:-https://localhost}"
-  export SMOKE_TEST_SKIP_SSL="${SMOKE_TEST_SKIP_SSL:-true}"
 
   deploy_korifi
 }
@@ -103,7 +99,6 @@ function run_ginkgo() {
 }
 
 function main() {
-
   if grep -q "tests/e2e" <(echo "$@"); then
     configure_e2e_tests $@
   elif grep -q "tests/crds" <(echo "$@"); then
