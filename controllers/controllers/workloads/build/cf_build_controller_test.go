@@ -196,6 +196,12 @@ var _ = Describe("CFBuildReconciler", func() {
 
 	When("the build succeeds", func() {
 		JustBeforeEach(func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+				delegateInvokedCondition := meta.FindStatusCondition(cfBuild.Status.Conditions, "delegateInvokedCondition")
+				g.Expect(delegateInvokedCondition).NotTo(BeNil())
+			}).Should(Succeed())
+
 			Expect(k8s.Patch(ctx, adminClient, cfBuild, func() {
 				meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
 					Type:               korifiv1alpha1.SucceededConditionType,
@@ -208,16 +214,6 @@ var _ = Describe("CFBuildReconciler", func() {
 		})
 
 		It("stops reconciling", func() {
-			Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
-			expectedGeneration := cfBuild.Generation
-
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
-				fakeStatusCondition := meta.FindStatusCondition(cfBuild.Status.Conditions, "fakeStatusCondition")
-				g.Expect(fakeStatusCondition).NotTo(BeNil())
-				g.Expect(fakeStatusCondition.ObservedGeneration).To(Equal(expectedGeneration))
-			}).Should(Succeed())
-
 			reoncileCount := reconciledBuilds()[cfBuild.Name]
 			Consistently(func(g Gomega) {
 				g.Expect(reconciledBuilds()[cfBuild.Name]).To(Equal(reoncileCount))
