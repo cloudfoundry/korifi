@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"sync"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -37,7 +36,6 @@ const (
 
 var _ = Describe("AppRepository", func() {
 	var (
-		testCtx context.Context
 		appRepo *AppRepo
 		cfOrg   *korifiv1alpha1.CFOrg
 		cfSpace *korifiv1alpha1.CFSpace
@@ -45,12 +43,10 @@ var _ = Describe("AppRepository", func() {
 	)
 
 	BeforeEach(func() {
-		testCtx = context.Background()
-
 		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](2*time.Second))
 
-		cfOrg = createOrgWithCleanup(testCtx, prefixedGUID("org"))
-		cfSpace = createSpaceWithCleanup(testCtx, cfOrg.Name, prefixedGUID("space1"))
+		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
+		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
 
 		cfApp = createAppWithGUID(cfSpace.Name, testutils.PrefixedGUID("cfapp1-"))
 	})
@@ -67,13 +63,13 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			app, getErr = appRepo.GetApp(testCtx, authInfo, appGUID)
+			app, getErr = appRepo.GetApp(ctx, authInfo, appGUID)
 		})
 
 		When("authorized in the space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
 			It("can fetch the AppRecord CR we're looking for", func() {
@@ -106,10 +102,10 @@ var _ = Describe("AppRepository", func() {
 						Reason:             "staged",
 						Message:            "staged",
 					}}
-					Expect(k8sClient.Status().Update(testCtx, cfApp)).To(Succeed())
+					Expect(k8sClient.Status().Update(ctx, cfApp)).To(Succeed())
 					Eventually(func(g Gomega) {
 						app := korifiv1alpha1.CFApp{}
-						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
 						g.Expect(app.Status.Conditions).NotTo(BeEmpty())
 					}).Should(Succeed())
 				})
@@ -128,10 +124,10 @@ var _ = Describe("AppRepository", func() {
 						Reason:  "appStaged",
 						Message: "",
 					})
-					Expect(k8sClient.Status().Update(testCtx, cfApp)).To(Succeed())
+					Expect(k8sClient.Status().Update(ctx, cfApp)).To(Succeed())
 					Eventually(func(g Gomega) {
 						app := korifiv1alpha1.CFApp{}
-						g.Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
 						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
 					}).Should(Succeed())
 				})
@@ -151,7 +147,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("duplicate Apps exist across namespaces with the same GUIDs", func() {
 			BeforeEach(func() {
-				space2 := createSpaceWithCleanup(testCtx, cfOrg.Name, prefixedGUID("space2"))
+				space2 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
 				createAppWithGUID(space2.Name, appGUID)
 			})
 
@@ -185,12 +181,12 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			appRecord, getErr = appRepo.GetAppByNameAndSpace(testCtx, authInfo, cfApp.Spec.DisplayName, querySpaceName)
+			appRecord, getErr = appRepo.GetAppByNameAndSpace(ctx, authInfo, cfApp.Spec.DisplayName, querySpaceName)
 		})
 
 		When("the user is able to get apps in the space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceManagerRole.Name, querySpaceName)
+				createRoleBinding(ctx, userName, spaceManagerRole.Name, querySpaceName)
 			})
 
 			It("returns the record", func() {
@@ -214,9 +210,9 @@ var _ = Describe("AppRepository", func() {
 
 		When("the App doesn't exist in the Space (but is in another Space)", func() {
 			BeforeEach(func() {
-				space2 := createSpaceWithCleanup(testCtx, cfOrg.Name, prefixedGUID("space2"))
+				space2 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
 				querySpaceName = space2.Name
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, querySpaceName)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, querySpaceName)
 			})
 
 			It("returns a NotFoundError", func() {
@@ -236,17 +232,17 @@ var _ = Describe("AppRepository", func() {
 		BeforeEach(func() {
 			message = ListAppsMessage{}
 
-			space2 := createSpaceWithCleanup(testCtx, cfOrg.Name, prefixedGUID("space2"))
-			space3 := createSpaceWithCleanup(testCtx, cfOrg.Name, prefixedGUID("space3"))
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+			space2 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
+			space3 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space3"))
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 
 			cfApp2 = createAppWithGUID(space2.Name, testutils.PrefixedGUID("cfapp2-"))
 			createApp(space3.Name)
 		})
 
 		JustBeforeEach(func() {
-			appList, listErr = appRepo.ListApps(testCtx, authInfo, message)
+			appList, listErr = appRepo.ListApps(ctx, authInfo, message)
 		})
 
 		It("returns all the AppRecord CRs where client has permission", func() {
@@ -269,11 +265,11 @@ var _ = Describe("AppRepository", func() {
 			BeforeEach(func() {
 				nonCFNamespace := prefixedGUID("non-cf")
 				Expect(k8sClient.Create(
-					testCtx,
+					ctx,
 					&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
 				)).To(Succeed())
 
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, nonCFNamespace)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, nonCFNamespace)
 				nonCFApp = createApp(nonCFNamespace)
 			})
 
@@ -484,20 +480,20 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			createdAppRecord, createErr = appRepo.CreateApp(testCtx, authInfo, appCreateMessage)
+			createdAppRecord, createErr = appRepo.CreateApp(ctx, authInfo, appCreateMessage)
 		})
 
 		When("authorized in the space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
 			It("creates a new app CR", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
 				createdCFApp := new(korifiv1alpha1.CFApp)
-				Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+				Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
 			})
 
 			It("returns an AppRecord with correct fields", func() {
@@ -521,12 +517,12 @@ var _ = Describe("AppRepository", func() {
 					Expect(createErr).NotTo(HaveOccurred())
 					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
 					createdCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+					Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
 					Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
 
 					secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
 					createdSecret := new(corev1.Secret)
-					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
+					Expect(k8sClient.Get(ctx, secretLookupKey, createdSecret)).To(Succeed())
 					Expect(createdSecret.Data).To(BeEmpty())
 				})
 			})
@@ -543,12 +539,12 @@ var _ = Describe("AppRepository", func() {
 					Expect(createErr).NotTo(HaveOccurred())
 					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
 					createdCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+					Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
 					Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
 
 					secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
 					createdSecret := new(corev1.Secret)
-					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
+					Expect(k8sClient.Get(ctx, secretLookupKey, createdSecret)).To(Succeed())
 					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
 						"FOO": BeEquivalentTo("foo"),
 						"BAR": BeEquivalentTo("bar"),
@@ -568,7 +564,7 @@ var _ = Describe("AppRepository", func() {
 					Expect(createErr).NotTo(HaveOccurred())
 					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
 					createdCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+					Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
 					Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
 				})
 
@@ -592,7 +588,7 @@ var _ = Describe("AppRepository", func() {
 
 					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
 					createdCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(testCtx, cfAppLookupKey, createdCFApp)).To(Succeed())
+					Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
 					Expect(createdCFApp.Spec.Lifecycle).To(Equal(korifiv1alpha1.Lifecycle{
 						Type: "docker",
 					}))
@@ -637,14 +633,14 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			patchedAppRecord, patchErr = appRepo.PatchApp(testCtx, authInfo, appPatchMessage)
+			patchedAppRecord, patchErr = appRepo.PatchApp(ctx, authInfo, appPatchMessage)
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 		})
 
 		When("authorized in the space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
 			It("updates the app", func() {
@@ -807,7 +803,7 @@ var _ = Describe("AppRepository", func() {
 
 					secretLookupKey := types.NamespacedName{Name: cfApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
 					createdSecret := new(corev1.Secret)
-					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
+					Expect(k8sClient.Get(ctx, secretLookupKey, createdSecret)).To(Succeed())
 					Expect(createdSecret.Data).To(BeEmpty())
 				})
 			})
@@ -827,7 +823,7 @@ var _ = Describe("AppRepository", func() {
 
 					secretLookupKey := types.NamespacedName{Name: cfApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
 					createdSecret := new(corev1.Secret)
-					Expect(k8sClient.Get(testCtx, secretLookupKey, createdSecret)).To(Succeed())
+					Expect(k8sClient.Get(ctx, secretLookupKey, createdSecret)).To(Succeed())
 					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
 						"FOO": BeEquivalentTo("foo"),
 						"BAR": BeEquivalentTo("bar"),
@@ -844,8 +840,8 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user is a Space Manager (i.e. can view apps but not modify them)", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
-				createRoleBinding(testCtx, userName, spaceManagerRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+				createRoleBinding(ctx, userName, spaceManagerRole.Name, cfSpace.Name)
 			})
 
 			It("returns a forbidden error", func() {
@@ -881,7 +877,7 @@ var _ = Describe("AppRepository", func() {
 				},
 				StringData: envVars,
 			}
-			Expect(k8sClient.Create(testCtx, &secret)).To(Succeed())
+			Expect(k8sClient.Create(ctx, &secret)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -898,12 +894,12 @@ var _ = Describe("AppRepository", func() {
 				EnvironmentVariables: newEnvVars,
 			}
 
-			secretRecord, patchErr = appRepo.PatchAppEnvVars(testCtx, authInfo, patchEnvMsg)
+			secretRecord, patchErr = appRepo.PatchAppEnvVars(ctx, authInfo, patchEnvMsg)
 		})
 
 		When("the user is authorized and an app exists with a secret", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
 			It("returns the updated secret record", func() {
@@ -919,7 +915,7 @@ var _ = Describe("AppRepository", func() {
 				cfAppSecretLookupKey := types.NamespacedName{Name: envSecretName, Namespace: cfSpace.Name}
 
 				var updatedSecret corev1.Secret
-				err := k8sClient.Get(testCtx, cfAppSecretLookupKey, &updatedSecret)
+				err := k8sClient.Get(ctx, cfAppSecretLookupKey, &updatedSecret)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(asMapOfStrings(updatedSecret.Data)).To(SatisfyAll(
@@ -965,12 +961,12 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateOrPatchAppEnvVars(testCtx, authInfo, envSecret)
+			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateOrPatchAppEnvVars(ctx, authInfo, envSecret)
 		})
 
 		When("the user is authorized", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
 			When("the secret doesn't already exist", func() {
@@ -989,7 +985,7 @@ var _ = Describe("AppRepository", func() {
 					// Used a strings.Trim to remove characters, which cause the behavior in Issue #103
 					envSecret.AppGUID = "estringtrimmedguid"
 
-					returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateOrPatchAppEnvVars(testCtx, authInfo, envSecret)
+					returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateOrPatchAppEnvVars(ctx, authInfo, envSecret)
 					Expect(returnedUpdatedErr).ToNot(HaveOccurred())
 					Expect(returnedUpdatedAppEnvVarsRecord.AppGUID).To(Equal(envSecret.AppGUID), "Expected App GUID to match after transform")
 				})
@@ -997,7 +993,7 @@ var _ = Describe("AppRepository", func() {
 				It("creates a secret that matches the request record", func() {
 					cfAppSecretLookupKey := types.NamespacedName{Name: envSecretName, Namespace: cfSpace.Name}
 					createdCFAppSecret := &corev1.Secret{}
-					Expect(k8sClient.Get(testCtx, cfAppSecretLookupKey, createdCFAppSecret)).To(Succeed())
+					Expect(k8sClient.Get(ctx, cfAppSecretLookupKey, createdCFAppSecret)).To(Succeed())
 
 					// Secret has an owner reference that points to the App CR
 					Expect(createdCFAppSecret.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
@@ -1036,7 +1032,7 @@ var _ = Describe("AppRepository", func() {
 						StringData: originalEnvVars,
 					}
 					Expect(
-						k8sClient.Create(testCtx, &originalSecret),
+						k8sClient.Create(ctx, &originalSecret),
 					).To(Succeed())
 				})
 
@@ -1057,7 +1053,7 @@ var _ = Describe("AppRepository", func() {
 					cfAppSecretLookupKey := types.NamespacedName{Name: envSecretName, Namespace: cfSpace.Name}
 
 					var updatedSecret corev1.Secret
-					err := k8sClient.Get(testCtx, cfAppSecretLookupKey, &updatedSecret)
+					err := k8sClient.Get(ctx, cfAppSecretLookupKey, &updatedSecret)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(updatedSecret.Name).To(Equal(envSecretName))
@@ -1086,48 +1082,16 @@ var _ = Describe("AppRepository", func() {
 
 			currentDropletRecord CurrentDropletRecord
 			setDropletErr        error
-			simAppController     func()
-			simControllerSync    sync.WaitGroup
 		)
 
 		BeforeEach(func() {
 			dropletGUID = generateGUID()
 			appGUID = cfApp.Name
-			createDropletCR(testCtx, k8sClient, dropletGUID, cfApp.Name, cfSpace.Name)
-
-			simControllerSync.Add(1)
-			simAppController = func() {
-				defer GinkgoRecover()
-				defer simControllerSync.Done()
-
-				Eventually(func(g Gomega) {
-					theApp := &korifiv1alpha1.CFApp{}
-					g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfApp), theApp)).To(Succeed())
-					g.Expect(theApp.Spec.CurrentDropletRef.Name).NotTo(BeEmpty())
-
-					theAppCopy := theApp.DeepCopy()
-					theAppCopy.Status = korifiv1alpha1.CFAppStatus{
-						Conditions: []metav1.Condition{{
-							Type:               shared.StatusConditionReady,
-							Status:             metav1.ConditionTrue,
-							LastTransitionTime: metav1.Now(),
-							Reason:             "staged",
-							Message:            "staged",
-						}},
-					}
-					g.Expect(k8sClient.Status().Patch(context.Background(), theAppCopy, client.MergeFrom(theApp))).To(Succeed())
-				}).Should(Succeed())
-			}
-		})
-
-		AfterEach(func() {
-			simControllerSync.Wait()
+			createDropletCR(ctx, k8sClient, dropletGUID, cfApp.Name, cfSpace.Name)
 		})
 
 		JustBeforeEach(func() {
-			go simAppController()
-
-			currentDropletRecord, setDropletErr = appRepo.SetCurrentDroplet(testCtx, authInfo, SetCurrentDropletMessage{
+			currentDropletRecord, setDropletErr = appRepo.SetCurrentDroplet(ctx, authInfo, SetCurrentDropletMessage{
 				AppGUID:     appGUID,
 				DropletGUID: dropletGUID,
 				SpaceGUID:   cfSpace.Name,
@@ -1136,44 +1100,51 @@ var _ = Describe("AppRepository", func() {
 
 		When("user has the space developer role", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
-			It("returns a CurrentDroplet record", func() {
-				Expect(setDropletErr).NotTo(HaveOccurred())
-				Expect(currentDropletRecord).To(Equal(CurrentDropletRecord{
-					AppGUID:     cfApp.Name,
-					DropletGUID: dropletGUID,
-				}))
+			It("returns an error", func() {
+				Expect(setDropletErr).To(MatchError(ContainSubstring("did not get the Ready condition")))
 			})
 
-			It("sets the spec.current_droplet_ref.name to the Droplet GUID", func() {
-				lookupKey := client.ObjectKeyFromObject(cfApp)
-				updatedApp := new(korifiv1alpha1.CFApp)
-				Expect(k8sClient.Get(testCtx, lookupKey, updatedApp)).To(Succeed())
-				Expect(updatedApp.Spec.CurrentDropletRef.Name).To(Equal(dropletGUID))
-			})
-
-			When("the app doesn't exist", func() {
+			When("the app gets staged", func() {
 				BeforeEach(func() {
-					appGUID = "no-such-app"
+					k8s.Patch(ctx, k8sClient, cfApp, func() {
+						cfApp.Status = korifiv1alpha1.CFAppStatus{
+							Conditions: []metav1.Condition{{
+								Type:               shared.StatusConditionReady,
+								Status:             metav1.ConditionTrue,
+								LastTransitionTime: metav1.Now(),
+								Reason:             "staged",
+								Message:            "staged",
+							}},
+						}
+					})
 				})
 
-				It("errors", func() {
-					Expect(setDropletErr).To(MatchError(ContainSubstring("not found")))
-				})
-			})
-
-			When("the app does not get the staged condition", func() {
-				BeforeEach(func() {
-					simAppController = func() {
-						defer GinkgoRecover()
-						defer simControllerSync.Done()
-					}
+				It("returns a CurrentDroplet record", func() {
+					Expect(setDropletErr).NotTo(HaveOccurred())
+					Expect(currentDropletRecord).To(Equal(CurrentDropletRecord{
+						AppGUID:     cfApp.Name,
+						DropletGUID: dropletGUID,
+					}))
 				})
 
-				It("returns an error", func() {
-					Expect(setDropletErr).To(MatchError(ContainSubstring("did not get the Ready condition")))
+				It("sets the spec.current_droplet_ref.name to the Droplet GUID", func() {
+					lookupKey := client.ObjectKeyFromObject(cfApp)
+					updatedApp := new(korifiv1alpha1.CFApp)
+					Expect(k8sClient.Get(ctx, lookupKey, updatedApp)).To(Succeed())
+					Expect(updatedApp.Spec.CurrentDropletRef.Name).To(Equal(dropletGUID))
+				})
+
+				When("the app doesn't exist", func() {
+					BeforeEach(func() {
+						appGUID = "no-such-app"
+					})
+
+					It("errors", func() {
+						Expect(setDropletErr).To(MatchError(ContainSubstring("not found")))
+					})
 				})
 			})
 		})
@@ -1207,8 +1178,8 @@ var _ = Describe("AppRepository", func() {
 
 		JustBeforeEach(func() {
 			appGUID = generateGUID()
-			_ = createAppCR(testCtx, k8sClient, appName, appGUID, cfSpace.Name, initialAppState)
-			appRecord, err := appRepo.SetAppDesiredState(testCtx, authInfo, SetAppDesiredStateMessage{
+			_ = createAppCR(ctx, k8sClient, appName, appGUID, cfSpace.Name, initialAppState)
+			appRecord, err := appRepo.SetAppDesiredState(ctx, authInfo, SetAppDesiredStateMessage{
 				AppGUID:      appGUID,
 				SpaceGUID:    cfSpace.Name,
 				DesiredState: desiredAppState,
@@ -1219,7 +1190,7 @@ var _ = Describe("AppRepository", func() {
 
 		When("the user has permission to set the app state", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
 			When("starting an app", func() {
@@ -1241,7 +1212,7 @@ var _ = Describe("AppRepository", func() {
 				It("changes the desired state of the App", func() {
 					cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: cfSpace.Name}
 					updatedCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(testCtx, cfAppLookupKey, updatedCFApp)).To(Succeed())
+					Expect(k8sClient.Get(ctx, cfAppLookupKey, updatedCFApp)).To(Succeed())
 					Expect(string(updatedCFApp.Spec.DesiredState)).To(Equal(appStartedValue))
 				})
 			})
@@ -1265,14 +1236,14 @@ var _ = Describe("AppRepository", func() {
 				It("changes the desired state of the App", func() {
 					cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: cfSpace.Name}
 					updatedCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(testCtx, cfAppLookupKey, updatedCFApp)).To(Succeed())
+					Expect(k8sClient.Get(ctx, cfAppLookupKey, updatedCFApp)).To(Succeed())
 					Expect(string(updatedCFApp.Spec.DesiredState)).To(Equal(appStoppedValue))
 				})
 			})
 
 			When("the app doesn't exist", func() {
 				It("returns an error", func() {
-					_, err := appRepo.SetAppDesiredState(testCtx, authInfo, SetAppDesiredStateMessage{
+					_, err := appRepo.SetAppDesiredState(ctx, authInfo, SetAppDesiredStateMessage{
 						AppGUID:      "fake-app-guid",
 						SpaceGUID:    cfSpace.Name,
 						DesiredState: appStartedValue,
@@ -1298,11 +1269,11 @@ var _ = Describe("AppRepository", func() {
 
 		BeforeEach(func() {
 			appGUID = cfApp.Name
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 		})
 
 		JustBeforeEach(func() {
-			deleteAppErr = appRepo.DeleteApp(testCtx, authInfo, DeleteAppMessage{
+			deleteAppErr = appRepo.DeleteApp(ctx, authInfo, DeleteAppMessage{
 				AppGUID:   appGUID,
 				SpaceGUID: cfSpace.Name,
 			})
@@ -1310,7 +1281,7 @@ var _ = Describe("AppRepository", func() {
 
 		It("deletes the CFApp resource", func() {
 			Expect(deleteAppErr).NotTo(HaveOccurred())
-			app, err := appRepo.GetApp(testCtx, authInfo, appGUID)
+			app, err := appRepo.GetApp(ctx, authInfo, appGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(app.DeletedAt).To(PointTo(BeTemporally("~", time.Now(), 5*time.Second)))
 		})
@@ -1352,11 +1323,11 @@ var _ = Describe("AppRepository", func() {
 				StringData: envVars,
 			}
 
-			Expect(k8sClient.Create(testCtx, secret)).To(Succeed())
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			appEnvRecord, getAppEnvErr = appRepo.GetAppEnv(testCtx, authInfo, appGUID)
+			appEnvRecord, getAppEnvErr = appRepo.GetAppEnv(ctx, authInfo, appGUID)
 		})
 
 		When("the user can read secrets in the space", func() {
@@ -1365,7 +1336,7 @@ var _ = Describe("AppRepository", func() {
 					cfApp.Spec.EnvSecretName = secretName
 				})).To(Succeed())
 
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
 			It("returns the env vars stored on the secret", func() {
@@ -1401,11 +1372,11 @@ var _ = Describe("AppRepository", func() {
 						},
 						StringData: vcapServiceSecretData,
 					}
-					Expect(k8sClient.Create(testCtx, vcapSecret)).To(Succeed())
+					Expect(k8sClient.Create(ctx, vcapSecret)).To(Succeed())
 
 					ogCFApp := cfApp.DeepCopy()
 					cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
-					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+					Expect(k8sClient.Status().Patch(ctx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
 				})
 
 				It("returns the env vars stored on the secret", func() {
@@ -1429,11 +1400,11 @@ var _ = Describe("AppRepository", func() {
 							"VCAP_SERVICES": "{}",
 						},
 					}
-					Expect(k8sClient.Create(testCtx, vcapSecret)).To(Succeed())
+					Expect(k8sClient.Create(ctx, vcapSecret)).To(Succeed())
 
 					ogCFApp := cfApp.DeepCopy()
 					cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
-					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+					Expect(k8sClient.Status().Patch(ctx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
 				})
 
 				It("return an empty record for system env variables", func() {
@@ -1451,11 +1422,11 @@ var _ = Describe("AppRepository", func() {
 							Namespace: cfSpace.Name,
 						},
 					}
-					Expect(k8sClient.Create(testCtx, vcapSecret)).To(Succeed())
+					Expect(k8sClient.Create(ctx, vcapSecret)).To(Succeed())
 
 					ogCFApp := cfApp.DeepCopy()
 					cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
-					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+					Expect(k8sClient.Status().Patch(ctx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
 				})
 
 				It("return an empty record for system env variables", func() {
@@ -1508,7 +1479,7 @@ var _ = Describe("AppRepository", func() {
 
 					ogCFApp := cfApp.DeepCopy()
 					cfApp.Status.VCAPServicesSecretName = vcapServicesSecretName
-					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+					Expect(k8sClient.Status().Patch(ctx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
 				})
 
 				It("errors", func() {
@@ -1522,7 +1493,7 @@ var _ = Describe("AppRepository", func() {
 
 					ogCFApp := cfApp.DeepCopy()
 					cfApp.Status.VCAPApplicationSecretName = vcapApplicationSecretName
-					Expect(k8sClient.Status().Patch(testCtx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
+					Expect(k8sClient.Status().Patch(ctx, cfApp, client.MergeFrom(ogCFApp))).To(Succeed())
 				})
 
 				It("errors", func() {
@@ -1568,8 +1539,8 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			createRoleBinding(testCtx, userName, orgUserRole.Name, cfOrg.Name)
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 		})
 
 		JustBeforeEach(func() {
