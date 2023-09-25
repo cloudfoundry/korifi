@@ -20,6 +20,7 @@ import (
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap/zapcore"
@@ -103,7 +104,9 @@ var _ = BeforeSuite(func() {
 			For(&korifiv1alpha1.CFBuild{})
 	}
 	reconciledBuildsSync = sync.Map{}
-	delegateReconciler.ReconcileBuildStub = func(_ context.Context, cfBuild *korifiv1alpha1.CFBuild, _ *korifiv1alpha1.CFApp, _ *korifiv1alpha1.CFPackage) (reconcile.Result, error) {
+	delegateReconciler.ReconcileBuildStub = func(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, _ *korifiv1alpha1.CFApp, _ *korifiv1alpha1.CFPackage) (reconcile.Result, error) {
+		log := logr.FromContextOrDiscard(ctx)
+
 		currentValue, ok := reconciledBuildsSync.Load(cfBuild.Name)
 		currentCount := 0
 		if ok {
@@ -111,12 +114,13 @@ var _ = BeforeSuite(func() {
 		}
 		reconciledBuildsSync.Store(cfBuild.Name, currentCount+1)
 
+		log.Info("set delegateInvokedCondition", "cfBuild", cfBuild.Name, "namespace", cfBuild.Namespace)
 		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
-			Type:               "fakeStatusCondition",
+			Type:               "delegateInvokedCondition",
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: cfBuild.Generation,
 			LastTransitionTime: metav1.Now(),
-			Reason:             "fake",
+			Reason:             "delegateInvoked",
 			Message:            "this status condition is a marker to signal that the delegate reconciler has been invoked",
 		})
 		return reconcile.Result{}, nil
