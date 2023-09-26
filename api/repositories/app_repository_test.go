@@ -1580,41 +1580,6 @@ var _ = Describe("AppRepository", func() {
 	})
 })
 
-func createApp(space string) *korifiv1alpha1.CFApp {
-	return createAppWithGUID(space, uuid.NewString())
-}
-
-func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
-	cfApp := &korifiv1alpha1.CFApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
-			Namespace: space,
-			Annotations: map[string]string{
-				CFAppRevisionKey: CFAppRevisionValue,
-			},
-		},
-		Spec: korifiv1alpha1.CFAppSpec{
-			DisplayName:  uuid.NewString(),
-			DesiredState: "STOPPED",
-			Lifecycle: korifiv1alpha1.Lifecycle{
-				Type: "buildpack",
-				Data: korifiv1alpha1.LifecycleData{
-					Buildpacks: []string{"java"},
-				},
-			},
-			CurrentDropletRef: corev1.LocalObjectReference{
-				Name: uuid.NewString(),
-			},
-			EnvSecretName: GenerateEnvSecretName(guid),
-		},
-	}
-	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
-
-	Expect(k8sClient.Status().Update(context.Background(), cfApp)).To(Succeed())
-
-	return cfApp
-}
-
 func generateVcapServiceSecretDataByte() (map[string][]byte, error) {
 	serviceDetails := env.ServiceDetails{
 		Label:        "user-provided",
