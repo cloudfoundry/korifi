@@ -81,8 +81,12 @@ type CFSpaceList struct {
 	Items           []CFSpace `json:"items"`
 }
 
-func (o *CFSpace) GetStatus() status.NamespaceStatus {
-	return &o.Status
+func (s CFSpace) StatusConditions() []metav1.Condition {
+	return s.Status.Conditions
+}
+
+func (s *CFSpace) GetStatus() status.NamespaceStatus {
+	return &s.Status
 }
 
 func (s *CFSpaceStatus) GetConditions() *[]metav1.Condition {

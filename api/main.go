@@ -133,7 +133,7 @@ func main() {
 		orgRepo,
 		userClientFactory,
 		nsPermissions,
-		createTimeout,
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpaceList](createTimeout),
 	)
 	processRepo := repositories.NewProcessRepo(
 		namespaceRetriever,

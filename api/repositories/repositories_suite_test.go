@@ -255,17 +255,6 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 	return cfSpace
 }
 
-func createNamespace(ctx context.Context, name string, labels map[string]string) *corev1.Namespace {
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: labels,
-		},
-	}
-	Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
-	return namespace
-}
-
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
 	filepath := filepath.Join("..", "..", "helm", "korifi", "controllers", "cf_roles", filename+".yaml")
 	content, err := os.ReadFile(filepath)
