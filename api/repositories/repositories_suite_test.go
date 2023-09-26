@@ -255,7 +255,7 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 	return cfSpace
 }
 
-func createNamespace(ctx context.Context, orgName, name string, labels map[string]string) *corev1.Namespace {
+func createNamespace(ctx context.Context, name string, labels map[string]string) *corev1.Namespace {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,

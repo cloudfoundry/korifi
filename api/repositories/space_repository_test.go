@@ -28,7 +28,11 @@ var _ = Describe("SpaceRepository", func() {
 	)
 
 	BeforeEach(func() {
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &FakeAwaiter[
+			*korifiv1alpha1.CFOrg,
+			korifiv1alpha1.CFOrgList,
+			*korifiv1alpha1.CFOrgList,
+		]{})
 		spaceRepo = repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, time.Millisecond*2000)
 	})
 
@@ -83,7 +87,7 @@ var _ = Describe("SpaceRepository", func() {
 				return
 			}
 
-			createNamespace(ctx, anchorNamespace, space.Name, map[string]string{korifiv1alpha1.SpaceNameKey: space.Spec.DisplayName})
+			createNamespace(ctx, space.Name, map[string]string{korifiv1alpha1.SpaceNameKey: space.Spec.DisplayName})
 
 			meta.SetStatusCondition(&(space.Status.Conditions), metav1.Condition{
 				Type:    "Ready",
