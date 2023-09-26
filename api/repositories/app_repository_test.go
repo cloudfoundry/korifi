@@ -3,6 +3,7 @@ package repositories_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
@@ -37,6 +37,11 @@ const (
 
 var _ = Describe("AppRepository", func() {
 	var (
+		conditionAwaiter *FakeAwaiter[
+			*korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFAppList,
+			*korifiv1alpha1.CFAppList,
+		]
 		appRepo *AppRepo
 		cfOrg   *korifiv1alpha1.CFOrg
 		cfSpace *korifiv1alpha1.CFSpace
@@ -44,7 +49,12 @@ var _ = Describe("AppRepository", func() {
 	)
 
 	BeforeEach(func() {
-		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](2*time.Second))
+		conditionAwaiter = &FakeAwaiter[
+			*korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFAppList,
+			*korifiv1alpha1.CFAppList,
+		]{}
+		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
@@ -1104,48 +1114,46 @@ var _ = Describe("AppRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
-			It("returns an error", func() {
-				Expect(setDropletErr).To(MatchError(ContainSubstring("did not get the Ready condition")))
+			It("awaits the ready condition", func() {
+				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+				Expect(obj.GetName()).To(Equal(appGUID))
+				Expect(obj.GetNamespace()).To(Equal(cfSpace.Name))
+				Expect(conditionType).To(Equal(shared.StatusConditionReady))
 			})
 
-			When("the app gets staged", func() {
+			It("returns a CurrentDroplet record", func() {
+				Expect(setDropletErr).NotTo(HaveOccurred())
+				Expect(currentDropletRecord).To(Equal(CurrentDropletRecord{
+					AppGUID:     cfApp.Name,
+					DropletGUID: dropletGUID,
+				}))
+			})
+
+			It("sets the spec.current_droplet_ref.name to the Droplet GUID", func() {
+				lookupKey := client.ObjectKeyFromObject(cfApp)
+				updatedApp := new(korifiv1alpha1.CFApp)
+				Expect(k8sClient.Get(ctx, lookupKey, updatedApp)).To(Succeed())
+				Expect(updatedApp.Spec.CurrentDropletRef.Name).To(Equal(dropletGUID))
+			})
+
+			When("the app never becomes ready", func() {
 				BeforeEach(func() {
-					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-						cfApp.Status = korifiv1alpha1.CFAppStatus{
-							Conditions: []metav1.Condition{{
-								Type:               shared.StatusConditionReady,
-								Status:             metav1.ConditionTrue,
-								LastTransitionTime: metav1.Now(),
-								Reason:             "staged",
-								Message:            "staged",
-							}},
-						}
-					})).To(Succeed())
+					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFApp{}, errors.New("time-out-err"))
 				})
 
-				It("returns a CurrentDroplet record", func() {
-					Expect(setDropletErr).NotTo(HaveOccurred())
-					Expect(currentDropletRecord).To(Equal(CurrentDropletRecord{
-						AppGUID:     cfApp.Name,
-						DropletGUID: dropletGUID,
-					}))
+				It("returns an error", func() {
+					Expect(setDropletErr).To(MatchError(ContainSubstring("time-out-err")))
+				})
+			})
+
+			When("the app doesn't exist", func() {
+				BeforeEach(func() {
+					appGUID = "no-such-app"
 				})
 
-				It("sets the spec.current_droplet_ref.name to the Droplet GUID", func() {
-					lookupKey := client.ObjectKeyFromObject(cfApp)
-					updatedApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(ctx, lookupKey, updatedApp)).To(Succeed())
-					Expect(updatedApp.Spec.CurrentDropletRef.Name).To(Equal(dropletGUID))
-				})
-
-				When("the app doesn't exist", func() {
-					BeforeEach(func() {
-						appGUID = "no-such-app"
-					})
-
-					It("errors", func() {
-						Expect(setDropletErr).To(MatchError(ContainSubstring("not found")))
-					})
+				It("errors", func() {
+					Expect(setDropletErr).To(MatchError(ContainSubstring("not found")))
 				})
 			})
 		})

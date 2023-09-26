@@ -592,9 +592,7 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the status is not updated within the timeout", func() {
 				BeforeEach(func() {
-					conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFTask, error) {
-						return nil, errors.New("timed-out")
-					}
+					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFTask{}, errors.New("timed-out"))
 				})
 
 				It("returns a timeout error", func() {

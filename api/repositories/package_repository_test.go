@@ -180,6 +180,16 @@ var _ = Describe("PackageRepository", func() {
 					Expect(repoName).To(Equal("container.registry/foo/my/prefix-" + appGUID + "-packages"))
 				})
 
+				When("the package does not become initialized", func() {
+					BeforeEach(func() {
+						conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFPackage{}, errors.New("time-out-err"))
+					})
+
+					It("returns an error", func() {
+						Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
+					})
+				})
+
 				When("repo creation errors", func() {
 					BeforeEach(func() {
 						repoCreator.CreateRepositoryReturns(errors.New("repo create error"))
