@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -44,11 +45,11 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		BeforeEach(func() {
-			namespace1Name := generateGUID()
+			namespace1Name := uuid.NewString()
 			namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
 			Expect(k8sClient.Create(ctx, namespace1)).To(Succeed())
 
-			namespace2Name := generateGUID()
+			namespace2Name := uuid.NewString()
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
 			Expect(k8sClient.Create(ctx, namespace2)).To(Succeed())
 		})
@@ -98,8 +99,8 @@ var _ = Describe("BuildRepository", func() {
 			)
 
 			BeforeEach(func() {
-				build1GUID = generateGUID()
-				build2GUID = generateGUID()
+				build1GUID = uuid.NewString()
+				build2GUID = uuid.NewString()
 				build1 = makeBuild(namespace1.Name, build1GUID, package1GUID, app1GUID)
 				Expect(k8sClient.Create(ctx, build1)).To(Succeed())
 				build2 = makeBuild(namespace2.Name, build2GUID, package2GUID, app2GUID)
@@ -232,7 +233,7 @@ var _ = Describe("BuildRepository", func() {
 			var buildGUID string
 
 			BeforeEach(func() {
-				buildGUID = generateGUID()
+				buildGUID = uuid.NewString()
 				build1 := makeBuild(namespace1.Name, buildGUID, package1GUID, app1GUID)
 				Expect(k8sClient.Create(ctx, build1)).To(Succeed())
 				build2 := makeBuild(namespace2.Name, buildGUID, package2GUID, app2GUID)
@@ -258,7 +259,7 @@ var _ = Describe("BuildRepository", func() {
 			var buildGUID string
 
 			BeforeEach(func() {
-				buildGUID = generateGUID()
+				buildGUID = uuid.NewString()
 				build1 := makeBuild(namespace1.Name, buildGUID, package1GUID, app1GUID)
 				Expect(k8sClient.Create(ctx, build1)).To(Succeed())
 			})
@@ -375,7 +376,7 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		BeforeEach(func() {
-			spaceGUID = generateGUID()
+			spaceGUID = uuid.NewString()
 			Expect(
 				k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
 			).To(Succeed())

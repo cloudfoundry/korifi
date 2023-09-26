@@ -303,7 +303,7 @@ var _ = Describe("ProcessRepo", func() {
 
 			When("scaling down a process to 0 instances", func() {
 				It("works", func() {
-					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{Instances: pointerTo(0)}
+					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{Instances: tools.PtrTo(0)}
 					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), authInfo, *scaleProcessMessage)
 					Expect(scaleProcessErr).ToNot(HaveOccurred())
 
@@ -432,7 +432,7 @@ var _ = Describe("ProcessRepo", func() {
 							TimeoutSeconds:           0,
 						},
 					}),
-					"Labels":      HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", app1GUID),
+					"Labels":      HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, app1GUID),
 					"Annotations": BeEmpty(),
 					"CreatedAt":   BeTemporally("~", time.Now(), timeCheckThreshold),
 					"UpdatedAt":   PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)),
@@ -464,7 +464,7 @@ var _ = Describe("ProcessRepo", func() {
 						Name:      process1GUID,
 						Namespace: space.Name,
 						Labels: map[string]string{
-							cfAppGUIDLabelKey: app1GUID,
+							korifiv1alpha1.CFAppGUIDLabelKey: app1GUID,
 						},
 					},
 					Spec: korifiv1alpha1.CFProcessSpec{

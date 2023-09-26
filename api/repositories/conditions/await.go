@@ -15,16 +15,16 @@ type RuntimeObjectWithStatusConditions interface {
 	StatusConditions() []metav1.Condition
 }
 
-type objectList[L any] interface {
+type ObjectList[L any] interface {
 	*L
 	client.ObjectList
 }
 
-type Awaiter[T RuntimeObjectWithStatusConditions, L any, PL objectList[L]] struct {
+type Awaiter[T RuntimeObjectWithStatusConditions, L any, PL ObjectList[L]] struct {
 	timeout time.Duration
 }
 
-func NewConditionAwaiter[T RuntimeObjectWithStatusConditions, L any, PL objectList[L]](timeout time.Duration) *Awaiter[T, L, PL] {
+func NewConditionAwaiter[T RuntimeObjectWithStatusConditions, L any, PL ObjectList[L]](timeout time.Duration) *Awaiter[T, L, PL] {
 	return &Awaiter[T, L, PL]{
 		timeout: timeout,
 	}

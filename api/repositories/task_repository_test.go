@@ -12,8 +12,10 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -194,7 +196,7 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			taskGUID = generateGUID()
+			taskGUID = uuid.NewString()
 			cfTask = &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      taskGUID,
@@ -502,7 +504,7 @@ var _ = Describe("TaskRepository", func() {
 				}
 			}
 
-			taskGUID = generateGUID()
+			taskGUID = uuid.NewString()
 			cfTask := &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      taskGUID,
@@ -576,7 +578,7 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			taskGUID = generateGUID()
+			taskGUID = uuid.NewString()
 			cfTask = &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      taskGUID,
@@ -618,12 +620,12 @@ var _ = Describe("TaskRepository", func() {
 			When("the task doesn't have labels or annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					annotationsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfTask, func() {
 						cfTask.Labels = nil
@@ -671,13 +673,13 @@ var _ = Describe("TaskRepository", func() {
 			When("the task already has labels and annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					annotationsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfTask, func() {
@@ -738,7 +740,7 @@ var _ = Describe("TaskRepository", func() {
 			When("an annotation is invalid", func() {
 				BeforeEach(func() {
 					annotationsPatch = map[string]*string{
-						"-bad-annotation": pointerTo("stuff"),
+						"-bad-annotation": tools.PtrTo("stuff"),
 					}
 				})
 
@@ -756,7 +758,7 @@ var _ = Describe("TaskRepository", func() {
 			When("a label is invalid", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"-bad-label": pointerTo("stuff"),
+						"-bad-label": tools.PtrTo("stuff"),
 					}
 				})
 

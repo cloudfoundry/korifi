@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -864,7 +865,7 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			envSecretName = generateAppEnvSecretName(cfApp.Name)
+			envSecretName = cfApp.Name + "-env"
 
 			envVars := map[string]string{
 				key0: "VAL0",
@@ -947,7 +948,7 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			envSecretName = generateAppEnvSecretName(cfApp.Name)
+			envSecretName = cfApp.Name + "-env"
 			env := map[string]string{
 				key1: "VAL1",
 				key2: "VAL2",
@@ -1085,7 +1086,7 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			dropletGUID = generateGUID()
+			dropletGUID = uuid.NewString()
 			appGUID = cfApp.Name
 			createDropletCR(ctx, k8sClient, dropletGUID, cfApp.Name, cfSpace.Name)
 		})
@@ -1109,7 +1110,7 @@ var _ = Describe("AppRepository", func() {
 
 			When("the app gets staged", func() {
 				BeforeEach(func() {
-					k8s.Patch(ctx, k8sClient, cfApp, func() {
+					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 						cfApp.Status = korifiv1alpha1.CFAppStatus{
 							Conditions: []metav1.Condition{{
 								Type:               shared.StatusConditionReady,
@@ -1119,7 +1120,7 @@ var _ = Describe("AppRepository", func() {
 								Message:            "staged",
 							}},
 						}
-					})
+					})).To(Succeed())
 				})
 
 				It("returns a CurrentDroplet record", func() {
@@ -1177,7 +1178,7 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			appGUID = generateGUID()
+			appGUID = uuid.NewString()
 			_ = createAppCR(ctx, k8sClient, appName, appGUID, cfSpace.Name, initialAppState)
 			appRecord, err := appRepo.SetAppDesiredState(ctx, authInfo, SetAppDesiredStateMessage{
 				AppGUID:      appGUID,
@@ -1580,7 +1581,7 @@ var _ = Describe("AppRepository", func() {
 })
 
 func createApp(space string) *korifiv1alpha1.CFApp {
-	return createAppWithGUID(space, generateGUID())
+	return createAppWithGUID(space, uuid.NewString())
 }
 
 func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
@@ -1593,7 +1594,7 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
-			DisplayName:  generateGUID(),
+			DisplayName:  uuid.NewString(),
 			DesiredState: "STOPPED",
 			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
@@ -1602,7 +1603,7 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 				},
 			},
 			CurrentDropletRef: corev1.LocalObjectReference{
-				Name: generateGUID(),
+				Name: uuid.NewString(),
 			},
 			EnvSecretName: GenerateEnvSecretName(guid),
 		},

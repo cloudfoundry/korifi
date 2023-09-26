@@ -198,7 +198,7 @@ var _ = Describe("DeploymentRepository", func() {
 				var newDropletGUID string
 
 				BeforeEach(func() {
-					newDropletGUID = generateGUID()
+					newDropletGUID = uuid.NewString()
 					createDeploymentMessage.DropletGUID = newDropletGUID
 				})
 

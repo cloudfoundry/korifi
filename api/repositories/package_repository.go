@@ -7,7 +7,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
@@ -46,7 +45,7 @@ type PackageRepo struct {
 	namespacePermissions *authorization.NamespacePermissions
 	repositoryCreator    RepositoryCreator
 	repositoryPrefix     string
-	awaiter              *conditions.Awaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList, *korifiv1alpha1.CFPackageList]
+	awaiter              ConditionAwaiter[*korifiv1alpha1.CFPackage]
 }
 
 func NewPackageRepo(
@@ -55,7 +54,7 @@ func NewPackageRepo(
 	authPerms *authorization.NamespacePermissions,
 	repositoryCreator RepositoryCreator,
 	repositoryPrefix string,
-	createTimeout time.Duration,
+	awaiter ConditionAwaiter[*korifiv1alpha1.CFPackage],
 ) *PackageRepo {
 	return &PackageRepo{
 		userClientFactory:    userClientFactory,
@@ -63,7 +62,7 @@ func NewPackageRepo(
 		namespacePermissions: authPerms,
 		repositoryCreator:    repositoryCreator,
 		repositoryPrefix:     repositoryPrefix,
-		awaiter:              conditions.NewConditionAwaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList](createTimeout),
+		awaiter:              awaiter,
 	}
 }
 
