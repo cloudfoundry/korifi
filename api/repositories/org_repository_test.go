@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -530,12 +531,12 @@ var _ = Describe("OrgRepository", func() {
 			When("the org doesn't have any labels or annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					annotationsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
 						cfOrg.Labels = nil
@@ -582,13 +583,13 @@ var _ = Describe("OrgRepository", func() {
 			When("the org already has labels and annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					annotationsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
@@ -648,7 +649,7 @@ var _ = Describe("OrgRepository", func() {
 			When("an annotation is invalid", func() {
 				BeforeEach(func() {
 					annotationsPatch = map[string]*string{
-						"-bad-annotation": pointerTo("stuff"),
+						"-bad-annotation": tools.PtrTo("stuff"),
 					}
 				})
 
@@ -666,7 +667,7 @@ var _ = Describe("OrgRepository", func() {
 			When("a label is invalid", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"-bad-label": pointerTo("stuff"),
+						"-bad-label": tools.PtrTo("stuff"),
 					}
 				})
 

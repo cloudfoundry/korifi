@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -403,14 +404,14 @@ var _ = Describe("DropletRepository", func() {
 				GUID: buildGUID,
 				MetadataPatch: repositories.MetadataPatch{
 					Labels: map[string]*string{
-						"key1": pointerTo("val1edit"),
+						"key1": tools.PtrTo("val1edit"),
 						"key2": nil,
-						"key3": pointerTo("val3"),
+						"key3": tools.PtrTo("val3"),
 					},
 					Annotations: map[string]*string{
-						"key1": pointerTo("val1edit"),
+						"key1": tools.PtrTo("val1edit"),
 						"key2": nil,
-						"key3": pointerTo("val3"),
+						"key3": tools.PtrTo("val3"),
 					},
 				},
 			}

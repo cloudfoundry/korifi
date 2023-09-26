@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -167,7 +168,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			serviceInstanceGUID := generateGUID()
+			serviceInstanceGUID := uuid.NewString()
 			cfServiceInstance = createServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, serviceInstanceGUID)
 
 			secret = &corev1.Secret{

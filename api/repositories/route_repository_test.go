@@ -224,7 +224,7 @@ var _ = Describe("RouteRepository", func() {
 					Destinations: []korifiv1alpha1.Destination{{
 						Protocol: tools.PtrTo("http1"),
 						AppRef: corev1.LocalObjectReference{
-							Name: generateGUID(),
+							Name: uuid.NewString(),
 						},
 					}},
 				},
@@ -256,7 +256,7 @@ var _ = Describe("RouteRepository", func() {
 			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
 			cfRoute2A = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      generateGUID(),
+					Name:      uuid.NewString(),
 					Namespace: space2.Name,
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
@@ -276,7 +276,7 @@ var _ = Describe("RouteRepository", func() {
 			space3 := createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space3"))
 			Expect(k8sClient.Create(context.Background(), &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      generateGUID(),
+					Name:      uuid.NewString(),
 					Namespace: space3.Name,
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
@@ -420,7 +420,7 @@ var _ = Describe("RouteRepository", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = generateGUID()
+			appGUID = uuid.NewString()
 
 			cfRoute1 = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -788,7 +788,7 @@ var _ = Describe("RouteRepository", func() {
 			}
 			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
 
-			appGUID = generateGUID()
+			appGUID = uuid.NewString()
 
 			addDestinationsMessage = AddDestinationsToRouteMessage{
 				RouteGUID: route1GUID,
@@ -933,8 +933,8 @@ var _ = Describe("RouteRepository", func() {
 					)
 
 					BeforeEach(func() {
-						appGUID1 = generateGUID()
-						appGUID2 = generateGUID()
+						appGUID1 = uuid.NewString()
+						appGUID2 = uuid.NewString()
 
 						addDestinationsMessage.NewDestinations = []DestinationMessage{
 							{
@@ -996,7 +996,7 @@ var _ = Describe("RouteRepository", func() {
 					var appGUID2 string
 
 					BeforeEach(func() {
-						appGUID2 = generateGUID()
+						appGUID2 = uuid.NewString()
 
 						addDestinationsMessage.NewDestinations = []DestinationMessage{
 							{
@@ -1061,7 +1061,7 @@ var _ = Describe("RouteRepository", func() {
 		)
 
 		BeforeEach(func() {
-			destinationGUID = generateGUID()
+			destinationGUID = uuid.NewString()
 
 			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1079,7 +1079,7 @@ var _ = Describe("RouteRepository", func() {
 						GUID: destinationGUID,
 						Port: tools.PtrTo(8000),
 						AppRef: corev1.LocalObjectReference{
-							Name: generateGUID(),
+							Name: uuid.NewString(),
 						},
 						ProcessType: "web",
 						Protocol:    tools.PtrTo("http1"),
@@ -1191,12 +1191,12 @@ var _ = Describe("RouteRepository", func() {
 			When("the route doesn't have any labels or annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					annotationsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 				})
 
@@ -1253,13 +1253,13 @@ var _ = Describe("RouteRepository", func() {
 					})).To(Succeed())
 
 					labelsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					annotationsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 				})
@@ -1308,7 +1308,7 @@ var _ = Describe("RouteRepository", func() {
 			When("an annotation is invalid", func() {
 				BeforeEach(func() {
 					annotationsPatch = map[string]*string{
-						"-bad-annotation": pointerTo("stuff"),
+						"-bad-annotation": tools.PtrTo("stuff"),
 					}
 				})
 
@@ -1326,7 +1326,7 @@ var _ = Describe("RouteRepository", func() {
 			When("a label is invalid", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"-bad-label": pointerTo("stuff"),
+						"-bad-label": tools.PtrTo("stuff"),
 					}
 				})
 

@@ -10,7 +10,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
@@ -110,7 +112,7 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	ctx = context.Background()
-	userName = generateGUID()
+	userName = uuid.NewString()
 	cert, key := testhelpers.ObtainClientCert(testEnv, userName)
 	authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
 	rootNamespace = prefixedGUID("root-ns")
@@ -135,6 +137,33 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 })
+
+type FakeAwaiter[T conditions.RuntimeObjectWithStatusConditions, L any, PL conditions.ObjectList[L]] struct {
+	invocations []struct {
+		obj           client.Object
+		conditionType string
+	}
+}
+
+func (a *FakeAwaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
+	a.invocations = append(a.invocations, struct {
+		obj           client.Object
+		conditionType string
+	}{
+		object,
+		conditionType,
+	})
+
+	return object.(T), nil
+}
+
+func (a *FakeAwaiter[T, L, PL]) AwaitConditionCallCount() int {
+	return len(a.invocations)
+}
+
+func (a *FakeAwaiter[T, L, PL]) AwaitConditionArgsForCall(i int) (client.Object, string) {
+	return a.invocations[i].obj, a.invocations[i].conditionType
+}
 
 func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alpha1.CFOrg {
 	guid := uuid.NewString()
@@ -245,7 +274,7 @@ func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole
 func createRoleBinding(ctx context.Context, userName, roleName, namespace string, labels ...string) rbacv1.RoleBinding {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateGUID(),
+			Name:      uuid.NewString(),
 			Namespace: namespace,
 			Labels:    map[string]string{},
 		},
@@ -265,4 +294,181 @@ func createRoleBinding(ctx context.Context, userName, roleName, namespace string
 
 	Expect(k8sClient.Create(ctx, &roleBinding)).To(Succeed())
 	return roleBinding
+}
+
+func prefixedGUID(prefix string) string {
+	return prefix + "-" + uuid.NewString()[:8]
+}
+
+func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID, spaceGUID, desiredState string) *korifiv1alpha1.CFApp {
+	toReturn := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      appGUID,
+			Namespace: spaceGUID,
+		},
+		Spec: korifiv1alpha1.CFAppSpec{
+			DisplayName:  appName,
+			DesiredState: korifiv1alpha1.DesiredState(desiredState),
+			Lifecycle: korifiv1alpha1.Lifecycle{
+				Type: "buildpack",
+				Data: korifiv1alpha1.LifecycleData{
+					Buildpacks: []string{},
+					Stack:      "",
+				},
+			},
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, toReturn),
+	).To(Succeed())
+	return toReturn
+}
+
+func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildGUID, packageGUID, appGUID string) *korifiv1alpha1.CFBuild {
+	const (
+		stagingMemory = 1024
+		stagingDisk   = 2048
+	)
+
+	record := &korifiv1alpha1.CFBuild{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      buildGUID,
+			Namespace: namespace,
+			Labels: map[string]string{
+				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
+			},
+		},
+		Spec: korifiv1alpha1.CFBuildSpec{
+			PackageRef: corev1.LocalObjectReference{
+				Name: packageGUID,
+			},
+			AppRef: corev1.LocalObjectReference{
+				Name: appGUID,
+			},
+			StagingMemoryMB: stagingMemory,
+			StagingDiskMB:   stagingDisk,
+			Lifecycle: korifiv1alpha1.Lifecycle{
+				Type: "buildpack",
+				Data: korifiv1alpha1.LifecycleData{
+					Buildpacks: []string{},
+					Stack:      "",
+				},
+			},
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, record),
+	).To(Succeed())
+	return record
+}
+
+func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, spaceGUID, appGUID string) *korifiv1alpha1.CFProcess {
+	toReturn := &korifiv1alpha1.CFProcess{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      processGUID,
+			Namespace: spaceGUID,
+			Labels: map[string]string{
+				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
+			},
+		},
+		Spec: korifiv1alpha1.CFProcessSpec{
+			AppRef: corev1.LocalObjectReference{
+				Name: appGUID,
+			},
+			ProcessType: "web",
+			Command:     "",
+			HealthCheck: korifiv1alpha1.HealthCheck{
+				Type: "process",
+				Data: korifiv1alpha1.HealthCheckData{
+					InvocationTimeoutSeconds: 0,
+					TimeoutSeconds:           0,
+				},
+			},
+			DesiredInstances: tools.PtrTo(1),
+			MemoryMB:         500,
+			DiskQuotaMB:      512,
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, toReturn),
+	).To(Succeed())
+	return toReturn
+}
+
+func createDropletCR(ctx context.Context, k8sClient client.Client, dropletGUID, appGUID, spaceGUID string) *korifiv1alpha1.CFBuild {
+	toReturn := &korifiv1alpha1.CFBuild{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dropletGUID,
+			Namespace: spaceGUID,
+		},
+		Spec: korifiv1alpha1.CFBuildSpec{
+			AppRef: corev1.LocalObjectReference{Name: appGUID},
+			Lifecycle: korifiv1alpha1.Lifecycle{
+				Type: "buildpack",
+			},
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, toReturn),
+	).To(Succeed())
+	return toReturn
+}
+
+func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *korifiv1alpha1.CFServiceInstance {
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        serviceInstanceGUID,
+			Namespace:   spaceGUID,
+			Labels:      map[string]string{"a-label": "a-label-value"},
+			Annotations: map[string]string{"an-annotation": "an-annotation-value"},
+		},
+		Spec: korifiv1alpha1.CFServiceInstanceSpec{
+			DisplayName: name,
+			SecretName:  secretName,
+			Type:        "user-provided",
+			Tags:        []string{"database", "mysql"},
+		},
+	}
+	Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
+
+	return serviceInstance
+}
+
+func createServiceBindingCR(ctx context.Context, k8sClient client.Client, serviceBindingGUID, spaceGUID string, name *string, serviceInstanceName, appName string) *korifiv1alpha1.CFServiceBinding {
+	toReturn := &korifiv1alpha1.CFServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceBindingGUID,
+			Namespace: spaceGUID,
+		},
+		Spec: korifiv1alpha1.CFServiceBindingSpec{
+			DisplayName: name,
+			Service: corev1.ObjectReference{
+				Kind:       "ServiceInstance",
+				Name:       serviceInstanceName,
+				APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+			},
+			AppRef: corev1.LocalObjectReference{
+				Name: appName,
+			},
+		},
+	}
+	Expect(
+		k8sClient.Create(ctx, toReturn),
+	).To(Succeed())
+	return toReturn
+}
+
+func initializeAppCreateMessage(appName string, spaceGUID string) repositories.CreateAppMessage {
+	return repositories.CreateAppMessage{
+		Name:      appName,
+		SpaceGUID: spaceGUID,
+		State:     "STOPPED",
+		Lifecycle: repositories.Lifecycle{
+			Type: "buildpack",
+			Data: repositories.LifecycleData{
+				Buildpacks: []string{},
+				Stack:      "cflinuxfs3",
+			},
+		},
+	}
 }
