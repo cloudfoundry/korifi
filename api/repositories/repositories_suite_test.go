@@ -143,6 +143,7 @@ type FakeAwaiter[T conditions.RuntimeObjectWithStatusConditions, L any, PL condi
 		obj           client.Object
 		conditionType string
 	}
+	AwaitConditionStub func(context.Context, client.WithWatch, client.Object, string) (T, error)
 }
 
 func (a *FakeAwaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
@@ -154,7 +155,17 @@ func (a *FakeAwaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient cl
 		conditionType,
 	})
 
-	return object.(T), nil
+	if a.AwaitConditionStub == nil {
+		return object.(T), nil
+	}
+
+	return a.AwaitConditionStub(ctx, k8sClient, object, conditionType)
+}
+
+func (a *FakeAwaiter[T, L, PL]) AwaitConditionReturns(object T, err error) {
+	a.AwaitConditionStub = func(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
+		return object.(T), err
+	}
 }
 
 func (a *FakeAwaiter[T, L, PL]) AwaitConditionCallCount() int {
@@ -471,4 +482,37 @@ func initializeAppCreateMessage(appName string, spaceGUID string) repositories.C
 			},
 		},
 	}
+}
+
+func createApp(space string) *korifiv1alpha1.CFApp {
+	return createAppWithGUID(space, uuid.NewString())
+}
+
+func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
+			Namespace: space,
+			Annotations: map[string]string{
+				CFAppRevisionKey: CFAppRevisionValue,
+			},
+		},
+		Spec: korifiv1alpha1.CFAppSpec{
+			DisplayName:  uuid.NewString(),
+			DesiredState: "STOPPED",
+			Lifecycle: korifiv1alpha1.Lifecycle{
+				Type: "buildpack",
+				Data: korifiv1alpha1.LifecycleData{
+					Buildpacks: []string{"java"},
+				},
+			},
+			CurrentDropletRef: corev1.LocalObjectReference{
+				Name: uuid.NewString(),
+			},
+			EnvSecretName: repositories.GenerateEnvSecretName(guid),
+		},
+	}
+	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+
+	return cfApp
 }
