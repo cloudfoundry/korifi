@@ -58,12 +58,12 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to get "+repositories.AppResourceType)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get "+repositories.AppResourceType)
 	}
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, payload.Relationships.ServiceInstance.Data.GUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to get "+repositories.ServiceInstanceResourceType)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get "+repositories.ServiceInstanceResourceType)
 	}
 
 	if app.SpaceGUID != serviceInstance.SpaceGUID {
