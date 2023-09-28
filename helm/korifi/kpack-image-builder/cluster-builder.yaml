@@ -6,7 +6,7 @@ metadata:
 spec:
   serviceAccountRef:
     name: kpack-service-account
-    namespace: {{ .Values.global.rootNamespace }}
+    namespace: {{ .Values.rootNamespace }}
   sources:
   - image: gcr.io/paketo-buildpacks/java
   - image: gcr.io/paketo-buildpacks/nodejs

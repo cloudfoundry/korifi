@@ -160,7 +160,7 @@ function deploy_korifi() {
       done
 
       host_ip="$(curl -s ipecho.net/plain)"
-      sed -i "s/defaultAppDomainName:.*$/defaultAppDomainName: apps-${host_ip//./-}.nip.io/g" scripts/assets/values.yaml
+      sed -i "s/defaultAppDomainName:.*$/defaultAppDomainName: apps-${host_ip//./-}.nip.io/g" "$values_file"
 
     fi
 
