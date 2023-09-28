@@ -84,5 +84,8 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) Dropl
 	if dropletRecord.DropletErrorMsg != "" {
 		toReturn.Error = &dropletRecord.DropletErrorMsg
 	}
+	if dropletRecord.Lifecycle.Type == "docker" {
+		toReturn.Image = &dropletRecord.Image
+	}
 	return toReturn
 }

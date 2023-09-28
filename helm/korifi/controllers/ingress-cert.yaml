@@ -1,17 +1,17 @@
-{{- if .Values.global.generateIngressCertificates }}
+{{- if .Values.generateIngressCertificates }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: korifi-workloads-ingress-cert
   namespace: {{ .Release.Namespace }}
 spec:
-  {{- if .Values.global.commonName }}
-  commonName: {{ .Values.global.commonName | quote }}
+  {{- if .Values.commonName }}
+  commonName: {{ .Values.commonName | quote }}
   {{- else }}
-  commonName: \*.{{ .Values.global.defaultAppDomainName }}
+  commonName: \*.{{ .Values.defaultAppDomainName }}
   {{- end }}
   dnsNames:
-  - \*.{{ .Values.global.defaultAppDomainName }}
+  - \*.{{ .Values.defaultAppDomainName }}
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer

@@ -27,7 +27,7 @@ const (
 
 // CFPackageSpec defines the desired state of CFPackage
 type CFPackageSpec struct {
-	// The package type. Only "bits" is currently allowed.
+	// The package type. Allowed values are "bits" and "docker".
 	Type PackageType `json:"type"`
 
 	// Reference the CFApp that owns this package. The CFApp must be in the same namespace.
@@ -38,7 +38,7 @@ type CFPackageSpec struct {
 }
 
 // PackageType used to enum the inputs to package.type
-// +kubebuilder:validation:Enum=bits
+// +kubebuilder:validation:Enum=bits;docker
 type PackageType string
 
 type PackageSource struct {

@@ -179,6 +179,16 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 				Expect(updateErr).To(MatchError(ContainSubstring(fmt.Sprintf("App with the name '%s' already exists.", app2Name))))
 			})
 		})
+
+		When("changing the lifecycle type", func() {
+			BeforeEach(func() {
+				app1.Spec.Lifecycle.Type = korifiv1alpha1.LifecycleType("docker")
+			})
+
+			It("should fail", func() {
+				Expect(updateErr).To(MatchError(ContainSubstring("cannot be changed from buildpack to docker")))
+			})
+		})
 	})
 
 	Describe("Delete", func() {
@@ -190,7 +200,7 @@ var _ = Describe("CFAppValidatingWebhook", func() {
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = adminClient.Delete(ctx, app1)
+			deleteErr = adminNonSyncClient.Delete(ctx, app1)
 		})
 
 		It("succeeds", func() {

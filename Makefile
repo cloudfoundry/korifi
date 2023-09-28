@@ -63,14 +63,14 @@ test-e2e: build-dorifi
 	./scripts/run-tests.sh tests/e2e
 
 test-crds: build-dorifi
-	./tests/crds/run-tests.sh
+	./scripts/run-tests.sh tests/crds
 
 test-smoke: build-dorifi
-	./tests/smoke/run-tests.sh
+	./scripts/run-tests.sh tests/smoke
 
 
 build-dorifi:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dorifi/dorifi -C tests/assets/golang .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C tests/assets/golang -o ../dorifi/dorifi .
 
 GOFUMPT = $(shell go env GOPATH)/bin/gofumpt
 install-gofumpt:

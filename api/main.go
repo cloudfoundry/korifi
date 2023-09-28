@@ -128,14 +128,14 @@ func main() {
 		privilegedCRClient,
 		userClientFactory,
 		nsPermissions,
-		createTimeout,
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFOrg, korifiv1alpha1.CFOrgList](createTimeout),
 	)
 	spaceRepo := repositories.NewSpaceRepo(
 		namespaceRetriever,
 		orgRepo,
 		userClientFactory,
 		nsPermissions,
-		createTimeout,
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpaceList](createTimeout),
 	)
 	processRepo := repositories.NewProcessRepo(
 		namespaceRetriever,
@@ -145,13 +145,11 @@ func main() {
 	podRepo := repositories.NewPodRepo(
 		userClientFactory,
 	)
-	cfAppConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp,
-		korifiv1alpha1.CFAppList](createTimeout)
 	appRepo := repositories.NewAppRepo(
 		namespaceRetriever,
 		userClientFactory,
 		nsPermissions,
-		cfAppConditionAwaiter,
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](createTimeout),
 	)
 	dropletRepo := repositories.NewDropletRepo(
 		userClientFactory,
@@ -188,7 +186,7 @@ func main() {
 		nsPermissions,
 		toolsregistry.NewRepositoryCreator(cfg.ContainerRegistryType),
 		cfg.ContainerRepositoryPrefix,
-		createTimeout,
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList](createTimeout),
 	)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
 		namespaceRetriever,

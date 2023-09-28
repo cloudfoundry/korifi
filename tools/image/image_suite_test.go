@@ -2,22 +2,15 @@ package image_test
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
-	"net/http/httptest"
 	"os"
 	"testing"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tests/helpers/oci"
+	"code.cloudfoundry.org/korifi/tools/dockercfg"
 	"code.cloudfoundry.org/korifi/tools/image"
-	"github.com/distribution/distribution/v3/configuration"
-	dcontext "github.com/distribution/distribution/v3/context"
-	_ "github.com/distribution/distribution/v3/registry/auth/htpasswd"
-	"github.com/distribution/distribution/v3/registry/handlers"
-	_ "github.com/distribution/distribution/v3/registry/storage/driver/inmemory"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,17 +36,16 @@ func TestImage(t *testing.T) {
 }
 
 var (
-	imgClient            image.Client
-	k8sClient            client.Client
-	k8sClientset         *kubernetes.Clientset
-	k8sConfig            *rest.Config
-	authRegistryServer   *httptest.Server
-	noAuthRegistryServer *httptest.Server
-	testEnv              *envtest.Environment
-	ctx                  context.Context
-	registries           []registry
-	secretName           string
-	serviceAccountName   string
+	imgClient          image.Client
+	k8sClient          client.Client
+	k8sClientset       *kubernetes.Clientset
+	k8sConfig          *rest.Config
+	containerRegistry  *oci.Registry
+	testEnv            *envtest.Environment
+	ctx                context.Context
+	registries         []registry
+	secretName         string
+	serviceAccountName string
 )
 
 type registry struct {
@@ -75,67 +67,34 @@ var _ = BeforeSuite(func() {
 	k8sConfig, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-	logger.SetOutput(GinkgoWriter)
-	dcontext.SetDefaultLogger(logrus.NewEntry(logger))
-
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClientset, err = kubernetes.NewForConfig(k8sConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	authRegistryServer = httptest.NewServer(handlers.NewApp(ctx, &configuration.Configuration{
-		Auth: configuration.Auth{
-			"htpasswd": configuration.Parameters{
-				"realm": "Registry Realm",
-				"path":  "fixtures/htpasswd", // user:password
-			},
-		},
-		Storage: configuration.Storage{
-			"inmemory": configuration.Parameters{},
-			"delete":   configuration.Parameters{"enabled": true},
-		},
-		Loglevel: "debug",
-	}))
-
-	noAuthRegistryServer = httptest.NewServer(handlers.NewApp(ctx, &configuration.Configuration{
-		Storage: configuration.Storage{
-			"inmemory": configuration.Parameters{},
-			"delete":   configuration.Parameters{"enabled": true},
-		},
-		Loglevel: "debug",
-	}))
+	containerRegistry = oci.NewContainerRegistry("user", "password")
 
 	secretName = testutils.GenerateGUID()
-	dockerConfig := map[string]map[string]any{"auths": {}}
+
+	dockerConfigs := []dockercfg.DockerServerConfig{}
 	for _, reg := range registries {
-		dockerConfig["auths"][reg.Server] = map[string]string{
-			"username": reg.Username,
-			"password": reg.Password,
-			"auth":     base64.StdEncoding.EncodeToString([]byte(reg.Username + ":" + reg.Password)),
-		}
+		dockerConfigs = append(dockerConfigs, dockercfg.DockerServerConfig{
+			Server:   reg.Server,
+			Username: reg.Username,
+			Password: reg.Password,
+		})
 	}
-	dockerConfig["auths"][authRegistryServer.URL] = map[string]string{
-		"username": "user",
-		"password": "password",
-		"auth":     base64.StdEncoding.EncodeToString([]byte("user:password")),
-	}
+	dockerConfigs = append(dockerConfigs, dockercfg.DockerServerConfig{
+		Server:   containerRegistry.URL(),
+		Username: "user",
+		Password: "password",
+	})
 
-	dockerConfigJSON, err := json.Marshal(dockerConfig)
+	dockerSecret, err := dockercfg.CreateDockerConfigSecret("default", secretName, dockerConfigs...)
 	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient.Create(ctx, dockerSecret)).To(Succeed())
 
-	Expect(k8sClient.Create(ctx, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: "default",
-		},
-		Data: map[string][]byte{
-			".dockerconfigjson": dockerConfigJSON,
-		},
-		Type: "kubernetes.io/dockerconfigjson",
-	})).To(Succeed())
 	Eventually(func(g Gomega) {
 		_, getErr := k8sClientset.CoreV1().Secrets("default").Get(ctx, secretName, metav1.GetOptions{})
 		g.Expect(getErr).NotTo(HaveOccurred())
@@ -152,14 +111,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	if authRegistryServer != nil {
-		authRegistryServer.Close()
-	}
-
-	if noAuthRegistryServer != nil {
-		noAuthRegistryServer.Close()
-	}
-
 	if k8sConfig != nil {
 		Expect(testEnv.Stop()).To(Succeed())
 	}

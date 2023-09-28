@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -59,7 +58,7 @@ type OrgRepo struct {
 	privilegedClient  client.WithWatch
 	userClientFactory authorization.UserK8sClientFactory
 	nsPerms           *authorization.NamespacePermissions
-	timeout           time.Duration
+	conditionAwaiter  ConditionAwaiter[*korifiv1alpha1.CFOrg]
 }
 
 func NewOrgRepo(
@@ -67,14 +66,14 @@ func NewOrgRepo(
 	privilegedClient client.WithWatch,
 	userClientFactory authorization.UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
-	timeout time.Duration,
+	conditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFOrg],
 ) *OrgRepo {
 	return &OrgRepo{
 		rootNamespace:     rootNamespace,
 		privilegedClient:  privilegedClient,
 		userClientFactory: userClientFactory,
 		nsPerms:           nsPerms,
-		timeout:           timeout,
+		conditionAwaiter:  conditionAwaiter,
 	}
 }
 
@@ -84,7 +83,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	cfOrg, err := r.createOrgCR(ctx, info, userClient, &korifiv1alpha1.CFOrg{
+	cfOrg := &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        OrgPrefix + uuid.NewString(),
 			Namespace:   r.rootNamespace,
@@ -94,66 +93,19 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 		Spec: korifiv1alpha1.CFOrgSpec{
 			DisplayName: message.Name,
 		},
-	})
+	}
+
+	err = userClient.Create(ctx, cfOrg)
+	if err != nil {
+		return OrgRecord{}, fmt.Errorf("failed to create cf org: %w", apierrors.FromK8sError(err, OrgResourceType))
+	}
+
+	cfOrg, err = r.conditionAwaiter.AwaitCondition(ctx, userClient, cfOrg, StatusConditionReady)
 	if err != nil {
 		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
 	return cfOrgToOrgRecord(*cfOrg), nil
-}
-
-//nolint:dupl
-func (r *OrgRepo) createOrgCR(ctx context.Context,
-	info authorization.Info,
-	userClient client.WithWatch,
-	org *korifiv1alpha1.CFOrg,
-) (*korifiv1alpha1.CFOrg, error) {
-	err := userClient.Create(ctx, org)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cf org: %w", apierrors.FromK8sError(err, OrgResourceType))
-	}
-
-	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)
-	defer cancelFn()
-	watch, err := userClient.Watch(timeoutCtx, &korifiv1alpha1.CFOrgList{},
-		client.InNamespace(org.Namespace),
-		client.MatchingFields{"metadata.name": org.Name},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set up watch on cf org: %w", apierrors.FromK8sError(err, OrgResourceType))
-	}
-
-	conditionReady := false
-	var createdOrg *korifiv1alpha1.CFOrg
-	var conditionNotReadyMessage string
-	for res := range watch.ResultChan() {
-		var ok bool
-		createdOrg, ok = res.Object.(*korifiv1alpha1.CFOrg)
-		if !ok {
-			// should never happen, but avoids panic above
-			continue
-		}
-		if meta.IsStatusConditionTrue(createdOrg.Status.Conditions, StatusConditionReady) {
-			watch.Stop()
-			conditionReady = true
-			break
-		}
-		readyCondition := meta.FindStatusCondition(createdOrg.Status.Conditions, StatusConditionReady)
-		if readyCondition != nil {
-			conditionNotReadyMessage = readyCondition.Message
-		}
-	}
-
-	if !conditionReady {
-		err := fmt.Errorf("cf org did not get Condition `Ready`: 'True' within timeout period %d ms", r.timeout.Milliseconds())
-		if len(conditionNotReadyMessage) > 0 {
-			err = errors.New(conditionNotReadyMessage)
-		}
-
-		return nil, apierrors.NewResourceNotReadyError(err)
-	}
-
-	return createdOrg, nil
 }
 
 func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter ListOrgsMessage) ([]OrgRecord, error) {

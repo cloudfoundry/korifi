@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 func NewCachedClient(cfg *rest.Config) (client.Client, context.CancelFunc) {
@@ -44,12 +46,17 @@ func NewCachedClient(cfg *rest.Config) (client.Client, context.CancelFunc) {
 
 func NewK8sManager(testEnv *envtest.Environment, managerRolePath string) manager.Manager {
 	k8sManager, err := ctrl.NewManager(SetupTestEnvUser(testEnv, managerRolePath), ctrl.Options{
-		Scheme:             scheme.Scheme,
-		Host:               testEnv.WebhookInstallOptions.LocalServingHost,
-		Port:               testEnv.WebhookInstallOptions.LocalServingPort,
-		CertDir:            testEnv.WebhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+		Scheme: scheme.Scheme,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Host:    testEnv.WebhookInstallOptions.LocalServingHost,
+			Port:    testEnv.WebhookInstallOptions.LocalServingPort,
+			CertDir: testEnv.WebhookInstallOptions.LocalServingCertDir,
+		}),
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+
+		LeaderElection: false,
 	})
 	Expect(err).NotTo(HaveOccurred())
 

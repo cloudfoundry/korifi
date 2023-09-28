@@ -32,6 +32,7 @@ func (n Normalizer) Normalize(appInfo payloads.ManifestApplication, appState App
 		NoRoute:    appInfo.NoRoute,
 		Metadata:   appInfo.Metadata,
 		Services:   appInfo.Services,
+		Docker:     appInfo.Docker,
 	}
 }
 
@@ -58,12 +59,12 @@ func fixDeprecatedFields(appInfo *payloads.ManifestApplication) {
 	//lint:ignore SA1019 we have to deal with this deprecation
 	if hasBuildpackSet(appInfo.Buildpack) {
 		//lint:ignore SA1019 we have to deal with this deprecation
-		appInfo.Buildpacks = append(appInfo.Buildpacks, appInfo.Buildpack)
+		appInfo.Buildpacks = append(appInfo.Buildpacks, *appInfo.Buildpack)
 	}
 }
 
-func hasBuildpackSet(buildpack string) bool {
-	return buildpack != "" && buildpack != "default" && buildpack != "null"
+func hasBuildpackSet(buildpack *string) bool {
+	return buildpack != nil && *buildpack != "" && *buildpack != "default" && *buildpack != "null"
 }
 
 func (n Normalizer) normalizeProcesses(appInfo payloads.ManifestApplication, appState AppState) []payloads.ManifestApplicationProcess {

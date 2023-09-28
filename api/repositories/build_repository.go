@@ -195,6 +195,10 @@ func (b *BuildRepo) cfBuildToBuildRecord(authInfo authorization.Info, cfBuild ko
 		Annotations: cfBuild.Annotations,
 	}
 
+	if cfBuild.Spec.Lifecycle.Type == "docker" {
+		toReturn.Lifecycle.Data = LifecycleData{}
+	}
+
 	if cfBuild.Spec.Lifecycle.Data.Buildpacks != nil {
 		toReturn.Lifecycle.Data.Buildpacks = cfBuild.Spec.Lifecycle.Data.Buildpacks
 	}

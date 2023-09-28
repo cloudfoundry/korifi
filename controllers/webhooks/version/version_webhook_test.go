@@ -121,9 +121,6 @@ var _ = Describe("Setting the version annotation", func() {
 						Namespace: orgNamespace,
 						Name:      uuid.NewString(),
 					},
-					Spec: korifiv1alpha1.CFProcessSpec{
-						Ports: []int32{80},
-					},
 				}),
 				createObject(&korifiv1alpha1.CFBuild{
 					ObjectMeta: metav1.ObjectMeta{

@@ -1,13 +1,13 @@
 package smoke_test
 
 import (
-	"bytes"
 	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strings"
 
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+
 	"github.com/cloudfoundry/cf-test-helpers/cf"
 	"github.com/cloudfoundry/cf-test-helpers/generator"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,24 +18,31 @@ import (
 )
 
 var _ = Describe("Smoke Tests", func() {
-	Describe("pushed app", func() {
-		It("is reachable via its route", func() {
-			appResponseShould("/", SatisfyAll(
+	Describe("apps", func() {
+		It("buildpack app is reachable via its route", func() {
+			appResponseShould(buildpackAppName, "/", SatisfyAll(
 				HaveHTTPStatus(http.StatusOK),
 				HaveHTTPBody(ContainSubstring("Hi, I'm Dorifi!")),
+			))
+		})
+
+		It("docker app is reachable via its route", func() {
+			appResponseShould(dockerAppName, "/", SatisfyAll(
+				HaveHTTPStatus(http.StatusOK),
+				HaveHTTPBody(ContainSubstring("Hi, I'm not Dora!")),
 			))
 		})
 	})
 
 	Describe("cf logs", func() {
 		It("prints app logs", func() {
-			Eventually(cf.Cf("logs", appName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
+			Eventually(cf.Cf("logs", buildpackAppName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
 		})
 	})
 
 	Describe("cf run-task", func() {
 		It("succeeds", func() {
-			Eventually(cf.Cf("run-task", appName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
+			Eventually(cf.Cf("run-task", buildpackAppName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
 		})
 	})
 
@@ -47,12 +54,12 @@ var _ = Describe("Smoke Tests", func() {
 				cf.Cf("create-user-provided-service", serviceName, "-p", `{"key1":"value1","key2":"value2"}`),
 			).Should(Exit(0))
 
-			Eventually(cf.Cf("bind-service", appName, serviceName)).Should(Exit(0))
-			Eventually(cf.Cf("restart", appName)).Should(Exit(0))
+			Eventually(cf.Cf("bind-service", buildpackAppName, serviceName)).Should(Exit(0))
+			Eventually(cf.Cf("restart", buildpackAppName)).Should(Exit(0))
 		})
 
 		It("binds the service to the app", func() {
-			appResponseShould("/env.json", SatisfyAll(
+			appResponseShould(buildpackAppName, "/env.json", SatisfyAll(
 				HaveHTTPStatus(http.StatusOK),
 				HaveHTTPBody(
 					MatchJSONPath("$.VCAP_SERVICES", SatisfyAll(
@@ -81,22 +88,14 @@ func printAppReportBanner(announcement string) {
 	fmt.Fprintf(GinkgoWriter, "\n\n%s\n%s\n%s\n", sequence, announcement, sequence)
 }
 
-func loginAs(user string) {
-	// Stdin contains username followed by 2 return carriages. Firtst one
-	// enters the username and second one skips the org selection prompt that
-	// is presented if there is more than one org
-	loginSession := cf.CfWithStdin(bytes.NewBufferString(user+"\n\n"), "login")
-	Eventually(loginSession).Should(Exit(0))
-}
-
-func appResponseShould(requestPath string, matchExpectations types.GomegaMatcher) {
+func appResponseShould(appName, requestPath string, matchExpectations types.GomegaMatcher) {
 	var httpClient http.Client
 	httpClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
 	Eventually(func(g Gomega) {
-		resp, err := httpClient.Get(fmt.Sprintf("%s://%s.%s%s", appRouteProtocol, appName, appsDomain, requestPath))
+		resp, err := httpClient.Get(fmt.Sprintf("https://%s.%s%s", appName, appsDomain, requestPath))
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(resp).To(matchExpectations)
 	}).Should(Succeed())

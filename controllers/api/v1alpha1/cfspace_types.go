@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -78,6 +79,26 @@ type CFSpaceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CFSpace `json:"items"`
+}
+
+func (s CFSpace) StatusConditions() []metav1.Condition {
+	return s.Status.Conditions
+}
+
+func (s *CFSpace) GetStatus() status.NamespaceStatus {
+	return &s.Status
+}
+
+func (s *CFSpaceStatus) GetConditions() *[]metav1.Condition {
+	return &s.Conditions
+}
+
+func (s *CFSpaceStatus) SetGUID(guid string) {
+	s.GUID = guid
+}
+
+func (s *CFSpaceStatus) SetObservedGeneration(generation int64) {
+	s.ObservedGeneration = generation
 }
 
 func init() {

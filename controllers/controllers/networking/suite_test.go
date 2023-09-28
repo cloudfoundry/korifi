@@ -20,7 +20,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,20 +39,20 @@ var (
 	stopClientCache context.CancelFunc
 	testEnv         *envtest.Environment
 	adminClient     client.Client
-	logOutput       *gbytes.Buffer
 )
 
 func TestNetworkingControllers(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
+	SetDefaultConsistentlyDuration(5 * time.Second)
+	SetDefaultConsistentlyPollingInterval(250 * time.Millisecond)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Networking Controllers Integration Suite")
 }
 
 var _ = BeforeSuite(func() {
-	logOutput = gbytes.NewBuffer()
-	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
@@ -103,6 +102,7 @@ var _ = BeforeSuite(func() {
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	(&workloads.AppRevWebhook{}).SetupWebhookWithManager(k8sManager)
 	Expect(workloads.NewCFAppValidator(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.AppEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
@@ -113,6 +113,7 @@ var _ = BeforeSuite(func() {
 		rootNamespace,
 		k8sManager.GetClient(),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect(adminClient.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

@@ -147,13 +147,15 @@ function deploy_korifi() {
 
       VERSION=$(git describe --tags | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}')
 
+      values_file="$(mktemp)"
+      trap "rm -f $values_file" RETURN
       "${ROOT_DIR}/bin/yq" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
         kbld \
           --images-annotation=false \
-          -f "scripts/assets/values-template.yaml" \
-          -f - >"scripts/assets/values.yaml"
+          -f "${ROOT_DIR}/helm/korifi/values.yaml" \
+          -f - >"$values_file"
 
-      awk '/image:/ {print $2}' scripts/assets/values.yaml | while read -r img; do
+      awk '/image:/ {print $2}' "$values_file" | while read -r img; do
         kind load docker-image --name "$CLUSTER_NAME" "$img"
       done
 
@@ -170,11 +172,20 @@ function deploy_korifi() {
     logcacheUrl="logcache.$clusterDomain"
     helm upgrade --install korifi helm/korifi \
       --namespace korifi \
-      --values=scripts/assets/values.yaml \
-      --set=global.debug="$DEBUG" \
+      --values="$values_file" \
+      --set=adminUserName="cf-admin" \
+      --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
+      --set=generateIngressCertificates="true" \
+      --set=logLevel="debug" \
+      --set=debug="$DEBUG" \
+      --set=stagingRequirements.buildCacheMB="1024" \
       --set=api.apiServer.url="$apiServerUrl" \
       --set=api.logcache.url="$logcacheUrl" \
-      --set=global.containerRepositoryPrefix="$REPOSITORY_PREFIX" \
+      --set=controllers.taskTTL="5s" \
+      --set=jobTaskRunner.jobTTL="5s" \
+      --set=containerRepositoryPrefix="$REPOSITORY_PREFIX" \
+      --set=kpackImageBuilder.clusterStackBuildImage="paketobuildpacks/build-jammy-base" \
+      --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
       --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
       --wait
   }

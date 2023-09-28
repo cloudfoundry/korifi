@@ -52,7 +52,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: korifi-api-system-role
-  namespace: '{{ .Values.global.rootNamespace }}'
+  namespace: '{{ .Values.rootNamespace }}'
 rules:
   - apiGroups:
       - ""

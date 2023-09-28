@@ -35,15 +35,19 @@ const (
 type Destination struct {
 	// A unique identifier for this route destination. Required to support CF V3 Destination endpoints
 	GUID string `json:"guid"`
-	// The port to use for the destination. Port is optional, and defaults to ProcessModel::DEFAULT_HTTP_PORT
-	Port int `json:"port,omitempty"`
+	// The port to use for the destination. Port is optional, and defaults to
+	// either the droplet port, or 8080 if no ports are available in the
+	// droplet
+	//+kubebuilder:validation:Optional
+	Port *int `json:"port,omitempty"`
 	// A required reference to the CFApp that will receive traffic. The CFApp must be in the same namespace
 	AppRef v1.LocalObjectReference `json:"appRef"`
 	// The process type on the CFApp app which will receive traffic
 	ProcessType string `json:"processType"`
-	// Protocol is required, must be "http1"
+	// Protocol is optional, when set must be "http1"
 	// +kubebuilder:validation:Enum=http1
-	Protocol string `json:"protocol"`
+	//+kubebuilder:validation:Optional
+	Protocol *string `json:"protocol,omitempty"`
 }
 
 // Protocol defines the transport protocol of the route

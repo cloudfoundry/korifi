@@ -36,8 +36,8 @@ type routeDestination struct {
 	GUID     string              `json:"guid"`
 	App      routeDestinationApp `json:"app"`
 	Weight   *int                `json:"weight"`
-	Port     int                 `json:"port"`
-	Protocol string              `json:"protocol"`
+	Port     *int                `json:"port"`
+	Protocol *string             `json:"protocol"`
 }
 
 type routeDestinationApp struct {

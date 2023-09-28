@@ -176,7 +176,7 @@ var _ = Describe("CFOrgValidatingWebhook", func() {
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = adminClient.Delete(ctx, org1)
+			deleteErr = adminNonSyncClient.Delete(ctx, org1)
 		})
 
 		It("succeeds", func() {

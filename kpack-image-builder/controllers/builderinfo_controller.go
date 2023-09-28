@@ -107,7 +107,7 @@ func (r *BuilderInfoReconciler) filterBuilderInfos(object client.Object) bool {
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
 
 func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *korifiv1alpha1.BuilderInfo) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", info.Namespace, "name", info.Name)
+	log := logr.FromContextOrDiscard(ctx)
 
 	info.Status.ObservedGeneration = info.Generation
 	log.V(1).Info("set observed generation", "generation", info.Status.ObservedGeneration)

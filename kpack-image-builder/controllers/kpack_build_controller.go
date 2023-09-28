@@ -67,8 +67,7 @@ func (c KpackBuildController) SetupWithManager(mgr manager.Manager) *ctrl.Builde
 //+kubebuilder:rbac:groups=kpack.io,resources=builds/finalizers,verbs=get;patch
 
 func (c KpackBuildController) ReconcileResource(ctx context.Context, kpackBuild *kpackv1alpha2.Build) (ctrl.Result, error) {
-	log := c.log.WithValues("namespace", kpackBuild.Namespace, "name", kpackBuild.Name, "deletionTimestamp", kpackBuild.DeletionTimestamp)
-	log.Info("in finalizer")
+	log := logr.FromContextOrDiscard(ctx)
 
 	if !kpackBuild.GetDeletionTimestamp().IsZero() {
 		if !controllerutil.ContainsFinalizer(kpackBuild, KpackBuildFinalizer) {

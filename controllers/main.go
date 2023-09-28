@@ -63,6 +63,8 @@ import (
 	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -133,9 +135,13 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(conf, ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: 9443,
+		}),
+		Metrics: metricsserver.Options{
+			BindAddress: metricsAddr,
+		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "13c200ec.cloudfoundry.org",
@@ -146,6 +152,8 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
+		imageClient := image.NewClient(k8sClient)
+
 		if err = (workloadscontrollers.NewCFAppReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
@@ -157,15 +165,27 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (workloadscontrollers.NewCFBuildReconciler(
+		buildCleaner := cleanup.NewBuildCleaner(mgr.GetClient(), controllerConfig.MaxRetainedBuildsPerApp)
+		if err = (workloadscontrollers.NewCFBuildpackBuildReconciler(
 			mgr.GetClient(),
-			cleanup.NewBuildCleaner(mgr.GetClient(), controllerConfig.MaxRetainedBuildsPerApp),
+			buildCleaner,
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFBuild"),
+			ctrl.Log.WithName("controllers").WithName("CFBuildpackBuild"),
 			controllerConfig,
 			env.NewWorkloadEnvBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "CFBuild")
+			setupLog.Error(err, "unable to create controller", "controller", "CFBuildpackBuild")
+			os.Exit(1)
+		}
+
+		if err = (workloadscontrollers.NewCFDockerBuildReconciler(
+			mgr.GetClient(),
+			buildCleaner,
+			imageClient,
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFDockerBuild")
 			os.Exit(1)
 		}
 
@@ -173,7 +193,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFPackage"),
-			image.NewClient(k8sClient),
+			imageClient,
 			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
 			controllerConfig.ContainerRegistrySecretNames,
 		)).SetupWithManager(mgr); err != nil {
@@ -229,7 +249,6 @@ func main() {
 
 		if err = workloadscontrollers.NewCFOrgReconciler(
 			mgr.GetClient(),
-			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFOrg"),
 			controllerConfig.ContainerRegistrySecretNames,
 			labelCompiler,
@@ -240,7 +259,6 @@ func main() {
 
 		if err = workloadscontrollers.NewCFSpaceReconciler(
 			mgr.GetClient(),
-			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
 			controllerConfig.ContainerRegistrySecretNames,
 			controllerConfig.CFRootNamespace,
@@ -299,7 +317,7 @@ func main() {
 				mgr.GetScheme(),
 				ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
 				controllerConfig,
-				image.NewClient(k8sClient),
+				imageClient,
 				controllerConfig.ContainerRepositoryPrefix,
 				registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
 				builderReadinessTimeout,
@@ -322,7 +340,7 @@ func main() {
 			if err = controllers.NewKpackBuildController(
 				mgr.GetClient(),
 				ctrl.Log.WithName("kpack-image-builder").WithName("KpackBuild"),
-				image.NewClient(k8sClient),
+				imageClient,
 				controllerConfig.BuilderServiceAccount,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "KpackBuild")
@@ -487,6 +505,11 @@ func main() {
 
 		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
 		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
+
+		if err = workloads.NewCFPackageValidator().SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
+			os.Exit(1)
+		}
 
 		if controllerConfig.IncludeStatefulsetRunner {
 			if err = statesetfulrunnerv1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {

@@ -89,12 +89,12 @@ func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Bui
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 
 func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload) (ctrl.Result, error) {
-	logger := r.logger.WithValues("namespace", taskWorkload.Namespace, "name", taskWorkload.Name)
+	log := logr.FromContextOrDiscard(ctx)
 
 	taskWorkload.Status.ObservedGeneration = taskWorkload.Generation
-	logger.V(1).Info("set observed generation", "generation", taskWorkload.Status.ObservedGeneration)
+	log.V(1).Info("set observed generation", "generation", taskWorkload.Status.ObservedGeneration)
 
-	job, err := r.getOrCreateJob(ctx, logger, taskWorkload)
+	job, err := r.getOrCreateJob(ctx, log, taskWorkload)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -104,7 +104,7 @@ func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWork
 	}
 
 	if err = r.updateTaskWorkloadStatus(ctx, taskWorkload, job); err != nil {
-		logger.Info("failed to update task workload status", "reason", err)
+		log.Info("failed to update task workload status", "reason", err)
 		return ctrl.Result{}, err
 	}
 

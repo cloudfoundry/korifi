@@ -55,11 +55,6 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 			Expect(adminClient.Create(ctx, cfRoute)).To(Succeed())
 		})
 
-		AfterEach(func() {
-			Expect(adminClient.Delete(ctx, cfRoute)).To(Succeed())
-			Expect(adminClient.Delete(ctx, cfDomain)).To(Succeed())
-		})
-
 		It("adds labels with guids of the domain and route", func() {
 			Expect(cfRoute.Labels).To(HaveKeyWithValue(cfDomainLabelKey, cfDomain.Name))
 			Expect(cfRoute.Labels).To(HaveKeyWithValue(cfRouteLabelKey, cfRoute.Name))

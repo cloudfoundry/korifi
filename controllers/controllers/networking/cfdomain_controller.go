@@ -59,8 +59,7 @@ func (r *CFDomainReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update
 
 func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfDomain)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	if !cfDomain.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFDomain(ctx, cfDomain)

@@ -110,4 +110,56 @@ var _ = Describe("Package", func() {
 			Expect(output).To(MatchJSONPath("$.metadata.annotations", Not(BeNil())))
 		})
 	})
+
+	When("the package type is docker", func() {
+		BeforeEach(func() {
+			record.Type = "docker"
+			record.ImageRef = "some/image"
+			record.State = "READY"
+		})
+
+		It("produces the expected json", func() {
+			Expect(output).To(MatchJSON(`{
+			"guid": "the-package-guid",
+			"type": "docker",
+			"data": {
+				"image": "some/image"
+			},
+			"state": "READY",
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
+			"relationships": {
+				"app": {
+					"data": {
+						"guid": "the-app-guid"
+					}
+				}
+			},
+			"links": {
+				"self": {
+					"href": "https://api.example.org/v3/packages/the-package-guid"
+				},
+				"upload": {
+					"href": "https://api.example.org/v3/packages/the-package-guid/upload",
+					"method": "POST"
+				},
+				"download": {
+					"href": "https://api.example.org/v3/packages/the-package-guid/download",
+					"method": "GET"
+				},
+				"app": {
+					"href": "https://api.example.org/v3/apps/the-app-guid"
+				}
+			},
+			"metadata": {
+				"labels": {
+					"foo": "bar"
+				},
+				"annotations": {
+					"baz": "fof"
+				}
+			}
+		}`))
+		})
+	})
 })

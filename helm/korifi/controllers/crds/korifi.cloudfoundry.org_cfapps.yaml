@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.13.0
   name: cfapps.korifi.cloudfoundry.org
 spec:
   group: korifi.cloudfoundry.org
@@ -90,10 +90,11 @@ spec:
                     - stack
                     type: object
                   type:
-                    description: The CF Lifecycle type. Only "buildpack" is currently
-                      allowed
+                    description: The CF Lifecycle type. Only "buildpack" and "docker"
+                      are currently allowed
                     enum:
                     - buildpack
+                    - docker
                     type: string
                 required:
                 - data

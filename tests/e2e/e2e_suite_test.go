@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,16 +12,15 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
+	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -38,29 +38,19 @@ import (
 var (
 	correlationId string
 
-	adminClient                      *helpers.CorrelatedRestyClient
-	certClient                       *helpers.CorrelatedRestyClient
-	tokenClient                      *helpers.CorrelatedRestyClient
-	unprivilegedServiceAccountClient *helpers.CorrelatedRestyClient
-	longCertClient                   *helpers.CorrelatedRestyClient
-	apiServerRoot                    string
-	serviceAccountName               string
-	serviceAccountToken              string
-	unprivilegedServiceAccountName   string
-	unprivilegedServiceAccountToken  string
-	certUserName                     string
-	certPEM                          string
-	longCertUserName                 string
-	longCertPEM                      string
-	rootNamespace                    string
-	appFQDN                          string
-	commonTestOrgGUID                string
-	commonTestOrgName                string
-	assetsTmpDir                     string
-	clusterVersionMinor              int
-	clusterVersionMajor              int
-	defaultAppBitsFile               string
-	multiProcessAppBitsFile          string
+	serviceAccountFactory *helpers.ServiceAccountFactory
+	adminServiceAccount   string
+	adminClient           *helpers.CorrelatedRestyClient
+
+	apiServerRoot string
+
+	rootNamespace           string
+	appFQDN                 string
+	commonTestOrgGUID       string
+	commonTestOrgName       string
+	assetsTmpDir            string
+	defaultAppBitsFile      string
+	multiProcessAppBitsFile string
 )
 
 type resource struct {
@@ -123,6 +113,15 @@ type typedResource struct {
 	Metadata *metadata `json:"metadata,omitempty"`
 }
 
+type packageResource struct {
+	typedResource `json:",inline"`
+	Data          *packageData `json:"data,omitempty"`
+}
+
+type packageData struct {
+	Image string `json:"image"`
+}
+
 type metadata struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -173,6 +172,11 @@ type applicationResource struct {
 	Metadata     metadata                             `yaml:"metadata,omitempty"`
 	Buildpacks   []string                             `yaml:"buildpacks"`
 	Services     []serviceResource                    `yaml:"services"`
+	Docker       dockerResource                       `yaml:"docker,omitempty"`
+}
+
+type dockerResource struct {
+	Image string `yaml:"image"`
 }
 
 type serviceResource struct {
@@ -248,6 +252,7 @@ type lifecycle struct {
 
 type lifecycleData struct {
 	Buildpacks []string `json:"buildpacks"`
+	Stack      string   `json:"stack"`
 }
 
 type cfErrs struct {
@@ -277,8 +282,8 @@ type cfErr struct {
 }
 
 func TestE2E(t *testing.T) {
-	RegisterFailHandler(fail_handler.New("E2E Tests", map[types.GomegaMatcher]func(*rest.Config){
-		fail_handler.Always: func(config *rest.Config) {
+	RegisterFailHandler(fail_handler.New("E2E Tests", map[types.GomegaMatcher]func(*rest.Config, string){
+		fail_handler.Always: func(config *rest.Config, _ string) {
 			fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
 				{
 					Namespace:     systemNamespace(),
@@ -295,10 +300,10 @@ func TestE2E(t *testing.T) {
 				},
 			})
 		},
-		ContainSubstring("Droplet not found"): func(config *rest.Config) {
-			printDropletNotFoundDebugInfo(config)
+		ContainSubstring("Droplet not found"): func(config *rest.Config, message string) {
+			printDropletNotFoundDebugInfo(config, message)
 		},
-		ContainSubstring("404"): func(config *rest.Config) {
+		ContainSubstring("404"): func(config *rest.Config, _ string) {
 			printAllRoleBindings(config)
 		},
 	}))
@@ -306,17 +311,24 @@ func TestE2E(t *testing.T) {
 }
 
 type sharedSetupData struct {
-	CommonOrgName           string `json:"commonOrgName"`
-	CommonOrgGUID           string `json:"commonOrgGuid"`
-	DefaultAppBitsFile      string `json:"defaultAppBitsFile"`
-	MultiProcessAppBitsFile string `json:"multiProcessAppBitsFile"`
+	CommonOrgName            string `json:"commonOrgName"`
+	CommonOrgGUID            string `json:"commonOrgGuid"`
+	DefaultAppBitsFile       string `json:"defaultAppBitsFile"`
+	MultiProcessAppBitsFile  string `json:"multiProcessAppBitsFile"`
+	AdminServiceAccount      string `json:"admin_service_account"`
+	AdminServiceAccountToken string `json:"admin_service_account_token"`
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestSetup()
+
+	adminServiceAccount = uuid.NewString()
+	adminServiceAccountToken := serviceAccountFactory.CreateAdminServiceAccount(adminServiceAccount)
+
+	adminClient = makeTokenClient(adminServiceAccountToken)
+
 	commonTestOrgName = generateGUID("common-test-org")
 	commonTestOrgGUID = createOrg(commonTestOrgName)
-	createOrgRole("organization_user", certUserName, commonTestOrgGUID)
 
 	var err error
 	assetsTmpDir, err = os.MkdirTemp("", "e2e-test-assets")
@@ -329,8 +341,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
 		// with a different app in these environments.
 		// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-		DefaultAppBitsFile:      zipAsset(helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
-		MultiProcessAppBitsFile: zipAsset("../assets/multi-process"),
+		DefaultAppBitsFile:       zipAsset(helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
+		MultiProcessAppBitsFile:  zipAsset("../assets/multi-process"),
+		AdminServiceAccount:      adminServiceAccount,
+		AdminServiceAccountToken: adminServiceAccountToken,
 	}
 
 	bs, err := json.Marshal(sharedData)
@@ -338,6 +352,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	return bs
 }, func(bs []byte) {
+	commonTestSetup()
+
 	var sharedSetup sharedSetupData
 	err := json.Unmarshal(bs, &sharedSetup)
 	Expect(err).NotTo(HaveOccurred())
@@ -346,46 +362,45 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgName = sharedSetup.CommonOrgName
 	defaultAppBitsFile = sharedSetup.DefaultAppBitsFile
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
+	adminServiceAccount = sharedSetup.AdminServiceAccount
+	adminClient = makeTokenClient(sharedSetup.AdminServiceAccountToken)
 
-	eventuallyTimeoutSeconds := 240
-	customEventuallyTimeoutSeconds := os.Getenv("E2E_EVENTUALLY_TIMEOUT_SECONDS")
-	if customEventuallyTimeoutSeconds != "" {
-		eventuallyTimeoutSeconds, err = strconv.Atoi(customEventuallyTimeoutSeconds)
-		Expect(err).NotTo(HaveOccurred())
-	}
-	SetDefaultEventuallyTimeout(time.Duration(eventuallyTimeoutSeconds) * time.Second)
+	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
 	SetDefaultEventuallyPollingInterval(2 * time.Second)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	commonTestSetup()
 })
 
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
 	os.RemoveAll(assetsTmpDir)
 	deleteOrg(commonTestOrgGUID)
+	serviceAccountFactory.DeleteServiceAccount(adminServiceAccount)
 })
 
 var _ = BeforeEach(func() {
 	correlationId = uuid.NewString()
 })
 
-func makeClient(certEnvVar, tokenEnvVar string) *helpers.CorrelatedRestyClient {
+func makeCertClientForUserName(userName string, validFor time.Duration) *helpers.CorrelatedRestyClient {
 	GinkgoHelper()
 
-	cert := os.Getenv(certEnvVar)
-	if cert != "" {
-		return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(cert).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	disallowed, found := os.LookupEnv("CSR_SIGNING_DISALLOWED")
+	if found && disallowed == "true" {
+		Skip("CSR singing is not allowed on this environment")
 	}
 
-	token := os.Getenv(tokenEnvVar)
-	if token != "" {
-		return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(token).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	}
+	return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).
+		SetAuthScheme("ClientCert").
+		SetAuthToken(base64.StdEncoding.EncodeToString(helpers.CreateTrustedCertificatePEM(userName, validFor))).
+		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+}
 
-	Fail(fmt.Sprintf("One of %q or %q should have a value, but they are both empty", certEnvVar, tokenEnvVar))
-	return nil
+func makeTokenClient(token string) *helpers.CorrelatedRestyClient {
+	return helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).
+		SetAuthScheme("Bearer").
+		SetAuthToken(token).
+		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 }
 
 func ensureServerIsUp() {
@@ -533,11 +548,7 @@ func asyncCreateSpace(spaceName, orgGUID string, createdSpaceGUID *string, wg *s
 	}()
 }
 
-// createRole creates an org or space role
-// You should probably invoke this via createOrgRole or createSpaceRole
-func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
-	GinkgoHelper()
-
+func createRoleRaw(roleName, orgSpaceType, userName, orgSpaceGUID string) (string, error) {
 	rolesURL := apiServerRoot + "/v3/roles"
 
 	payload := typedResource{
@@ -557,11 +568,25 @@ func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
 		SetResult(&createdRole).
 		SetError(&resultErr).
 		Post(rolesURL)
+	if err != nil {
+		return "", err
+	}
 
+	if resp.StatusCode() != http.StatusCreated {
+		return "", fmt.Errorf("Failed to create %s role %q for user %q in %s %q; status code %d; response: %q", orgSpaceType, roleName, userName, orgSpaceType, orgSpaceGUID, resp.StatusCode(), string(resp.Body()))
+	}
+
+	return createdRole.GUID, nil
+}
+
+// createRole creates an org or space role
+// You should probably invoke this via createOrgRole or createSpaceRole
+func createRole(roleName, orgSpaceType, userName, orgSpaceGUID string) string {
+	GinkgoHelper()
+
+	roleGuid, err := createRoleRaw(roleName, orgSpaceType, userName, orgSpaceGUID)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-
-	return createdRole.GUID
+	return roleGuid
 }
 
 func createOrgRole(roleName, userName, orgGUID string) string {
@@ -576,31 +601,33 @@ func createSpaceRole(roleName, userName, spaceGUID string) string {
 	return createRole(roleName, "space", userName, spaceGUID)
 }
 
-func createApp(spaceGUID, name string) string {
+func createBuildpackApp(spaceGUID, name string) string {
 	GinkgoHelper()
 
-	var app resource
+	return createApp(appResource{
+		resource: resource{
+			Name:          name,
+			Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
+		},
+	})
+}
+
+func createApp(app appResource) string {
+	GinkgoHelper()
+
+	var result resource
 
 	resp, err := adminClient.R().
-		SetBody(appResource{
-			resource: resource{
-				Name:          name,
-				Relationships: relationships{"space": {Data: resource{GUID: spaceGUID}}},
-			},
-		}).
-		SetResult(&app).
+		SetBody(app).
+		SetResult(&result).
 		Post("/v3/apps")
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-	Expect(app.GUID).NotTo(BeEmpty())
-	Expect(app.Name).To(Equal(name))
-	Expect(app.CreatedAt).NotTo(BeEmpty())
-	Expect(app.Relationships).NotTo(BeNil())
-	Expect(app.Relationships).To(HaveKey("space"))
-	Expect(app.Relationships["space"].Data.GUID).To(Equal(spaceGUID))
+	Expect(result.GUID).NotTo(BeEmpty())
+	Expect(result.Name).To(Equal(app.Name))
 
-	return app.GUID
+	return result.GUID
 }
 
 func setEnv(appName string, envVars map[string]interface{}) {
@@ -731,40 +758,6 @@ func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
 	return serviceCredentialBinding.GUID
 }
 
-func addServiceBindingLabels(bindingGUID string, labels map[string]string) {
-	GinkgoHelper()
-
-	addLabels("/v3/service_credential_bindings/"+bindingGUID, labels)
-}
-
-func addServiceInstanceLabels(serviceInstanceGUID string, labels map[string]string) {
-	GinkgoHelper()
-
-	addLabels("/v3/service_instances/"+serviceInstanceGUID, labels)
-}
-
-func addAppLabels(appGUID string, labels map[string]string) {
-	GinkgoHelper()
-
-	addLabels("/v3/apps/"+appGUID, labels)
-}
-
-func addLabels(resourcePath string, labels map[string]string) {
-	GinkgoHelper()
-
-	var respResource responseResource
-	resp, err := adminClient.R().
-		SetBody(metadataResource{
-			Metadata: &metadataPatch{
-				Labels: &labels,
-			},
-		}).
-		SetResult(&respResource).
-		Patch(resourcePath)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-}
-
 func getServiceBindingsForApp(appGUID string) []resource {
 	GinkgoHelper()
 
@@ -779,26 +772,32 @@ func getServiceBindingsForApp(appGUID string) []resource {
 	return serviceBindings.Resources
 }
 
-func createPackage(appGUID string) string {
+func createBitsPackage(appGUID string) string {
 	GinkgoHelper()
 
-	var pkg resource
-	resp, err := adminClient.R().
-		SetBody(typedResource{
+	return createPackage(appGUID, packageResource{
+		typedResource: typedResource{
 			Type: "bits",
 			resource: resource{
 				Relationships: relationships{
 					"app": relationship{Data: resource{GUID: appGUID}},
 				},
 			},
-		}).
-		SetResult(&pkg).
+		},
+	})
+}
+
+func createPackage(appGUID string, pkg packageResource) string {
+	var result resource
+	resp, err := adminClient.R().
+		SetBody(pkg).
+		SetResult(&result).
 		Post("/v3/packages")
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 
-	return pkg.GUID
+	return result.GUID
 }
 
 func createBuild(packageGUID string) string {
@@ -926,7 +925,7 @@ func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
 	GinkgoHelper()
 
 	appGUID := createAppViaManifest(spaceGUID, appName)
-	pkgGUID := createPackage(appGUID)
+	pkgGUID := createBitsPackage(appGUID)
 	uploadTestApp(pkgGUID, appBitsFile)
 	buildGUID := createBuild(pkgGUID)
 	waitForDroplet(buildGUID)
@@ -1046,71 +1045,15 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 	return destinationGUIDs
 }
 
-func expectNotFoundError(resp *resty.Response, errResp cfErrs, resource string) {
-	GinkgoHelper()
-
-	Expect(resp.StatusCode()).To(Equal(http.StatusNotFound))
-	Expect(errResp.Errors).To(ConsistOf(
-		cfErr{
-			Detail: resource + " not found. Ensure it exists and you have access to it.",
-			Title:  "CF-ResourceNotFound",
-			Code:   10010,
-		},
-	))
-}
-
-func expectForbiddenError(resp *resty.Response, errResp cfErrs) {
-	GinkgoHelper()
-
-	Expect(resp.StatusCode()).To(Equal(http.StatusForbidden))
-	Expect(errResp.Errors).To(ConsistOf(
-		cfErr{
-			Detail: "You are not authorized to perform the requested action",
-			Title:  "CF-NotAuthorized",
-			Code:   10003,
-		},
-	))
-}
-
-func expectUnprocessableEntityError(resp *resty.Response, errResp cfErrs, detail string) {
-	GinkgoHelper()
-
-	Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-	Expect(errResp.Errors).To(ConsistOf(
-		cfErr{
-			Detail: detail,
-			Title:  "CF-UnprocessableEntity",
-			Code:   10008,
-		},
-	))
-}
-
 func commonTestSetup() {
 	apiServerRoot = helpers.GetRequiredEnvVar("API_SERVER_ROOT")
 	rootNamespace = helpers.GetRequiredEnvVar("ROOT_NAMESPACE")
-	serviceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT"))
-	serviceAccountToken = helpers.GetRequiredEnvVar("E2E_SERVICE_ACCOUNT_TOKEN")
-	unprivilegedServiceAccountName = fmt.Sprintf("system:serviceaccount:%s:%s", rootNamespace, helpers.GetRequiredEnvVar("E2E_UNPRIVILEGED_SERVICE_ACCOUNT"))
-	unprivilegedServiceAccountToken = helpers.GetRequiredEnvVar("E2E_UNPRIVILEGED_SERVICE_ACCOUNT_TOKEN")
-
-	certUserName = helpers.GetRequiredEnvVar("E2E_USER_NAME")
-	certPEM = os.Getenv("E2E_USER_PEM")
-
-	longCertUserName = helpers.GetRequiredEnvVar("E2E_LONGCERT_USER_NAME")
-	longCertPEM = os.Getenv("E2E_LONGCERT_USER_PEM")
 
 	appFQDN = helpers.GetRequiredEnvVar("APP_FQDN")
 
-	clusterVersionMinor, _ = strconv.Atoi(helpers.GetRequiredEnvVar("CLUSTER_VERSION_MINOR"))
-	clusterVersionMajor, _ = strconv.Atoi(helpers.GetRequiredEnvVar("CLUSTER_VERSION_MAJOR"))
-
 	ensureServerIsUp()
 
-	adminClient = makeClient("CF_ADMIN_PEM", "CF_ADMIN_TOKEN")
-	certClient = makeClient("E2E_USER_PEM", "E2E_USER_TOKEN")
-	tokenClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(serviceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	unprivilegedServiceAccountClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthToken(unprivilegedServiceAccountToken).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	longCertClient = helpers.NewCorrelatedRestyClient(apiServerRoot, getCorrelationId).SetAuthScheme("ClientCert").SetAuthToken(longCertPEM).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	serviceAccountFactory = helpers.NewServiceAccountFactory(rootNamespace)
 }
 
 func zipAsset(src string) string {
@@ -1179,7 +1122,7 @@ func getCorrelationId() string {
 	return correlationId
 }
 
-func printDropletNotFoundDebugInfo(config *rest.Config) {
+func printDropletNotFoundDebugInfo(config *rest.Config, message string) {
 	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet not found debug log (start) ==========\n")
 
 	fmt.Fprint(GinkgoWriter, "\n========== Kpack logs ==========\n")
@@ -1196,7 +1139,7 @@ func printDropletNotFoundDebugInfo(config *rest.Config) {
 		},
 	})
 
-	dropletGUID, err := getDropletGUID(CurrentSpecReport().FailureMessage())
+	dropletGUID, err := getDropletGUID(message)
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "Failed to get droplet GUID from message %v\n", err)
 		return

@@ -3,19 +3,21 @@ package repositories_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,81 +25,66 @@ import (
 
 var _ = Describe("SpaceRepository", func() {
 	var (
-		orgRepo   *repositories.OrgRepo
+		orgRepo          *repositories.OrgRepo
+		conditionAwaiter *FakeAwaiter[
+			*korifiv1alpha1.CFSpace,
+			korifiv1alpha1.CFSpaceList,
+			*korifiv1alpha1.CFSpaceList,
+		]
 		spaceRepo *repositories.SpaceRepo
 	)
 
 	BeforeEach(func() {
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
-		spaceRepo = repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, time.Millisecond*2000)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &FakeAwaiter[
+			*korifiv1alpha1.CFOrg,
+			korifiv1alpha1.CFOrgList,
+			*korifiv1alpha1.CFOrgList,
+		]{})
+
+		conditionAwaiter = &FakeAwaiter[
+			*korifiv1alpha1.CFSpace,
+			korifiv1alpha1.CFSpaceList,
+			*korifiv1alpha1.CFSpaceList,
+		]{}
+		spaceRepo = repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, conditionAwaiter)
 	})
 
 	Describe("CreateSpace", func() {
 		var (
-			createErr                   error
-			orgGUID                     string
-			spaceName                   string
-			space                       repositories.SpaceRecord
-			doSpaceControllerSimulation bool
-			conditionStatus             metav1.ConditionStatus
-			conditionMessage            string
+			createErr        error
+			orgGUID          string
+			spaceName        string
+			spaceRecord      repositories.SpaceRecord
+			conditionStatus  metav1.ConditionStatus
+			conditionMessage string
 		)
 
-		waitForCFSpace := func(anchorNamespace string, spaceName string, done chan bool) (*korifiv1alpha1.CFSpace, error) {
-			for {
-				select {
-				case <-done:
-					return nil, fmt.Errorf("waitForCFSpace was 'signalled' to stop polling")
-				default:
-				}
-
-				var spaceList korifiv1alpha1.CFSpaceList
-				err := k8sClient.List(ctx, &spaceList, client.InNamespace(anchorNamespace))
-				if err != nil {
-					return nil, fmt.Errorf("waitForCFSpace failed")
-				}
-
-				var matches []korifiv1alpha1.CFSpace
-				for _, space := range spaceList.Items {
-					if space.Spec.DisplayName == spaceName {
-						matches = append(matches, space)
-					}
-				}
-				if len(matches) > 1 {
-					return nil, fmt.Errorf("waitForCFSpace found multiple anchors")
-				}
-
-				if len(matches) == 1 {
-					return &matches[0], nil
-				}
-
-				time.Sleep(time.Millisecond * 100)
-			}
-		}
-
-		simulateSpaceController := func(anchorNamespace string, spaceName string, conditionStatus metav1.ConditionStatus, conditionMessage string, done chan bool) {
-			defer GinkgoRecover()
-
-			space, err := waitForCFSpace(anchorNamespace, spaceName, done)
-			if err != nil {
-				return
-			}
-
-			createNamespace(ctx, anchorNamespace, space.Name, map[string]string{korifiv1alpha1.SpaceNameKey: space.Spec.DisplayName})
-
-			meta.SetStatusCondition(&(space.Status.Conditions), metav1.Condition{
-				Type:    "Ready",
-				Status:  conditionStatus,
-				Reason:  "blah",
-				Message: conditionMessage,
-			})
-			Expect(
-				k8sClient.Status().Update(ctx, space),
-			).To(Succeed())
-		}
-
 		BeforeEach(func() {
-			doSpaceControllerSimulation = true
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFSpace, error) {
+				cfSpace, ok := object.(*korifiv1alpha1.CFSpace)
+				Expect(ok).To(BeTrue())
+
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   cfSpace.Name,
+						Labels: map[string]string{korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName},
+					},
+				}
+				Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfSpace, func() {
+					cfSpace.Status.GUID = cfSpace.Name
+					meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
+						Type:    "Ready",
+						Status:  conditionStatus,
+						Reason:  "blah",
+						Message: conditionMessage,
+					})
+				})).To(Succeed())
+
+				return cfSpace, nil
+			}
+
 			spaceName = prefixedGUID("space-name")
 			org := createOrgWithCleanup(ctx, prefixedGUID("org"))
 			orgGUID = org.Name
@@ -106,14 +93,7 @@ var _ = Describe("SpaceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			if doSpaceControllerSimulation {
-				done := make(chan bool, 1)
-				defer func(done chan bool) { done <- true }(done)
-
-				go simulateSpaceController(orgGUID, spaceName, conditionStatus, conditionMessage, done)
-			}
-
-			space, createErr = spaceRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
+			spaceRecord, createErr = spaceRepo.CreateSpace(ctx, authInfo, repositories.CreateSpaceMessage{
 				Name:             spaceName,
 				OrganizationGUID: orgGUID,
 			})
@@ -134,17 +114,42 @@ var _ = Describe("SpaceRepository", func() {
 				createRoleBinding(ctx, userName, adminRole.Name, orgGUID)
 			})
 
+			It("awaits the ready condition", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				cfSpace := new(korifiv1alpha1.CFSpace)
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: orgGUID, Name: spaceRecord.GUID}, cfSpace)).To(Succeed())
+
+				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+				Expect(obj.GetName()).To(Equal(cfSpace.Name))
+				Expect(obj.GetNamespace()).To(Equal(orgGUID))
+				Expect(conditionType).To(Equal(shared.StatusConditionReady))
+			})
+
 			It("creates a CFSpace resource in the org namespace", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
 				spaceCR := new(korifiv1alpha1.CFSpace)
-				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: orgGUID, Name: space.GUID}, spaceCR)).To(Succeed())
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: orgGUID, Name: spaceRecord.GUID}, spaceCR)).To(Succeed())
 
-				Expect(space.Name).To(Equal(spaceName))
-				helpers.EnsureValidUUID(space.GUID)
-				Expect(space.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-				Expect(space.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
-				Expect(space.DeletedAt).To(BeNil())
+				Expect(spaceRecord.Name).To(Equal(spaceName))
+				helpers.EnsureValidUUID(spaceRecord.GUID)
+				Expect(spaceRecord.Name).To(Equal(spaceName))
+				Expect(spaceRecord.GUID).To(HavePrefix("cf-space-"))
+				Expect(spaceRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(spaceRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(spaceRecord.DeletedAt).To(BeNil())
+			})
+
+			When("the space does not become ready", func() {
+				BeforeEach(func() {
+					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFSpace{}, errors.New("time-out-err"))
+				})
+
+				It("errors", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
+				})
 			})
 
 			When("the org does not exist", func() {
@@ -166,34 +171,12 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(createErr).To(HaveOccurred())
 				})
 			})
-
-			When("the space isn't ready in the timeout", func() {
-				BeforeEach(func() {
-					doSpaceControllerSimulation = false
-				})
-
-				It("and no message is provided it returns a generic error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("cf space did not get Condition `Ready`: 'True'")))
-				})
-
-				When("and a ready status message is provided", func() {
-					BeforeEach(func() {
-						doSpaceControllerSimulation = true
-						conditionStatus = metav1.ConditionFalse
-						conditionMessage = "a custom message to tell the api user what is going on"
-					})
-
-					It("the custom error message is returned", func() {
-						Expect(createErr).To(MatchError(ContainSubstring("a custom message to tell the api user what is going on")))
-					})
-				})
-			})
 		})
 	})
 
 	Describe("ListSpaces", func() {
-		var cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
-		var space11, space12, space21, space22, space31, space32 *korifiv1alpha1.CFSpace
+		var cfOrg1, cfOrg2 *korifiv1alpha1.CFOrg
+		var space11, space12, space21, space22 *korifiv1alpha1.CFSpace
 
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -202,8 +185,6 @@ var _ = Describe("SpaceRepository", func() {
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
 			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg2.Name)
-			cfOrg3 = createOrgWithCleanup(ctx, prefixedGUID("org3"))
-			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg3.Name)
 
 			space11 = createSpaceWithCleanup(ctx, cfOrg1.Name, "space1")
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space11.Name)
@@ -215,13 +196,10 @@ var _ = Describe("SpaceRepository", func() {
 			space22 = createSpaceWithCleanup(ctx, cfOrg2.Name, "space3")
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space22.Name)
 
-			space31 = createSpaceWithCleanup(ctx, cfOrg3.Name, "space1")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space31.Name)
-			space32 = createSpaceWithCleanup(ctx, cfOrg3.Name, "space4")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space32.Name)
+			createSpaceWithCleanup(ctx, cfOrg2.Name, "space3")
 		})
 
-		It("returns the 6 spaces", func() {
+		It("returns the spaces the user has role bindings in", func() {
 			spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -245,16 +223,6 @@ var _ = Describe("SpaceRepository", func() {
 					"Name":             Equal("space3"),
 					"GUID":             Equal(space22.Name),
 					"OrganizationGUID": Equal(cfOrg2.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("space1"),
-					"GUID":             Equal(space31.Name),
-					"OrganizationGUID": Equal(cfOrg3.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("space4"),
-					"GUID":             Equal(space32.Name),
-					"OrganizationGUID": Equal(cfOrg3.Name),
 				}),
 			))
 		})
@@ -287,7 +255,7 @@ var _ = Describe("SpaceRepository", func() {
 		When("filtering by org guids", func() {
 			It("only returns the spaces belonging to the specified org guids", func() {
 				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-					OrganizationGUIDs: []string{cfOrg1.Name, cfOrg3.Name, "does-not-exist"},
+					OrganizationGUIDs: []string{cfOrg1.Name, "does-not-exist"},
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(ConsistOf(
@@ -296,11 +264,9 @@ var _ = Describe("SpaceRepository", func() {
 						"OrganizationGUID": Equal(cfOrg1.Name),
 					}),
 					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg3.Name),
+						"Name":             Equal("space2"),
+						"OrganizationGUID": Equal(cfOrg1.Name),
 					}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space2")}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space4")}),
 				))
 			})
 		})
@@ -321,10 +287,9 @@ var _ = Describe("SpaceRepository", func() {
 						"OrganizationGUID": Equal(cfOrg2.Name),
 					}),
 					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg3.Name),
+						"Name":             Equal("space3"),
+						"OrganizationGUID": Equal(cfOrg2.Name),
 					}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space3")}),
 				))
 			})
 		})
@@ -397,11 +362,11 @@ var _ = Describe("SpaceRepository", func() {
 				createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, org.Name)
 			})
 
-			It("returns the 6 spaces", func() {
+			It("returns the 4 spaces", func() {
 				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(spaces).To(HaveLen(6))
+				Expect(spaces).To(HaveLen(4))
 			})
 		})
 	})
@@ -548,12 +513,12 @@ var _ = Describe("SpaceRepository", func() {
 			When("the space doesn't have any labels or annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					annotationsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfSpace, func() {
 						cfSpace.Labels = nil
@@ -614,13 +579,13 @@ var _ = Describe("SpaceRepository", func() {
 					})).To(Succeed())
 
 					labelsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					annotationsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 				})
@@ -669,7 +634,7 @@ var _ = Describe("SpaceRepository", func() {
 			When("an annotation is invalid", func() {
 				BeforeEach(func() {
 					annotationsPatch = map[string]*string{
-						"-bad-annotation": pointerTo("stuff"),
+						"-bad-annotation": tools.PtrTo("stuff"),
 					}
 				})
 
@@ -687,7 +652,7 @@ var _ = Describe("SpaceRepository", func() {
 			When("a label is invalid", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"-bad-label": pointerTo("stuff"),
+						"-bad-label": tools.PtrTo("stuff"),
 					}
 				})
 

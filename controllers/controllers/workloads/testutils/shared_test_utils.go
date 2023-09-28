@@ -151,7 +151,7 @@ func BuildCFBuildObject(cfBuildGUID string, namespace string, cfPackageGUID stri
 	}
 }
 
-func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dropletPorts []int32) *korifiv1alpha1.BuildDropletStatus {
+func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string) *korifiv1alpha1.BuildDropletStatus {
 	dropletProcessTypes := make([]korifiv1alpha1.ProcessType, 0, len(dropletProcessTypeMap))
 	for k, v := range dropletProcessTypeMap {
 		dropletProcessTypes = append(dropletProcessTypes, korifiv1alpha1.ProcessType{
@@ -166,7 +166,6 @@ func BuildCFBuildDropletStatusObject(dropletProcessTypeMap map[string]string, dr
 		},
 		Stack:        "cflinuxfs3",
 		ProcessTypes: dropletProcessTypes,
-		Ports:        dropletPorts,
 	}
 }
 
@@ -226,7 +225,6 @@ func BuildCFProcessCRObject(cfProcessGUID, namespace, cfAppGUID, processType, pr
 			DesiredInstances: tools.PtrTo(1),
 			MemoryMB:         1024,
 			DiskQuotaMB:      100,
-			Ports:            []int32{8080},
 		},
 	}
 }

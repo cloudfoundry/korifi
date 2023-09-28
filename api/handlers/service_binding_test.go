@@ -148,6 +148,16 @@ var _ = Describe("ServiceBinding", func() {
 			})
 		})
 
+		When("getting the app is forbidden", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.ServiceBindingResourceType)
+			})
+		})
+
 		When("getting the App errors", func() {
 			BeforeEach(func() {
 				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
@@ -156,6 +166,16 @@ var _ = Describe("ServiceBinding", func() {
 			It("returns an error and doesn't create the ServiceBinding", func() {
 				expectUnknownError()
 				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
+			})
+		})
+
+		When("getting the service instance is forbidden", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.ServiceInstanceResourceType)
 			})
 		})
 
@@ -232,6 +252,7 @@ var _ = Describe("ServiceBinding", func() {
 			payload := payloads.ServiceBindingList{
 				AppGUIDs:             "a1,a2",
 				ServiceInstanceGUIDs: "s1,s2",
+				LabelSelector:        "label=value",
 			}
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
 		})
@@ -245,6 +266,7 @@ var _ = Describe("ServiceBinding", func() {
 			_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
 			Expect(message.AppGUIDs).To(ConsistOf([]string{"a1", "a2"}))
 			Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"s1", "s2"}))
+			Expect(message.LabelSelector).To(Equal("label=value"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -255,7 +277,7 @@ var _ = Describe("ServiceBinding", func() {
 			)))
 		})
 
-		When("there is an error fetching service instances", func() {
+		When("there is an error fetching service binding", func() {
 			BeforeEach(func() {
 				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, errors.New("unknown"))
 			})
@@ -359,6 +381,16 @@ var _ = Describe("ServiceBinding", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("getting the service binding is forbidden", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.ServiceBindingResourceType)
 			})
 		})
 

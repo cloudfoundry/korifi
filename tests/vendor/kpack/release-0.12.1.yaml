@@ -365,7 +365,7 @@ metadata:
   name: build-init-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/build-init@sha256:34c3cae608797d5f445de1ddf80550c4c9511e1bfddc9c2204a873450f7e9fef
+  image: gcr.io/cf-build-service-public/kpack/build-init@sha256:be1eea88475f40eac2d2e1b5e9b5223f4ebb94736b502dd0242c4f19768aa3c3
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -373,7 +373,7 @@ metadata:
   name: build-init-windows-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/build-init-windows@sha256:65cabd3189ae0de670a448ba88d980c3894795be7f8d295873c4998026fa06d6
+  image: gcr.io/cf-build-service-public/kpack/build-init-windows@sha256:fb9c7eecf0e015365b7b158f3369e4b2c9df68ff73ec7f46ea37e040dd1c3d61
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -381,7 +381,7 @@ metadata:
   name: build-waiter-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/build-waiter@sha256:429f5393581fb28bc977659aab438441157083baeb4f42137646ee8d6573de81
+  image: gcr.io/cf-build-service-public/kpack/build-waiter@sha256:e63ba3ac2fbb3d631588ac1c5ebd522ef8a72f6b13126852805f978894b8d506
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -389,7 +389,7 @@ metadata:
   name: rebase-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/rebase@sha256:0b34b25313e01995df0a98e37fae4d15fad8b81e6b4c7986cacf130085f82fe6
+  image: gcr.io/cf-build-service-public/kpack/rebase@sha256:8ffe609211784f13af7194fb4a9da9656f31d3af168666710dec6d102aace2c2
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -397,7 +397,7 @@ metadata:
   name: lifecycle-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/lifecycle@sha256:5e9f16f13ba5979ef0d553edf337b526c6f7f56550ef2872e97e278ce26a2b91
+  image: gcr.io/cf-build-service-public/kpack/lifecycle@sha256:0b1cd35012f7152053c42e0d6835cbb5b7c9c24207a0627f556bd931e678f8d7
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -405,7 +405,7 @@ metadata:
   name: completion-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/completion@sha256:8ec2d6f91c97b5b4ef411f5c09a56ffb4d58c226d3d18eb84a8d77eba16c5303
+  image: gcr.io/cf-build-service-public/kpack/completion@sha256:79d9904988bcef43badcf20219ccea03f58478d5cda80ba641759a1524edc982
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -413,7 +413,7 @@ metadata:
   name: completion-windows-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/completion-windows@sha256:cb1becff9396d232daa6057bea1dac230cd638168921b4bf03a79a5dd3f2f59b
+  image: gcr.io/cf-build-service-public/kpack/completion-windows@sha256:5ccfe99171776be88b8e2cadf930947789364f748f9809a17c6b9bc49c40f137
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -429,7 +429,7 @@ spec:
     metadata:
       labels:
         app: kpack-controller
-        version: 0.11.2
+        version: 0.12.1
     spec:
       securityContext:
         runAsNonRoot: true
@@ -450,7 +450,7 @@ spec:
           capabilities:
             drop:
             - ALL
-        image: gcr.io/cf-build-service-public/kpack/controller@sha256:0be04ecc506c356f0a539f503a84092150e581bef1ada3394f2c9a9de957d60b
+        image: gcr.io/cf-build-service-public/kpack/controller@sha256:9ea76de767b497b1a9bc103bfbd1948d022e67d02cfdd4832dda0a472777b6da
         env:
         - name: ENABLE_PRIORITY_CLASSES
           value: "false"
@@ -551,6 +551,7 @@ rules:
   - ""
   resources:
   - secrets
+  - pods/log
   verbs:
   - get
 - apiGroups:
@@ -856,7 +857,7 @@ spec:
       labels:
         app: kpack-webhook
         role: webhook
-        version: 0.11.2
+        version: 0.12.1
     spec:
       securityContext:
         runAsNonRoot: true
@@ -877,7 +878,7 @@ spec:
           capabilities:
             drop:
             - ALL
-        image: gcr.io/cf-build-service-public/kpack/webhook@sha256:6f062702eafb0e175de3980d8345798b129ad38ecd1b470db41f22b96830ef43
+        image: gcr.io/cf-build-service-public/kpack/webhook@sha256:36534a6f6309ea0f3add5bd66f4504d03c998922d6844224512fb9d97201f237
         ports:
         - name: https-webhook
           containerPort: 8443

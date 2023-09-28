@@ -23,6 +23,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/build"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -37,51 +38,64 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-//counterfeiter:generate -o fake -fake-name BuildCleaner . BuildCleaner
-
-type BuildCleaner interface {
-	Clean(ctx context.Context, app types.NamespacedName) error
-}
-
-// CFBuildReconciler reconciles a CFBuild object
-type CFBuildReconciler struct {
-	k8sClient        client.Client
-	buildCleaner     BuildCleaner
-	scheme           *runtime.Scheme
-	log              logr.Logger
-	controllerConfig *config.ControllerConfig
-	envBuilder       EnvBuilder
-}
-
-func NewCFBuildReconciler(
+func NewCFBuildpackBuildReconciler(
 	k8sClient client.Client,
-	buildCleaner BuildCleaner,
+	buildCleaner build.BuildCleaner,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	controllerConfig *config.ControllerConfig,
 	envBuilder EnvBuilder,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild] {
-	buildReconciler := CFBuildReconciler{
-		k8sClient:        k8sClient,
-		buildCleaner:     buildCleaner,
-		scheme:           scheme,
-		log:              log,
-		controllerConfig: controllerConfig,
-		envBuilder:       envBuilder,
-	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](log, k8sClient, &buildReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](
+		log,
+		k8sClient,
+		build.NewCFBuildReconciler(
+			log,
+			k8sClient,
+			scheme,
+			buildCleaner,
+			&buildpackBuildReconciler{
+				k8sClient:        k8sClient,
+				controllerConfig: controllerConfig,
+				envBuilder:       envBuilder,
+				scheme:           scheme,
+			},
+		))
 }
 
-func (r *CFBuildReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+type buildpackBuildReconciler struct {
+	k8sClient        client.Client
+	controllerConfig *config.ControllerConfig
+	envBuilder       EnvBuilder
+	scheme           *runtime.Scheme
+}
+
+func (r *buildpackBuildReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFBuild{}).
 		Watches(
 			&korifiv1alpha1.BuildWorkload{},
 			handler.EnqueueRequestsFromMapFunc(buildworkloadToBuild),
-		)
+		).
+		WithEventFilter(predicate.NewPredicateFuncs(buildpackBuildFilter))
+}
+
+func buildpackBuildFilter(object client.Object) bool {
+	_, ok := object.(*korifiv1alpha1.BuildWorkload)
+	if ok {
+		return true
+	}
+
+	cfBuild, ok := object.(*korifiv1alpha1.CFBuild)
+	if !ok {
+		return false
+	}
+
+	return cfBuild.Spec.Lifecycle.Type == korifiv1alpha1.LifecycleType("buildpack")
 }
 
 func buildworkloadToBuild(ctx context.Context, o client.Object) []reconcile.Request {
@@ -105,48 +119,17 @@ func buildworkloadToBuild(ctx context.Context, o client.Object) []reconcile.Requ
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/status,verbs=get
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=buildworkloads/finalizers,verbs=update
 
-func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfBuild)
-	ctx = logr.NewContext(ctx, log)
-
-	cfBuild.Status.ObservedGeneration = cfBuild.Generation
-	log.V(1).Info("set observed generation", "generation", cfBuild.Status.ObservedGeneration)
-
-	cfApp := new(korifiv1alpha1.CFApp)
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.AppRef.Name, Namespace: cfBuild.Namespace}, cfApp)
-	if err != nil {
-		log.Info("error when fetching CFApp", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	cfPackage := new(korifiv1alpha1.CFPackage)
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfBuild.Spec.PackageRef.Name, Namespace: cfBuild.Namespace}, cfPackage)
-	if err != nil {
-		log.Info("error when fetching CFPackage", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	err = controllerutil.SetControllerReference(cfApp, cfBuild, r.scheme)
-	if err != nil {
-		log.Info("unable to set owner reference on CFBuild", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	err = r.buildCleaner.Clean(ctx, types.NamespacedName{Name: cfApp.Name, Namespace: cfBuild.Namespace})
-	if err != nil {
-		log.Info("unable to clean up old builds", "reason", err)
-	}
+func (r *buildpackBuildReconciler) ReconcileBuild(
+	ctx context.Context,
+	cfBuild *korifiv1alpha1.CFBuild,
+	cfApp *korifiv1alpha1.CFApp,
+	cfPackage *korifiv1alpha1.CFPackage,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx)
 
 	stagingStatus := shared.GetConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType, cfBuild.Generation)
-	succeededStatus := shared.GetConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, cfBuild.Generation)
-
-	if succeededStatus != metav1.ConditionUnknown {
-		log.Info("build status indicates completion", "status", succeededStatus)
-		return ctrl.Result{}, nil
-	}
-
 	if stagingStatus == metav1.ConditionUnknown {
-		err = r.createBuildWorkload(ctx, cfBuild, cfApp, cfPackage)
+		err := r.createBuildWorkload(ctx, cfBuild, cfApp, cfPackage)
 		if err != nil {
 			log.Info("failed to create BuildWorkload", "reason", err)
 			return ctrl.Result{}, err
@@ -163,7 +146,7 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 	}
 
 	var buildWorkload korifiv1alpha1.BuildWorkload
-	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), &buildWorkload)
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), &buildWorkload)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -217,7 +200,7 @@ func (r *CFBuildReconciler) ReconcileResource(ctx context.Context, cfBuild *kori
 	return ctrl.Result{}, nil
 }
 
-func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
+func (r *buildpackBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild, cfApp *korifiv1alpha1.CFApp, cfPackage *korifiv1alpha1.CFPackage) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("createBuildWorkload")
 
 	namespace := cfBuild.Namespace
@@ -272,7 +255,7 @@ func (r *CFBuildReconciler) createBuildWorkload(ctx context.Context, cfBuild *ko
 	return nil
 }
 
-func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace, appGUID string) ([]corev1.ObjectReference, error) {
+func (r *buildpackBuildReconciler) prepareBuildServices(ctx context.Context, namespace, appGUID string) ([]corev1.ObjectReference, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("prepareBuildServices")
 
 	serviceBindingsList := &korifiv1alpha1.CFServiceBindingList{}
@@ -304,7 +287,7 @@ func (r *CFBuildReconciler) prepareBuildServices(ctx context.Context, namespace,
 	return buildServices, nil
 }
 
-func (r *CFBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {
+func (r *buildpackBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("createBuildWorkloadIfNotExists")
 
 	var foundWorkload korifiv1alpha1.BuildWorkload

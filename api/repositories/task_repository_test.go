@@ -3,17 +3,17 @@ package repositories_test
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -25,85 +25,29 @@ import (
 
 var _ = Describe("TaskRepository", func() {
 	var (
-		taskRepo          *repositories.TaskRepo
-		org               *korifiv1alpha1.CFOrg
-		space             *korifiv1alpha1.CFSpace
-		cfApp             *korifiv1alpha1.CFApp
-		simTaskController func(*korifiv1alpha1.CFTask)
-		controllerSync    *sync.WaitGroup
+		conditionAwaiter *FakeAwaiter[
+			*korifiv1alpha1.CFTask,
+			korifiv1alpha1.CFTaskList,
+			*korifiv1alpha1.CFTaskList,
+		]
+		taskRepo *repositories.TaskRepo
+		org      *korifiv1alpha1.CFOrg
+		space    *korifiv1alpha1.CFSpace
+		cfApp    *korifiv1alpha1.CFApp
 	)
 
-	setStatusAndUpdate := func(task *korifiv1alpha1.CFTask, conditionTypes ...string) {
-		GinkgoHelper()
-
-		for _, cond := range conditionTypes {
-			meta.SetStatusCondition(&(task.Status.Conditions), metav1.Condition{
-				Type:    cond,
-				Status:  metav1.ConditionTrue,
-				Reason:  "foo",
-				Message: "bar",
-			})
-		}
-
-		Expect(k8sClient.Status().Update(ctx, task)).To(Succeed())
-	}
-
-	defaultStatusValues := func(task *korifiv1alpha1.CFTask, seqId int64, dropletId string) *korifiv1alpha1.CFTask {
-		task.Status.SequenceID = seqId
-		task.Status.MemoryMB = 256
-		task.Status.DiskQuotaMB = 128
-		task.Status.DropletRef.Name = dropletId
-
-		return task
-	}
-
 	BeforeEach(func() {
-		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPerms, conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](2*time.Second))
+		conditionAwaiter = &FakeAwaiter[
+			*korifiv1alpha1.CFTask,
+			korifiv1alpha1.CFTaskList,
+			*korifiv1alpha1.CFTaskList,
+		]{}
+		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPerms, conditionAwaiter)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 
 		cfApp = createApp(space.Name)
-
-		simTaskController = func(cft *korifiv1alpha1.CFTask) {}
-	})
-
-	JustBeforeEach(func() {
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, 2*time.Second)
-		DeferCleanup(func() {
-			cancel()
-		})
-
-		tasksWatch, err := k8sClient.Watch(
-			ctxWithTimeout,
-			&korifiv1alpha1.CFTaskList{},
-			client.InNamespace(space.Name),
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		watchChan := tasksWatch.ResultChan()
-
-		controllerSync = &sync.WaitGroup{}
-		controllerSync.Add(1)
-
-		go func() {
-			defer GinkgoRecover()
-			defer controllerSync.Done()
-
-			for e := range watchChan {
-				cft, ok := e.Object.(*korifiv1alpha1.CFTask)
-				if !ok {
-					time.Sleep(100 * time.Millisecond)
-					continue
-				}
-
-				simTaskController(cft)
-			}
-		}()
-	})
-
-	AfterEach(func() {
-		controllerSync.Wait()
 	})
 
 	Describe("CreateTask", func() {
@@ -114,12 +58,28 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			simTaskController = func(cft *korifiv1alpha1.CFTask) {
-				setStatusAndUpdate(
-					defaultStatusValues(cft, 6, cfApp.Spec.CurrentDropletRef.Name),
-					korifiv1alpha1.TaskInitializedConditionType,
-				)
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFTask, error) {
+				cfTask, ok := object.(*korifiv1alpha1.CFTask)
+				Expect(ok).To(BeTrue())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+					cfTask.Status.SequenceID = 4
+					cfTask.Status.MemoryMB = 256
+					cfTask.Status.DiskQuotaMB = 128
+					cfTask.Status.DropletRef = corev1.LocalObjectReference{
+						Name: cfApp.Spec.CurrentDropletRef.Name,
+					}
+					meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+						Type:    korifiv1alpha1.TaskInitializedConditionType,
+						Status:  metav1.ConditionTrue,
+						Reason:  "foo",
+						Message: "bar",
+					})
+				})).To(Succeed())
+
+				return cfTask, nil
 			}
+
 			createMessage = repositories.CreateTaskMessage{
 				Command:   "echo 'hello world'",
 				SpaceGUID: space.Name,
@@ -144,13 +104,24 @@ var _ = Describe("TaskRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
+			It("awaits the initialized condition", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				actualObject, actualCondition := conditionAwaiter.AwaitConditionArgsForCall(0)
+				Expect(actualObject.GetNamespace()).To(Equal(space.Name))
+				Expect(actualObject.GetName()).To(Equal(taskRecord.GUID))
+				Expect(actualCondition).To(Equal(korifiv1alpha1.TaskInitializedConditionType))
+			})
+
 			It("creates the task", func() {
 				Expect(createErr).NotTo(HaveOccurred())
+
 				Expect(taskRecord.Name).NotTo(BeEmpty())
 				Expect(taskRecord.GUID).NotTo(BeEmpty())
 				Expect(taskRecord.Command).To(Equal("echo 'hello world'"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
-				Expect(taskRecord.SequenceID).NotTo(BeZero())
+				Expect(taskRecord.SequenceID).To(Equal(int64(4)))
 
 				Expect(taskRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(taskRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
@@ -165,11 +136,11 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the task never becomes initialized", func() {
 				BeforeEach(func() {
-					simTaskController = func(cft *korifiv1alpha1.CFTask) {}
+					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFTask{}, errors.New("timed-out-error"))
 				})
 
 				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("did not get the Initialized condition")))
+					Expect(createErr).To(MatchError(ContainSubstring("timed-out-error")))
 				})
 			})
 		})
@@ -194,7 +165,7 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			taskGUID = generateGUID()
+			taskGUID = uuid.NewString()
 			cfTask = &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      taskGUID,
@@ -207,9 +178,7 @@ var _ = Describe("TaskRepository", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
-
-			setStatusAndUpdate(defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name))
+			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -231,12 +200,22 @@ var _ = Describe("TaskRepository", func() {
 				})
 			})
 
-			When("the task is ready", func() {
+			When("the task is initialized", func() {
 				BeforeEach(func() {
-					setStatusAndUpdate(
-						defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name),
-						korifiv1alpha1.TaskInitializedConditionType,
-					)
+					Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+						cfTask.Status.SequenceID = 6
+						cfTask.Status.MemoryMB = 256
+						cfTask.Status.DiskQuotaMB = 128
+						cfTask.Status.DropletRef = corev1.LocalObjectReference{
+							Name: cfApp.Spec.CurrentDropletRef.Name,
+						}
+						meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+							Type:    korifiv1alpha1.TaskInitializedConditionType,
+							Status:  metav1.ConditionTrue,
+							Reason:  "foo",
+							Message: "bar",
+						})
+					})).To(Succeed())
 				})
 
 				It("returns the task", func() {
@@ -255,57 +234,90 @@ var _ = Describe("TaskRepository", func() {
 					Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 					Expect(taskRecord.State).To(Equal(repositories.TaskStatePending))
 				})
-			})
 
-			When("the task is running", func() {
-				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
-				})
-
-				It("returns the running task", func() {
-					Expect(getErr).NotTo(HaveOccurred())
-					Expect(taskRecord.State).To(Equal(repositories.TaskStateRunning))
-				})
-			})
-
-			When("the task has succeeded", func() {
-				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType, korifiv1alpha1.TaskSucceededConditionType)
-				})
-
-				It("returns the succeeded task", func() {
-					Expect(getErr).NotTo(HaveOccurred())
-					Expect(taskRecord.State).To(Equal(repositories.TaskStateSucceeded))
-				})
-			})
-
-			When("the task has failed", func() {
-				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType, korifiv1alpha1.TaskFailedConditionType)
-				})
-
-				It("returns the failed task", func() {
-					Expect(getErr).NotTo(HaveOccurred())
-					Expect(taskRecord.State).To(Equal(repositories.TaskStateFailed))
-					Expect(taskRecord.FailureReason).To(Equal("bar"))
-				})
-			})
-
-			When("the task was cancelled", func() {
-				BeforeEach(func() {
-					setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
-					meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
-						Type:   korifiv1alpha1.TaskFailedConditionType,
-						Status: metav1.ConditionTrue,
-						Reason: "TaskCanceled",
+				When("the task is running", func() {
+					BeforeEach(func() {
+						Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+							meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+								Type:    korifiv1alpha1.TaskStartedConditionType,
+								Status:  metav1.ConditionTrue,
+								Reason:  "foo",
+								Message: "bar",
+							})
+						})).To(Succeed())
 					})
-					Expect(k8sClient.Status().Update(ctx, cfTask)).To(Succeed())
+
+					It("returns the running task", func() {
+						Expect(getErr).NotTo(HaveOccurred())
+						Expect(taskRecord.State).To(Equal(repositories.TaskStateRunning))
+					})
 				})
 
-				It("returns the failed task", func() {
-					Expect(getErr).NotTo(HaveOccurred())
-					Expect(taskRecord.State).To(Equal(repositories.TaskStateFailed))
-					Expect(taskRecord.FailureReason).To(Equal("task was cancelled"))
+				When("the task has succeeded", func() {
+					BeforeEach(func() {
+						Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+							meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+								Type:    korifiv1alpha1.TaskSucceededConditionType,
+								Status:  metav1.ConditionTrue,
+								Reason:  "foo",
+								Message: "bar",
+							})
+						})).To(Succeed())
+					})
+
+					It("returns the succeeded task", func() {
+						Expect(getErr).NotTo(HaveOccurred())
+						Expect(taskRecord.State).To(Equal(repositories.TaskStateSucceeded))
+					})
+				})
+
+				When("the task has failed", func() {
+					BeforeEach(func() {
+						Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+							meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+								Type:    korifiv1alpha1.TaskStartedConditionType,
+								Status:  metav1.ConditionTrue,
+								Reason:  "foo",
+								Message: "bar",
+							})
+							meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+								Type:    korifiv1alpha1.TaskFailedConditionType,
+								Status:  metav1.ConditionTrue,
+								Reason:  "foo",
+								Message: "bar",
+							})
+						})).To(Succeed())
+					})
+
+					It("returns the failed task", func() {
+						Expect(getErr).NotTo(HaveOccurred())
+						Expect(taskRecord.State).To(Equal(repositories.TaskStateFailed))
+						Expect(taskRecord.FailureReason).To(Equal("bar"))
+					})
+				})
+
+				When("the task was cancelled", func() {
+					BeforeEach(func() {
+						Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+							meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+								Type:    korifiv1alpha1.TaskStartedConditionType,
+								Status:  metav1.ConditionTrue,
+								Reason:  "foo",
+								Message: "bar",
+							})
+							meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
+								Type:   korifiv1alpha1.TaskFailedConditionType,
+								Status: metav1.ConditionTrue,
+								Reason: "TaskCanceled",
+							})
+						})).To(Succeed())
+					})
+
+					It("returns the failed task", func() {
+						Expect(getErr).NotTo(HaveOccurred())
+						Expect(taskRecord.State).To(Equal(repositories.TaskStateFailed))
+						Expect(taskRecord.FailureReason).To(Equal("task was cancelled"))
+					})
 				})
 			})
 		})
@@ -440,10 +452,12 @@ var _ = Describe("TaskRepository", func() {
 
 				When("app guid and sequence IDs are passed as a filter", func() {
 					BeforeEach(func() {
-						setStatusAndUpdate(
-							defaultStatusValues(task2, 2, cfApp2.Spec.CurrentDropletRef.Name),
-							korifiv1alpha1.TaskInitializedConditionType,
-						)
+						Expect(k8s.Patch(ctx, k8sClient, task2, func() {
+							task2.Status.SequenceID = 2
+							task2.Status.DropletRef = corev1.LocalObjectReference{
+								Name: cfApp2.Spec.CurrentDropletRef.Name,
+							}
+						})).To(Succeed())
 
 						task21 := &korifiv1alpha1.CFTask{
 							ObjectMeta: metav1.ObjectMeta{
@@ -458,10 +472,12 @@ var _ = Describe("TaskRepository", func() {
 							},
 						}
 						Expect(k8sClient.Create(context.Background(), task21)).To(Succeed())
-						setStatusAndUpdate(
-							defaultStatusValues(task21, 21, cfApp2.Spec.CurrentDropletRef.Name),
-							korifiv1alpha1.TaskInitializedConditionType,
-						)
+						Expect(k8s.Patch(ctx, k8sClient, task21, func() {
+							task21.Status.SequenceID = 21
+							task21.Status.DropletRef = corev1.LocalObjectReference{
+								Name: cfApp2.Spec.CurrentDropletRef.Name,
+							}
+						})).To(Succeed())
 
 						listTaskMsg.AppGUIDs = []string{cfApp2.Name}
 						listTaskMsg.SequenceIDs = []int64{2}
@@ -496,13 +512,7 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			simTaskController = func(cft *korifiv1alpha1.CFTask) {
-				if cft.Spec.Canceled {
-					setStatusAndUpdate(cft, korifiv1alpha1.TaskCanceledConditionType)
-				}
-			}
-
-			taskGUID = generateGUID()
+			taskGUID = uuid.NewString()
 			cfTask := &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      taskGUID,
@@ -516,12 +526,28 @@ var _ = Describe("TaskRepository", func() {
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
+			Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+				cfTask.Status.SequenceID = 6
+				cfTask.Status.MemoryMB = 256
+				cfTask.Status.DiskQuotaMB = 128
+				cfTask.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
+			})).To(Succeed())
 
-			cfTask.Status.SequenceID = 6
-			cfTask.Status.MemoryMB = 256
-			cfTask.Status.DiskQuotaMB = 128
-			cfTask.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
-			setStatusAndUpdate(cfTask, korifiv1alpha1.TaskInitializedConditionType, korifiv1alpha1.TaskStartedConditionType)
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFTask, error) {
+				cfTask, ok := object.(*korifiv1alpha1.CFTask)
+				Expect(ok).To(BeTrue())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+					meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+						Type:    korifiv1alpha1.TaskCanceledConditionType,
+						Status:  metav1.ConditionTrue,
+						Reason:  "foo",
+						Message: "bar",
+					})
+				})).To(Succeed())
+
+				return cfTask, nil
+			}
 		})
 
 		JustBeforeEach(func() {
@@ -537,7 +563,17 @@ var _ = Describe("TaskRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			It("cancels the task", func() {
+			It("awaits the cancelled condition", func() {
+				Expect(cancelErr).NotTo(HaveOccurred())
+
+				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				actualObject, actualCondition := conditionAwaiter.AwaitConditionArgsForCall(0)
+				Expect(actualObject.GetNamespace()).To(Equal(space.Name))
+				Expect(actualObject.GetName()).To(Equal(taskRecord.GUID))
+				Expect(actualCondition).To(Equal(korifiv1alpha1.TaskCanceledConditionType))
+			})
+
+			It("returns a cancelled task record", func() {
 				Expect(cancelErr).NotTo(HaveOccurred())
 				Expect(taskRecord.Name).To(Equal(taskGUID))
 				Expect(taskRecord.GUID).NotTo(BeEmpty())
@@ -556,11 +592,11 @@ var _ = Describe("TaskRepository", func() {
 
 			When("the status is not updated within the timeout", func() {
 				BeforeEach(func() {
-					simTaskController = func(*korifiv1alpha1.CFTask) {}
+					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFTask{}, errors.New("timed-out"))
 				})
 
 				It("returns a timeout error", func() {
-					Expect(cancelErr).To(MatchError(ContainSubstring("did not get the Canceled condition")))
+					Expect(cancelErr).To(MatchError(ContainSubstring("timed-out")))
 				})
 			})
 		})
@@ -576,7 +612,7 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			taskGUID = generateGUID()
+			taskGUID = uuid.NewString()
 			cfTask = &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      taskGUID,
@@ -591,7 +627,14 @@ var _ = Describe("TaskRepository", func() {
 			}
 			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
 
-			setStatusAndUpdate(defaultStatusValues(cfTask, 6, cfApp.Spec.CurrentDropletRef.Name))
+			Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
+				cfTask.Status.SequenceID = 6
+				cfTask.Status.MemoryMB = 256
+				cfTask.Status.DiskQuotaMB = 128
+				cfTask.Status.DropletRef = corev1.LocalObjectReference{
+					Name: cfApp.Spec.CurrentDropletRef.Name,
+				}
+			})).To(Succeed())
 
 			labelsPatch = nil
 			annotationsPatch = nil
@@ -618,12 +661,12 @@ var _ = Describe("TaskRepository", func() {
 			When("the task doesn't have labels or annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					annotationsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfTask, func() {
 						cfTask.Labels = nil
@@ -671,13 +714,13 @@ var _ = Describe("TaskRepository", func() {
 			When("the task already has labels and annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					annotationsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfTask, func() {
@@ -738,7 +781,7 @@ var _ = Describe("TaskRepository", func() {
 			When("an annotation is invalid", func() {
 				BeforeEach(func() {
 					annotationsPatch = map[string]*string{
-						"-bad-annotation": pointerTo("stuff"),
+						"-bad-annotation": tools.PtrTo("stuff"),
 					}
 				})
 
@@ -756,7 +799,7 @@ var _ = Describe("TaskRepository", func() {
 			When("a label is invalid", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"-bad-label": pointerTo("stuff"),
+						"-bad-label": tools.PtrTo("stuff"),
 					}
 				})
 

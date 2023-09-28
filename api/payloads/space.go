@@ -62,22 +62,25 @@ func (p SpacePatch) ToMessage(spaceGUID, orgGUID string) repositories.PatchSpace
 
 type SpaceList struct {
 	Names             string
+	GUIDs             string
 	OrganizationGUIDs string
 }
 
 func (l *SpaceList) ToMessage() repositories.ListSpacesMessage {
 	return repositories.ListSpacesMessage{
 		Names:             parse.ArrayParam(l.Names),
+		GUIDs:             parse.ArrayParam(l.GUIDs),
 		OrganizationGUIDs: parse.ArrayParam(l.OrganizationGUIDs),
 	}
 }
 
 func (l *SpaceList) SupportedKeys() []string {
-	return []string{"names", "organization_guids", "order_by", "per_page", "page"}
+	return []string{"names", "guids", "organization_guids", "order_by", "per_page", "page"}
 }
 
 func (l *SpaceList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
+	l.GUIDs = values.Get("guids")
 	l.OrganizationGUIDs = values.Get("organization_guids")
 	return nil
 }

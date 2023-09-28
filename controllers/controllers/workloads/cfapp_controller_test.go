@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -30,7 +29,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 		cfDomainGUID = PrefixedGUID("test-domain")
 		cfDomain := &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
@@ -296,7 +295,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		})
 
 		JustBeforeEach(func() {
-			buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypes, []int32{port8080, port9000})
+			buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypes)
 			cfBuild = createBuildWithDroplet(context.Background(), adminClient, cfBuild, buildDropletStatus)
 
 			patchAppWithDroplet(context.Background(), adminClient, cfAppGUID, cfSpace.Status.GUID, cfBuildGUID)
@@ -321,8 +320,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					createdCFProcess := cfProcessList.Items[0]
 					Expect(createdCFProcess.Spec.DetectedCommand).To(Equal(process.Command), "cfprocess command does not match with droplet command")
 					Expect(createdCFProcess.Spec.AppRef.Name).To(Equal(cfAppGUID), "cfprocess app ref does not match app-guid")
-					Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
-
 					Expect(createdCFProcess.ObjectMeta.OwnerReferences).To(ConsistOf([]metav1.OwnerReference{
 						{
 							APIVersion:         "korifi.cloudfoundry.org/v1alpha1",
@@ -357,7 +354,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				})
 			})
 
-			It("sets the detectedCommand on the web process to the droplet value for the web process if empty", func() {
+			It("updates the process detected command", func() {
 				Eventually(func(g Gomega) {
 					proc := findProcessWithType(cfApp, processTypeWeb)
 					g.Expect(proc.Spec.DetectedCommand).To(Equal(processTypeWebCommand))
@@ -437,46 +434,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			})
 		})
 
-		When("the droplet has no ports set", func() {
-			var (
-				otherBuildGUID string
-				otherCFBuild   *korifiv1alpha1.CFBuild
-			)
-
-			BeforeEach(func() {
-				beforeCtx := context.Background()
-
-				otherBuildGUID = GenerateGUID()
-				otherCFBuild = BuildCFBuildObject(otherBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
-				dropletProcessTypeMap := map[string]string{
-					processTypeWeb: processTypeWebCommand,
-				}
-				dropletPorts := []int32{}
-				buildDropletStatus := BuildCFBuildDropletStatusObject(dropletProcessTypeMap, dropletPorts)
-				otherCFBuild = createBuildWithDroplet(beforeCtx, adminClient, otherCFBuild, buildDropletStatus)
-			})
-
-			It("eventually creates CFProcess with empty ports and a healthCheck type of \"process\"", func() {
-				testCtx := context.Background()
-				droplet := cfBuild.Status.Droplet
-				processTypes := droplet.ProcessTypes
-				for _, process := range processTypes {
-					cfProcessList := korifiv1alpha1.CFProcessList{}
-					Eventually(func() []korifiv1alpha1.CFProcess {
-						Expect(
-							adminClient.List(testCtx, &cfProcessList, &client.ListOptions{
-								LabelSelector: labelSelectorForAppAndProcess(cfAppGUID, process.Type),
-								Namespace:     cfApp.Namespace,
-							}),
-						).To(Succeed())
-						return cfProcessList.Items
-					}).Should(HaveLen(1), "expected CFProcess to eventually be created")
-					createdCFProcess := cfProcessList.Items[0]
-					Expect(createdCFProcess.Spec.Ports).To(Equal(droplet.Ports), "cfprocess ports does not match ports on droplet")
-				}
-			})
-		})
-
 		It("sets the ready condition to true", func() {
 			Eventually(func(g Gomega) {
 				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
@@ -546,12 +503,11 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-1-guid",
-							Port: 0,
 							AppRef: corev1.LocalObjectReference{
 								Name: cfAppGUID,
 							},
 							ProcessType: "web",
-							Protocol:    "http1",
+							Protocol:    tools.PtrTo("http1"),
 						},
 					},
 				},
@@ -569,10 +525,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				err := adminClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, &createdCFApp)
 				return apierrors.IsNotFound(err)
 			}).Should(BeTrue(), "timed out waiting for app to be deleted")
-		})
-
-		It("writes a log message", func() {
-			Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
 		})
 
 		It("eventually deletes the destination on the CFRoute", func() {

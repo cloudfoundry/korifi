@@ -12,8 +12,8 @@ type Lifecycle struct {
 }
 
 type LifecycleData struct {
-	Buildpacks []string `json:"buildpacks"`
-	Stack      string   `json:"stack"`
+	Buildpacks []string `json:"buildpacks,omitempty"`
+	Stack      string   `json:"stack,omitempty"`
 }
 
 type Relationships map[string]Relationship

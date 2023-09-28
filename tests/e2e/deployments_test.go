@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -11,16 +10,13 @@ import (
 
 var _ = Describe("Deployments", func() {
 	var (
-		client    *helpers.CorrelatedRestyClient
 		spaceGUID string
 		appGUID   string
 		resp      *resty.Response
 	)
 
 	BeforeEach(func() {
-		client = certClient
 		spaceGUID = createSpace(generateGUID("deployments-space"), commonTestOrgGUID)
-		createSpaceRole("space_developer", certUserName, spaceGUID)
 		appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
 	})
 
@@ -40,7 +36,7 @@ var _ = Describe("Deployments", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = client.R().
+			resp, err = adminClient.R().
 				SetResult(&deploymentResp).
 				Get("/v3/deployments/" + deploymentGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -60,7 +56,7 @@ var _ = Describe("Deployments", func() {
 
 		BeforeEach(func() {
 			var err error
-			createResp, err = client.R().
+			createResp, err = adminClient.R().
 				SetBody(resource{
 					Relationships: relationships{
 						"app": relationship{

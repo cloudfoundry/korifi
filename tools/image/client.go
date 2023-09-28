@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/buildpacks/pack/pkg/archive"
 	"github.com/go-logr/logr"
@@ -37,6 +38,7 @@ type Creds struct {
 
 type Config struct {
 	Labels       map[string]string
+	User         string
 	ExposedPorts []int32
 }
 
@@ -126,7 +128,7 @@ func (c Client) Config(ctx context.Context, creds Creds, imageRef string) (Confi
 	}
 
 	ports := []int32{}
-	for p := range cfgFile.Config.ExposedPorts {
+	for _, p := range parseExposedPorts(cfgFile.Config.ExposedPorts) {
 		parsed, err := net.ParsePort(p, false)
 		if err != nil {
 			return Config{}, fmt.Errorf("error getting exposed ports: %w", err)
@@ -136,8 +138,18 @@ func (c Client) Config(ctx context.Context, creds Creds, imageRef string) (Confi
 
 	return Config{
 		Labels:       cfgFile.Config.Labels,
+		User:         cfgFile.Config.User,
 		ExposedPorts: ports,
 	}, nil
+}
+
+func parseExposedPorts(ports map[string]struct{}) []string {
+	result := []string{}
+	for p := range ports {
+		result = append(result, strings.Split(p, "/")[0])
+	}
+
+	return result
 }
 
 func (c Client) Delete(ctx context.Context, creds Creds, imageRef string, tagsToDelete ...string) error {

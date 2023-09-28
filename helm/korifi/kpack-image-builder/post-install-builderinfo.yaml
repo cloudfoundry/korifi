@@ -42,7 +42,7 @@ spec:
         - sh
         - -c
         - |
-          cat <<EOF | kubectl -n {{ .Values.global.rootNamespace }} apply -f -
+          cat <<EOF | kubectl -n {{ .Values.rootNamespace }} apply -f -
           apiVersion: korifi.cloudfoundry.org/v1alpha1
           kind: BuilderInfo
           metadata:

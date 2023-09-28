@@ -15,14 +15,7 @@ var _ = Describe("Lifecycle", func() {
 	)
 
 	BeforeEach(func() {
-		payload = payloads.Lifecycle{
-			Type: "buildpack",
-			Data: &payloads.LifecycleData{
-				Buildpacks: []string{"foo", "bar"},
-				Stack:      "baz",
-			},
-		}
-
+		payload = payloads.Lifecycle{}
 		decodedPayload = new(payloads.Lifecycle)
 	})
 
@@ -30,14 +23,14 @@ var _ = Describe("Lifecycle", func() {
 		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(payload), decodedPayload)
 	})
 
-	It("succeeds", func() {
-		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
-	})
-
 	When("type is not set", func() {
 		BeforeEach(func() {
-			payload.Type = ""
+			payload = payloads.Lifecycle{
+				Data: &payloads.LifecycleData{
+					Buildpacks: []string{"foo", "bar"},
+					Stack:      "baz",
+				},
+			}
 		})
 
 		It("returns an appropriate error", func() {
@@ -45,23 +38,96 @@ var _ = Describe("Lifecycle", func() {
 		})
 	})
 
-	When("lifecycle data is not set", func() {
+	Describe("buildpack lifecycle", func() {
 		BeforeEach(func() {
-			payload.Data = nil
+			payload = payloads.Lifecycle{
+				Type: "buildpack",
+				Data: &payloads.LifecycleData{
+					Buildpacks: []string{"foo", "bar"},
+					Stack:      "baz",
+				},
+			}
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "data is required")
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
+		})
+
+		When("lifecycle data is not set", func() {
+			BeforeEach(func() {
+				payload.Data = nil
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "data cannot be blank")
+			})
+		})
+
+		When("stack is not set", func() {
+			BeforeEach(func() {
+				payload.Data.Stack = ""
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "data.stack cannot be blank")
+			})
 		})
 	})
 
-	When("stack is not set", func() {
+	Describe("docker lifecycle", func() {
 		BeforeEach(func() {
-			payload.Data.Stack = ""
+			payload = payloads.Lifecycle{
+				Type: "docker",
+				Data: &payloads.LifecycleData{},
+			}
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "data.stack cannot be blank")
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
+		})
+
+		When("data is nil", func() {
+			BeforeEach(func() {
+				payload.Data = nil
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(validatorErr, "data cannot be blank")
+			})
+		})
+
+		When("buildpacks are specified in the data", func() {
+			BeforeEach(func() {
+				payload.Data.Buildpacks = []string{"foo"}
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(validatorErr, "data must be an empty object")
+			})
+		})
+
+		When("stack is specified in the data", func() {
+			BeforeEach(func() {
+				payload.Data.Stack = "foo"
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(validatorErr, "data must be an empty object")
+			})
+		})
+	})
+
+	Describe("unsupported lifecycle type", func() {
+		BeforeEach(func() {
+			payload = payloads.Lifecycle{
+				Type: "not-supported",
+			}
+		})
+
+		It("returns an error", func() {
+			expectUnprocessableEntityError(validatorErr, "value must be one of: buildpack, docker")
 		})
 	})
 })

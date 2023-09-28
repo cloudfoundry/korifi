@@ -3,108 +3,88 @@ package repositories_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("OrgRepository", func() {
-	var orgRepo *repositories.OrgRepo
+	var (
+		conditionAwaiter *FakeAwaiter[
+			*korifiv1alpha1.CFOrg,
+			korifiv1alpha1.CFOrgList,
+			*korifiv1alpha1.CFOrgList,
+		]
+		orgRepo *repositories.OrgRepo
+	)
 
 	BeforeEach(func() {
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, time.Millisecond*2000)
+		conditionAwaiter = &FakeAwaiter[
+			*korifiv1alpha1.CFOrg,
+			korifiv1alpha1.CFOrgList,
+			*korifiv1alpha1.CFOrgList,
+		]{}
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, conditionAwaiter)
 	})
 
 	Describe("CreateOrg", func() {
 		var (
-			createErr                 error
-			orgGUID                   string
-			org                       repositories.OrgRecord
-			done                      chan bool
-			doOrgControllerSimulation bool
-			conditionStatus           metav1.ConditionStatus
-			conditionMessage          string
+			createErr        error
+			orgGUID          string
+			orgRecord        repositories.OrgRecord
+			conditionStatus  metav1.ConditionStatus
+			conditionMessage string
 		)
 
-		waitForCFOrg := func(anchorNamespace string, orgName string, done chan bool) (*korifiv1alpha1.CFOrg, error) {
-			for {
-				select {
-				case <-done:
-					return nil, fmt.Errorf("waitForCFOrg was 'signalled' to stop polling")
-				default:
-				}
-
-				var orgList korifiv1alpha1.CFOrgList
-				err := k8sClient.List(ctx, &orgList, client.InNamespace(anchorNamespace))
-				if err != nil {
-					return nil, fmt.Errorf("waitForCFOrg failed")
-				}
-
-				var matches []korifiv1alpha1.CFOrg
-				for _, org := range orgList.Items {
-					if org.Spec.DisplayName == orgName {
-						matches = append(matches, org)
-					}
-				}
-				if len(matches) > 1 {
-					return nil, fmt.Errorf("waitForCFOrg found multiple anchors")
-				}
-				if len(matches) == 1 {
-					return &matches[0], nil
-				}
-
-				time.Sleep(time.Millisecond * 100)
-			}
-		}
-
-		simulateOrgController := func(anchorNamespace string, orgName string, conditionStatus metav1.ConditionStatus, conditionMessage string, done chan bool) {
-			defer GinkgoRecover()
-
-			org, err := waitForCFOrg(anchorNamespace, orgName, done)
-			if err != nil {
-				return
-			}
-
-			createNamespace(ctx, anchorNamespace, org.Name, map[string]string{korifiv1alpha1.OrgNameKey: org.Spec.DisplayName})
-
-			meta.SetStatusCondition(&(org.Status.Conditions), metav1.Condition{
-				Type:    "Ready",
-				Status:  conditionStatus,
-				Reason:  "blah",
-				Message: conditionMessage,
-			})
-			Expect(
-				k8sClient.Status().Update(ctx, org),
-			).To(Succeed())
-		}
-
 		BeforeEach(func() {
-			doOrgControllerSimulation = true
-			done = make(chan bool, 1)
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFOrg, error) {
+				cfOrg, ok := object.(*korifiv1alpha1.CFOrg)
+				Expect(ok).To(BeTrue())
+
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   cfOrg.Name,
+						Labels: map[string]string{korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName},
+					},
+				}
+				Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfOrg, func() {
+					cfOrg.Status.GUID = cfOrg.Name
+					meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
+						Type:    "Ready",
+						Status:  conditionStatus,
+						Reason:  "blah",
+						Message: conditionMessage,
+					})
+				})).To(Succeed())
+
+				return cfOrg, nil
+			}
+
 			orgGUID = prefixedGUID("org")
 			conditionStatus = metav1.ConditionTrue
 			conditionMessage = ""
 		})
 
 		JustBeforeEach(func() {
-			if doOrgControllerSimulation {
-				go simulateOrgController(rootNamespace, orgGUID, conditionStatus, conditionMessage, done)
-			}
-			org, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
+			orgRecord, createErr = orgRepo.CreateOrg(ctx, authInfo, repositories.CreateOrgMessage{
 				Name: orgGUID,
 				Labels: map[string]string{
 					"test-label-key": "test-label-val",
@@ -115,14 +95,8 @@ var _ = Describe("OrgRepository", func() {
 			})
 		})
 
-		AfterEach(func() {
-			done <- true
-		})
-
-		When("the user doesn't have the admin role", func() {
-			It("fails when creating an org", func() {
-				Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
-			})
+		It("fails because forbidden", func() {
+			Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 		})
 
 		When("the user has the admin role", func() {
@@ -133,45 +107,46 @@ var _ = Describe("OrgRepository", func() {
 			It("returns an Org record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(org.Name).To(Equal(orgGUID))
-				helpers.EnsureValidUUID(org.GUID)
-				Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-				Expect(org.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
-				Expect(org.DeletedAt).To(BeNil())
-				Expect(org.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
-				Expect(org.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
+				Expect(orgRecord.Name).To(Equal(orgGUID))
+				helpers.EnsureValidUUID(orgRecord.GUID)
+				Expect(orgRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(orgRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(orgRecord.DeletedAt).To(BeNil())
+				Expect(orgRecord.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 
 			It("creates a CFOrg resource in the root namespace", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
 				cfOrg := new(korifiv1alpha1.CFOrg)
-				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: org.GUID}, cfOrg)).To(Succeed())
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgRecord.GUID}, cfOrg)).To(Succeed())
 
 				Expect(cfOrg.Spec.DisplayName).To(Equal(orgGUID))
 				Expect(cfOrg.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
 				Expect(cfOrg.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 
-			When("the org isn't ready in the timeout", func() {
+			It("awaits the ready condition", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				cfOrg := new(korifiv1alpha1.CFOrg)
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgRecord.GUID}, cfOrg)).To(Succeed())
+
+				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+				Expect(obj.GetName()).To(Equal(cfOrg.Name))
+				Expect(obj.GetNamespace()).To(Equal(rootNamespace))
+				Expect(conditionType).To(Equal(shared.StatusConditionReady))
+			})
+
+			When("the org does not become ready", func() {
 				BeforeEach(func() {
-					doOrgControllerSimulation = false
+					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFOrg{}, errors.New("time-out-err"))
 				})
 
-				It("and no message is provided it returns a generic error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("cf org did not get Condition `Ready`: 'True'")))
-				})
-
-				When("and a ready status message is provided", func() {
-					BeforeEach(func() {
-						doOrgControllerSimulation = true
-						conditionStatus = metav1.ConditionFalse
-						conditionMessage = "a custom message to tell the api user what is going on"
-					})
-
-					It("the custom error message is returned", func() {
-						Expect(createErr).To(MatchError(ContainSubstring("a custom message to tell the api user what is going on")))
-					})
+				It("errors", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
 				})
 			})
 
@@ -199,13 +174,14 @@ var _ = Describe("OrgRepository", func() {
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg2.Name)
 			cfOrg3 = createOrgWithCleanup(ctx, prefixedGUID("org3"))
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg3.Name)
+			createOrgWithCleanup(ctx, prefixedGUID("org4"))
 		})
 
 		It("returns the 3 orgs", func() {
 			orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(orgs).To(ContainElements(
+			Expect(orgs).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Name": Equal(cfOrg1.Spec.DisplayName),
 					"GUID": Equal(cfOrg1.Name),
@@ -530,12 +506,12 @@ var _ = Describe("OrgRepository", func() {
 			When("the org doesn't have any labels or annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					annotationsPatch = map[string]*string{
-						"key-one": pointerTo("value-one"),
-						"key-two": pointerTo("value-two"),
+						"key-one": tools.PtrTo("value-one"),
+						"key-two": tools.PtrTo("value-two"),
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
 						cfOrg.Labels = nil
@@ -582,13 +558,13 @@ var _ = Describe("OrgRepository", func() {
 			When("the org already has labels and annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					annotationsPatch = map[string]*string{
-						"key-one":        pointerTo("value-one-updated"),
-						"key-two":        pointerTo("value-two"),
+						"key-one":        tools.PtrTo("value-one-updated"),
+						"key-two":        tools.PtrTo("value-two"),
 						"before-key-two": nil,
 					}
 					Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
@@ -648,7 +624,7 @@ var _ = Describe("OrgRepository", func() {
 			When("an annotation is invalid", func() {
 				BeforeEach(func() {
 					annotationsPatch = map[string]*string{
-						"-bad-annotation": pointerTo("stuff"),
+						"-bad-annotation": tools.PtrTo("stuff"),
 					}
 				})
 
@@ -666,7 +642,7 @@ var _ = Describe("OrgRepository", func() {
 			When("a label is invalid", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
-						"-bad-label": pointerTo("stuff"),
+						"-bad-label": tools.PtrTo("stuff"),
 					}
 				})
 

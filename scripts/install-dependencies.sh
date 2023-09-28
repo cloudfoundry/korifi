@@ -7,8 +7,6 @@ TEST_DIR="$SCRIPT_DIR/../tests"
 DEP_DIR="$TEST_DIR/dependencies"
 VENDOR_DIR="$TEST_DIR/vendor"
 
-source "$SCRIPT_DIR/common.sh"
-
 function usage_text() {
   cat <<EOF
 Usage:

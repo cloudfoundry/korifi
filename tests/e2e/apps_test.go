@@ -7,7 +7,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/go-resty/resty/v2"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -32,85 +31,47 @@ var _ = Describe("Apps", func() {
 
 	Describe("List apps", func() {
 		var (
-			space2GUID, space3GUID       string
-			app1GUID, app2GUID, app3GUID string
-			app4GUID, app5GUID, app6GUID string
-			result                       resourceList[resource]
-			query                        string
+			space2GUID         string
+			app1GUID, app2GUID string
+			result             resourceList[resource]
+			query              string
 		)
 
 		BeforeEach(func() {
 			query = ""
 
 			space2GUID = createSpace(generateGUID("space2"), commonTestOrgGUID)
-			space3GUID = createSpace(generateGUID("space3"), commonTestOrgGUID)
 
-			createSpaceRole("space_developer", certUserName, space1GUID)
-			createSpaceRole("space_developer", certUserName, space3GUID)
-
-			app1GUID = createApp(space1GUID, generateGUID("app1"))
-			app2GUID = createApp(space1GUID, generateGUID("app2"))
-			app3GUID = createApp(space2GUID, generateGUID("app3"))
-			app4GUID = createApp(space2GUID, generateGUID("app4"))
-			app5GUID = createApp(space3GUID, generateGUID("app5"))
-			app6GUID = createApp(space3GUID, generateGUID("app6"))
+			app1GUID = createBuildpackApp(space1GUID, generateGUID("app1"))
+			app2GUID = createBuildpackApp(space2GUID, generateGUID("app2"))
 		})
 
 		AfterEach(func() {
 			deleteSpace(space2GUID)
-			deleteSpace(space3GUID)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps" + query)
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/apps" + query)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns apps only in authorized spaces", func() {
+		It("returns apps", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app1GUID)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app2GUID)}),
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app5GUID)}),
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app6GUID)}),
 			))
-
-			Expect(result.Resources).ToNot(ContainElements(
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app3GUID)}),
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app4GUID)}),
-			))
-		})
-
-		When("filtering by label selector", func() {
-			BeforeEach(func() {
-				label := uuid.NewString()
-				addAppLabels(app1GUID, map[string]string{label: ""})
-
-				query = "?label_selector=" + label
-			})
-
-			It("lists apps with matching labels", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-
-				Expect(result.Resources).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(app1GUID)}),
-				))
-			})
 		})
 	})
 
-	Describe("Create an app as a user", func() {
-		var appName string
+	Describe("Create an app", func() {
+		var appRes appResource
 
 		BeforeEach(func() {
-			appName = generateGUID("app")
-		})
-
-		JustBeforeEach(func() {
-			var err error
-			resp, err = certClient.R().SetBody(appResource{
+			appName := generateGUID("app")
+			appRes = appResource{
 				resource: resource{
 					Name: appName,
 					Relationships: relationships{
@@ -121,102 +82,34 @@ var _ = Describe("Apps", func() {
 						},
 					},
 				},
-			}).Post("/v3/apps")
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		When("the user has space developer role in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, space1GUID)
-			})
-
-			It("succeeds", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-			})
-
-			When("the app name already exists in the space", func() {
-				BeforeEach(func() {
-					createApp(space1GUID, appName)
-				})
-
-				It("returns an unprocessable entity error", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
-					Expect(resp).To(HaveRestyBody(ContainSubstring("CF-UniquenessError")))
-				})
-			})
-		})
-
-		When("the user cannot create apps in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", certUserName, space1GUID)
-			})
-
-			It("fails", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
-			})
-		})
-	})
-
-	Describe("Create an app as a service account", func() {
-		var (
-			appName   string
-			orgName   string
-			orgGUID   string
-			spaceName string
-			spaceGUID string
-		)
-
-		BeforeEach(func() {
-			appName = generateGUID("app")
-
-			orgName = generateGUID("org")
-			orgGUID = createOrg(orgName)
-			createOrgRole("organization_user", serviceAccountName, orgGUID)
-
-			spaceName = generateGUID("space")
-			spaceGUID = createSpace(spaceName, orgGUID)
-		})
-
-		AfterEach(func() {
-			deleteOrg(orgGUID)
+				Lifecycle: &lifecycle{
+					Type: "buildpack",
+					Data: lifecycleData{
+						Stack: "cflinuxfs3",
+					},
+				},
+			}
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = tokenClient.R().SetBody(appResource{
-				resource: resource{
-					Name: appName,
-					Relationships: relationships{
-						"space": {
-							Data: resource{
-								GUID: spaceGUID,
-							},
-						},
-					},
-				},
-			}).Post("/v3/apps")
+			resp, err = adminClient.R().SetBody(appRes).Post("/v3/apps")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("the service account has space developer role in the space", func() {
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
+		})
+
+		When("the lifecycle is docker", func() {
 			BeforeEach(func() {
-				createSpaceRole("space_developer", serviceAccountName, spaceGUID)
+				appRes.Lifecycle = &lifecycle{
+					Type: "docker",
+				}
 			})
 
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
-			})
-		})
-
-		When("the service account cannot create apps in the space", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_manager", serviceAccountName, spaceGUID)
-			})
-
-			It("fails", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				Expect(resp).To(HaveRestyBody(ContainSubstring("CF-NotAuthorized")))
 			})
 		})
 	})
@@ -230,10 +123,9 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, space1GUID)
 			appName := generateGUID("app")
-			appGUID = createApp(space1GUID, appName)
-			pkgGUID = createPackage(appGUID)
+			appGUID = createBuildpackApp(space1GUID, appName)
+			pkgGUID = createBitsPackage(appGUID)
 			buildGUID = createBuild(pkgGUID)
 			processType = "web"
 
@@ -250,13 +142,13 @@ var _ = Describe("Apps", func() {
 
 			applySpaceManifest(manifest, space1GUID)
 			var processResult processResource
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetResult(&processResult).
 				Get("/v3/apps/" + appGUID + "/processes/" + processType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(processResult.Type).To(Equal(processType))
 
-			resp, err = certClient.R().Delete("/v3/apps/" + appGUID)
+			resp, err = adminClient.R().Delete("/v3/apps/" + appGUID)
 		})
 
 		It("succeeds with a job redirect", func() {
@@ -267,25 +159,25 @@ var _ = Describe("Apps", func() {
 
 			jobURL := resp.Header().Get("Location")
 			Eventually(func(g Gomega) {
-				resp, err = certClient.R().Get(jobURL)
+				resp, err = adminClient.R().Get(jobURL)
 				g.Expect(err).NotTo(HaveOccurred())
 				jobRespBody := string(resp.Body())
 				g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
 
-			resp, err = certClient.R().Get("/v3/apps/" + appGUID)
+			resp, err = adminClient.R().Get("/v3/apps/" + appGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 
-			resp, err = certClient.R().Get("/v3/packages/" + pkgGUID)
+			resp, err = adminClient.R().Get("/v3/packages/" + pkgGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 
-			resp, err = certClient.R().Get("/v3/builds/" + buildGUID)
+			resp, err = adminClient.R().Get("/v3/builds/" + buildGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 
-			resp, err = certClient.R().Get("/v3/apps/" + appGUID + "/processes/" + processType)
+			resp, err = adminClient.R().Get("/v3/apps/" + appGUID + "/processes/" + processType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
@@ -295,13 +187,12 @@ var _ = Describe("Apps", func() {
 		var result resource
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, space1GUID)
-			appGUID = createApp(space1GUID, generateGUID("app1"))
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app1"))
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID)
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -315,13 +206,12 @@ var _ = Describe("Apps", func() {
 		var result resourceList[typedResource]
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, space1GUID)
-			appGUID = createApp(space1GUID, generateGUID("app"))
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes")
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -345,24 +235,13 @@ var _ = Describe("Apps", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes/web")
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/processes/web")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns a not-found error to users with no space access", func() {
-			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
-			Expect(resp).To(HaveRestyBody(ContainSubstring("App not found")))
-		})
-
-		When("the user is a space developer", func() {
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, space1GUID)
-			})
-
-			It("successfully returns the process", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.GUID).To(Equal(processGUID))
-			})
+		It("successfully returns the process", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(processGUID))
 		})
 	})
 
@@ -373,15 +252,14 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, space1GUID)
-			appGUID = createApp(space1GUID, generateGUID("app"))
-			pkgGUID = createPackage(appGUID)
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
+			pkgGUID = createBitsPackage(appGUID)
 			uploadTestApp(pkgGUID, defaultAppBitsFile)
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/packages")
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/packages")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -396,13 +274,12 @@ var _ = Describe("Apps", func() {
 		var result resourceList[resource]
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, space1GUID)
-			appGUID = createApp(space1GUID, generateGUID("app"))
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/routes")
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/routes")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -433,7 +310,7 @@ var _ = Describe("Apps", func() {
 			applySpaceManifest(manifest, space1GUID)
 
 			appGUID = getAppGUIDFromName(manifest.Applications[0].Name)
-			pkgGUID := createPackage(appGUID)
+			pkgGUID := createBitsPackage(appGUID)
 			uploadTestApp(pkgGUID, defaultAppBitsFile)
 			buildGUID = createBuild(pkgGUID)
 		})
@@ -451,13 +328,11 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			appGUID = createApp(space1GUID, generateGUID("app"))
-			pkgGUID = createPackage(appGUID)
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
+			pkgGUID = createBitsPackage(appGUID)
 			uploadTestApp(pkgGUID, defaultAppBitsFile)
 			buildGUID = createBuild(pkgGUID)
 			waitForDroplet(buildGUID)
-
-			createSpaceRole("space_developer", certUserName, space1GUID)
 		})
 
 		Describe("Get app current droplet", func() {
@@ -467,7 +342,7 @@ var _ = Describe("Apps", func() {
 
 			JustBeforeEach(func() {
 				var err error
-				resp, err = certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/droplets/current")
+				resp, err = adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/droplets/current")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -489,7 +364,7 @@ var _ = Describe("Apps", func() {
 				var body currentDropletResource
 				body.Data.GUID = buildGUID
 
-				resp, err = certClient.R().
+				resp, err = adminClient.R().
 					SetBody(body).
 					SetResult(&result).
 					Patch("/v3/apps/" + appGUID + "/relationships/current_droplet")
@@ -511,7 +386,7 @@ var _ = Describe("Apps", func() {
 
 			JustBeforeEach(func() {
 				var err error
-				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/start")
+				resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/start")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -527,7 +402,7 @@ var _ = Describe("Apps", func() {
 			BeforeEach(func() {
 				setCurrentDroplet(appGUID, buildGUID)
 				var err error
-				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/start")
+				resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/start")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result).To(HaveKeyWithValue("state", "STARTED"))
@@ -535,7 +410,7 @@ var _ = Describe("Apps", func() {
 
 			JustBeforeEach(func() {
 				var err error
-				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+				resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -547,7 +422,7 @@ var _ = Describe("Apps", func() {
 			It("sets the app rev to 1", func() {
 				Eventually(func(g Gomega) {
 					var err error
-					resp, err = certClient.R().
+					resp, err = adminClient.R().
 						SetResult(&result).
 						Get("/v3/apps/" + appGUID)
 					g.Expect(err).NotTo(HaveOccurred())
@@ -559,14 +434,14 @@ var _ = Describe("Apps", func() {
 			When("the app is restarted again", func() {
 				JustBeforeEach(func() {
 					var err error
-					resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+					resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("sets the app rev to 2", func() {
 					Eventually(func(g Gomega) {
 						var err error
-						resp, err = certClient.R().
+						resp, err = adminClient.R().
 							SetResult(&result).
 							Get("/v3/apps/" + appGUID)
 						g.Expect(err).NotTo(HaveOccurred())
@@ -594,7 +469,7 @@ var _ = Describe("Apps", func() {
 
 			JustBeforeEach(func() {
 				var err error
-				resp, err = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/stop")
+				resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/stop")
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -640,9 +515,10 @@ var _ = Describe("Apps", func() {
 		Describe("Scale a process", func() {
 			var result responseResource
 			var errResp cfErrs
+
 			JustBeforeEach(func() {
 				var err error
-				resp, err = certClient.R().
+				resp, err = adminClient.R().
 					SetBody(scaleResource{Instances: 2}).
 					SetError(&errResp).
 					SetResult(&result).
@@ -650,29 +526,9 @@ var _ = Describe("Apps", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("returns not found for users with no role in the space", func() {
-				expectNotFoundError(resp, errResp, "App")
-			})
-
-			When("the user is a space manager", func() {
-				BeforeEach(func() {
-					createSpaceRole("space_manager", certUserName, space1GUID)
-				})
-
-				It("returns forbidden", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusForbidden))
-				})
-			})
-
-			When("the user is a space developer", func() {
-				BeforeEach(func() {
-					createSpaceRole("space_developer", certUserName, space1GUID)
-				})
-
-				It("succeeds, and returns the process", func() {
-					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-					Expect(result.GUID).To(Equal(processGUID))
-				})
+			It("succeeds, and returns the process", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(result.GUID).To(Equal(processGUID))
 			})
 		})
 
@@ -680,13 +536,9 @@ var _ = Describe("Apps", func() {
 			var result map[string]interface{}
 			var errResp cfErrs
 
-			BeforeEach(func() {
-				createSpaceRole("space_developer", certUserName, space1GUID)
-			})
-
 			JustBeforeEach(func() {
 				var err error
-				resp, err = certClient.R().
+				resp, err = adminClient.R().
 					SetError(&errResp).
 					SetResult(&result).
 					Post("/v3/apps/" + appGUID + "/actions/stop")
@@ -701,7 +553,7 @@ var _ = Describe("Apps", func() {
 			It("eventually increments the app-rev annotation", func() {
 				Eventually(func(g Gomega) {
 					var err error
-					resp, err = certClient.R().
+					resp, err = adminClient.R().
 						SetResult(&result).
 						Get("/v3/apps/" + appGUID)
 					g.Expect(err).NotTo(HaveOccurred())
@@ -715,7 +567,7 @@ var _ = Describe("Apps", func() {
 
 				Consistently(func(g Gomega) {
 					var err error
-					resp, err = certClient.R().
+					resp, err = adminClient.R().
 						SetResult(&result).
 						Get("/v3/apps/" + appGUID)
 					g.Expect(err).NotTo(HaveOccurred())
@@ -753,8 +605,7 @@ var _ = Describe("Apps", func() {
 			secondServiceInstanceGUID = createServiceInstance(space1GUID, generateGUID("service-instance"), moreCredentials)
 			bindingName = "custom-named-binding"
 			namedBindingGUID = createServiceBinding(appGUID, secondServiceInstanceGUID, bindingName)
-			createSpaceRole("space_developer", certUserName, space1GUID)
-			_, httpError = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+			_, httpError = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
 			Expect(httpError).NotTo(HaveOccurred())
 		})
 
@@ -778,11 +629,11 @@ var _ = Describe("Apps", func() {
 
 		When("the bindings are deleted and the app is restarted", func() {
 			BeforeEach(func() {
-				_, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
+				_, httpError = adminClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
 				Expect(httpError).NotTo(HaveOccurred())
-				_, httpError = certClient.R().Delete("/v3/service_credential_bindings/" + namedBindingGUID)
+				_, httpError = adminClient.R().Delete("/v3/service_credential_bindings/" + namedBindingGUID)
 				Expect(httpError).NotTo(HaveOccurred())
-				_, httpError = certClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+				_, httpError = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
 				Expect(httpError).NotTo(HaveOccurred())
 			})
 
@@ -815,9 +666,8 @@ var _ = Describe("Apps", func() {
 		)
 
 		BeforeEach(func() {
-			createSpaceRole("space_developer", certUserName, space1GUID)
 			appName = generateGUID("app1")
-			appGUID = createApp(space1GUID, appName)
+			appGUID = createBuildpackApp(space1GUID, appName)
 			setEnv(appGUID, map[string]interface{}{
 				"foo": "var",
 			})
@@ -832,7 +682,7 @@ var _ = Describe("Apps", func() {
 		JustBeforeEach(func() {
 			Eventually(func(g Gomega) {
 				var err error
-				resp, err = certClient.R().
+				resp, err = adminClient.R().
 					SetResult(&result).
 					Get("/v3/apps/" + appGUID + "/env")
 				g.Expect(err).NotTo(HaveOccurred())
@@ -842,7 +692,7 @@ var _ = Describe("Apps", func() {
 
 		It("succeeds", func() {
 			Eventually(func(g Gomega) {
-				_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
+				_, err := adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
 				g.Expect(result).To(SatisfyAll(
@@ -897,13 +747,13 @@ var _ = Describe("Apps", func() {
 
 		When("the service binding is deleted", func() {
 			BeforeEach(func() {
-				_, err := certClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID2)
+				_, err := adminClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID2)
 				Expect(err).To(Succeed())
 			})
 
 			It("returns the updated app environment", func() {
 				Eventually(func(g Gomega) {
-					_, err := certClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
+					_, err := adminClient.R().SetResult(&result).Get("/v3/apps/" + appGUID + "/env")
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(result).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
 					g.Expect(result).To(HaveKeyWithValue("system_env_json", HaveKeyWithValue("VCAP_SERVICES", map[string]interface{}{
@@ -937,8 +787,7 @@ var _ = Describe("Apps", func() {
 
 		BeforeEach(func() {
 			newAppName = generateGUID("another-app-name-")
-			createSpaceRole("space_developer", certUserName, space1GUID)
-			appGUID = createApp(space1GUID, generateGUID("app1"))
+			appGUID = createBuildpackApp(space1GUID, generateGUID("app1"))
 		})
 
 		JustBeforeEach(func() {
@@ -961,7 +810,7 @@ var _ = Describe("Apps", func() {
 				Name: tools.PtrTo(newAppName),
 			}
 
-			resp, err = certClient.R().
+			resp, err = adminClient.R().
 				SetBody(body).
 				SetResult(&result).
 				Patch("/v3/apps/" + appGUID)
@@ -984,7 +833,7 @@ var _ = Describe("Apps", func() {
 				Reason  string `json:"reason"`
 			}
 
-			resp, err := certClient.R().
+			resp, err := adminClient.R().
 				SetResult(&respObj).
 				Get("/v3/apps/any-guid/ssh_enabled")
 			Expect(err).NotTo(HaveOccurred())

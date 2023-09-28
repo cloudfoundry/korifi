@@ -13,6 +13,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -31,7 +32,7 @@ var _ = Describe("DomainRepository", func() {
 
 	BeforeEach(func() {
 		domainName = "my-domain.com"
-		domainGUID = generateGUID()
+		domainGUID = uuid.NewString()
 		cfDomain = &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      domainGUID,
@@ -228,7 +229,7 @@ var _ = Describe("DomainRepository", func() {
 		)
 
 		BeforeEach(func() {
-			domainGUID1 = generateGUID()
+			domainGUID1 = uuid.NewString()
 
 			cfDomain1 = &korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
@@ -287,7 +288,7 @@ var _ = Describe("DomainRepository", func() {
 
 		When("the user has no permission to list domains in the root namespace", func() {
 			BeforeEach(func() {
-				userName = generateGUID()
+				userName = uuid.NewString()
 				cert, key := testhelpers.ObtainClientCert(testEnv, userName)
 				authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
 			})
@@ -322,7 +323,7 @@ var _ = Describe("DomainRepository", func() {
 
 		When("the user has no permission to list domains in the root namespace", func() {
 			BeforeEach(func() {
-				userName = generateGUID()
+				userName = uuid.NewString()
 				cert, key := testhelpers.ObtainClientCert(testEnv, userName)
 				authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
 			})

@@ -2,16 +2,11 @@ package repositories_test
 
 import (
 	"context"
-	"fmt"
-	"sync"
-	"time"
-
-	"k8s.io/apimachinery/pkg/api/meta"
+	"errors"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -21,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,31 +24,34 @@ import (
 
 var _ = Describe("ServiceBindingRepo", func() {
 	var (
-		repo                          *repositories.ServiceBindingRepo
-		testCtx                       context.Context
-		org                           *korifiv1alpha1.CFOrg
-		space                         *korifiv1alpha1.CFSpace
-		appGUID                       string
-		serviceInstanceGUID           string
-		doBindingControllerSimulation bool
-		bindingName                   *string
-		controllerCancel              chan bool
-		controllerDone                *sync.WaitGroup
+		repo                *repositories.ServiceBindingRepo
+		testCtx             context.Context
+		org                 *korifiv1alpha1.CFOrg
+		space               *korifiv1alpha1.CFSpace
+		appGUID             string
+		serviceInstanceGUID string
+		bindingName         *string
+		conditionAwaiter    *FakeAwaiter[
+			*korifiv1alpha1.CFServiceBinding,
+			korifiv1alpha1.CFServiceBindingList,
+			*korifiv1alpha1.CFServiceBindingList,
+		]
 	)
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		bindingConditionAwaiter := conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](time.Second)
-		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms, bindingConditionAwaiter)
+		conditionAwaiter = &FakeAwaiter[
+			*korifiv1alpha1.CFServiceBinding,
+			korifiv1alpha1.CFServiceBindingList,
+			*korifiv1alpha1.CFServiceBindingList,
+		]{}
+		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter)
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
 		serviceInstanceGUID = prefixedGUID("service-instance")
-		doBindingControllerSimulation = true
 		bindingName = nil
-		controllerCancel = make(chan bool, 1)
-		controllerDone = &sync.WaitGroup{}
 
 		app := &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -76,78 +75,34 @@ var _ = Describe("ServiceBindingRepo", func() {
 		).To(Succeed())
 	})
 
-	waitForServiceBinding := func(anchorNamespace string, done chan bool) (*korifiv1alpha1.CFServiceBinding, error) {
-		for {
-			select {
-			case <-done:
-				return nil, fmt.Errorf("waitForCFOrg was 'signalled' to stop polling")
-			default:
-			}
-
-			var serviceBindingList korifiv1alpha1.CFServiceBindingList
-			err := k8sClient.List(ctx, &serviceBindingList, client.InNamespace(anchorNamespace))
-			if err != nil {
-				return nil, fmt.Errorf("waitForServiceBinding failed")
-			}
-
-			if len(serviceBindingList.Items) > 1 {
-				return nil, fmt.Errorf("waitForCFOrg found multiple anchors")
-			}
-			if len(serviceBindingList.Items) == 1 {
-				return &serviceBindingList.Items[0], nil
-			}
-
-			time.Sleep(time.Millisecond * 100)
-		}
-	}
-
-	simulateServiceBindingController := func(anchorNamespace string, controllerCancel chan bool, controllerDone *sync.WaitGroup) {
-		defer GinkgoRecover()
-
-		serviceBinding, err := waitForServiceBinding(anchorNamespace, controllerCancel)
-		if err != nil {
-			return
-		}
-
-		originalServiceBinding := serviceBinding.DeepCopy()
-
-		serviceBinding.Status.Binding.Name = "service-secret-name"
-		meta.SetStatusCondition(&(serviceBinding.Status.Conditions), metav1.Condition{
-			Type:    repositories.VCAPServicesSecretAvailableCondition,
-			Status:  metav1.ConditionTrue,
-			Reason:  "blah",
-			Message: "blah",
-		})
-		Expect(
-			k8sClient.Status().Patch(ctx, serviceBinding, client.MergeFrom(originalServiceBinding)),
-		).To(Succeed())
-
-		controllerDone.Done()
-	}
-
-	JustBeforeEach(func() {
-		if doBindingControllerSimulation {
-			controllerDone.Add(1)
-			go simulateServiceBindingController(space.Name, controllerCancel, controllerDone)
-		}
-	})
-
-	AfterEach(func() {
-		controllerCancel <- true
-		controllerDone.Wait()
-	})
-
 	Describe("CreateServiceBinding", func() {
 		var (
-			record    repositories.ServiceBindingRecord
-			createErr error
+			serviceBindingRecord repositories.ServiceBindingRecord
+			createErr            error
 		)
 		BeforeEach(func() {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFServiceBinding, error) {
+				cfServiceBinding, ok := object.(*korifiv1alpha1.CFServiceBinding)
+				Expect(ok).To(BeTrue())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfServiceBinding, func() {
+					cfServiceBinding.Status.Binding.Name = "service-secret-name"
+					meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
+						Type:    repositories.VCAPServicesSecretAvailableCondition,
+						Status:  metav1.ConditionTrue,
+						Reason:  "blah",
+						Message: "blah",
+					})
+				})).To(Succeed())
+
+				return cfServiceBinding, nil
+			}
+
 			bindingName = nil
 		})
 
 		JustBeforeEach(func() {
-			record, createErr = repo.CreateServiceBinding(testCtx, authInfo, repositories.CreateServiceBindingMessage{
+			serviceBindingRecord, createErr = repo.CreateServiceBinding(testCtx, authInfo, repositories.CreateServiceBindingMessage{
 				Name:                bindingName,
 				ServiceInstanceGUID: serviceInstanceGUID,
 				AppGUID:             appGUID,
@@ -155,14 +110,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 			})
 		})
 
-		When("the user is not allowed to create service bindings", func() {
-			BeforeEach(func() {
-				doBindingControllerSimulation = false
-			})
-
-			It("returns a forbidden error", func() {
-				Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-			})
+		It("returns a forbidden error", func() {
+			Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 		})
 
 		When("the user can create CFServiceBindings in the Space", func() {
@@ -173,24 +122,24 @@ var _ = Describe("ServiceBindingRepo", func() {
 			It("creates a new CFServiceBinding resource and returns a record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(record.GUID).NotTo(BeEmpty())
-				Expect(record.Type).To(Equal("app"))
-				Expect(record.Name).To(BeNil())
-				Expect(record.AppGUID).To(Equal(appGUID))
-				Expect(record.ServiceInstanceGUID).To(Equal(serviceInstanceGUID))
-				Expect(record.SpaceGUID).To(Equal(space.Name))
-				Expect(record.CreatedAt).NotTo(BeZero())
-				Expect(record.UpdatedAt).NotTo(BeNil())
+				Expect(serviceBindingRecord.GUID).NotTo(BeEmpty())
+				Expect(serviceBindingRecord.Type).To(Equal("app"))
+				Expect(serviceBindingRecord.Name).To(BeNil())
+				Expect(serviceBindingRecord.AppGUID).To(Equal(appGUID))
+				Expect(serviceBindingRecord.ServiceInstanceGUID).To(Equal(serviceInstanceGUID))
+				Expect(serviceBindingRecord.SpaceGUID).To(Equal(space.Name))
+				Expect(serviceBindingRecord.CreatedAt).NotTo(BeZero())
+				Expect(serviceBindingRecord.UpdatedAt).NotTo(BeNil())
 
-				Expect(record.LastOperation.Type).To(Equal("create"))
-				Expect(record.LastOperation.State).To(Equal("succeeded"))
-				Expect(record.LastOperation.Description).To(BeNil())
-				Expect(record.LastOperation.CreatedAt).To(Equal(record.CreatedAt))
-				Expect(record.LastOperation.UpdatedAt).To(Equal(record.UpdatedAt))
+				Expect(serviceBindingRecord.LastOperation.Type).To(Equal("create"))
+				Expect(serviceBindingRecord.LastOperation.State).To(Equal("succeeded"))
+				Expect(serviceBindingRecord.LastOperation.Description).To(BeNil())
+				Expect(serviceBindingRecord.LastOperation.CreatedAt).To(Equal(serviceBindingRecord.CreatedAt))
+				Expect(serviceBindingRecord.LastOperation.UpdatedAt).To(Equal(serviceBindingRecord.UpdatedAt))
 
 				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
 				Expect(
-					k8sClient.Get(testCtx, types.NamespacedName{Name: record.GUID, Namespace: space.Name}, serviceBinding),
+					k8sClient.Get(testCtx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
 				).To(Succeed())
 
 				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
@@ -209,24 +158,36 @@ var _ = Describe("ServiceBindingRepo", func() {
 				))
 			})
 
+			It("awaits the vcap services secret available condition", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				cfServiceBinding := new(korifiv1alpha1.CFServiceBinding)
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: space.Name, Name: serviceBindingRecord.GUID}, cfServiceBinding)).To(Succeed())
+
+				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+				Expect(obj.GetName()).To(Equal(cfServiceBinding.Name))
+				Expect(obj.GetNamespace()).To(Equal(space.Name))
+				Expect(conditionType).To(Equal(repositories.VCAPServicesSecretAvailableCondition))
+			})
+
+			When("the vcap services secret available condition is never met", func() {
+				BeforeEach(func() {
+					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFServiceBinding{}, errors.New("time-out-err"))
+				})
+
+				It("errors", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
+				})
+			})
+
 			When("the app does not exist", func() {
 				BeforeEach(func() {
-					doBindingControllerSimulation = false
 					appGUID = "i-do-not-exits"
 				})
 
 				It("reuturns an UnprocessableEntity error", func() {
 					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-				})
-			})
-
-			When("the service binding doesn't become ready in time", func() {
-				BeforeEach(func() {
-					doBindingControllerSimulation = false
-				})
-
-				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("did not get the VCAPServicesSecretAvailable condition")))
 				})
 			})
 
@@ -237,7 +198,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 
 				It("creates the binding with the specified name", func() {
-					Expect(record.Name).To(Equal(bindingName))
+					Expect(serviceBindingRecord.Name).To(Equal(bindingName))
 				})
 			})
 		})

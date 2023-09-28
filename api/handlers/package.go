@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -184,23 +185,31 @@ func (h Package) upload(r *http.Request) (*routing.Response, error) {
 	}
 	defer bitsFile.Close()
 
-	record, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
+	packageRecord, err := h.packageRepo.GetPackage(r.Context(), authInfo, packageGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
 	}
 
-	if record.State != repositories.PackageStateAwaitingUpload {
+	if packageRecord.Type != "bits" {
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(nil, "Package type must be bits."),
+			fmt.Sprintf("uploading bits to %s packages is not supported", packageRecord.Type),
+		)
+	}
+
+	if packageRecord.State != repositories.PackageStateAwaitingUpload {
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewPackageBitsAlreadyUploadedError(err), "Error, cannot call package upload state was not AWAITING_UPLOAD", "packageGUID", packageGUID)
 	}
 
-	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, record.ImageRef, bitsFile, record.SpaceGUID, packageGUID)
+	uploadedImageRef, err := h.imageRepo.UploadSourceImage(r.Context(), authInfo, packageRecord.ImageRef, bitsFile, packageRecord.SpaceGUID, packageGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling uploadSourceImage")
 	}
 
-	record, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.UpdatePackageSourceMessage{
+	packageRecord, err = h.packageRepo.UpdatePackageSource(r.Context(), authInfo, repositories.UpdatePackageSourceMessage{
 		GUID:                packageGUID,
-		SpaceGUID:           record.SpaceGUID,
+		SpaceGUID:           packageRecord.SpaceGUID,
 		ImageRef:            uploadedImageRef,
 		RegistrySecretNames: h.registrySecretNames,
 	})
@@ -208,7 +217,7 @@ func (h Package) upload(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Error calling UpdatePackageSource")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForPackage(record, h.serverURL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForPackage(packageRecord, h.serverURL)), nil
 }
 
 func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {

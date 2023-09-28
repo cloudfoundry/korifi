@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/build"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -112,4 +112,4 @@ func (fake *BuildCleaner) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ workloads.BuildCleaner = new(BuildCleaner)
+var _ build.BuildCleaner = new(BuildCleaner)

@@ -89,8 +89,7 @@ func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builde
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfpackages/finalizers,verbs=get;update;patch
 
 func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
-	log := shared.ObjectLogger(r.log, cfPackage)
-	ctx = logr.NewContext(ctx, log)
+	log := logr.FromContextOrDiscard(ctx)
 
 	cfPackage.Status.ObservedGeneration = cfPackage.Generation
 	log.V(1).Info("set observed generation", "generation", cfPackage.Status.ObservedGeneration)
@@ -149,7 +148,7 @@ func (r *CFPackageReconciler) finalize(ctx context.Context, cfPackage *korifiv1a
 		return ctrl.Result{}, nil
 	}
 
-	if cfPackage.Spec.Source.Registry.Image != "" {
+	if cfPackage.Spec.Type != "docker" && cfPackage.Spec.Source.Registry.Image != "" {
 		if err := r.imageDeleter.Delete(ctx, image.Creds{
 			Namespace:   cfPackage.Namespace,
 			SecretNames: r.packageRepoSecretNames,

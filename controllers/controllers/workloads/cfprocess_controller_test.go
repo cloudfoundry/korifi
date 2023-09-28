@@ -2,6 +2,7 @@ package workloads_test
 
 import (
 	"context"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -12,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +31,8 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		cfPackage       *korifiv1alpha1.CFPackage
 		cfApp           *korifiv1alpha1.CFApp
 		cfBuild         *korifiv1alpha1.CFBuild
+		cfDomain        *korifiv1alpha1.CFDomain
+		cfRoute         *korifiv1alpha1.CFRoute
 	)
 
 	const (
@@ -44,12 +46,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		detectedCommand          = "detected-command"
 		processTypeWorker        = "worker"
 		processTypeWorkerCommand = "bundle exec rackup config.ru"
-		port8080                 = 8080
-		port9000                 = 9000
 	)
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 		testAppGUID = GenerateGUID()
 		testProcessGUID = GenerateGUID()
 		testBuildGUID = GenerateGUID()
@@ -59,11 +59,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		// want to drive testing with a specific CFProcess instead of cascading (non-object-ref) state through
 		// other resources.
 		cfProcess = BuildCFProcessCRObject(testProcessGUID, cfSpace.Status.GUID, testAppGUID, processTypeWeb, processTypeWebCommand, detectedCommand)
+		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
+
 		cfApp = BuildCFAppCRObject(testAppGUID, cfSpace.Status.GUID)
 		cfApp.Spec.EnvSecretName = testAppGUID + "-env"
 		cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: testBuildGUID}
+		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 
 		cfPackage = BuildCFPackageCRObject(testPackageGUID, cfSpace.Status.GUID, testAppGUID, "ref")
+		Expect(adminClient.Create(ctx, cfPackage)).To(Succeed())
+
 		cfBuild = BuildCFBuildObject(testBuildGUID, cfSpace.Status.GUID, testPackageGUID, testAppGUID)
 
 		appEnvSecret := BuildCFAppEnvVarsSecret(testAppGUID, cfSpace.Status.GUID, map[string]string{
@@ -73,12 +78,53 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		})
 		Expect(adminClient.Create(ctx, appEnvSecret)).To(Succeed())
 
-		Expect(adminClient.Create(ctx, cfPackage)).To(Succeed())
-		buildDropletStatus := BuildCFBuildDropletStatusObject(map[string]string{"web": "command-from-droplet"}, []int32{})
+		buildDropletStatus := BuildCFBuildDropletStatusObject(map[string]string{"web": "command-from-droplet"})
 		cfBuild = createBuildWithDroplet(ctx, adminClient, cfBuild, buildDropletStatus)
 
-		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
-		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
+		cfDomain = &korifiv1alpha1.CFDomain{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfSpace.Status.GUID,
+				Name:      GenerateGUID(),
+			},
+			Spec: korifiv1alpha1.CFDomainSpec{
+				Name: "a" + uuid.NewString() + ".com",
+			},
+		}
+		Expect(adminClient.Create(ctx, cfDomain)).To(Succeed())
+	})
+
+	JustBeforeEach(func() {
+		destination := korifiv1alpha1.Destination{
+			GUID:        GenerateGUID(),
+			AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
+			ProcessType: processTypeWeb,
+			Port:        tools.PtrTo(8080),
+			Protocol:    tools.PtrTo("http1"),
+		}
+		cfRoute = &korifiv1alpha1.CFRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfDomain.Name,
+				Namespace: cfSpace.Status.GUID,
+			},
+			Spec: korifiv1alpha1.CFRouteSpec{
+				Host:     PrefixedGUID("test-host"),
+				Path:     "",
+				Protocol: "http",
+				DomainRef: corev1.ObjectReference{
+					Name:      cfDomain.Name,
+					Namespace: cfSpace.Status.GUID,
+				},
+				Destinations: []korifiv1alpha1.Destination{destination},
+			},
+		}
+		Expect(adminClient.Create(ctx, cfRoute)).To(Succeed())
+		Expect(k8s.Patch(ctx, adminClient, cfRoute, func() {
+			cfRoute.Status = korifiv1alpha1.CFRouteStatus{
+				Destinations:  []korifiv1alpha1.Destination{destination},
+				CurrentStatus: korifiv1alpha1.ValidStatus,
+				Description:   "ok",
+			}
+		})).To(Succeed())
 	})
 
 	It("eventually reconciles to set owner references on CFProcess", func() {
@@ -106,10 +152,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 			g.Expect(createdCFProcess.Status.ObservedGeneration).To(Equal(createdCFProcess.Generation))
 		}).Should(Succeed())
-	})
-
-	It("writes a log message", func() {
-		Eventually(logOutput).Should(gbytes.Say("set observed generation"))
 	})
 
 	When("the CFApp desired state is STARTED", func() {
@@ -145,7 +187,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.Spec.ImagePullSecrets).To(Equal(cfBuild.Status.Droplet.Registry.ImagePullSecrets))
 				g.Expect(appWorkload.Spec.ProcessType).To(Equal(processTypeWeb))
 				g.Expect(appWorkload.Spec.AppGUID).To(Equal(cfApp.Name))
-				g.Expect(appWorkload.Spec.Ports).To(Equal(cfProcess.Spec.Ports))
+				g.Expect(appWorkload.Spec.Ports).To(ConsistOf(int32(8080)))
 				g.Expect(appWorkload.Spec.Instances).To(Equal(int32(*cfProcess.Spec.DesiredInstances)))
 
 				g.Expect(appWorkload.Spec.Resources.Limits.StorageEphemeral()).To(matchers.RepresentResourceQuantity(cfProcess.Spec.DiskQuotaMB, "Mi"))
@@ -231,6 +273,30 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			It("eventually creates an app workload using the command from the build", func() {
 				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", "command-from-droplet"))
+				})
+			})
+		})
+
+		When("there are no route destinations for the process app", func() {
+			JustBeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, cfRoute, func() {
+					cfRoute.Status.Destinations = []korifiv1alpha1.Destination{}
+				})).To(Succeed())
+			})
+
+			It("does not create startup and liveness probes on the app workload", func() {
+				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(appWorkload.Spec.StartupProbe).To(BeNil())
+					g.Expect(appWorkload.Spec.LivenessProbe).To(BeNil())
+				})
+			})
+
+			It("does not set port related environment variables on the app workload", func() {
+				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(appWorkload.Spec.Env).NotTo(ContainElements(
+						MatchFields(IgnoreExtras, Fields{"Name": Equal("VCAP_APP_PORT")}),
+						MatchFields(IgnoreExtras, Fields{"Name": Equal("PORT")}),
+					))
 				})
 			})
 		})
@@ -368,32 +434,21 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	})
 
 	When("a CFRoute destination specifying a different port already exists before the app is started", func() {
-		JustBeforeEach(func() {
-			cfDomain := &korifiv1alpha1.CFDomain{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: cfSpace.Status.GUID,
-					Name:      GenerateGUID(),
-				},
-				Spec: korifiv1alpha1.CFDomainSpec{
-					Name: "a" + uuid.NewString() + ".com",
-				},
-			}
-			Expect(adminClient.Create(ctx, cfDomain)).To(Succeed())
-
+		BeforeEach(func() {
 			destination := korifiv1alpha1.Destination{
-				GUID:        "destination2-guid",
+				GUID:        GenerateGUID(),
 				AppRef:      corev1.LocalObjectReference{Name: cfApp.Name},
 				ProcessType: processTypeWeb,
-				Port:        port9000,
-				Protocol:    "http1",
+				Port:        tools.PtrTo(9000),
+				Protocol:    tools.PtrTo("http1"),
 			}
 			cfRoute := &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfDomain.Name,
+					Name:      GenerateGUID(),
 					Namespace: cfSpace.Status.GUID,
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
-					Host:     "test-host",
+					Host:     PrefixedGUID("test-host"),
 					Path:     "",
 					Protocol: "http",
 					DomainRef: corev1.ObjectReference{
@@ -415,9 +470,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			})).To(Succeed())
+
+			// we need to delay the creation of the other cfroute in the
+			// JustBeforeEach buecause kubernetes creation timestamps are with
+			// a second granularity
+			time.Sleep(time.Second)
 		})
 
-		It("eventually reconciles the CFProcess into an AppWorkload with VCAP env set according to the destination port", func() {
+		It("uses the oldest route destination port for VCAP_APP_PORT and PORT env vars", func() {
 			eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 				g.Expect(appWorkload.Spec.Env).To(ContainElements(
 					Equal(corev1.EnvVar{Name: "VCAP_APP_PORT", Value: "9000"}),
@@ -432,11 +492,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					cfProcess.Spec.HealthCheck.Type = "http"
 					cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds = 3
 					cfProcess.Spec.HealthCheck.Data.TimeoutSeconds = 31
-					cfProcess.Spec.Ports = []int32{}
 				})).To(Succeed())
 			})
 
-			It("eventually sets the correct health check port on the AppWorkload", func() {
+			It("sets the health check port on the AppWorkload using the oldes route destination port", func() {
 				eventuallyCreatedAppWorkloadShould(testProcessGUID, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.StartupProbe).ToNot(BeNil())
 					g.Expect(appWorkload.Spec.StartupProbe.HTTPGet.Port.IntValue()).To(BeEquivalentTo(9000))
@@ -458,7 +517,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	When("the CFProcess has an http health check", func() {
 		const (
 			healthCheckEndpoint                 = "/healthy"
-			healthCheckPort                     = 8080
 			healthCheckTimeoutSeconds           = 9
 			healthCheckInvocationTimeoutSeconds = 3
 		)
@@ -507,7 +565,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 	When("the CFProcess has a port health check", func() {
 		const (
-			healthCheckPort                     = 8080
 			healthCheckTimeoutSeconds           = 9
 			healthCheckInvocationTimeoutSeconds = 3
 		)

@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.13.0
   name: buildworkloads.korifi.cloudfoundry.org
 spec:
   group: korifi.cloudfoundry.org
@@ -388,10 +388,7 @@ spec:
                     description: The stack used to build the Droplet
                     type: string
                 required:
-                - ports
-                - processTypes
                 - registry
-                - stack
                 type: object
               observedGeneration:
                 description: ObservedGeneration captures the latest generation of

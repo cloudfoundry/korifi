@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	buildfake "code.cloudfoundry.org/korifi/controllers/controllers/workloads/build/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
@@ -23,18 +24,19 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers/oci"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,21 +47,20 @@ import (
 )
 
 var (
-	ctx                  context.Context
-	stopManager          context.CancelFunc
-	stopClientCache      context.CancelFunc
-	testEnv              *envtest.Environment
-	adminClient          client.Client
-	controllersClient    client.Client
-	cfRootNamespace      string
-	cfOrg                *korifiv1alpha1.CFOrg
-	imageRegistrySecret1 *corev1.Secret
-	imageRegistrySecret2 *corev1.Secret
-	imageDeleter         *fake.ImageDeleter
-	packageCleaner       *fake.PackageCleaner
-	eventRecorder        *controllerfake.EventRecorder
-	buildCleaner         *fake.BuildCleaner
-	logOutput            *gbytes.Buffer
+	ctx                 context.Context
+	stopManager         context.CancelFunc
+	stopClientCache     context.CancelFunc
+	testEnv             *envtest.Environment
+	adminClient         client.Client
+	controllersClient   client.Client
+	cfRootNamespace     string
+	testOrg             *korifiv1alpha1.CFOrg
+	imageRegistrySecret *corev1.Secret
+	imageDeleter        *fake.ImageDeleter
+	packageCleaner      *fake.PackageCleaner
+	eventRecorder       *controllerfake.EventRecorder
+	imageClient         image.Client
+	containerRegistry   *oci.Registry
 )
 
 const (
@@ -68,7 +69,6 @@ const (
 	defaultTimeout     = 60
 
 	packageRegistrySecretName = "test-package-registry-secret"
-	otherRegistrySecretName   = "some-other-registry-secret"
 )
 
 func TestWorkloadsControllers(t *testing.T) {
@@ -80,11 +80,11 @@ func TestWorkloadsControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logOutput = gbytes.NewBuffer()
-	GinkgoWriter.TeeTo(logOutput)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
 
 	ctx = context.Background()
+
+	containerRegistry = oci.NewContainerRegistry("user", "password")
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -117,11 +117,15 @@ var _ = BeforeSuite(func() {
 			DiskQuotaMB: 512,
 		},
 		CFRootNamespace:                  cfRootNamespace,
-		ContainerRegistrySecretNames:     []string{packageRegistrySecretName, otherRegistrySecretName},
+		ContainerRegistrySecretNames:     []string{packageRegistrySecretName},
 		WorkloadsTLSSecretName:           "korifi-workloads-ingress-cert",
 		WorkloadsTLSSecretNamespace:      "korifi-controllers-system",
 		SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(2)),
 	}
+
+	k8sClient, err := k8sclient.NewForConfig(k8sManager.GetConfig())
+	Expect(err).NotTo(HaveOccurred())
+	imageClient = image.NewClient(k8sClient)
 
 	eventRecorder = new(controllerfake.EventRecorder)
 
@@ -134,16 +138,25 @@ var _ = BeforeSuite(func() {
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	buildCleaner = new(fake.BuildCleaner)
-	cfBuildReconciler := NewCFBuildReconciler(
+	cfBuildpackBuildReconciler := NewCFBuildpackBuildReconciler(
 		k8sManager.GetClient(),
-		buildCleaner,
+		new(buildfake.BuildCleaner),
 		k8sManager.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFBuild"),
+		ctrl.Log.WithName("controllers").WithName("CFBuildpackBuild"),
 		controllerConfig,
 		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
 	)
-	err = (cfBuildReconciler).SetupWithManager(k8sManager)
+	err = (cfBuildpackBuildReconciler).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	cfDockerBuildReconciler := NewCFDockerBuildReconciler(
+		k8sManager.GetClient(),
+		new(buildfake.BuildCleaner),
+		imageClient,
+		k8sManager.GetScheme(),
+		ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),
+	)
+	err = (cfDockerBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (NewCFProcessReconciler(
@@ -174,7 +187,6 @@ var _ = BeforeSuite(func() {
 
 	err = NewCFOrgReconciler(
 		k8sManager.GetClient(),
-		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFOrg"),
 		controllerConfig.ContainerRegistrySecretNames,
 		labelCompiler,
@@ -183,7 +195,6 @@ var _ = BeforeSuite(func() {
 
 	err = NewCFSpaceReconciler(
 		k8sManager.GetClient(),
-		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
 		controllerConfig.ContainerRegistrySecretNames,
 		controllerConfig.CFRootNamespace,
@@ -243,14 +254,14 @@ var _ = BeforeSuite(func() {
 	Expect(services.NewCFServiceBindingValidator(
 		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), services.ServiceBindingEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(workloads.NewCFPackageValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 
 	createNamespace(cfRootNamespace)
-	imageRegistrySecret1 = createImageRegistrySecret(ctx, adminClient, packageRegistrySecretName, cfRootNamespace)
-	imageRegistrySecret2 = createImageRegistrySecret(ctx, adminClient, otherRegistrySecretName, cfRootNamespace)
+	imageRegistrySecret = createImageRegistrySecret(ctx, packageRegistrySecretName, cfRootNamespace)
 
-	cfOrg = createOrg(cfRootNamespace)
+	testOrg = createOrg(cfRootNamespace)
 })
 
 var _ = AfterSuite(func() {
@@ -282,7 +293,7 @@ func createNamespace(name string) *corev1.Namespace {
 	return ns
 }
 
-func createImageRegistrySecret(ctx context.Context, k8sClient client.Client, name string, namespace string) *corev1.Secret {
+func createImageRegistrySecret(ctx context.Context, name string, namespace string) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -298,42 +309,11 @@ func createImageRegistrySecret(ctx context.Context, k8sClient client.Client, nam
 		},
 		Type: "Docker",
 	}
-	Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+	Expect(adminClient.Create(ctx, secret)).To(Succeed())
 	return secret
 }
 
-func createClusterRole(ctx context.Context, k8sClient client.Client, name string, rules []rbacv1.PolicyRule) *rbacv1.ClusterRole {
-	role := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Rules: rules,
-	}
-	Expect(k8sClient.Create(ctx, role)).To(Succeed())
-	return role
-}
-
-func createRoleBinding(ctx context.Context, k8sClient client.Client, roleBindingName, subjectName, roleReference, namespace string, annotations map[string]string) *rbacv1.RoleBinding {
-	roleBinding := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        roleBindingName,
-			Namespace:   namespace,
-			Annotations: annotations,
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind: rbacv1.UserKind,
-			Name: subjectName,
-		}},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: roleReference,
-		},
-	}
-	Expect(k8sClient.Create(ctx, roleBinding)).To(Succeed())
-	return roleBinding
-}
-
-func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceAccountName, namespace string, annotations map[string]string) *corev1.ServiceAccount {
+func createServiceAccount(ctx context.Context, serviceAccountName, namespace string, annotations map[string]string) *corev1.ServiceAccount {
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        serviceAccountName,
@@ -344,12 +324,10 @@ func createServiceAccount(ctx context.Context, k8sclient client.Client, serviceA
 			{Name: serviceAccountName + "-token-someguid"},
 			{Name: serviceAccountName + "-dockercfg-someguid"},
 			{Name: packageRegistrySecretName},
-			{Name: otherRegistrySecretName},
 		},
 		ImagePullSecrets: []corev1.LocalObjectReference{
 			{Name: serviceAccountName + "-dockercfg-someguid"},
 			{Name: packageRegistrySecretName},
-			{Name: otherRegistrySecretName},
 		},
 	}
 	Expect(adminClient.Create(ctx, serviceAccount)).To(Succeed())

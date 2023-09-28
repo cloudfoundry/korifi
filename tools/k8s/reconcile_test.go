@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +17,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"code.cloudfoundry.org/korifi/controllers/fake"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -27,6 +31,9 @@ type fakeObjectReconciler struct {
 }
 
 func (f *fakeObjectReconciler) ReconcileResource(ctx context.Context, obj *corev1.Pod) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx)
+	log.V(1).Info("fake reconciler reconciling")
+
 	f.reconcileResourceCallCount++
 	f.reconcileResourceObj = obj
 
@@ -187,6 +194,25 @@ var _ = Describe("Reconcile", func() {
 		It("updates the object and its status nevertheless", func() {
 			Expect(fakeClient.PatchCallCount()).To(Equal(1))
 			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+		})
+	})
+
+	Describe("logging", func() {
+		var logOutput *gbytes.Buffer
+
+		BeforeEach(func() {
+			logOutput = gbytes.NewBuffer()
+			GinkgoWriter.TeeTo(logOutput)
+			logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+		})
+
+		It("captures logs from object reconciler", func() {
+			Eventually(logOutput).Should(SatisfyAll(
+				gbytes.Say("fake reconciler reconciling"),
+				gbytes.Say(`"namespace":`),
+				gbytes.Say(`"name":`),
+				gbytes.Say(`"logID":`),
+			))
 		})
 	})
 })

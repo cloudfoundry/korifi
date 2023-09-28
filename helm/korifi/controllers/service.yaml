@@ -10,7 +10,7 @@ spec:
   selector:
     app: korifi-controllers
 
-{{- if .Values.global.debug }}
+{{- if .Values.debug }}
 ---
 apiVersion: v1
 kind: Service

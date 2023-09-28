@@ -23,6 +23,7 @@ No query parameters are supported.
 -   `names`
 -   `space_guids`
 -   `order_by` (the only supported value is `name`)
+-   `label_selector`
 
 ### [Delete an app](https://v3-apidocs.cloudfoundry.org/#delete-an-app)
 
@@ -121,16 +122,15 @@ Updating `image` is not supported.
 
 ### [Apply a manifest to a space](https://v3-apidocs.cloudfoundry.org/#apply-a-manifest-to-a-space)
 
-Korifi only supports manifests with a single entry in `applications`.
-
 #### Supported parameters:
 
--   `applications[0].name`
--   `applications[0].env`
--   `applications[0].memory` (sets `memory` for the `web` process)
--   `applications[0].processes`
--   `applications[0].no-route`
--   `applications[0].routes[0].route`
+-   `applications[].name`
+-   `applications[].env`
+-   `applications[].memory` (sets `memory` for the `web` process)
+-   `applications[].processes`
+-   `applications[].no-route`
+-   `applications[].routes[].route`
+-   `applications[].services` (user-provided services only)
 
 ### [Create a manifest diff for a space](https://v3-apidocs.cloudfoundry.org/#create-a-manifest-diff-for-a-space-experimental)
 
@@ -144,6 +144,8 @@ Korifi only supports manifests with a single entry in `applications`.
 #### Supported parameters:
 
 -   `name`
+
+### [Get an organization](https://v3-apidocs.cloudfoundry.org/#get-an-organization)
 
 ### [List organizations](https://v3-apidocs.cloudfoundry.org/#list-organizations)
 
@@ -333,9 +335,11 @@ Korifi only supports user-provided service instances. Managed service operations
 
 #### Supported query parameters:
 
+-   `guids`
 -   `names`
 -   `space_guids`
 -   `order_by` (the only supported values are `name`, `created_at` and `updated_at`)
+-   `label_selector`
 
 ### [Delete a service instance](https://v3-apidocs.cloudfoundry.org/#delete-a-service-instance)
 
@@ -362,6 +366,7 @@ No query parameters are supported.
 -   `app_guids`
 -   `type`
 -   `include` (the only supported value is `app`)
+-   `label_selector`
 
 ### [Delete a service credential binding](https://v3-apidocs.cloudfoundry.org/#delete-a-service-credential-binding)
 
@@ -395,9 +400,12 @@ This endpoint is fully supported.
 #### Supported query parameters:
 
 -   `names`
+-   `guids`
 -   `organization_guids`
 
 ### [Delete a space](https://v3-apidocs.cloudfoundry.org/#delete-a-space)
+
+### [Get a space](https://v3-apidocs.cloudfoundry.org/#get-a-space)
 
 This endpoint is fully supported.
 

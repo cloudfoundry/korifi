@@ -3,7 +3,9 @@ package controllers_test
 import (
 	"testing"
 
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/fake"
@@ -13,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestAppWorkloadsController(t *testing.T) {
@@ -24,6 +27,10 @@ var (
 	fakeClient       *fake.Client
 	fakeStatusWriter *fake.StatusWriter
 )
+
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
+})
 
 var _ = BeforeEach(func() {
 	fakeClient = new(fake.Client)

@@ -9,7 +9,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -28,7 +27,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 
 		cfAppName := testutils.PrefixedGUID("app")
 
@@ -75,7 +74,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				Type:    "web",
 				Command: "cmd",
 			}},
-			Ports: []int32{8080},
 		}
 		meta.SetStatusCondition(&cfDropletCopy.Status.Conditions, metav1.Condition{
 			Type:   "type",
@@ -116,7 +114,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 				HealthCheck: korifiv1alpha1.HealthCheck{
 					Type: "process",
 				},
-				Ports: []int32{8080},
 			},
 		}
 		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
@@ -195,10 +192,6 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		It("sets the ObservedGeneration status field", func() {
 			Expect(task.Status.ObservedGeneration).To(Equal(task.Generation))
-		})
-
-		It("writes a log message", func() {
-			Eventually(logOutput).Should(gbytes.Say("set observed generation"))
 		})
 
 		It("creates an TaskWorkload", func() {
@@ -352,22 +345,30 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			Expect(adminClient.Create(ctx, cfTask)).To(Succeed())
 
-			// wait for reconciler to set initialized condition to avoid it overwriting the succeeded condition
 			Eventually(func(g Gomega) {
-				g.Expect(controllersClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
-				g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+				var taskWorkloads korifiv1alpha1.TaskWorkloadList
+
+				g.Expect(adminClient.List(ctx, &taskWorkloads,
+					client.InNamespace(cfSpace.Status.GUID),
+					client.MatchingLabels{korifiv1alpha1.CFTaskGUIDLabelKey: cfTask.Name},
+				)).To(Succeed())
+				g.Expect(taskWorkloads.Items).To(HaveLen(1))
+
+				g.Expect(k8s.Patch(ctx, adminClient, &taskWorkloads.Items[0], func() {
+					meta.SetStatusCondition(&taskWorkloads.Items[0].Status.Conditions, metav1.Condition{
+						Type:               korifiv1alpha1.TaskSucceededConditionType,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.Now(),
+						Reason:             "succeeded",
+						Message:            "succeeded",
+					})
+				})).To(Succeed())
 			}).Should(Succeed())
 
-			Expect(k8s.Patch(ctx, adminClient, cfTask, func() {
-				cfTask.Annotations = map[string]string{"trigger-the": "reconciler"}
-				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-					Type:               korifiv1alpha1.TaskSucceededConditionType,
-					Status:             metav1.ConditionTrue,
-					LastTransitionTime: metav1.Now(),
-					Reason:             "succeeded",
-					Message:            "succeeded",
-				})
-			})).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(cfTask.Status.Conditions, korifiv1alpha1.TaskSucceededConditionType)).To(BeTrue())
+			}).Should(Succeed())
 		})
 
 		It("it can get the task shortly after completion", func() {

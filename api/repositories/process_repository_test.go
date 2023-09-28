@@ -75,7 +75,6 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(processRecord.DesiredInstances).To(Equal(*cfProcess1.Spec.DesiredInstances))
 				Expect(processRecord.MemoryMB).To(Equal(cfProcess1.Spec.MemoryMB))
 				Expect(processRecord.DiskQuotaMB).To(Equal(cfProcess1.Spec.DiskQuotaMB))
-				Expect(processRecord.Ports).To(Equal(cfProcess1.Spec.Ports))
 				Expect(processRecord.HealthCheck.Type).To(Equal(string(cfProcess1.Spec.HealthCheck.Type)))
 				Expect(processRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(cfProcess1.Spec.HealthCheck.Data.InvocationTimeoutSeconds))
 				Expect(processRecord.HealthCheck.Data.TimeoutSeconds).To(Equal(cfProcess1.Spec.HealthCheck.Data.TimeoutSeconds))
@@ -304,7 +303,7 @@ var _ = Describe("ProcessRepo", func() {
 
 			When("scaling down a process to 0 instances", func() {
 				It("works", func() {
-					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{Instances: pointerTo(0)}
+					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{Instances: tools.PtrTo(0)}
 					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), authInfo, *scaleProcessMessage)
 					Expect(scaleProcessErr).ToNot(HaveOccurred())
 
@@ -378,7 +377,6 @@ var _ = Describe("ProcessRepo", func() {
 					DesiredInstances: tools.PtrTo(42),
 					MemoryMB:         456,
 					DiskQuotaMB:      123,
-					Ports:            []int32{},
 				}))
 			})
 		})
@@ -427,7 +425,6 @@ var _ = Describe("ProcessRepo", func() {
 					"DesiredInstances": Equal(1),
 					"MemoryMB":         BeEquivalentTo(500),
 					"DiskQuotaMB":      BeEquivalentTo(512),
-					"Ports":            Equal([]int32{8080}),
 					"HealthCheck": Equal(repositories.HealthCheck{
 						Type: "process",
 						Data: repositories.HealthCheckData{
@@ -435,7 +432,7 @@ var _ = Describe("ProcessRepo", func() {
 							TimeoutSeconds:           0,
 						},
 					}),
-					"Labels":      HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", app1GUID),
+					"Labels":      HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, app1GUID),
 					"Annotations": BeEmpty(),
 					"CreatedAt":   BeTemporally("~", time.Now(), timeCheckThreshold),
 					"UpdatedAt":   PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)),
@@ -467,7 +464,7 @@ var _ = Describe("ProcessRepo", func() {
 						Name:      process1GUID,
 						Namespace: space.Name,
 						Labels: map[string]string{
-							cfAppGUIDLabelKey: app1GUID,
+							korifiv1alpha1.CFAppGUIDLabelKey: app1GUID,
 						},
 					},
 					Spec: korifiv1alpha1.CFProcessSpec{
@@ -486,7 +483,6 @@ var _ = Describe("ProcessRepo", func() {
 						DesiredInstances: tools.PtrTo(1),
 						MemoryMB:         2,
 						DiskQuotaMB:      3,
-						Ports:            []int32{8080},
 					},
 				}
 
@@ -574,7 +570,6 @@ var _ = Describe("ProcessRepo", func() {
 							DesiredInstances: tools.PtrTo(42),
 							MemoryMB:         456,
 							DiskQuotaMB:      123,
-							Ports:            []int32{8080},
 						}))
 						Expect(process.Labels).To(HaveKey("foo"))
 						Expect(process.Annotations).To(HaveKey("foo"))
@@ -624,7 +619,6 @@ var _ = Describe("ProcessRepo", func() {
 							DesiredInstances: tools.PtrTo(5),
 							MemoryMB:         123,
 							DiskQuotaMB:      3,
-							Ports:            []int32{8080},
 						}))
 					})
 				})

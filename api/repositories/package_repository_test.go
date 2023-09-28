@@ -4,22 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/cleanup"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/image"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -27,53 +23,56 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 )
 
 var _ = Describe("PackageRepository", func() {
 	var (
-		repoCreator *fake.RepositoryCreator
+		repoCreator      *fake.RepositoryCreator
+		conditionAwaiter *FakeAwaiter[
+			*korifiv1alpha1.CFPackage,
+			korifiv1alpha1.CFPackageList,
+			*korifiv1alpha1.CFPackageList,
+		]
 		packageRepo *repositories.PackageRepo
 		org         *korifiv1alpha1.CFOrg
 		space       *korifiv1alpha1.CFSpace
 		app         *korifiv1alpha1.CFApp
-		stopManager context.CancelFunc
+		appGUID     string
 	)
 
 	BeforeEach(func() {
 		repoCreator = new(fake.RepositoryCreator)
+		conditionAwaiter = &FakeAwaiter[
+			*korifiv1alpha1.CFPackage,
+			korifiv1alpha1.CFPackageList,
+			*korifiv1alpha1.CFPackageList,
+		]{}
 		packageRepo = repositories.NewPackageRepo(
 			userClientFactory,
 			namespaceRetriever,
 			nsPerms,
 			repoCreator,
 			"container.registry/foo/my/prefix-",
-			time.Second*4,
+			conditionAwaiter,
 		)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
-		app = createApp(space.Name)
 
-		k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
-
-		k8sInterface, err := kubernetes.NewForConfig(k8sManager.GetConfig())
-		Expect(err).NotTo(HaveOccurred())
-
-		err = (workloads.NewCFPackageReconciler(
-			k8sManager.GetClient(),
-			k8sManager.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFPackage"),
-			image.NewClient(k8sInterface),
-			cleanup.NewPackageCleaner(k8sClient, 5),
-			[]string{"package-repo-secret-name"},
-		)).SetupWithManager(k8sManager)
-		Expect(err).NotTo(HaveOccurred())
-
-		stopManager = helpers.StartK8sManager(k8sManager)
-	})
-
-	AfterEach(func() {
-		stopManager()
+		appGUID = uuid.NewString()
+		app = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      appGUID,
+				Namespace: space.Name,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName:  uuid.NewString(),
+				DesiredState: "STOPPED",
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, app)).To(Succeed())
 	})
 
 	Describe("CreatePackage", func() {
@@ -84,9 +83,23 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
+			appGUID = uuid.NewString()
+			app = &korifiv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      appGUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFAppSpec{
+					DisplayName:  uuid.NewString(),
+					DesiredState: "STOPPED",
+					Lifecycle: korifiv1alpha1.Lifecycle{
+						Type: "docker",
+					},
+				},
+			}
+
 			packageCreate = repositories.CreatePackageMessage{
-				Type:      "bits",
-				AppGUID:   app.Name,
+				AppGUID:   appGUID,
 				SpaceGUID: space.Name,
 				Metadata: repositories.Metadata{
 					Labels: map[string]string{
@@ -100,11 +113,12 @@ var _ = Describe("PackageRepository", func() {
 		})
 
 		JustBeforeEach(func() {
+			Expect(k8sClient.Create(ctx, app)).To(Succeed())
 			createdPackage, createErr = packageRepo.CreatePackage(ctx, authInfo, packageCreate)
 		})
 
 		It("fails because the user is not a space developer", func() {
-			Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 		})
 
 		When("the user is a SpaceDeveloper", func() {
@@ -112,50 +126,207 @@ var _ = Describe("PackageRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			It("creates a Package record", func() {
-				Expect(createErr).NotTo(HaveOccurred())
-
-				packageGUID := createdPackage.GUID
-				Expect(packageGUID).NotTo(BeEmpty())
-				Expect(createdPackage.Type).To(Equal("bits"))
-				Expect(createdPackage.AppGUID).To(Equal(app.Name))
-				Expect(createdPackage.State).To(Equal("AWAITING_UPLOAD"))
-				Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
-				Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
-				Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
-
-				Expect(createdPackage.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-
-				Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
-
-				packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
-				createdCFPackage := new(korifiv1alpha1.CFPackage)
-				Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
-
-				Expect(createdCFPackage.Name).To(Equal(packageGUID))
-				Expect(createdCFPackage.Namespace).To(Equal(space.Name))
-				Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("bits")))
-				Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(app.Name))
-
-				Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
-				Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
-
-				Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, "Initialized")).To(BeTrue())
-			})
-
-			It("creates a package repository", func() {
-				Expect(repoCreator.CreateRepositoryCallCount()).To(Equal(1))
-				_, repoName := repoCreator.CreateRepositoryArgsForCall(0)
-				Expect(repoName).To(Equal("container.registry/foo/my/prefix-" + app.Name + "-packages"))
-			})
-
-			When("repo creation errors", func() {
+			Describe("bits package", func() {
 				BeforeEach(func() {
-					repoCreator.CreateRepositoryReturns(errors.New("repo create error"))
+					app.Spec.Lifecycle = korifiv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: korifiv1alpha1.LifecycleData{
+							Buildpacks: []string{"java"},
+						},
+					}
+					packageCreate.Type = "bits"
+				})
+
+				It("creates a Package record", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+
+					packageGUID := createdPackage.GUID
+					Expect(packageGUID).NotTo(BeEmpty())
+					Expect(createdPackage.Type).To(Equal("bits"))
+					Expect(createdPackage.AppGUID).To(Equal(appGUID))
+					Expect(createdPackage.State).To(Equal("AWAITING_UPLOAD"))
+					Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+					Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+					Expect(createdPackage.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", appGUID)))
+
+					Expect(createdPackage.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+
+					Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+
+					packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
+					createdCFPackage := new(korifiv1alpha1.CFPackage)
+					Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
+
+					Expect(createdCFPackage.Name).To(Equal(packageGUID))
+					Expect(createdCFPackage.Namespace).To(Equal(space.Name))
+					Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("bits")))
+					Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(appGUID))
+
+					Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+					Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+				})
+
+				It("awaits the Initialized status", func() {
+					Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+					obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+					Expect(obj.GetName()).To(Equal(createdPackage.GUID))
+					Expect(obj.GetNamespace()).To(Equal(space.Name))
+					Expect(conditionType).To(Equal("Initialized"))
+				})
+
+				It("creates a package repository", func() {
+					Expect(repoCreator.CreateRepositoryCallCount()).To(Equal(1))
+					_, repoName := repoCreator.CreateRepositoryArgsForCall(0)
+					Expect(repoName).To(Equal("container.registry/foo/my/prefix-" + appGUID + "-packages"))
+				})
+
+				When("the package does not become initialized", func() {
+					BeforeEach(func() {
+						conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFPackage{}, errors.New("time-out-err"))
+					})
+
+					It("returns an error", func() {
+						Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
+					})
+				})
+
+				When("repo creation errors", func() {
+					BeforeEach(func() {
+						repoCreator.CreateRepositoryReturns(errors.New("repo create error"))
+					})
+
+					It("returns an error", func() {
+						Expect(createErr).To(MatchError(ContainSubstring("repo create error")))
+					})
+				})
+
+				When("the referenced app has docker lifecycle type", func() {
+					BeforeEach(func() {
+						app.Spec.Lifecycle = korifiv1alpha1.Lifecycle{
+							Type: "docker",
+						}
+					})
+
+					It("returns an error", func() {
+						Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+					})
+				})
+			})
+
+			Describe("docker package", func() {
+				BeforeEach(func() {
+					app.Spec.Lifecycle = korifiv1alpha1.Lifecycle{
+						Type: "docker",
+					}
+
+					packageCreate.Type = "docker"
+					packageCreate.Data = &repositories.PackageData{
+						Image: "some/image",
+					}
+				})
+
+				It("creates a Package record", func() {
+					Expect(createErr).NotTo(HaveOccurred())
+
+					packageGUID := createdPackage.GUID
+					Expect(packageGUID).NotTo(BeEmpty())
+					Expect(createdPackage.Type).To(Equal("docker"))
+					Expect(createdPackage.AppGUID).To(Equal(appGUID))
+					Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+					Expect(createdPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+					Expect(createdPackage.ImageRef).To(Equal("some/image"))
+
+					Expect(createdPackage.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+					Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+
+					packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
+					createdCFPackage := new(korifiv1alpha1.CFPackage)
+					Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())
+
+					Expect(createdCFPackage.Name).To(Equal(packageGUID))
+					Expect(createdCFPackage.Namespace).To(Equal(space.Name))
+					Expect(createdCFPackage.Spec.Type).To(Equal(korifiv1alpha1.PackageType("docker")))
+					Expect(createdCFPackage.Spec.AppRef.Name).To(Equal(appGUID))
+					Expect(createdCFPackage.Spec.Source.Registry.Image).To(Equal("some/image"))
+					Expect(createdCFPackage.Spec.Source.Registry.ImagePullSecrets).To(BeEmpty())
+
+					Expect(createdCFPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
+					Expect(createdCFPackage.Annotations).To(HaveKeyWithValue("jim", "bar"))
+				})
+
+				It("awaits the Initialized status", func() {
+					Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+					obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+					Expect(obj.GetName()).To(Equal(createdPackage.GUID))
+					Expect(obj.GetNamespace()).To(Equal(space.Name))
+					Expect(conditionType).To(Equal("Initialized"))
+				})
+
+				It("does not create source image repository", func() {
+					Expect(repoCreator.CreateRepositoryCallCount()).To(BeZero())
+				})
+
+				When("the image is private", func() {
+					BeforeEach(func() {
+						packageCreate.Data.Username = tools.PtrTo("bob")
+						packageCreate.Data.Password = tools.PtrTo("paswd")
+					})
+
+					It("generates an image pull secret", func() {
+						Expect(createErr).NotTo(HaveOccurred())
+
+						createdCFPackage := &korifiv1alpha1.CFPackage{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: space.Name,
+								Name:      createdPackage.GUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(createdCFPackage), createdCFPackage)).To(Succeed())
+						Expect(createdCFPackage.Spec.Source.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: createdPackage.GUID}))
+
+						imgPullSecret := &corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: space.Name,
+								Name:      createdPackage.GUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(imgPullSecret), imgPullSecret)).To(Succeed())
+						Expect(imgPullSecret.Type).To(Equal(corev1.SecretTypeDockerConfigJson))
+						Expect(imgPullSecret.Data).NotTo(BeEmpty())
+
+						Expect(imgPullSecret.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
+							UID:        createdCFPackage.UID,
+							Kind:       "CFPackage",
+							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+							Name:       createdCFPackage.Name,
+						}))
+					})
+				})
+
+				When("the referenced app has buildpack lifecycle type", func() {
+					BeforeEach(func() {
+						app.Spec.Lifecycle = korifiv1alpha1.Lifecycle{
+							Type: "buildpack",
+							Data: korifiv1alpha1.LifecycleData{
+								Buildpacks: []string{"bp"},
+								Stack:      "my-stack",
+							},
+						}
+					})
+
+					It("returns an error", func() {
+						Expect(createErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+					})
+				})
+			})
+
+			When("the referenced app does not exist", func() {
+				BeforeEach(func() {
+					packageCreate.AppGUID = uuid.NewString()
 				})
 
 				It("returns an error", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("repo create error")))
+					Expect(createErr).To(MatchError(ContainSubstring("not found")))
 				})
 			})
 		})
@@ -164,13 +335,33 @@ var _ = Describe("PackageRepository", func() {
 	Describe("GetPackage", func() {
 		var (
 			packageGUID   string
+			cfPackage     *korifiv1alpha1.CFPackage
 			packageRecord repositories.PackageRecord
 			getErr        error
 		)
 
 		BeforeEach(func() {
-			packageGUID = generateGUID()
-			createPackageCR(ctx, k8sClient, packageGUID, app.Name, space.Name, "")
+			packageGUID = uuid.NewString()
+			cfPackage = &korifiv1alpha1.CFPackage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      packageGUID,
+					Namespace: space.Name,
+					Labels: map[string]string{
+						"foo": "the-original-value",
+					},
+					Annotations: map[string]string{
+						"bar": "the-original-value",
+					},
+				},
+				Spec: korifiv1alpha1.CFPackageSpec{
+					Type: "bits",
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -186,12 +377,11 @@ var _ = Describe("PackageRepository", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 				Expect(packageRecord.GUID).To(Equal(packageGUID))
 				Expect(packageRecord.Type).To(Equal("bits"))
-				Expect(packageRecord.AppGUID).To(Equal(app.Name))
+				Expect(packageRecord.AppGUID).To(Equal(appGUID))
 				Expect(packageRecord.State).To(Equal("AWAITING_UPLOAD"))
 				Expect(packageRecord.Labels).To(HaveKeyWithValue("foo", "the-original-value"))
 				Expect(packageRecord.Annotations).To(HaveKeyWithValue("bar", "the-original-value"))
-				Expect(packageRecord.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", app.Name)))
-
+				Expect(packageRecord.ImageRef).To(Equal(fmt.Sprintf("container.registry/foo/my/prefix-%s-packages", appGUID)))
 				Expect(packageRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(packageRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
@@ -203,8 +393,14 @@ var _ = Describe("PackageRepository", func() {
 
 				When("the package is ready", func() {
 					BeforeEach(func() {
-						packageGUID = generateGUID()
-						createPackageCR(ctx, k8sClient, packageGUID, app.Name, space.Name, "some-org/some-repo")
+						Expect(k8s.Patch(ctx, k8sClient, cfPackage, func() {
+							meta.SetStatusCondition(&cfPackage.Status.Conditions, metav1.Condition{
+								Type:               "Ready",
+								Status:             "True",
+								Reason:             "Ready",
+								ObservedGeneration: cfPackage.Generation,
+							})
+						})).To(Succeed())
 					})
 
 					It("equals READY", func() {
@@ -223,7 +419,18 @@ var _ = Describe("PackageRepository", func() {
 		When("duplicate Packages exist across namespaces with the same GUID", func() {
 			BeforeEach(func() {
 				anotherSpace := createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
-				createPackageCR(ctx, k8sClient, packageGUID, app.Name, anotherSpace.Name, "")
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFPackage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      packageGUID,
+						Namespace: anotherSpace.Name,
+					},
+					Spec: korifiv1alpha1.CFPackageSpec{
+						Type: "bits",
+						AppRef: corev1.LocalObjectReference{
+							Name: appGUID,
+						},
+					},
+				})).To(Succeed())
 			})
 
 			It("returns an error", func() {
@@ -269,15 +476,57 @@ var _ = Describe("PackageRepository", func() {
 			)
 
 			BeforeEach(func() {
-				package1GUID = generateGUID()
-				createPackageCR(ctx, k8sClient, package1GUID, app.Name, space.Name, "")
+				package1GUID = uuid.NewString()
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFPackage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      package1GUID,
+						Namespace: space.Name,
+					},
+					Spec: korifiv1alpha1.CFPackageSpec{
+						Type: "bits",
+						AppRef: corev1.LocalObjectReference{
+							Name: appGUID,
+						},
+					},
+				})).To(Succeed())
 
-				package2GUID = generateGUID()
-				createPackageCR(ctx, k8sClient, package2GUID, app2.Name, space2.Name, "my-image-url")
+				package2GUID = uuid.NewString()
+				cfPackage := &korifiv1alpha1.CFPackage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      package2GUID,
+						Namespace: space2.Name,
+					},
+					Spec: korifiv1alpha1.CFPackageSpec{
+						Type: "bits",
+						AppRef: corev1.LocalObjectReference{
+							Name: app2.Name,
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
+				Expect(k8s.Patch(ctx, k8sClient, cfPackage, func() {
+					meta.SetStatusCondition(&cfPackage.Status.Conditions, metav1.Condition{
+						Type:               "Ready",
+						Status:             "True",
+						Reason:             "Ready",
+						ObservedGeneration: cfPackage.Generation,
+					})
+				})).To(Succeed())
 
 				noPermissionsSpace = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("no-permissions-space"))
 				noPermissionsPackageGUID = prefixedGUID("no-permissions-package")
-				createPackageCR(ctx, k8sClient, noPermissionsPackageGUID, app2.Name, noPermissionsSpace.Name, "")
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFPackage{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      noPermissionsPackageGUID,
+						Namespace: noPermissionsSpace.Name,
+					},
+					Spec: korifiv1alpha1.CFPackageSpec{
+						Type: "bits",
+						AppRef: corev1.LocalObjectReference{
+							Name: app2.Name,
+						},
+					},
+				})).To(Succeed())
 			})
 
 			When("the user is allowed to list packages in some namespaces", func() {
@@ -290,7 +539,7 @@ var _ = Describe("PackageRepository", func() {
 					Expect(packageList).To(ContainElements(
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":    Equal(package1GUID),
-							"AppGUID": Equal(app.Name),
+							"AppGUID": Equal(appGUID),
 						}),
 						MatchFields(IgnoreExtras, Fields{
 							"GUID":    Equal(package2GUID),
@@ -306,14 +555,14 @@ var _ = Describe("PackageRepository", func() {
 
 				When("app_guids filter is provided", func() {
 					BeforeEach(func() {
-						listMessage = repositories.ListPackagesMessage{AppGUIDs: []string{app.Name}}
+						listMessage = repositories.ListPackagesMessage{AppGUIDs: []string{appGUID}}
 					})
 
 					It("fetches all PackageRecords for that app", func() {
 						for _, packageRecord := range packageList {
 							Expect(packageRecord).To(
 								MatchFields(IgnoreExtras, Fields{
-									"AppGUID": Equal(app.Name),
+									"AppGUID": Equal(appGUID),
 								}),
 							)
 						}
@@ -362,7 +611,7 @@ var _ = Describe("PackageRepository", func() {
 							Expect(packageList).To(ContainElements(
 								MatchFields(IgnoreExtras, Fields{
 									"GUID":    Equal(package1GUID),
-									"AppGUID": Equal(app.Name),
+									"AppGUID": Equal(appGUID),
 									"State":   Equal("AWAITING_UPLOAD"),
 								}),
 								MatchFields(IgnoreExtras, Fields{
@@ -421,7 +670,7 @@ var _ = Describe("PackageRepository", func() {
 				},
 				Spec: korifiv1alpha1.CFPackageSpec{
 					Type:   "bits",
-					AppRef: corev1.LocalObjectReference{Name: app.Name},
+					AppRef: corev1.LocalObjectReference{Name: appGUID},
 				},
 			}
 
@@ -453,7 +702,6 @@ var _ = Describe("PackageRepository", func() {
 				Expect(returnedPackageRecord.Type).To(Equal(string(existingCFPackage.Spec.Type)))
 				Expect(returnedPackageRecord.AppGUID).To(Equal(existingCFPackage.Spec.AppRef.Name))
 				Expect(returnedPackageRecord.SpaceGUID).To(Equal(existingCFPackage.Namespace))
-				Expect(returnedPackageRecord.State).To(Equal("READY"))
 
 				Expect(returnedPackageRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(returnedPackageRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
@@ -508,7 +756,7 @@ var _ = Describe("PackageRepository", func() {
 		)
 
 		BeforeEach(func() {
-			packageGUID = generateGUID()
+			packageGUID = uuid.NewString()
 			updateMessage = repositories.UpdatePackageMessage{
 				GUID: packageGUID,
 				MetadataPatch: repositories.MetadataPatch{
@@ -520,7 +768,19 @@ var _ = Describe("PackageRepository", func() {
 					},
 				},
 			}
-			cfPackage = createPackageCR(ctx, k8sClient, packageGUID, app.Name, space.Name, "")
+			cfPackage = &korifiv1alpha1.CFPackage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      packageGUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFPackageSpec{
+					Type: "bits",
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {

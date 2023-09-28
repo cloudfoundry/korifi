@@ -32,10 +32,11 @@ import (
 )
 
 var (
-	stopManager     context.CancelFunc
-	stopClientCache context.CancelFunc
-	testEnv         *envtest.Environment
-	adminClient     client.Client
+	stopManager        context.CancelFunc
+	stopClientCache    context.CancelFunc
+	testEnv            *envtest.Environment
+	adminClient        client.Client
+	adminNonSyncClient client.Client
 )
 
 const rootNamespace = "cf"
@@ -74,6 +75,11 @@ var _ = BeforeSuite(func() {
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
+	adminNonSyncClient, err = client.New(testEnv.Config, client.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).NotTo(HaveOccurred())
+
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
@@ -98,6 +104,7 @@ var _ = BeforeSuite(func() {
 	Expect(workloads.NewCFTaskValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
+	Expect(workloads.NewCFPackageValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 

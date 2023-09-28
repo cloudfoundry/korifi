@@ -17,7 +17,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("CFPackageReconciler Integration Tests", func() {
@@ -30,7 +29,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		cfSpace = createSpace(cfOrg)
+		cfSpace = createSpace(testOrg)
 		cfAppGUID = GenerateGUID()
 		cfPackageGUID = GenerateGUID()
 
@@ -155,8 +154,16 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
-		It("writes a log message", func() {
-			Eventually(logOutput).Should(gbytes.Say("finalizer removed"))
+		When("the package type is docker", func() {
+			BeforeEach(func() {
+				cfPackage.Spec.Type = "docker"
+			})
+
+			It("does not delete the image", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(imageDeleter.DeleteCallCount()).To(Equal(deleteCount))
+				}).Should(Succeed())
+			})
 		})
 
 		When("the package doesn't have an image set", func() {

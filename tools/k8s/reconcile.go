@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -24,14 +25,15 @@ type PatchingReconciler[T any, PT ObjectWithDeepCopy[T]] struct {
 
 func NewPatchingReconciler[T any, PT ObjectWithDeepCopy[T]](log logr.Logger, k8sClient client.Client, objectReconciler ObjectReconciler[T, PT]) *PatchingReconciler[T, PT] {
 	return &PatchingReconciler[T, PT]{
-		log:              log.WithName("patching-reconciler"),
+		log:              log,
 		k8sClient:        k8sClient,
 		objectReconciler: objectReconciler,
 	}
 }
 
 func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", req.Namespace, "name", req.Name)
+	log := r.log.WithValues("namespace", req.Namespace, "name", req.Name, "logID", uuid.NewString())
+	ctx = logr.NewContext(ctx, log)
 
 	obj := PT(new(T))
 	err := r.k8sClient.Get(ctx, req.NamespacedName, obj)
