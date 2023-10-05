@@ -16,7 +16,7 @@ sources:
 
 destinations:
 - image: cloudfoundry/korifi-api:latest
-  newImage: georgethebeatle/korifi-api
+  newImage: trinity.common.repositories.cloud.sap/trinity/korifi-api
 - image: cloudfoundry/korifi-controllers:latest
-  newImage: georgethebeatle/korifi-controllers
+  newImage: trinity.common.repositories.cloud.sap/trinity/korifi-controllers
 
