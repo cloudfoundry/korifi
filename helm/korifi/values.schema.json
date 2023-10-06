@@ -43,6 +43,13 @@
         "type": "string"
       }
     },
+    "systemImagePullSecrets": {
+      "description": "List of `Secret` names to be used when pulling Korifi system images from private registries",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "eksContainerRegistryRoleARN": {
       "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
       "type": "string"

@@ -115,3 +115,4 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
+- `systemImagePullSecrets` (_Array_): List of `Secret` names to be used when pulling Korifi system images from private registries
