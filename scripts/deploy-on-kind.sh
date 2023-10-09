@@ -170,6 +170,7 @@ function deploy_korifi() {
     clusterDomain="$(docker network inspect -f '{{json .IPAM.Config}}' bridge | jq -r ".[0].Gateway").nip.io"
     apiServerUrl="api.$clusterDomain"
     logcacheUrl="logcache.$clusterDomain"
+    # --set=controllers.namespaceLabels="istio-injection: true + pod-security standards off"
     helm upgrade --install korifi helm/korifi \
       --namespace korifi \
       --values="$values_file" \
@@ -187,6 +188,8 @@ function deploy_korifi() {
       --set=kpackImageBuilder.clusterStackBuildImage="paketobuildpacks/build-jammy-base" \
       --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
       --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+      --set=api.expose="false" \
+      --set=contourRouter.include="false" \
       --wait
   }
   popd >/dev/null
@@ -201,9 +204,6 @@ function create_namespaces() {
 apiVersion: v1
 kind: Namespace
 metadata:
-  labels:
-    pod-security.kubernetes.io/audit: $security_policy
-    pod-security.kubernetes.io/enforce: $security_policy
   name: $ns
 EOF
   done
