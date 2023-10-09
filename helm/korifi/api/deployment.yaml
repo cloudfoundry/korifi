@@ -14,7 +14,6 @@ spec:
     metadata:
       labels:
         app: korifi-api
-        sidecar.istio.io/inject: "true"
       annotations:
         checksum/config: {{ tpl ($.Files.Get "api/configmap.yaml") $ | sha256sum }}
     spec:
