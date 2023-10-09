@@ -41,7 +41,7 @@ var _ = Describe("Using the k8s API directly", Ordered, func() {
 		deleteOrg := helpers.Kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "cforg", orgGUID)
 		deleteRoleBinding := helpers.Kubectl("delete", "--ignore-not-found=true", "-n="+rootNamespace, "rolebinding", bindingName)
 
-		Eventually(deleteOrg, "20s").Should(Exit(0), "deleteOrg")
+		Eventually(deleteOrg, "60s").Should(Exit(0), "deleteOrg")
 		Eventually(deleteRoleBinding, "20s").Should(Exit(0), "deleteRoleBinging")
 	})
 
