@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="${ROOT_DIR}/scripts"
 
+CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-"localhost"}
 LOCAL_DOCKER_REGISTRY_ADDRESS="localregistry-docker-registry.default.svc.cluster.local:30050"
 CLUSTER_NAME=""
 DEBUG="false"
@@ -158,23 +159,18 @@ function deploy_korifi() {
       awk '/image:/ {print $2}' "$values_file" | while read -r img; do
         kind load docker-image --name "$CLUSTER_NAME" "$img"
       done
-
-      host_ip="$(curl -s ipecho.net/plain)"
-      sed -i "s/defaultAppDomainName:.*$/defaultAppDomainName: apps-${host_ip//./-}.nip.io/g" "$values_file"
-
     fi
 
     echo "Deploying korifi..."
     helm dependency update helm/korifi
 
-    clusterDomain="$(docker network inspect -f '{{json .IPAM.Config}}' bridge | jq -r ".[0].Gateway").nip.io"
-    apiServerUrl="api.$clusterDomain"
-    logcacheUrl="logcache.$clusterDomain"
+    apiServerUrl="api.$CLUSTER_DOMAIN"
+    logcacheUrl="logcache.$CLUSTER_DOMAIN"
     helm upgrade --install korifi helm/korifi \
       --namespace korifi \
       --values="$values_file" \
       --set=adminUserName="cf-admin" \
-      --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
+      --set=defaultAppDomainName="$APPS_DOMAIN" \
       --set=generateIngressCertificates="true" \
       --set=logLevel="debug" \
       --set=debug="$DEBUG" \
@@ -187,6 +183,11 @@ function deploy_korifi() {
       --set=kpackImageBuilder.clusterStackBuildImage="paketobuildpacks/build-jammy-base" \
       --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
       --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+      --set=api.expose="false" \
+      --set=contourRouter.include="false" \
+      --set=controllers.namespaceLabels.'pod-security\.kubernetes\.io/audit'="privileged" \
+      --set=controllers.namespaceLabels.'pod-security\.kubernetes\.io/enforce'="privileged" \
+      --set=controllers.namespaceLabels.'istio-injection'="true" \
       --wait
   }
   popd >/dev/null
@@ -201,9 +202,6 @@ function create_namespaces() {
 apiVersion: v1
 kind: Namespace
 metadata:
-  labels:
-    pod-security.kubernetes.io/audit: $security_policy
-    pod-security.kubernetes.io/enforce: $security_policy
   name: $ns
 EOF
   done

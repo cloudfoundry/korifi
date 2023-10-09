@@ -62,12 +62,6 @@ kubectl apply -f "$VENDOR_DIR/kpack"
 kubectl patch -n kpack deployment kpack-controller -p \
   '{"spec": {"template": {"spec": {"containers": [{"name": "controller", "resources": {"limits": {"cpu": "500m"}}}]}}}}'
 
-echo "********************"
-echo " Installing Contour"
-echo "********************"
-
-kubectl apply -f "$VENDOR_DIR/contour"
-
 echo "************************************"
 echo " Installing Service Binding Runtime"
 echo "************************************"
