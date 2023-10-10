@@ -1,0 +1,113 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: korifi-installer
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cf
+  labels:
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: korifi
+  labels:
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
+
+---
+apiVersion: v1
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJsb2NhbHJlZ2lzdHJ5LWRvY2tlci1yZWdpc3RyeS5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsOjMwMDUwIjp7InVzZXJuYW1lIjoidXNlciIsInBhc3N3b3JkIjoicGFzc3dvcmQiLCJhdXRoIjoiZFhObGNqcHdZWE56ZDI5eVpBPT0ifX19
+kind: Secret
+metadata:
+  name: image-registry-credentials
+  namespace: cf
+type: kubernetes.io/dockerconfigjson
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: korifi-installer
+  namespace: korifi-installer
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: korifi-installer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: korifi-installer
+  namespace: korifi-installer
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: install-korifi
+  namespace: korifi-installer
+spec:
+  template:
+    metadata:
+      name: install-korifi
+    spec:
+      serviceAccountName: korifi-installer
+      restartPolicy: Never
+      containers:
+      - name: install-korifi
+        image: cloudfoundry/korifi-installer
+        command:
+        - bash
+        - -c
+        - |
+          scripts/install-dependencies.sh --insecure-tls-metrics-server
+
+          helm repo add twuni https://helm.twun.io
+          # the htpasswd value below is username: user, password: password encoded using `htpasswd` binary
+          # e.g. `docker run --entrypoint htpasswd httpd:2 -Bbn user password`
+          #
+          helm upgrade --install localregistry twuni/docker-registry \
+            --namespace default \
+            --set service.type=NodePort,service.nodePort=30050,service.port=30050 \
+            --set persistence.enabled=true \
+            --set persistence.deleteEnabled=true \
+            --set secrets.htpasswd='user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2'
+
+          registry_status_code=""
+          while [[ "$registry_status_code" != "200" ]]; do
+            echo Waiting for the local docker registry to start...
+            registry_status_code=$(curl -o /dev/null -w "%{http_code}" --user user:password http://localregistry-docker-registry.default.svc.cluster.local:30050/v2/_catalog 2>/dev/null)
+            sleep 1
+          done
+
+          helm upgrade --install korifi helm/korifi \
+            --namespace korifi \
+            --set=adminUserName="kubernetes-admin" \
+            --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
+            --set=generateIngressCertificates="true" \
+            --set=logLevel="debug" \
+            --set=debug="false" \
+            --set=stagingRequirements.buildCacheMB="1024" \
+            --set=api.apiServer.url="localhost" \
+            --set=controllers.taskTTL="5s" \
+            --set=jobTaskRunner.jobTTL="5s" \
+            --set=containerRepositoryPrefix="localregistry-docker-registry.default.svc.cluster.local:30050/" \
+            --set=kpackImageBuilder.clusterStackBuildImage="paketobuildpacks/build-jammy-base" \
+            --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
+            --set=kpackImageBuilder.builderRepository="localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder" \
+            --wait
+
+          kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
