@@ -3,22 +3,9 @@
 
 # Install Korifi on kind
 
-This document integrates our [install instructions](./INSTALL.md) with specific tips to install Korifi locally using [kind](https://kind.sigs.k8s.io/).
+In order to install korifi on kind effortlessly we have prepared an installation job definition that you simply apply to your kind cluster. It will install korifi with reasonable defautls using a local docker registry (also running on your kind cluster).
 
-## Initial setup
-
-Export the following environment variables:
-
-```sh
-ROOT_NAMESPACE="cf"
-KORIFI_NAMESPACE="korifi-system"
-ADMIN_USERNAME="kubernetes-admin"
-BASE_DOMAIN="apps-127-0-0-1.nip.io"
-```
-
-`apps-127-0-0-1.nip.io` will conveniently resolve to `127.0.0.1` using [nip.io](https://nip.io/), which is exactly what we need.
-
-### Cluster creation
+## Cluster creation
 
 In order to access the Korifi API, we'll need to [expose the cluster ingress locally](https://kind.sigs.k8s.io/docs/user/ingress/). To do it, create your kind cluster using a command like this:
 
@@ -26,6 +13,15 @@ In order to access the Korifi API, we'll need to [expose the cluster ingress loc
 cat <<EOF | kind create cluster --name korifi --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localregistry-docker-registry.default.svc.cluster.local:30050"]
+        endpoint = ["http://127.0.0.1:30050"]
+    [plugins."io.containerd.grpc.v1.cri".registry.configs]
+      [plugins."io.containerd.grpc.v1.cri".registry.configs."127.0.0.1:30050".tls]
+        insecure_skip_verify = true
 nodes:
 - role: control-plane
   extraPortMappings:
@@ -35,46 +31,71 @@ nodes:
   - containerPort: 443
     hostPort: 443
     protocol: TCP
+  - containerPort: 30050
+    hostPort: 30050
+    protocol: TCP
 EOF
 ```
 
-### Container registry
-
-We recommend you use [DockerHub](https://hub.docker.com/) as your container registry.
-
-## Dependencies
-
-Follow the [common instructions](./INSTALL.md#dependencies), with the exception of Metrics Server.
-
-### Metrics Server
-
-Make sure you pass the following flags to the Metrics Server container (see [_Configuration_](https://github.com/kubernetes-sigs/metrics-server#configuration)):
-
--   `--kubelet-insecure-tls`
--   `--kubelet-preferred-address-types=InternalIP`
-
-## Pre-install configuration
-
-No changes here, follow the [common instructions](./INSTALL.md#pre-install-configuration).
-For the container registry credentials `Secret`, we recommend you [create an access token](https://hub.docker.com/settings/security?generateToken=true) on DockerHub.
-
 ## Install Korifi
 
-No changes here, follow the [common instructions](./INSTALL.md#install-korifi).
-If using DockerHub as recommended above, set the following values:
+- Run the installer job:
 
--   `kpackImageBuilder.builderRepository`: `index.docker.io/<username>/kpack-builder`;
--   `containerRepositoryPrefix`: `index.docker.io/<username>/`;
+```sh
+kubectl apply -f https://github.com/cloudfoundry/korifi/releases/latest/download/install-korifi-kind.yaml
+```
 
-Remember to set `generateIngressCertificates` to `true` if you want to use self-signed TLS certificates.
+- If you want track the job progress, run:
 
-If `$KORIFI_NAMESPACE` doesn't exist yet, you can add the `--create-namespace` flag to the `helm` invocation.
+```sh
+kubectl -n korifi-installer logs --follow job/install-korifi
+```
 
-## Post-install Configuration
+- **Optional** After the job is complete you can delete the `korifi-installer` namespace
 
-Yon can skip this section.
+```sh
+kubectl delete namespace korifi-installer
+```
 
 ## Test Korifi
 
-No changes here, follow the [common instructions](./INSTALL.md#test-korifi).
-When running `cf login`, make sure you select the entry associated to your kind cluster (`kind-korifi` in our case).
+- Target the api:
+
+```sh
+cf api https://localhost --skip-ssl-validation
+```
+
+- Authenticate as the cf admin user:
+
+```sh
+cf auth kind-korifi
+```
+
+- Create and target an org and a space
+
+```sh
+cf create-org org && cf create-space -o org space && cf target -o org
+```
+
+- Push a buildpack app and access it:
+
+```sh
+make build-dorifi
+cf push dorifi -p tests/assets/dorifi
+curl -k https://dorifi.apps-127-0-0-1.nip.io
+```
+
+- Push a docker app and access it:
+
+```sh
+cf push nginx --docker-image nginxinc/nginx-unprivileged:1.23.2
+curl -k https://nginx.apps-127-0-0-1.nip.io
+```
+
+## Cleanup
+
+When you no longer need korifi you can delete the whole kind cluster via:
+
+```sh
+kind delete cluster --name korifi
+```

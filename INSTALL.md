@@ -19,7 +19,7 @@ This document was tested on:
 
 -   [EKS](https://aws.amazon.com/eks/), using AWS' [Elastic Container Registry (ECR)](https://aws.amazon.com/ecr/) (see [_Install Korifi on EKS_](./INSTALL.EKS.md));
 -   [GKE](https://cloud.google.com/kubernetes-engine), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
--   [kind](https://kind.sigs.k8s.io/), using [DockerHub](https://hub.docker.com/) (see [_Install Korifi on kind_](./INSTALL.kind.md)).
+-   [kind](https://kind.sigs.k8s.io/): see [_Install Korifi on kind_](./INSTALL.kind.md).
 
 ## Initial setup
 
