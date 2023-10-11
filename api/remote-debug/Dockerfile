@@ -1,5 +1,5 @@
 # syntax = docker/dockerfile:experimental
-FROM golang:1.20.9 as builder
+FROM golang:1.20.10 as builder
 
 ARG version=dev
 
