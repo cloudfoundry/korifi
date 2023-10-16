@@ -767,14 +767,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			BeforeEach(func() {
 				Consistently(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
-					g.Expect(meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(
-						SatisfyAny(
-							BeNil(),
-							PointTo(MatchFields(
-								IgnoreExtras,
-								Fields{"Status": Equal(metav1.ConditionUnknown)},
-							)),
-						),
+					g.Expect(meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)).NotTo(
+						PointTo(MatchFields(
+							IgnoreExtras,
+							Fields{"Status": Equal(metav1.ConditionTrue)},
+						)),
 					)
 				}, "2s").Should(Succeed())
 

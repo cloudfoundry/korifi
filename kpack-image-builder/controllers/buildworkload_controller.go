@@ -211,7 +211,8 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 
 	if builderReadyCondition.IsFalse() {
 		if time.Since(builderReadyCondition.LastTransitionTime.Inner.Time) < r.builderReadinessTimeout {
-			return ctrl.Result{}, errors.New("waiting for builder to be ready")
+			log.Info("waiting for builder to be ready")
+			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 
 		log.Info("failing build as builder not ready")
