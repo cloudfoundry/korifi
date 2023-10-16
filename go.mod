@@ -17,7 +17,7 @@ require (
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-logr/logr v1.2.4
-	github.com/go-resty/resty/v2 v2.9.1
+	github.com/go-resty/resty/v2 v2.10.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-containerregistry v0.16.1
 	github.com/google/uuid v1.3.1
@@ -29,7 +29,7 @@ require (
 	github.com/onsi/gomega v1.28.0
 	github.com/pivotal/kpack v0.12.2
 	github.com/projectcontour/contour v1.26.0
-	github.com/servicebinding/runtime v0.5.0
+	github.com/servicebinding/runtime v0.6.0
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
 	golang.org/x/text v0.13.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -47,7 +47,7 @@ require (
 require (
 	github.com/GehirnInc/crypt v0.0.0-20190301055215-6c0105aabd46 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/vmware-labs/reconciler-runtime v0.15.0 // indirect
+	github.com/vmware-labs/reconciler-runtime v0.15.1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230807174057-1744710a1577 // indirect
 )
 
@@ -107,7 +107,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/gomodule/redigo v1.8.2 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230822174451-190ad0e4d556
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230516205744-dbecb1de8cfa // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -144,13 +144,13 @@ require (
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0
-	golang.org/x/crypto v0.13.0 // indirect
+	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.15.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
-	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect

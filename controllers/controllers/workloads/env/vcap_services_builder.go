@@ -66,7 +66,7 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 
 func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, string, error) {
 	if serviceBinding.Status.Binding.Name == "" {
-		return ServiceDetails{}, "", fmt.Errorf("service binding secret name is empty")
+		return ServiceDetails{}, "", fmt.Errorf("secret name not set for service binding %q", serviceBinding.Name)
 	}
 
 	serviceLabel := UserProvided

@@ -1,18 +1,15 @@
 package smoke_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
-	"github.com/cloudfoundry/cf-test-helpers/cf"
 	"github.com/cloudfoundry/cf-test-helpers/generator"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -46,7 +43,6 @@ var (
 func TestSmoke(t *testing.T) {
 	RegisterFailHandler(fail_handler.New("Smoke Tests", map[gomegatypes.GomegaMatcher]func(*rest.Config, string){
 		fail_handler.Always: func(config *rest.Config, _ string) {
-			_, _ = runCfCmd("apps")
 			printCfApp(config)
 			fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
 				{
@@ -58,8 +54,8 @@ func TestSmoke(t *testing.T) {
 			})
 		},
 	}))
-	SetDefaultEventuallyTimeout(5 * time.Minute)
-	SetDefaultEventuallyPollingInterval(5 * time.Second)
+	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
+	SetDefaultEventuallyPollingInterval(helpers.EventuallyPollingInterval())
 	RunSpecs(t, "Smoke Tests Suite")
 }
 
@@ -69,15 +65,16 @@ var _ = BeforeSuite(func() {
 	rootNamespace = helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf")
 	serviceAccountFactory = helpers.NewServiceAccountFactory(rootNamespace)
 
-	Eventually(
+	Expect(
 		helpers.Kubectl("get", "namespace/"+rootNamespace),
-	).Should(Exit(0), "Could not find root namespace called %q", rootNamespace)
+	).To(Exit(0), "Could not find root namespace called %q", rootNamespace)
 
 	cfAdmin = uuid.NewString()
 	cfAdminToken := serviceAccountFactory.CreateAdminServiceAccount(cfAdmin)
 	helpers.AddUserToKubeConfig(cfAdmin, cfAdminToken)
 
-	loginAs(cfAdmin)
+	Expect(helpers.Cf("api", helpers.GetRequiredEnvVar("API_SERVER_ROOT"), "--skip-ssl-validation")).To(Exit(0))
+	Expect(helpers.Cf("auth", cfAdmin)).To(Exit(0))
 
 	appsDomain = helpers.GetRequiredEnvVar("APP_FQDN")
 	orgName = generator.PrefixedRandomName(NamePrefix, "org")
@@ -85,17 +82,12 @@ var _ = BeforeSuite(func() {
 	buildpackAppName = generator.PrefixedRandomName(NamePrefix, "buildpackapp")
 	dockerAppName = generator.PrefixedRandomName(NamePrefix, "dockerapp")
 
-	Eventually(cf.Cf("create-org", orgName)).Should(Exit(0))
-	Eventually(cf.Cf("create-space", "-o", orgName, spaceName)).Should(Exit(0))
-	Eventually(cf.Cf("target", "-o", orgName, "-s", spaceName)).Should(Exit(0))
+	Expect(helpers.Cf("create-org", orgName)).To(Exit(0))
+	Expect(helpers.Cf("create-space", "-o", orgName, spaceName)).To(Exit(0))
+	Expect(helpers.Cf("target", "-o", orgName, "-s", spaceName)).To(Exit(0))
 
-	Eventually(
-		cf.Cf("push", buildpackAppName, "-p", "../assets/dorifi"),
-	).Should(Exit(0))
-
-	Eventually(
-		cf.Cf("push", dockerAppName, "-o", "eirini/dorini"),
-	).Should(Exit(0))
+	Expect(helpers.Cf("push", buildpackAppName, "-p", "../assets/dorifi")).To(Exit(0))
+	Expect(helpers.Cf("push", dockerAppName, "-o", "eirini/dorini")).To(Exit(0))
 })
 
 var _ = AfterSuite(func() {
@@ -103,37 +95,17 @@ var _ = AfterSuite(func() {
 		printAppReport(buildpackAppName)
 	}
 
-	Eventually(func() *Session {
-		return cf.Cf("delete-org", orgName, "-f").Wait()
-	}).Should(Exit(0))
+	Expect(helpers.Cf("delete-org", orgName, "-f").Wait()).To(Exit(0))
 
 	serviceAccountFactory.DeleteServiceAccount(cfAdmin)
 	helpers.RemoveUserFromKubeConfig(cfAdmin)
 })
 
-func loginAs(user string) {
-	apiArguments := []string{
-		"api",
-		helpers.GetRequiredEnvVar("API_SERVER_ROOT"),
-		"--skip-ssl-validation",
-	}
-	Eventually(cf.Cf(apiArguments...)).Should(Exit(0))
+func sessionOutput(session *Session) string {
+	GinkgoHelper()
 
-	// Stdin contains username followed by 2 return carriages. Firtst one
-	// enters the username and second one skips the org selection prompt that
-	// is presented if there is more than one org
-	loginSession := cf.CfWithStdin(bytes.NewBufferString(user+"\n\n"), "login")
-	Eventually(loginSession).Should(Exit(0))
-}
-
-func runCfCmd(args ...string) (string, error) {
-	session := cf.Cf(args...)
-	<-session.Exited
-	if session.ExitCode() != 0 {
-		return "", fmt.Errorf("cf %s exited with code %d", strings.Join(args, " "), session.ExitCode())
-	}
-
-	return strings.TrimSpace(string(session.Out.Contents())), nil
+	Expect(session.ExitCode()).To(Equal(0))
+	return strings.TrimSpace(string(session.Out.Contents()))
 }
 
 func printCfApp(config *rest.Config) {
@@ -144,17 +116,8 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
-	cfAppNamespace, err := runCfCmd("space", spaceName, "--guid")
-	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to get app space guid: %v\n", err)
-		return
-	}
-
-	cfAppGUID, err := runCfCmd("app", buildpackAppName, "--guid")
-	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to get app guid: %v\n", err)
-		return
-	}
+	cfAppNamespace := sessionOutput(helpers.Cf("space", spaceName, "--guid"))
+	cfAppGUID := sessionOutput(helpers.Cf("app", buildpackAppName, "--guid"))
 
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{

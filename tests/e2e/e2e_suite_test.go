@@ -366,7 +366,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	adminClient = makeTokenClient(sharedSetup.AdminServiceAccountToken)
 
 	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
-	SetDefaultEventuallyPollingInterval(2 * time.Second)
+	SetDefaultEventuallyPollingInterval(helpers.EventuallyPollingInterval())
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 })
