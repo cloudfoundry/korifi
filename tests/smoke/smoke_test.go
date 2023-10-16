@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
-	"github.com/cloudfoundry/cf-test-helpers/cf"
 	"github.com/cloudfoundry/cf-test-helpers/generator"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,13 +36,13 @@ var _ = Describe("Smoke Tests", func() {
 
 	Describe("cf logs", func() {
 		It("prints app logs", func() {
-			Eventually(cf.Cf("logs", buildpackAppName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
+			Eventually(helpers.Cf("logs", buildpackAppName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
 		})
 	})
 
 	Describe("cf run-task", func() {
 		It("succeeds", func() {
-			Eventually(cf.Cf("run-task", buildpackAppName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
+			Eventually(helpers.Cf("run-task", buildpackAppName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
 		})
 	})
 
@@ -50,12 +50,12 @@ var _ = Describe("Smoke Tests", func() {
 		BeforeEach(func() {
 			serviceName := generator.PrefixedRandomName(NamePrefix, "svc")
 
-			Eventually(
-				cf.Cf("create-user-provided-service", serviceName, "-p", `{"key1":"value1","key2":"value2"}`),
-			).Should(Exit(0))
+			Expect(
+				helpers.Cf("create-user-provided-service", serviceName, "-p", `{"key1":"value1","key2":"value2"}`),
+			).To(Exit(0))
 
-			Eventually(cf.Cf("bind-service", buildpackAppName, serviceName)).Should(Exit(0))
-			Eventually(cf.Cf("restart", buildpackAppName)).Should(Exit(0))
+			Expect(helpers.Cf("bind-service", buildpackAppName, serviceName)).To(Exit(0))
+			Expect(helpers.Cf("restart", buildpackAppName)).To(Exit(0))
 		})
 
 		It("binds the service to the app", func() {
@@ -78,8 +78,8 @@ func printAppReport(appName string) {
 	}
 
 	printAppReportBanner(fmt.Sprintf("***** APP REPORT: %s *****", appName))
-	Eventually(cf.Cf("app", appName, "--guid")).Should(Exit())
-	Eventually(cf.Cf("logs", "--recent", appName)).Should(Exit())
+	Expect(helpers.Cf("app", appName, "--guid")).To(Exit())
+	Expect(helpers.Cf("logs", "--recent", appName)).To(Exit())
 	printAppReportBanner(fmt.Sprintf("*** END APP REPORT: %s ***", appName))
 }
 
