@@ -29,7 +29,7 @@ require (
 	github.com/onsi/gomega v1.28.0
 	github.com/pivotal/kpack v0.12.2
 	github.com/projectcontour/contour v1.26.0
-	github.com/servicebinding/runtime v0.5.0
+	github.com/servicebinding/runtime v0.6.0
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
 	golang.org/x/text v0.13.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -47,7 +47,7 @@ require (
 require (
 	github.com/GehirnInc/crypt v0.0.0-20190301055215-6c0105aabd46 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/vmware-labs/reconciler-runtime v0.15.0 // indirect
+	github.com/vmware-labs/reconciler-runtime v0.15.1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230807174057-1744710a1577 // indirect
 )
 
@@ -107,7 +107,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/gomodule/redigo v1.8.2 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230822174451-190ad0e4d556
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230516205744-dbecb1de8cfa // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
