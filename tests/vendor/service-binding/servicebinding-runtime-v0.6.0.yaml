@@ -1058,8 +1058,8 @@ metadata:
         url: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
       - origins:
         - preresolved:
-            url: ghcr.io/servicebinding/runtime/bundle@sha256:65d135497601a2e88a21a5caf53745c83ca98226f4ca21ca04358329b2d04056
-        url: ghcr.io/servicebinding/runtime/bundle@sha256:65d135497601a2e88a21a5caf53745c83ca98226f4ca21ca04358329b2d04056
+            url: ghcr.io/servicebinding/runtime/bundle@sha256:923cb22c13820ef89bf61be119f12ee6c569d5a325e5e5d9701d669def4f454b
+        url: ghcr.io/servicebinding/runtime/bundle@sha256:923cb22c13820ef89bf61be119f12ee6c569d5a325e5e5d9701d669def4f454b
   labels:
     control-plane: controller-manager
   name: servicebinding-controller-manager
@@ -1081,7 +1081,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
-        image: ghcr.io/servicebinding/runtime/bundle@sha256:65d135497601a2e88a21a5caf53745c83ca98226f4ca21ca04358329b2d04056
+        image: ghcr.io/servicebinding/runtime/bundle@sha256:923cb22c13820ef89bf61be119f12ee6c569d5a325e5e5d9701d669def4f454b
         livenessProbe:
           httpGet:
             path: /healthz
