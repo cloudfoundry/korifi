@@ -51,7 +51,7 @@ func RemoveUserFromKubeConfig(userName string) {
 
 func Kubectl(args ...string) *Session {
 	cmdStarter := commandstarter.NewCommandStarter()
-	return KubectlWithCustomReporter(cmdStarter, commandreporter.NewCommandReporter(), args...)
+	return kubectlWithCustomReporter(cmdStarter, commandreporter.NewCommandReporter(), args...)
 }
 
 func KubectlApply(stdinText string, sprintfArgs ...any) *Session {
@@ -60,14 +60,14 @@ func KubectlApply(stdinText string, sprintfArgs ...any) *Session {
 			fmt.Sprintf(stdinText, sprintfArgs...),
 		),
 	)
-	return KubectlWithCustomReporter(cmdStarter, commandreporter.NewCommandReporter(), "apply", "-f=-")
+	return kubectlWithCustomReporter(cmdStarter, commandreporter.NewCommandReporter(), "apply", "-f=-")
 }
 
-func KubectlWithCustomReporter(cmdStarter *commandstarter.CommandStarter, reporter *commandreporter.CommandReporter, args ...string) *Session {
+func kubectlWithCustomReporter(cmdStarter *commandstarter.CommandStarter, reporter *commandreporter.CommandReporter, args ...string) *Session {
 	request, err := cmdStarter.Start(reporter, "kubectl", args...)
 	if err != nil {
 		panic(err)
 	}
 
-	return request
+	return request.Wait()
 }
