@@ -26,7 +26,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.7.0
 	github.com/mileusna/useragent v1.3.4
 	github.com/onsi/ginkgo/v2 v2.13.0
-	github.com/onsi/gomega v1.28.0
+	github.com/onsi/gomega v1.28.1
 	github.com/pivotal/kpack v0.12.2
 	github.com/projectcontour/contour v1.26.1
 	github.com/servicebinding/runtime v0.6.0
