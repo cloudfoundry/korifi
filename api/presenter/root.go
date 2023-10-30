@@ -18,7 +18,7 @@ type RootResponse struct {
 
 const V3APIVersion = "3.117.0+cf-k8s"
 
-func ForRoot(baseURL url.URL) RootResponse {
+func ForRoot(baseURL url.URL, uaaUrl string) RootResponse {
 	return RootResponse{
 		Links: map[string]*APILink{
 			"self": {
@@ -38,8 +38,8 @@ func ForRoot(baseURL url.URL) RootResponse {
 			},
 			"network_policy_v0": nil,
 			"network_policy_v1": nil,
-			"login":             nil,
-			"uaa":               nil,
+			"login":             {Link: Link{HRef: uaaUrl}},
+			"uaa":               {Link: Link{HRef: uaaUrl}},
 			"credhub":           nil,
 			"routing":           nil,
 			"logging":           nil,

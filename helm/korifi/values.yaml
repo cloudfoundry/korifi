@@ -22,6 +22,7 @@ stagingRequirements:
 api:
   include: true
   expose: true
+  uaaURL: ""
 
   image: cloudfoundry/korifi-api:latest
 
@@ -47,6 +48,8 @@ api:
 
   logcache:
     url: ""
+
+  uaaURL: ""
 
   lifecycle:
     type: buildpack

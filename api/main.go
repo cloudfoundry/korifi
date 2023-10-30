@@ -264,7 +264,7 @@ func main() {
 
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
-		handlers.NewRoot(*serverURL),
+		handlers.NewRoot(*serverURL, cfg.UaaURL),
 		handlers.NewResourceMatches(),
 		handlers.NewApp(
 			*serverURL,

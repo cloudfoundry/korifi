@@ -24,7 +24,7 @@ var _ = Describe("Root endpoints", func() {
 
 	Context("/", func() {
 		JustBeforeEach(func() {
-			response := presenter.ForRoot(*baseURL)
+			response := presenter.ForRoot(*baseURL, "uaaaaa")
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())
