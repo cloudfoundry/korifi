@@ -767,14 +767,11 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			BeforeEach(func() {
 				Consistently(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
-					g.Expect(meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(
-						SatisfyAny(
-							BeNil(),
-							PointTo(MatchFields(
-								IgnoreExtras,
-								Fields{"Status": Equal(metav1.ConditionUnknown)},
-							)),
-						),
+					g.Expect(meta.FindStatusCondition(buildWorkload.Status.Conditions, korifiv1alpha1.SucceededConditionType)).NotTo(
+						PointTo(MatchFields(
+							IgnoreExtras,
+							Fields{"Status": Equal(metav1.ConditionTrue)},
+						)),
 					)
 				}, "2s").Should(Succeed())
 
@@ -815,6 +812,50 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Message).To(Equal("ClusterBuilder not found"))
 				}).Should(Succeed())
 			})
+		})
+	})
+
+	When("the cluster builder readiness is not set", func() {
+		BeforeEach(func() {
+			Expect(k8s.Patch(ctx, adminClient, clusterBuilder, func() {
+				clusterBuilder.Status.Conditions = corev1alpha1.Conditions{}
+			})).To(Succeed())
+
+			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(adminClient.Create(ctx, buildWorkload)).To(Succeed())
+		})
+
+		It("sets the Succeeded condition to False", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Reason).To(Equal("BuilderNotReady"))
+			}).Should(Succeed())
+		})
+	})
+
+	When("the cluster builder readiness is unknown", func() {
+		BeforeEach(func() {
+			Expect(k8s.Patch(ctx, adminClient, clusterBuilder, func() {
+				clusterBuilder.Status.Conditions = corev1alpha1.Conditions{
+					{
+						Type:               corev1alpha1.ConditionType("Ready"),
+						Status:             corev1.ConditionStatus(metav1.ConditionUnknown),
+						LastTransitionTime: corev1alpha1.VolatileTime{Inner: metav1.Now()},
+					},
+				}
+			})).To(Succeed())
+
+			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(adminClient.Create(ctx, buildWorkload)).To(Succeed())
+		})
+
+		It("sets the Succeeded condition to False", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Reason).To(Equal("BuilderNotReady"))
+			}).Should(Succeed())
 		})
 	})
 

@@ -24,13 +24,8 @@ jobs:
     - uses: actions/setup-go@v4
       with:
         go-version: '1.20.7'
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3
-    - name: staticcheck
-      uses: dominikh/staticcheck-action@v1.3.0
-      with:
-        version: "2023.1.3"
-        cache-key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+    - name: Run linters
+      run: make lint
 
   api-tests:
     runs-on: ubuntu-latest

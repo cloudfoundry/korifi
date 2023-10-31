@@ -209,9 +209,10 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 		return ctrl.Result{}, ignoreDoNotRetryError(fmt.Errorf("failed getting builder readiness condition"))
 	}
 
-	if builderReadyCondition.IsFalse() {
-		if time.Since(builderReadyCondition.LastTransitionTime.Inner.Time) < r.builderReadinessTimeout {
-			return ctrl.Result{}, errors.New("waiting for builder to be ready")
+	if !builderReadyCondition.IsTrue() {
+		if time.Since(buildWorkload.CreationTimestamp.Time) < r.builderReadinessTimeout {
+			log.Info("waiting for builder to be ready")
+			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 
 		log.Info("failing build as builder not ready")

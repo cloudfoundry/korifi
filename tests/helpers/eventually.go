@@ -5,23 +5,39 @@ import (
 	"strconv"
 	"time"
 
-	. "github.com/onsi/gomega" //lint:ignore ST1001 this is a test file
+	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
+	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
 )
 
 func EventuallyShouldHold(condition func(g Gomega)) {
+	GinkgoHelper()
+
 	Eventually(condition).WithTimeout(EventuallyTimeout()).Should(Succeed())
 	Consistently(condition).Should(Succeed())
 }
 
 func EventuallyTimeout() time.Duration {
-	eventuallyTimeout := 4 * time.Minute
-	eventuallyTimeoutSecondsString := os.Getenv("E2E_EVENTUALLY_TIMEOUT_SECONDS")
+	GinkgoHelper()
 
-	if eventuallyTimeoutSecondsString != "" {
-		eventuallyTimeoutSeconds, err := strconv.Atoi(eventuallyTimeoutSecondsString)
+	return getDuration("E2E_EVENTUALLY_TIMEOUT_SECONDS", 4*60)
+}
+
+func EventuallyPollingInterval() time.Duration {
+	GinkgoHelper()
+
+	return getDuration("E2E_EVENTUALLY_POLLING_INTERVAL_SECONDS", 2)
+}
+
+func getDuration(envName string, defaultDurationSeconds int) time.Duration {
+	GinkgoHelper()
+
+	durationSecondsString := os.Getenv(envName)
+
+	if durationSecondsString != "" {
+		durationSeconds, err := strconv.Atoi(durationSecondsString)
 		Expect(err).NotTo(HaveOccurred())
-		eventuallyTimeout = time.Duration(eventuallyTimeoutSeconds) * time.Second
+		return time.Duration(durationSeconds) * time.Second
 	}
 
-	return eventuallyTimeout
+	return time.Duration(defaultDurationSeconds) * time.Second
 }
