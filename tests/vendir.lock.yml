@@ -14,14 +14,14 @@ directories:
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/113485257
     path: metrics-server-local
   - githubRelease:
-      tag: v1.13.1
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/122733017
+      tag: v1.13.2
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/127169522
     path: cert-manager
   - git:
-      commitTitle: Update Contour Docker image to v1.26.1....
-      sha: e1e0e05f21aa6d3b5cef80eb47ded15aa7e29452
+      commitTitle: Update Contour Docker image to v1.27.0....
+      sha: 30f317ea4978ddfcdd3405b40032d74dc43efb02
       tags:
-      - v1.26.1
+      - v1.27.0
     path: contour
   path: vendor
 kind: LockConfig
