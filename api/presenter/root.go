@@ -51,7 +51,7 @@ func ForRoot(baseURL url.URL, uaaUrl string) RootResponse {
 			"log_stream": nil,
 			"app_ssh":    nil,
 		},
-		CFOnK8s: true,
+		CFOnK8s: false,
 	}
 }
 
