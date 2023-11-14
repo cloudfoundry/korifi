@@ -27,6 +27,8 @@ import (
 const (
 	UserProvidedType = "user-provided"
 	ManagedType      = "managed"
+
+	ManagedCFServiceInstanceFinalizerName = "managed.cfServiceInstance.korifi.cloudfoundry.org"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance

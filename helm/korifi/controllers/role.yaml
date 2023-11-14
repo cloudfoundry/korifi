@@ -575,6 +575,7 @@ rules:
   - servicebindings
   verbs:
   - create
+  - delete
   - get
   - list
   - patch

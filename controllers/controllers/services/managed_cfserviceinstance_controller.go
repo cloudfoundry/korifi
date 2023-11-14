@@ -73,9 +73,13 @@ func NewManagedCFServiceInstanceReconciler(
 //+kubebuilder:rbac:groups=extensions.korifi.cloudfoundry.org,resources=cfserviceplans,verbs=get;list;watch;create;update;patch;delete
 
 // +kubebuilder:rbac:groups=services.cloud.sap.com,resources=serviceinstances,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=services.cloud.sap.com,resources=servicebindings,verbs=get;list;create;update;patch;watch
+//+kubebuilder:rbac:groups=services.cloud.sap.com,resources=servicebindings,verbs=get;list;create;update;patch;watch;delete
 
 func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+	if !cfServiceInstance.GetDeletionTimestamp().IsZero() {
+		return r.finalizeCFServiceInstance(ctx, cfServiceInstance)
+	}
+
 	servicePlan, err := r.getServicePlan(ctx, cfServiceInstance.Spec.ServicePlanGUID)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -98,9 +102,11 @@ func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Conte
 		},
 	}
 
-	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, btpServiceInstance, func() error {
-		return controllerutil.SetOwnerReference(cfServiceInstance, btpServiceInstance, r.scheme)
-	})
+	err = r.k8sClient.Create(ctx, btpServiceInstance)
+	if client.IgnoreAlreadyExists(err) != nil {
+		return ctrl.Result{}, err
+	}
+	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(btpServiceInstance), btpServiceInstance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -116,12 +122,14 @@ func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Conte
 		},
 	}
 
-	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, btpServiceBinding, func() error {
-		return controllerutil.SetOwnerReference(cfServiceInstance, btpServiceBinding, r.scheme)
-	})
-
-	if err != nil {
+	err = r.k8sClient.Create(ctx, btpServiceBinding)
+	if client.IgnoreAlreadyExists(err) != nil {
 		r.log.Error(err, "failed to create btp service binding")
+		return ctrl.Result{}, err
+	}
+
+	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(btpServiceBinding), btpServiceBinding)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -142,6 +150,43 @@ func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Conte
 
 	cfServiceInstance.Status = bindSecretAvailableStatus(cfServiceInstance)
 	return ctrl.Result{}, nil
+}
+
+func (r *ManagedCFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
+
+	if !controllerutil.ContainsFinalizer(cfServiceInstance, korifiv1alpha1.ManagedCFServiceInstanceFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	bindingDeleteErr := r.k8sClient.Delete(ctx, &btpv1.ServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceInstance.Namespace,
+			Name:      cfServiceInstance.Name,
+		},
+	})
+	if bindingDeleteErr != nil {
+		log.V(1).Info("deleting BTP service binding failed", "error", bindingDeleteErr)
+	}
+
+	instanceDeleteErr := r.k8sClient.Delete(ctx, &btpv1.ServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceInstance.Namespace,
+			Name:      cfServiceInstance.Name,
+		},
+	})
+	if instanceDeleteErr != nil {
+		log.V(1).Info("deleting BTP service instance failed", "error", instanceDeleteErr)
+	}
+
+	if k8serrors.IsNotFound(bindingDeleteErr) && k8serrors.IsNotFound(instanceDeleteErr) {
+		if controllerutil.RemoveFinalizer(cfServiceInstance, korifiv1alpha1.ManagedCFServiceInstanceFinalizerName) {
+			log.V(1).Info("finalizer removed")
+			return ctrl.Result{}, nil
+		}
+	}
+
+	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
 func (r *ManagedCFServiceInstanceReconciler) getServicePlan(ctx context.Context, servicePlanGuid string) (trinityv1alpha1.CFServicePlan, error) {
