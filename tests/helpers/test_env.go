@@ -44,6 +44,15 @@ func NewCachedClient(cfg *rest.Config) (client.Client, context.CancelFunc) {
 	return NewSyncClient(k8sClient), cancel
 }
 
+func NewUncachedClient(cfg *rest.Config) client.Client {
+	k8sClient, err := client.New(cfg, client.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	return NewSyncClient(k8sClient)
+}
+
 func NewK8sManager(testEnv *envtest.Environment, managerRolePath string) manager.Manager {
 	k8sManager, err := ctrl.NewManager(SetupTestEnvUser(testEnv, managerRolePath), ctrl.Options{
 		Scheme: scheme.Scheme,

@@ -98,19 +98,20 @@ var _ = BeforeSuite(func() {
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
+	uncachedClient := helpers.NewUncachedClient(k8sManager.GetConfig())
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect(workloads.NewCFAppValidator(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.AppEntityType)),
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.AppEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect(networking.NewCFRouteValidator(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), networking.RouteEntityType)),
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, networking.RouteEntityType)),
 		namespace,
-		k8sManager.GetClient(),
+		uncachedClient,
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	Expect(networking.NewCFDomainValidator(k8sManager.GetClient()).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(networking.NewCFDomainValidator(uncachedClient).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
@@ -119,12 +120,12 @@ var _ = BeforeSuite(func() {
 
 	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.CFOrgEntityType))
-	orgPlacementValidator := webhooks.NewPlacementValidator(k8sManager.GetClient(), namespace)
+	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.CFOrgEntityType))
+	orgPlacementValidator := webhooks.NewPlacementValidator(uncachedClient, namespace)
 	Expect(workloads.NewCFOrgValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.CFSpaceEntityType))
-	spacePlacementValidator := webhooks.NewPlacementValidator(k8sManager.GetClient(), namespace)
+	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.CFSpaceEntityType))
+	spacePlacementValidator := webhooks.NewPlacementValidator(uncachedClient, namespace)
 	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
