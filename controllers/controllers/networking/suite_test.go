@@ -103,15 +103,17 @@ var _ = BeforeSuite(func() {
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	(&workloads.AppRevWebhook{}).SetupWebhookWithManager(k8sManager)
+
+	uncachedClient := helpers.NewUncachedClient(k8sManager.GetConfig())
 	Expect(workloads.NewCFAppValidator(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.AppEntityType)),
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.AppEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
-	Expect(networking.NewCFDomainValidator(k8sManager.GetClient()).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(networking.NewCFDomainValidator(uncachedClient).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect(networking.NewCFRouteValidator(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), networking.RouteEntityType)),
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, networking.RouteEntityType)),
 		rootNamespace,
-		k8sManager.GetClient(),
+		uncachedClient,
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
