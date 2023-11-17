@@ -38,7 +38,7 @@ require (
 	k8s.io/apimachinery v0.28.4
 	k8s.io/client-go v0.28.4
 	k8s.io/metrics v0.28.4
-	k8s.io/pod-security-admission v0.28.3
+	k8s.io/pod-security-admission v0.28.4
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/controller-tools v0.13.0
@@ -159,7 +159,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apiextensions-apiserver v0.28.3 // indirect
-	k8s.io/component-base v0.28.3 // indirect
+	k8s.io/component-base v0.28.4 // indirect
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kube-openapi v0.0.0-20230905202853-d090da108d2f // indirect
 	knative.dev/pkg v0.0.0-20230821102121-81e4ee140363 // indirect
