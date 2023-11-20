@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -149,7 +150,7 @@ func (r *ServiceCatalogRepo) GetServiceOffering(ctx context.Context, authInfo au
 func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return []ServicePlanRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	var result []ServicePlanRecord
@@ -157,13 +158,21 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 	allServicePlans := &trinityv1alpha1.CFServicePlanList{}
 	err = userClient.List(ctx, allServicePlans, client.InNamespace(r.rootNamespace))
 	if err != nil {
-		return []ServicePlanRecord{}, fmt.Errorf("failed to list service plans: %w", err)
+		return nil, fmt.Errorf("failed to list service plans: %w", err)
 	}
 
 	offeringGuids, err := r.getOfferingGuids(ctx, userClient, message.ServiceOfferingNames)
 	if err != nil {
-		return []ServicePlanRecord{}, fmt.Errorf("failed to list service offerings: %w", err)
+		return nil, fmt.Errorf("failed to list service offerings: %w", err)
 	}
+
+	if len(offeringGuids) != len(message.ServiceOfferingNames) {
+		return nil, apierrors.NewUnprocessableEntityError(
+			nil,
+			fmt.Sprintf("some of the following service offerings are not available: %v", message.ServiceOfferingNames),
+		)
+	}
+
 	offeringGuids = append(offeringGuids, message.ServiceOfferingGUIDs...)
 
 	for _, p := range allServicePlans.Items {
