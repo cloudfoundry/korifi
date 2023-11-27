@@ -74,11 +74,13 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 		It("deletes the older packages for the same app", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(packageCleaner.CleanCallCount()).To(BeNumerically(">", cleanCallCount))
-			}).Should(Succeed())
 
-			_, app := packageCleaner.CleanArgsForCall(cleanCallCount)
-			Expect(app.Name).To(Equal(cfAppGUID))
-			Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
+				for currCall := cleanCallCount; currCall < packageCleaner.CleanCallCount(); currCall++ {
+					_, app := packageCleaner.CleanArgsForCall(currCall)
+					g.Expect(app.Name).To(Equal(cfAppGUID))
+					g.Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
+				}
+			}).Should(Succeed())
 		})
 
 		It("sets the ObservedGeneration status field", func() {
