@@ -226,6 +226,7 @@ function main() {
   create_namespaces
   create_registry_secret
   deploy_korifi
+  # kubectl patch deployments.apps -n korifi-gateway korifi-istio -p '{"spec":{"template":{"spec":{"containers":[{"name":"istio-proxy","ports":[{"containerPort":8080,"hostPort":80},{"containerPort":8443,"hostPort":443}]}]}}}}'
 }
 
 main "$@"

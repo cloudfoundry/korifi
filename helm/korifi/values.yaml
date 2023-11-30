@@ -9,6 +9,7 @@ containerRegistrySecrets:
 eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
+gatewayClass: contour
 
 reconcilers:
   build: kpack-image-builder

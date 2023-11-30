@@ -78,8 +78,22 @@ data:
   contour.yaml: |
     gateway:
       controllerName: projectcontour.io/gateway-controller
+---
+kind: GatewayClass
+apiVersion: gateway.networking.k8s.io/v1beta1
+metadata:
+  name: contour
+spec:
+  controllerName: projectcontour.io/gateway-controller
 EOF
 kubectl -n projectcontour rollout restart deployment/contour
+
+# echo "********************"
+# echo " Installing Istio   "
+# echo "********************"
+# kubectl apply -f "$VENDOR_DIR/gateway-api"
+# istioctl install -y
+# kubectl patch deployments.apps -n istio-system istio-ingressgateway -p '{"spec":{"template":{"spec":{"containers":[{"name":"istio-proxy","ports":[{"containerPort":8080,"hostPort":80},{"containerPort":8443,"hostPort":443}]}]}}}}'
 
 echo "************************************"
 echo " Installing Service Binding Runtime"

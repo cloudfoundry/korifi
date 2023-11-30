@@ -397,8 +397,8 @@ func (r *CFRouteReconciler) createOrPatchHTTPRoute(ctx context.Context, cfRoute 
 		httpRoute.Spec.ParentRefs = []gatewayv1beta1.ParentReference{{
 			Group:     tools.PtrTo(gatewayv1beta1.Group("gateway.networking.k8s.io")),
 			Kind:      tools.PtrTo(gatewayv1beta1.Kind("Gateway")),
-			Namespace: tools.PtrTo(gatewayv1beta1.Namespace("projectcontour")),
-			Name:      gatewayv1beta1.ObjectName("contour"),
+			Namespace: tools.PtrTo(gatewayv1beta1.Namespace("korifi-gateway")),
+			Name:      gatewayv1beta1.ObjectName("korifi"),
 		}}
 
 		httpRoute.Spec.Hostnames = []gatewayv1beta1.Hostname{
