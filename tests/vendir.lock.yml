@@ -17,6 +17,10 @@ directories:
       tag: v1.13.2
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/127169522
     path: cert-manager
+  - githubRelease:
+      tag: v1.0.0
+      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/127397429
+    path: gateway-api
   - git:
       commitTitle: Update Contour Docker image to v1.27.0....
       sha: 30f317ea4978ddfcdd3405b40032d74dc43efb02

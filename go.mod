@@ -42,6 +42,7 @@ require (
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/controller-tools v0.13.0
+	sigs.k8s.io/gateway-api v0.8.1
 )
 
 require github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.1 // indirect

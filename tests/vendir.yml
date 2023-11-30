@@ -26,6 +26,12 @@ directories:
       latest: true
       disableAutoChecksumValidation: true
       assetNames: ["cert-manager*.yaml"]
+  - path: gateway-api
+    githubRelease:
+      slug: kubernetes-sigs/gateway-api
+      latest: true
+      disableAutoChecksumValidation: true
+      assetNames: ["experimental-install.yaml"]
   - path: contour
     git:
       url: https://github.com/projectcontour/contour

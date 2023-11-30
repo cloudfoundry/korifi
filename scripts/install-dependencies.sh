@@ -66,7 +66,20 @@ echo "********************"
 echo " Installing Contour"
 echo "********************"
 
+kubectl apply -f "$VENDOR_DIR/gateway-api"
 kubectl apply -f "$VENDOR_DIR/contour"
+kubectl apply -f - <<EOF
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: contour
+  namespace: projectcontour
+data:
+  contour.yaml: |
+    gateway:
+      controllerName: projectcontour.io/gateway-controller
+EOF
+kubectl -n projectcontour rollout restart deployment/contour
 
 echo "************************************"
 echo " Installing Service Binding Runtime"
@@ -83,7 +96,7 @@ if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
     echo "************************************************"
 
     trap "rm $DEP_DIR/insecure-metrics-server/components.yaml" EXIT
-    cp "$VENDOR_DIR/metrics-server-local/components.yaml" "$DEP_DIR/insecure-metrics-server/components.yaml"
+    cp "$VENDOR_DIR/metrics-server-local/components.yaml" "$DEP_DIR/insecure-metrics-server"
     kubectl apply -k "$DEP_DIR/insecure-metrics-server"
   else
     echo "***************************"

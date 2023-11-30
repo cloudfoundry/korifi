@@ -1,25 +1,79 @@
-{{- if .Values.api.expose }}
-apiVersion: projectcontour.io/v1
-kind: HTTPProxy
+kind: GatewayClass
+apiVersion: gateway.networking.k8s.io/v1beta1
 metadata:
-  labels:
-    app: korifi-api
-  name: korifi-api-proxy
+  name: contour
+spec:
+  controllerName: projectcontour.io/gateway-controller
+---
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1beta1
+metadata:
+  name: contour
+  namespace: projectcontour
+spec:
+  gatewayClassName: contour
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    name: http-apps
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: {{ .Values.api.apiServer.url }}
+    name: https-api
+    port: 443
+    protocol: TLS
+    tls:
+      mode: Passthrough
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: "*.{{ .Values.defaultAppDomainName }}"
+    name: https-apps
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: korifi-workloads-ingress-cert
+        namespace: {{ .Release.Namespace }}
+      mode: Terminate
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: korifi-workloads-ingress-cert
   namespace: {{ .Release.Namespace }}
 spec:
-  routes:
-  - conditions:
-    - prefix: /
-    services:
-    - name: korifi-api-svc
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: projectcontour
+  to:
+  - group: ""
+    kind: Secret
+{{- if .Values.api.expose }}
+---
+kind: TLSRoute
+apiVersion: gateway.networking.k8s.io/v1alpha2
+metadata:
+  name: korifi-api
+  namespace: {{ .Release.Namespace }}
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: contour
+    namespace: projectcontour
+  hostnames:
+  - localhost
+  rules:
+  - backendRefs:
+    - kind: Service
+      name: korifi-api-svc
       port: 443
-      validation:
-        caSecret: korifi-api-internal-cert
-        subjectName: korifi-api-svc.{{ .Release.Namespace }}.svc.cluster.local
-    timeoutPolicy:
-      response: 5m
-  virtualhost:
-    fqdn: {{ .Values.api.apiServer.url }}
-    tls:
-      secretName: korifi-api-ingress-cert
 {{- end }}
