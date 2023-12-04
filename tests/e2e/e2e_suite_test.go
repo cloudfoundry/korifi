@@ -320,6 +320,7 @@ type sharedSetupData struct {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
+	time.Sleep(5 * time.Hour)
 	commonTestSetup()
 
 	adminServiceAccount = uuid.NewString()
