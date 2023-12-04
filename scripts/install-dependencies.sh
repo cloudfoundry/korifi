@@ -62,38 +62,37 @@ kubectl apply -f "$VENDOR_DIR/kpack"
 kubectl patch -n kpack deployment kpack-controller -p \
   '{"spec": {"template": {"spec": {"containers": [{"name": "controller", "resources": {"limits": {"cpu": "500m"}}}]}}}}'
 
-echo "********************"
-echo " Installing Contour"
-echo "********************"
-
-kubectl apply -f "$VENDOR_DIR/gateway-api"
-kubectl apply -f "$VENDOR_DIR/contour"
-kubectl apply -f - <<EOF
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: contour
-  namespace: projectcontour
-data:
-  contour.yaml: |
-    gateway:
-      controllerName: projectcontour.io/gateway-controller
----
-kind: GatewayClass
-apiVersion: gateway.networking.k8s.io/v1beta1
-metadata:
-  name: contour
-spec:
-  controllerName: projectcontour.io/gateway-controller
-EOF
-kubectl -n projectcontour rollout restart deployment/contour
-
 # echo "********************"
-# echo " Installing Istio   "
+# echo " Installing Contour"
 # echo "********************"
+
 # kubectl apply -f "$VENDOR_DIR/gateway-api"
-# istioctl install -y
-# kubectl patch deployments.apps -n istio-system istio-ingressgateway -p '{"spec":{"template":{"spec":{"containers":[{"name":"istio-proxy","ports":[{"containerPort":8080,"hostPort":80},{"containerPort":8443,"hostPort":443}]}]}}}}'
+# kubectl apply -f "$VENDOR_DIR/contour"
+# kubectl apply -f - <<EOF
+# kind: ConfigMap
+# apiVersion: v1
+# metadata:
+#   name: contour
+#   namespace: projectcontour
+# data:
+#   contour.yaml: |
+#     gateway:
+#       controllerName: projectcontour.io/gateway-controller
+# ---
+# kind: GatewayClass
+# apiVersion: gateway.networking.k8s.io/v1beta1
+# metadata:
+#   name: contour
+# spec:
+#   controllerName: projectcontour.io/gateway-controller
+# EOF
+# kubectl -n projectcontour rollout restart deployment/contour
+
+echo "********************"
+echo " Installing Istio   "
+echo "********************"
+kubectl apply -f "$VENDOR_DIR/gateway-api"
+istioctl install --set values.pilot.env.PILOT_ENABLE_ALPHA_GATEWAY_API=true --set profile=minimal -y
 
 echo "************************************"
 echo " Installing Service Binding Runtime"
