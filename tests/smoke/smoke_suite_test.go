@@ -48,6 +48,12 @@ func TestSmoke(t *testing.T) {
 				{
 					Namespace:  "korifi",
 					LabelKey:   "app",
+					LabelValue: "korifi-api",
+					Container:  "korifi-api",
+				},
+				{
+					Namespace:  "korifi",
+					LabelKey:   "app",
 					LabelValue: "korifi-controllers",
 					Container:  "manager",
 				},
