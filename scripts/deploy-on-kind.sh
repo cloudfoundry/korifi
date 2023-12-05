@@ -172,7 +172,7 @@ function deploy_korifi() {
       --set=logLevel="debug" \
       --set=debug="$DEBUG" \
       --set=stagingRequirements.buildCacheMB="1024" \
-      --set=api.apiServer.url="localhost" \
+      --set=api.apiServer.url="api-127-0-0-1.nip.io" \
       --set=controllers.taskTTL="5s" \
       --set=jobTaskRunner.jobTTL="5s" \
       --set=containerRepositoryPrefix="$REPOSITORY_PREFIX" \
@@ -216,6 +216,28 @@ function create_registry_secret() {
     --docker-password="$DOCKER_PASSWORD"
 }
 
+configure_istio_nodeport() {
+  kubectl annotate gateway -n korifi-gateway korifi networking.istio.io/service-type=NodePort
+  kubectl patch service -n korifi-gateway korifi-istio --patch-file <(
+    cat <<EOF
+spec:
+  type: NodePort
+  ports:
+  - name: http2
+    nodePort: 32080
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    nodePort: 32443
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+EOF
+  )
+  kubectl -n korifi-gateway rollout restart deployment/korifi-istio
+}
+
 function main() {
   parse_cmdline_args "$@"
   install_yq
@@ -226,7 +248,7 @@ function main() {
   create_namespaces
   create_registry_secret
   deploy_korifi
-  # kubectl patch deployments.apps -n korifi-gateway korifi-istio -p '{"spec":{"template":{"spec":{"containers":[{"name":"istio-proxy","ports":[{"containerPort":8080,"hostPort":80},{"containerPort":8443,"hostPort":443}]}]}}}}'
+  configure_istio_nodeport
 }
 
 main "$@"

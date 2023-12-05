@@ -6,7 +6,7 @@ metadata:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
-  name: korifi-workloads-ingress-cert
+  name: korifi-certs
   namespace: {{ .Release.Namespace }}
 spec:
   from:
