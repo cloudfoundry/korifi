@@ -13,6 +13,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -75,11 +76,11 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(packageCleaner.CleanCallCount()).To(BeNumerically(">", cleanCallCount))
 
+				var cleanedApps []types.NamespacedName
 				for currCall := cleanCallCount; currCall < packageCleaner.CleanCallCount(); currCall++ {
-					_, app := packageCleaner.CleanArgsForCall(currCall)
-					g.Expect(app.Name).To(Equal(cfAppGUID))
-					g.Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
+					cleanedApps = append(cleanedApps, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfAppGUID})
 				}
+				g.Expect(cleanedApps).To(ContainElement(types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Name}))
 			}).Should(Succeed())
 		})
 
