@@ -6,8 +6,8 @@ directories:
       url: https://api.github.com/repos/buildpacks-community/kpack/releases/131064629
     path: kpack
   - githubRelease:
-      tag: v0.6.0
-      url: https://api.github.com/repos/servicebinding/runtime/releases/125092927
+      tag: v0.7.0
+      url: https://api.github.com/repos/servicebinding/runtime/releases/132695530
     path: service-binding
   - githubRelease:
       tag: v0.6.4
