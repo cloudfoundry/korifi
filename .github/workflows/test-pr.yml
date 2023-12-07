@@ -21,7 +21,7 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: '1.20.7'
     - name: Run linters
@@ -41,7 +41,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: '1.20.7'
 
@@ -63,7 +63,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: '1.20.7'
 
@@ -85,7 +85,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.20.7'
 
@@ -107,7 +107,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.20.7'
 
@@ -129,7 +129,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.20.7'
 
@@ -151,7 +151,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.20.7'
 
