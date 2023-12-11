@@ -158,9 +158,7 @@ var _ = Describe("Domain", func() {
 			resp, err = adminClient.R().
 				Delete("/v3/domains/" + domainGUID)
 			Expect(err).NotTo(HaveOccurred())
-		})
 
-		It("succeeds with a job redirect", func() {
 			Expect(resp).To(SatisfyAll(
 				HaveRestyStatusCode(http.StatusAccepted),
 				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/domain.delete~"+domainGUID)),
@@ -173,7 +171,9 @@ var _ = Describe("Domain", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(string(resp.Body())).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
+		})
 
+		It("deletes the domain", func() {
 			getDomainResp, err := adminClient.R().Get("/v3/domains/" + domainGUID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getDomainResp).To(HaveRestyStatusCode(http.StatusNotFound))
@@ -204,15 +204,13 @@ var _ = Describe("Domain", func() {
 			})
 
 			It("deletes the domain routes", func() {
-				Eventually(func(g Gomega) {
-					var routes resourceList[responseResource]
-					listRoutesResp, err := adminClient.R().
-						SetResult(&routes).
-						Get("/v3/routes?space_guids=" + spaceGUID)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(listRoutesResp).To(HaveRestyStatusCode(http.StatusOK))
-					g.Expect(routes.Resources).To(BeEmpty())
-				}).Should(Succeed())
+				var routes resourceList[responseResource]
+				listRoutesResp, err := adminClient.R().
+					SetResult(&routes).
+					Get("/v3/routes?space_guids=" + spaceGUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(listRoutesResp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(routes.Resources).To(BeEmpty())
 			})
 		})
 	})
