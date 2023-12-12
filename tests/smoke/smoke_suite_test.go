@@ -107,11 +107,15 @@ var _ = AfterSuite(func() {
 	helpers.RemoveUserFromKubeConfig(cfAdmin)
 })
 
-func sessionOutput(session *Session) string {
-	GinkgoHelper()
-
-	Expect(session.ExitCode()).To(Equal(0))
-	return strings.TrimSpace(string(session.Out.Contents()))
+func sessionOutput(session *Session) (string, error) {
+	if session.ExitCode() != 0 {
+		return "", fmt.Errorf("Session %v exited with exit code %d: %s",
+			session.Command,
+			session.ExitCode(),
+			string(session.Err.Contents()),
+		)
+	}
+	return strings.TrimSpace(string(session.Out.Contents())), nil
 }
 
 func printCfApp(config *rest.Config) {
@@ -122,8 +126,16 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
-	cfAppNamespace := sessionOutput(helpers.Cf("space", spaceName, "--guid"))
-	cfAppGUID := sessionOutput(helpers.Cf("app", buildpackAppName, "--guid"))
+	cfAppNamespace, err := sessionOutput(helpers.Cf("space", spaceName, "--guid"))
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to run 'cf space %s --guid': %v\n", spaceName, err)
+		return
+	}
+	cfAppGUID, err := sessionOutput(helpers.Cf("app", buildpackAppName, "--guid"))
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to run 'cf app %s --guid': %v\n", buildpackAppName, err)
+		return
+	}
 
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
