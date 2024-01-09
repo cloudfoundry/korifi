@@ -29,6 +29,7 @@ The following environment variables will be needed throughout this guide:
 -   `KORIFI_NAMESPACE`: the namespace in which Korifi will be installed.
 -   `ADMIN_USERNAME`: the name of the Kubernetes user who will have CF admin privileges on the Korifi installation. For security reasons, you should choose or create a user that is different from your cluster admin user. To provision new users, follow the user management instructions specific for your cluster's [authentication configuration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) or create a [new (short-lived) client certificate for user authentication](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user).
 -   `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
+-   `GATEWAY_CLASS_NAME`: the name of the Gateway API gatewayclass [see contour section](#contour).
 
 Here are the example values we'll use in this guide:
 
@@ -37,6 +38,7 @@ ROOT_NAMESPACE="cf"
 KORIFI_NAMESPACE="korifi"
 ADMIN_USERNAME="cf-admin"
 BASE_DOMAIN="korifi.example.org"
+GATEWAY_CLASS_NAME="contour"
 ```
 
 ### Free Dockerhub accounts
@@ -57,7 +59,20 @@ The Helm chart will create an example Kpack `ClusterBuilder` (with the associate
 
 ### Contour
 
-[Contour](https://projectcontour.io/) is our [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) controller. Follow the [instructions](https://projectcontour.io/getting-started/#install-contour-and-envoy) from the getting started guide to install the latest version.
+[Contour](https://projectcontour.io/) is our [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) controller. Follow the static provisioning [instructions](https://projectcontour.io/docs/1.26/config/gateway-api/#static-provisioning) from the Gateway API support guide to install the latest version. Note that as part of the Contour installation you have to create a gatewayclass with name `$GATEWAY_CLASS_NAME`:
+
+```bash
+kubectl apply -f - <<EOF
+kind: GatewayClass
+apiVersion: gateway.networking.k8s.io/v1beta1
+metadata:
+  name: $GATEWAY_CLASS_NAME
+spec:
+  controllerName: projectcontour.io/gateway-controller
+EOF
+```
+
+This gatewayclass name is a parameter of the helm chart installing korifi. The helm chart is going to define a gateway that will be used for all korifi ingress traffic.
 
 ### Metrics Server
 
@@ -163,6 +178,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=defaultAppDomainName="apps.$BASE_DOMAIN" \
     --set=containerRepositoryPrefix=europe-docker.pkg.dev/my-project/korifi/ \
     --set=kpackImageBuilder.builderRepository=europe-docker.pkg.dev/my-project/korifi/kpack-builder \
+    --set=networking.gatewayClassName=$GATEWAY_CLASS_NAME \
     --wait
 ```
 
@@ -188,10 +204,9 @@ If you are using an authentication proxy with your cluster to enable SSO, you mu
 -   `api.authProxy.host`: IP address of your cluster's auth proxy;
 -   `api.authProxy.caCert`: CA certificate of your cluster's auth proxy.
 
-### Use a Custom Ingress
+### Using a Custom Ingress Controller
 
-If you want to expose the API server using a means other than Contour, you can switch off the default API server ingress by setting the `api.expose` value to `false`.
-Make sure your ingress targets a service with name `korifi-api-svc` and port `443`.
+Korifi leverages the Gateway API for networking. This means that it should be easy to switch to any Gateway API compatible Ingress Controller implementation (e.g. Istio).
 
 ## Post-install Configuration
 

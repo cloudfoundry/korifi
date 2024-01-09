@@ -23,5 +23,9 @@ directories:
       tags:
       - v1.27.0
     path: contour
+  - githubRelease:
+      tag: v1.0.0
+      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/127397429
+    path: gateway-api
   path: vendor
 kind: LockConfig
