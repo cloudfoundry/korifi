@@ -24,7 +24,6 @@ Here are all the values that can be set for the chart:
   - `authProxy`: Needed if using a cluster authentication proxy, e.g. [Pinniped](https://pinniped.dev/).
     - `caCert` (_String_): Proxy's PEM-encoded CA certificate (*not* as Base64).
     - `host` (_String_): Must be a host string, a host:port pair, or a URL to the base of the apiserver.
-  - `expose` (_Boolean_): Expose the API component via Contour. Set to false if you want to expose the API using other means.
   - `image` (_String_): Reference to the API container image.
   - `include` (_Boolean_): Deploy the API component.
   - `lifecycle`: Default lifecycle for apps.
@@ -97,6 +96,8 @@ Here are all the values that can be set for the chart:
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
 - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
+- `networking`: Networking configuration
+  - `gatewayClass` (_String_): The name of the GatewayClass Korifi Gateway references
 - `reconcilers`:
   - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
   - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Defaults to `kpack-image-builder`.

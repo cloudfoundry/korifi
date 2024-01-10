@@ -92,10 +92,6 @@
           "description": "Deploy the API component.",
           "type": "boolean"
         },
-        "expose": {
-          "description": "Expose the API component via Contour. Set to false if you want to expose the API using other means.",
-          "type": "boolean"
-        },
         "replicas": {
           "description": "Number of replicas.",
           "type": "integer"
@@ -216,7 +212,6 @@
       },
       "required": [
         "include",
-        "expose",
         "apiServer",
         "image",
         "lifecycle",
@@ -496,6 +491,17 @@
       },
       "required": ["include"],
       "type": "object"
+    },
+    "networking": {
+      "type": "object",
+      "description": "Networking configuration",
+      "properties": {
+        "gatewayClass": {
+          "description": "The name of the GatewayClass Korifi Gateway references",
+          "type": "string"
+        }
+      },
+      "required": ["gatewayClass"]
     },
     "helm": {
       "properties": {

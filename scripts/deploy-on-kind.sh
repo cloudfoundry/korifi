@@ -179,6 +179,7 @@ function deploy_korifi() {
       --set=kpackImageBuilder.clusterStackBuildImage="paketobuildpacks/build-jammy-base" \
       --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
       --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+      --set=networking.gatewayClass="contour" \
       --wait
   }
   popd >/dev/null

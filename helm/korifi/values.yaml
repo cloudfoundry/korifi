@@ -21,7 +21,6 @@ stagingRequirements:
 
 api:
   include: true
-  expose: true
 
   image: cloudfoundry/korifi-api:latest
 
@@ -125,3 +124,6 @@ contourRouter:
 
 helm:
   hooksImage: alpine/k8s:1.25.2
+
+networking:
+  gatewayClass:
