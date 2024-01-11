@@ -30,7 +30,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
 	github.com/pivotal/kpack v0.12.3
-	github.com/projectcontour/contour v1.27.0
 	github.com/servicebinding/runtime v0.7.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/text v0.14.0
@@ -44,6 +43,7 @@ require (
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/controller-tools v0.13.0
+	sigs.k8s.io/gateway-api v1.0.0
 )
 
 require github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect

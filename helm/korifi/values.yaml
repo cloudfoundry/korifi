@@ -119,9 +119,6 @@ jobTaskRunner:
 
   jobTTL: 24h
 
-contourRouter:
-  include: true
-
 helm:
   hooksImage: alpine/k8s:1.25.2
 

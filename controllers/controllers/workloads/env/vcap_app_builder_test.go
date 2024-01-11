@@ -46,7 +46,6 @@ var _ = Describe("VCAP_APPLICATION env value builder", func() {
 		})
 
 		When("extra values are provided", func() {
-
 			BeforeEach(func() {
 				builder = env.NewVCAPApplicationEnvValueBuilder(controllersClient, map[string]any{
 					"application_id": "not-the-application-id",

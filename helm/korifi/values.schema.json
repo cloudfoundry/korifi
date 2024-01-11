@@ -482,16 +482,6 @@
       "required": ["include", "jobTTL"],
       "type": "object"
     },
-    "contourRouter": {
-      "properties": {
-        "include": {
-          "description": "Deploy the `contour-router` component.",
-          "type": "boolean"
-        }
-      },
-      "required": ["include"],
-      "type": "object"
-    },
     "networking": {
       "type": "object",
       "description": "Networking configuration",

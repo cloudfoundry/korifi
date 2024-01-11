@@ -20,7 +20,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -29,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -58,7 +58,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
-			filepath.Join("..", "..", "..", "tests", "vendor", "contour"),
+			filepath.Join("..", "..", "..", "tests", "vendor", "gateway-api"),
 		},
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml")},
@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(contourv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(gatewayv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
@@ -86,8 +86,10 @@ var _ = BeforeSuite(func() {
 				MemoryMB:    500,
 				DiskQuotaMB: 512,
 			},
-			WorkloadsTLSSecretName:      "korifi-workloads-ingress-cert",
-			WorkloadsTLSSecretNamespace: "korifi-controllers-system",
+			Networking: config.Networking{
+				GatewayName:      "korifi",
+				GatewayNamespace: "korifi-gateway",
+			},
 		},
 	)).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
