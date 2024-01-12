@@ -51,7 +51,6 @@ import (
 	"code.cloudfoundry.org/korifi/version"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -64,6 +63,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -79,7 +79,7 @@ var (
 func init() {
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(contourv1.AddToScheme(scheme))
+	utilruntime.Must(gatewayv1beta1.AddToScheme(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
@@ -380,16 +380,14 @@ func main() {
 			}
 		}
 
-		if controllerConfig.IncludeContourRouter {
-			if err = (networkingcontrollers.NewCFRouteReconciler(
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				ctrl.Log.WithName("controllers").WithName("CFRoute"),
-				controllerConfig,
-			)).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
-				os.Exit(1)
-			}
+		if err = (networkingcontrollers.NewCFRouteReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFRoute"),
+			controllerConfig,
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
+			os.Exit(1)
 		}
 
 	}

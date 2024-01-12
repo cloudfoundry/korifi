@@ -43,13 +43,15 @@ var _ = Describe("LoadFromPath", func() {
 			CFRootNamespace:                  "rootNamespace",
 			ContainerRegistrySecretNames:     []string{"packageRegistrySecretName"},
 			TaskTTL:                          "taskTTL",
-			WorkloadsTLSSecretName:           "workloadsTLSSecretName",
-			WorkloadsTLSSecretNamespace:      "workloadsTLSSecretNamespace",
 			BuilderName:                      "buildReconciler",
 			RunnerName:                       "statefulset-runner",
 			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
+			Networking: config.Networking{
+				GatewayName:      "gw-name",
+				GatewayNamespace: "gw-ns",
+			},
 		}
 	})
 
@@ -81,8 +83,6 @@ var _ = Describe("LoadFromPath", func() {
 			CFRootNamespace:                  "rootNamespace",
 			ContainerRegistrySecretNames:     []string{"packageRegistrySecretName"},
 			TaskTTL:                          "taskTTL",
-			WorkloadsTLSSecretName:           "workloadsTLSSecretName",
-			WorkloadsTLSSecretNamespace:      "workloadsTLSSecretNamespace",
 			BuilderName:                      "buildReconciler",
 			RunnerName:                       "statefulset-runner",
 			NamespaceLabels:                  map[string]string{},
@@ -90,6 +90,10 @@ var _ = Describe("LoadFromPath", func() {
 			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
+			Networking: config.Networking{
+				GatewayName:      "gw-name",
+				GatewayNamespace: "gw-ns",
+			},
 		}))
 	})
 

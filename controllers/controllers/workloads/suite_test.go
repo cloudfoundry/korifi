@@ -116,8 +116,6 @@ var _ = BeforeSuite(func() {
 		},
 		CFRootNamespace:                  cfRootNamespace,
 		ContainerRegistrySecretNames:     []string{packageRegistrySecretName},
-		WorkloadsTLSSecretName:           "korifi-workloads-ingress-cert",
-		WorkloadsTLSSecretNamespace:      "korifi-controllers-system",
 		SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(2)),
 	}
 

@@ -100,6 +100,24 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes/status
+  verbs:
+  - get
+- apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - appworkloads
@@ -499,30 +517,6 @@ rules:
   - podsecuritypolicies
   verbs:
   - use
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - httpproxies
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - httpproxies/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - httpproxies/status
-  verbs:
-  - get
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

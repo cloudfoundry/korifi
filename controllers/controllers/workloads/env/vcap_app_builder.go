@@ -67,7 +67,6 @@ func (b *VCAPApplicationEnvValueBuilder) getAppURIs(ctx context.Context, cfApp *
 		client.InNamespace(cfApp.Namespace),
 		client.MatchingFields{shared.IndexRouteDestinationAppName: cfApp.Name},
 	)
-
 	if err != nil {
 		return nil, err
 	}

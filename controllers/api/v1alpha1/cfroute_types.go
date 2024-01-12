@@ -25,6 +25,7 @@ import (
 )
 
 const (
+	// Deprecated. Used for removing leftover finalizers
 	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
 
 	ValidStatus   CurrentStatus = "valid"
