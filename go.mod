@@ -35,9 +35,9 @@ require (
 	golang.org/x/text v0.14.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.28.4
+	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
-	k8s.io/client-go v0.28.4
+	k8s.io/client-go v0.29.0
 	k8s.io/metrics v0.28.4
 	k8s.io/pod-security-admission v0.28.4
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
