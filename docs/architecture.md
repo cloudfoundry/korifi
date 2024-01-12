@@ -88,7 +88,7 @@ Cloud Foundry has a tiered tenancy system consisting of the cluster or "foundati
 We model these using Kubernetes namespaces. There is a root "cf" namespace that can contain multiple `CFOrg` custom resources. These trigger the creation of K8s namespaces for each org which themselves will contain `CFSpace` resources that point to additional namespaces for each space. This is convenient because it maps closely to the CF model in terms of app isolation and user permissions on Kubernetes. Initially we used the [Hierarchical Namespaces Controller project](https://github.com/kubernetes-sigs/hierarchical-namespaces) to manage this hierarchy, but moved away to a custom implementation for [various reasons](https://docs.google.com/document/d/1AVZPcoOphbWU8tVJ2gM7UkEC0EvHaki6scWgp8DuCDY/edit).
 
 ### Routing
-![Korifi Routing Diagram](images/korifi_routing.jpg)
+![Korifi Routing Diagram](images/korifi-routing-diagram.drawio.png)
 
 We integrate with the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) to implement routing to both the Korifi API and app workloads. The `CFRoute` custom resource supports the  CF route management APIs and is converted into GatewayAPI `HTTPRoute` and Kubernetes `Service` resources. We use a validating webhook to apply Cloud Controller's validation rules to the routes (e.g. no duplicate routes, route has a matching `CFDomain`, etc).
 
