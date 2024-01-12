@@ -2,7 +2,7 @@
 
 ## Overview
 
-![Korifi Architecture Diagram](images/korifi_architecture.jpg)
+![Korifi Architecture Diagram](images/korifi-high-level-architecture.drawio.png)
 
 ### Core Components
 Korifi is built up of the following core components:

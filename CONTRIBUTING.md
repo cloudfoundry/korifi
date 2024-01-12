@@ -46,11 +46,15 @@ documentation, fixing a bug, adding or enhancing a feature, or fixing a typo.
 
 Changes to the behavior of `korifi/api` or `korifi/controllers` will require that you build and test your changes.
 
-When adding new functionality, or fixing bugs, add appropriate test coverage
+When adding new functionality or fixing bugs, add appropriate test coverage
 where possible. Different parts of the code base have different strategies and
 patterns for testing, some of which may be in flux at any point in time.
-Consider commenting on the issue to seek input or  or opening a draft pull
+Consider commenting on the issue to seek input or opening a draft pull
 request to seek feedback on approaches to testing a particular change.
+
+When contributing new diagrams to the docs, provide a way for others to update the diagrams in the future.
+We recommend using [Draw IO](https://www.drawio.com/) since it supports embedding diagram metadata within
+the PNG files themselves. This allows future contributors to import the diagram and update it.
 
 To build the project from source, please consider the docs on [local development](HACKING.md).
 
