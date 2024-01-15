@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega/gexec"
 	gomegatypes "github.com/onsi/gomega/types"
 	"gopkg.in/yaml.v2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -126,6 +127,22 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
+	cfOrgNamespaceName, err := sessionOutput(helpers.Cf("org", orgName, "--guid"))
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to run 'cf org %s --guid': %v\n", orgName, err)
+		return
+	}
+
+	err = printObject(k8sClient, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cfOrgNamespaceName,
+		},
+	})
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed printing cforg namespace: %v\n", err)
+		return
+	}
+
 	cfAppNamespace, err := sessionOutput(helpers.Cf("space", spaceName, "--guid"))
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed to run 'cf space %s --guid': %v\n", spaceName, err)
@@ -137,24 +154,29 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
-	cfApp := &korifiv1alpha1.CFApp{
+	err = printObject(k8sClient, &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfAppGUID,
 			Namespace: cfAppNamespace,
 		},
-	}
-
-	if err = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfApp), cfApp); err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to get cfapp in namespace %q: %v\n", cfAppNamespace, err)
-		return
-	}
-
-	fmt.Fprintf(GinkgoWriter, "\n\n========== cfapp %s/%s (skipping managed fields) ==========\n", cfApp.Namespace, cfApp.Name)
-	cfApp.ManagedFields = []metav1.ManagedFieldsEntry{}
-	cfAppBytes, err := yaml.Marshal(cfApp)
+	})
 	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed marshalling cfapp: %v\n", err)
+		fmt.Fprintf(GinkgoWriter, "failed printing cfapp: %v\n", err)
 		return
 	}
-	fmt.Fprintln(GinkgoWriter, string(cfAppBytes))
+}
+
+func printObject(k8sClient client.Client, obj client.Object) error {
+	if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), obj); err != nil {
+		return fmt.Errorf("failed to get object %q: %v\n", client.ObjectKeyFromObject(obj), err)
+	}
+
+	fmt.Fprintf(GinkgoWriter, "\n\n========== %T %s/%s (skipping managed fields) ==========\n", obj, obj.GetNamespace(), obj.GetName())
+	obj.SetManagedFields([]metav1.ManagedFieldsEntry{})
+	objBytes, err := yaml.Marshal(obj)
+	if err != nil {
+		return fmt.Errorf("failed marshalling object %v: %v\n", obj, err)
+	}
+	fmt.Fprintln(GinkgoWriter, string(objBytes))
+	return nil
 }
