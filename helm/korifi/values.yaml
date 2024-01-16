@@ -21,7 +21,6 @@ stagingRequirements:
 
 api:
   include: true
-  expose: true
   uaaURL: ""
 
   image: cloudfoundry/korifi-api:latest
@@ -48,8 +47,6 @@ api:
 
   logcache:
     url: ""
-
-  uaaURL: ""
 
   lifecycle:
     type: buildpack
@@ -126,8 +123,8 @@ jobTaskRunner:
 
   jobTTL: 24h
 
-contourRouter:
-  include: true
-
 helm:
   hooksImage: alpine/k8s:1.25.2
+
+networking:
+  gatewayClass:

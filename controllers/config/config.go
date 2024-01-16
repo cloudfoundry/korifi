@@ -1,7 +1,6 @@
 package config
 
 import (
-	"path/filepath"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -14,7 +13,6 @@ type ControllerConfig struct {
 	IncludeKpackImageBuilder bool `yaml:"includeKpackImageBuilder"`
 	IncludeJobTaskRunner     bool `yaml:"includeJobTaskRunner"`
 	IncludeStatefulsetRunner bool `yaml:"includeStatefulsetRunner"`
-	IncludeContourRouter     bool `yaml:"includeContourRouter"`
 
 	// core controllers
 	CFProcessDefaults                CFProcessDefaults  `yaml:"cfProcessDefaults"`
@@ -22,8 +20,6 @@ type ControllerConfig struct {
 	CFRootNamespace                  string             `yaml:"cfRootNamespace"`
 	ContainerRegistrySecretNames     []string           `yaml:"containerRegistrySecretNames"`
 	TaskTTL                          string             `yaml:"taskTTL"`
-	WorkloadsTLSSecretName           string             `yaml:"workloads_tls_secret_name"`
-	WorkloadsTLSSecretNamespace      string             `yaml:"workloads_tls_secret_namespace"`
 	BuilderName                      string             `yaml:"builderName"`
 	RunnerName                       string             `yaml:"runnerName"`
 	NamespaceLabels                  map[string]string  `yaml:"namespaceLabels"`
@@ -37,11 +33,12 @@ type ControllerConfig struct {
 	JobTTL string `yaml:"jobTTL"`
 
 	// kpack-image-builder
-	ClusterBuilderName        string `yaml:"clusterBuilderName"`
-	BuilderServiceAccount     string `yaml:"builderServiceAccount"`
-	BuilderReadinessTimeout   string `yaml:"builderReadinessTimeout"`
-	ContainerRepositoryPrefix string `yaml:"containerRepositoryPrefix"`
-	ContainerRegistryType     string `yaml:"containerRegistryType"`
+	ClusterBuilderName        string     `yaml:"clusterBuilderName"`
+	BuilderServiceAccount     string     `yaml:"builderServiceAccount"`
+	BuilderReadinessTimeout   string     `yaml:"builderReadinessTimeout"`
+	ContainerRepositoryPrefix string     `yaml:"containerRepositoryPrefix"`
+	ContainerRegistryType     string     `yaml:"containerRegistryType"`
+	Networking                Networking `yaml:"networking"`
 }
 
 type CFProcessDefaults struct {
@@ -54,6 +51,11 @@ type CFStagingResources struct {
 	BuildCacheMB int64 `yaml:"buildCacheMB"`
 	DiskMB       int64 `yaml:"diskMB"`
 	MemoryMB     int64 `yaml:"memoryMB"`
+}
+
+type Networking struct {
+	GatewayName      string `yaml:"gatewayName"`
+	GatewayNamespace string `yaml:"gatewayNamespace"`
 }
 
 const (
@@ -92,13 +94,6 @@ func GetLogLevelFromPath(path string) (zapcore.Level, error) {
 	}
 
 	return cfg.LogLevel, nil
-}
-
-func (c ControllerConfig) WorkloadsTLSSecretNameWithNamespace() string {
-	if c.WorkloadsTLSSecretName == "" {
-		return ""
-	}
-	return filepath.Join(c.WorkloadsTLSSecretNamespace, c.WorkloadsTLSSecretName)
 }
 
 func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {

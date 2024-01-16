@@ -605,8 +605,11 @@ var _ = Describe("Apps", func() {
 			secondServiceInstanceGUID = createServiceInstance(space1GUID, generateGUID("service-instance"), moreCredentials)
 			bindingName = "custom-named-binding"
 			namedBindingGUID = createServiceBinding(appGUID, secondServiceInstanceGUID, bindingName)
-			_, httpError = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+
+			var httpResp *resty.Response
+			httpResp, httpError = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
 			Expect(httpError).NotTo(HaveOccurred())
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
 		})
 
 		It("sets the $SERVICE_BINDING_ROOT env variable", func() {

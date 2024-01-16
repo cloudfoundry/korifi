@@ -84,7 +84,7 @@ install-shfmt:
 
 VENDIR = $(shell go env GOPATH)/bin/vendir
 install-vendir:
-	go install github.com/vmware-tanzu/carvel-vendir/cmd/vendir@latest
+	go install carvel.dev/vendir/cmd/vendir@latest
 
 GOSEC = $(shell go env GOPATH)/bin/gosec
 install-gosec:

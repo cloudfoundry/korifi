@@ -119,7 +119,7 @@ func configureServer(server *ghttp.Server, signingKey *rsa.PrivateKey) {
 	applicationJSONHeader := http.Header{}
 	applicationJSONHeader.Add("Content-Type", "application/json")
 
-	server.SetAllowUnhandledRequests(false)
+	server.SetAllowUnhandledRequests(true)
 
 	server.RouteToHandler(
 		http.MethodGet,

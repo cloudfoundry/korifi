@@ -53,7 +53,6 @@ import (
 	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	contourv1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -62,9 +61,11 @@ import (
 	"k8s.io/klog/v2"
 	admission "k8s.io/pod-security-admission/api"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -80,7 +81,7 @@ var (
 func init() {
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(contourv1.AddToScheme(scheme))
+	utilruntime.Must(gatewayv1beta1.AddToScheme(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	utilruntime.Must(btpv1.AddToScheme(scheme))
@@ -393,16 +394,14 @@ func main() {
 			}
 		}
 
-		if controllerConfig.IncludeContourRouter {
-			if err = (networkingcontrollers.NewCFRouteReconciler(
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				ctrl.Log.WithName("controllers").WithName("CFRoute"),
-				controllerConfig,
-			)).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
-				os.Exit(1)
-			}
+		if err = (networkingcontrollers.NewCFRouteReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFRoute"),
+			controllerConfig,
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
+			os.Exit(1)
 		}
 
 	}
@@ -435,54 +434,62 @@ func main() {
 			os.Exit(1)
 		}
 
+		uncachedClient, err := client.New(mgr.GetConfig(), client.Options{
+			Scheme: scheme,
+		})
+		if err != nil {
+			setupLog.Error(err, "unable to create uncached client")
+			os.Exit(1)
+		}
+
 		if err = workloads.NewCFAppValidator(
-			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.AppEntityType)),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.AppEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
 		}
 
 		if err = networking.NewCFRouteValidator(
-			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), networking.RouteEntityType)),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, networking.RouteEntityType)),
 			controllerConfig.CFRootNamespace,
-			mgr.GetClient(),
+			uncachedClient,
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
 			os.Exit(1)
 		}
 
 		if err = services.NewCFServiceInstanceValidator(
-			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), services.ServiceInstanceEntityType)),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, services.ServiceInstanceEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceInstance")
 			os.Exit(1)
 		}
 
 		if err = services.NewCFServiceBindingValidator(
-			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), services.ServiceBindingEntityType)),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, services.ServiceBindingEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBinding")
 			os.Exit(1)
 		}
 
 		if err = networking.NewCFDomainValidator(
-			mgr.GetClient(),
+			uncachedClient,
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
 			os.Exit(1)
 		}
 
 		if err = workloads.NewCFOrgValidator(
-			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFOrgEntityType)),
-			webhooks.NewPlacementValidator(mgr.GetClient(), controllerConfig.CFRootNamespace),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.CFOrgEntityType)),
+			webhooks.NewPlacementValidator(uncachedClient, controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFOrg")
 			os.Exit(1)
 		}
 
 		if err = workloads.NewCFSpaceValidator(
-			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(mgr.GetClient(), workloads.CFSpaceEntityType)),
-			webhooks.NewPlacementValidator(mgr.GetClient(), controllerConfig.CFRootNamespace),
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.CFSpaceEntityType)),
+			webhooks.NewPlacementValidator(uncachedClient, controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFSpace")
 			os.Exit(1)

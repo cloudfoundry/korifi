@@ -2,26 +2,30 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - githubRelease:
-      tag: v0.12.2
-      url: https://api.github.com/repos/buildpacks-community/kpack/releases/124316758
+      tag: v0.12.3
+      url: https://api.github.com/repos/buildpacks-community/kpack/releases/131064629
     path: kpack
   - githubRelease:
-      tag: v0.6.0
-      url: https://api.github.com/repos/servicebinding/runtime/releases/125092927
+      tag: v0.7.0
+      url: https://api.github.com/repos/servicebinding/runtime/releases/132695530
     path: service-binding
   - githubRelease:
       tag: v0.6.4
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/113485257
     path: metrics-server-local
   - githubRelease:
-      tag: v1.13.1
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/122733017
+      tag: v1.13.3
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/133422641
     path: cert-manager
   - git:
-      commitTitle: Update Contour Docker image to v1.26.1....
-      sha: e1e0e05f21aa6d3b5cef80eb47ded15aa7e29452
+      commitTitle: Update Contour Docker image to v1.27.0....
+      sha: 30f317ea4978ddfcdd3405b40032d74dc43efb02
       tags:
-      - v1.26.1
+      - v1.27.0
     path: contour
+  - githubRelease:
+      tag: v1.0.0
+      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/127397429
+    path: gateway-api
   path: vendor
 kind: LockConfig

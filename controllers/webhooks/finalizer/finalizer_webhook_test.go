@@ -89,22 +89,6 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 			},
 			korifiv1alpha1.CFOrgFinalizerName,
 		),
-		Entry("cfroute",
-			&korifiv1alpha1.CFRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-org-" + uuid.NewString(),
-					Name:      uuid.NewString(),
-				},
-				Spec: korifiv1alpha1.CFRouteSpec{
-					DomainRef: corev1.ObjectReference{
-						Name:      defaultDomainName,
-						Namespace: rootNamespace,
-					},
-					Host: "myhost",
-				},
-			},
-			korifiv1alpha1.CFRouteFinalizerName,
-		),
 		Entry("cfdomain",
 			&korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{

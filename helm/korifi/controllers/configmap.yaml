@@ -8,7 +8,6 @@ data:
     includeKpackImageBuilder: {{ .Values.kpackImageBuilder.include }}
     includeJobTaskRunner: {{ .Values.jobTaskRunner.include }}
     includeStatefulsetRunner: {{ .Values.statefulsetRunner.include }}
-    includeContourRouter: {{ .Values.contourRouter.include }}
     builderName: {{ .Values.reconcilers.build }}
     runnerName: {{ .Values.reconcilers.run }}
     cfProcessDefaults:
@@ -27,8 +26,6 @@ data:
     {{- end }}
     {{- end }}
     taskTTL: {{ .Values.controllers.taskTTL }}
-    workloads_tls_secret_name: {{ .Values.controllers.workloadsTLSSecret }}
-    workloads_tls_secret_namespace: {{ .Release.Namespace }}
     namespaceLabels:
     {{- range $key, $value := .Values.controllers.namespaceLabels }}
       {{ $key }}: {{ $value }}
@@ -57,3 +54,7 @@ data:
     {{- if .Values.jobTaskRunner.include }}
     jobTTL: {{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}
     {{- end }}
+    networking:
+      gatewayNamespace: {{ .Release.Namespace }}-gateway
+      gatewayName: korifi
+

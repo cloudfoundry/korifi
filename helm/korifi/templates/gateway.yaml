@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}-gateway
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: korifi-workloads-ingress-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: korifi-gateway
+  to:
+  - group: ""
+    kind: Secret
+    name: korifi-workloads-ingress-cert
+---
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1beta1
+metadata:
+  name: korifi
+  namespace: {{ .Release.Namespace }}-gateway
+spec:
+  gatewayClassName: {{ .Values.networking.gatewayClass }}
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    name: http-apps
+    port: 80
+    protocol: HTTP
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: {{ .Values.api.apiServer.url }}
+    name: https-api
+    port: 443
+    protocol: TLS
+    tls:
+      mode: Passthrough
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: "*.{{ .Values.defaultAppDomainName }}"
+    name: https-apps
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: korifi-workloads-ingress-cert
+        namespace: {{ .Release.Namespace }}
+      mode: Terminate

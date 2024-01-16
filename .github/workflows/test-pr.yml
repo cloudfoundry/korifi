@@ -21,9 +21,9 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
-        go-version: '1.20.7'
+        go-version: 'stable'
     - name: Run linters
       run: make lint
 
@@ -41,9 +41,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
-        go-version: '1.20.7'
+        go-version: 'stable'
 
     - name: Run API unit tests
       run: make -C api test
@@ -63,9 +63,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
-        go-version: '1.20.7'
+        go-version: 'stable'
 
     - name: Run Controllers tests
       run: make -C controllers test
@@ -85,9 +85,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.20.7'
+          go-version: 'stable'
 
       - name: Run job-task-runner tests
         run: make -C job-task-runner test
@@ -107,9 +107,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.20.7'
+          go-version: 'stable'
 
       - name: Run kpack-image-builder tests
         run: make -C kpack-image-builder test
@@ -129,9 +129,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.20.7'
+          go-version: 'stable'
 
       - name: Run statefulset-runner tests
         run: make -C statefulset-runner test
@@ -151,9 +151,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.20.7'
+          go-version: 'stable'
 
       - name: Run tools tests
         run: make -C tools test

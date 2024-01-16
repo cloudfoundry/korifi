@@ -36,3 +36,10 @@ directories:
     includePaths:
       - examples/contour/*.yaml
     newRootPath: examples/contour
+  - path: gateway-api
+    githubRelease:
+      slug: kubernetes-sigs/gateway-api
+      latest: true
+      disableAutoChecksumValidation: true
+      assetNames: ["experimental-install.yaml"]
+

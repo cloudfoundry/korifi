@@ -183,11 +183,7 @@ function deploy_korifi() {
       --set=kpackImageBuilder.clusterStackBuildImage="paketobuildpacks/build-jammy-base" \
       --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
       --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
-      --set=api.expose="false" \
-      --set=contourRouter.include="false" \
-      --set=controllers.namespaceLabels.'pod-security\.kubernetes\.io/audit'="privileged" \
-      --set=controllers.namespaceLabels.'pod-security\.kubernetes\.io/enforce'="privileged" \
-      --set=controllers.namespaceLabels.'istio-injection'="true" \
+      --set=networking.gatewayClass="contour" \
       --wait
   }
   popd >/dev/null

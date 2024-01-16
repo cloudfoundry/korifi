@@ -1,3 +1,0 @@
-{
-    "docker.io/envoyproxy/envoy:v1.23.0": "docker.io/envoyproxy/envoy:v1.22-latest"
-}

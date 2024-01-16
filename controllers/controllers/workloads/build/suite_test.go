@@ -39,13 +39,12 @@ import (
 )
 
 var (
-	ctx               context.Context
-	stopManager       context.CancelFunc
-	stopClientCache   context.CancelFunc
-	testEnv           *envtest.Environment
-	adminClient       client.Client
-	controllersClient client.Client
-	testNamespace     string
+	ctx             context.Context
+	stopManager     context.CancelFunc
+	stopClientCache context.CancelFunc
+	testEnv         *envtest.Environment
+	adminClient     client.Client
+	testNamespace   string
 
 	reconciledBuildsSync sync.Map
 	buildCleanupsSync    sync.Map
@@ -84,16 +83,16 @@ var _ = BeforeSuite(func() {
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
+	uncachedClient := helpers.NewUncachedClient(k8sManager.GetConfig())
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	Expect(workloads.NewCFAppValidator(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(k8sManager.GetClient(), workloads.AppEntityType)),
+		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.AppEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	controllersClient = k8sManager.GetClient()
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	testNamespace = testutils.PrefixedGUID("test-namespace")

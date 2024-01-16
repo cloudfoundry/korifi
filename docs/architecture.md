@@ -2,7 +2,7 @@
 
 ## Overview
 
-![Korifi Architecture Diagram](images/korifi_architecture.jpg)
+![Korifi Architecture Diagram](images/korifi-high-level-architecture.drawio.png)
 
 ### Core Components
 Korifi is built up of the following core components:
@@ -33,7 +33,7 @@ As mentioned earlier, we aim to be loosely coupled with our dependencies and int
 * **cert-manager**: We use [cert-manager](https://cert-manager.io/) to generate and rotate the internal certs used for our webhooks.
 * **metrics-server**: We use [metrics-server](https://github.com/kubernetes-sigs/metrics-server) to expose app container metrics to developers.
 * **kpack**: We use [kpack](https://github.com/pivotal/kpack) and [Cloud Native Buildpacks](https://buildpacks.io/) to stage apps via the `kpack-image-builder` controller. This dependency sits behind our `BuildWorkload` abstraction and the `kpack-image-builder` controller could be replaced with alternative staging implementations.
-* **Contour**: We use [Contour](https://projectcontour.io/) as our ingress controller. Contour is a CNCF project that serves as a control plane for [Envoy Proxy](https://www.envoyproxy.io/) that provides a robust, lightweight ingress routing solution. Our `CFRoute` resources are reconciled into Contour `HTTPProxy` and K8s `Service` resources to implement app ingress routing. Contour is also being used to drive out the implementation of the new [Kubernetes Gateway APIs](https://gateway-api.sigs.k8s.io/) (aka Ingress v2) which we plan on switching to once they mature and move out of alpha.
+* **Contour**: We use [Contour](https://projectcontour.io/) as our default ingress controller. Contour is a CNCF project that serves as a control plane for [Envoy Proxy](https://www.envoyproxy.io/) that provides a robust, lightweight ingress routing solution. Our `CFRoute` resources are reconciled into Gateway API `HTTPRoute` and K8s `Service` resources to implement app ingress routing. However, Contour could be substituted by any Gateway API implementation.
 * **Service Bindings for Kubernetes**: Korifi supports the [Service Bindings for Kubernetes](https://servicebinding.io/) `ServiceBinding` resource. A `ServiceBinding` reconciler (such as [service-binding-controller](https://github.com/servicebinding/service-binding-controller)) is required for those resources to be reconciled correctly and volume mounted on to app workloads.
 
 ---
@@ -65,7 +65,7 @@ The Korifi API performs three primary functions:
 3. It uses libraries from the kpack project to convert application source code from the CF CLI (zip files) into OCI images
 
 #### Korifi Controllers
-The Korifi Controllers component is a single process that runs a set of Kubernetes controllers that were built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) framework as scaffolding. These controllers watch their respective custom resources and either transform them into downstream resources (e.g. a `CFRoute` becomes a Contour `HTTPProxy`  and Kubernetes `Service`) and/or do bookkeeping such as propagate status and actual state upwards so that the Korifi API can return it back to CF clients (e.g. is a `Pod` running or did a kpack `Build` succeed). For the most part these controllers are translational and the actual developer outcomes are handled by the components we integrate with.
+The Korifi Controllers component is a single process that runs a set of Kubernetes controllers that were built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) framework as scaffolding. These controllers watch their respective custom resources and either transform them into downstream resources (e.g. a `CFRoute` becomes a Gateway API `HTTPRoute`  and Kubernetes `Service`) and/or do bookkeeping such as propagate status and actual state upwards so that the Korifi API can return it back to CF clients (e.g. is a `Pod` running or did a kpack `Build` succeed). For the most part these controllers are translational and the actual developer outcomes are handled by the components we integrate with.
 
 #### Korifi CRDs
 Although we expect most users to interact with Korifi using existing CF API clients, the true "API" for Korifi is actually its custom resources. Since these resources extend the Kubernetes API and authentication is handled by it, users can use any K8s API client (such as `kubectl`, `client-go`, `k9s`, etc.) to view and manipulate the Korifi resources directly.
@@ -88,11 +88,11 @@ Cloud Foundry has a tiered tenancy system consisting of the cluster or "foundati
 We model these using Kubernetes namespaces. There is a root "cf" namespace that can contain multiple `CFOrg` custom resources. These trigger the creation of K8s namespaces for each org which themselves will contain `CFSpace` resources that point to additional namespaces for each space. This is convenient because it maps closely to the CF model in terms of app isolation and user permissions on Kubernetes. Initially we used the [Hierarchical Namespaces Controller project](https://github.com/kubernetes-sigs/hierarchical-namespaces) to manage this hierarchy, but moved away to a custom implementation for [various reasons](https://docs.google.com/document/d/1AVZPcoOphbWU8tVJ2gM7UkEC0EvHaki6scWgp8DuCDY/edit).
 
 ### Routing
-![Korifi Routing Diagram](images/korifi_routing.jpg)
+![Korifi Routing Diagram](images/korifi-routing-diagram.drawio.png)
 
-We currently integrate directly with Contour to implement routing to both the Korifi API and app workloads. The `CFRoute` custom resource supports the  CF route management APIs and is converted into Contour `HTTPProxy` and Kubernetes `Service` resources. We use a validating webhook to apply Cloud Controller's validation rules to the routes (e.g. no duplicate routes, route has a matching `CFDomain`, etc).
+We integrate with the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) to implement routing to both the Korifi API and app workloads. The `CFRoute` custom resource supports the  CF route management APIs and is converted into GatewayAPI `HTTPRoute` and Kubernetes `Service` resources. We use a validating webhook to apply Cloud Controller's validation rules to the routes (e.g. no duplicate routes, route has a matching `CFDomain`, etc).
 
-**Future Plans:** We want to decouple ourselves from Contour and adopt the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) (aka Ingress v2) once those interfaces mature and support the features we require. Contour has been used to develop and influence these new APIs, so it should be a fairly straightforward replacement. This will enable Korifi to support a wider variety of ingress providers going forward (e.g. Envoy Gateway, Istio, etc.)).
+By leveraging the Gateway API, we abstract Korifi away from concrete networking implementations. Users can deploy whatever networkers they want as long as they are a Gateway API [implementation](https://gateway-api.sigs.k8s.io/implementations/).
 
 ### Service Management
 ![Korifi Services Diagram](images/korifi_services.jpg)
@@ -141,7 +141,7 @@ We typically use ADRs to record context about decisions that were already made o
 | Droplet                        | CFBuild, BuildWorkload, OCI Container Image                                                                |
 | Process                        | CFProcess, AppWorkload (eventually StatefulSet and Pod)                                                    |
 | Task                           | CFTask, TaskWorkload (eventually Kubernetes Job and Pod)                                                   |
-| Route                          | CFRoute, Contour HTTPProxy, K8s Service                                                                    |
+| Route                          | CFRoute, Gateway API HTTPRoute, K8s Service                                                                    |
 | Domain                         | CFDomain                                                                                                   |
 | Service Instance               | CFServiceInstance ([ProvisionedService](https://github.com/servicebinding/spec#provisioned-service))       |
 | Service Binding                | CFServiceBinding + [ServiceBinding for Kubernetes](https://github.com/servicebinding/spec#service-binding) |

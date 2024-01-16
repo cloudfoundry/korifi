@@ -222,7 +222,7 @@ func (m *haveRelationshipMatcher) dataHaveKeyMatcher() types.GomegaMatcher {
 type validJSONObjectMatcher struct{}
 
 func (matcher *validJSONObjectMatcher) Match(actual interface{}) (bool, error) {
-	decoded := map[string]string{}
+	decoded := map[string]any{}
 	var body []byte
 	switch b := actual.(type) {
 	case []byte:

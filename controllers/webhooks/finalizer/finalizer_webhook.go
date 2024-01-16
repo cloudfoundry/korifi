@@ -24,7 +24,6 @@ func NewControllersFinalizerWebhook() *ControllersFinalizerWebhook {
 			"CFSpace":   {FinalizerName: korifiv1alpha1.CFSpaceFinalizerName, SetPolicy: k8s.Always},
 			"CFPackage": {FinalizerName: korifiv1alpha1.CFPackageFinalizerName, SetPolicy: k8s.Always},
 			"CFOrg":     {FinalizerName: korifiv1alpha1.CFOrgFinalizerName, SetPolicy: k8s.Always},
-			"CFRoute":   {FinalizerName: korifiv1alpha1.CFRouteFinalizerName, SetPolicy: k8s.Always},
 			"CFDomain":  {FinalizerName: korifiv1alpha1.CFDomainFinalizerName, SetPolicy: k8s.Always},
 
 			// The entries below should be extracted in its own instance of the finalizer webhook running on a separate manager

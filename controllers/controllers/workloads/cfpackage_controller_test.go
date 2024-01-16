@@ -13,6 +13,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -74,11 +75,13 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 		It("deletes the older packages for the same app", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(packageCleaner.CleanCallCount()).To(BeNumerically(">", cleanCallCount))
-			}).Should(Succeed())
 
-			_, app := packageCleaner.CleanArgsForCall(cleanCallCount)
-			Expect(app.Name).To(Equal(cfAppGUID))
-			Expect(app.Namespace).To(Equal(cfSpace.Status.GUID))
+				var cleanedApps []types.NamespacedName
+				for currCall := cleanCallCount; currCall < packageCleaner.CleanCallCount(); currCall++ {
+					cleanedApps = append(cleanedApps, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfAppGUID})
+				}
+				g.Expect(cleanedApps).To(ContainElement(types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Name}))
+			}).Should(Succeed())
 		})
 
 		It("sets the ObservedGeneration status field", func() {
