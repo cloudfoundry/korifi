@@ -19,7 +19,7 @@ require (
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-logr/logr v1.4.1
-	github.com/go-resty/resty/v2 v2.10.0
+	github.com/go-resty/resty/v2 v2.11.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-containerregistry v0.17.0
 	github.com/google/uuid v1.5.0
