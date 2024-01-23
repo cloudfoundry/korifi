@@ -73,6 +73,8 @@ spec:
         - bash
         - -c
         - |
+          set -euo pipefail
+
           scripts/install-dependencies.sh --insecure-tls-metrics-server
 
           helm repo add twuni https://helm.twun.io
