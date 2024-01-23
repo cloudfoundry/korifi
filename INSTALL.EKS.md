@@ -265,6 +265,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
   --set=containerRegistrySecrets={} \
   --set=eksContainerRegistryRoleARN="${ECR_ROLE_ARN}" \
   --set=kpackImageBuilder.builderRepository="${KPACK_BUILDER_REPO}" \
+  --set=networking.gatewayClassName="${GATEWAY_CLASS_NAME}" \
   --wait
 ```
 
