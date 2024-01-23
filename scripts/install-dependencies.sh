@@ -7,6 +7,9 @@ TEST_DIR="$SCRIPT_DIR/../tests"
 DEP_DIR="$TEST_DIR/dependencies"
 VENDOR_DIR="$TEST_DIR/vendor"
 
+TEMP_FILES=()
+trap 'for file in ${TEMP_FILES[@]}; do rm -rf $file; done' EXIT
+
 function usage_text() {
   cat <<EOF
 Usage:
@@ -66,19 +69,11 @@ echo "********************"
 echo " Installing Contour"
 echo "********************"
 
-kubectl apply -f "$VENDOR_DIR/gateway-api"
-kubectl apply -f "$VENDOR_DIR/contour"
+TEMP_FILES+=("$DEP_DIR/contour/contour-gateway.yaml")
+cp "$VENDOR_DIR/contour/contour-gateway.yaml" "$DEP_DIR/contour/contour-gateway.yaml"
+kubectl apply -k "$DEP_DIR/contour"
+
 kubectl apply -f - <<EOF
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: contour
-  namespace: projectcontour
-data:
-  contour.yaml: |
-    gateway:
-      controllerName: projectcontour.io/gateway-controller
----
 kind: GatewayClass
 apiVersion: gateway.networking.k8s.io/v1beta1
 metadata:
@@ -86,7 +81,6 @@ metadata:
 spec:
   controllerName: projectcontour.io/gateway-controller
 EOF
-kubectl -n projectcontour rollout restart deployment/contour
 
 echo "************************************"
 echo " Installing Service Binding Runtime"
@@ -102,7 +96,7 @@ if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
     echo " Installing Metrics Server Insecure TLS options"
     echo "************************************************"
 
-    trap "rm $DEP_DIR/insecure-metrics-server/components.yaml" EXIT
+    TEMP_FILES+=("$DEP_DIR/insecure-metrics-server/components.yaml")
     cp "$VENDOR_DIR/metrics-server-local/components.yaml" "$DEP_DIR/insecure-metrics-server/components.yaml"
     kubectl apply -k "$DEP_DIR/insecure-metrics-server"
   else
