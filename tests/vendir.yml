@@ -32,14 +32,13 @@ directories:
       depth: 1
       refSelection:
         semver:
-          constraints: ">=1.19.1"
+          constraints: ">=1.27.0"
     includePaths:
-      - examples/contour/*.yaml
-    newRootPath: examples/contour
+      - examples/render/contour-gateway.yaml
+    newRootPath: examples/render
   - path: gateway-api
     githubRelease:
       slug: kubernetes-sigs/gateway-api
       latest: true
       disableAutoChecksumValidation: true
       assetNames: ["experimental-install.yaml"]
-

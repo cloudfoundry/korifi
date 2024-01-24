@@ -29,16 +29,16 @@ The following environment variables will be needed throughout this guide:
 -   `KORIFI_NAMESPACE`: the namespace in which Korifi will be installed.
 -   `ADMIN_USERNAME`: the name of the Kubernetes user who will have CF admin privileges on the Korifi installation. For security reasons, you should choose or create a user that is different from your cluster admin user. To provision new users, follow the user management instructions specific for your cluster's [authentication configuration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) or create a [new (short-lived) client certificate for user authentication](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user).
 -   `BASE_DOMAIN`: the base domain used by both the Korifi API and, by default, all apps running on Korifi.
--   `GATEWAY_CLASS_NAME`: the name of the Gateway API gatewayclass [see contour section](#contour).
+-   `GATEWAY_CLASS_NAME`: the name of the Gateway API gatewayclass ([see contour section](#contour)).
 
 Here are the example values we'll use in this guide:
 
 ```sh
-ROOT_NAMESPACE="cf"
-KORIFI_NAMESPACE="korifi"
-ADMIN_USERNAME="cf-admin"
-BASE_DOMAIN="korifi.example.org"
-GATEWAY_CLASS_NAME="contour"
+export ROOT_NAMESPACE="cf"
+export KORIFI_NAMESPACE="korifi"
+export ADMIN_USERNAME="cf-admin"
+export BASE_DOMAIN="korifi.example.org"
+export GATEWAY_CLASS_NAME="contour"
 ```
 
 ### Free Dockerhub accounts
