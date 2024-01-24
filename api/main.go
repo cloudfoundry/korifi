@@ -29,6 +29,7 @@ import (
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 	"code.cloudfoundry.org/korifi/version"
 
+	chiMiddlewares "github.com/go-chi/chi/middleware"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -243,6 +244,7 @@ func main() {
 		middleware.Correlation(ctrl.Log),
 		middleware.CFCliVersion,
 		middleware.HTTPLogging,
+		chiMiddlewares.StripSlashes,
 	)
 
 	authInfoParser := authorization.NewInfoParser()
