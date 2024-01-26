@@ -213,16 +213,16 @@ func getPodState(pod corev1.Pod) string {
 		return stateDown
 	}
 
-	if podHasTerminatedContainer(pod) {
+	if podHasCrashedContainer(pod) {
 		return stateCrashed
 	}
 
 	return stateStarting
 }
 
-func podHasTerminatedContainer(pod corev1.Pod) bool {
+func podHasCrashedContainer(pod corev1.Pod) bool {
 	for _, cond := range pod.Status.ContainerStatuses {
-		if cond.State.Terminated != nil {
+		if cond.State.Waiting != nil && cond.State.Waiting.Reason == "CrashLoopBackOff" {
 			return true
 		}
 	}
