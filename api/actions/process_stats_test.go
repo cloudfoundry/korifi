@@ -268,21 +268,31 @@ var _ = Describe("ProcessStats", func() {
 			})
 		})
 
-		When("the pod has a terminated container", func() {
+		When("the pod has a container in waiting state", func() {
 			BeforeEach(func() {
 				podMetrics[0].Pod.Status.Conditions = makeConditions("Initialized")
 				podMetrics[0].Pod.Status.ContainerStatuses = []corev1.ContainerStatus{
 					{
 						Name: "application",
 						State: corev1.ContainerState{
-							Terminated: &corev1.ContainerStateTerminated{},
+							Waiting: &corev1.ContainerStateWaiting{},
 						},
 					},
 				}
 			})
 
-			It("is crashed", func() {
-				Expect(responseRecords[0].State).To(Equal("CRASHED"))
+			It("is starting", func() {
+				Expect(responseRecords[0].State).To(Equal("STARTING"))
+			})
+
+			When("the reason is CrashLoopBackoff", func() {
+				BeforeEach(func() {
+					podMetrics[0].Pod.Status.ContainerStatuses[0].State.Waiting.Reason = "CrashLoopBackOff"
+				})
+
+				It("is crashed", func() {
+					Expect(responseRecords[0].State).To(Equal("CRASHED"))
+				})
 			})
 		})
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -16,6 +17,7 @@ func main() {
 	http.HandleFunc("/env.json", envJsonHandler)
 	http.HandleFunc("/servicebindingroot", serviceBindingRootHandler)
 	http.HandleFunc("/servicebindings", serviceBindingsHandler)
+	http.HandleFunc("/exit", exitHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -23,6 +25,29 @@ func main() {
 	}
 	fmt.Printf("Listening on port %s\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+}
+
+func exitHandler(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		fmt.Fprintf(w, "Failed to parse form: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	code := r.Form.Get("code")
+	if code == "" {
+		code = "0"
+	}
+
+	exitCode, err := strconv.Atoi(code)
+	if err != nil {
+		fmt.Fprintf(w, "Failed to parse exit code: %s: %v", code, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	os.Exit(exitCode)
 }
 
 func helloWorldHandler(w http.ResponseWriter, _ *http.Request) {
