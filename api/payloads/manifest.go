@@ -2,12 +2,14 @@ package payloads
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/jellydator/validation"
+	"gopkg.in/yaml.v3"
 
 	"code.cloudfoundry.org/bytefmt"
 )
@@ -69,6 +71,21 @@ type ManifestApplicationProcess struct {
 type ManifestApplicationService struct {
 	Name        string  `json:"name" yaml:"name"`
 	BindingName *string `json:"binding_name" yaml:"binding_name"`
+}
+
+func (s *ManifestApplicationService) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.ScalarNode && value.Tag == "!!str" {
+		s.Name = value.Value
+		return nil
+	}
+
+	type manifestApplicationService ManifestApplicationService
+	err := value.Decode((*manifestApplicationService)(s))
+	if err != nil {
+		return fmt.Errorf("invalid service: line %d, column %d: %w", value.Line, value.Column, err)
+	}
+
+	return nil
 }
 
 type ManifestRoute struct {
