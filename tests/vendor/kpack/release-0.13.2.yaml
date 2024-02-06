@@ -109,6 +109,9 @@ spec:
     - name: Ready
       type: string
       jsonPath: .status.conditions[?(@.type=="Ready")].status
+    - name: UpToDate
+      type: string
+      jsonPath: .status.conditions[?(@.type=="UpToDate")].status
   conversion:
     strategy: Webhook
     webhook:
@@ -203,6 +206,9 @@ spec:
     - name: Ready
       type: string
       jsonPath: .status.conditions[?(@.type=="Ready")].status
+    - name: UpToDate
+      type: string
+      jsonPath: .status.conditions[?(@.type=="UpToDate")].status
   names:
     kind: ClusterBuilder
     listKind: ClusterBuilderList
@@ -365,7 +371,7 @@ metadata:
   name: build-init-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/build-init@sha256:92c6835bb9ea48c90042df0f96eef1b34e06ccf593c39ab79831e4b21f374423
+  image: gcr.io/cf-build-service-public/kpack/build-init@sha256:fb6d8b324e2f041adb4766d65eec7bee884f84b272eb3ecf0a5c739e96a07b33
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -373,7 +379,7 @@ metadata:
   name: build-init-windows-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/build-init-windows@sha256:c3eb52275df6d6abef7841741cc2106920b4f6f509da2d5d9334aaf671fbe584
+  image: gcr.io/cf-build-service-public/kpack/build-init-windows@sha256:e38940a1d2137c8aa5a94368a206cc78a1b54bd6a09a825a66df0f9cc08c8652
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -381,7 +387,7 @@ metadata:
   name: build-waiter-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/build-waiter@sha256:549daf44199a7e94afd8cbbcbe8837185d597d1a61548d27eafafd83bb1fa1bc
+  image: gcr.io/cf-build-service-public/kpack/build-waiter@sha256:1422962f7a08c701f362fa043fce889bb4537579ce9dea256625a745356812dc
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -389,7 +395,7 @@ metadata:
   name: rebase-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/rebase@sha256:955f76d02b4885d08f25071246021feae1a5622f5f8032ee53b1f23b689c7f2a
+  image: gcr.io/cf-build-service-public/kpack/rebase@sha256:8db2aceeb340f8686db8b603bbec4aec1682e237b514b8ee05a778714ede5938
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -397,7 +403,7 @@ metadata:
   name: lifecycle-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/lifecycle@sha256:0b1cd35012f7152053c42e0d6835cbb5b7c9c24207a0627f556bd931e678f8d7
+  image: gcr.io/cf-build-service-public/kpack/lifecycle@sha256:199043ac6fd40f772decb804ca92cdcbb22b76cf8db622761e25c39c2925d3b7
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -405,7 +411,7 @@ metadata:
   name: completion-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/completion@sha256:9a7b149ec23fa85bee6dbbc5fbc1e6d65228685768e56709967499cc66fe62df
+  image: gcr.io/cf-build-service-public/kpack/completion@sha256:591b577d8286f3eb7583660c59990aa3939878dd69dd1a99897e09d2dc962806
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -413,7 +419,7 @@ metadata:
   name: completion-windows-image
   namespace: kpack
 data:
-  image: gcr.io/cf-build-service-public/kpack/completion-windows@sha256:82d62a33b017680904975e33f76cd7256f3a987b84bd1e774a4262958ff9c43f
+  image: gcr.io/cf-build-service-public/kpack/completion-windows@sha256:f3fb747b55278fabe808ba1b8447b30cd6857567b73acb2bad3123afb509d453
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -429,7 +435,7 @@ spec:
     metadata:
       labels:
         app: kpack-controller
-        version: 0.12.3
+        version: 0.13.2
     spec:
       securityContext:
         runAsNonRoot: true
@@ -450,11 +456,13 @@ spec:
           capabilities:
             drop:
             - ALL
-        image: gcr.io/cf-build-service-public/kpack/controller@sha256:6a6e49d1bed164f151d2f8b9fbe24edd6a99c467fd6a747fb7b061a4c3529fc5
+        image: gcr.io/cf-build-service-public/kpack/controller@sha256:c401a8c1d45f9a24d36568a2f202fd78363cb3ed0dddb36b95e7cc65fc6f536c
         env:
         - name: ENABLE_PRIORITY_CLASSES
           value: "false"
         - name: INJECTED_SIDECAR_SUPPORT
+          value: "false"
+        - name: EXPERIMENTAL_GENERATE_SLSA_ATTESTATION
           value: "false"
         - name: INSECURE_SSH_TRUST_UNKNOWN_HOSTS
           value: "true"
@@ -468,6 +476,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SYSTEM_SERVICE_ACCOUNT
+          value: controller
         - name: BUILD_INIT_IMAGE
           valueFrom:
             configMapKeyRef:
@@ -552,6 +562,7 @@ rules:
   resources:
   - secrets
   - pods/log
+  - namespaces
   verbs:
   - get
 - apiGroups:
@@ -857,7 +868,7 @@ spec:
       labels:
         app: kpack-webhook
         role: webhook
-        version: 0.12.3
+        version: 0.13.2
     spec:
       securityContext:
         runAsNonRoot: true
@@ -878,7 +889,7 @@ spec:
           capabilities:
             drop:
             - ALL
-        image: gcr.io/cf-build-service-public/kpack/webhook@sha256:c5eed46c43ffeed170d4a7047734fb102a8af21681cad66badff578464692eb3
+        image: gcr.io/cf-build-service-public/kpack/webhook@sha256:1064ab5d533f841461eded30980395710b195f36d7e3199e8ef04979d35fa077
         ports:
         - name: https-webhook
           containerPort: 8443
