@@ -18,7 +18,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
-	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -135,21 +133,6 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		ObservedGeneration: cfServiceBinding.Generation,
 	})
 
-	actualSBServiceBinding := servicebindingv1beta1.ServiceBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("cf-binding-%s", cfServiceBinding.Name),
-			Namespace: cfServiceBinding.Namespace,
-		},
-	}
-
-	desiredSBServiceBinding := generateDesiredServiceBinding(&actualSBServiceBinding, cfServiceBinding, cfApp, secret)
-
-	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualSBServiceBinding, sbServiceBindingMutateFn(&actualSBServiceBinding, desiredSBServiceBinding))
-	if err != nil {
-		log.Info("error calling Create on servicebinding.io ServiceBinding", "reason", err)
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -174,67 +157,4 @@ func (r *CFServiceBindingReconciler) handleGetError(ctx context.Context, err err
 		ObservedGeneration: cfServiceBinding.Generation,
 	})
 	return ctrl.Result{}, err
-}
-
-func sbServiceBindingMutateFn(actualSBServiceBinding, desiredSBServiceBinding *servicebindingv1beta1.ServiceBinding) controllerutil.MutateFn {
-	return func() error {
-		actualSBServiceBinding.Labels = desiredSBServiceBinding.Labels
-		actualSBServiceBinding.OwnerReferences = desiredSBServiceBinding.OwnerReferences
-		actualSBServiceBinding.Spec = desiredSBServiceBinding.Spec
-		return nil
-	}
-}
-
-func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.ServiceBinding, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfApp *korifiv1alpha1.CFApp, secret *corev1.Secret) *servicebindingv1beta1.ServiceBinding {
-	var desiredServiceBinding servicebindingv1beta1.ServiceBinding
-	actualServiceBinding.DeepCopyInto(&desiredServiceBinding)
-	desiredServiceBinding.Labels = map[string]string{
-		ServiceBindingGUIDLabel:           cfServiceBinding.Name,
-		korifiv1alpha1.CFAppGUIDLabelKey:  cfApp.Name,
-		ServiceCredentialBindingTypeLabel: "app",
-	}
-	desiredServiceBinding.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-			Kind:       "CFServiceBinding",
-			Name:       cfServiceBinding.Name,
-			UID:        cfServiceBinding.UID,
-		},
-	}
-
-	bindingName := secret.Name
-	if cfServiceBinding.Spec.DisplayName != nil {
-		bindingName = *cfServiceBinding.Spec.DisplayName
-	}
-
-	desiredServiceBinding.Spec = servicebindingv1beta1.ServiceBindingSpec{
-		Name: bindingName,
-		Type: "user-provided",
-		Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
-			APIVersion: "apps/v1",
-			Kind:       "StatefulSet",
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					korifiv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
-				},
-			},
-		},
-		Service: servicebindingv1beta1.ServiceBindingServiceReference{
-			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-			Kind:       "CFServiceBinding",
-			Name:       cfServiceBinding.Name,
-		},
-	}
-
-	secretType, ok := secret.Data["type"]
-	if ok && len(secretType) > 0 {
-		desiredServiceBinding.Spec.Type = string(secretType)
-	}
-
-	secretProvider, ok := secret.Data["provider"]
-	if ok {
-		desiredServiceBinding.Spec.Provider = string(secretProvider)
-	}
-
-	return &desiredServiceBinding
 }
