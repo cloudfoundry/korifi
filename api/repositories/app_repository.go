@@ -403,7 +403,6 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 		secretObj.StringData = envVariables.EnvironmentVariables
 		return nil
 	})
-
 	if err != nil {
 		return AppEnvVarsRecord{}, apierrors.FromK8sError(err, AppEnvResourceType)
 	}
