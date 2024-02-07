@@ -1,0 +1,109 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+  name: cfserviceplans.korifi.cloudfoundry.org
+spec:
+  group: korifi.cloudfoundry.org
+  names:
+    kind: CFServicePlan
+    listKind: CFServicePlanList
+    plural: cfserviceplans
+    singular: cfserviceplan
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.planName
+      name: Plan
+      type: string
+    - jsonPath: .spec.available
+      name: Available
+      type: string
+    - jsonPath: .spec.free
+      name: Free
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFServicePlan is the Schema for the cfserviceplans API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFServicePlanSpec defines the desired state of CFServicePlan
+            properties:
+              available:
+                type: boolean
+              bindable:
+                type: boolean
+              catalog_id:
+                type: string
+              creationTimestamp:
+                format: date-time
+                type: string
+              description:
+                type: string
+              free:
+                type: boolean
+              id:
+                type: string
+              metadata:
+                properties:
+                  annotations:
+                    items:
+                      type: string
+                    type: array
+                  labels:
+                    items:
+                      type: string
+                    type: array
+                type: object
+              plan_updateable:
+                type: boolean
+              planName:
+                type: string
+              relationships:
+                properties:
+                  service_offering_guid:
+                    type: string
+                  space_guid:
+                    type: string
+                required:
+                - service_offering_guid
+                type: object
+              updatedTimestamp:
+                format: date-time
+                type: string
+            required:
+            - available
+            - bindable
+            - catalog_id
+            - creationTimestamp
+            - id
+            - planName
+            - plan_updateable
+            - updatedTimestamp
+            type: object
+          status:
+            description: CFServicePlanStatus defines the observed state of CFServicePlan
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

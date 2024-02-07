@@ -9,7 +9,6 @@ import (
 const (
 	serviceOfferingsBase = "/v3/service_offerings"
 	servicePlansBase     = "/v3/service_plans"
-	serviceBrokersBase   = "/v3/service_brokers"
 )
 
 type ServiceOfferingResponse struct {

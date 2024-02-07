@@ -25,6 +25,8 @@ const (
 	DomainDeleteJobType = "domain.delete"
 	RoleDeleteJobType   = "role.delete"
 
+	BrokerCreateJobType = "service_broker.create"
+
 	JobTimeoutDuration = 120.0
 )
 
@@ -65,6 +67,10 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 
 	if job.Type == syncSpaceJobType {
 		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForManifestApplyJob(job, h.serverURL)), nil
+	}
+
+	if job.Type == BrokerCreateJobType {
+		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForJob(job, []presenter.JobResponseError{}, "COMPLETE", h.serverURL)), nil
 	}
 
 	repository, ok := h.repositories[job.Type]

@@ -113,6 +113,17 @@ rules:
   - delete
 
 - apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebrokers
+  verbs:
+  - get
+  - list
+  - create
+  - patch
+  - delete
+
+- apiGroups:
     - korifi.cloudfoundry.org
   resources:
     - cfservicebindings
@@ -205,6 +216,16 @@ rules:
 
 - apiGroups:
   - extensions.korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings
+  - cfserviceplans
+  verbs:
+  - get
+  - list
+  - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
   resources:
   - cfserviceofferings
   - cfserviceplans

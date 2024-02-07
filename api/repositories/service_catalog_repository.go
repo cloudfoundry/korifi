@@ -7,7 +7,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+
+	//trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -109,7 +111,7 @@ func (r *ServiceCatalogRepo) ListServiceOfferings(ctx context.Context, authInfo 
 
 	var result []ServiceOfferingRecord
 
-	allServiceOferings := &trinityv1alpha1.CFServiceOfferingList{}
+	allServiceOferings := &korifiv1alpha1.CFServiceOfferingList{}
 	err = userClient.List(ctx, allServiceOferings, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		return []ServiceOfferingRecord{}, fmt.Errorf("failed to list service offerings: %w", err)
@@ -133,7 +135,7 @@ func (r *ServiceCatalogRepo) GetServiceOffering(ctx context.Context, authInfo au
 		return ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	serviceOffering := &trinityv1alpha1.CFServiceOffering{
+	serviceOffering := &korifiv1alpha1.CFServiceOffering{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
 			Name:      guid,
@@ -155,7 +157,7 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 
 	var result []ServicePlanRecord
 
-	allServicePlans := &trinityv1alpha1.CFServicePlanList{}
+	allServicePlans := &korifiv1alpha1.CFServicePlanList{}
 	err = userClient.List(ctx, allServicePlans, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list service plans: %w", err)
@@ -197,7 +199,7 @@ func (r *ServiceCatalogRepo) GetServicePlan(ctx context.Context, authInfo author
 		return ServicePlanRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	servicePlan := &trinityv1alpha1.CFServicePlan{
+	servicePlan := &korifiv1alpha1.CFServicePlan{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
 			Name:      guid,
@@ -216,7 +218,7 @@ func (r *ServiceCatalogRepo) getOfferingGuids(ctx context.Context, userClient cl
 		return []string{}, nil
 	}
 
-	offerings := &trinityv1alpha1.CFServiceOfferingList{}
+	offerings := &korifiv1alpha1.CFServiceOfferingList{}
 	err := userClient.List(ctx, offerings, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		return nil, err
@@ -227,7 +229,7 @@ func (r *ServiceCatalogRepo) getOfferingGuids(ctx context.Context, userClient cl
 		if !filterAppliesTo(o.Spec.OfferingName, names) {
 			continue
 		}
-		guids = append(guids, o.Spec.GUID)
+		guids = append(guids, o.Name)
 
 	}
 
@@ -248,9 +250,9 @@ func filterAppliesTo(s string, filter []string) bool {
 	return false
 }
 
-func servicePlanToRecord(servicePlan *trinityv1alpha1.CFServicePlan) ServicePlanRecord {
+func servicePlanToRecord(servicePlan *korifiv1alpha1.CFServicePlan) ServicePlanRecord {
 	return ServicePlanRecord{
-		GUID:                servicePlan.Spec.GUID,
+		GUID:                servicePlan.Name,
 		Name:                servicePlan.Spec.PlanName,
 		Description:         servicePlan.Spec.Description,
 		Available:           servicePlan.Spec.Available,
@@ -280,9 +282,9 @@ func servicePlanToRecord(servicePlan *trinityv1alpha1.CFServicePlan) ServicePlan
 	}
 }
 
-func serviceOfferingToRecord(offering *trinityv1alpha1.CFServiceOffering) ServiceOfferingRecord {
+func serviceOfferingToRecord(offering *korifiv1alpha1.CFServiceOffering) ServiceOfferingRecord {
 	return ServiceOfferingRecord{
-		GUID:                 offering.Spec.GUID,
+		GUID:                 offering.Name,
 		Name:                 offering.Spec.OfferingName,
 		Description:          offering.Spec.Description,
 		Available:            offering.Spec.Available,

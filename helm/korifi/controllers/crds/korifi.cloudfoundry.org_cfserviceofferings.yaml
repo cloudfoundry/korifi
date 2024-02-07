@@ -1,0 +1,119 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+  name: cfserviceofferings.korifi.cloudfoundry.org
+spec:
+  group: korifi.cloudfoundry.org
+  names:
+    kind: CFServiceOffering
+    listKind: CFServiceOfferingList
+    plural: cfserviceofferings
+    singular: cfserviceoffering
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.offeringName
+      name: Offering
+      type: string
+    - jsonPath: .spec.description
+      name: Description
+      type: string
+    - jsonPath: .spec.available
+      name: Available
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CFServiceOffering is the Schema for the cfserviceofferings API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CFServiceOfferingSpec defines the desired state of CFServiceOffering
+            properties:
+              allow_context_updates:
+                type: boolean
+              available:
+                type: boolean
+              bindable:
+                type: boolean
+              bindings_retrievable:
+                type: boolean
+              catalog_id:
+                type: string
+              creationTimestamp:
+                format: date-time
+                type: string
+              description:
+                type: string
+              documentationUrl:
+                type: string
+              id:
+                type: string
+              instances_retrievable:
+                type: boolean
+              metadata:
+                properties:
+                  annotations:
+                    items:
+                      type: string
+                    type: array
+                  labels:
+                    items:
+                      type: string
+                    type: array
+                type: object
+              offeringName:
+                type: string
+              plan_updateable:
+                type: boolean
+              required:
+                items:
+                  type: string
+                type: array
+              shareable:
+                type: boolean
+              tags:
+                items:
+                  type: string
+                type: array
+              updatedTimestamp:
+                format: date-time
+                type: string
+            required:
+            - allow_context_updates
+            - available
+            - bindable
+            - bindings_retrievable
+            - catalog_id
+            - creationTimestamp
+            - id
+            - instances_retrievable
+            - offeringName
+            - plan_updateable
+            - updatedTimestamp
+            type: object
+          status:
+            description: CFServiceOfferingStatus defines the observed state of CFServiceOffering
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

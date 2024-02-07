@@ -241,6 +241,16 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = (servicescontrollers.NewCFServiceBrokerReconciler(
+			controllerConfig.CFRootNamespace,
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			ctrl.Log.WithName("controllers").WithName("CFServiceBroker"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBroker")
+			os.Exit(1)
+		}
+
 		labelCompiler := labels.NewCompiler().
 			Defaults(map[string]string{
 				admission.EnforceLevelLabel: string(admission.LevelRestricted),

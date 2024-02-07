@@ -420,6 +420,32 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cfservicebrokers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebrokers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebrokers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - cfserviceinstances
   verbs:
   - create
@@ -442,6 +468,42 @@ rules:
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceplans
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceplans/finalizers
+  verbs:
   - update
 - apiGroups:
   - korifi.cloudfoundry.org

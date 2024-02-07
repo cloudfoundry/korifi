@@ -41,7 +41,7 @@ func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 }
 
 func (l *ServicePlanList) SupportedKeys() []string {
-	return []string{"names", "service_offering_names", "page", "service_offering_guids"}
+	return []string{"names", "available", "broker_catalog_ids", "space_guids", "organization_guids", "service_broker_guids", "service_broker_names", "service_offering_names", "service_offering_guids", "include", "page", "per_page", "order_by", "label_selector", "fields", "fields[service_offering.service_broker]", "created_ats", "updated_ats"}
 }
 
 func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {

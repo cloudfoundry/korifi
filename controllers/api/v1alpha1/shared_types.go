@@ -65,3 +65,8 @@ type Registry struct {
 type RequiredLocalObjectReference struct {
 	Name string `json:"name"`
 }
+
+type Metadata struct {
+	Labels     []string `json:"labels,omitempty"`
+	Annotation []string `json:"annotations,omitempty"`
+}

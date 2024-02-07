@@ -188,6 +188,13 @@ func main() {
 		cfg.ContainerRepositoryPrefix,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList](createTimeout),
 	)
+
+	serviceBrokerRepo := repositories.NewServiceBrokerRepo(
+		namespaceRetriever,
+		userClientFactory,
+		nsPermissions,
+	)
+
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
 		namespaceRetriever,
 		userClientFactory,
@@ -376,6 +383,12 @@ func main() {
 		handlers.NewBuildpack(
 			*serverURL,
 			buildpackRepo,
+			requestValidator,
+		),
+		handlers.NewServiceBroker(
+			*serverURL,
+			serviceBrokerRepo,
+			spaceRepo,
 			requestValidator,
 		),
 		handlers.NewServiceInstance(
