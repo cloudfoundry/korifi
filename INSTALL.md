@@ -178,7 +178,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=defaultAppDomainName="apps.$BASE_DOMAIN" \
     --set=containerRepositoryPrefix=europe-docker.pkg.dev/my-project/korifi/ \
     --set=kpackImageBuilder.builderRepository=europe-docker.pkg.dev/my-project/korifi/kpack-builder \
-    --set=networking.gatewayClassName=$GATEWAY_CLASS_NAME \
+    --set=networking.gatewayClass=$GATEWAY_CLASS_NAME \
     --wait
 ```
 
