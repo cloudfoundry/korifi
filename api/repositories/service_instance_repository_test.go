@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -47,7 +48,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		var (
 			serviceInstanceCreateMessage repositories.CreateServiceInstanceMessage
 			serviceInstanceTags          []string
-			serviceInstanceCredentials   map[string]string
+			serviceInstanceCredentials   map[string]any
 
 			createdServiceInstanceRecord repositories.ServiceInstanceRecord
 			createErr                    error
@@ -55,9 +56,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		BeforeEach(func() {
 			serviceInstanceTags = []string{"foo", "bar"}
-			serviceInstanceCredentials = map[string]string{
-				"cred-one": "val-one",
-				"cred-two": "val-two",
+			serviceInstanceCredentials = map[string]any{
+				"object": map[string]any{"a": "b"},
 			}
 
 			serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags, serviceInstanceCredentials)
@@ -75,13 +75,11 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			JustBeforeEach(func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
 				secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
 				createdSecret = &corev1.Secret{}
 				Expect(k8sClient.Get(context.Background(), secretLookupKey, createdSecret)).To(Succeed())
-			})
-
-			It("succeeds", func() {
-				Expect(createErr).NotTo(HaveOccurred())
 			})
 
 			It("creates a new ServiceInstance CR", func() {
@@ -95,58 +93,21 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(createdServiceInstanceRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
+			It("creates the credentials secret", func() {
+				Expect(createdSecret.Type).To(Equal(corev1.SecretTypeOpaque))
+				Expect(createdSecret.Data).To(MatchAllKeys(Keys{repositories.CredentialsSecretKey: Not(BeEmpty())}))
+				credentials := map[string]any{}
+				Expect(json.Unmarshal(createdSecret.Data[repositories.CredentialsSecretKey], &credentials)).To(Succeed())
+				Expect(credentials).To(Equal(serviceInstanceCredentials))
+			})
+
 			When("ServiceInstance credentials are NOT provided", func() {
 				BeforeEach(func() {
 					serviceInstanceCreateMessage.Credentials = nil
 				})
 
-				It("creates the secret and sets the type fields to user-provided since projected bindings must have a type", func() {
-					Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-						"type": BeEquivalentTo("user-provided"),
-					}))
-					Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
-				})
-			})
-
-			When("ServiceInstance credentials are provided", func() {
-				When("the instance credentials have a user-specified type", func() {
-					BeforeEach(func() {
-						serviceInstanceCredentials = map[string]string{
-							"cred-one": "val-one",
-							"cred-two": "val-two",
-							"type":     "mysql",
-							"provider": "the-cloud",
-						}
-
-						serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags, serviceInstanceCredentials)
-					})
-
-					It("creates the secret and does not override the type that the user specified", func() {
-						Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-						Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-							"type":     BeEquivalentTo("mysql"),
-							"provider": BeEquivalentTo("the-cloud"),
-							"cred-one": BeEquivalentTo("val-one"),
-							"cred-two": BeEquivalentTo("val-two"),
-						}))
-						Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/mysql")))
-					})
-				})
-
-				When("the instance credentials DO NOT a user-specified type", func() {
-					It("creates a secret and defaults type fields to 'user-provided' since projected bindings must have a type", func() {
-						Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-						Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-							"type":     BeEquivalentTo("user-provided"),
-							"cred-one": BeEquivalentTo("val-one"),
-							"cred-two": BeEquivalentTo("val-two"),
-						}))
-						Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
-					})
+				It("creates a secret with empty credentials object", func() {
+					Expect(createdSecret.Data).To(MatchAllKeys(Keys{repositories.CredentialsSecretKey: Equal([]byte("{}"))}))
 				})
 			})
 		})
@@ -177,10 +138,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Namespace: space.Name,
 				},
 				StringData: map[string]string{
-					"foo":  "bar",
-					"type": "database",
+					repositories.CredentialsSecretKey: `{"a": "b"}`,
 				},
-				Type: "servicebinding.io/user-provided",
 			}
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
@@ -271,75 +230,37 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("does not change the credential secret", func() {
 				Consistently(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-					g.Expect(secret.Data).To(HaveKeyWithValue("foo", BeEquivalentTo("bar")))
+					g.Expect(secret.Data).To(MatchAllKeys(Keys{repositories.CredentialsSecretKey: Not(BeEmpty())}))
+					credentials := map[string]any{}
+					g.Expect(json.Unmarshal(secret.Data[repositories.CredentialsSecretKey], &credentials)).To(Succeed())
+					g.Expect(credentials).To(MatchAllKeys(Keys{"a": Equal("b")}))
 				}).Should(Succeed())
 			})
 
 			When("ServiceInstance credentials are provided", func() {
-				When("the instance credentials modify the type", func() {
-					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]string{
-							"cred-one": "val-one",
-							"cred-two": "val-two",
-							"type":     "mysql",
-							"provider": "the-cloud",
-						}
-					})
-
-					It("disallows changing type", func() {
-						Expect(err).To(MatchError(ContainSubstring("cannot modify credential")))
-					})
+				BeforeEach(func() {
+					patchMessage.Credentials = &map[string]any{
+						"object": map[string]any{"c": "d"},
+					}
 				})
 
-				When("the instance credentials don't specify a type", func() {
-					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]string{
-							"cred-one": "val-one",
-							"cred-two": "val-two",
-						}
-					})
-
-					It("updates the creds and keeps the existing type", func() {
-						Expect(err).NotTo(HaveOccurred())
-						Eventually(func(g Gomega) {
-							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-							g.Expect(secret.Data).To(MatchAllKeys(Keys{
-								"type":     BeEquivalentTo("database"),
-								"cred-one": BeEquivalentTo("val-one"),
-								"cred-two": BeEquivalentTo("val-two"),
-							}))
-							g.Expect(secret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
-						}).Should(Succeed())
-					})
-				})
-
-				When("the instance credentials pass the old type unchanged", func() {
-					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]string{
-							"type":     "database",
-							"cred-one": "val-one",
-							"cred-two": "val-two",
-						}
-					})
-
-					It("updates the creds and keeps the existing type", func() {
-						Expect(err).NotTo(HaveOccurred())
-						Eventually(func(g Gomega) {
-							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-							g.Expect(secret.Data).To(MatchAllKeys(Keys{
-								"type":     BeEquivalentTo("database"),
-								"cred-one": BeEquivalentTo("val-one"),
-								"cred-two": BeEquivalentTo("val-two"),
-							}))
-							g.Expect(secret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
-						}).Should(Succeed())
-					})
+				It("updates the creds", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
+						g.Expect(secret.Data).To(MatchAllKeys(Keys{repositories.CredentialsSecretKey: Not(BeEmpty())}))
+						credentials := map[string]any{}
+						Expect(json.Unmarshal(secret.Data[repositories.CredentialsSecretKey], &credentials)).To(Succeed())
+						Expect(credentials).To(MatchAllKeys(Keys{
+							"object": MatchAllKeys(Keys{"c": Equal("d")}),
+						}))
+					}).Should(Succeed())
 				})
 			})
 
 			When("ServiceInstance credentials are cleared out", func() {
 				BeforeEach(func() {
-					patchMessage.Credentials = &map[string]string{}
+					patchMessage.Credentials = &map[string]any{}
 				})
 
 				It("clears out the credentials", func() {
@@ -347,7 +268,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
 						g.Expect(secret.Data).To(MatchAllKeys(Keys{
-							"type": BeEquivalentTo("database"),
+							repositories.CredentialsSecretKey: Equal([]byte("{}")),
 						}))
 					}).Should(Succeed())
 				})
@@ -658,7 +579,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	})
 })
 
-func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUID string, tags []string, credentials map[string]string) repositories.CreateServiceInstanceMessage {
+func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUID string, tags []string, credentials map[string]any) repositories.CreateServiceInstanceMessage {
 	return repositories.CreateServiceInstanceMessage{
 		Name:        serviceInstanceName,
 		SpaceGUID:   spaceGUID,

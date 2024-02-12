@@ -226,9 +226,9 @@ type destination struct {
 
 type serviceInstanceResource struct {
 	resource     `json:",inline"`
-	Tags         []string          `json:"tags"`
-	Credentials  map[string]string `json:"credentials"`
-	InstanceType string            `json:"type"`
+	Tags         []string       `json:"tags"`
+	Credentials  map[string]any `json:"credentials"`
+	InstanceType string         `json:"type"`
 }
 
 type appLogResource struct {

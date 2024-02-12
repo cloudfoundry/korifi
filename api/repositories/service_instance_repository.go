@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,14 +17,15 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	CFServiceInstanceGUIDLabel     = "korifi.cloudfoundry.org/service-instance-guid"
-	ServiceInstanceResourceType    = "Service Instance"
-	serviceBindingSecretTypePrefix = "servicebinding.io/"
+	CFServiceInstanceGUIDLabel  = "korifi.cloudfoundry.org/service-instance-guid"
+	ServiceInstanceResourceType = "Service Instance"
+	CredentialsSecretKey        = "credentials"
 )
 
 type NamespaceGetter interface {
@@ -50,7 +53,7 @@ func NewServiceInstanceRepo(
 type CreateServiceInstanceMessage struct {
 	Name        string
 	SpaceGUID   string
-	Credentials map[string]string
+	Credentials map[string]any
 	Type        string
 	Tags        []string
 	Labels      map[string]string
@@ -61,7 +64,7 @@ type PatchServiceInstanceMessage struct {
 	GUID        string
 	SpaceGUID   string
 	Name        *string
-	Credentials *map[string]string
+	Credentials *map[string]any
 	Tags        *[]string
 	MetadataPatch
 }
@@ -114,16 +117,7 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
-	secretObj := cfServiceInstanceToSecret(cfServiceInstance)
-	_, err = controllerutil.CreateOrPatch(ctx, userClient, &secretObj, func() error {
-		secretObj.StringData = message.Credentials
-		if secretObj.StringData == nil {
-			secretObj.StringData = map[string]string{}
-		}
-		createSecretTypeFields(&secretObj)
-
-		return nil
-	})
+	err = r.applyCredentialsSecret(ctx, userClient, cfServiceInstance, message.Credentials)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
@@ -152,38 +146,48 @@ func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo
 	}
 
 	if message.Credentials != nil {
-		secretObj := new(corev1.Secret)
-		if err = userClient.Get(ctx, client.ObjectKey{Name: cfServiceInstance.Spec.SecretName, Namespace: cfServiceInstance.Namespace}, secretObj); err != nil {
-			return ServiceInstanceRecord{}, err
-		}
-
-		if _, ok := (*message.Credentials)["type"]; !ok {
-			(*message.Credentials)["type"] = string(secretObj.Data["type"])
-		}
-
-		newType := (*message.Credentials)["type"]
-		if string(secretObj.Data["type"]) != (*message.Credentials)["type"] {
-			return ServiceInstanceRecord{}, apierrors.NewInvalidRequestError(
-				fmt.Errorf("cannot modify credential type: currently '%s': updating to '%s'", string(secretObj.Data["type"]), newType),
-				"Cannot change credential type. Consider creating a new Service Instance.",
-			)
-		}
-
-		_, err = controllerutil.CreateOrPatch(ctx, userClient, secretObj, func() error {
-			data := map[string][]byte{}
-			for k, v := range *message.Credentials {
-				data[k] = []byte(v)
-			}
-			secretObj.Data = data
-
-			return nil
-		})
+		err = r.applyCredentialsSecret(ctx, userClient, cfServiceInstance, *message.Credentials)
 		if err != nil {
 			return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 		}
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
+}
+
+func (r *ServiceInstanceRepo) applyCredentialsSecret(
+	ctx context.Context,
+	userClient client.Client,
+	cfServiceInstance korifiv1alpha1.CFServiceInstance,
+	credentials map[string]any,
+) error {
+	credentialBytes := []byte("{}")
+	if len(credentials) != 0 {
+		var err error
+		credentialBytes, err = json.Marshal(credentials)
+		if err != nil {
+			return errors.New("failed to marshal credentials for service instance")
+		}
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfServiceInstance.Name,
+			Namespace: cfServiceInstance.Namespace,
+		},
+	}
+
+	_, err := controllerutil.CreateOrPatch(ctx, userClient, secret, func() error {
+		if secret.Labels == nil {
+			secret.Labels = map[string]string{}
+		}
+		secret.Labels[CFServiceInstanceGUIDLabel] = cfServiceInstance.Name
+
+		secret.Data = map[string][]byte{
+			CredentialsSecretKey: credentialBytes,
+		}
+		return controllerutil.SetOwnerReference(&cfServiceInstance, secret, scheme.Scheme)
+	})
+	return err
 }
 
 // nolint:dupl
@@ -305,27 +309,6 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance korifiv1alpha1.C
 	}
 }
 
-func cfServiceInstanceToSecret(cfServiceInstance korifiv1alpha1.CFServiceInstance) corev1.Secret {
-	labels := make(map[string]string, 1)
-	labels[CFServiceInstanceGUIDLabel] = cfServiceInstance.Name
-
-	return corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cfServiceInstance.Name,
-			Namespace: cfServiceInstance.Namespace,
-			Labels:    labels,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: korifiv1alpha1.GroupVersion.String(),
-					Kind:       "CFServiceInstance",
-					Name:       cfServiceInstance.Name,
-					UID:        cfServiceInstance.UID,
-				},
-			},
-		},
-	}
-}
-
 func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceInstance) []ServiceInstanceRecord {
 	serviceInstanceRecords := make([]ServiceInstanceRecord, 0, len(serviceInstanceList))
 
@@ -333,14 +316,4 @@ func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceIns
 		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceInstanceToServiceInstanceRecord(serviceInstance))
 	}
 	return serviceInstanceRecords
-}
-
-func createSecretTypeFields(secret *corev1.Secret) {
-	userSpecifiedType, typeSpecified := secret.StringData["type"]
-	if typeSpecified {
-		secret.Type = corev1.SecretType(serviceBindingSecretTypePrefix + userSpecifiedType)
-	} else {
-		secret.StringData["type"] = korifiv1alpha1.UserProvidedType
-		secret.Type = serviceBindingSecretTypePrefix + korifiv1alpha1.UserProvidedType
-	}
 }
