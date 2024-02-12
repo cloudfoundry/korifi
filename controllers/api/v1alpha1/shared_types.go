@@ -70,3 +70,31 @@ type Metadata struct {
 	Labels     []string `json:"labels,omitempty"`
 	Annotation []string `json:"annotations,omitempty"`
 }
+
+type Relationship struct {
+	GUID string `json:"guid"`
+}
+
+func (in *Relationship) DeepCopy() *Relationship {
+	if in == nil {
+		return nil
+	}
+	out := new(Relationship)
+	out.GUID = in.GUID
+	return out
+}
+
+func (in *Relationship) DeepCopyInto(out *Relationship) {
+	*out = *in
+	out.GUID = in.GUID
+}
+
+type ToOneRelationship struct {
+	//+kubebuilder:validation:Optional
+	Data Relationship `json:"data"`
+}
+
+type ToManyRelationship struct {
+	//+kubebuilder:validation:Optional
+	Data []Relationship `json:"data"`
+}

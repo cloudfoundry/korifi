@@ -130,6 +130,13 @@ func main() {
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFOrg, korifiv1alpha1.CFOrgList](createTimeout),
 	)
+
+	orgQuotaRepo := repositories.NewOrgQuotaRepo(
+		cfg.RootNamespace,
+		userClientFactory,
+		nsPermissions,
+	)
+
 	spaceRepo := repositories.NewSpaceRepo(
 		namespaceRetriever,
 		orgRepo,
@@ -137,6 +144,11 @@ func main() {
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpaceList](createTimeout),
 	)
+	spaceQuotaRepo := repositories.NewSpaceQuotaRepo(
+		cfg.RootNamespace,
+		userClientFactory,
+	)
+
 	processRepo := repositories.NewProcessRepo(
 		namespaceRetriever,
 		userClientFactory,
@@ -362,9 +374,19 @@ func main() {
 			cfg.GetUserCertificateDuration(),
 			cfg.DefaultDomainName,
 		),
+		handlers.NewOrgQuota(
+			*serverURL,
+			orgQuotaRepo,
+			requestValidator,
+		),
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			requestValidator,
+		),
+		handlers.NewSpaceQuota(
+			*serverURL,
+			spaceQuotaRepo,
 			requestValidator,
 		),
 		handlers.NewSpaceManifest(
