@@ -22,12 +22,12 @@ In Kofiri `--strategy=rolling` is implemented using k8S rolling update capabilit
 ## Apps
 ### App Security Groups
 
-CF supports [app security groups](https://docs.cloudfoundry.org/concepts/asg.html)https://docs.cloudfoundry.org/concepts/asg.html which could be used to controll the egress traffic.
+CF supports [app security groups](https://docs.cloudfoundry.org/concepts/asg.html) which could be used to controll the egress traffic.
 
 ### Instance Identity Credentials
 
-CF manages for every app instance unique certificates which are known as [instance identity credentials](https://docs.cloudfoundry.org/devguide/deploy-apps/instance-identity.html)https://docs.cloudfoundry.org/devguide/deploy-apps/instance-identity.html. They are used e.g. by the GoRouter to make sure that an incomming request reaches the right app instance.
+CF manages for every app instance unique certificates which are known as [instance identity credentials](https://docs.cloudfoundry.org/devguide/deploy-apps/instance-identity.html). They are used e.g. by the GoRouter to make sure that an incomming request reaches the right app instance.
 
 ### SSH Access
 
-The CF CLI supports [ssh log in](https://docs.cloudfoundry.org/devguide/deploy-apps/ssh-apps.html)https://docs.cloudfoundry.org/devguide/deploy-apps/ssh-apps.html to running CF app instances.
+The CF CLI supports [ssh log in](https://docs.cloudfoundry.org/devguide/deploy-apps/ssh-apps.html) to running CF app instances.
