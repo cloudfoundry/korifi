@@ -8,6 +8,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -61,17 +62,16 @@ var _ = Describe("CFServiceInstance", func() {
 
 	It("sets the BindingSecretAvailable condition to true in the CFServiceInstance status", func() {
 		Eventually(func(g Gomega) {
-			updatedCFServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-			serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
-			g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
+			g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)).To(Succeed())
 
-			g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("secret-name"))
-			g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			g.Expect(cfServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Type":    Equal("BindingSecretAvailable"),
 				"Status":  Equal(metav1.ConditionTrue),
 				"Reason":  Equal("SecretFound"),
 				"Message": Equal(""),
 			})))
+			g.Expect(cfServiceInstance.Status.Credentials.Name).To(Equal(cfServiceInstance.Spec.SecretName))
+			g.Expect(cfServiceInstance.Status.CredentialsObservedVersion).NotTo(BeEmpty())
 		}).Should(Succeed())
 	})
 
@@ -82,6 +82,44 @@ var _ = Describe("CFServiceInstance", func() {
 			g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 			g.Expect(updatedCFServiceInstance.Status.ObservedGeneration).To(Equal(cfServiceInstance.Generation))
 		}).Should(Succeed())
+	})
+
+	When("the credentials secret changes", func() {
+		var (
+			credentialsSecret *corev1.Secret
+			secretVersion     string
+		)
+
+		JustBeforeEach(func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)).To(Succeed())
+				g.Expect(cfServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Type":    Equal("BindingSecretAvailable"),
+					"Status":  Equal(metav1.ConditionTrue),
+					"Reason":  Equal("SecretFound"),
+					"Message": Equal(""),
+				})))
+				secretVersion = cfServiceInstance.Status.CredentialsObservedVersion
+			}).Should(Succeed())
+
+			credentialsSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: cfServiceInstance.Namespace,
+					Name:      cfServiceInstance.Spec.SecretName,
+				},
+			}
+
+			Expect(k8s.Patch(ctx, adminClient, credentialsSecret, func() {
+				credentialsSecret.StringData = map[string]string{"f": "b"}
+			})).To(Succeed())
+		})
+
+		It("updates the credentials secret observed version", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)).To(Succeed())
+				g.Expect(cfServiceInstance.Status.CredentialsObservedVersion).NotTo(Equal(secretVersion))
+			}).Should(Succeed())
+		})
 	})
 
 	When("the referenced secret does not exist", func() {
@@ -95,7 +133,6 @@ var _ = Describe("CFServiceInstance", func() {
 				serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
 				g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 
-				g.Expect(updatedCFServiceInstance.Status.Binding).To(BeZero())
 				g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal("BindingSecretAvailable"),
 					"Status":  Equal(metav1.ConditionFalse),
@@ -121,7 +158,6 @@ var _ = Describe("CFServiceInstance", func() {
 					serviceInstanceNamespacedName := client.ObjectKeyFromObject(cfServiceInstance)
 					g.Expect(adminClient.Get(context.Background(), serviceInstanceNamespacedName, updatedCFServiceInstance)).To(Succeed())
 
-					g.Expect(updatedCFServiceInstance.Status.Binding.Name).To(Equal("other-secret-name"))
 					g.Expect(updatedCFServiceInstance.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 						"Type":    Equal("BindingSecretAvailable"),
 						"Status":  Equal(metav1.ConditionTrue),

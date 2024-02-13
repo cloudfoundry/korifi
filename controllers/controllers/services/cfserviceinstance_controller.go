@@ -21,6 +21,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -33,6 +34,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // CFServiceInstanceReconciler reconciles a CFServiceInstance object
@@ -53,7 +56,32 @@ func NewCFServiceInstanceReconciler(
 
 func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFServiceInstance{})
+		For(&korifiv1alpha1.CFServiceInstance{}).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.secretToServiceInstance),
+		)
+}
+
+func (r *CFServiceInstanceReconciler) secretToServiceInstance(ctx context.Context, o client.Object) []reconcile.Request {
+	serviceInstances := korifiv1alpha1.CFServiceInstanceList{}
+	if err := r.k8sClient.List(ctx, &serviceInstances, client.MatchingFields{
+		shared.IndexServiceInstanceCredentialsSecretName: o.GetName(),
+	}); err != nil {
+		return []reconcile.Request{}
+	}
+
+	requests := []reconcile.Request{}
+	for _, si := range serviceInstances.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      si.Name,
+				Namespace: si.Namespace,
+			},
+		})
+	}
+
+	return requests
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
@@ -79,17 +107,17 @@ func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfS
 		return ctrl.Result{}, err
 	}
 
-	cfServiceInstance.Status = bindSecretAvailableStatus(cfServiceInstance)
+	log.V(1).Info("secret", "name", secret.Name, "generation", secret.Generation)
+	cfServiceInstance.Status = bindSecretAvailableStatus(cfServiceInstance, secret)
 	return ctrl.Result{}, nil
 }
 
-func bindSecretAvailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance) korifiv1alpha1.CFServiceInstanceStatus {
+func bindSecretAvailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance, credentialsSecret *corev1.Secret) korifiv1alpha1.CFServiceInstanceStatus {
 	status := korifiv1alpha1.CFServiceInstanceStatus{
-		Binding: corev1.LocalObjectReference{
-			Name: cfServiceInstance.Spec.SecretName,
-		},
-		Conditions:         cfServiceInstance.Status.Conditions,
-		ObservedGeneration: cfServiceInstance.Status.ObservedGeneration,
+		Conditions:                 cfServiceInstance.Status.Conditions,
+		ObservedGeneration:         cfServiceInstance.Status.ObservedGeneration,
+		Credentials:                corev1.LocalObjectReference{Name: credentialsSecret.Name},
+		CredentialsObservedVersion: credentialsSecret.ResourceVersion,
 	}
 
 	meta.SetStatusCondition(&status.Conditions, metav1.Condition{
@@ -104,7 +132,6 @@ func bindSecretAvailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstan
 
 func bindSecretUnavailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance, reason, message string) korifiv1alpha1.CFServiceInstanceStatus {
 	status := korifiv1alpha1.CFServiceInstanceStatus{
-		Binding:            corev1.LocalObjectReference{},
 		Conditions:         cfServiceInstance.Status.Conditions,
 		ObservedGeneration: cfServiceInstance.Status.ObservedGeneration,
 	}
