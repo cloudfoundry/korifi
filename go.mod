@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.6
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.24.7
 	github.com/blendle/zapdriver v1.3.1
-	github.com/buildpacks/pack v0.32.1
+	github.com/buildpacks/pack v0.33.1
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
 	github.com/distribution/distribution/v3 v3.0.0-20230223072852-e5d5810851d1
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
@@ -46,7 +46,10 @@ require (
 	sigs.k8s.io/gateway-api v1.0.0
 )
 
-require github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
+require (
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
+	github.com/containerd/typeurl/v2 v2.1.1 // indirect
+)
 
 require (
 	cloud.google.com/go/compute v1.23.3 // indirect
@@ -147,7 +150,7 @@ require (
 	golang.org/x/crypto v0.18.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.20.0 // indirect
-	golang.org/x/oauth2 v0.15.0 // indirect
+	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/term v0.16.0 // indirect
