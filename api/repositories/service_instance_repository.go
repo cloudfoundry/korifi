@@ -25,7 +25,6 @@ import (
 const (
 	CFServiceInstanceGUIDLabel  = "korifi.cloudfoundry.org/service-instance-guid"
 	ServiceInstanceResourceType = "Service Instance"
-	CredentialsSecretKey        = "credentials"
 )
 
 type NamespaceGetter interface {
@@ -183,7 +182,7 @@ func (r *ServiceInstanceRepo) applyCredentialsSecret(
 		secret.Labels[CFServiceInstanceGUIDLabel] = cfServiceInstance.Name
 
 		secret.Data = map[string][]byte{
-			CredentialsSecretKey: credentialBytes,
+			korifiv1alpha1.CredentialsSecretKey: credentialBytes,
 		}
 		return controllerutil.SetOwnerReference(&cfServiceInstance, secret, scheme.Scheme)
 	})

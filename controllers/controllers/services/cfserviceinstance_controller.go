@@ -38,6 +38,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const CredentialsSecretAvailableCondition = "CredentialSecretAvailable"
+
 // CFServiceInstanceReconciler reconciles a CFServiceInstance object
 type CFServiceInstanceReconciler struct {
 	k8sClient client.Client
@@ -94,55 +96,35 @@ func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfS
 	cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
 
-	secret := new(corev1.Secret)
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceInstance.Spec.SecretName, Namespace: cfServiceInstance.Namespace}, secret)
+	credentialsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceInstance.Namespace,
+			Name:      cfServiceInstance.Spec.SecretName,
+		},
+	}
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
 	if err != nil {
+		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+			Type:               CredentialsSecretAvailableCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             "CredentialsSecretNotAvailable",
+			Message:            "Error occurred while fetching secret: " + err.Error(),
+			ObservedGeneration: cfServiceInstance.Generation,
+		})
 		if apierrors.IsNotFound(err) {
-			cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "SecretNotFound", "Binding secret does not exist")
 			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
-
-		log.Info("failed to get secret", "reason", err)
-		cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "UnknownError", "Error occurred while fetching secret: "+err.Error())
 		return ctrl.Result{}, err
 	}
 
-	log.V(1).Info("secret", "name", secret.Name, "generation", secret.Generation)
-	cfServiceInstance.Status = bindSecretAvailableStatus(cfServiceInstance, secret)
-	return ctrl.Result{}, nil
-}
-
-func bindSecretAvailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance, credentialsSecret *corev1.Secret) korifiv1alpha1.CFServiceInstanceStatus {
-	status := korifiv1alpha1.CFServiceInstanceStatus{
-		Conditions:                 cfServiceInstance.Status.Conditions,
-		ObservedGeneration:         cfServiceInstance.Status.ObservedGeneration,
-		Credentials:                corev1.LocalObjectReference{Name: credentialsSecret.Name},
-		CredentialsObservedVersion: credentialsSecret.ResourceVersion,
-	}
-
-	meta.SetStatusCondition(&status.Conditions, metav1.Condition{
-		Type:               BindingSecretAvailableCondition,
+	log.V(1).Info("secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
+	meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+		Type:               CredentialsSecretAvailableCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "SecretFound",
 		ObservedGeneration: cfServiceInstance.Generation,
 	})
-
-	return status
-}
-
-func bindSecretUnavailableStatus(cfServiceInstance *korifiv1alpha1.CFServiceInstance, reason, message string) korifiv1alpha1.CFServiceInstanceStatus {
-	status := korifiv1alpha1.CFServiceInstanceStatus{
-		Conditions:         cfServiceInstance.Status.Conditions,
-		ObservedGeneration: cfServiceInstance.Status.ObservedGeneration,
-	}
-
-	meta.SetStatusCondition(&status.Conditions, metav1.Condition{
-		Type:               BindingSecretAvailableCondition,
-		Status:             metav1.ConditionFalse,
-		Reason:             reason,
-		Message:            message,
-		ObservedGeneration: cfServiceInstance.Generation,
-	})
-
-	return status
+	cfServiceInstance.Status.Credentials = corev1.LocalObjectReference{Name: credentialsSecret.Name}
+	cfServiceInstance.Status.CredentialsObservedVersion = credentialsSecret.ResourceVersion
+	return ctrl.Result{}, nil
 }
