@@ -122,4 +122,30 @@ var _ = Describe("Credentials", func() {
 			})
 		})
 	})
+
+	Describe("GetCredentialsShaSum", func() {
+		const initialShaSum = "a453de14fde07564df78315bfa1309122bedef35"
+
+		var credentialsSha string
+
+		JustBeforeEach(func() {
+			credentialsSha, err = credentials.GetCredentialsShaSum(credentialsSecret)
+		})
+
+		It("returns sha sum", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(credentialsSha).To(Equal(initialShaSum))
+		})
+
+		When("credentials change", func() {
+			BeforeEach(func() {
+				credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte("does not matter")
+			})
+
+			It("sha sum changes as well", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(credentialsSha).NotTo(Equal(initialShaSum))
+			})
+		})
+	})
 })

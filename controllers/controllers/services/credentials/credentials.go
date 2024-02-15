@@ -1,6 +1,7 @@
 package credentials
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 
@@ -45,7 +46,15 @@ func GetBindingSecretData(credentialsSecret *corev1.Secret) (map[string]string, 
 	return secretData, err
 }
 
-func getCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
+func GetCredentialsShaSum(credentialsSecret *corev1.Secret) (string, error) {
+	credentialsBytes, err := getCredentialsRaw(credentialsSecret)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", sha1.Sum(credentialsBytes)), nil
+}
+
+func getCredentialsRaw(credentialsSecret *corev1.Secret) ([]byte, error) {
 	credentials, ok := credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey]
 	if !ok {
 		return nil, fmt.Errorf(
@@ -54,8 +63,17 @@ func getCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
 			korifiv1alpha1.CredentialsSecretKey,
 		)
 	}
+
+	return credentials, nil
+}
+
+func getCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
+	credentials, err := getCredentialsRaw(credentialsSecret)
+	if err != nil {
+		return nil, err
+	}
 	credentialsObject := map[string]any{}
-	err := json.Unmarshal(credentials, &credentialsObject)
+	err = json.Unmarshal(credentials, &credentialsObject)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal secret data: %w", err)
 	}

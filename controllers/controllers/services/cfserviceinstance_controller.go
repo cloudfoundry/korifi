@@ -67,9 +67,11 @@ func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builde
 
 func (r *CFServiceInstanceReconciler) secretToServiceInstance(ctx context.Context, o client.Object) []reconcile.Request {
 	serviceInstances := korifiv1alpha1.CFServiceInstanceList{}
-	if err := r.k8sClient.List(ctx, &serviceInstances, client.MatchingFields{
-		shared.IndexServiceInstanceCredentialsSecretName: o.GetName(),
-	}); err != nil {
+	if err := r.k8sClient.List(ctx, &serviceInstances,
+		client.InNamespace(o.GetNamespace()),
+		client.MatchingFields{
+			shared.IndexServiceInstanceCredentialsSecretName: o.GetName(),
+		}); err != nil {
 		return []reconcile.Request{}
 	}
 
@@ -117,7 +119,7 @@ func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfS
 		return ctrl.Result{}, err
 	}
 
-	log.V(1).Info("secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
+	log.V(1).Info("credentials secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
 	meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
 		Type:               CredentialsSecretAvailableCondition,
 		Status:             metav1.ConditionTrue,
@@ -126,5 +128,6 @@ func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfS
 	})
 	cfServiceInstance.Status.Credentials = corev1.LocalObjectReference{Name: credentialsSecret.Name}
 	cfServiceInstance.Status.CredentialsObservedVersion = credentialsSecret.ResourceVersion
+
 	return ctrl.Result{}, nil
 }

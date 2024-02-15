@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = FDescribe("CFServiceBinding", func() {
+var _ = Describe("CFServiceBinding", func() {
 	var (
 		namespace            *corev1.Namespace
 		cfAppGUID            string
@@ -253,38 +253,104 @@ var _ = FDescribe("CFServiceBinding", func() {
 		})
 	})
 
-	When("the service instance changes", func() {
+	When("the service credentials secret changes", func() {
+		var (
+			lastBindingSecret *corev1.Secret
+			err               error
+		)
+
 		JustBeforeEach(func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBinding), cfServiceBinding)).To(Succeed())
-				g.Expect(cfServiceBinding.Status.Binding.Name).To(Equal(cfServiceBinding.Name))
+				g.Expect(cfServiceBinding.Status.Binding.Name).NotTo(BeEmpty())
 			}).Should(Succeed())
+
+			lastBindingSecret, err = getBindingSecret(cfServiceBinding)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("the credentials type changes", func() {
 			JustBeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, credentialsSecret, func() {
 					credentialsSecret.Data = map[string][]byte{
-						korifiv1alpha1.CredentialsSecretKey: []byte(`"type":"your-type"`),
+						korifiv1alpha1.CredentialsSecretKey: []byte(`{"type":"your-type"}`),
 					}
 				})).To(Succeed())
 			})
 
-			FIt("updates the binding secret type by recreating the secret", func() {
+			It("updates the binding secret type", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBinding), cfServiceBinding)).To(Succeed())
-					g.Expect(cfServiceBinding.Status.Binding.Name).To(Equal(cfServiceBinding.Name))
+					g.Expect(cfServiceBinding.Status.Binding.Name).NotTo(Equal(lastBindingSecret.Name))
 
-					bindingSecret := &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: cfServiceBinding.Namespace,
-							Name:      cfServiceBinding.Name,
-						},
+					bindingSecret, err := getBindingSecret(cfServiceBinding)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(bindingSecret.Type).To(BeEquivalentTo(services.ServiceBindingSecretTypePrefix + "your-type"))
+				}).Should(Succeed())
+			})
+		})
+
+		When("a random credential changes", func() {
+			JustBeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, credentialsSecret, func() {
+					credentialsSecret.Data = map[string][]byte{
+						korifiv1alpha1.CredentialsSecretKey: []byte(`{"obj": {"foo": "baz"}}`),
 					}
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)).To(Succeed())
-					g.Expect(bindingSecret.Type).To(Equal(services.ServiceBindingSecretTypePrefix + "your-type"))
+				})).To(Succeed())
+			})
+
+			It("updates the binding secret type by recreating it", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBinding), cfServiceBinding)).To(Succeed())
+					g.Expect(cfServiceBinding.Status.Binding.Name).NotTo(Equal(lastBindingSecret.Name))
+
+					bindingSecret, err := getBindingSecret(cfServiceBinding)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(bindingSecret.Data).To(MatchAllKeys(Keys{
+						"obj": Equal([]byte(`{"foo":"baz"}`)),
+					}))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the secret metadata changes", func() {
+			JustBeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, credentialsSecret, func() {
+					credentialsSecret.Labels = map[string]string{
+						"foo": "bar",
+					}
+				})).To(Succeed())
+			})
+
+			It("does not recreate the secret", func() {
+				Consistently(func(g Gomega) {
+					bindingSecret, err := getBindingSecret(cfServiceBinding)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(bindingSecret.UID).To(Equal(lastBindingSecret.UID))
 				}).Should(Succeed())
 			})
 		})
 	})
 })
+
+func getBindingSecret(cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*corev1.Secret, error) {
+	GinkgoHelper()
+
+	err := adminClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBinding), cfServiceBinding)
+	if err != nil {
+		return nil, err
+	}
+
+	bindingSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceBinding.Namespace,
+			Name:      cfServiceBinding.Status.Binding.Name,
+		},
+	}
+	err = adminClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return bindingSecret, nil
+}
