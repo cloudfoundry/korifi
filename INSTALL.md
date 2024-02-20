@@ -93,7 +93,7 @@ Follow the dynamic provisioning [instructions](https://projectcontour.io/docs/1.
       controllerName: projectcontour.io/gateway-controller
     EOF
     ```
-  - You DO NOT need to create a gateway class as per the instructions. The Korifi helm chart defines a gateway that will be used for all korifi ingress traffic. The gateway will be created in the `korifi-gateway` namespace.
+  - You DO NOT need to create a gateway as per the instructions. The Korifi helm chart defines a gateway that will be used for all korifi ingress traffic. The gateway will be created in the `korifi-gateway` namespace.
 
 ### Metrics Server
 
