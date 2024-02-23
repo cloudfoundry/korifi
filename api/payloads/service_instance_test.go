@@ -85,9 +85,12 @@ var _ = Describe("ServiceInstanceCreate", func() {
 			Name: "service-instance-name",
 			Type: "user-provided",
 			Tags: []string{"foo", "bar"},
-			Credentials: map[string]string{
+			Credentials: map[string]any{
 				"username": "bob",
 				"password": "float",
+				"object": map[string]any{
+					"a": "b",
+				},
 			},
 			Relationships: &payloads.ServiceInstanceRelationships{
 				Space: &payloads.Relationship{
@@ -188,9 +191,13 @@ var _ = Describe("ServiceInstanceCreate", func() {
 			Expect(msg.Annotations).To(HaveKeyWithValue("ann1", "val_ann1"))
 			Expect(msg.Labels).To(HaveLen(1))
 			Expect(msg.Labels).To(HaveKeyWithValue("lab1", "val_lab1"))
-			Expect(msg.Credentials).To(HaveLen(2))
-			Expect(msg.Credentials).To(HaveKeyWithValue("username", "bob"))
-			Expect(msg.Credentials).To(HaveKeyWithValue("password", "float"))
+			Expect(msg.Credentials).To(MatchAllKeys(Keys{
+				"username": Equal("bob"),
+				"password": Equal("float"),
+				"object": MatchAllKeys(Keys{
+					"a": Equal("b"),
+				}),
+			}))
 		})
 	})
 })
@@ -261,9 +268,10 @@ var _ = Describe("ServiceInstancePatch", func() {
 		patchPayload = payloads.ServiceInstancePatch{
 			Name: tools.PtrTo("service-instance-name"),
 			Tags: &[]string{"foo", "bar"},
-			Credentials: &map[string]string{
-				"username": "bob",
-				"password": "float",
+			Credentials: &map[string]any{
+				"object": map[string]any{
+					"a": "b",
+				},
 			},
 			Metadata: payloads.MetadataPatch{
 				Annotations: map[string]*string{"ann1": tools.PtrTo("val_ann1")},
@@ -316,8 +324,9 @@ var _ = Describe("ServiceInstancePatch", func() {
 				"lab1": PointTo(Equal("val_lab1")),
 			}))
 			Expect(msg.Credentials).To(PointTo(MatchAllKeys(Keys{
-				"username": Equal("bob"),
-				"password": Equal("float"),
+				"object": MatchAllKeys(Keys{
+					"a": Equal("b"),
+				}),
 			})))
 		})
 	})

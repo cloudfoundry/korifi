@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -28,6 +29,11 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	var (
 		testCtx             context.Context
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
+		conditionAwaiter    *FakeAwaiter[
+			*korifiv1alpha1.CFServiceInstance,
+			korifiv1alpha1.CFServiceInstanceList,
+			*korifiv1alpha1.CFServiceInstanceList,
+		]
 
 		org                 *korifiv1alpha1.CFOrg
 		space               *korifiv1alpha1.CFSpace
@@ -36,7 +42,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms)
+		conditionAwaiter = &FakeAwaiter[
+			*korifiv1alpha1.CFServiceInstance,
+			korifiv1alpha1.CFServiceInstanceList,
+			*korifiv1alpha1.CFServiceInstanceList,
+		]{}
+		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter)
 
 		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
@@ -47,7 +58,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		var (
 			serviceInstanceCreateMessage repositories.CreateServiceInstanceMessage
 			serviceInstanceTags          []string
-			serviceInstanceCredentials   map[string]string
+			serviceInstanceCredentials   map[string]any
 
 			createdServiceInstanceRecord repositories.ServiceInstanceRecord
 			createErr                    error
@@ -55,9 +66,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		BeforeEach(func() {
 			serviceInstanceTags = []string{"foo", "bar"}
-			serviceInstanceCredentials = map[string]string{
-				"cred-one": "val-one",
-				"cred-two": "val-two",
+			serviceInstanceCredentials = map[string]any{
+				"type":   "my-type",
+				"object": map[string]any{"a": "b"},
 			}
 
 			serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags, serviceInstanceCredentials)
@@ -75,13 +86,11 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			})
 
 			JustBeforeEach(func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
 				secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
 				createdSecret = &corev1.Secret{}
 				Expect(k8sClient.Get(context.Background(), secretLookupKey, createdSecret)).To(Succeed())
-			})
-
-			It("succeeds", func() {
-				Expect(createErr).NotTo(HaveOccurred())
 			})
 
 			It("creates a new ServiceInstance CR", func() {
@@ -95,58 +104,29 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(createdServiceInstanceRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
-			When("ServiceInstance credentials are NOT provided", func() {
-				BeforeEach(func() {
-					serviceInstanceCreateMessage.Credentials = nil
-				})
-
-				It("creates the secret and sets the type fields to user-provided since projected bindings must have a type", func() {
-					Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-						"type": BeEquivalentTo("user-provided"),
-					}))
-					Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
-				})
+			It("creates the credentials secret", func() {
+				Expect(createdSecret.Type).To(Equal(corev1.SecretTypeOpaque))
+				Expect(createdSecret.Data).To(MatchAllKeys(Keys{korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty())}))
+				credentials := map[string]any{}
+				Expect(json.Unmarshal(createdSecret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+				Expect(credentials).To(Equal(serviceInstanceCredentials))
 			})
 
-			When("ServiceInstance credentials are provided", func() {
-				When("the instance credentials have a user-specified type", func() {
-					BeforeEach(func() {
-						serviceInstanceCredentials = map[string]string{
-							"cred-one": "val-one",
-							"cred-two": "val-two",
-							"type":     "mysql",
-							"provider": "the-cloud",
-						}
-
-						serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags, serviceInstanceCredentials)
-					})
-
-					It("creates the secret and does not override the type that the user specified", func() {
-						Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-						Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-							"type":     BeEquivalentTo("mysql"),
-							"provider": BeEquivalentTo("the-cloud"),
-							"cred-one": BeEquivalentTo("val-one"),
-							"cred-two": BeEquivalentTo("val-two"),
-						}))
-						Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/mysql")))
-					})
+			When("ServiceInstance credential type is not provided", func() {
+				BeforeEach(func() {
+					serviceInstanceCreateMessage.Credentials = map[string]any{
+						"a": "b",
+					}
 				})
 
-				When("the instance credentials DO NOT a user-specified type", func() {
-					It("creates a secret and defaults type fields to 'user-provided' since projected bindings must have a type", func() {
-						Expect(createdServiceInstanceRecord.SecretName).To(Equal(createdServiceInstanceRecord.GUID))
-
-						Expect(createdSecret.Data).To(MatchAllKeys(Keys{
-							"type":     BeEquivalentTo("user-provided"),
-							"cred-one": BeEquivalentTo("val-one"),
-							"cred-two": BeEquivalentTo("val-two"),
-						}))
-						Expect(createdSecret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
-					})
+				It("defaults the credential type", func() {
+					Expect(createdSecret.Data).To(MatchAllKeys(Keys{korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty())}))
+					credentials := map[string]any{}
+					Expect(json.Unmarshal(createdSecret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+					Expect(credentials).To(MatchAllKeys(Keys{
+						"type": Equal("user-provided"),
+						"a":    Equal("b"),
+					}))
 				})
 			})
 		})
@@ -169,18 +149,21 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		BeforeEach(func() {
 			serviceInstanceGUID := uuid.NewString()
-			cfServiceInstance = createServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, serviceInstanceGUID)
+			secretName := uuid.NewString()
+			cfServiceInstance = createServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, secretName)
+			conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
+			Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {
+				cfServiceInstance.Status.Credentials.Name = secretName
+			})).To(Succeed())
 
 			secret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceInstanceGUID,
+					Name:      secretName,
 					Namespace: space.Name,
 				},
 				StringData: map[string]string{
-					"foo":  "bar",
-					"type": "database",
+					korifiv1alpha1.CredentialsSecretKey: `{"type":"database","a": "b"}`,
 				},
-				Type: "servicebinding.io/user-provided",
 			}
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
@@ -271,29 +254,83 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("does not change the credential secret", func() {
 				Consistently(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-					g.Expect(secret.Data).To(HaveKeyWithValue("foo", BeEquivalentTo("bar")))
+					g.Expect(secret.Data).To(MatchAllKeys(Keys{korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty())}))
+					credentials := map[string]any{}
+					g.Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+					g.Expect(credentials).To(MatchAllKeys(Keys{
+						"a":    Equal("b"),
+						"type": Equal("database"),
+					}))
 				}).Should(Succeed())
 			})
 
 			When("ServiceInstance credentials are provided", func() {
+				BeforeEach(func() {
+					patchMessage.Credentials = &map[string]any{
+						"type":   "database",
+						"object": map[string]any{"c": "d"},
+					}
+				})
+
+				It("awaits credentials secret available condition", func() {
+					Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+					obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+					Expect(obj.GetName()).To(Equal(cfServiceInstance.Name))
+					Expect(obj.GetNamespace()).To(Equal(cfServiceInstance.Namespace))
+					Expect(conditionType).To(Equal(repositories.CredentialsSecretAvailableCondition))
+				})
+
+				It("updates the creds", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
+						g.Expect(secret.Data).To(MatchAllKeys(Keys{korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty())}))
+						credentials := map[string]any{}
+						Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+						Expect(credentials).To(MatchAllKeys(Keys{
+							"type":   Equal("database"),
+							"object": MatchAllKeys(Keys{"c": Equal("d")}),
+						}))
+					}).Should(Succeed())
+				})
+
+				When("the credentials secret available condition is not met", func() {
+					BeforeEach(func() {
+						conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFServiceInstance{}, errors.New("timed-out"))
+					})
+
+					It("returns an error", func() {
+						Expect(err).To(MatchError(ContainSubstring("timed-out")))
+					})
+				})
+
 				When("the instance credentials modify the type", func() {
 					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]string{
-							"cred-one": "val-one",
-							"cred-two": "val-two",
-							"type":     "mysql",
-							"provider": "the-cloud",
+						patchMessage.Credentials = &map[string]any{
+							"type": "mysql",
 						}
 					})
 
 					It("disallows changing type", func() {
 						Expect(err).To(MatchError(ContainSubstring("cannot modify credential")))
 					})
+
+					When("the current secret does not have a type", func() {
+						BeforeEach(func() {
+							Expect(k8s.Patch(ctx, k8sClient, secret, func() {
+								secret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte{}
+							})).To(Succeed())
+						})
+
+						It("disallows changing the default type", func() {
+							Expect(err).To(MatchError(ContainSubstring("cannot modify credential")))
+						})
+					})
 				})
 
 				When("the instance credentials don't specify a type", func() {
 					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]string{
+						patchMessage.Credentials = &map[string]any{
 							"cred-one": "val-one",
 							"cred-two": "val-two",
 						}
@@ -303,19 +340,21 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Eventually(func(g Gomega) {
 							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-							g.Expect(secret.Data).To(MatchAllKeys(Keys{
+							g.Expect(secret.Data).To(HaveKey(korifiv1alpha1.CredentialsSecretKey))
+							credentials := map[string]any{}
+							g.Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+							g.Expect(credentials).To(MatchAllKeys(Keys{
 								"type":     BeEquivalentTo("database"),
 								"cred-one": BeEquivalentTo("val-one"),
 								"cred-two": BeEquivalentTo("val-two"),
 							}))
-							g.Expect(secret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
 						}).Should(Succeed())
 					})
 				})
 
 				When("the instance credentials pass the old type unchanged", func() {
 					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]string{
+						patchMessage.Credentials = &map[string]any{
 							"type":     "database",
 							"cred-one": "val-one",
 							"cred-two": "val-two",
@@ -326,30 +365,46 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Eventually(func(g Gomega) {
 							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-							g.Expect(secret.Data).To(MatchAllKeys(Keys{
+							g.Expect(secret.Data).To(HaveKey(korifiv1alpha1.CredentialsSecretKey))
+							credentials := map[string]any{}
+							g.Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+							g.Expect(credentials).To(MatchAllKeys(Keys{
 								"type":     BeEquivalentTo("database"),
 								"cred-one": BeEquivalentTo("val-one"),
 								"cred-two": BeEquivalentTo("val-two"),
 							}))
-							g.Expect(secret.Type).To(Equal(corev1.SecretType("servicebinding.io/user-provided")))
 						}).Should(Succeed())
 					})
 				})
-			})
 
-			When("ServiceInstance credentials are cleared out", func() {
-				BeforeEach(func() {
-					patchMessage.Credentials = &map[string]string{}
-				})
+				When("the credentials secret in the spec does not match the credentials secret in the status", func() {
+					BeforeEach(func() {
+						Expect(k8sClient.Create(ctx, &corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: cfServiceInstance.Namespace,
+								Name:      "foo",
+							},
+							Data: map[string][]byte{
+								korifiv1alpha1.CredentialsSecretKey: []byte(`{"type":"database"}`),
+							},
+						})).To(Succeed())
+						Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {
+							cfServiceInstance.Status.Credentials.Name = "foo"
+						})).To(Succeed())
+					})
 
-				It("clears out the credentials", func() {
-					Expect(err).NotTo(HaveOccurred())
-					Eventually(func(g Gomega) {
-						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-						g.Expect(secret.Data).To(MatchAllKeys(Keys{
-							"type": BeEquivalentTo("database"),
-						}))
-					}).Should(Succeed())
+					It("updates the secret in the record", func() {
+						Expect(err).NotTo(HaveOccurred())
+						Expect(serviceInstanceRecord.SecretName).To(Equal("foo"))
+					})
+
+					It("updates the secret in the spec", func() {
+						Expect(err).NotTo(HaveOccurred())
+						Eventually(func(g Gomega) {
+							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)).To(Succeed())
+							g.Expect(cfServiceInstance.Spec.SecretName).To(Equal("foo"))
+						}).Should(Succeed())
+					})
 				})
 			})
 		})
@@ -658,7 +713,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	})
 })
 
-func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUID string, tags []string, credentials map[string]string) repositories.CreateServiceInstanceMessage {
+func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUID string, tags []string, credentials map[string]any) repositories.CreateServiceInstanceMessage {
 	return repositories.CreateServiceInstanceMessage{
 		Name:        serviceInstanceName,
 		SpaceGUID:   spaceGUID,
