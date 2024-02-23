@@ -6,6 +6,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
+
 	jellidation "github.com/jellydator/validation"
 )
 
@@ -89,6 +90,7 @@ func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackage
 }
 
 type PackageList struct {
+	GUIDs    string
 	AppGUIDs string
 	States   string
 	OrderBy  string
@@ -96,16 +98,18 @@ type PackageList struct {
 
 func (p *PackageList) ToMessage() repositories.ListPackagesMessage {
 	return repositories.ListPackagesMessage{
+		GUIDs:    parse.ArrayParam(p.GUIDs),
 		AppGUIDs: parse.ArrayParam(p.AppGUIDs),
 		States:   parse.ArrayParam(p.States),
 	}
 }
 
 func (p *PackageList) SupportedKeys() []string {
-	return []string{"app_guids", "states", "order_by", "per_page", "page"}
+	return []string{"guids", "app_guids", "states", "order_by", "per_page", "page"}
 }
 
 func (p *PackageList) DecodeFromURLValues(values url.Values) error {
+	p.GUIDs = values.Get("guids")
 	p.AppGUIDs = values.Get("app_guids")
 	p.States = values.Get("states")
 	p.OrderBy = values.Get("order_by")
