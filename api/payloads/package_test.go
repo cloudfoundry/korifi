@@ -4,6 +4,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -296,19 +297,32 @@ var _ = Describe("PackageUpdate", func() {
 
 var _ = Describe("PackageList", func() {
 	DescribeTable("valid query",
-		func(query string, expectedPackageListQueryParameters payloads.PackageList) {
-			actualPackageListQueryParameters, decodeErr := decodeQuery[payloads.PackageList](query)
+		func(query string, expectedPackageList payloads.PackageList) {
+			actualPackageList, decodeErr := decodeQuery[payloads.PackageList](query)
 
 			Expect(decodeErr).NotTo(HaveOccurred())
-			Expect(*actualPackageListQueryParameters).To(Equal(expectedPackageListQueryParameters))
+			Expect(*actualPackageList).To(Equal(expectedPackageList))
 		},
-		Entry("app_guids", "app_guids=g1,g2", payloads.PackageList{AppGUIDs: "g1,g2"}),
+		Entry("guids", "guids=g1,g2", payloads.PackageList{GUIDs: "g1,g2"}),
+		Entry("app_guids", "app_guids=ag1,ag2", payloads.PackageList{AppGUIDs: "ag1,ag2"}),
 		Entry("states", "states=s1,s2", payloads.PackageList{States: "s1,s2"}),
 		Entry("created_at", "order_by=created_at", payloads.PackageList{OrderBy: "created_at"}),
 		Entry("-created_at", "order_by=-created_at", payloads.PackageList{OrderBy: "-created_at"}),
 		Entry("updated_at", "order_by=updated_at", payloads.PackageList{OrderBy: "updated_at"}),
 		Entry("-updated_at", "order_by=-updated_at", payloads.PackageList{OrderBy: "-updated_at"}),
 		Entry("empty", "order_by=", payloads.PackageList{OrderBy: ""}),
+	)
+
+	DescribeTable("ToMessage",
+		func(packageList payloads.PackageList, expectedListPackagesMessage repositories.ListPackagesMessage) {
+			actualListPackagesMessage := packageList.ToMessage()
+
+			Expect(actualListPackagesMessage).To(Equal(expectedListPackagesMessage))
+		},
+		Entry("guids", payloads.PackageList{GUIDs: "g1,g2", AppGUIDs: "", States: ""}, repositories.ListPackagesMessage{GUIDs: []string{"g1", "g2"}, AppGUIDs: []string{}, States: []string{}}),
+		Entry("app_guids", payloads.PackageList{GUIDs: "", AppGUIDs: "ag1,ag2", States: ""}, repositories.ListPackagesMessage{GUIDs: []string{}, AppGUIDs: []string{"ag1", "ag2"}, States: []string{}}),
+		Entry("states", payloads.PackageList{GUIDs: "", AppGUIDs: "", States: "s1,s2"}, repositories.ListPackagesMessage{GUIDs: []string{}, AppGUIDs: []string{}, States: []string{"s1", "s2"}}),
+		Entry("empty", payloads.PackageList{}, repositories.ListPackagesMessage{GUIDs: []string{}, AppGUIDs: []string{}, States: []string{}}),
 	)
 
 	DescribeTable("invalid query",

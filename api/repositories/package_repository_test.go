@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("PackageRepository", func() {
@@ -553,7 +553,22 @@ var _ = Describe("PackageRepository", func() {
 					))
 				})
 
-				When("app_guids filter is provided", func() {
+				When("the guids filter is provided", func() {
+					BeforeEach(func() {
+						listMessage = repositories.ListPackagesMessage{GUIDs: []string{package1GUID}}
+					})
+
+					It("fetches the specified package", func() {
+						Expect(packageList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID":    Equal(package1GUID),
+								"AppGUID": Equal(appGUID),
+							}),
+						))
+					})
+				})
+
+				When("the app_guids filter is provided", func() {
 					BeforeEach(func() {
 						listMessage = repositories.ListPackagesMessage{AppGUIDs: []string{appGUID}}
 					})
@@ -569,7 +584,7 @@ var _ = Describe("PackageRepository", func() {
 					})
 				})
 
-				When("State filter is provided", func() {
+				When("the state filter is provided", func() {
 					When("filtering by State=READY", func() {
 						BeforeEach(func() {
 							listMessage = repositories.ListPackagesMessage{States: []string{"READY"}}

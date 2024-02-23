@@ -12,9 +12,9 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/tools/dockercfg"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/uuid"
-
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -81,6 +81,7 @@ type PackageRecord struct {
 }
 
 type ListPackagesMessage struct {
+	GUIDs    []string
 	AppGUIDs []string
 	States   []string
 }
@@ -298,6 +299,7 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 	}
 
 	preds := []func(korifiv1alpha1.CFPackage) bool{
+		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFPackage) string { return s.Name }),
 		SetPredicate(message.AppGUIDs, func(s korifiv1alpha1.CFPackage) string { return s.Spec.AppRef.Name }),
 	}
 	if len(message.States) > 0 {

@@ -16,12 +16,11 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
-	. "code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -192,6 +191,7 @@ var _ = Describe("Package", func() {
 			It("calls the package repository with expected arguments", func() {
 				_, _, message := packageRepo.ListPackagesArgsForCall(0)
 				Expect(message).To(Equal(repositories.ListPackagesMessage{
+					GUIDs:    []string{},
 					AppGUIDs: []string{appGUID},
 					States:   []string{},
 				}))
@@ -252,6 +252,7 @@ var _ = Describe("Package", func() {
 			It("calls repository ListPackage with the correct message object", func() {
 				_, _, message := packageRepo.ListPackagesArgsForCall(0)
 				Expect(message).To(Equal(repositories.ListPackagesMessage{
+					GUIDs:    []string{},
 					AppGUIDs: []string{},
 					States:   []string{"READY", "AWAITING_UPLOAD"},
 				}))
