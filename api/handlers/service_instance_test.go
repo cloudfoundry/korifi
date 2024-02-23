@@ -273,7 +273,7 @@ var _ = Describe("ServiceInstance", func() {
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstancePatch{
 				Name:        tools.PtrTo("new-name"),
 				Tags:        &[]string{"alice", "bob"},
-				Credentials: &map[string]string{"foo": "bar"},
+				Credentials: &map[string]any{"foo": "bar"},
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
 					Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
@@ -306,7 +306,7 @@ var _ = Describe("ServiceInstance", func() {
 				GUID:        "service-instance-guid",
 				SpaceGUID:   "space-guid",
 				Name:        tools.PtrTo("new-name"),
-				Credentials: &map[string]string{"foo": "bar"},
+				Credentials: &map[string]any{"foo": "bar"},
 				Tags:        &[]string{"alice", "bob"},
 				MetadataPatch: repositories.MetadataPatch{
 					Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},

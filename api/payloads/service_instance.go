@@ -17,7 +17,7 @@ type ServiceInstanceCreate struct {
 	Name          string                        `json:"name"`
 	Type          string                        `json:"type"`
 	Tags          []string                      `json:"tags"`
-	Credentials   map[string]string             `json:"credentials"`
+	Credentials   map[string]any                `json:"credentials"`
 	Relationships *ServiceInstanceRelationships `json:"relationships"`
 	Metadata      Metadata                      `json:"metadata"`
 }
@@ -74,10 +74,10 @@ func (r ServiceInstanceRelationships) Validate() error {
 }
 
 type ServiceInstancePatch struct {
-	Name        *string            `json:"name,omitempty"`
-	Tags        *[]string          `json:"tags,omitempty"`
-	Credentials *map[string]string `json:"credentials,omitempty"`
-	Metadata    MetadataPatch      `json:"metadata"`
+	Name        *string         `json:"name,omitempty"`
+	Tags        *[]string       `json:"tags,omitempty"`
+	Credentials *map[string]any `json:"credentials,omitempty"`
+	Metadata    MetadataPatch   `json:"metadata"`
 }
 
 func (p ServiceInstancePatch) Validate() error {
@@ -120,7 +120,7 @@ func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
 	}
 
 	if v, ok := patchMap["credentials"]; ok && v == nil {
-		patch.Credentials = &map[string]string{}
+		patch.Credentials = &map[string]any{}
 	}
 
 	*p = ServiceInstancePatch(patch)

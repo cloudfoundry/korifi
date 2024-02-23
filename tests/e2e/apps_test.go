@@ -624,8 +624,8 @@ var _ = Describe("Apps", func() {
 			Expect(json.Unmarshal(body, &data)).To(Succeed())
 			Expect(data).To(HaveLen(2))
 
-			Expect(data[serviceInstanceGUID]).To(HaveKeyWithValue("foo", "bar"), string(body))
-			Expect(data[serviceInstanceGUID]).To(HaveKeyWithValue("baz", "qux"), string(body))
+			Expect(data[bindingGUID]).To(HaveKeyWithValue("foo", "bar"), string(body))
+			Expect(data[bindingGUID]).To(HaveKeyWithValue("baz", "qux"), string(body))
 			Expect(data[bindingName]).To(HaveKeyWithValue("hello", "there"), string(body))
 			Expect(data[bindingName]).To(HaveKeyWithValue("secret", "stuff"), string(body))
 		})

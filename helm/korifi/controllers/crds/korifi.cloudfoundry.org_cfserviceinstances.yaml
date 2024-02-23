@@ -77,19 +77,6 @@ spec:
           status:
             description: CFServiceInstanceStatus defines the observed state of CFServiceInstance
             properties:
-              binding:
-                description: |-
-                  A reference to the Secret containing the credentials (same as spec.secretName).
-                  This is required to conform to the Kubernetes Service Bindings spec
-                properties:
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
@@ -159,6 +146,24 @@ spec:
                   - type
                   type: object
                 type: array
+              credentials:
+                description: |-
+                  A reference to the service instance secret containing the credentials
+                  (derived from spec.secretName).
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              credentialsObservedVersion:
+                description: |-
+                  ObservedGeneration captures the latest version of the spec.secretName that has been reconciled
+                  This will ensure that interested contollers are notified on instance credentials change
+                type: string
               observedGeneration:
                 description: ObservedGeneration captures the latest generation of
                   the CFServiceInstance that has been reconciled
