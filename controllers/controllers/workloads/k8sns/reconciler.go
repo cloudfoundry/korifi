@@ -184,7 +184,6 @@ func (r *Reconciler[T, NS]) propagateSecrets(ctx context.Context, obj NS, secret
 			newSecret.Labels = removePackageManagerKeys(secret.Labels, looplog)
 			newSecret.Immutable = secret.Immutable
 			newSecret.Data = secret.Data
-			newSecret.StringData = secret.StringData
 			newSecret.Type = secret.Type
 			return nil
 		})

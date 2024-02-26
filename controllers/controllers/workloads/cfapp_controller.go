@@ -26,7 +26,7 @@ import (
 )
 
 type EnvValueBuilder interface {
-	BuildEnvValue(context.Context, *korifiv1alpha1.CFApp) (map[string]string, error)
+	BuildEnvValue(context.Context, *korifiv1alpha1.CFApp) (map[string][]byte, error)
 }
 
 // CFAppReconciler reconciles a CFApp object
@@ -416,7 +416,7 @@ func (r *CFAppReconciler) reconcileVCAPSecret(
 	}
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, secret, func() error {
-		secret.StringData = envValue
+		secret.Data = envValue
 
 		return controllerutil.SetControllerReference(cfApp, secret, r.scheme)
 	})
