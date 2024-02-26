@@ -23,7 +23,7 @@ func NewVCAPServicesEnvValueBuilder(k8sClient client.Client) *VCAPServicesEnvVal
 	return &VCAPServicesEnvValueBuilder{k8sClient: k8sClient}
 }
 
-func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string]string, error) {
+func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string][]byte, error) {
 	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
 	err := b.k8sClient.List(ctx, serviceBindings,
 		client.InNamespace(cfApp.Namespace),
@@ -34,7 +34,7 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 	}
 
 	if len(serviceBindings.Items) == 0 {
-		return map[string]string{"VCAP_SERVICES": "{}"}, nil
+		return map[string][]byte{"VCAP_SERVICES": []byte("{}")}, nil
 	}
 
 	serviceEnvs := VCAPServices{}
@@ -59,8 +59,8 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 		return nil, err
 	}
 
-	return map[string]string{
-		"VCAP_SERVICES": string(jsonVal),
+	return map[string][]byte{
+		"VCAP_SERVICES": jsonVal,
 	}, nil
 }
 

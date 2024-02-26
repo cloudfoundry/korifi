@@ -135,7 +135,7 @@ var _ = Describe("Builder", func() {
 
 	Describe("BuildVCAPServicesEnvValue", func() {
 		var (
-			vcapServices                 map[string]string
+			vcapServices                 map[string][]byte
 			buildVCAPServicesEnvValueErr error
 		)
 
@@ -241,7 +241,7 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("returns an empty JSON string", func() {
-				Expect(vcapServices).To(HaveKeyWithValue("VCAP_SERVICES", "{}"))
+				Expect(vcapServices).To(HaveKeyWithValue("VCAP_SERVICES", BeEquivalentTo("{}")))
 			})
 		})
 
@@ -257,20 +257,20 @@ var _ = Describe("Builder", func() {
 	})
 })
 
-func extractServiceInfo(vcapServicesData map[string]string, serviceKey string, expectedElements int) []map[string]interface{} {
+func extractServiceInfo(vcapServicesData map[string][]byte, serviceKey string, expectedElements int) []map[string]any {
 	Expect(vcapServicesData).To(HaveKey("VCAP_SERVICES"))
-	var vcapServices map[string]interface{}
+	var vcapServices map[string]any
 	Expect(json.Unmarshal([]byte(vcapServicesData["VCAP_SERVICES"]), &vcapServices)).To(Succeed())
 
 	Expect(vcapServices).To(HaveKey(serviceKey))
 
-	serviceInfos, ok := vcapServices[serviceKey].([]interface{})
+	serviceInfos, ok := vcapServices[serviceKey].([]any)
 	Expect(ok).To(BeTrue())
 	Expect(serviceInfos).To(HaveLen(expectedElements))
 
-	infos := make([]map[string]interface{}, 0, expectedElements)
+	infos := make([]map[string]any, 0, expectedElements)
 	for i := range serviceInfos {
-		info, ok := serviceInfos[i].(map[string]interface{})
+		info, ok := serviceInfos[i].(map[string]any)
 		Expect(ok).To(BeTrue())
 		infos = append(infos, info)
 	}
