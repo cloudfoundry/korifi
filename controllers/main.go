@@ -268,6 +268,14 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = workloadscontrollers.NewCFOrgQuotaReconciler(
+			mgr.GetClient(),
+			ctrl.Log.WithName("controllers").WithName("CFOrgQuota"),
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFOrgQuota")
+			os.Exit(1)
+		}
+
 		if err = workloadscontrollers.NewCFSpaceReconciler(
 			mgr.GetClient(),
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
@@ -277,6 +285,14 @@ func main() {
 			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
+			os.Exit(1)
+		}
+
+		if err = workloadscontrollers.NewCFSpaceQuotaReconciler(
+			mgr.GetClient(),
+			ctrl.Log.WithName("controllers").WithName("CFSpaceQuota"),
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFSpaceQuota")
 			os.Exit(1)
 		}
 
@@ -413,7 +429,6 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 			os.Exit(1)
 		}
-
 	}
 
 	// Setup webhooks with manager

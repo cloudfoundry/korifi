@@ -294,6 +294,17 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cforgquotas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - cforgs
   verbs:
   - create
@@ -505,6 +516,17 @@ rules:
   - cfserviceplans/finalizers
   verbs:
   - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfspacequotas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
