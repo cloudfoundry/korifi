@@ -7,7 +7,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -68,29 +67,29 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 	}, nil
 }
 
-func (b *VCAPServicesEnvValueBuilder) getServicePlan(ctx context.Context, servicePlanGuid string) (trinityv1alpha1.CFServicePlan, error) {
-	servicePlans := trinityv1alpha1.CFServicePlanList{}
+func (b *VCAPServicesEnvValueBuilder) getServicePlan(ctx context.Context, servicePlanGuid string) (korifiv1alpha1.CFServicePlan, error) {
+	servicePlans := korifiv1alpha1.CFServicePlanList{}
 	err := b.k8sClient.List(ctx, &servicePlans, client.MatchingFields{shared.IndexServicePlanGUID: servicePlanGuid})
 	if err != nil {
-		return trinityv1alpha1.CFServicePlan{}, err
+		return korifiv1alpha1.CFServicePlan{}, err
 	}
 
 	if len(servicePlans.Items) != 1 {
-		return trinityv1alpha1.CFServicePlan{}, fmt.Errorf("found %d service plans for guid %q, expected one", len(servicePlans.Items), servicePlanGuid)
+		return korifiv1alpha1.CFServicePlan{}, fmt.Errorf("found %d service plans for guid %q, expected one", len(servicePlans.Items), servicePlanGuid)
 	}
 
 	return servicePlans.Items[0], nil
 }
 
-func (b *VCAPServicesEnvValueBuilder) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (trinityv1alpha1.CFServiceOffering, error) {
-	serviceOfferings := trinityv1alpha1.CFServiceOfferingList{}
-	err := b.k8sClient.List(ctx, &serviceOfferings, client.MatchingFields{shared.IndexServiceOfferingGUID: serviceOfferingGuid})
+func (b *VCAPServicesEnvValueBuilder) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (korifiv1alpha1.CFServiceOffering, error) {
+	serviceOfferings := korifiv1alpha1.CFServiceOfferingList{}
+	err := b.k8sClient.List(ctx, &serviceOfferings, client.MatchingFields{shared.IndexServiceOfferingID: serviceOfferingGuid})
 	if err != nil {
-		return trinityv1alpha1.CFServiceOffering{}, err
+		return korifiv1alpha1.CFServiceOffering{}, err
 	}
 
 	if len(serviceOfferings.Items) != 1 {
-		return trinityv1alpha1.CFServiceOffering{}, fmt.Errorf("found %d service offerings for guid %q, expected one", len(serviceOfferings.Items), serviceOfferingGuid)
+		return korifiv1alpha1.CFServiceOffering{}, fmt.Errorf("found %d service offerings for guid %q, expected one", len(serviceOfferings.Items), serviceOfferingGuid)
 	}
 
 	return serviceOfferings.Items[0], nil

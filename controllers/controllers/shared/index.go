@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -23,7 +22,7 @@ const (
 	IndexSpaceNamespaceName                = "spaceNamespace"
 	IndexOrgNamespaceName                  = "orgNamespace"
 	IndexServicePlanGUID                   = "servicePlanGUID"
-	IndexServiceOfferingGUID               = "serviceOfferingGUID"
+	IndexServiceOfferingID                 = "serviceOfferingGUID"
 
 	StatusConditionReady = "Ready"
 )
@@ -73,17 +72,17 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &trinityv1alpha1.CFServicePlan{}, IndexServicePlanGUID, func(object client.Object) []string {
-		plan := object.(*trinityv1alpha1.CFServicePlan)
-		return []string{plan.Spec.GUID}
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServicePlan{}, IndexServicePlanGUID, func(object client.Object) []string {
+		plan := object.(*korifiv1alpha1.CFServicePlan)
+		return []string{plan.Spec.Id}
 	})
 	if err != nil {
 		return err
 	}
 
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &trinityv1alpha1.CFServiceOffering{}, IndexServiceOfferingGUID, func(object client.Object) []string {
-		offering := object.(*trinityv1alpha1.CFServiceOffering)
-		return []string{offering.Spec.GUID}
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServiceOffering{}, IndexServiceOfferingID, func(object client.Object) []string {
+		offering := object.(*korifiv1alpha1.CFServiceOffering)
+		return []string{offering.Spec.Id}
 	})
 	if err != nil {
 		return err

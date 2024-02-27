@@ -3,9 +3,6 @@ FROM golang:1.21.5 as builder
 
 ARG version=dev
 
-COPY netrc /root/.netrc
-RUN chmod 600 /root/.netrc
-
 WORKDIR /workspace
 
 COPY go.mod go.sum ./

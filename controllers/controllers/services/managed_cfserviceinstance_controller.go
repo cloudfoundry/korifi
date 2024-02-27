@@ -24,7 +24,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,8 +68,8 @@ func NewManagedCFServiceInstanceReconciler(
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
 
-//+kubebuilder:rbac:groups=extensions.korifi.cloudfoundry.org,resources=cfserviceofferings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=extensions.korifi.cloudfoundry.org,resources=cfserviceplans,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceofferings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceplans,verbs=get;list;watch;create;update;patch;delete
 
 // +kubebuilder:rbac:groups=services.cloud.sap.com,resources=serviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=services.cloud.sap.com,resources=servicebindings,verbs=get;list;create;update;patch;watch;delete
@@ -189,29 +188,29 @@ func (r *ManagedCFServiceInstanceReconciler) finalizeCFServiceInstance(ctx conte
 	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
-func (r *ManagedCFServiceInstanceReconciler) getServicePlan(ctx context.Context, servicePlanGuid string) (trinityv1alpha1.CFServicePlan, error) {
-	servicePlans := trinityv1alpha1.CFServicePlanList{}
+func (r *ManagedCFServiceInstanceReconciler) getServicePlan(ctx context.Context, servicePlanGuid string) (korifiv1alpha1.CFServicePlan, error) {
+	servicePlans := korifiv1alpha1.CFServicePlanList{}
 	err := r.k8sClient.List(ctx, &servicePlans, client.InNamespace(r.rootNamespace), client.MatchingFields{shared.IndexServicePlanGUID: servicePlanGuid})
 	if err != nil {
-		return trinityv1alpha1.CFServicePlan{}, err
+		return korifiv1alpha1.CFServicePlan{}, err
 	}
 
 	if len(servicePlans.Items) != 1 {
-		return trinityv1alpha1.CFServicePlan{}, fmt.Errorf("found %d service plans for guid %q, expected one", len(servicePlans.Items), servicePlanGuid)
+		return korifiv1alpha1.CFServicePlan{}, fmt.Errorf("found %d service plans for guid %q, expected one", len(servicePlans.Items), servicePlanGuid)
 	}
 
 	return servicePlans.Items[0], nil
 }
 
-func (r *ManagedCFServiceInstanceReconciler) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (trinityv1alpha1.CFServiceOffering, error) {
-	serviceOfferings := trinityv1alpha1.CFServiceOfferingList{}
-	err := r.k8sClient.List(ctx, &serviceOfferings, client.InNamespace(r.rootNamespace), client.MatchingFields{shared.IndexServiceOfferingGUID: serviceOfferingGuid})
+func (r *ManagedCFServiceInstanceReconciler) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (korifiv1alpha1.CFServiceOffering, error) {
+	serviceOfferings := korifiv1alpha1.CFServiceOfferingList{}
+	err := r.k8sClient.List(ctx, &serviceOfferings, client.InNamespace(r.rootNamespace), client.MatchingFields{shared.IndexServiceOfferingID: serviceOfferingGuid})
 	if err != nil {
-		return trinityv1alpha1.CFServiceOffering{}, err
+		return korifiv1alpha1.CFServiceOffering{}, err
 	}
 
 	if len(serviceOfferings.Items) != 1 {
-		return trinityv1alpha1.CFServiceOffering{}, fmt.Errorf("found %d service offerings for guid %q, expected one", len(serviceOfferings.Items), serviceOfferingGuid)
+		return korifiv1alpha1.CFServiceOffering{}, fmt.Errorf("found %d service offerings for guid %q, expected one", len(serviceOfferings.Items), serviceOfferingGuid)
 	}
 
 	return serviceOfferings.Items[0], nil

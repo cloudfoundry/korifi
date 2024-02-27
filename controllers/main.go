@@ -50,7 +50,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools/registry"
 	"code.cloudfoundry.org/korifi/version"
 	btpv1 "github.com/SAP/sap-btp-service-operator/api/v1"
-	trinityv1alpha1 "github.tools.sap/neoCoreArchitecture/trinity-service-manager/controllers/api/v1alpha1"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
@@ -85,7 +84,6 @@ func init() {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	utilruntime.Must(btpv1.AddToScheme(scheme))
-	utilruntime.Must(trinityv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

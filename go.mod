@@ -49,8 +49,6 @@ require (
 
 require github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
 
-require github.tools.sap/neoCoreArchitecture/trinity-service-manager v0.0.0-20230412133816-68889671eaac
-
 require (
 	cloud.google.com/go/compute v1.23.2 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect

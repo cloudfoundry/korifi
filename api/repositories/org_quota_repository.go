@@ -121,7 +121,7 @@ func (r *OrgQuotaRepo) GetOrgQuota(ctx context.Context, info authorization.Info,
 
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfOrgQuota), cfOrgQuota)
 	if err != nil {
-		return korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to get org quota with id", "id", orgQuotaGUID)
+		return korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to get org quota with id %q: %w", orgQuotaGUID, err)
 	}
 
 	return cfOrgQuota.Spec, nil

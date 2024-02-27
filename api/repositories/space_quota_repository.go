@@ -118,7 +118,7 @@ func (r *SpaceQuotaRepo) GetSpaceQuota(ctx context.Context, info authorization.I
 
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfSpaceQuota), cfSpaceQuota)
 	if err != nil {
-		return korifiv1alpha1.SpaceQuota{}, fmt.Errorf("failed to get org quota with id", "id", spaceQuotaGUID)
+		return korifiv1alpha1.SpaceQuota{}, fmt.Errorf("failed to get org quota with id %q: %w", spaceQuotaGUID, err)
 	}
 
 	return cfSpaceQuota.Spec, nil

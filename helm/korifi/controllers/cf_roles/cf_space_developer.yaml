@@ -139,7 +139,7 @@ rules:
   - watch
 
 - apiGroups:
-  - extensions.korifi.cloudfoundry.org
+  - korifi.cloudfoundry.org
   resources:
   - cfserviceofferings
   - cfserviceplans
