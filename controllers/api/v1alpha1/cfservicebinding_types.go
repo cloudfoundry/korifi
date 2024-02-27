@@ -23,6 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const ManagedCFServiceBindingFinalizerName = "managed.cfServiceBinding.korifi.cloudfoundry.org"
+
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
 type CFServiceBindingSpec struct {
 	// The mutable, user-friendly name of the service binding. Unlike metadata.name, the user can change this field

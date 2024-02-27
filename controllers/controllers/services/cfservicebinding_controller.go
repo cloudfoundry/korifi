@@ -80,6 +80,11 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		return r.handleGetError(ctx, err, cfServiceBinding, BindingSecretAvailableCondition, "ServiceInstanceNotFound", "Service instance")
 	}
 
+	if instance.Spec.Type != korifiv1alpha1.UserProvidedType {
+		log.Info("service is not user-provided, skip reconciliation")
+		return ctrl.Result{}, nil
+	}
+
 	err = controllerutil.SetControllerReference(instance, cfServiceBinding, r.scheme)
 	if err != nil {
 		log.Info("error when making the service instance owner of the service binding", "reason", err)

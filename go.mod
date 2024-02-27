@@ -11,6 +11,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/SAP/sap-btp-service-operator v0.5.0
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
+	github.com/apex/log v1.9.0
 	github.com/aws/aws-sdk-go-v2/config v1.26.1
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.24.7
 	github.com/blendle/zapdriver v1.3.1

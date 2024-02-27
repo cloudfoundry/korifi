@@ -157,7 +157,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFApp"),
-			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient()),
+			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient(), controllerConfig.CFRootNamespace),
 			env.NewVCAPApplicationEnvValueBuilder(mgr.GetClient(), controllerConfig.ExtraVCAPApplicationValues),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFApp")
@@ -220,11 +220,11 @@ func main() {
 			os.Exit(1)
 		}
 
+		brokerClient := servicescontrollers.NewBrokerClient(mgr.GetClient(), controllerConfig.CFRootNamespace)
 		if err = (servicescontrollers.NewManagedCFServiceInstanceReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceInstance"),
-			controllerConfig.CFRootNamespace,
+			mgr.GetClient(),
+			brokerClient,
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagedCFServiceInstance")
 			os.Exit(1)
@@ -234,6 +234,15 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
+			os.Exit(1)
+		}
+
+		if err = (servicescontrollers.NewManagedCFServiceBindingReconciler(
+			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceBinding"),
+			mgr.GetClient(),
+			brokerClient,
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
 			os.Exit(1)

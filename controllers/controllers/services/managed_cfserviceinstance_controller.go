@@ -24,46 +24,24 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	btpv1 "github.com/SAP/sap-btp-service-operator/api/v1"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// ManagedCFServiceInstanceReconciler reconciles a CFServiceInstance object
-type ManagedCFServiceInstanceReconciler struct {
-	k8sClient     client.Client
-	scheme        *runtime.Scheme
-	log           logr.Logger
-	rootNamespace string
-}
-
-func NewManagedCFServiceInstanceReconciler(
-	client client.Client,
-	scheme *runtime.Scheme,
-	log logr.Logger,
-	rootNamespace string,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance] {
-	serviceInstanceReconciler := ManagedCFServiceInstanceReconciler{
-		k8sClient:     client,
-		scheme:        scheme,
-		log:           log,
-		rootNamespace: rootNamespace,
-	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance](log, client, &serviceInstanceReconciler)
-}
+const (
+	requeueInterval               = 5 * time.Second
+	ReadyCondition                = "Ready"
+	FailedCondition               = "Failed"
+	ProvisionRequestedCondition   = "PriovisionRequested"
+	DeprovisionRequestedCondition = "DepriovisionRequested"
+)
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
@@ -74,81 +52,108 @@ func NewManagedCFServiceInstanceReconciler(
 // +kubebuilder:rbac:groups=services.cloud.sap.com,resources=serviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=services.cloud.sap.com,resources=servicebindings,verbs=get;list;create;update;patch;watch;delete
 
+type ManagedCFServiceInstanceReconciler struct {
+	log          logr.Logger
+	k8sClient    client.Client
+	brokerClient BrokerClient
+}
+
+func NewManagedCFServiceInstanceReconciler(
+	log logr.Logger,
+	k8sClient client.Client,
+	brokerClient BrokerClient,
+) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance] {
+	serviceInstanceReconciler := ManagedCFServiceInstanceReconciler{
+		log:          log,
+		k8sClient:    k8sClient,
+		brokerClient: brokerClient,
+	}
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance](log, k8sClient, &serviceInstanceReconciler)
+}
+
+func (r *ManagedCFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&korifiv1alpha1.CFServiceInstance{}).
+		WithEventFilter(predicate.NewPredicateFuncs(r.isManaged))
+}
+
+func (r *ManagedCFServiceInstanceReconciler) isManaged(object client.Object) bool {
+	serviceInstance, ok := object.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		r.log.Error(fmt.Errorf("expected CFServiceInstance, got %T", object), "unexpected object")
+		return false
+	}
+
+	return serviceInstance.Spec.Type == korifiv1alpha1.ManagedType
+}
+
 func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	if !cfServiceInstance.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFServiceInstance(ctx, cfServiceInstance)
 	}
 
-	servicePlan, err := r.getServicePlan(ctx, cfServiceInstance.Spec.ServicePlanGUID)
-	if err != nil {
-		return ctrl.Result{}, err
+	log := logr.FromContextOrDiscard(ctx).WithName("managed-cf-service-instance-controller")
+	cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
+	log.Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
+
+	if meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, ReadyCondition) ||
+		meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, FailedCondition) {
+		// service instance already provisioned, nothing more to do
+		return ctrl.Result{}, nil
 	}
 
-	serviceOffering, err := r.getServiceOffering(ctx, servicePlan.Spec.Relationships.ServiceOfferingGUID)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	btpServiceInstance := &btpv1.ServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfServiceInstance.Namespace,
-			Name:      cfServiceInstance.Name,
-		},
-		Spec: btpv1.ServiceInstanceSpec{
-			ServiceOfferingName: serviceOffering.Spec.OfferingName,
-			ServicePlanName:     servicePlan.Spec.PlanName,
-			Parameters:          cfServiceInstance.Spec.Parameters,
-		},
-	}
-
-	err = r.k8sClient.Create(ctx, btpServiceInstance)
-	if client.IgnoreAlreadyExists(err) != nil {
-		return ctrl.Result{}, err
-	}
-	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(btpServiceInstance), btpServiceInstance)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	btpServiceBinding := &btpv1.ServiceBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfServiceInstance.Namespace,
-			Name:      cfServiceInstance.Name,
-		},
-		Spec: btpv1.ServiceBindingSpec{
-			ServiceInstanceName: cfServiceInstance.Name,
-			SecretName:          cfServiceInstance.Spec.SecretName,
-		},
-	}
-
-	err = r.k8sClient.Create(ctx, btpServiceBinding)
-	if client.IgnoreAlreadyExists(err) != nil {
-		r.log.Error(err, "failed to create btp service binding")
-		return ctrl.Result{}, err
-	}
-
-	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(btpServiceBinding), btpServiceBinding)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Namespace: btpServiceBinding.Namespace, Name: btpServiceBinding.Spec.SecretName}, &corev1.Secret{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			r.log.Info("btp service binding secret not yet found", "secretName", btpServiceBinding.Spec.SecretName)
-			cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "BTPSecretNotAvailable", "BTP service secret not available yet")
-			return ctrl.Result{
-				RequeueAfter: time.Second,
-			}, nil
+	if !meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, ProvisionRequestedCondition) {
+		err := r.brokerClient.ProvisionServiceInstance(ctx, cfServiceInstance)
+		if err != nil {
+			log.Error(err, "provisioning request failed")
+			return ctrl.Result{}, err
 		}
 
-		r.log.Error(err, "failed to get btp service binding secret")
-		cfServiceInstance.Status = bindSecretUnavailableStatus(cfServiceInstance, "UnknownError", "BTP service secret could not be retrieved: "+err.Error())
-		return ctrl.Result{}, err
+		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+			Type:               ProvisionRequestedCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             "ProvisionRequested",
+			Message:            "Service provisioning has been requested from broker",
+			ObservedGeneration: cfServiceInstance.Generation,
+		})
+
+		return ctrl.Result{RequeueAfter: requeueInterval}, nil
 	}
 
-	cfServiceInstance.Status = bindSecretAvailableStatus(cfServiceInstance)
-	return ctrl.Result{}, nil
+	lastOp, err := r.brokerClient.GetServiceInstanceLastOperation(ctx, cfServiceInstance)
+	if err != nil {
+		log.Error(err, "get state failed")
+		return ctrl.Result{}, err
+	}
+	if !lastOp.Exists {
+		return ctrl.Result{}, fmt.Errorf("last operation for service instance %q not found", cfServiceInstance.Name)
+	}
+
+	if lastOp.State == "succeeded" {
+		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+			Type:               ReadyCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             "Ready",
+			Message:            lastOp.Description,
+			ObservedGeneration: cfServiceInstance.Generation,
+		})
+
+		return ctrl.Result{}, nil
+	}
+
+	if lastOp.State == "failed" {
+		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+			Type:               FailedCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             "Failed",
+			Message:            lastOp.Description,
+			ObservedGeneration: cfServiceInstance.Generation,
+		})
+
+		return ctrl.Result{}, nil
+	}
+
+	return ctrl.Result{RequeueAfter: requeueInterval}, nil
 }
 
 func (r *ManagedCFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
@@ -158,100 +163,72 @@ func (r *ManagedCFServiceInstanceReconciler) finalizeCFServiceInstance(ctx conte
 		return ctrl.Result{}, nil
 	}
 
-	bindingDeleteErr := r.k8sClient.Delete(ctx, &btpv1.ServiceBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfServiceInstance.Namespace,
-			Name:      cfServiceInstance.Name,
-		},
-	})
-	if bindingDeleteErr != nil {
-		log.V(1).Info("deleting BTP service binding failed", "error", bindingDeleteErr)
+	if !meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, DeprovisionRequestedCondition) {
+		bindingsDeleted, err := r.deleteBindings(ctx, cfServiceInstance)
+		if err != nil {
+			log.Error(err, "failed to delete service bindings")
+			return ctrl.Result{}, err
+
+		}
+		if !bindingsDeleted {
+			return ctrl.Result{RequeueAfter: requeueInterval}, nil
+		}
+
+		err = r.brokerClient.DeprovisionServiceInstance(ctx, cfServiceInstance)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+			Type:               DeprovisionRequestedCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             "DeprovisionRequested",
+			ObservedGeneration: cfServiceInstance.Generation,
+		})
+
+		return ctrl.Result{RequeueAfter: requeueInterval}, nil
 	}
 
-	instanceDeleteErr := r.k8sClient.Delete(ctx, &btpv1.ServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfServiceInstance.Namespace,
-			Name:      cfServiceInstance.Name,
-		},
-	})
-	if instanceDeleteErr != nil {
-		log.V(1).Info("deleting BTP service instance failed", "error", instanceDeleteErr)
-	}
-
-	if k8serrors.IsNotFound(bindingDeleteErr) && k8serrors.IsNotFound(instanceDeleteErr) {
+	lastOp, err := r.brokerClient.GetServiceInstanceLastOperation(ctx, cfServiceInstance)
+	if !lastOp.Exists {
+		// the service instance is gone
 		if controllerutil.RemoveFinalizer(cfServiceInstance, korifiv1alpha1.ManagedCFServiceInstanceFinalizerName) {
 			log.V(1).Info("finalizer removed")
-			return ctrl.Result{}, nil
 		}
+		return ctrl.Result{}, nil
 	}
-
-	return ctrl.Result{RequeueAfter: time.Second}, nil
-}
-
-func (r *ManagedCFServiceInstanceReconciler) getServicePlan(ctx context.Context, servicePlanGuid string) (korifiv1alpha1.CFServicePlan, error) {
-	servicePlans := korifiv1alpha1.CFServicePlanList{}
-	err := r.k8sClient.List(ctx, &servicePlans, client.InNamespace(r.rootNamespace), client.MatchingFields{shared.IndexServicePlanGUID: servicePlanGuid})
 	if err != nil {
-		return korifiv1alpha1.CFServicePlan{}, err
+		return ctrl.Result{}, err
 	}
 
-	if len(servicePlans.Items) != 1 {
-		return korifiv1alpha1.CFServicePlan{}, fmt.Errorf("found %d service plans for guid %q, expected one", len(servicePlans.Items), servicePlanGuid)
-	}
-
-	return servicePlans.Items[0], nil
+	return ctrl.Result{RequeueAfter: requeueInterval}, nil
 }
 
-func (r *ManagedCFServiceInstanceReconciler) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (korifiv1alpha1.CFServiceOffering, error) {
-	serviceOfferings := korifiv1alpha1.CFServiceOfferingList{}
-	err := r.k8sClient.List(ctx, &serviceOfferings, client.InNamespace(r.rootNamespace), client.MatchingFields{shared.IndexServiceOfferingID: serviceOfferingGuid})
+func (r *ManagedCFServiceInstanceReconciler) deleteBindings(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (bool, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("deleteBindings")
+
+	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
+	err := r.k8sClient.List(
+		ctx,
+		serviceBindings,
+		client.InNamespace(cfServiceInstance.Namespace),
+		client.MatchingFields{shared.IndexServiceBindingServiceInstanceGUID: cfServiceInstance.Name},
+	)
 	if err != nil {
-		return korifiv1alpha1.CFServiceOffering{}, err
+		log.Error(err, "failed to list service bindings for service instance", "instanceName", cfServiceInstance.Name)
+		return false, err
 	}
 
-	if len(serviceOfferings.Items) != 1 {
-		return korifiv1alpha1.CFServiceOffering{}, fmt.Errorf("found %d service offerings for guid %q, expected one", len(serviceOfferings.Items), serviceOfferingGuid)
-	}
-
-	return serviceOfferings.Items[0], nil
-}
-
-func (r *ManagedCFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&korifiv1alpha1.CFServiceInstance{}).
-		WithEventFilter(predicate.NewPredicateFuncs(r.isManaged)).
-		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(r.secretToCfServiceInstance))
-}
-
-func (r *ManagedCFServiceInstanceReconciler) isManaged(object client.Object) bool {
-	serviceInstance, ok := object.(*korifiv1alpha1.CFServiceInstance)
-	if !ok {
-		return true
-	}
-
-	return serviceInstance.Spec.Type == "managed"
-}
-
-func (r *ManagedCFServiceInstanceReconciler) secretToCfServiceInstance(ctx context.Context, object client.Object) []reconcile.Request {
-	secret, ok := object.(*corev1.Secret)
-	if !ok {
-		r.log.Error(fmt.Errorf("unexpected object %T, expected corev1.Secret", object), "object", object)
-		return []reconcile.Request{}
-	}
-
-	cfServiceInstanceList := &korifiv1alpha1.CFServiceInstanceList{}
-	err := r.k8sClient.List(ctx, cfServiceInstanceList, client.InNamespace(secret.Namespace))
-	if err != nil {
-		r.log.Error(err, "failed to list service bindings in namespace", "namespace", secret.Namespace)
-		return []reconcile.Request{}
-	}
-
-	result := []reconcile.Request{}
-	for _, cfServiceInstance := range cfServiceInstanceList.Items {
-		if cfServiceInstance.Spec.SecretName == secret.Name {
-			result = append(result, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&cfServiceInstance)})
+	if len(serviceBindings.Items) != 0 {
+		for i := range serviceBindings.Items {
+			err = r.k8sClient.Delete(ctx, &serviceBindings.Items[i])
+			if err != nil {
+				log.Error(err, "failed to delete service binding", "bindingName", serviceBindings.Items[i].Name)
+				return false, err
+			}
 		}
+		return false, nil
 	}
 
-	return result
+	return true, nil
 }

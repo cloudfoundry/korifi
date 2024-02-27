@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -16,11 +17,15 @@ import (
 const UserProvided = "user-provided"
 
 type VCAPServicesEnvValueBuilder struct {
-	k8sClient client.Client
+	k8sClient     client.Client
+	rootNamespace string
 }
 
-func NewVCAPServicesEnvValueBuilder(k8sClient client.Client) *VCAPServicesEnvValueBuilder {
-	return &VCAPServicesEnvValueBuilder{k8sClient: k8sClient}
+func NewVCAPServicesEnvValueBuilder(k8sClient client.Client, rootNamespace string) *VCAPServicesEnvValueBuilder {
+	return &VCAPServicesEnvValueBuilder{
+		k8sClient:     k8sClient,
+		rootNamespace: rootNamespace,
+	}
 }
 
 func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string]string, error) {
@@ -67,32 +72,35 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 	}, nil
 }
 
-func (b *VCAPServicesEnvValueBuilder) getServicePlan(ctx context.Context, servicePlanGuid string) (korifiv1alpha1.CFServicePlan, error) {
-	servicePlans := korifiv1alpha1.CFServicePlanList{}
-	err := b.k8sClient.List(ctx, &servicePlans, client.MatchingFields{shared.IndexServicePlanGUID: servicePlanGuid})
+func (b *VCAPServicesEnvValueBuilder) getServicePlan(ctx context.Context, servicePlanGuid string) (*korifiv1alpha1.CFServicePlan, error) {
+	servicePlan := &korifiv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: b.rootNamespace,
+			Name:      servicePlanGuid,
+		},
+	}
+
+	err := b.k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)
 	if err != nil {
-		return korifiv1alpha1.CFServicePlan{}, err
+		return nil, fmt.Errorf("failed to get service plan :%q: %w", servicePlanGuid, err)
 	}
 
-	if len(servicePlans.Items) != 1 {
-		return korifiv1alpha1.CFServicePlan{}, fmt.Errorf("found %d service plans for guid %q, expected one", len(servicePlans.Items), servicePlanGuid)
-	}
-
-	return servicePlans.Items[0], nil
+	return servicePlan, nil
 }
 
-func (b *VCAPServicesEnvValueBuilder) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (korifiv1alpha1.CFServiceOffering, error) {
-	serviceOfferings := korifiv1alpha1.CFServiceOfferingList{}
-	err := b.k8sClient.List(ctx, &serviceOfferings, client.MatchingFields{shared.IndexServiceOfferingID: serviceOfferingGuid})
+func (b *VCAPServicesEnvValueBuilder) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (*korifiv1alpha1.CFServiceOffering, error) {
+	serviceOffering := &korifiv1alpha1.CFServiceOffering{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: b.rootNamespace,
+			Name:      serviceOfferingGuid,
+		},
+	}
+	err := b.k8sClient.Get(ctx, client.ObjectKeyFromObject(serviceOffering), serviceOffering)
 	if err != nil {
-		return korifiv1alpha1.CFServiceOffering{}, err
+		return nil, fmt.Errorf("failed to get service offering %q: %w", serviceOfferingGuid, err)
 	}
 
-	if len(serviceOfferings.Items) != 1 {
-		return korifiv1alpha1.CFServiceOffering{}, fmt.Errorf("found %d service offerings for guid %q, expected one", len(serviceOfferings.Items), serviceOfferingGuid)
-	}
-
-	return serviceOfferings.Items[0], nil
+	return serviceOffering, nil
 }
 
 func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, string, error) {
@@ -178,9 +186,15 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		tags = append(tags, bindingTags...)
 	}
 
-	credentials, err := mapFromSecret(serviceBindingSecret)
-	if err != nil {
-		return ServiceDetails{}, err
+	credentials := map[string]any{}
+	for k, v := range serviceBindingSecret.Data {
+		var credValue any
+		err := json.Unmarshal(v, &credValue)
+		if err != nil {
+			return ServiceDetails{}, fmt.Errorf("failed to unmarshal binding secret key %q: %w", k, err)
+		}
+		credentials[k] = credValue
+
 	}
 
 	return ServiceDetails{
@@ -195,73 +209,4 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		SyslogDrainURL: nil,
 		VolumeMounts:   []string{},
 	}, nil
-}
-
-func mapFromSecret(secret corev1.Secret) (map[string]any, error) {
-	convertedMap := make(map[string]any)
-	for k := range secret.Data {
-		var err error
-		convertedMap[k], err = parseValue(secret, k)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return convertedMap, nil
-}
-
-type propertyMetadata struct {
-	Name   string `json:"name"`
-	Format string `json:"format"`
-}
-
-func parseValue(bindingSecret corev1.Secret, key string) (any, error) {
-	valueFormat, err := getValueFormat(bindingSecret, key)
-	if err != nil {
-		return nil, err
-	}
-
-	switch valueFormat {
-	case "text":
-		return string(bindingSecret.Data[key]), nil
-	case "json":
-		var value any
-		err := json.Unmarshal(bindingSecret.Data[key], &value)
-		if err != nil {
-			return nil, err
-		}
-		return value, nil
-
-	}
-
-	return nil, fmt.Errorf("unsupported value format %q for key %q in secret %s/%s", valueFormat, key, bindingSecret.Namespace, bindingSecret.Name)
-}
-
-func getValueFormat(bindingSecret corev1.Secret, key string) (string, error) {
-	secretMetadata, ok := bindingSecret.Data[".metadata"]
-	if !ok {
-		return "text", nil
-	}
-
-	var metadata map[string][]propertyMetadata
-	if err := json.Unmarshal(secretMetadata, &metadata); err != nil {
-		return "", fmt.Errorf("failed to unmarshal metadata from secret %s/%s: %w", bindingSecret.Namespace, bindingSecret.Name, err)
-	}
-
-	for _, properties := range metadata {
-		if valueFormat := getPropertyFormat(properties, key); valueFormat != "" {
-			return valueFormat, nil
-		}
-	}
-
-	return "text", nil
-}
-
-func getPropertyFormat(credentialProperties []propertyMetadata, propertyName string) string {
-	for _, property := range credentialProperties {
-		if property.Name == propertyName {
-			return property.Format
-		}
-	}
-	return ""
 }

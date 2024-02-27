@@ -74,48 +74,6 @@ var _ = Describe("Service Instances", func() {
 		})
 	})
 
-	Describe("Create managed", func() {
-		var instanceName string
-
-		BeforeEach(func() {
-			instanceName = generateGUID("service-instance")
-			createSpaceRole("space_developer", certUserName, spaceGUID)
-		})
-
-		JustBeforeEach(func() {
-			httpResp, httpError = certClient.R().
-				SetBody(serviceInstanceResource{
-					resource: resource{
-						Name: instanceName,
-						Relationships: relationships{
-							"space": {
-								Data: resource{
-									GUID: spaceGUID,
-								},
-							},
-						},
-					},
-					Credentials: map[string]string{
-						"type":  "database",
-						"hello": "creds",
-					},
-					InstanceType: "managed",
-				}).Post("/v3/service_instances")
-		})
-
-		It("succeeds", func() {
-			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
-
-			serviceInstances := listServiceInstances(instanceName)
-			Expect(serviceInstances.Resources).To(HaveLen(1))
-
-			serviceInstance := serviceInstances.Resources[0]
-			Expect(serviceInstance.Name).To(Equal(instanceName))
-			Expect(serviceInstance.InstanceType).To(Equal("managed"))
-		})
-	})
-
 	Describe("Update", func() {
 		JustBeforeEach(func() {
 			httpResp, httpError = adminClient.R().
