@@ -39,7 +39,6 @@ spec:
           metadata:
             type: object
           spec:
-            description: CFOrgQuotaSpec defines the desired state of CFOrgQuota
             properties:
               apps:
                 properties:
@@ -65,8 +64,6 @@ spec:
                     format: int64
                     type: integer
                 type: object
-              guid:
-                type: string
               name:
                 type: string
               relationships:
@@ -105,7 +102,6 @@ spec:
                     type: integer
                 type: object
             required:
-            - guid
             - name
             type: object
         type: object

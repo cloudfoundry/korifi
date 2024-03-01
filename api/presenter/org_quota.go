@@ -11,25 +11,42 @@ const (
 	orgQuotasBase = "/v3/organization_quotas"
 )
 
-type OrgQuotaResponse struct {
-	korifiv1alpha1.OrgQuota
-
-	//CreatedAt string `json:"created_at"`
-	//UpdatedAt string `json:"updated_at"`
-
-	Links OrgQuotaLinks `json:"links"`
-}
-
 type OrgQuotaLinks struct {
 	Self *Link `json:"self"`
 }
 
-func ForOrgQuota(orgQuota korifiv1alpha1.OrgQuota, apiBaseURL url.URL) OrgQuotaResponse {
+type OrgQuotaResponse struct {
+	korifiv1alpha1.OrgQuotaResource
+
+	Links OrgQuotaLinks `json:"links"`
+}
+
+type OrgQuotaRelationshipsLinks struct {
+	Self *Link `json:"self"`
+}
+
+type ToManyResponse struct {
+	korifiv1alpha1.ToManyRelationship
+	Links OrgQuotaRelationshipsLinks `json:"links"`
+}
+
+func ForOrgQuota(orgQuota korifiv1alpha1.OrgQuotaResource, apiBaseURL url.URL) OrgQuotaResponse {
 	return OrgQuotaResponse{
 		orgQuota,
 		OrgQuotaLinks{
 			Self: &Link{
-				HRef: buildURL(apiBaseURL).appendPath(orgsBase, orgQuota.GUID).build(),
+				HRef: buildURL(apiBaseURL).appendPath(orgQuotasBase, orgQuota.GUID).build(),
+			},
+		},
+	}
+}
+
+func ForOrgQuotaRelationships(guid string, relationsips korifiv1alpha1.ToManyRelationship, apiBaseURL url.URL) ToManyResponse {
+	return ToManyResponse{
+		relationsips,
+		OrgQuotaRelationshipsLinks{
+			Self: &Link{
+				HRef: buildURL(apiBaseURL).appendPath(orgsBase, guid, "relationships", "organizations").build(),
 			},
 		},
 	}

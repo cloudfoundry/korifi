@@ -30,20 +30,76 @@ type DomainQuotas struct {
 	TotalDomains int64 `json:"total_domains"`
 }
 
-// CFOrgQuotaSpec defines the desired state of CFOrgQuota
+type DomainQuotasPatch struct {
+	TotalDomains *int64 `json:"total_domains"`
+}
+
+func (dq *DomainQuotas) Patch(p DomainQuotasPatch) {
+	if p.TotalDomains != nil {
+		dq.TotalDomains = *p.TotalDomains
+	}
+}
+
 type OrgQuota struct {
-	GUID string `json:"guid"`
 	Name string `json:"name"`
 	// +kubebuilder:validation:Optional
-	Apps AppQuotas `json:"apps"`
+	Apps *AppQuotas `json:"apps"`
 	// +kubebuilder:validation:Optional
-	Services ServiceQuotas `json:"services"`
+	Services *ServiceQuotas `json:"services"`
 	// +kubebuilder:validation:Optional
-	Routes RouteQuotas `json:"routes"`
+	Routes *RouteQuotas `json:"routes"`
 	// +kubebuilder:validation:Optional
-	Domains DomainQuotas `json:"domains"`
+	Domains *DomainQuotas `json:"domains"`
 	// +kubebuilder:validation:Optional
-	Relationships OrgQuotaRelationships `json:"relationships"`
+	Relationships *OrgQuotaRelationships `json:"relationships"`
+}
+
+type OrgQuotaPatch struct {
+	Name     *string             `json:"name"`
+	Apps     *AppQuotasPatch     `json:"apps"`
+	Services *ServiceQuotasPatch `json:"services"`
+	Routes   *RouteQuotasPatch   `json:"routes"`
+	Domains  *DomainQuotasPatch  `json:"domains"`
+}
+
+func (oq *OrgQuota) Patch(p OrgQuotaPatch) {
+	if p.Name != nil {
+		oq.Name = *p.Name
+	}
+	if p.Apps != nil {
+		if oq.Apps == nil {
+			oq.Apps = &AppQuotas{}
+		}
+		oq.Apps.Patch(*p.Apps)
+	}
+	if p.Services != nil {
+		if oq.Services == nil {
+			oq.Services = &ServiceQuotas{}
+		}
+		oq.Services.Patch(*p.Services)
+	}
+	if p.Routes != nil {
+		if oq.Routes == nil {
+			oq.Routes = &RouteQuotas{}
+		}
+		oq.Routes.Patch(*p.Routes)
+	}
+	if p.Domains != nil {
+		if oq.Domains == nil {
+			oq.Domains = &DomainQuotas{}
+		}
+		oq.Domains.Patch(*p.Domains)
+	}
+}
+
+type OrgQuotaSpec struct {
+	OrgQuota `json:",inline"`
+}
+
+// OrgQuotaResource
+type OrgQuotaResource struct {
+	OrgQuota   `json:",inline"`
+	CFResource `json:",inline"`
 }
 
 //+kubebuilder:object:root=true
@@ -55,7 +111,7 @@ type CFOrgQuota struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec OrgQuota `json:"spec,omitempty"`
+	Spec OrgQuotaSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true

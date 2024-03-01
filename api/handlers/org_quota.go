@@ -17,18 +17,19 @@ import (
 )
 
 const (
-	OrgQuotasPath = "/v3/organization_quotas"
-	OrgQuotaPath  = "/v3/organization_quotas/{guid}"
+	OrgQuotasPath             = "/v3/organization_quotas"
+	OrgQuotaPath              = "/v3/organization_quotas/{guid}"
+	OrgQuotaRelationshipsPath = "/v3/organization_quotas/{guid}/relationships/organizations"
 )
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 type CFOrgQuotaRepository interface {
-	CreateOrgQuota(context.Context, authorization.Info, korifiv1alpha1.OrgQuota) (korifiv1alpha1.OrgQuota, error)
-	ListOrgQuotas(context.Context, authorization.Info, repositories.ListOrgQuotasMessage) ([]korifiv1alpha1.OrgQuota, error)
+	CreateOrgQuota(context.Context, authorization.Info, korifiv1alpha1.OrgQuota) (korifiv1alpha1.OrgQuotaResource, error)
+	AddOrgQuotaRelationships(context.Context, authorization.Info, string, korifiv1alpha1.ToManyRelationship) (korifiv1alpha1.ToManyRelationship, error)
+	ListOrgQuotas(context.Context, authorization.Info, repositories.ListOrgQuotasMessage) ([]korifiv1alpha1.OrgQuotaResource, error)
 	DeleteOrgQuota(context.Context, authorization.Info, string) error
-	GetOrgQuota(context.Context, authorization.Info, string) (korifiv1alpha1.OrgQuota, error)
-	PatchOrgQuota(context.Context, authorization.Info, korifiv1alpha1.OrgQuota) (korifiv1alpha1.OrgQuota, error)
-	//GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
+	GetOrgQuota(context.Context, authorization.Info, string) (korifiv1alpha1.OrgQuotaResource, error)
+	PatchOrgQuota(context.Context, authorization.Info, string, korifiv1alpha1.OrgQuotaPatch) (korifiv1alpha1.OrgQuotaResource, error)
 }
 
 type OrgQuota struct {
@@ -54,33 +55,52 @@ func (h *OrgQuota) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "invalid-payload-for-create-org-quota")
 	}
 
-	record, err := h.orgQuotaRepo.CreateOrgQuota(r.Context(), authInfo, orgQuota)
+	orgQuotaResource, err := h.orgQuotaRepo.CreateOrgQuota(r.Context(), authInfo, orgQuota)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create org", "OrgQuota Name", orgQuota.Name)
 	}
 
-	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForOrgQuota(record, h.apiBaseURL)), nil
+	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForOrgQuota(orgQuotaResource, h.apiBaseURL)), nil
+}
+
+func (h *OrgQuota) addRelationships(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.orgquota.update")
+	guid := routing.URLParam(r, "guid")
+
+	_, err := h.orgQuotaRepo.GetOrgQuota(r.Context(), authInfo, guid)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to find org quota", "OrgQuotaGUID", guid)
+	}
+
+	var toManyRelationships korifiv1alpha1.ToManyRelationship
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &toManyRelationships); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	actualRelationships, err := h.orgQuotaRepo.AddOrgQuotaRelationships(r.Context(), authInfo, guid, toManyRelationships)
+	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForOrgQuotaRelationships(guid, actualRelationships, h.apiBaseURL)), nil
 }
 
 func (h *OrgQuota) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.orgquota.update")
 
-	orgQuotaGUID := routing.URLParam(r, "guid")
+	guid := routing.URLParam(r, "guid")
 
-	_, err := h.orgQuotaRepo.GetOrgQuota(r.Context(), authInfo, orgQuotaGUID)
+	_, err := h.orgQuotaRepo.GetOrgQuota(r.Context(), authInfo, guid)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to find org quota", "OrgQuotaGUID", orgQuotaGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to find org quota", "OrgQuotaGUID", guid)
 	}
 
-	var orgQuota korifiv1alpha1.OrgQuota
-	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &orgQuota); err != nil {
+	var orgQuotaPatch korifiv1alpha1.OrgQuotaPatch
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &orgQuotaPatch); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	updatedOrgQuota, err := h.orgQuotaRepo.PatchOrgQuota(r.Context(), authInfo, orgQuota)
+	updatedOrgQuota, err := h.orgQuotaRepo.PatchOrgQuota(r.Context(), authInfo, guid, orgQuotaPatch)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch org metadata", "OrgQuotaGUID", orgQuotaGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch org metadata", "OrgQuotaGUID", guid)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForOrgQuota(updatedOrgQuota, h.apiBaseURL)), nil
@@ -143,6 +163,7 @@ func (h *OrgQuota) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: OrgQuotasPath, Handler: h.list},
 		{Method: "POST", Pattern: OrgQuotasPath, Handler: h.create},
+		{Method: "POST", Pattern: OrgQuotaRelationshipsPath, Handler: h.addRelationships},
 		{Method: "DELETE", Pattern: OrgQuotaPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: OrgQuotaPath, Handler: h.update},
 		{Method: "GET", Pattern: OrgQuotaPath, Handler: h.get},

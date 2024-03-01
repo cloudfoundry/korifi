@@ -18,25 +18,9 @@ const (
 	OrgQuotaResourceType = "OrgQuota"
 )
 
-type CreateOrgQuotaMessage struct {
-	Name        string
-	Suspended   bool
-	Labels      map[string]string
-	Annotations map[string]string
-}
-
 type ListOrgQuotasMessage struct {
 	Names []string
 	GUIDs []string
-}
-
-type DeleteOrgQuotaMessage struct {
-	GUID string
-}
-
-type PatchOrgQuotaMessage struct {
-	MetadataPatch
-	GUID string
 }
 
 type OrgQuotaRepo struct {
@@ -57,35 +41,45 @@ func NewOrgQuotaRepo(
 	}
 }
 
-func (r *OrgQuotaRepo) CreateOrgQuota(ctx context.Context, info authorization.Info, orgQuota korifiv1alpha1.OrgQuota) (korifiv1alpha1.OrgQuota, error) {
+func toResource(cfOrgQuota *korifiv1alpha1.CFOrgQuota) korifiv1alpha1.OrgQuotaResource {
+	return korifiv1alpha1.OrgQuotaResource{
+		OrgQuota: cfOrgQuota.Spec.OrgQuota,
+		CFResource: korifiv1alpha1.CFResource{
+			GUID: cfOrgQuota.Name,
+		},
+	}
+}
+
+func (r *OrgQuotaRepo) CreateOrgQuota(ctx context.Context, info authorization.Info, orgQuota korifiv1alpha1.OrgQuota) (korifiv1alpha1.OrgQuotaResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
-		return korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to build user client: %w", err)
+		return korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	guid := uuid.NewString()
-	orgQuota.GUID = guid
 
 	cfOrgQuota := &korifiv1alpha1.CFOrgQuota{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: r.rootNamespace,
 		},
-		Spec: orgQuota,
+		Spec: korifiv1alpha1.OrgQuotaSpec{
+			OrgQuota: orgQuota,
+		},
 	}
 
 	err = userClient.Create(ctx, cfOrgQuota)
 	if err != nil {
-		return korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to create cf org: %w", apierrors.FromK8sError(err, OrgQuotaResourceType))
+		return korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to create cf org: %w", apierrors.FromK8sError(err, OrgQuotaResourceType))
 	}
 
-	return orgQuota, nil
+	return toResource(cfOrgQuota), nil
 }
 
-func (r *OrgQuotaRepo) ListOrgQuotas(ctx context.Context, info authorization.Info, filter ListOrgQuotasMessage) ([]korifiv1alpha1.OrgQuota, error) {
+func (r *OrgQuotaRepo) ListOrgQuotas(ctx context.Context, info authorization.Info, filter ListOrgQuotasMessage) ([]korifiv1alpha1.OrgQuotaResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
-		return []korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to build user client: %w", err)
+		return []korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	cfOrgQuotaList := new(korifiv1alpha1.CFOrgQuotaList)
@@ -99,17 +93,17 @@ func (r *OrgQuotaRepo) ListOrgQuotas(ctx context.Context, info authorization.Inf
 		SetPredicate(filter.Names, func(s korifiv1alpha1.CFOrgQuota) string { return s.Spec.Name }),
 	}
 
-	var orgQuotas []korifiv1alpha1.OrgQuota
+	var orgQuotaResources []korifiv1alpha1.OrgQuotaResource
 	for _, o := range Filter(cfOrgQuotaList.Items, preds...) {
-		orgQuotas = append(orgQuotas, o.Spec)
+		orgQuotaResources = append(orgQuotaResources, toResource(&o))
 	}
-	return orgQuotas, nil
+	return orgQuotaResources, nil
 }
 
-func (r *OrgQuotaRepo) GetOrgQuota(ctx context.Context, info authorization.Info, orgQuotaGUID string) (korifiv1alpha1.OrgQuota, error) {
+func (r *OrgQuotaRepo) GetOrgQuota(ctx context.Context, info authorization.Info, orgQuotaGUID string) (korifiv1alpha1.OrgQuotaResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
-		return korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to build user client: %w", err)
+		return korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	cfOrgQuota := &korifiv1alpha1.CFOrgQuota{
@@ -121,10 +115,10 @@ func (r *OrgQuotaRepo) GetOrgQuota(ctx context.Context, info authorization.Info,
 
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfOrgQuota), cfOrgQuota)
 	if err != nil {
-		return korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to get org quota with id %q: %w", orgQuotaGUID, err)
+		return korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to get org quota with id %q: %w", orgQuotaGUID, err)
 	}
 
-	return cfOrgQuota.Spec, nil
+	return toResource(cfOrgQuota), nil
 }
 
 func (r *OrgQuotaRepo) DeleteOrgQuota(ctx context.Context, info authorization.Info, orgQuotaGUID string) error {
@@ -142,24 +136,50 @@ func (r *OrgQuotaRepo) DeleteOrgQuota(ctx context.Context, info authorization.In
 	return apierrors.FromK8sError(err, OrgQuotaResourceType)
 }
 
-func (r *OrgQuotaRepo) PatchOrgQuota(ctx context.Context, authInfo authorization.Info, orgQuota korifiv1alpha1.OrgQuota) (korifiv1alpha1.OrgQuota, error) {
+func (r *OrgQuotaRepo) AddOrgQuotaRelationships(ctx context.Context, authInfo authorization.Info, guid string, organizations korifiv1alpha1.ToManyRelationship) (korifiv1alpha1.ToManyRelationship, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to build user client: %w", err)
+		return korifiv1alpha1.ToManyRelationship{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+	actualCfOrgQuota := new(korifiv1alpha1.CFOrgQuota)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: guid}, actualCfOrgQuota)
+	if err != nil {
+		return korifiv1alpha1.ToManyRelationship{}, fmt.Errorf("failed to get org quota: %w", apierrors.FromK8sError(err, OrgQuotaResourceType))
+	}
+	err = k8s.PatchResource(ctx, userClient, actualCfOrgQuota, func() {
+		actualRelationships := actualCfOrgQuota.Spec.Relationships
+		if actualRelationships == nil {
+			actualRelationships = &korifiv1alpha1.OrgQuotaRelationships{}
+			actualCfOrgQuota.Spec.Relationships = actualRelationships
+		}
+		actualRelationships.Organizations.Patch(organizations)
+	})
+	if err != nil {
+		return korifiv1alpha1.ToManyRelationship{}, err
+	}
+
+	return actualCfOrgQuota.Spec.Relationships.Organizations, nil
+}
+
+func (r *OrgQuotaRepo) PatchOrgQuota(ctx context.Context, authInfo authorization.Info, guid string, orgQuotaPatch korifiv1alpha1.OrgQuotaPatch) (korifiv1alpha1.OrgQuotaResource, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	actualCfOrgQuota := new(korifiv1alpha1.CFOrgQuota)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: orgQuota.GUID}, actualCfOrgQuota)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: guid}, actualCfOrgQuota)
 	if err != nil {
-		return korifiv1alpha1.OrgQuota{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgQuotaResourceType))
+		return korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgQuotaResourceType))
 	}
 
 	err = k8s.PatchResource(ctx, userClient, actualCfOrgQuota, func() {
-		actualCfOrgQuota.Spec = orgQuota
+		actualOrgQuota := actualCfOrgQuota.Spec.OrgQuota
+		actualOrgQuota.Patch(orgQuotaPatch)
 	})
 	if err != nil {
-		return korifiv1alpha1.OrgQuota{}, apierrors.FromK8sError(err, OrgQuotaResourceType)
+		return korifiv1alpha1.OrgQuotaResource{}, apierrors.FromK8sError(err, OrgQuotaResourceType)
 	}
 
-	return orgQuota, nil
+	return toResource(actualCfOrgQuota), nil
 }

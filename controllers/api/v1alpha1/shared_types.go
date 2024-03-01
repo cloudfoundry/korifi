@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -97,4 +98,31 @@ type ToOneRelationship struct {
 type ToManyRelationship struct {
 	//+kubebuilder:validation:Optional
 	Data []Relationship `json:"data"`
+}
+
+func (tm *ToManyRelationship) Patch(other ToManyRelationship) {
+	guidMap := map[string]Relationship{}
+	for _, r := range tm.Data {
+		guidMap[r.GUID] = r
+	}
+	for _, r2 := range other.Data {
+		guidMap[r2.GUID] = r2
+	}
+	tm.Data = maps.Values(guidMap)
+}
+
+type CFResource struct {
+	GUID      string  `json:"guid"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt *string `json:"updated_at"`
+}
+
+type BasicAuthentication struct {
+	Type        string                         `json:"type"`
+	Credentials BasicAuthenticationCredentials `json:"credentials"`
+}
+
+type BasicAuthenticationCredentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
