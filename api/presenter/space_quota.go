@@ -12,11 +12,7 @@ const (
 )
 
 type SpaceQuotaResponse struct {
-	korifiv1alpha1.SpaceQuota
-
-	//CreatedAt string `json:"created_at"`
-	//UpdatedAt string `json:"updated_at"`
-
+	korifiv1alpha1.SpaceQuotaResource
 	Links SpaceQuotaLinks `json:"links"`
 }
 
@@ -24,12 +20,23 @@ type SpaceQuotaLinks struct {
 	Self *Link `json:"self"`
 }
 
-func ForSpaceQuota(spaceQuota korifiv1alpha1.SpaceQuota, apiBaseURL url.URL) SpaceQuotaResponse {
+func ForSpaceQuota(spaceQuotaResource korifiv1alpha1.SpaceQuotaResource, apiBaseURL url.URL) SpaceQuotaResponse {
 	return SpaceQuotaResponse{
-		spaceQuota,
+		spaceQuotaResource,
 		SpaceQuotaLinks{
 			Self: &Link{
-				HRef: buildURL(apiBaseURL).appendPath(orgsBase, spaceQuota.GUID).build(),
+				HRef: buildURL(apiBaseURL).appendPath(spaceQuotasBase, spaceQuotaResource.GUID).build(),
+			},
+		},
+	}
+}
+
+func ForSpaceQuotaRelationships(guid string, relationsips korifiv1alpha1.ToManyRelationship, apiBaseURL url.URL) ToManyResponse {
+	return ToManyResponse{
+		relationsips,
+		OrgQuotaRelationshipsLinks{
+			Self: &Link{
+				HRef: buildURL(apiBaseURL).appendPath(spaceQuotasBase, guid, "relationships", "spaces").build(),
 			},
 		},
 	}

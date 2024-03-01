@@ -29,16 +29,57 @@ type SpaceQuotaRelationships struct {
 
 // CFOrgQuotaSpec defines the desired state of CFOrgQuota
 type SpaceQuota struct {
-	GUID string `json:"guid"`
 	Name string `json:"name"`
 	// +kubebuilder:validation:Optional
-	Apps AppQuotas `json:"apps"`
+	Apps *AppQuotas `json:"apps"`
 	// +kubebuilder:validation:Optional
-	Services ServiceQuotas `json:"services"`
+	Services *ServiceQuotas `json:"services"`
 	// +kubebuilder:validation:Optional
-	Routes RouteQuotas `json:"routes"`
+	Routes *RouteQuotas `json:"routes"`
 	// +kubebuilder:validation:Optional
 	Relationships SpaceQuotaRelationships `json:"relationships"`
+}
+
+// CFOrgQuotaSpec defines the desired state of CFOrgQuota
+type SpaceQuotaPatch struct {
+	Name     *string             `json:"name"`
+	Apps     *AppQuotasPatch     `json:"apps"`
+	Services *ServiceQuotasPatch `json:"services"`
+	Routes   *RouteQuotasPatch   `json:"routes"`
+}
+
+func (sq *SpaceQuota) Patch(p SpaceQuotaPatch) {
+	if p.Name != nil {
+		sq.Name = *p.Name
+	}
+	if p.Apps != nil {
+		if sq.Apps == nil {
+			sq.Apps = &AppQuotas{}
+		}
+		sq.Apps.Patch(*p.Apps)
+	}
+	if p.Services != nil {
+		if sq.Services == nil {
+			sq.Services = &ServiceQuotas{}
+		}
+		sq.Services.Patch(*p.Services)
+	}
+	if p.Routes != nil {
+		if sq.Routes == nil {
+			sq.Routes = &RouteQuotas{}
+		}
+		sq.Routes.Patch(*p.Routes)
+	}
+}
+
+// OrgQuotaResource
+type SpaceQuotaResource struct {
+	SpaceQuota `json:",inline"`
+	CFResource `json:",inline"`
+}
+
+type SpaceQuotaSpec struct {
+	SpaceQuota `json:",inline"`
 }
 
 //+kubebuilder:object:root=true
@@ -50,7 +91,7 @@ type CFSpaceQuota struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec SpaceQuota `json:"spec,omitempty"`
+	Spec SpaceQuotaSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true

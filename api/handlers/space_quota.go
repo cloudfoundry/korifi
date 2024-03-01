@@ -17,17 +17,19 @@ import (
 )
 
 const (
-	SpaceQuotasPath = "/v3/space_quotas"
-	SpaceQuotaPath  = "/v3/space_quotas/{guid}"
+	SpaceQuotasPath      = "/v3/space_quotas"
+	SpaceQuotaPath       = "/v3/space_quotas/{guid}"
+	SpaceQuotaSpacesPath = "/v3/space_quotas/{guid}/relationships/spaces"
 )
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 type SpaceQuotaRepository interface {
-	CreateSpaceQuota(context.Context, authorization.Info, korifiv1alpha1.SpaceQuota) (korifiv1alpha1.SpaceQuota, error)
-	ListSpaceQuotas(context.Context, authorization.Info, repositories.ListSpaceQuotasMessage) ([]korifiv1alpha1.SpaceQuota, error)
+	CreateSpaceQuota(context.Context, authorization.Info, korifiv1alpha1.SpaceQuota) (korifiv1alpha1.SpaceQuotaResource, error)
+	ListSpaceQuotas(context.Context, authorization.Info, repositories.ListSpaceQuotasMessage) ([]korifiv1alpha1.SpaceQuotaResource, error)
 	DeleteSpaceQuota(context.Context, authorization.Info, string) error
-	GetSpaceQuota(context.Context, authorization.Info, string) (korifiv1alpha1.SpaceQuota, error)
-	PatchSpaceQuota(context.Context, authorization.Info, korifiv1alpha1.SpaceQuota) (korifiv1alpha1.SpaceQuota, error)
+	GetSpaceQuota(context.Context, authorization.Info, string) (korifiv1alpha1.SpaceQuotaResource, error)
+	PatchSpaceQuota(context.Context, authorization.Info, string, korifiv1alpha1.SpaceQuotaPatch) (korifiv1alpha1.SpaceQuotaResource, error)
+	AddSpaceQuotaRelationships(context.Context, authorization.Info, string, korifiv1alpha1.ToManyRelationship) (korifiv1alpha1.ToManyRelationship, error)
 }
 
 type SpaceQuota struct {
@@ -53,36 +55,55 @@ func (h *SpaceQuota) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "invalid-payload-for-create-space-quota")
 	}
 
-	record, err := h.spaceQuotaRepo.CreateSpaceQuota(r.Context(), authInfo, spaceQuota)
+	spaceQuotaResource, err := h.spaceQuotaRepo.CreateSpaceQuota(r.Context(), authInfo, spaceQuota)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create space quota", "SpaceQuota Name", spaceQuota.Name)
 	}
 
-	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForSpaceQuota(record, h.apiBaseURL)), nil
+	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForSpaceQuota(spaceQuotaResource, h.apiBaseURL)), nil
 }
 
 func (h *SpaceQuota) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.spacequota.update")
 
-	spaceQuotaGUID := routing.URLParam(r, "guid")
+	guid := routing.URLParam(r, "guid")
 
-	_, err := h.spaceQuotaRepo.GetSpaceQuota(r.Context(), authInfo, spaceQuotaGUID)
+	_, err := h.spaceQuotaRepo.GetSpaceQuota(r.Context(), authInfo, guid)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to find space quota", "SpaceQuotaGUID", spaceQuotaGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to find space quota", "SpaceQuotaGUID", guid)
 	}
 
-	var spaceQuota korifiv1alpha1.SpaceQuota
-	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &spaceQuota); err != nil {
+	var spaceQuotaPatch korifiv1alpha1.SpaceQuotaPatch
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &spaceQuotaPatch); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	updatedSpaceQuota, err := h.spaceQuotaRepo.PatchSpaceQuota(r.Context(), authInfo, spaceQuota)
+	updatedSpaceQuota, err := h.spaceQuotaRepo.PatchSpaceQuota(r.Context(), authInfo, guid, spaceQuotaPatch)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch org quota", "SpaceQuotaGUID", spaceQuotaGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch org quota", "SpaceQuotaGUID", guid)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForSpaceQuota(updatedSpaceQuota, h.apiBaseURL)), nil
+}
+
+func (h *SpaceQuota) addSpaces(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.orgquota.update")
+	guid := routing.URLParam(r, "guid")
+
+	_, err := h.spaceQuotaRepo.GetSpaceQuota(r.Context(), authInfo, guid)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to find org quota", "OrgQuotaGUID", guid)
+	}
+
+	var toManyRelationships korifiv1alpha1.ToManyRelationship
+	if err = h.requestValidator.DecodeAndValidateJSONPayload(r, &toManyRelationships); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	actualRelationships, err := h.spaceQuotaRepo.AddSpaceQuotaRelationships(r.Context(), authInfo, guid, toManyRelationships)
+	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForSpaceQuotaRelationships(guid, actualRelationships, h.apiBaseURL)), nil
 }
 
 func (h *SpaceQuota) delete(r *http.Request) (*routing.Response, error) {
@@ -109,12 +130,12 @@ func (h *SpaceQuota) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	orgQuotas, err := h.spaceQuotaRepo.ListSpaceQuotas(r.Context(), authInfo, listFilter.ToMessage())
+	spaceQuotas, err := h.spaceQuotaRepo.ListSpaceQuotas(r.Context(), authInfo, listFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to fetch space quotas")
 	}
 
-	resp := routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSpaceQuota, orgQuotas, h.apiBaseURL, *r.URL))
+	resp := routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSpaceQuota, spaceQuotas, h.apiBaseURL, *r.URL))
 
 	return resp, nil
 }
@@ -141,6 +162,7 @@ func (h *SpaceQuota) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: SpaceQuotasPath, Handler: h.list},
 		{Method: "POST", Pattern: SpaceQuotasPath, Handler: h.create},
+		{Method: "POST", Pattern: SpaceQuotaSpacesPath, Handler: h.addSpaces},
 		{Method: "DELETE", Pattern: SpaceQuotaPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: SpaceQuotaPath, Handler: h.update},
 		{Method: "GET", Pattern: SpaceQuotaPath, Handler: h.get},
