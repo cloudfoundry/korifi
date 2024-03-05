@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,6 +36,14 @@ type CFServiceBroker struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec CFServiceBrokerSpec `json:"spec,omitempty"`
+}
+
+func (b CFServiceBroker) UniqueName() string {
+	return strings.ToLower(b.Spec.Name)
+}
+
+func (b CFServiceBroker) UniqueValidationErrorMessage() string {
+	return "Name must be unique"
 }
 
 // +kubebuilder:object:root=true

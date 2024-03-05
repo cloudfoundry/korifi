@@ -495,6 +495,13 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = services.NewCFServiceBrokerValidator(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, services.ServiceBrokerEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBroker")
+			os.Exit(1)
+		}
+
 		if err = networking.NewCFDomainValidator(
 			uncachedClient,
 		).SetupWebhookWithManager(mgr); err != nil {
