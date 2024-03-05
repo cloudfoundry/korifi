@@ -203,6 +203,7 @@ func main() {
 		namespaceRetriever,
 		userClientFactory,
 		nsPermissions,
+		cfg.RootNamespace,
 	)
 
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
