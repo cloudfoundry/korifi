@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/routing"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 
@@ -26,11 +27,11 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFServiceBrokerRepository . CFServiceBrokerRepository
 type CFServiceBrokerRepository interface {
-	CreateServiceBroker(context.Context, authorization.Info, repositories.CreateServiceBrokerMessage) (repositories.ServiceBrokerRecord, error)
-	PatchServiceBroker(context.Context, authorization.Info, repositories.PatchServiceBrokerMessage) (repositories.ServiceBrokerRecord, error)
-	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerRecord, error)
-	GetServiceBroker(context.Context, authorization.Info, string) (repositories.ServiceBrokerRecord, error)
-	DeleteServiceBroker(context.Context, authorization.Info, repositories.DeleteServiceBrokerMessage) error
+	CreateServiceBroker(context.Context, authorization.Info, korifiv1alpha1.ServiceBroker, korifiv1alpha1.BasicAuthentication) (korifiv1alpha1.ServiceBrokerResource, error)
+	PatchServiceBroker(context.Context, authorization.Info, string, korifiv1alpha1.ServiceBrokerPatch, *korifiv1alpha1.BasicAuthentication) (korifiv1alpha1.ServiceBrokerResource, error)
+	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]korifiv1alpha1.ServiceBrokerResource, error)
+	GetServiceBroker(context.Context, authorization.Info, string) (korifiv1alpha1.ServiceBrokerResource, error)
+	DeleteServiceBroker(context.Context, authorization.Info, string) error
 }
 
 type ServiceBroker struct {
@@ -64,7 +65,9 @@ func (h *ServiceBroker) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	serviceBrokerRecord, err := h.serviceBrokerRepo.CreateServiceBroker(r.Context(), authInfo, payload.ToServiceBrokerCreateMessage())
+	brokerAuth := payload.Authentication
+	serviceBroker := payload.ServiceBroker
+	serviceBrokerRecord, err := h.serviceBrokerRepo.CreateServiceBroker(r.Context(), authInfo, serviceBroker, brokerAuth)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create service broker", "Service Broker Name", serviceBrokerRecord.Name)
 	}
@@ -81,15 +84,17 @@ func (h *ServiceBroker) patch(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	serviceBrokerGUID := routing.URLParam(r, "guid")
+	guid := routing.URLParam(r, "guid")
 
-	serviceBroker, err := h.serviceBrokerRepo.GetServiceBroker(r.Context(), authInfo, serviceBrokerGUID)
+	serviceBroker, err := h.serviceBrokerRepo.GetServiceBroker(r.Context(), authInfo, guid)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service broker")
 	}
 
-	patchMessage := payload.ToServiceBrokerPatchMessage(serviceBroker.GUID)
-	serviceBroker, err = h.serviceBrokerRepo.PatchServiceBroker(r.Context(), authInfo, patchMessage)
+	brokerAuth := payload.Authentication
+	serviceBrokerPatch := payload.ServiceBrokerPatch
+
+	serviceBroker, err = h.serviceBrokerRepo.PatchServiceBroker(r.Context(), authInfo, guid, serviceBrokerPatch, brokerAuth)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to patch service broker")
 	}
@@ -118,21 +123,22 @@ func (h *ServiceBroker) list(r *http.Request) (*routing.Response, error) {
 }
 
 // nolint:dupl
-func (h *ServiceBroker) sortList(siList []repositories.ServiceBrokerRecord, order string) {
+func (h *ServiceBroker) sortList(sbList []korifiv1alpha1.ServiceBrokerResource, order string) {
 	switch order {
 	case "":
 	case "created_at":
-		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(&siList[j].CreatedAt, &siList[i].CreatedAt) })
+		//sort.Slice(sbList, func(i, j int) bool { return timePtrAfter(&sbList[j].CreatedAt, &sbList[i].CreatedAt) })
+		sort.Slice(sbList, func(i, j int) bool { return sbList[j].CreatedAt > sbList[i].CreatedAt })
 	case "-created_at":
-		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(&siList[i].CreatedAt, &siList[j].CreatedAt) })
+		sort.Slice(sbList, func(i, j int) bool { return sbList[i].CreatedAt > sbList[j].CreatedAt })
 	case "updated_at":
-		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(siList[j].UpdatedAt, siList[i].UpdatedAt) })
+		sort.Slice(sbList, func(i, j int) bool { return *sbList[j].UpdatedAt > *sbList[i].UpdatedAt })
 	case "-updated_at":
-		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(siList[i].UpdatedAt, siList[j].UpdatedAt) })
+		sort.Slice(sbList, func(i, j int) bool { return *sbList[i].UpdatedAt > *sbList[j].UpdatedAt })
 	case "name":
-		sort.Slice(siList, func(i, j int) bool { return siList[i].Name < siList[j].Name })
+		sort.Slice(sbList, func(i, j int) bool { return sbList[i].Name < sbList[j].Name })
 	case "-name":
-		sort.Slice(siList, func(i, j int) bool { return siList[i].Name > siList[j].Name })
+		sort.Slice(sbList, func(i, j int) bool { return sbList[i].Name > sbList[j].Name })
 	}
 }
 
@@ -140,18 +146,16 @@ func (h *ServiceBroker) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-broker.delete")
 
-	serviceBrokerGUID := routing.URLParam(r, "guid")
+	guid := routing.URLParam(r, "guid")
 
-	_, err := h.serviceBrokerRepo.GetServiceBroker(r.Context(), authInfo, serviceBrokerGUID)
+	_, err := h.serviceBrokerRepo.GetServiceBroker(r.Context(), authInfo, guid)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service broker")
 	}
 
-	err = h.serviceBrokerRepo.DeleteServiceBroker(r.Context(), authInfo, repositories.DeleteServiceBrokerMessage{
-		GUID: serviceBrokerGUID,
-	})
+	err = h.serviceBrokerRepo.DeleteServiceBroker(r.Context(), authInfo, guid)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service broker", "guid", serviceBrokerGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service broker", "guid", guid)
 	}
 
 	return routing.NewResponse(http.StatusNoContent), nil

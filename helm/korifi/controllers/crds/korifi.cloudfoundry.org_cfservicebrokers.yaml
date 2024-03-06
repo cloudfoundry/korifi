@@ -39,8 +39,34 @@ spec:
             type: object
           spec:
             properties:
+              metadata:
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
               name:
                 type: string
+              relationships:
+                properties:
+                  space:
+                    properties:
+                      data:
+                        properties:
+                          guid:
+                            type: string
+                        required:
+                        - guid
+                        type: object
+                    type: object
+                required:
+                - space
+                type: object
               secretName:
                 type: string
               url:

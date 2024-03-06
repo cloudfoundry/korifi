@@ -67,9 +67,29 @@ type RequiredLocalObjectReference struct {
 	Name string `json:"name"`
 }
 
+func PatchStringMap(sm map[string]string, p map[string]*string) {
+	for key, value := range p {
+		if value == nil {
+			delete(sm, key)
+		} else {
+			sm[key] = *value
+		}
+	}
+}
+
 type Metadata struct {
-	Labels     []string `json:"labels,omitempty"`
-	Annotation []string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+type MetadataPatch struct {
+	Labels      map[string]*string `json:"labels,omitempty"`
+	Annotations map[string]*string `json:"annotations,omitempty"`
+}
+
+func (md *Metadata) Patch(p MetadataPatch) {
+	PatchStringMap(md.Labels, p.Labels)
+	PatchStringMap(md.Annotations, p.Annotations)
 }
 
 type Relationship struct {

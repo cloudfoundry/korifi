@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -22,10 +21,6 @@ const (
 	CFServiceBrokerGUIDLabel  = "korifi.cloudfoundry.org/service-broker-guid"
 	ServiceBrokerResourceType = "Service Broker"
 )
-
-//type NamespaceGetter interface {
-//	GetNamespaceForServiceBroker(ctx context.Context, guid string) (string, error)
-//}
 
 type ServiceBrokerRepo struct {
 	namespaceRetriever   NamespaceRetriever
@@ -48,120 +43,96 @@ func NewServiceBrokerRepo(
 	}
 }
 
-type CreateServiceBrokerMessage struct {
-	Name        string
-	URL         string
-	Credentials map[string]string
-	Labels      map[string]string
-	Annotations map[string]string
-}
-
-type PatchServiceBrokerMessage struct {
-	GUID        string
-	Name        *string
-	URL         *string
-	Credentials *map[string]string
-	MetadataPatch
-}
-
-func (p PatchServiceBrokerMessage) Apply(cfServiceBroker *korifiv1alpha1.CFServiceBroker) {
-	if p.Name != nil {
-		cfServiceBroker.Spec.Name = *p.Name
-	}
-	if p.URL != nil {
-		cfServiceBroker.Spec.URL = *p.URL
-	}
-	p.MetadataPatch.Apply(cfServiceBroker)
-}
-
 type ListServiceBrokerMessage struct {
 	Names         []string
 	GUIDs         []string
 	LabelSelector string
 }
 
-type DeleteServiceBrokerMessage struct {
-	GUID string
+func toServiceBrokerResource(cfServiceBroker *korifiv1alpha1.CFServiceBroker) korifiv1alpha1.ServiceBrokerResource {
+	return korifiv1alpha1.ServiceBrokerResource{
+		ServiceBroker: cfServiceBroker.Spec.ServiceBroker,
+		CFResource: korifiv1alpha1.CFResource{
+			GUID: cfServiceBroker.Name,
+		},
+	}
 }
 
-type ServiceBrokerRecord struct {
-	Name        string
-	URL         string
-	GUID        string
-	SecretName  string
-	Labels      map[string]string
-	Annotations map[string]string
-	CreatedAt   time.Time
-	UpdatedAt   *time.Time
-}
-
-func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo authorization.Info, message CreateServiceBrokerMessage) (ServiceBrokerRecord, error) {
+func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo authorization.Info, serviceBroker korifiv1alpha1.ServiceBroker, brokerAuth korifiv1alpha1.BasicAuthentication) (korifiv1alpha1.ServiceBrokerResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		// untested
-		return ServiceBrokerRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return korifiv1alpha1.ServiceBrokerResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	cfServiceBroker := message.toCFServiceBroker(r.rootNamespace)
+	cfServiceBroker := r.newCFServiceBroker(serviceBroker)
 	err = userClient.Create(ctx, cfServiceBroker)
 	if err != nil {
-		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+		return korifiv1alpha1.ServiceBrokerResource{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
 	secretObj := cfServiceBrokerToSecret(cfServiceBroker)
 	_, err = controllerutil.CreateOrPatch(ctx, userClient, secretObj, func() error {
-		secretObj.StringData = message.Credentials
+		secretObj.StringData = map[string]string{
+			"username": brokerAuth.Credentials.Username,
+			"password": brokerAuth.Credentials.Password,
+		}
 		return nil
 	})
+
 	if err != nil {
-		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+		return korifiv1alpha1.ServiceBrokerResource{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
-	return cfServiceBrokerToServiceBrokerRecord(cfServiceBroker)
+	return toServiceBrokerResource(cfServiceBroker), nil
 }
 
-func (r *ServiceBrokerRepo) PatchServiceBroker(ctx context.Context, authInfo authorization.Info, message PatchServiceBrokerMessage) (ServiceBrokerRecord, error) {
+func (r *ServiceBrokerRepo) PatchServiceBroker(ctx context.Context, authInfo authorization.Info, guid string, serviceBrokerPatch korifiv1alpha1.ServiceBrokerPatch, brokerAuth *korifiv1alpha1.BasicAuthentication) (korifiv1alpha1.ServiceBrokerResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return ServiceBrokerRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return korifiv1alpha1.ServiceBrokerResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	cfServiceBroker := &korifiv1alpha1.CFServiceBroker{
 		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
 			Namespace: r.rootNamespace,
-			Name:      message.GUID,
 		},
 	}
+
 	if err = userClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBroker), cfServiceBroker); err != nil {
-		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+		return korifiv1alpha1.ServiceBrokerResource{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
 	err = k8s.PatchResource(ctx, userClient, cfServiceBroker, func() {
-		message.Apply(cfServiceBroker)
+		cfServiceBroker.Spec.ServiceBroker.Patch(serviceBrokerPatch)
 	})
 	if err != nil {
-		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+		return korifiv1alpha1.ServiceBrokerResource{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
-	if message.Credentials != nil {
+	if brokerAuth != nil {
 		secretObj := cfServiceBrokerToSecret(cfServiceBroker)
 		_, err = controllerutil.CreateOrPatch(ctx, userClient, secretObj, func() error {
-			secretObj.StringData = *message.Credentials
+			secretObj.StringData = map[string]string{
+				"username": brokerAuth.Credentials.Username,
+				"password": brokerAuth.Credentials.Password,
+			}
 			return nil
 		})
 		if err != nil {
-			return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+			return korifiv1alpha1.ServiceBrokerResource{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 		}
 	}
 
-	return cfServiceBrokerToServiceBrokerRecord(cfServiceBroker)
+	return toServiceBrokerResource(cfServiceBroker), nil
 }
 
 // nolint:dupl
-func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]ServiceBrokerRecord, error) {
+func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]korifiv1alpha1.ServiceBrokerResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return []ServiceBrokerRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return []korifiv1alpha1.ServiceBrokerResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	preds := []func(korifiv1alpha1.CFServiceBroker) bool{
@@ -171,7 +142,7 @@ func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo aut
 
 	labelSelector, err := labels.Parse(message.LabelSelector)
 	if err != nil {
-		return []ServiceBrokerRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
+		return []korifiv1alpha1.ServiceBrokerResource{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
 	}
 
 	var filteredServiceBrokers []korifiv1alpha1.CFServiceBroker
@@ -179,36 +150,33 @@ func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo aut
 	err = userClient.List(ctx, serviceBrokerList, client.InNamespace(r.rootNamespace), &client.ListOptions{LabelSelector: labelSelector})
 
 	if err != nil {
-		return []ServiceBrokerRecord{}, fmt.Errorf("failed to list service brokers in namespace %s: %w",
+		return []korifiv1alpha1.ServiceBrokerResource{}, fmt.Errorf("failed to list service brokers in namespace %s: %w",
 			r.rootNamespace,
+
 			apierrors.FromK8sError(err, ServiceBrokerResourceType),
 		)
 	}
 	filteredServiceBrokers = append(filteredServiceBrokers, Filter(serviceBrokerList.Items, preds...)...)
 
-	return returnServiceBrokerList(filteredServiceBrokers)
+	return returnServiceBrokerList(filteredServiceBrokers), nil
 }
 
-func (r *ServiceBrokerRepo) GetServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBrokerRecord, error) {
+func (r *ServiceBrokerRepo) GetServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (korifiv1alpha1.ServiceBrokerResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return ServiceBrokerRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return korifiv1alpha1.ServiceBrokerResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	serviceBroker := &korifiv1alpha1.CFServiceBroker{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: r.rootNamespace,
-			Name:      guid,
-		},
-	}
-	if err := userClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker); err != nil {
-		return ServiceBrokerRecord{}, fmt.Errorf("failed to get service broker: %w", apierrors.FromK8sError(err, ServiceBrokerResourceType))
+	var serviceBroker korifiv1alpha1.CFServiceBroker
+
+	if err := userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: guid}, &serviceBroker); err != nil {
+		return korifiv1alpha1.ServiceBrokerResource{}, fmt.Errorf("failed to get service broker: %w", apierrors.FromK8sError(err, ServiceBrokerResourceType))
 	}
 
-	return cfServiceBrokerToServiceBrokerRecord(serviceBroker)
+	return toServiceBrokerResource(&serviceBroker), nil
 }
 
-func (r *ServiceBrokerRepo) DeleteServiceBroker(ctx context.Context, authInfo authorization.Info, message DeleteServiceBrokerMessage) error {
+func (r *ServiceBrokerRepo) DeleteServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) error {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
@@ -216,7 +184,7 @@ func (r *ServiceBrokerRepo) DeleteServiceBroker(ctx context.Context, authInfo au
 
 	serviceBroker := &korifiv1alpha1.CFServiceBroker{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.GUID,
+			Name:      guid,
 			Namespace: r.rootNamespace,
 		},
 	}
@@ -228,35 +196,23 @@ func (r *ServiceBrokerRepo) DeleteServiceBroker(ctx context.Context, authInfo au
 	return nil
 }
 
-func (m CreateServiceBrokerMessage) toCFServiceBroker(rootNamespace string) *korifiv1alpha1.CFServiceBroker {
-	guid := uuid.NewString()
-
+func (r *ServiceBrokerRepo) newCFServiceBroker(serviceBroker korifiv1alpha1.ServiceBroker) *korifiv1alpha1.CFServiceBroker {
+	meta := metav1.ObjectMeta{
+		Name:      uuid.NewString(),
+		Namespace: r.rootNamespace,
+	}
+	if serviceBroker.Metadata != nil {
+		meta.Annotations = serviceBroker.Metadata.Annotations
+		meta.Labels = serviceBroker.Metadata.Labels
+	}
 	return &korifiv1alpha1.CFServiceBroker{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        guid,
-			Namespace:   rootNamespace,
-			Labels:      m.Labels,
-			Annotations: m.Annotations,
-		},
+		ObjectMeta: meta,
 		Spec: korifiv1alpha1.CFServiceBrokerSpec{
-			Name:       m.Name,
-			URL:        m.URL,
-			SecretName: guid,
+			ServiceBroker: serviceBroker,
+			SecretName:    meta.Name,
 		},
 	}
-}
 
-func cfServiceBrokerToServiceBrokerRecord(cfServiceBroker *korifiv1alpha1.CFServiceBroker) (ServiceBrokerRecord, error) {
-	return ServiceBrokerRecord{
-		Name:        cfServiceBroker.Spec.Name,
-		GUID:        cfServiceBroker.Name,
-		SecretName:  cfServiceBroker.Spec.SecretName,
-		URL:         cfServiceBroker.Spec.URL,
-		Labels:      cfServiceBroker.Labels,
-		Annotations: cfServiceBroker.Annotations,
-		CreatedAt:   cfServiceBroker.CreationTimestamp.Time,
-		UpdatedAt:   getLastUpdatedTime(cfServiceBroker),
-	}, nil
 }
 
 func cfServiceBrokerToSecret(cfServiceBroker *korifiv1alpha1.CFServiceBroker) *corev1.Secret {
@@ -280,15 +236,11 @@ func cfServiceBrokerToSecret(cfServiceBroker *korifiv1alpha1.CFServiceBroker) *c
 	}
 }
 
-func returnServiceBrokerList(serviceBrokerList []korifiv1alpha1.CFServiceBroker) ([]ServiceBrokerRecord, error) {
-	serviceBrokerRecords := make([]ServiceBrokerRecord, 0, len(serviceBrokerList))
+func returnServiceBrokerList(serviceBrokerList []korifiv1alpha1.CFServiceBroker) []korifiv1alpha1.ServiceBrokerResource {
+	serviceBrokerResources := make([]korifiv1alpha1.ServiceBrokerResource, 0, len(serviceBrokerList))
 
-	for i := range serviceBrokerList {
-		record, err := cfServiceBrokerToServiceBrokerRecord(&serviceBrokerList[i])
-		if err != nil {
-			return nil, err
-		}
-		serviceBrokerRecords = append(serviceBrokerRecords, record)
+	for _, serviceBroker := range serviceBrokerList {
+		serviceBrokerResources = append(serviceBrokerResources, toServiceBrokerResource(&serviceBroker))
 	}
-	return serviceBrokerRecords, nil
+	return serviceBrokerResources
 }

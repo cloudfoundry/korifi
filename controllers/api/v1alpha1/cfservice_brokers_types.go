@@ -22,10 +22,48 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ServiceBrokerRelationships struct {
+	Space *ToOneRelationship `json:"space"`
+}
+
+type ServiceBroker struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+	// +kubebuilder:validation:Optional
+	Metadata *Metadata `json:"metadata"`
+	// +kubebuilder:validation:Optional
+	Relationships *ServiceBrokerRelationships `json:"relationships"`
+}
+
+type ServiceBrokerPatch struct {
+	Name     *string        `json:"name"`
+	URL      *string        `json:"url"`
+	Metadata *MetadataPatch `json:"metadata"`
+}
+
+func (sb *ServiceBroker) Patch(p ServiceBrokerPatch) {
+	if p.Name != nil {
+		sb.Name = *p.Name
+	}
+	if p.URL != nil {
+		sb.URL = *p.URL
+	}
+	if p.Metadata != nil {
+		if sb.Metadata == nil {
+			sb.Metadata = &Metadata{}
+		}
+		sb.Metadata.Patch(*p.Metadata)
+	}
+}
+
+type ServiceBrokerResource struct {
+	ServiceBroker
+	CFResource
+}
+
 type CFServiceBrokerSpec struct {
-	Name       string `json:"name"`
-	URL        string `json:"url"`
-	SecretName string `json:"secretName"`
+	ServiceBroker `json:",inline"`
+	SecretName    string `json:"secretName"`
 }
 
 // +kubebuilder:object:root=true

@@ -71,13 +71,13 @@ spec:
               metadata:
                 properties:
                   annotations:
-                    items:
+                    additionalProperties:
                       type: string
-                    type: array
+                    type: object
                   labels:
-                    items:
+                    additionalProperties:
                       type: string
-                    type: array
+                    type: object
                 type: object
               offeringName:
                 type: string
