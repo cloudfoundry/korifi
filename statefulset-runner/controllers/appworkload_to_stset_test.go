@@ -115,7 +115,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		}))
 	})
 
-	It("should set the seccomp profile", func() {
+	It("should set the seccomp profile on the container", func() {
 		Expect(statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.SeccompProfile).NotTo(BeNil())
 		Expect(*statefulSet.Spec.Template.Spec.Containers[0].SecurityContext.SeccompProfile).To(Equal(corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}))
 	})
@@ -210,6 +210,11 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Spec.Template.Spec.SecurityContext).NotTo(BeNil())
 		Expect(statefulSet.Spec.Template.Spec.SecurityContext.RunAsNonRoot).NotTo(BeNil())
 		Expect(*statefulSet.Spec.Template.Spec.SecurityContext.RunAsNonRoot).To(BeTrue())
+	})
+
+	It("should set the seccomp profile on the pod", func() {
+		Expect(statefulSet.Spec.Template.Spec.SecurityContext.SeccompProfile).NotTo(BeNil())
+		Expect(*statefulSet.Spec.Template.Spec.SecurityContext.SeccompProfile).To(Equal(corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}))
 	})
 
 	It("should set soft inter-pod anti-affinity", func() {
