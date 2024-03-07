@@ -77,6 +77,9 @@ var _ = Describe("Job TaskWorkload Controller Integration Test", func() {
 		Expect(podSpec.RestartPolicy).To(Equal(corev1.RestartPolicyNever))
 		Expect(podSpec.SecurityContext).To(Equal(&corev1.PodSecurityContext{
 			RunAsNonRoot: tools.PtrTo(true),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
 		}))
 		Expect(podSpec.AutomountServiceAccountToken).To(Equal(tools.PtrTo(false)))
 		Expect(podSpec.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: "my-image-secret"}))
