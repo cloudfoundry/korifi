@@ -16,16 +16,17 @@ import (
 )
 
 const (
-	JobPath             = "/v3/jobs/{guid}"
-	syncSpaceJobType    = "space.apply_manifest"
-	AppDeleteJobType    = "app.delete"
-	OrgDeleteJobType    = "org.delete"
-	RouteDeleteJobType  = "route.delete"
-	SpaceDeleteJobType  = "space.delete"
-	DomainDeleteJobType = "domain.delete"
-	RoleDeleteJobType   = "role.delete"
-
-	BrokerCreateJobType = "service_broker.create"
+	JobPath                 = "/v3/jobs/{guid}"
+	syncSpaceJobType        = "space.apply_manifest"
+	AppDeleteJobType        = "app.delete"
+	OrgDeleteJobType        = "org.delete"
+	RouteDeleteJobType      = "route.delete"
+	SpaceDeleteJobType      = "space.delete"
+	DomainDeleteJobType     = "domain.delete"
+	RoleDeleteJobType       = "role.delete"
+	BrokerCreateJobType     = "service_broker.create"
+	OrgQuotaDeleteJobType   = "orgquota.delete"
+	SpaceQuotaDeleteJobType = "spacequota.delete"
 
 	JobTimeoutDuration = 120.0
 )

@@ -18,7 +18,7 @@ const (
 
 	AppDeleteOperation           = "app.delete"
 	OrgDeleteOperation           = "org.delete"
-	SpaceQuotaDeleteOperation    = "space.delete"
+	SpaceQuotaDeleteOperation    = "spacequota.delete"
 	OrgQuotaDeleteOperation      = "orgquota.delete"
 	RouteDeleteOperation         = "route.delete"
 	SpaceApplyManifestOperation  = "space.apply_manifest"

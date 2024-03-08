@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -182,4 +183,22 @@ func (r *OrgQuotaRepo) PatchOrgQuota(ctx context.Context, authInfo authorization
 	}
 
 	return toResource(actualCfOrgQuota), nil
+}
+
+func (r *OrgQuotaRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, orgQuotaGUID string) (*time.Time, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("get-deleted-at failed to build user client: %w", err)
+	}
+
+	cfOrgQuota := new(korifiv1alpha1.CFOrgQuota)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: orgQuotaGUID}, cfOrgQuota)
+	if err != nil {
+		return nil, apierrors.FromK8sError(err, OrgQuotaResourceType)
+	}
+
+	if cfOrgQuota.GetDeletionTimestamp() != nil {
+		return &cfOrgQuota.GetDeletionTimestamp().Time, nil
+	}
+	return nil, nil
 }

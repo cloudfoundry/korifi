@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -151,7 +152,6 @@ func (r *SpaceQuotaRepo) AddSpaceQuotaRelationships(ctx context.Context, authInf
 	}
 
 	return actualCfSpaceQuota.Spec.Relationships.Spaces, nil
-
 }
 
 func (r *SpaceQuotaRepo) PatchSpaceQuota(ctx context.Context, authInfo authorization.Info, guid string, spaceQuotaPatch korifiv1alpha1.SpaceQuotaPatch) (korifiv1alpha1.SpaceQuotaResource, error) {
@@ -175,4 +175,22 @@ func (r *SpaceQuotaRepo) PatchSpaceQuota(ctx context.Context, authInfo authoriza
 	}
 
 	return toSpaceQuotaResource(actualCfSpaceQuota), nil
+}
+
+func (r *SpaceQuotaRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, spaceQuotaGUID string) (*time.Time, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("get-deleted-at failed to build user client: %w", err)
+	}
+
+	cfSpaceQuota := new(korifiv1alpha1.CFSpaceQuota)
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: spaceQuotaGUID}, cfSpaceQuota)
+	if err != nil {
+		return nil, apierrors.FromK8sError(err, SpaceQuotaResourceType)
+	}
+
+	if cfSpaceQuota.GetDeletionTimestamp() != nil {
+		return &cfSpaceQuota.GetDeletionTimestamp().Time, nil
+	}
+	return nil, nil
 }
