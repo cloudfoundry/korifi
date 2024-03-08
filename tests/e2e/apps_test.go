@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/go-resty/resty/v2"
@@ -63,6 +64,8 @@ var _ = Describe("Apps", func() {
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app1GUID)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(app2GUID)}),
 			))
+
+			time.Sleep(time.Hour)
 		})
 	})
 
