@@ -10,7 +10,7 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
-	github.com/aws/aws-sdk-go-v2/config v1.27.6
+	github.com/aws/aws-sdk-go-v2/config v1.27.7
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.27.1
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.33.2
@@ -77,17 +77,17 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20190301055215-6c0105aabd46 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/PaesslerAG/gval v1.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.25.2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.6 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.2 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.25.3 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.7 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.21.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.20.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.28.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.20.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.28.4 // indirect
 	github.com/aws/smithy-go v1.20.1 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20231213181459-b0fcec718dc6 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
