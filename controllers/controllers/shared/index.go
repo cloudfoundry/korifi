@@ -13,15 +13,16 @@ import (
 )
 
 const (
-	IndexRouteDestinationAppName           = "destinationAppName"
-	IndexRouteDomainQualifiedName          = "domainQualifiedName"
-	IndexServiceBindingAppGUID             = "serviceBindingAppGUID"
-	IndexServiceBindingServiceInstanceGUID = "serviceBindingServiceInstanceGUID"
-	IndexAppTasks                          = "appTasks"
-	IndexSpaceNamespaceName                = "spaceNamespace"
-	IndexOrgNamespaceName                  = "orgNamespace"
-	IndexServicePlanGUID                   = "servicePlanGUID"
-	IndexServiceOfferingID                 = "serviceOfferingGUID"
+	IndexRouteDestinationAppName              = "destinationAppName"
+	IndexRouteDomainQualifiedName             = "domainQualifiedName"
+	IndexServiceInstanceCredentialsSecretName = "serviceInstanceCredentialsSecretName"
+	IndexServiceBindingAppGUID                = "serviceBindingAppGUID"
+	IndexServiceBindingServiceInstanceGUID    = "serviceBindingServiceInstanceGUID"
+	IndexAppTasks                             = "appTasks"
+	IndexSpaceNamespaceName                   = "spaceNamespace"
+	IndexOrgNamespaceName                     = "orgNamespace"
+	IndexServicePlanGUID                      = "servicePlanGUID"
+	IndexServiceOfferingID                    = "serviceOfferingGUID"
 
 	StatusConditionReady = "Ready"
 )
@@ -66,6 +67,14 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFOrg{}, IndexOrgNamespaceName, func(object client.Object) []string {
 		org := object.(*korifiv1alpha1.CFOrg)
 		return []string{org.Status.GUID}
+	})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServiceInstance{}, IndexServiceInstanceCredentialsSecretName, func(object client.Object) []string {
+		serviceInstance := object.(*korifiv1alpha1.CFServiceInstance)
+		return []string{serviceInstance.Spec.SecretName}
 	})
 	if err != nil {
 		return err

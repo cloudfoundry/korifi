@@ -374,12 +374,14 @@ func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.In
 	}
 
 	_, err = controllerutil.CreateOrPatch(ctx, userClient, &secretObj, func() error {
-		secretObj.StringData = map[string]string{}
+		if secretObj.Data == nil {
+			secretObj.Data = map[string][]byte{}
+		}
 		for k, v := range message.EnvironmentVariables {
 			if v == nil {
 				delete(secretObj.Data, k)
 			} else {
-				secretObj.StringData[k] = *v
+				secretObj.Data[k] = []byte(*v)
 			}
 		}
 		return nil
@@ -403,7 +405,6 @@ func (f *AppRepo) CreateOrPatchAppEnvVars(ctx context.Context, authInfo authoriz
 		secretObj.StringData = envVariables.EnvironmentVariables
 		return nil
 	})
-
 	if err != nil {
 		return AppEnvVarsRecord{}, apierrors.FromK8sError(err, AppEnvResourceType)
 	}
@@ -735,7 +736,6 @@ func appEnvVarsSecretToRecord(envVars corev1.Secret) AppEnvVarsRecord {
 }
 
 func convertByteSliceValuesToStrings(inputMap map[string][]byte) map[string]string {
-	// StringData is a write-only field of a corev1.Secret, the real data lives in .Data and is []byte & base64 encoded
 	outputMap := make(map[string]string, len(inputMap))
 	for k, v := range inputMap {
 		outputMap[k] = string(v)

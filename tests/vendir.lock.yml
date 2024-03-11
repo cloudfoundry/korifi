@@ -2,8 +2,8 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - githubRelease:
-      tag: v0.12.3
-      url: https://api.github.com/repos/buildpacks-community/kpack/releases/131064629
+      tag: v0.13.2
+      url: https://api.github.com/repos/buildpacks-community/kpack/releases/139740949
     path: kpack
   - githubRelease:
       tag: v0.7.0
@@ -14,14 +14,14 @@ directories:
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/137632772
     path: metrics-server-local
   - githubRelease:
-      tag: v1.13.3
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/133422641
+      tag: v1.14.4
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/145452973
     path: cert-manager
   - git:
-      commitTitle: Update Contour Docker image to v1.27.0....
-      sha: 30f317ea4978ddfcdd3405b40032d74dc43efb02
+      commitTitle: Update Contour Docker image to v1.28.1....
+      sha: 56c95b79429720b31bcc499a9eea8e9ff868cfb2
       tags:
-      - v1.27.0
+      - v1.28.1
     path: contour
   - githubRelease:
       tag: v1.0.0

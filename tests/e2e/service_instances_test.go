@@ -49,9 +49,8 @@ var _ = Describe("Service Instances", func() {
 								},
 							},
 						},
-						Credentials: map[string]string{
-							"type":  "database",
-							"hello": "creds",
+						Credentials: map[string]any{
+							"object": map[string]any{"a": "b"},
 						},
 						InstanceType: "user-provided",
 						Tags:         []string{"some", "tags"},
@@ -85,8 +84,8 @@ var _ = Describe("Service Instances", func() {
 							Annotations: map[string]string{"an-annotation": "an-annotation-value"},
 						},
 					},
-					Credentials: map[string]string{
-						"bye": "new-creds",
+					Credentials: map[string]any{
+						"object-new": map[string]any{"new-a": "new-b"},
 					},
 					Tags: []string{"some", "tags"},
 				}).Patch("/v3/service_instances/" + existingInstanceGUID)

@@ -21,7 +21,7 @@ var _ = Describe("VCAP_APPLICATION env value builder", func() {
 
 	Describe("BuildEnvValue", func() {
 		var (
-			vcapApplication                 map[string]string
+			vcapApplication                 map[string][]byte
 			buildVCAPApplicationEnvValueErr error
 		)
 

@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/distribution/distribution/v3/configuration"
-	dcontext "github.com/distribution/distribution/v3/context"
 	_ "github.com/distribution/distribution/v3/registry/auth/htpasswd"
 	"github.com/distribution/distribution/v3/registry/handlers"
 	_ "github.com/distribution/distribution/v3/registry/storage/driver/inmemory"
@@ -25,10 +24,8 @@ import (
 )
 
 func init() {
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-	logger.SetOutput(GinkgoWriter)
-	dcontext.SetDefaultLogger(logrus.NewEntry(logger))
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetOutput(GinkgoWriter)
 }
 
 type Registry struct {

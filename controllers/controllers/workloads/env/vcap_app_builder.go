@@ -23,7 +23,7 @@ func NewVCAPApplicationEnvValueBuilder(k8sClient client.Client, extraValues map[
 	}
 }
 
-func (b *VCAPApplicationEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string]string, error) {
+func (b *VCAPApplicationEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string][]byte, error) {
 	space, err := b.getSpaceFromNamespace(ctx, cfApp.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving space for CFApp: %w", err)
@@ -54,8 +54,8 @@ func (b *VCAPApplicationEnvValueBuilder) BuildEnvValue(ctx context.Context, cfAp
 
 	marshalledVars, _ := json.Marshal(vars)
 
-	return map[string]string{
-		"VCAP_APPLICATION": string(marshalledVars),
+	return map[string][]byte{
+		"VCAP_APPLICATION": marshalledVars,
 	}, nil
 }
 

@@ -59,7 +59,11 @@ The Helm chart will create an example Kpack `ClusterBuilder` (with the associate
 
 ### Contour
 
-[Contour](https://projectcontour.io/) is our [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) controller. Follow the static provisioning [instructions](https://projectcontour.io/docs/1.26/config/gateway-api/#static-provisioning) from the Gateway API support guide to install the latest version. Note that as part of the Contour installation you have to create a gatewayclass with name `$GATEWAY_CLASS_NAME`:
+[Contour](https://projectcontour.io/) is our [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) controller. Contour implements the [Gateway API](https://gateway-api.sigs.k8s.io/). There are two ways to deploy Contour with Gateway API support: static provisioning and dynamic provisioning.
+
+#### Static Provisioning
+
+Follow the static provisioning [instructions](https://projectcontour.io/docs/1.26/config/gateway-api/#static-provisioning) from the Gateway API support guide to install the latest version. Note that as part of the Contour installation you have to create a gatewayclass with name `$GATEWAY_CLASS_NAME`:
 
 ```bash
 kubectl apply -f - <<EOF
@@ -73,6 +77,23 @@ EOF
 ```
 
 This gatewayclass name is a parameter of the helm chart installing korifi. The helm chart is going to define a gateway that will be used for all korifi ingress traffic.
+
+#### Dynamic Provisioning
+
+Follow the dynamic provisioning [instructions](https://projectcontour.io/docs/1.26/config/gateway-api/#dynamic-provisioning) from the Gateway API support guide to install the latest version. 
+
+  - Note that as part of the Contour installation you have to create a gatewayclass with name `$GATEWAY_CLASS_NAME`:
+    ```bash
+    kubectl apply -f - <<EOF
+    kind: GatewayClass
+    apiVersion: gateway.networking.k8s.io/v1beta1
+    metadata:
+      name: $GATEWAY_CLASS_NAME
+    spec:
+      controllerName: projectcontour.io/gateway-controller
+    EOF
+    ```
+  - You DO NOT need to create a gateway as per the instructions. The Korifi helm chart defines a gateway that will be used for all korifi ingress traffic. The gateway will be created in the `korifi-gateway` namespace.
 
 ### Metrics Server
 
@@ -178,7 +199,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=defaultAppDomainName="apps.$BASE_DOMAIN" \
     --set=containerRepositoryPrefix=europe-docker.pkg.dev/my-project/korifi/ \
     --set=kpackImageBuilder.builderRepository=europe-docker.pkg.dev/my-project/korifi/kpack-builder \
-    --set=networking.gatewayClassName=$GATEWAY_CLASS_NAME \
+    --set=networking.gatewayClass=$GATEWAY_CLASS_NAME \
     --wait
 ```
 
@@ -217,10 +238,18 @@ Create DNS entries for the Korifi API and for the apps running on Korifi. They s
 -   The Korifi API entry should match the `api.apiServer.url` value. In our example, that would be `api.korifi.example.org`.
 -   The apps entry should be a wildcard matching the `defaultAppDomainName` value. In our example, `*.apps.korifi.example.org`.
 
-The DNS entries should point to the load balancer endpoint created by Contour when installed. To discover your endpoint, run:
+The DNS entries should point to the load balancer endpoint created by Contour when installed. 
+
+If you used static provisioning of a Contour gateway, discover your endpoint with:
 
 ```sh
 kubectl get service envoy -n projectcontour -ojsonpath='{.status.loadBalancer.ingress[0]}'
+```
+
+If you used dynamic provisioning of a Contour gateway, discover your endpoint with:
+
+```sh
+kubectl get service envoy-korifi -n korifi-gateway -ojsonpath='{.status.loadBalancer.ingress[0]}'
 ```
 
 It may take some time before the address is available. Retry this until you see a result.

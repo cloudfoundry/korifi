@@ -12,7 +12,7 @@ spec:
   from:
   - group: gateway.networking.k8s.io
     kind: Gateway
-    namespace: korifi-gateway
+    namespace: {{ .Release.Namespace }}-gateway
   to:
   - group: ""
     kind: Secret

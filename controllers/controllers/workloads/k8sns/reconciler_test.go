@@ -163,7 +163,6 @@ var _ = Describe("K8S NS Reconciler Integration Tests", func() {
 
 			Expect(createdSecret.Data).To(Equal(imageRegistrySecret.Data))
 			Expect(createdSecret.Immutable).To(Equal(imageRegistrySecret.Immutable))
-			Expect(createdSecret.StringData).To(Equal(imageRegistrySecret.StringData))
 			Expect(createdSecret.Type).To(Equal(imageRegistrySecret.Type))
 
 			By("omitting annotations from deployment tools", func() {
