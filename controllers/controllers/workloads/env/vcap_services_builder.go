@@ -176,25 +176,21 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 	if tags == nil {
 		tags = []string{}
 	}
-	bindingTagBytes, ok := serviceBindingSecret.Data["tags"]
-	if ok {
-		var bindingTags []string
-		if err := json.Unmarshal(bindingTagBytes, &bindingTags); err != nil {
-			return ServiceDetails{}, fmt.Errorf("failed to unmarshal binding secret tags: %w", err)
-		}
 
-		tags = append(tags, bindingTags...)
-	}
-
-	credentials := map[string]any{}
-	for k, v := range serviceBindingSecret.Data {
-		var credValue any
-		err := json.Unmarshal(v, &credValue)
+	var credentials map[string]any
+	if serviceInstance.Spec.Type == korifiv1alpha1.ManagedType {
+		managedTags, err := tagsFromManagedBindingSecret(serviceBindingSecret)
 		if err != nil {
-			return ServiceDetails{}, fmt.Errorf("failed to unmarshal binding secret key %q: %w", k, err)
+			return ServiceDetails{}, fmt.Errorf("failed to get tags from managed service binding secret: %w", err)
 		}
-		credentials[k] = credValue
+		tags = append(tags, managedTags...)
 
+		credentials, err = credentialsFromManagedBindingSecret(serviceBindingSecret)
+		if err != nil {
+			return ServiceDetails{}, fmt.Errorf("failed to get credentials from managed service binding secret: %w", err)
+		}
+	} else {
+		credentials = credentialsFromUserProvidedBindingSecret(serviceBindingSecret)
 	}
 
 	return ServiceDetails{
@@ -209,4 +205,42 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		SyslogDrainURL: nil,
 		VolumeMounts:   []string{},
 	}, nil
+}
+
+func tagsFromManagedBindingSecret(serviceBindingSecret corev1.Secret) ([]string, error) {
+	tags := []string{}
+	bindingTagBytes, ok := serviceBindingSecret.Data["tags"]
+	if ok {
+		var bindingTags []string
+		if err := json.Unmarshal(bindingTagBytes, &bindingTags); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal binding secret tags: %w", err)
+		}
+
+		tags = append(tags, bindingTags...)
+	}
+
+	return tags, nil
+}
+
+func credentialsFromManagedBindingSecret(serviceBindingSecret corev1.Secret) (map[string]any, error) {
+	credentials := map[string]any{}
+	for k, v := range serviceBindingSecret.Data {
+		var credValue any
+		err := json.Unmarshal(v, &credValue)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal binding secret key %q: %w", k, err)
+		}
+		credentials[k] = credValue
+
+	}
+
+	return credentials, nil
+}
+
+func credentialsFromUserProvidedBindingSecret(secret corev1.Secret) map[string]any {
+	convertedMap := make(map[string]any)
+	for k, v := range secret.Data {
+		convertedMap[k] = string(v)
+	}
+	return convertedMap
 }
