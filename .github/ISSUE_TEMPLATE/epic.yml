@@ -1,7 +1,0 @@
-name: Epic
-description: Start a new epic
-labels: [epic]
-body:
-- type: textarea
-  attributes:
-    label: Description
