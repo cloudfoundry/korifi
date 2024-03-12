@@ -51,11 +51,12 @@ type TaskStatusGetter interface {
 
 // TaskWorkloadReconciler reconciles a TaskWorkload object
 type TaskWorkloadReconciler struct {
-	k8sClient    client.Client
-	logger       logr.Logger
-	scheme       *runtime.Scheme
-	statusGetter TaskStatusGetter
-	jobTTL       time.Duration
+	k8sClient                                  client.Client
+	logger                                     logr.Logger
+	scheme                                     *runtime.Scheme
+	statusGetter                               TaskStatusGetter
+	jobTTL                                     time.Duration
+	jobTaskRunnerTemporarySetPodSeccompProfile bool
 }
 
 func NewTaskWorkloadReconciler(
@@ -64,6 +65,7 @@ func NewTaskWorkloadReconciler(
 	scheme *runtime.Scheme,
 	statusGetter TaskStatusGetter,
 	jobTTL time.Duration,
+	jobTaskRunnerTemporarySetPodSeccompProfile bool,
 ) *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload] {
 	taskReconciler := TaskWorkloadReconciler{
 		k8sClient:    k8sClient,
@@ -71,6 +73,7 @@ func NewTaskWorkloadReconciler(
 		scheme:       scheme,
 		statusGetter: statusGetter,
 		jobTTL:       jobTTL,
+		jobTaskRunnerTemporarySetPodSeccompProfile: jobTaskRunnerTemporarySetPodSeccompProfile,
 	}
 
 	return k8s.NewPatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload](logger, k8sClient, &taskReconciler)
@@ -132,9 +135,9 @@ func (r TaskWorkloadReconciler) getOrCreateJob(ctx context.Context, logger logr.
 }
 
 func (r TaskWorkloadReconciler) createJob(ctx context.Context, logger logr.Logger, taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
-	job, err := r.workloadToJob(taskWorkload)
+	job := WorkloadToJob(taskWorkload, int32(r.jobTTL.Seconds()), r.jobTaskRunnerTemporarySetPodSeccompProfile)
+	err := controllerutil.SetControllerReference(taskWorkload, job, r.scheme)
 	if err != nil {
-		logger.Info("failed to convert task workload to job", "reason", err)
 		return nil, err
 	}
 
@@ -151,7 +154,11 @@ func (r TaskWorkloadReconciler) createJob(ctx context.Context, logger logr.Logge
 	return job, nil
 }
 
-func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.TaskWorkload) (*batchv1.Job, error) {
+func WorkloadToJob(
+	taskWorkload *korifiv1alpha1.TaskWorkload,
+	jobTTL int32,
+	jobTaskRunnerTemporarySetPodSeccompProfile bool,
+) *batchv1.Job {
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      taskWorkload.Name,
@@ -161,15 +168,12 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 			BackoffLimit:            tools.PtrTo(int32(0)),
 			Parallelism:             tools.PtrTo(int32(1)),
 			Completions:             tools.PtrTo(int32(1)),
-			TTLSecondsAfterFinished: tools.PtrTo(int32(r.jobTTL.Seconds())),
+			TTLSecondsAfterFinished: tools.PtrTo(jobTTL),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: tools.PtrTo(true),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
 					},
 					AutomountServiceAccountToken: tools.PtrTo(false),
 					ImagePullSecrets:             taskWorkload.Spec.ImagePullSecrets,
@@ -195,12 +199,12 @@ func (r *TaskWorkloadReconciler) workloadToJob(taskWorkload *korifiv1alpha1.Task
 		},
 	}
 
-	err := controllerutil.SetControllerReference(taskWorkload, job, r.scheme)
-	if err != nil {
-		return nil, err
+	if jobTaskRunnerTemporarySetPodSeccompProfile {
+		job.Spec.Template.Spec.SecurityContext.SeccompProfile = &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		}
 	}
-
-	return job, nil
+	return job
 }
 
 func (r *TaskWorkloadReconciler) updateTaskWorkloadStatus(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload, job *batchv1.Job) error {
