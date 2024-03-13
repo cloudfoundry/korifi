@@ -77,6 +77,7 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
+  - `temporarySetPodSeccompProfile` (_Boolean_): Sets the pod .spec.securityContext.seccompProfile to RuntimeDefault. Setting this flag to true will cause a restart of all previously running pods.
 - `kpackImageBuilder`:
   - `builderReadinessTimeout` (_String_): The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `builderRepository` (_String_): Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.
@@ -114,4 +115,5 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
+  - `temporarySetPodSeccompProfile` (_Boolean_): Sets the pod .spec.securityContext.seccompProfile to RuntimeDefault. Setting this flag to true will cause a restart of all previously running pods.
 - `systemImagePullSecrets` (_Array_): List of `Secret` names to be used when pulling Korifi system images from private registries
