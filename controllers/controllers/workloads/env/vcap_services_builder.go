@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	corev1 "k8s.io/api/core/v1"
@@ -104,8 +105,8 @@ func (b *VCAPServicesEnvValueBuilder) getServiceOffering(ctx context.Context, se
 }
 
 func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, string, error) {
-	if serviceBinding.Status.Binding.Name == "" {
-		return ServiceDetails{}, "", fmt.Errorf("secret name not set for service binding %q", serviceBinding.Name)
+	if serviceBinding.Status.Credentials.Name == "" {
+		return ServiceDetails{}, "", fmt.Errorf("credentials secret name not set for service binding %q", serviceBinding.Name)
 	}
 
 	serviceInstance := korifiv1alpha1.CFServiceInstance{}
@@ -114,8 +115,13 @@ func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context,
 		return ServiceDetails{}, "", fmt.Errorf("error fetching CFServiceInstance: %w", err)
 	}
 
-	secret := corev1.Secret{}
-	err = k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Status.Binding.Name}, &secret)
+	credentialsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: serviceBinding.Namespace,
+			Name:      serviceBinding.Status.Credentials.Name,
+		},
+	}
+	err = k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
 	if err != nil {
 		return ServiceDetails{}, "", fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 	}
@@ -125,7 +131,7 @@ func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context,
 		return ServiceDetails{}, "", fmt.Errorf("failed to determine service label: %w", err)
 	}
 
-	serviceDetails, err := b.fromServiceBinding(ctx, serviceBinding, serviceInstance, secret, serviceLabel)
+	serviceDetails, err := b.fromServiceBinding(ctx, serviceBinding, serviceInstance, credentialsSecret, serviceLabel)
 	if err != nil {
 		return ServiceDetails{}, "", fmt.Errorf("error creating service details: %w", err)
 	}
@@ -158,7 +164,7 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 	ctx context.Context,
 	serviceBinding korifiv1alpha1.CFServiceBinding,
 	serviceInstance korifiv1alpha1.CFServiceInstance,
-	serviceBindingSecret corev1.Secret,
+	credentialsSecret *corev1.Secret,
 	serviceLabel string,
 ) (ServiceDetails, error) {
 	var serviceName string
@@ -177,20 +183,24 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		tags = []string{}
 	}
 
-	var credentials map[string]any
+	var serviceCredentials map[string]any
 	if serviceInstance.Spec.Type == korifiv1alpha1.ManagedType {
-		managedTags, err := tagsFromManagedBindingSecret(serviceBindingSecret)
+		managedTags, err := tagsFromManagedBindingSecret(credentialsSecret)
 		if err != nil {
 			return ServiceDetails{}, fmt.Errorf("failed to get tags from managed service binding secret: %w", err)
 		}
 		tags = append(tags, managedTags...)
 
-		credentials, err = credentialsFromManagedBindingSecret(serviceBindingSecret)
+		serviceCredentials, err = credentialsFromManagedBindingSecret(credentialsSecret)
 		if err != nil {
 			return ServiceDetails{}, fmt.Errorf("failed to get credentials from managed service binding secret: %w", err)
 		}
 	} else {
-		credentials = credentialsFromUserProvidedBindingSecret(serviceBindingSecret)
+		var err error
+		serviceCredentials, err = credentials.GetCredentials(credentialsSecret)
+		if err != nil {
+			return ServiceDetails{}, fmt.Errorf("failed to get credentials for service binding %q: %w", serviceBinding.Name, err)
+		}
 	}
 
 	return ServiceDetails{
@@ -201,13 +211,13 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		InstanceName:   serviceInstance.Spec.DisplayName,
 		BindingGUID:    serviceBinding.Name,
 		BindingName:    bindingName,
-		Credentials:    credentials,
+		Credentials:    serviceCredentials,
 		SyslogDrainURL: nil,
 		VolumeMounts:   []string{},
 	}, nil
 }
 
-func tagsFromManagedBindingSecret(serviceBindingSecret corev1.Secret) ([]string, error) {
+func tagsFromManagedBindingSecret(serviceBindingSecret *corev1.Secret) ([]string, error) {
 	tags := []string{}
 	bindingTagBytes, ok := serviceBindingSecret.Data["tags"]
 	if ok {
@@ -222,7 +232,7 @@ func tagsFromManagedBindingSecret(serviceBindingSecret corev1.Secret) ([]string,
 	return tags, nil
 }
 
-func credentialsFromManagedBindingSecret(serviceBindingSecret corev1.Secret) (map[string]any, error) {
+func credentialsFromManagedBindingSecret(serviceBindingSecret *corev1.Secret) (map[string]any, error) {
 	credentials := map[string]any{}
 	for k, v := range serviceBindingSecret.Data {
 		var credValue any

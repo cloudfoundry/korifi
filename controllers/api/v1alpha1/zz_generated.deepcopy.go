@@ -1425,6 +1425,7 @@ func (in *CFServiceBindingSpec) DeepCopy() *CFServiceBindingSpec {
 func (in *CFServiceBindingStatus) DeepCopyInto(out *CFServiceBindingStatus) {
 	*out = *in
 	out.Binding = in.Binding
+	out.Credentials = in.Credentials
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]metav1.Condition, len(*in))

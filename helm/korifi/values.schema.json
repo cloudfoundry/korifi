@@ -407,6 +407,10 @@
           "description": "Number of replicas.",
           "type": "integer"
         },
+        "temporarySetPodSeccompProfile": {
+          "description": "Sets the pod .spec.securityContext.seccompProfile to RuntimeDefault. Setting this flag to true will cause a restart of all previously running pods.",
+          "type": "boolean"
+        },
         "resources": {
           "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
           "type": "object",
@@ -454,6 +458,10 @@
         "replicas": {
           "description": "Number of replicas.",
           "type": "integer"
+        },
+        "temporarySetPodSeccompProfile": {
+          "description": "Sets the pod .spec.securityContext.seccompProfile to RuntimeDefault. Setting this flag to true will cause a restart of all previously running pods.",
+          "type": "boolean"
         },
         "resources": {
           "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",

@@ -8,19 +8,21 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Builder", func() {
 	var (
-		serviceBinding       *korifiv1alpha1.CFServiceBinding
-		serviceInstance      *korifiv1alpha1.CFServiceInstance
-		serviceBindingSecret *corev1.Secret
-		vcapServicesSecret   *corev1.Secret
-		builder              *env.VCAPServicesEnvValueBuilder
+		serviceBinding     *korifiv1alpha1.CFServiceBinding
+		serviceInstance    *korifiv1alpha1.CFServiceInstance
+		credentialsSecret  *corev1.Secret
+		vcapServicesSecret *corev1.Secret
+		builder            *env.VCAPServicesEnvValueBuilder
 	)
 
 	BeforeEach(func() {
@@ -39,16 +41,21 @@ var _ = Describe("Builder", func() {
 		}
 		ensureCreate(serviceInstance)
 
-		serviceBindingSecret = &corev1.Secret{
+		credentialsData, err := json.Marshal(map[string]any{
+			"foo": "bar",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		credentialsSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfSpace.Status.GUID,
-				Name:      "service-binding-secret",
+				Name:      uuid.NewString(),
 			},
 			Data: map[string][]byte{
-				"foo": []byte("bar"),
+				korifiv1alpha1.CredentialsSecretKey: credentialsData,
 			},
 		}
-		ensureCreate(serviceBindingSecret)
+		ensureCreate(credentialsSecret)
 
 		serviceBindingName := "my-service-binding"
 		serviceBinding = &korifiv1alpha1.CFServiceBinding{
@@ -69,8 +76,8 @@ var _ = Describe("Builder", func() {
 		ensureCreate(serviceBinding)
 		ensurePatch(serviceBinding, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
-				Binding: corev1.LocalObjectReference{
-					Name: "service-binding-secret",
+				Credentials: corev1.LocalObjectReference{
+					Name: credentialsSecret.Name,
 				},
 			}
 		})
@@ -85,16 +92,6 @@ var _ = Describe("Builder", func() {
 				Tags:         []string{"t1", "t2"},
 				Type:         "user-provided",
 				ServiceLabel: tools.PtrTo("custom-service-2"),
-			},
-		})
-
-		ensureCreate(&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfSpace.Status.GUID,
-				Name:      "service-binding-secret-2",
-			},
-			Data: map[string][]byte{
-				"bar": []byte("foo"),
 			},
 		})
 
@@ -117,8 +114,8 @@ var _ = Describe("Builder", func() {
 		ensureCreate(serviceBinding2)
 		ensurePatch(serviceBinding2, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
-				Binding: corev1.LocalObjectReference{
-					Name: "service-binding-secret-2",
+				Credentials: corev1.LocalObjectReference{
+					Name: credentialsSecret.Name,
 				},
 			}
 		})
@@ -146,36 +143,36 @@ var _ = Describe("Builder", func() {
 		It("returns the service info", func() {
 			Expect(buildVCAPServicesEnvValueErr).NotTo(HaveOccurred())
 
-			Expect(extractServiceInfo(vcapServices, "user-provided", 1)).To(ContainElements(
-				SatisfyAll(
-					HaveLen(10),
-					HaveKeyWithValue("label", "user-provided"),
-					HaveKeyWithValue("name", "my-service-binding"),
-					HaveKeyWithValue("tags", ConsistOf("t1", "t2")),
-					HaveKeyWithValue("instance_guid", "my-service-instance-guid"),
-					HaveKeyWithValue("instance_name", "my-service-instance"),
-					HaveKeyWithValue("binding_guid", "my-service-binding-guid"),
-					HaveKeyWithValue("binding_name", Equal("my-service-binding")),
-					HaveKeyWithValue("credentials", SatisfyAll(HaveKeyWithValue("foo", "bar"), HaveLen(1))),
-					HaveKeyWithValue("syslog_drain_url", BeNil()),
-					HaveKeyWithValue("volume_mounts", BeEmpty()),
-				),
-			))
-			Expect(extractServiceInfo(vcapServices, "custom-service-2", 1)).To(ContainElements(
-				SatisfyAll(
-					HaveLen(10),
-					HaveKeyWithValue("label", "custom-service-2"),
-					HaveKeyWithValue("name", "my-service-binding-2"),
-					HaveKeyWithValue("tags", ConsistOf("t1", "t2")),
-					HaveKeyWithValue("instance_guid", "my-service-instance-guid-2"),
-					HaveKeyWithValue("instance_name", "my-service-instance-2"),
-					HaveKeyWithValue("binding_guid", "my-service-binding-guid-2"),
-					HaveKeyWithValue("binding_name", Equal("my-service-binding-2")),
-					HaveKeyWithValue("credentials", SatisfyAll(HaveKeyWithValue("bar", "foo"), HaveLen(1))),
-					HaveKeyWithValue("syslog_drain_url", BeNil()),
-					HaveKeyWithValue("volume_mounts", BeEmpty()),
-				),
-			))
+			Expect(parseVcapServices(vcapServices)).To(MatchAllKeys(Keys{
+				"user-provided": ConsistOf(MatchAllKeys(Keys{
+					"label":         Equal("user-provided"),
+					"name":          Equal("my-service-binding"),
+					"tags":          ConsistOf("t1", "t2"),
+					"instance_guid": Equal("my-service-instance-guid"),
+					"instance_name": Equal("my-service-instance"),
+					"binding_guid":  Equal("my-service-binding-guid"),
+					"binding_name":  Equal("my-service-binding"),
+					"credentials": MatchAllKeys(Keys{
+						"foo": Equal("bar"),
+					}),
+					"syslog_drain_url": BeNil(),
+					"volume_mounts":    BeEmpty(),
+				})),
+				"custom-service-2": ConsistOf(MatchAllKeys(Keys{
+					"label":         Equal("custom-service-2"),
+					"name":          Equal("my-service-binding-2"),
+					"tags":          ConsistOf("t1", "t2"),
+					"instance_guid": Equal("my-service-instance-guid-2"),
+					"instance_name": Equal("my-service-instance-2"),
+					"binding_guid":  Equal("my-service-binding-guid-2"),
+					"binding_name":  Equal("my-service-binding-2"),
+					"credentials": MatchAllKeys(Keys{
+						"foo": Equal("bar"),
+					}),
+					"syslog_drain_url": BeNil(),
+					"volume_mounts":    BeEmpty(),
+				})),
+			}))
 		})
 
 		When("the service binding has no name", func() {
@@ -186,11 +183,19 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("uses the service instance name as name", func() {
-				Expect(extractServiceInfo(vcapServices, "user-provided", 1)).To(ContainElement(HaveKeyWithValue("name", serviceInstance.Spec.DisplayName)))
+				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
+					"user-provided": ConsistOf(MatchKeys(IgnoreExtras, Keys{
+						"name": Equal(serviceInstance.Spec.DisplayName),
+					})),
+				}))
 			})
 
 			It("sets the binding name to nil", func() {
-				Expect(extractServiceInfo(vcapServices, "user-provided", 1)).To(ContainElement(HaveKeyWithValue("binding_name", BeNil())))
+				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
+					"user-provided": ConsistOf(MatchKeys(IgnoreExtras, Keys{
+						"binding_name": BeNil(),
+					})),
+				}))
 			})
 		})
 
@@ -202,7 +207,11 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("sets an empty array to tags", func() {
-				Expect(extractServiceInfo(vcapServices, "user-provided", 1)).To(ContainElement(HaveKeyWithValue("tags", BeEmpty())))
+				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
+					"user-provided": ConsistOf(MatchKeys(IgnoreExtras, Keys{
+						"tags": BeEmpty(),
+					})),
+				}))
 			})
 		})
 
@@ -214,7 +223,9 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("defaults the label to user-provided", func() {
-				Expect(extractServiceInfo(vcapServices, "user-provided", 1)).NotTo(BeEmpty())
+				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
+					"user-provided": Not(BeEmpty()),
+				}))
 			})
 		})
 
@@ -226,7 +237,9 @@ var _ = Describe("Builder", func() {
 			})
 
 			It("defaults the label to user-provided", func() {
-				Expect(extractServiceInfo(vcapServices, "custom-service-2", 2)).NotTo(BeEmpty())
+				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
+					"custom-service-2": Not(BeEmpty()),
+				}))
 			})
 		})
 
@@ -247,7 +260,7 @@ var _ = Describe("Builder", func() {
 
 		When("getting the service binding secret fails", func() {
 			BeforeEach(func() {
-				ensureDelete(serviceBindingSecret)
+				ensureDelete(credentialsSecret)
 			})
 
 			It("returns an error", func() {
@@ -257,23 +270,10 @@ var _ = Describe("Builder", func() {
 	})
 })
 
-func extractServiceInfo(vcapServicesData map[string][]byte, serviceKey string, expectedElements int) []map[string]any {
+func parseVcapServices(vcapServicesData map[string][]byte) map[string]any {
 	Expect(vcapServicesData).To(HaveKey("VCAP_SERVICES"))
 	var vcapServices map[string]any
 	Expect(json.Unmarshal([]byte(vcapServicesData["VCAP_SERVICES"]), &vcapServices)).To(Succeed())
 
-	Expect(vcapServices).To(HaveKey(serviceKey))
-
-	serviceInfos, ok := vcapServices[serviceKey].([]any)
-	Expect(ok).To(BeTrue())
-	Expect(serviceInfos).To(HaveLen(expectedElements))
-
-	infos := make([]map[string]any, 0, expectedElements)
-	for i := range serviceInfos {
-		info, ok := serviceInfos[i].(map[string]any)
-		Expect(ok).To(BeTrue())
-		infos = append(infos, info)
-	}
-
-	return infos
+	return vcapServices
 }

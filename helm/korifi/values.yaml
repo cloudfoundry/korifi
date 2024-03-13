@@ -102,6 +102,7 @@ kpackImageBuilder:
 statefulsetRunner:
   include: true
   replicas: 1
+  temporarySetPodSeccompProfile: false
   resources:
     limits:
       cpu: 500m
@@ -113,6 +114,7 @@ statefulsetRunner:
 jobTaskRunner:
   include: true
   replicas: 1
+  temporarySetPodSeccompProfile: false
   resources:
     limits:
       cpu: 500m

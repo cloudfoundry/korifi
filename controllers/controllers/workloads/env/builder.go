@@ -24,7 +24,6 @@ type ServiceDetails struct {
 	Credentials    map[string]any `json:"credentials"`
 	SyslogDrainURL *string        `json:"syslog_drain_url"`
 	VolumeMounts   []string       `json:"volume_mounts"`
-	Plan           string         `json:"plan,omitempty"`
 }
 
 type WorkloadEnvBuilder struct {

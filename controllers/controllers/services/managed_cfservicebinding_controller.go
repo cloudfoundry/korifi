@@ -158,6 +158,28 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 
 	cfServiceBinding.Status.Binding.Name = bindingSecret.Name
 
+	credentialsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceBinding.Namespace,
+			Name:      cfServiceBinding.Name,
+		},
+	}
+
+	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, credentialsSecret, func() error {
+		credentialsBytes, err := json.Marshal(binding.Credentials)
+		if err != nil {
+			return fmt.Errorf("failed to marshal value: %w", err)
+		}
+		bindingSecret.Data[korifiv1alpha1.CredentialsSecretKey] = credentialsBytes
+
+		return nil
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	cfServiceBinding.Status.Credentials.Name = credentialsSecret.Name
+
 	cfApp := new(korifiv1alpha1.CFApp)
 	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
 	if err != nil {

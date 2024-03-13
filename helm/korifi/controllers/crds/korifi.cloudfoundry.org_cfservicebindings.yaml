@@ -116,8 +116,10 @@ spec:
             properties:
               binding:
                 description: |-
-                  A reference to the Secret containing the credentials.
-                  This is required to conform to the Kubernetes Service Bindings spec
+                  A reference to the Secret containing the binding Credentials in
+                  servicebinding.io format. In order to conform to that spec the resource
+                  should have a "duck type" field called `binding`. From more info see the
+                  servicebinding.io [spec](https://servicebinding.io/spec/core/1.0.0-rc3/#Duck%20Type)
                 properties:
                   name:
                     description: |-
@@ -196,6 +198,20 @@ spec:
                   - type
                   type: object
                 type: array
+              credentials:
+                description: |-
+                  A reference to the Secret containing the binding Credentials object. For
+                  bindings to user-provided services this refers to the credentials secret
+                  from the service instance
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               observedGeneration:
                 description: ObservedGeneration captures the latest generation of
                   the CFServiceBinding that has been reconciled

@@ -396,6 +396,7 @@ func main() {
 				mgr.GetScheme(),
 				jobtaskrunnercontrollers.NewStatusGetter(logger, mgr.GetClient()),
 				jobTTL,
+				controllerConfig.JobTaskRunnerTemporarySetPodSeccompProfile,
 			)
 			if err = taskWorkloadReconciler.SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")
@@ -408,7 +409,10 @@ func main() {
 			if err = statefulsetcontrollers.NewAppWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
-				statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
+				statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(
+					mgr.GetScheme(),
+					controllerConfig.StatefulsetRunnerTemporarySetPodSeccompProfile,
+				),
 				statefulsetcontrollers.NewPDBUpdater(mgr.GetClient()),
 				logger,
 			).SetupWithManager(mgr); err != nil {

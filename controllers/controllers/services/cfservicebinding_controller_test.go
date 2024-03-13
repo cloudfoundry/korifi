@@ -153,7 +153,12 @@ var _ = Describe("CFServiceBinding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBinding), cfServiceBinding)).To(Succeed())
 				g.Expect(meta.IsStatusConditionTrue(cfServiceBinding.Status.Conditions, services.BindingSecretAvailableCondition)).To(BeTrue())
+
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)).To(Succeed())
+				g.Expect(cfServiceInstance.Status.Credentials.Name).NotTo(BeEmpty())
 			}).Should(Succeed())
+
+			Expect(cfServiceBinding.Status.Credentials.Name).To(Equal(cfServiceInstance.Status.Credentials.Name))
 
 			Expect(cfServiceBinding.Status.Binding.Name).NotTo(BeEmpty())
 
