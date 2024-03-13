@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
@@ -59,6 +60,9 @@ func TestSmoke(t *testing.T) {
 					Container:  "manager",
 				},
 			})
+		},
+		ContainSubstring("Org deletion timed out"): func(config *rest.Config, _ string) {
+			printOrgNamespaces(config)
 		},
 	}))
 	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
@@ -119,7 +123,7 @@ func sessionOutput(session *Session) (string, error) {
 	return strings.TrimSpace(string(session.Out.Contents())), nil
 }
 
-func printCfApp(config *rest.Config) {
+func printOrgNamespaces(config *rest.Config) {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
@@ -127,19 +131,30 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
-	cfOrgNamespaceName, err := sessionOutput(helpers.Cf("org", orgName, "--guid"))
-	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to run 'cf org %s --guid': %v\n", orgName, err)
+	namespaces := &corev1.NamespaceList{}
+	if err := k8sClient.List(context.Background(), namespaces); err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to list namespaces: %v\n", err)
 		return
 	}
 
-	err = printObject(k8sClient, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: cfOrgNamespaceName,
-		},
-	})
+	for _, namespace := range namespaces.Items {
+		if !strings.Contains(namespace.Name, repositories.OrgPrefix) {
+			continue
+		}
+
+		fmt.Fprintln(GinkgoWriter, "CFOrg deletion timed out! Printing all Org namespaces:")
+		if err := printObject(k8sClient, &namespace); err != nil {
+			fmt.Fprintf(GinkgoWriter, "failed printing namespace: %v\n", err)
+			return
+		}
+	}
+}
+
+func printCfApp(config *rest.Config) {
+	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
+	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed printing cforg namespace: %v\n", err)
+		fmt.Fprintf(GinkgoWriter, "failed to create k8s client: %v\n", err)
 		return
 	}
 
@@ -154,13 +169,12 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
-	err = printObject(k8sClient, &korifiv1alpha1.CFApp{
+	if err := printObject(k8sClient, &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfAppGUID,
 			Namespace: cfAppNamespace,
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed printing cfapp: %v\n", err)
 		return
 	}
