@@ -191,6 +191,8 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 }
 
 func (r *CFServiceBindingReconciler) reconcileCredentials(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*corev1.Secret, error) {
+	cfServiceBinding.Status.Credentials.Name = cfServiceInstance.Status.Credentials.Name
+
 	if isLegacyServiceBinding(cfServiceBinding, cfServiceInstance) {
 		bindingSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -232,7 +234,7 @@ func (r *CFServiceBindingReconciler) reconcileCredentials(ctx context.Context, c
 		if err != nil {
 			return err
 		}
-		bindingSecret.Data, err = credentials.GetBindingSecretData(credentialsSecret)
+		bindingSecret.Data, err = credentials.GetServiceBindingIOSecretData(credentialsSecret)
 		if err != nil {
 			return err
 		}

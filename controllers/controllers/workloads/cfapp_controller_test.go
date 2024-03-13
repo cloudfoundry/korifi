@@ -76,8 +76,8 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Name:      PrefixedGUID("service-instance-secret"),
 					Namespace: cfSpace.Status.GUID,
 				},
-				StringData: map[string]string{
-					"foo": "bar",
+				Data: map[string][]byte{
+					korifiv1alpha1.CredentialsSecretKey: []byte(`{"foo": "bar"}`),
 				},
 			}
 			Expect(adminClient.Create(context.Background(), serviceInstanceSecret)).To(Succeed())
@@ -111,7 +111,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			}
 			Expect(adminClient.Create(ctx, serviceBinding)).To(Succeed())
 			Expect(k8s.Patch(ctx, adminClient, serviceBinding, func() {
-				serviceBinding.Status.Binding = corev1.LocalObjectReference{
+				serviceBinding.Status.Credentials = corev1.LocalObjectReference{
 					Name: serviceInstanceSecret.Name,
 				}
 			})).To(Succeed())

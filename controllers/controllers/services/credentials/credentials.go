@@ -11,7 +11,7 @@ import (
 const ServiceBindingSecretTypePrefix = "servicebinding.io/"
 
 func GetBindingSecretType(credentialsSecret *corev1.Secret) (corev1.SecretType, error) {
-	credentials, err := getCredentials(credentialsSecret)
+	credentials, err := GetCredentials(credentialsSecret)
 	if err != nil {
 		return "", err
 	}
@@ -24,8 +24,8 @@ func GetBindingSecretType(credentialsSecret *corev1.Secret) (corev1.SecretType, 
 	return corev1.SecretType(ServiceBindingSecretTypePrefix + korifiv1alpha1.UserProvidedType), nil
 }
 
-func GetBindingSecretData(credentialsSecret *corev1.Secret) (map[string][]byte, error) {
-	credentials, err := getCredentials(credentialsSecret)
+func GetServiceBindingIOSecretData(credentialsSecret *corev1.Secret) (map[string][]byte, error) {
+	credentials, err := GetCredentials(credentialsSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func toBytes(value any) ([]byte, error) {
 	return json.Marshal(value)
 }
 
-func getCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
+func GetCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
 	credentials, ok := credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey]
 	if !ok {
 		return nil, fmt.Errorf(
