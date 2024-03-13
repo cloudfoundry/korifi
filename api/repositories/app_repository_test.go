@@ -1597,7 +1597,7 @@ func generateVcapServiceSecretDataByte() (map[string][]byte, error) {
 		InstanceName: "myupsi",
 		BindingGUID:  "73f68d28-4602-47a3-8110-74ca991d5032",
 		BindingName:  nil,
-		Credentials: map[string]string{
+		Credentials: map[string]any{
 			"foo": "bar",
 		},
 		SyslogDrainURL: nil,

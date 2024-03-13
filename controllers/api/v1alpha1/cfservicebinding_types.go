@@ -37,10 +37,18 @@ type CFServiceBindingSpec struct {
 
 // CFServiceBindingStatus defines the observed state of CFServiceBinding
 type CFServiceBindingStatus struct {
-	// A reference to the Secret containing the credentials.
-	// This is required to conform to the Kubernetes Service Bindings spec
+	// A reference to the Secret containing the binding Credentials in
+	// servicebinding.io format. In order to conform to that spec the resource
+	// should have a "duck type" field called `binding`. From more info see the
+	// servicebinding.io [spec](https://servicebinding.io/spec/core/1.0.0-rc3/#Duck%20Type)
 	// +optional
 	Binding v1.LocalObjectReference `json:"binding"`
+
+	// A reference to the Secret containing the binding Credentials object. For
+	// bindings to user-provided services this refers to the credentials secret
+	// from the service instance
+	// +optional
+	Credentials v1.LocalObjectReference `json:"credentials"`
 
 	//+kubebuilder:validation:Optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`

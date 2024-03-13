@@ -25,6 +25,47 @@ var _ = Describe("Credentials", func() {
 		}
 	})
 
+	Describe("GetCredentials", func() {
+		var creds map[string]any
+
+		JustBeforeEach(func() {
+			creds, err = credentials.GetCredentials(credentialsSecret)
+		})
+
+		It("returns the credentials object", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(creds).To(MatchAllKeys(Keys{
+				"foo": MatchAllKeys(Keys{
+					"bar": Equal("baz"),
+				}),
+			}))
+		})
+
+		When("the credentials cannot be unmarshalled", func() {
+			BeforeEach(func() {
+				credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte("invalid")
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("failed to unmarshal secret data")))
+			})
+		})
+
+		When("the credentials key is missing from the secret data", func() {
+			BeforeEach(func() {
+				credentialsSecret.Data = map[string][]byte{
+					"foo": {},
+				}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring(
+					fmt.Sprintf("does not contain the %q key", korifiv1alpha1.CredentialsSecretKey),
+				)))
+			})
+		})
+	})
+
 	Describe("GetBindingSecretType", func() {
 		var secretType corev1.SecretType
 
@@ -58,37 +99,13 @@ var _ = Describe("Credentials", func() {
 				Expect(secretType).To(BeEquivalentTo(credentials.ServiceBindingSecretTypePrefix + "user-provided"))
 			})
 		})
-
-		When("the credentials cannot be unmarshalled", func() {
-			BeforeEach(func() {
-				credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte("invalid")
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("failed to unmarshal secret data")))
-			})
-		})
-
-		When("the credentials key is missing from the secret data", func() {
-			BeforeEach(func() {
-				credentialsSecret.Data = map[string][]byte{
-					"foo": {},
-				}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring(
-					fmt.Sprintf("does not contain the %q key", korifiv1alpha1.CredentialsSecretKey),
-				)))
-			})
-		})
 	})
 
-	Describe("GetBindingSecretData", func() {
+	Describe("GetServiceBindingIOSecretData", func() {
 		var bindingSecretData map[string][]byte
 
 		JustBeforeEach(func() {
-			bindingSecretData, err = credentials.GetBindingSecretData(credentialsSecret)
+			bindingSecretData, err = credentials.GetServiceBindingIOSecretData(credentialsSecret)
 		})
 
 		It("converts the credentials into a flat strings map", func() {
@@ -96,30 +113,6 @@ var _ = Describe("Credentials", func() {
 			Expect(bindingSecretData).To(MatchAllKeys(Keys{
 				"foo": Equal([]byte(`{"bar":"baz"}`)),
 			}))
-		})
-
-		When("the credentials key is missing from the secret data", func() {
-			BeforeEach(func() {
-				credentialsSecret.Data = map[string][]byte{
-					"foo": {},
-				}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring(
-					fmt.Sprintf("does not contain the %q key", korifiv1alpha1.CredentialsSecretKey),
-				)))
-			})
-		})
-
-		When("the credentials cannot be unmarshalled", func() {
-			BeforeEach(func() {
-				credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte("invalid")
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("failed to unmarshal secret data")))
-			})
 		})
 	})
 })
