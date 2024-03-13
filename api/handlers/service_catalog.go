@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-logr/logr"
 )
 
@@ -22,10 +23,10 @@ const (
 )
 
 type ServiceCatalogRepo interface {
-	ListServiceOfferings(ctx context.Context, authInfo authorization.Info, message repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
-	ListServicePlans(ctx context.Context, authInfo authorization.Info, message repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
-	GetServicePlan(ctx context.Context, authInfo authorization.Info, guid string) (repositories.ServicePlanRecord, error)
-	GetServiceOffering(ctx context.Context, authInfo authorization.Info, guid string) (repositories.ServiceOfferingRecord, error)
+	ListServiceOfferings(ctx context.Context, authInfo authorization.Info, message repositories.ListServiceOfferingMessage) ([]korifiv1alpha1.ServiceOfferingResource, error)
+	ListServicePlans(ctx context.Context, authInfo authorization.Info, message repositories.ListServicePlanMessage) ([]korifiv1alpha1.ServicePlanResource, error)
+	GetServicePlan(ctx context.Context, authInfo authorization.Info, guid string) (korifiv1alpha1.ServicePlanResource, error)
+	GetServiceOffering(ctx context.Context, authInfo authorization.Info, guid string) (korifiv1alpha1.ServiceOfferingResource, error)
 }
 
 type ServiceCatalog struct {

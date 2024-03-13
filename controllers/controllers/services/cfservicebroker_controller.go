@@ -40,11 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	ServiceBrokerGUIDLabel   = "cfservicebroker"
-	ServiceOfferingGUIDLabel = "cfserviceoffering"
-)
-
 // CFServiceBrokerReconciler reconciles a CFServiceInstance object
 type CFServiceBrokerReconciler struct {
 	rootNamespace string
@@ -58,23 +53,15 @@ type InputParameterSchema struct {
 }
 
 type CatalogPlan struct {
-	Id               string                 `json:"id"`
-	Name             string                 `json:"name"`
-	Description      string                 `json:"description"`
-	Metadata         map[string]interface{} `json:"metadata"`
-	Free             bool                   `json:"free"`
-	Bindable         bool                   `json:"bindable"`
-	BindingRotatable bool                   `json:"binding_rotatable"`
-	PlanUpdateable   bool                   `json:"plan_updateable"`
-	Schemas          struct {
-		ServiceInstance struct {
-			Create InputParameterSchema `json:"create"`
-			Update InputParameterSchema `json:"update"`
-		} `json:"service_instance"`
-		ServiceBinding struct {
-			Create InputParameterSchema `json:"create"`
-		} `json:"service_binding"`
-	} `json:"schemas"`
+	Id               string                             `json:"id"`
+	Name             string                             `json:"name"`
+	Description      string                             `json:"description"`
+	Metadata         map[string]interface{}             `json:"metadata"`
+	Free             bool                               `json:"free"`
+	Bindable         bool                               `json:"bindable"`
+	BindingRotatable bool                               `json:"binding_rotatable"`
+	PlanUpdateable   bool                               `json:"plan_updateable"`
+	Schemas          *korifiv1alpha1.ServicePlanSchemas `json:"schemas"`
 }
 
 type CatalogService struct {
@@ -88,7 +75,7 @@ type CatalogService struct {
 	AllowContextUpdates  bool     `json:"allow_context_updates"`
 	Tags                 []string `json:"tags"`
 	Requires             []string `json:"requires"`
-	//DocumentationUrl     string                 `json:"documentation_url"`
+	DocumentationUrl     *string  `json:"documentation_url"`
 	//Shareable       bool                   `json:"shareable"`
 	Metadata        map[string]interface{} `json:"metadata"`
 	DashboardClient struct {
@@ -101,13 +88,6 @@ type CatalogService struct {
 
 type ServiceCatalogResponse struct {
 	Services []CatalogService `json:"services"`
-}
-
-type ServiceBrokerClient struct {
-	baseURL       string
-	authorization string
-	offerings     []*korifiv1alpha1.CFServiceOffering
-	plans         []*korifiv1alpha1.CFServicePlan
 }
 
 func (r *CFServiceBrokerReconciler) getCatalog(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker) (*ServiceCatalogResponse, error) {
@@ -151,57 +131,66 @@ func (r *CFServiceBrokerReconciler) getCatalog(ctx context.Context, cfServiceBro
 	return catalogResponse, nil
 }
 
-func (r *CFServiceBrokerReconciler) mapServiceToCFOffering(guid string, catalogService CatalogService, cfServiceBroker *korifiv1alpha1.CFServiceBroker) *korifiv1alpha1.CFServiceOffering {
-	return &korifiv1alpha1.CFServiceOffering{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
-			Namespace: r.rootNamespace,
-			Labels: map[string]string{
-				ServiceBrokerGUIDLabel: cfServiceBroker.Name,
+func mapCatalogToOffering(catalogService CatalogService, cfServiceBroker *korifiv1alpha1.CFServiceBroker) *korifiv1alpha1.BrokerServiceOffering {
+	var raw_metadata []byte
+	if catalogService.Metadata != nil {
+		raw_metadata, _ = json.Marshal(catalogService.Metadata)
+	}
+	return &korifiv1alpha1.BrokerServiceOffering{
+		Name:              catalogService.Name,
+		Description:       catalogService.Description,
+		Tags:              catalogService.Tags,
+		Requires:          catalogService.Requires,
+		Shareable:         true,
+		Documentation_url: catalogService.DocumentationUrl,
+		Broker_catalog: korifiv1alpha1.ServiceBrokerCatalog{
+			Id: catalogService.Id,
+			Features: korifiv1alpha1.BrokerCatalogFeatures{
+				Plan_updateable:       catalogService.PlanUpdateable,
+				Bindable:              catalogService.Bindable,
+				Instances_retrievable: catalogService.InstancesRetrievable,
+				Bindings_retrievable:  catalogService.BindingsRetrievable,
+				Allow_context_updates: catalogService.AllowContextUpdates,
+			},
+			Metadata: &runtime.RawExtension{
+				Raw: raw_metadata,
 			},
 		},
-		Spec: korifiv1alpha1.CFServiceOfferingSpec{
-			Id:                catalogService.Id,
-			OfferingName:      catalogService.Name,
-			Description:       catalogService.Description,
-			Available:         true,
-			Tags:              catalogService.Tags,
-			Requires:          catalogService.Requires,
-			CreationTimestamp: metav1.Now(),
-			UpdatedTimestamp:  metav1.Now(),
-			Shareable:         true,
-			//DocumentationUrl:     catalogService.DocumentationUrl,
-			Bindable:             catalogService.Bindable,
-			PlanUpdateable:       catalogService.PlanUpdateable,
-			InstancesRetrievable: catalogService.InstancesRetrievable,
-			BindingsRetrievable:  catalogService.BindingsRetrievable,
-			AllowContextUpdates:  catalogService.AllowContextUpdates,
-			CatalogId:            catalogService.Id,
-			//Metadata:             &map[string]string{},
+		Relationships: korifiv1alpha1.ServiceOfferingRelationships{
+			Service_broker: korifiv1alpha1.ToOneRelationship{
+				Data: korifiv1alpha1.Relationship{
+					GUID: cfServiceBroker.Name,
+				},
+			},
 		},
 	}
 }
-
-func (r *CFServiceBrokerReconciler) mapPlanToCFPlan(guid, offeringGUID string, catalogPlan CatalogPlan, cfServiceBroker *korifiv1alpha1.CFServiceBroker) *korifiv1alpha1.CFServicePlan {
-	return &korifiv1alpha1.CFServicePlan{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
-			Namespace: r.rootNamespace,
-			Labels: map[string]string{
-				ServiceBrokerGUIDLabel:   cfServiceBroker.Name,
-				ServiceOfferingGUIDLabel: offeringGUID,
+func mapCatalogToPlan(offeringGUID string, catalogPlan CatalogPlan, cfServiceBroker *korifiv1alpha1.CFServiceBroker) *korifiv1alpha1.BrokerServicePlan {
+	var raw_metadata []byte
+	if catalogPlan.Metadata != nil {
+		raw_metadata, _ = json.Marshal(catalogPlan.Metadata)
+	}
+	return &korifiv1alpha1.BrokerServicePlan{
+		Name:             catalogPlan.Name,
+		Free:             catalogPlan.Free,
+		Description:      &catalogPlan.Description,
+		Maintenance_info: korifiv1alpha1.ServicePlanMaintenanceInfo{},
+		Broker_catalog: korifiv1alpha1.ServicePlanBrokerCatalog{
+			Id: catalogPlan.Id,
+			Metadata: &runtime.RawExtension{
+				Raw: raw_metadata,
+			},
+			Features: korifiv1alpha1.ServicePlanFeatures{
+				Plan_updateable: catalogPlan.PlanUpdateable,
+				Bindable:        catalogPlan.Bindable,
 			},
 		},
-		Spec: korifiv1alpha1.CFServicePlanSpec{
-			Id:                catalogPlan.Id,
-			PlanName:          catalogPlan.Name,
-			Description:       catalogPlan.Description,
-			Available:         true,
-			Free:              catalogPlan.Free,
-			CreationTimestamp: metav1.Now(),
-			UpdatedTimestamp:  metav1.Now(),
-			Relationships: korifiv1alpha1.RelationshipsSpec{
-				ServiceOfferingGUID: offeringGUID,
+		Schemas: catalogPlan.Schemas,
+		Relationships: korifiv1alpha1.ServicePlanRelationships{
+			Service_offering: korifiv1alpha1.ToOneRelationship{
+				Data: korifiv1alpha1.Relationship{
+					GUID: offeringGUID,
+				},
 			},
 		},
 	}
@@ -233,18 +222,22 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 	cfOfferingsList := &korifiv1alpha1.CFServiceOfferingList{}
 	cfPlansList := &korifiv1alpha1.CFServicePlanList{}
 
-	err := r.k8sClient.List(ctx, cfOfferingsList, client.InNamespace(r.rootNamespace), client.MatchingLabels{ServiceBrokerGUIDLabel: cfServiceBroker.Name})
+	err := r.k8sClient.List(ctx, cfOfferingsList, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		log.Info("failed to list existing cfserviceofferings", "reason", err)
 		return ctrl.Result{}, err
 	}
 
-	actualOfferingMap := make(map[string]*korifiv1alpha1.CFServiceOffering)
+	idToOfferingMap := make(map[string]*korifiv1alpha1.CFServiceOffering)
+	guidToOfferingMap := make(map[string]*korifiv1alpha1.CFServiceOffering)
 	for _, offering := range cfOfferingsList.Items {
-		actualOfferingMap[offering.Spec.Id] = &offering
+		if offering.Spec.Relationships.Service_broker.Data.GUID == cfServiceBroker.Name {
+			idToOfferingMap[offering.Spec.Broker_catalog.Id] = &offering
+			guidToOfferingMap[offering.Name] = &offering
+		}
 	}
 
-	err = r.k8sClient.List(ctx, cfPlansList, client.InNamespace(r.rootNamespace), client.MatchingLabels{ServiceBrokerGUIDLabel: cfServiceBroker.Name})
+	err = r.k8sClient.List(ctx, cfPlansList, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		log.Info("failed to list existing cfserviceplans", "reason", err)
 		return ctrl.Result{}, err
@@ -252,7 +245,10 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 
 	actualPlanMap := make(map[string]*korifiv1alpha1.CFServicePlan)
 	for _, plan := range cfPlansList.Items {
-		actualPlanMap[plan.Spec.Id] = &plan
+		_, serviceOfferingFound := guidToOfferingMap[plan.Spec.Relationships.Service_offering.Data.GUID]
+		if serviceOfferingFound {
+			actualPlanMap[plan.Spec.Broker_catalog.Id] = &plan
+		}
 	}
 
 	catalogResponse, err := r.getCatalog(ctx, cfServiceBroker)
@@ -263,11 +259,13 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 
 	for _, service := range catalogResponse.Services {
 		offeringGUID := ""
-		offering, found := actualOfferingMap[service.Id]
+		offering, found := idToOfferingMap[service.Id]
 		if found {
 			offeringGUID = offering.Name
-			delete(actualOfferingMap, service.Id)
+			delete(idToOfferingMap, service.Id)
+			log.Info("Found existing offering ", "offering", service.Id)
 		} else {
+			log.Info("No existing offering ", "offering", service.Id)
 			offeringGUID = uuid.NewString()
 		}
 
@@ -278,11 +276,10 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 			},
 		}
 
-		log.Info("Creating service offering ", "offering", service.Id)
-		cfServiceOffering := r.mapServiceToCFOffering(offeringGUID, service, cfServiceBroker)
+		log.Info("Reconcile service offering ", "offering", service.Id)
+		serviceOffering := mapCatalogToOffering(service, cfServiceBroker)
 		_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualCFServiceOffering, func() error {
-			actualCFServiceOffering.Labels = cfServiceOffering.Labels
-			actualCFServiceOffering.Spec = cfServiceOffering.Spec
+			actualCFServiceOffering.Spec.ServiceOffering.BrokerServiceOffering = *serviceOffering
 			return nil
 		})
 		if err != nil {
@@ -296,11 +293,13 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 			if found {
 				planGUID = plan.Name
 				delete(actualPlanMap, catalogPlan.Id)
+				log.Info("Found existing plan ", "plan", catalogPlan.Id)
 			} else {
+				log.Info("No existing plan ", "plan", catalogPlan.Id)
 				planGUID = uuid.NewString()
 			}
 
-			log.Info("Creating service plan ", "plan", catalogPlan.Id)
+			log.Info("Reconcile service plan ", "plan", catalogPlan.Id)
 			actualCFServicePlan := korifiv1alpha1.CFServicePlan{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      planGUID,
@@ -308,10 +307,9 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 				},
 			}
 
-			cfServicePlan := r.mapPlanToCFPlan(planGUID, offeringGUID, catalogPlan, cfServiceBroker)
+			servicePlan := mapCatalogToPlan(offeringGUID, catalogPlan, cfServiceBroker)
 			_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualCFServicePlan, func() error {
-				actualCFServicePlan.Labels = cfServicePlan.Labels
-				actualCFServicePlan.Spec = cfServicePlan.Spec
+				actualCFServicePlan.Spec.ServicePlan.BrokerServicePlan = *servicePlan
 				return nil
 			})
 			if err != nil {

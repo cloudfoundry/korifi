@@ -18,31 +18,57 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type BrokerCatalogFeatures struct {
+	Plan_updateable       bool `json:"plan_updateable"`
+	Bindable              bool `json:"bindable"`
+	Instances_retrievable bool `json:"instances_retrievable"`
+	Bindings_retrievable  bool `json:"bindings_retrievable"`
+	Allow_context_updates bool `json:"allow_context_updates"`
+}
+
+type ServiceBrokerCatalog struct {
+	Id       string                `json:"id"`
+	Metadata *runtime.RawExtension `json:"metadata"`
+	Features BrokerCatalogFeatures `json:"features"`
+}
+
+type ServiceOfferingRelationships struct {
+	Service_broker ToOneRelationship `json:"service_broker"`
+}
+
+type BrokerServiceOffering struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags,omitempty"`
+	Requires    []string `json:"required,omitempty"`
+	Shareable   bool     `json:"shareable"`
+	// +kubebuilder:validation:Optional
+	Documentation_url *string                      `json:"documentationUrl"`
+	Broker_catalog    ServiceBrokerCatalog         `json:"broker_catalog"`
+	Relationships     ServiceOfferingRelationships `json:"relationships"`
+}
+
+type ServiceOffering struct {
+	BrokerServiceOffering `json:",inline"`
+	Available             bool `json:"available"`
+}
+
+type ServiceOfferingResource struct {
+	ServiceOffering
+	CFResource
+}
+
 // CFServiceOfferingSpec defines the desired state of CFServiceOffering
 type CFServiceOfferingSpec struct {
-	Id                   string      `json:"id"`
-	OfferingName         string      `json:"offeringName"`
-	Description          string      `json:"description,omitempty"`
-	Available            bool        `json:"available"`
-	Tags                 []string    `json:"tags,omitempty"`
-	Requires             []string    `json:"required,omitempty"`
-	CreationTimestamp    metav1.Time `json:"creationTimestamp"`
-	UpdatedTimestamp     metav1.Time `json:"updatedTimestamp"`
-	Shareable            bool        `json:"shareable,omitempty"`
-	DocumentationUrl     string      `json:"documentationUrl,omitempty"`
-	Bindable             bool        `json:"bindable"`
-	PlanUpdateable       bool        `json:"plan_updateable"`
-	InstancesRetrievable bool        `json:"instances_retrievable"`
-	BindingsRetrievable  bool        `json:"bindings_retrievable"`
-	AllowContextUpdates  bool        `json:"allow_context_updates"`
-	CatalogId            string      `json:"catalog_id"`
-
-	Metadata *Metadata `json:"metadata,omitempty"`
+	ServiceOffering `json:",inline"`
+	// +kubebuilder:validation:Optional
+	Metadata *Metadata `json:"metadata"`
 }
 
 // CFServiceOfferingStatus defines the observed state of CFServiceOffering
@@ -53,7 +79,7 @@ type CFServiceOfferingStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Offering",type=string,JSONPath=`.spec.offeringName`
+//+kubebuilder:printcolumn:name="Offering",type=string,JSONPath=`.spec.name`
 //+kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 //+kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.spec.available`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`

@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -35,48 +34,10 @@ type ListServiceOfferingMessage struct {
 
 type ListServicePlanMessage struct {
 	Names                []string
+	Available            *bool
+	SpaceGuids           []string
 	ServiceOfferingNames []string
 	ServiceOfferingGUIDs []string
-}
-
-type ServiceOfferingRecord struct {
-	GUID                 string
-	Name                 string
-	Description          string
-	Available            bool
-	Tags                 []string
-	Requires             []string
-	CreatedAt            time.Time
-	UpdatedAt            *time.Time
-	Shareable            bool
-	DocumentationUrl     string
-	BrokerId             string
-	Bindable             bool
-	PlanUpdateable       bool
-	InstancesRetrievable bool
-	BindingsRetrievable  bool
-	AllowContextUpdates  bool
-	CatalogId            string
-}
-
-type ServicePlanRecord struct {
-	GUID                string
-	Name                string
-	Description         string
-	Available           bool
-	CreatedAt           time.Time
-	UpdatedAt           *time.Time
-	VisibilityType      string
-	Free                bool
-	Costs               []struct{}
-	MaintenanceInfo     struct{}
-	BrokerCatalog       struct{}
-	ServiceOfferingGUID string
-	BrokerId            string
-	Bindable            bool
-	PlanUpdateable      bool
-	CatalogId           string
-	Schemas             map[string]any
 }
 
 type ServiceInstanceSchema struct {
@@ -102,36 +63,54 @@ type ServiceBindingSchemaCreate struct {
 
 type SchemaParameters map[string]any
 
-func (r *ServiceCatalogRepo) ListServiceOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
+func toServiceOfferingResource(cfServiceOffering *korifiv1alpha1.CFServiceOffering) korifiv1alpha1.ServiceOfferingResource {
+	return korifiv1alpha1.ServiceOfferingResource{
+		ServiceOffering: cfServiceOffering.Spec.ServiceOffering,
+		CFResource: korifiv1alpha1.CFResource{
+			GUID: cfServiceOffering.Name,
+		},
+	}
+}
+
+func toServicePlanResource(cfServicePlan *korifiv1alpha1.CFServicePlan) korifiv1alpha1.ServicePlanResource {
+	return korifiv1alpha1.ServicePlanResource{
+		ServicePlan: cfServicePlan.Spec.ServicePlan,
+		CFResource: korifiv1alpha1.CFResource{
+			GUID: cfServicePlan.Name,
+		},
+	}
+}
+
+func (r *ServiceCatalogRepo) ListServiceOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]korifiv1alpha1.ServiceOfferingResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return []ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return []korifiv1alpha1.ServiceOfferingResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var result []ServiceOfferingRecord
+	var result []korifiv1alpha1.ServiceOfferingResource
 
 	allServiceOferings := &korifiv1alpha1.CFServiceOfferingList{}
 	err = userClient.List(ctx, allServiceOferings, client.InNamespace(r.rootNamespace))
 	if err != nil {
-		return []ServiceOfferingRecord{}, fmt.Errorf("failed to list service offerings: %w", err)
+		return []korifiv1alpha1.ServiceOfferingResource{}, fmt.Errorf("failed to list service offerings: %w", err)
 	}
 
 	for _, o := range allServiceOferings.Items {
-		if !filterAppliesTo(o.Spec.OfferingName, message.Names) {
+		if !filterAppliesTo(o.Spec.Name, message.Names) {
 			continue
 		}
 
-		result = append(result, serviceOfferingToRecord(&o))
+		result = append(result, toServiceOfferingResource(&o))
 
 	}
 
 	return result, nil
 }
 
-func (r *ServiceCatalogRepo) GetServiceOffering(ctx context.Context, authInfo authorization.Info, guid string) (ServiceOfferingRecord, error) {
+func (r *ServiceCatalogRepo) GetServiceOffering(ctx context.Context, authInfo authorization.Info, guid string) (korifiv1alpha1.ServiceOfferingResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return korifiv1alpha1.ServiceOfferingResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	serviceOffering := &korifiv1alpha1.CFServiceOffering{
@@ -142,19 +121,19 @@ func (r *ServiceCatalogRepo) GetServiceOffering(ctx context.Context, authInfo au
 	}
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(serviceOffering), serviceOffering)
 	if err != nil {
-		return ServiceOfferingRecord{}, fmt.Errorf("failed to get service offering: %w", err)
+		return korifiv1alpha1.ServiceOfferingResource{}, fmt.Errorf("failed to get service offering: %w", err)
 	}
 
-	return serviceOfferingToRecord(serviceOffering), nil
+	return toServiceOfferingResource(serviceOffering), nil
 }
 
-func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
+func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]korifiv1alpha1.ServicePlanResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var result []ServicePlanRecord
+	var result []korifiv1alpha1.ServicePlanResource
 
 	allServicePlans := &korifiv1alpha1.CFServicePlanList{}
 	err = userClient.List(ctx, allServicePlans, client.InNamespace(r.rootNamespace))
@@ -177,25 +156,31 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 	offeringGuids = append(offeringGuids, message.ServiceOfferingGUIDs...)
 
 	for _, p := range allServicePlans.Items {
-		if !filterAppliesTo(p.Spec.PlanName, message.Names) {
+		if !filterAppliesTo(p.Spec.Name, message.Names) {
 			continue
 		}
 
-		if !filterAppliesTo(p.Spec.Relationships.ServiceOfferingGUID, offeringGuids) {
+		if message.Available != nil {
+			if *message.Available != p.Spec.Available {
+				continue
+			}
+		}
+
+		if !filterAppliesTo(p.Spec.Relationships.Service_offering.Data.GUID, offeringGuids) {
 			continue
 		}
 
-		result = append(result, servicePlanToRecord(&p))
+		result = append(result, toServicePlanResource(&p))
 
 	}
 
 	return result, nil
 }
 
-func (r *ServiceCatalogRepo) GetServicePlan(ctx context.Context, authInfo authorization.Info, guid string) (ServicePlanRecord, error) {
+func (r *ServiceCatalogRepo) GetServicePlan(ctx context.Context, authInfo authorization.Info, guid string) (korifiv1alpha1.ServicePlanResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return ServicePlanRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return korifiv1alpha1.ServicePlanResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	servicePlan := &korifiv1alpha1.CFServicePlan{
@@ -206,10 +191,10 @@ func (r *ServiceCatalogRepo) GetServicePlan(ctx context.Context, authInfo author
 	}
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)
 	if err != nil {
-		return ServicePlanRecord{}, fmt.Errorf("failed to get service plan: %w", err)
+		return korifiv1alpha1.ServicePlanResource{}, fmt.Errorf("failed to get service plan: %w", err)
 	}
 
-	return servicePlanToRecord(servicePlan), nil
+	return toServicePlanResource(servicePlan), nil
 }
 
 func (r *ServiceCatalogRepo) getOfferingGuids(ctx context.Context, userClient client.Client, names []string) ([]string, error) {
@@ -225,7 +210,7 @@ func (r *ServiceCatalogRepo) getOfferingGuids(ctx context.Context, userClient cl
 
 	guids := []string{}
 	for _, o := range offerings.Items {
-		if !filterAppliesTo(o.Spec.OfferingName, names) {
+		if !filterAppliesTo(o.Spec.Name, names) {
 			continue
 		}
 		guids = append(guids, o.Name)
@@ -247,58 +232,4 @@ func filterAppliesTo(s string, filter []string) bool {
 	}
 
 	return false
-}
-
-func servicePlanToRecord(servicePlan *korifiv1alpha1.CFServicePlan) ServicePlanRecord {
-	return ServicePlanRecord{
-		GUID:                servicePlan.Name,
-		Name:                servicePlan.Spec.PlanName,
-		Description:         servicePlan.Spec.Description,
-		Available:           servicePlan.Spec.Available,
-		CreatedAt:           servicePlan.Spec.CreationTimestamp.Time,
-		UpdatedAt:           getLastUpdatedTime(servicePlan),
-		VisibilityType:      "public",
-		Free:                servicePlan.Spec.Free,
-		ServiceOfferingGUID: servicePlan.Spec.Relationships.ServiceOfferingGUID,
-		Bindable:            servicePlan.Spec.Bindable,
-		PlanUpdateable:      servicePlan.Spec.PlanUpdateable,
-		CatalogId:           servicePlan.Spec.CatalogId,
-		Schemas: map[string]any{
-			"service_instance": ServiceInstanceSchema{
-				Create: ServiceInstanceSchemaCreate{
-					Parameters: map[string]any{},
-				},
-				Update: ServiceInstanceSchemaUpdate{
-					Parameters: map[string]any{},
-				},
-			},
-			"service_binding": ServiceBindingSchema{
-				Create: ServiceBindingSchemaCreate{
-					Parameters: map[string]any{},
-				},
-			},
-		},
-	}
-}
-
-func serviceOfferingToRecord(offering *korifiv1alpha1.CFServiceOffering) ServiceOfferingRecord {
-	return ServiceOfferingRecord{
-		GUID:                 offering.Name,
-		Name:                 offering.Spec.OfferingName,
-		Description:          offering.Spec.Description,
-		Available:            offering.Spec.Available,
-		Tags:                 offering.Spec.Tags,
-		Requires:             offering.Spec.Requires,
-		CreatedAt:            offering.Spec.CreationTimestamp.Time,
-		UpdatedAt:            getLastUpdatedTime(offering),
-		Shareable:            offering.Spec.Shareable,
-		DocumentationUrl:     offering.Spec.DocumentationUrl,
-		BrokerId:             offering.OwnerReferences[0].Name,
-		Bindable:             offering.Spec.Bindable,
-		PlanUpdateable:       offering.Spec.PlanUpdateable,
-		InstancesRetrievable: offering.Spec.InstancesRetrievable,
-		BindingsRetrievable:  offering.Spec.BindingsRetrievable,
-		AllowContextUpdates:  offering.Spec.AllowContextUpdates,
-		CatalogId:            offering.Spec.CatalogId,
-	}
 }

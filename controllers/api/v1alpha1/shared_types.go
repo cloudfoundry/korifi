@@ -78,7 +78,9 @@ func PatchStringMap(sm map[string]string, p map[string]*string) {
 }
 
 type Metadata struct {
-	Labels      map[string]string `json:"labels,omitempty"`
+	// +kubebuilder:validation:Optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// +kubebuilder:validation:Optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 

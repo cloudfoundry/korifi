@@ -2,6 +2,7 @@ package payloads
 
 import (
 	"net/url"
+	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -28,6 +29,8 @@ func (l *ServiceOfferingList) DecodeFromURLValues(values url.Values) error {
 
 type ServicePlanList struct {
 	Names                string
+	Available            *bool
+	SpaceGuids           string
 	ServiceOfferingNames string
 	ServiceOfferingGUIDs string
 }
@@ -35,6 +38,8 @@ type ServicePlanList struct {
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 	return repositories.ListServicePlanMessage{
 		Names:                parse.ArrayParam(l.Names),
+		Available:            l.Available,
+		SpaceGuids:           parse.ArrayParam(l.SpaceGuids),
 		ServiceOfferingNames: parse.ArrayParam(l.ServiceOfferingNames),
 		ServiceOfferingGUIDs: parse.ArrayParam(l.ServiceOfferingGUIDs),
 	}
@@ -45,8 +50,18 @@ func (l *ServicePlanList) SupportedKeys() []string {
 }
 
 func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
+	var err error
 	l.Names = values.Get("names")
+	l.Available, err = parseBool(values.Get("available"))
 	l.ServiceOfferingNames = values.Get("service_offering_names")
 	l.ServiceOfferingGUIDs = values.Get("service_offering_guids")
-	return nil
+	return err
+}
+
+func parseBool(value string) (*bool, error) {
+	if value != "" {
+		parsed, err := strconv.ParseBool(value)
+		return &parsed, err
+	}
+	return nil, nil
 }

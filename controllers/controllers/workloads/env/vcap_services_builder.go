@@ -152,12 +152,12 @@ func (b *VCAPServicesEnvValueBuilder) getServiceLabel(ctx context.Context, cfSer
 		return "", err
 	}
 
-	serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Spec.Relationships.ServiceOfferingGUID)
+	serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Spec.Relationships.Service_offering.Data.GUID)
 	if err != nil {
 		return "", err
 	}
 
-	return serviceOffering.Spec.OfferingName, nil
+	return serviceOffering.Spec.Name, nil
 }
 
 func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(

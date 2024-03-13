@@ -15,7 +15,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.planName
+    - jsonPath: .spec.name
       name: Plan
       type: string
     - jsonPath: .spec.available
@@ -54,55 +54,137 @@ spec:
             properties:
               available:
                 type: boolean
-              bindable:
-                type: boolean
-              catalog_id:
-                type: string
-              creationTimestamp:
-                format: date-time
-                type: string
+              broker_catalog:
+                properties:
+                  Id:
+                    type: string
+                  features:
+                    properties:
+                      bindable:
+                        type: boolean
+                      plan_updateable:
+                        type: boolean
+                    required:
+                    - bindable
+                    - plan_updateable
+                    type: object
+                  maximum_polling_duration:
+                    format: int32
+                    type: integer
+                  metadata:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - Id
+                - features
+                type: object
+              costs:
+                items:
+                  properties:
+                    amount:
+                      type: string
+                    currency:
+                      type: string
+                    unit:
+                      type: string
+                  required:
+                  - amount
+                  - currency
+                  - unit
+                  type: object
+                type: array
               description:
                 type: string
               free:
                 type: boolean
-              id:
-                type: string
-              metadata:
+              maintenance_info:
                 properties:
-                  annotations:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  labels:
-                    additionalProperties:
-                      type: string
-                    type: object
+                  description:
+                    type: string
+                  version:
+                    type: string
+                required:
+                - description
+                - version
                 type: object
-              plan_updateable:
-                type: boolean
-              planName:
+              name:
                 type: string
               relationships:
                 properties:
-                  service_offering_guid:
-                    type: string
-                  space_guid:
-                    type: string
+                  service_offering:
+                    properties:
+                      data:
+                        properties:
+                          guid:
+                            type: string
+                        required:
+                        - guid
+                        type: object
+                    type: object
+                  space:
+                    properties:
+                      data:
+                        properties:
+                          guid:
+                            type: string
+                        required:
+                        - guid
+                        type: object
+                    type: object
                 required:
-                - service_offering_guid
+                - service_offering
                 type: object
-              updatedTimestamp:
-                format: date-time
+              schemas:
+                properties:
+                  service_binding:
+                    properties:
+                      create:
+                        properties:
+                          parameters:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - parameters
+                        type: object
+                    required:
+                    - create
+                    type: object
+                  service_instance:
+                    properties:
+                      create:
+                        properties:
+                          parameters:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - parameters
+                        type: object
+                      update:
+                        properties:
+                          parameters:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - parameters
+                        type: object
+                    required:
+                    - create
+                    - update
+                    type: object
+                required:
+                - service_binding
+                - service_instance
+                type: object
+              visibility_type:
                 type: string
             required:
             - available
-            - bindable
-            - catalog_id
-            - creationTimestamp
-            - id
-            - planName
-            - plan_updateable
-            - updatedTimestamp
+            - broker_catalog
+            - free
+            - maintenance_info
+            - name
+            - relationships
+            - visibility_type
             type: object
           status:
             description: CFServicePlanStatus defines the observed state of CFServicePlan

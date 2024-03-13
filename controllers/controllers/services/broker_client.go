@@ -65,8 +65,8 @@ func (c *brokerClient) ProvisionServiceInstance(ctx context.Context, cfServiceIn
 	}
 
 	provisionRequest := map[string]any{
-		"service_id": offering.Spec.Id,
-		"plan_id":    plan.Spec.Id,
+		"service_id": offering.Spec.Broker_catalog.Id,
+		"plan_id":    plan.Spec.Broker_catalog.Id,
 	}
 
 	if cfServiceInstance.Spec.Parameters != nil {
@@ -185,8 +185,8 @@ func (c *brokerClient) BindService(ctx context.Context, cfServiceBinding *korifi
 	}
 
 	bindRequest := map[string]any{
-		"service_id": offering.Spec.Id,
-		"plan_id":    plan.Spec.Id,
+		"service_id": offering.Spec.Broker_catalog.Id,
+		"plan_id":    plan.Spec.Broker_catalog.Id,
 	}
 
 	bindUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name)
@@ -228,8 +228,8 @@ func (c *brokerClient) GetServiceBinding(ctx context.Context, cfServiceBinding *
 	}
 
 	getRequest := map[string]any{
-		"service_id": offering.Spec.Id,
-		"plan_id":    plan.Spec.Id,
+		"service_id": offering.Spec.Broker_catalog.Id,
+		"plan_id":    plan.Spec.Broker_catalog.Id,
 	}
 
 	getUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name)
@@ -399,7 +399,7 @@ func (c *brokerClient) getServiceOffering(ctx context.Context, plan *korifiv1alp
 	offering := &korifiv1alpha1.CFServiceOffering{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: c.rootNamespace,
-			Name:      plan.Spec.Relationships.ServiceOfferingGUID,
+			Name:      plan.Spec.Relationships.Service_offering.Data.GUID,
 		},
 	}
 

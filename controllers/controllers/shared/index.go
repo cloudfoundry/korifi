@@ -82,7 +82,7 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServicePlan{}, IndexServicePlanGUID, func(object client.Object) []string {
 		plan := object.(*korifiv1alpha1.CFServicePlan)
-		return []string{plan.Spec.Id}
+		return []string{plan.Spec.Broker_catalog.Id}
 	})
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServiceOffering{}, IndexServiceOfferingID, func(object client.Object) []string {
 		offering := object.(*korifiv1alpha1.CFServiceOffering)
-		return []string{offering.Spec.Id}
+		return []string{offering.Spec.Broker_catalog.Id}
 	})
 	if err != nil {
 		return err

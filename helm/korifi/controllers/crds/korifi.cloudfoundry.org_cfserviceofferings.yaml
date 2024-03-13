@@ -15,7 +15,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.offeringName
+    - jsonPath: .spec.name
       name: Offering
       type: string
     - jsonPath: .spec.description
@@ -52,27 +52,43 @@ spec:
           spec:
             description: CFServiceOfferingSpec defines the desired state of CFServiceOffering
             properties:
-              allow_context_updates:
-                type: boolean
               available:
                 type: boolean
-              bindable:
-                type: boolean
-              bindings_retrievable:
-                type: boolean
-              catalog_id:
-                type: string
-              creationTimestamp:
-                format: date-time
-                type: string
+              broker_catalog:
+                properties:
+                  features:
+                    properties:
+                      allow_context_updates:
+                        type: boolean
+                      bindable:
+                        type: boolean
+                      bindings_retrievable:
+                        type: boolean
+                      instances_retrievable:
+                        type: boolean
+                      plan_updateable:
+                        type: boolean
+                    required:
+                    - allow_context_updates
+                    - bindable
+                    - bindings_retrievable
+                    - instances_retrievable
+                    - plan_updateable
+                    type: object
+                  id:
+                    type: string
+                  metadata:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - features
+                - id
+                - metadata
+                type: object
               description:
                 type: string
               documentationUrl:
                 type: string
-              id:
-                type: string
-              instances_retrievable:
-                type: boolean
               metadata:
                 properties:
                   annotations:
@@ -84,10 +100,23 @@ spec:
                       type: string
                     type: object
                 type: object
-              offeringName:
+              name:
                 type: string
-              plan_updateable:
-                type: boolean
+              relationships:
+                properties:
+                  service_broker:
+                    properties:
+                      data:
+                        properties:
+                          guid:
+                            type: string
+                        required:
+                        - guid
+                        type: object
+                    type: object
+                required:
+                - service_broker
+                type: object
               required:
                 items:
                   type: string
@@ -98,21 +127,13 @@ spec:
                 items:
                   type: string
                 type: array
-              updatedTimestamp:
-                format: date-time
-                type: string
             required:
-            - allow_context_updates
             - available
-            - bindable
-            - bindings_retrievable
-            - catalog_id
-            - creationTimestamp
-            - id
-            - instances_retrievable
-            - offeringName
-            - plan_updateable
-            - updatedTimestamp
+            - broker_catalog
+            - description
+            - name
+            - relationships
+            - shareable
             type: object
           status:
             description: CFServiceOfferingStatus defines the observed state of CFServiceOffering
