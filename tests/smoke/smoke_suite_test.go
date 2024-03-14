@@ -60,9 +60,8 @@ func TestSmoke(t *testing.T) {
 					Container:  "manager",
 				},
 			})
-		},
-		ContainSubstring("Org deletion timed out"): func(config *rest.Config, _ string) {
-			printOrgNamespaces(config)
+			printPrefixedNamespaces(config, repositories.OrgPrefix)
+			printPrefixedNamespaces(config, repositories.SpacePrefix)
 		},
 	}))
 	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
@@ -123,7 +122,7 @@ func sessionOutput(session *Session) (string, error) {
 	return strings.TrimSpace(string(session.Out.Contents())), nil
 }
 
-func printOrgNamespaces(config *rest.Config) {
+func printPrefixedNamespaces(config *rest.Config, prefix string) {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
@@ -137,12 +136,12 @@ func printOrgNamespaces(config *rest.Config) {
 		return
 	}
 
+	fmt.Fprintf(GinkgoWriter, "\nPrinting namespaces with %q prefix:\n", prefix)
 	for _, namespace := range namespaces.Items {
-		if !strings.Contains(namespace.Name, repositories.OrgPrefix) {
+		if !strings.Contains(namespace.Name, prefix) {
 			continue
 		}
 
-		fmt.Fprintln(GinkgoWriter, "CFOrg deletion timed out! Printing all Org namespaces:")
 		if err := printObject(k8sClient, &namespace); err != nil {
 			fmt.Fprintf(GinkgoWriter, "failed printing namespace: %v\n", err)
 			return
