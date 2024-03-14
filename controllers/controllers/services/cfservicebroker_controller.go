@@ -40,6 +40,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const (
+	ServiceBrokerGUIDLabel = "cfservicebroker"
+)
+
 // CFServiceBrokerReconciler reconciles a CFServiceInstance object
 type CFServiceBrokerReconciler struct {
 	rootNamespace string
@@ -310,6 +314,7 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 			servicePlan := mapCatalogToPlan(offeringGUID, catalogPlan, cfServiceBroker)
 			_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualCFServicePlan, func() error {
 				actualCFServicePlan.Spec.ServicePlan.BrokerServicePlan = *servicePlan
+				actualCFServicePlan.Labels[ServiceBrokerGUIDLabel] = cfServiceBroker.Name
 				return nil
 			})
 			if err != nil {
