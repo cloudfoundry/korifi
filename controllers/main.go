@@ -242,6 +242,7 @@ func main() {
 		if err = (servicescontrollers.NewManagedCFServiceBindingReconciler(
 			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceBinding"),
 			mgr.GetClient(),
+			mgr.GetScheme(),
 			brokerClient,
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")

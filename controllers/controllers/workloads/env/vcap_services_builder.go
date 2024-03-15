@@ -131,7 +131,12 @@ func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context,
 		return ServiceDetails{}, "", fmt.Errorf("failed to determine service label: %w", err)
 	}
 
-	serviceDetails, err := b.fromServiceBinding(ctx, serviceBinding, serviceInstance, credentialsSecret, serviceLabel)
+	tags, err := b.getServiceTags(ctx, serviceInstance)
+	if err != nil {
+		return ServiceDetails{}, "", fmt.Errorf("failed to determine service tags: %w", err)
+	}
+
+	serviceDetails, err := b.fromServiceBinding(ctx, serviceBinding, serviceInstance, credentialsSecret, serviceLabel, tags)
 	if err != nil {
 		return ServiceDetails{}, "", fmt.Errorf("error creating service details: %w", err)
 	}
@@ -160,12 +165,36 @@ func (b *VCAPServicesEnvValueBuilder) getServiceLabel(ctx context.Context, cfSer
 	return serviceOffering.Spec.Name, nil
 }
 
+func (b *VCAPServicesEnvValueBuilder) getServiceTags(ctx context.Context, cfServiceInstance korifiv1alpha1.CFServiceInstance) ([]string, error) {
+	tags := cfServiceInstance.Spec.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
+	if cfServiceInstance.Spec.Type == korifiv1alpha1.ManagedType {
+		servicePlan, err := b.getServicePlan(ctx, cfServiceInstance.Spec.ServicePlanGUID)
+		if err != nil {
+			return nil, err
+		}
+
+		serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Spec.Relationships.Service_offering.Data.GUID)
+		if err != nil {
+			return nil, err
+		}
+
+		tags = append(tags, serviceOffering.Spec.Tags...)
+	}
+
+	return tags, nil
+}
+
 func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 	ctx context.Context,
 	serviceBinding korifiv1alpha1.CFServiceBinding,
 	serviceInstance korifiv1alpha1.CFServiceInstance,
 	credentialsSecret *corev1.Secret,
 	serviceLabel string,
+	tags []string,
 ) (ServiceDetails, error) {
 	var serviceName string
 	var bindingName *string
@@ -178,29 +207,9 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		bindingName = nil
 	}
 
-	tags := serviceInstance.Spec.Tags
-	if tags == nil {
-		tags = []string{}
-	}
-
-	var serviceCredentials map[string]any
-	if serviceInstance.Spec.Type == korifiv1alpha1.ManagedType {
-		managedTags, err := tagsFromManagedBindingSecret(credentialsSecret)
-		if err != nil {
-			return ServiceDetails{}, fmt.Errorf("failed to get tags from managed service binding secret: %w", err)
-		}
-		tags = append(tags, managedTags...)
-
-		serviceCredentials, err = credentialsFromManagedBindingSecret(credentialsSecret)
-		if err != nil {
-			return ServiceDetails{}, fmt.Errorf("failed to get credentials from managed service binding secret: %w", err)
-		}
-	} else {
-		var err error
-		serviceCredentials, err = credentials.GetCredentials(credentialsSecret)
-		if err != nil {
-			return ServiceDetails{}, fmt.Errorf("failed to get credentials for service binding %q: %w", serviceBinding.Name, err)
-		}
+	serviceCredentials, err := credentials.GetCredentials(credentialsSecret)
+	if err != nil {
+		return ServiceDetails{}, fmt.Errorf("failed to get credentials for service binding %q: %w", serviceBinding.Name, err)
 	}
 
 	return ServiceDetails{
@@ -215,42 +224,4 @@ func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
 		SyslogDrainURL: nil,
 		VolumeMounts:   []string{},
 	}, nil
-}
-
-func tagsFromManagedBindingSecret(serviceBindingSecret *corev1.Secret) ([]string, error) {
-	tags := []string{}
-	bindingTagBytes, ok := serviceBindingSecret.Data["tags"]
-	if ok {
-		var bindingTags []string
-		if err := json.Unmarshal(bindingTagBytes, &bindingTags); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal binding secret tags: %w", err)
-		}
-
-		tags = append(tags, bindingTags...)
-	}
-
-	return tags, nil
-}
-
-func credentialsFromManagedBindingSecret(serviceBindingSecret *corev1.Secret) (map[string]any, error) {
-	credentials := map[string]any{}
-	for k, v := range serviceBindingSecret.Data {
-		var credValue any
-		err := json.Unmarshal(v, &credValue)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal binding secret key %q: %w", k, err)
-		}
-		credentials[k] = credValue
-
-	}
-
-	return credentials, nil
-}
-
-func credentialsFromUserProvidedBindingSecret(secret corev1.Secret) map[string]any {
-	convertedMap := make(map[string]any)
-	for k, v := range secret.Data {
-		convertedMap[k] = string(v)
-	}
-	return convertedMap
 }

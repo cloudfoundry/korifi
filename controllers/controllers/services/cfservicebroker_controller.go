@@ -69,20 +69,19 @@ type CatalogPlan struct {
 }
 
 type CatalogService struct {
-	Id                   string   `json:"id"`
-	Name                 string   `json:"name"`
-	Description          string   `json:"description"`
-	Bindable             bool     `json:"bindable"`
-	InstancesRetrievable bool     `json:"instances_retrievable"`
-	BindingsRetrievable  bool     `json:"bindings_retrievable"`
-	PlanUpdateable       bool     `json:"plan_updateable"`
-	AllowContextUpdates  bool     `json:"allow_context_updates"`
-	Tags                 []string `json:"tags"`
-	Requires             []string `json:"requires"`
-	DocumentationUrl     *string  `json:"documentation_url"`
-	// Shareable       bool                   `json:"shareable"`
-	Metadata        map[string]interface{} `json:"metadata"`
-	DashboardClient struct {
+	Id                   string                 `json:"id"`
+	Name                 string                 `json:"name"`
+	Description          string                 `json:"description"`
+	Bindable             bool                   `json:"bindable"`
+	InstancesRetrievable bool                   `json:"instances_retrievable"`
+	BindingsRetrievable  bool                   `json:"bindings_retrievable"`
+	PlanUpdateable       bool                   `json:"plan_updateable"`
+	AllowContextUpdates  bool                   `json:"allow_context_updates"`
+	Tags                 []string               `json:"tags"`
+	Requires             []string               `json:"requires"`
+	DocumentationUrl     *string                `json:"documentation_url"`
+	Metadata             map[string]interface{} `json:"metadata"`
+	DashboardClient      struct {
 		Id          string `json:"id"`
 		Secret      string `json:"secret"`
 		RedirectUri string `json:"redirect_url"`
