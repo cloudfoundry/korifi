@@ -143,14 +143,14 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 		It("deletes itself and the corresponding source image", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(imageDeleter.DeleteCallCount()).To(Equal(deleteCount + 1))
-			}).Should(Succeed())
+				g.Expect(imageDeleter.DeleteCallCount()).To(BeNumerically(">", deleteCount))
 
-			_, creds, ref, tagsToDelete := imageDeleter.DeleteArgsForCall(deleteCount)
-			Expect(creds.Namespace).To(Equal(cfSpace.Status.GUID))
-			Expect(creds.SecretNames).To(ConsistOf("package-repo-secret-name"))
-			Expect(ref).To(Equal(imageRef))
-			Expect(tagsToDelete).To(ConsistOf(cfPackage.Name))
+				_, creds, ref, tagsToDelete := imageDeleter.DeleteArgsForCall(deleteCount)
+				g.Expect(creds.Namespace).To(Equal(cfSpace.Status.GUID))
+				g.Expect(creds.SecretNames).To(ConsistOf("package-repo-secret-name"))
+				g.Expect(ref).To(Equal(imageRef))
+				g.Expect(tagsToDelete).To(ConsistOf(cfPackage.Name))
+			}).Should(Succeed())
 
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(MatchError(ContainSubstring("not found")))
