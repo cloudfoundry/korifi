@@ -16,16 +16,18 @@ import (
 )
 
 const (
-	ServiceOfferingsPath = "/v3/service_offerings"
-	ServicePlansPath     = "/v3/service_plans"
-	ServicePlanPath      = "/v3/service_plans/{guid}"
-	ServiceOfferingPath  = "/v3/service_offerings/{guid}"
+	ServiceOfferingsPath      = "/v3/service_offerings"
+	ServicePlansPath          = "/v3/service_plans"
+	ServicePlanPath           = "/v3/service_plans/{guid}"
+	ServiceOfferingPath       = "/v3/service_offerings/{guid}"
+	ServicePlanVisivilityPath = "/v3/service_plans/{guid}/visibility"
 )
 
 type ServiceCatalogRepo interface {
 	ListServiceOfferings(ctx context.Context, authInfo authorization.Info, message repositories.ListServiceOfferingMessage) ([]korifiv1alpha1.ServiceOfferingResource, error)
 	ListServicePlans(ctx context.Context, authInfo authorization.Info, message repositories.ListServicePlanMessage) ([]korifiv1alpha1.ServicePlanResource, error)
 	GetServicePlan(ctx context.Context, authInfo authorization.Info, guid string) (korifiv1alpha1.ServicePlanResource, error)
+	ApplyPlanVisibility(context.Context, authorization.Info, repositories.PlanVisibilityApplyMessage) (korifiv1alpha1.ServicePlanVisibilityResource, error)
 	GetServiceOffering(ctx context.Context, authInfo authorization.Info, guid string) (korifiv1alpha1.ServiceOfferingResource, error)
 }
 
@@ -109,6 +111,27 @@ func (h *ServiceCatalog) getPlan(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlan(servicePlan, h.serverURL)), nil
 }
 
+func (h *ServiceCatalog) applyPlanVisibility(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-catalog.get-plan")
+
+	if err := r.ParseForm(); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
+	}
+
+	planGUID := routing.URLParam(r, "guid")
+	payload := payloads.PlanVisiblityApply{}
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	visibilityRes, err := h.serviceCatalogRepo.ApplyPlanVisibility(r.Context(), authInfo, payload.ToMessage(planGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to create plan visibility resource")
+	}
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanVisibility(visibilityRes)), nil
+}
+
 func (h *ServiceCatalog) getOffering(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-catalog.get-offering")
@@ -136,6 +159,7 @@ func (h *ServiceCatalog) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: ServiceOfferingsPath, Handler: h.listOfferings},
 		{Method: "GET", Pattern: ServicePlansPath, Handler: h.listPlans},
 		{Method: "GET", Pattern: ServicePlanPath, Handler: h.getPlan},
+		{Method: "POST", Pattern: ServicePlanVisivilityPath, Handler: h.applyPlanVisibility},
 		{Method: "GET", Pattern: ServiceOfferingPath, Handler: h.getOffering},
 	}
 }

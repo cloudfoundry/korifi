@@ -33,6 +33,10 @@ type ServicePlanResponse struct {
 	Links ServicePlanLinks `json:"links"`
 }
 
+type ServicePlanVisibilityResponse struct {
+	Type string `json:"type"`
+}
+
 type BrokerCatalog struct {
 	Id       string                `json:"id"`
 	Metadata BrokerCatalogMetadata `json:"metadata"`
@@ -95,4 +99,10 @@ func ForServicePlanList(servicePlanResourceList []korifiv1alpha1.ServicePlanReso
 	return ForList(func(servicePlanResource korifiv1alpha1.ServicePlanResource, baseURL url.URL) ServicePlanResponse {
 		return ForServicePlan(servicePlanResource, baseURL)
 	}, servicePlanResourceList, baseURL, requestURL)
+}
+
+func ForServicePlanVisibility(servicePlanVisibilityResource korifiv1alpha1.ServicePlanVisibilityResource) ServicePlanVisibilityResponse {
+	return ServicePlanVisibilityResponse{
+		Type: servicePlanVisibilityResource.Type,
+	}
 }

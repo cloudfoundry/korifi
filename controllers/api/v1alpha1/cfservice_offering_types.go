@@ -102,6 +102,10 @@ type CFServiceOfferingList struct {
 	Items           []CFServiceOffering `json:"items"`
 }
 
+type ServicePlanVisibilityResource struct {
+	Type string `json:"type"`
+}
+
 func init() {
 	SchemeBuilder.Register(&CFServiceOffering{}, &CFServiceOfferingList{})
 }

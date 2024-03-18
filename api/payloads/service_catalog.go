@@ -2,6 +2,7 @@ package payloads
 
 import (
 	"net/url"
+	"regexp"
 	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
@@ -20,6 +21,10 @@ func (l *ServiceOfferingList) ToMessage() repositories.ListServiceOfferingMessag
 
 func (l *ServiceOfferingList) SupportedKeys() []string {
 	return []string{"names", "page", "space_guids"}
+}
+
+func (l *ServiceOfferingList) IgnoredKeys() []*regexp.Regexp {
+	return []*regexp.Regexp{regexp.MustCompile(`fields\[.+\]`)}
 }
 
 func (l *ServiceOfferingList) DecodeFromURLValues(values url.Values) error {
@@ -64,4 +69,15 @@ func parseBool(value string) (*bool, error) {
 		return &parsed, err
 	}
 	return nil, nil
+}
+
+type PlanVisiblityApply struct {
+	Type string `json:"type"`
+}
+
+func (v *PlanVisiblityApply) ToMessage(planGUID string) repositories.PlanVisibilityApplyMessage {
+	return repositories.PlanVisibilityApplyMessage{
+		PlanGUID: planGUID,
+		Type:     v.Type,
+	}
 }

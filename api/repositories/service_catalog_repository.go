@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -79,6 +80,11 @@ func toServicePlanResource(cfServicePlan *korifiv1alpha1.CFServicePlan) korifiv1
 			GUID: cfServicePlan.Name,
 		},
 	}
+}
+
+type PlanVisibilityApplyMessage struct {
+	PlanGUID string
+	Type     string
 }
 
 func (r *ServiceCatalogRepo) ListServiceOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]korifiv1alpha1.ServiceOfferingResource, error) {
@@ -183,18 +189,53 @@ func (r *ServiceCatalogRepo) GetServicePlan(ctx context.Context, authInfo author
 		return korifiv1alpha1.ServicePlanResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	servicePlan, err := r.getServicePlan(ctx, userClient, guid)
+	if err != nil {
+		return korifiv1alpha1.ServicePlanResource{}, fmt.Errorf("failed to get service plan: %w", err)
+	}
+
+	return toServicePlanResource(servicePlan), nil
+}
+
+func (r *ServiceCatalogRepo) getServicePlan(ctx context.Context, userClient client.Client, guid string) (*korifiv1alpha1.CFServicePlan, error) {
 	servicePlan := &korifiv1alpha1.CFServicePlan{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
 			Name:      guid,
 		},
 	}
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)
+	err := userClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)
 	if err != nil {
-		return korifiv1alpha1.ServicePlanResource{}, fmt.Errorf("failed to get service plan: %w", err)
+		return nil, fmt.Errorf("failed to get service plan: %w", err)
 	}
 
-	return toServicePlanResource(servicePlan), nil
+	return servicePlan, nil
+}
+
+func (r *ServiceCatalogRepo) ApplyPlanVisibility(
+	ctx context.Context,
+	authInfo authorization.Info,
+	visibilityMessage PlanVisibilityApplyMessage,
+) (korifiv1alpha1.ServicePlanVisibilityResource, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	servicePlan, err := r.getServicePlan(ctx, userClient, visibilityMessage.PlanGUID)
+	if err != nil {
+		return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to get service plan: %w", err)
+	}
+
+	err = k8s.PatchResource(ctx, userClient, servicePlan, func() {
+		servicePlan.Spec.Available = true
+	})
+	if err != nil {
+		return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to patch service plan: %w", err)
+	}
+	return korifiv1alpha1.ServicePlanVisibilityResource{
+		Type: visibilityMessage.Type,
+	}, nil
 }
 
 func (r *ServiceCatalogRepo) getOfferingGuids(ctx context.Context, userClient client.Client, names []string) ([]string, error) {
