@@ -80,7 +80,7 @@ type CatalogService struct {
 	Tags                 []string `json:"tags"`
 	Requires             []string `json:"requires"`
 	DocumentationUrl     *string  `json:"documentation_url"`
-	//Shareable       bool                   `json:"shareable"`
+	// Shareable       bool                   `json:"shareable"`
 	Metadata        map[string]interface{} `json:"metadata"`
 	DashboardClient struct {
 		Id          string `json:"id"`
@@ -112,7 +112,6 @@ func (r *CFServiceBrokerReconciler) getCatalog(ctx context.Context, cfServiceBro
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
-	//response, err := client.Get(catalogUrl)
 	request, err := http.NewRequest("GET", catalogUrl, nil)
 	if err != nil {
 		return catalogResponse, err
@@ -169,6 +168,7 @@ func mapCatalogToOffering(catalogService CatalogService, cfServiceBroker *korifi
 		},
 	}
 }
+
 func mapCatalogToPlan(offeringGUID string, catalogPlan CatalogPlan, cfServiceBroker *korifiv1alpha1.CFServiceBroker) *korifiv1alpha1.BrokerServicePlan {
 	var raw_metadata []byte
 	if catalogPlan.Metadata != nil {
@@ -314,6 +314,10 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 			servicePlan := mapCatalogToPlan(offeringGUID, catalogPlan, cfServiceBroker)
 			_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualCFServicePlan, func() error {
 				actualCFServicePlan.Spec.ServicePlan.BrokerServicePlan = *servicePlan
+
+				if actualCFServicePlan.Labels == nil {
+					actualCFServicePlan.Labels = map[string]string{}
+				}
 				actualCFServicePlan.Labels[ServiceBrokerGUIDLabel] = cfServiceBroker.Name
 				return nil
 			})
@@ -321,7 +325,7 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 				log.Info("failed to create/patch service plan", "reason", err)
 				return ctrl.Result{}, err
 			}
-		} //plans
+		} // plans
 	}
 
 	return ctrl.Result{}, nil
