@@ -266,7 +266,6 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 		offering, found := idToOfferingMap[service.Id]
 		if found {
 			offeringGUID = offering.Name
-			delete(idToOfferingMap, service.Id)
 			log.Info("Found existing offering ", "offering", service.Id)
 		} else {
 			log.Info("No existing offering ", "offering", service.Id)
@@ -296,7 +295,6 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 			plan, found := actualPlanMap[catalogPlan.Id]
 			if found {
 				planGUID = plan.Name
-				delete(actualPlanMap, catalogPlan.Id)
 				log.Info("Found existing plan ", "plan", catalogPlan.Id)
 			} else {
 				log.Info("No existing plan ", "plan", catalogPlan.Id)
