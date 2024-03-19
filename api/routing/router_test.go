@@ -164,7 +164,6 @@ var _ = Describe("Router", func() {
 			Expect(res).To(HaveHTTPBody(MatchJSON(`{"not":"allowed"}`)))
 		})
 	})
-
 })
 
 func mkReq(handler http.Handler, method, url string) (*http.Response, error) {

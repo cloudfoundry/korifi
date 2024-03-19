@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
@@ -14,12 +13,10 @@ import (
 	"github.com/cloudfoundry/cf-test-helpers/generator"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
 	gomegatypes "github.com/onsi/gomega/types"
 	"gopkg.in/yaml.v2"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -60,8 +57,6 @@ func TestSmoke(t *testing.T) {
 					Container:  "manager",
 				},
 			})
-			printLeakedNamespaces(config, repositories.OrgPrefix)
-			printLeakedNamespaces(config, repositories.SpacePrefix)
 		},
 	}))
 	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
@@ -101,11 +96,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	if CurrentSpecReport().State.Is(types.SpecStateFailed) {
-		printAppReport(buildpackAppName)
-	}
-
-	Expect(helpers.Cf("delete-org", orgName, "-f").Wait()).To(Exit(0))
+	Expect(helpers.Cf("delete-org", orgName, "-f").Wait()).To(Exit())
 
 	serviceAccountFactory.DeleteServiceAccount(cfAdmin)
 	helpers.RemoveUserFromKubeConfig(cfAdmin)
@@ -120,53 +111,6 @@ func sessionOutput(session *Session) (string, error) {
 		)
 	}
 	return strings.TrimSpace(string(session.Out.Contents())), nil
-}
-
-func printLeakedNamespaces(config *rest.Config, prefix string) {
-	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
-	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to create k8s client: %v\n", err)
-		return
-	}
-
-	namespaces := &corev1.NamespaceList{}
-	if err := k8sClient.List(context.Background(), namespaces); err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to list namespaces: %v\n", err)
-		return
-	}
-
-	fmt.Fprintf(GinkgoWriter, "\nPrinting leaked namespaces with %q prefix:\n", prefix)
-	for _, namespace := range namespaces.Items {
-		if namespace.DeletionTimestamp == nil {
-			continue
-		}
-
-		if !strings.Contains(namespace.Name, prefix) {
-			continue
-		}
-
-		if err := printObject(k8sClient, &namespace); err != nil {
-			fmt.Fprintf(GinkgoWriter, "failed printing namespace %s: %v\n", namespace.Name, err)
-			return
-		}
-
-		fmt.Fprintf(GinkgoWriter, "\nPrinting pods in namespace: %s\n", namespace.Name)
-		pods := &corev1.PodList{}
-		err := k8sClient.List(context.Background(), pods, client.InNamespace(namespace.Name))
-		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "failed listing pods in namespace %s: %v\n", namespace.Name, err)
-			return
-		}
-
-		for _, pod := range pods.Items {
-			if err = printObject(k8sClient, &pod); err != nil {
-				fmt.Fprintf(GinkgoWriter, "failed printing pod %s: %v\n", pod.Name, err)
-				return
-			}
-		}
-
-	}
 }
 
 func printCfApp(config *rest.Config) {
