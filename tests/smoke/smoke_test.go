@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
@@ -71,22 +70,6 @@ var _ = Describe("Smoke Tests", func() {
 		})
 	})
 })
-
-func printAppReport(appName string) {
-	if appName == "" {
-		return
-	}
-
-	printAppReportBanner(fmt.Sprintf("***** APP REPORT: %s *****", appName))
-	Expect(helpers.Cf("app", appName, "--guid")).To(Exit())
-	Expect(helpers.Cf("logs", "--recent", appName)).To(Exit())
-	printAppReportBanner(fmt.Sprintf("*** END APP REPORT: %s ***", appName))
-}
-
-func printAppReportBanner(announcement string) {
-	sequence := strings.Repeat("*", len(announcement))
-	fmt.Fprintf(GinkgoWriter, "\n\n%s\n%s\n%s\n", sequence, announcement, sequence)
-}
 
 func appResponseShould(appName, requestPath string, matchExpectations types.GomegaMatcher) {
 	var httpClient http.Client
