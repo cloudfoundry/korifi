@@ -18,6 +18,7 @@ package services
 
 import (
 	"context"
+	"crypto/sha1"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -29,11 +30,10 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -92,8 +92,13 @@ type ServiceCatalogResponse struct {
 func (r *CFServiceBrokerReconciler) getCatalog(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker) (*ServiceCatalogResponse, error) {
 	catalogResponse := &ServiceCatalogResponse{}
 
-	secret := new(corev1.Secret)
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBroker.Spec.SecretName, Namespace: r.rootNamespace}, secret)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      cfServiceBroker.Spec.SecretName,
+		},
+	}
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 	if err != nil {
 		return catalogResponse, err
 	}
@@ -129,12 +134,12 @@ func (r *CFServiceBrokerReconciler) getCatalog(ctx context.Context, cfServiceBro
 	return catalogResponse, nil
 }
 
-func mapCatalogToOffering(catalogService CatalogService, cfServiceBroker *korifiv1alpha1.CFServiceBroker) *korifiv1alpha1.BrokerServiceOffering {
+func mapCatalogToOffering(catalogService CatalogService, cfServiceBroker *korifiv1alpha1.CFServiceBroker) korifiv1alpha1.BrokerServiceOffering {
 	var raw_metadata []byte
 	if catalogService.Metadata != nil {
 		raw_metadata, _ = json.Marshal(catalogService.Metadata)
 	}
-	return &korifiv1alpha1.BrokerServiceOffering{
+	return korifiv1alpha1.BrokerServiceOffering{
 		Name:              catalogService.Name,
 		Description:       catalogService.Description,
 		Tags:              catalogService.Tags,
@@ -157,12 +162,12 @@ func mapCatalogToOffering(catalogService CatalogService, cfServiceBroker *korifi
 	}
 }
 
-func mapCatalogToPlan(offeringGUID string, catalogPlan CatalogPlan, cfServiceBroker *korifiv1alpha1.CFServiceBroker) *korifiv1alpha1.BrokerServicePlan {
+func mapCatalogToPlan(offeringGUID string, catalogPlan CatalogPlan, cfServiceBroker *korifiv1alpha1.CFServiceBroker) korifiv1alpha1.BrokerServicePlan {
 	var raw_metadata []byte
 	if catalogPlan.Metadata != nil {
 		raw_metadata, _ = json.Marshal(catalogPlan.Metadata)
 	}
-	return &korifiv1alpha1.BrokerServicePlan{
+	return korifiv1alpha1.BrokerServicePlan{
 		Name:             catalogPlan.Name,
 		Free:             catalogPlan.Free,
 		Description:      &catalogPlan.Description,
@@ -201,119 +206,69 @@ func NewCFServiceBrokerReconciler(
 
 func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
-
 	log.Info("Reconciling CFServiceBroker Name", "Name", cfServiceBroker.Spec.Name)
-
-	cfOfferingsList := &korifiv1alpha1.CFServiceOfferingList{}
-	cfPlansList := &korifiv1alpha1.CFServicePlanList{}
-
-	err := r.k8sClient.List(ctx, cfOfferingsList, client.InNamespace(r.rootNamespace), client.MatchingLabels{korifiv1alpha1.RelServiceBrokerLabel: cfServiceBroker.Name})
-	if err != nil {
-		log.Info("failed to list existing cfserviceofferings", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	idToOfferingMap := make(map[string]*korifiv1alpha1.CFServiceOffering)
-	guidToOfferingMap := make(map[string]*korifiv1alpha1.CFServiceOffering)
-	for _, offering := range cfOfferingsList.Items {
-		idToOfferingMap[offering.Spec.Broker_catalog.Id] = &offering
-		guidToOfferingMap[offering.Name] = &offering
-	}
-
-	err = r.k8sClient.List(ctx, cfPlansList, client.InNamespace(r.rootNamespace))
-	if err != nil {
-		log.Info("failed to list existing cfserviceplans", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	actualPlanMap := make(map[string]*korifiv1alpha1.CFServicePlan)
-	//Filter service plans to include only these plans related to the current broker
-	for _, plan := range cfPlansList.Items {
-		offeringGUID := plan.Labels[korifiv1alpha1.RelServiceOfferingLabel]
-		_, serviceOfferingFound := guidToOfferingMap[offeringGUID]
-		if serviceOfferingFound {
-			actualPlanMap[plan.Spec.Broker_catalog.Id] = &plan
-		}
-	}
 
 	catalogResponse, err := r.getCatalog(ctx, cfServiceBroker)
 	if err != nil {
 		log.Info("failed to get broker catalog", "reason", err)
-		return ctrl.Result{}, err
+		return brokerNotReady(cfServiceBroker, err)
 	}
 
 	for _, service := range catalogResponse.Services {
-		offeringGUID := ""
-		offering, found := idToOfferingMap[service.Id]
-		if found {
-			offeringGUID = offering.Name
-			delete(idToOfferingMap, service.Id)
-			log.Info("Found existing offering ", "offering", service.Id)
-		} else {
-			log.Info("No existing offering ", "offering", service.Id)
-			offeringGUID = uuid.NewString()
-		}
+		log.Info("Reconcile service offering ", "offering", service.Id, "broker", cfServiceBroker.Name)
 
-		actualCFServiceOffering := korifiv1alpha1.CFServiceOffering{
+		actualCFServiceOffering := &korifiv1alpha1.CFServiceOffering{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      offeringGUID,
+				Name:      generateBrokerObjectUid(cfServiceBroker, service.Id),
 				Namespace: r.rootNamespace,
 			},
 		}
-
-		log.Info("Reconcile service offering ", "offering", service.Id)
-		serviceOffering := mapCatalogToOffering(service, cfServiceBroker)
-		_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualCFServiceOffering, func() error {
-
+		_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, actualCFServiceOffering, func() error {
 			if actualCFServiceOffering.Labels == nil {
 				actualCFServiceOffering.Labels = map[string]string{}
 			}
 			actualCFServiceOffering.Labels[korifiv1alpha1.RelServiceBrokerLabel] = cfServiceBroker.Name
-			actualCFServiceOffering.Spec.ServiceOffering.BrokerServiceOffering = *serviceOffering
+			actualCFServiceOffering.Spec.BrokerServiceOffering = mapCatalogToOffering(service, cfServiceBroker)
 			return nil
 		})
 		if err != nil {
 			log.Info("failed to create/patch service offering", "reason", err)
-			return ctrl.Result{}, err
+			return brokerNotReady(cfServiceBroker, err)
 		}
 
 		for _, catalogPlan := range service.Plans {
-			planGUID := ""
-			plan, found := actualPlanMap[catalogPlan.Id]
-			if found {
-				planGUID = plan.Name
-				delete(actualPlanMap, catalogPlan.Id)
-				log.Info("Found existing plan ", "plan", catalogPlan.Id)
-			} else {
-				log.Info("No existing plan ", "plan", catalogPlan.Id)
-				planGUID = uuid.NewString()
-			}
-
-			log.Info("Reconcile service plan ", "plan", catalogPlan.Id)
-			actualCFServicePlan := korifiv1alpha1.CFServicePlan{
+			log.Info("Reconcile service plan ", "plan", catalogPlan.Id, "broker", cfServiceBroker.Name)
+			actualCFServicePlan := &korifiv1alpha1.CFServicePlan{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      planGUID,
+					Name:      generateBrokerObjectUid(cfServiceBroker, catalogPlan.Id),
 					Namespace: r.rootNamespace,
 				},
 			}
 
-			servicePlan := mapCatalogToPlan(offeringGUID, catalogPlan, cfServiceBroker)
-			_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualCFServicePlan, func() error {
-				actualCFServicePlan.Spec.ServicePlan.BrokerServicePlan = *servicePlan
+			_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, actualCFServicePlan, func() error {
+				actualCFServicePlan.Spec.BrokerServicePlan = mapCatalogToPlan(actualCFServiceOffering.Name, catalogPlan, cfServiceBroker)
 
 				if actualCFServicePlan.Labels == nil {
 					actualCFServicePlan.Labels = map[string]string{}
 				}
 				actualCFServicePlan.Labels[korifiv1alpha1.RelServiceBrokerLabel] = cfServiceBroker.Name
-				actualCFServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel] = offeringGUID
+				actualCFServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel] = actualCFServiceOffering.Name
 				return nil
 			})
 			if err != nil {
 				log.Info("failed to create/patch service plan", "reason", err)
-				return ctrl.Result{}, err
+				return brokerNotReady(cfServiceBroker, err)
 			}
-		} // plans
+		}
 	}
+
+	meta.SetStatusCondition(&cfServiceBroker.Status.Conditions, metav1.Condition{
+		Type:               ReadyCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             "Ready",
+		Message:            "Ready",
+		ObservedGeneration: cfServiceBroker.Generation,
+	})
 
 	return ctrl.Result{}, nil
 }
@@ -321,4 +276,21 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 func (r *CFServiceBrokerReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceBroker{})
+}
+
+func generateBrokerObjectUid(broker *korifiv1alpha1.CFServiceBroker, objectId string) string {
+	input := fmt.Sprintf("%s::%s", broker.Name, objectId)
+	return fmt.Sprintf("sb%x", sha1.Sum([]byte(input)))
+}
+
+func brokerNotReady(broker *korifiv1alpha1.CFServiceBroker, err error) (ctrl.Result, error) {
+	meta.SetStatusCondition(&broker.Status.Conditions, metav1.Condition{
+		Type:               ReadyCondition,
+		Status:             metav1.ConditionFalse,
+		Reason:             "Failed",
+		Message:            err.Error(),
+		ObservedGeneration: broker.Generation,
+	})
+
+	return ctrl.Result{}, err
 }

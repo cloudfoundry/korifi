@@ -39,16 +39,23 @@ type DeletionRepository interface {
 }
 
 type Job struct {
-	serverURL       url.URL
-	repositories    map[string]DeletionRepository
-	pollingInterval time.Duration
+	serverURL        url.URL
+	repositories     map[string]DeletionRepository
+	brokerRepository CFServiceBrokerRepository
+	pollingInterval  time.Duration
 }
 
-func NewJob(serverURL url.URL, repositories map[string]DeletionRepository, pollingInterval time.Duration) *Job {
+func NewJob(
+	serverURL url.URL,
+	repositories map[string]DeletionRepository,
+	brokerRepository CFServiceBrokerRepository,
+	pollingInterval time.Duration,
+) *Job {
 	return &Job{
-		serverURL:       serverURL,
-		repositories:    repositories,
-		pollingInterval: pollingInterval,
+		serverURL:        serverURL,
+		repositories:     repositories,
+		brokerRepository: brokerRepository,
+		pollingInterval:  pollingInterval,
 	}
 }
 
@@ -71,7 +78,17 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	}
 
 	if job.Type == BrokerCreateJobType {
-		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForJob(job, []presenter.JobResponseError{}, "COMPLETE", h.serverURL)), nil
+		authInfo, _ := authorization.InfoFromContext(ctx)
+		broker, err := h.brokerRepository.GetServiceBroker(ctx, authInfo, job.ResourceGUID)
+		if err != nil {
+			return nil, apierrors.LogAndReturn(log, err, "getting broker failed")
+		}
+
+		state := presenter.StateProcessing
+		if broker.Ready {
+			state = presenter.StateComplete
+		}
+		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForJob(job, []presenter.JobResponseError{}, state, h.serverURL)), nil
 	}
 
 	repository, ok := h.repositories[job.Type]

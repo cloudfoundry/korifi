@@ -66,14 +66,21 @@ type CFServiceBrokerSpec struct {
 	SecretName    string `json:"secretName"`
 }
 
+type CFServiceBrokerStatus struct {
+	//+kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.spec.Name`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 type CFServiceBroker struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec CFServiceBrokerSpec `json:"spec,omitempty"`
+	Spec   CFServiceBrokerSpec   `json:"spec,omitempty"`
+	Status CFServiceBrokerStatus `json:"status,omitempty"`
 }
 
 func (b CFServiceBroker) UniqueName() string {

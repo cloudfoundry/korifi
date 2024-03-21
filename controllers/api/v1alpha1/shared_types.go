@@ -142,6 +142,7 @@ type CFResource struct {
 	GUID      string  `json:"guid"`
 	CreatedAt string  `json:"created_at"`
 	UpdatedAt *string `json:"updated_at"`
+	Ready     bool    `json:"ready"`
 }
 
 type BasicAuthentication struct {

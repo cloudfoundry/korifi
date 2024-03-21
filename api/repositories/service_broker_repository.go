@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,7 +54,8 @@ func toServiceBrokerResource(cfServiceBroker *korifiv1alpha1.CFServiceBroker) ko
 	return korifiv1alpha1.ServiceBrokerResource{
 		ServiceBroker: cfServiceBroker.Spec.ServiceBroker,
 		CFResource: korifiv1alpha1.CFResource{
-			GUID: cfServiceBroker.Name,
+			GUID:  cfServiceBroker.Name,
+			Ready: meta.IsStatusConditionTrue(cfServiceBroker.Status.Conditions, "Ready"),
 		},
 	}
 }
@@ -212,7 +214,6 @@ func (r *ServiceBrokerRepo) newCFServiceBroker(serviceBroker korifiv1alpha1.Serv
 			SecretName:    meta.Name,
 		},
 	}
-
 }
 
 func cfServiceBrokerToSecret(cfServiceBroker *korifiv1alpha1.CFServiceBroker) *corev1.Secret {

@@ -360,6 +360,7 @@ func main() {
 				handlers.OrgQuotaDeleteJobType:   orgQuotaRepo,
 				handlers.SpaceQuotaDeleteJobType: spaceQuotaRepo,
 			},
+			serviceBrokerRepo,
 			500*time.Millisecond,
 		),
 		handlers.NewLogCache(
