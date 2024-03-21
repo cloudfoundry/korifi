@@ -55,6 +55,22 @@ type ServicePlanRelationships struct {
 	Space *ToOneRelationship `json:"space"`
 }
 
+func (rel *ServicePlanRelationships) Create(plan *CFServicePlan) {
+	rel.Service_offering = ToOneRelationship{
+		Data: Relationship{
+			GUID: plan.Labels[RelServiceOfferingLabel],
+		},
+	}
+	space, found := plan.Labels[RelSpaceLabel]
+	if found {
+		rel.Space = &ToOneRelationship{
+			Data: Relationship{
+				GUID: space,
+			},
+		}
+	}
+}
+
 type InputParameterSchema struct {
 	Parameters runtime.RawExtension `json:"parameters"`
 }
@@ -81,8 +97,7 @@ type BrokerServicePlan struct {
 	Maintenance_info ServicePlanMaintenanceInfo `json:"maintenance_info"`
 	Broker_catalog   ServicePlanBrokerCatalog   `json:"broker_catalog"`
 	// +kubebuilder:validation:Optional
-	Schemas       *ServicePlanSchemas      `json:"schemas"`
-	Relationships ServicePlanRelationships `json:"relationships"`
+	Schemas *ServicePlanSchemas `json:"schemas"`
 }
 
 type ServicePlan struct {
@@ -96,6 +111,7 @@ type ServicePlan struct {
 type ServicePlanResource struct {
 	ServicePlan
 	CFResource
+	Relationships ServicePlanRelationships
 }
 
 // CFServicePlanSpec defines the desired state of CFServicePlan

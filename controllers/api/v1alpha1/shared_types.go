@@ -18,6 +18,11 @@ const (
 	CFRouteGUIDLabelKey      = "korifi.cloudfoundry.org/route-guid"
 	CFTaskGUIDLabelKey       = "korifi.cloudfoundry.org/task-guid"
 
+	RelationshipsLabelPrefix = "korifi.cloudfoundry.org/rel-"
+	RelSpaceLabel            = RelationshipsLabelPrefix + "space"
+	RelServiceBrokerLabel    = RelationshipsLabelPrefix + "service_broker"
+	RelServiceOfferingLabel  = RelationshipsLabelPrefix + "service_offering"
+
 	CFBindingTypeLabelKey = "korifi.cloudfoundry.org/binding-type"
 
 	StagingConditionType   = "Staging"

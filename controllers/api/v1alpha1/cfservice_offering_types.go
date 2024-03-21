@@ -42,6 +42,14 @@ type ServiceOfferingRelationships struct {
 	Service_broker ToOneRelationship `json:"service_broker"`
 }
 
+func (rel *ServiceOfferingRelationships) Create(plan *CFServiceOffering) {
+	rel.Service_broker = ToOneRelationship{
+		Data: Relationship{
+			GUID: plan.Labels[RelServiceBrokerLabel],
+		},
+	}
+}
+
 type BrokerServiceOffering struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
@@ -49,9 +57,8 @@ type BrokerServiceOffering struct {
 	Requires    []string `json:"required,omitempty"`
 	Shareable   bool     `json:"shareable"`
 	// +kubebuilder:validation:Optional
-	Documentation_url *string                      `json:"documentationUrl"`
-	Broker_catalog    ServiceBrokerCatalog         `json:"broker_catalog"`
-	Relationships     ServiceOfferingRelationships `json:"relationships"`
+	Documentation_url *string              `json:"documentationUrl"`
+	Broker_catalog    ServiceBrokerCatalog `json:"broker_catalog"`
 }
 
 type ServiceOffering struct {
@@ -62,6 +69,7 @@ type ServiceOffering struct {
 type ServiceOfferingResource struct {
 	ServiceOffering
 	CFResource
+	Relationships ServiceOfferingRelationships
 }
 
 // CFServiceOfferingSpec defines the desired state of CFServiceOffering

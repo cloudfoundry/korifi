@@ -399,7 +399,7 @@ func (c *brokerClient) getServiceOffering(ctx context.Context, plan *korifiv1alp
 	offering := &korifiv1alpha1.CFServiceOffering{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: c.rootNamespace,
-			Name:      plan.Spec.Relationships.Service_offering.Data.GUID,
+			Name:      plan.Labels[korifiv1alpha1.RelServiceOfferingLabel],
 		},
 	}
 
@@ -412,7 +412,7 @@ func (c *brokerClient) getServiceOffering(ctx context.Context, plan *korifiv1alp
 }
 
 func (c *brokerClient) getBroker(ctx context.Context, plan *korifiv1alpha1.CFServicePlan) (*korifiv1alpha1.CFServiceBroker, error) {
-	brokerName, ok := plan.Labels[ServiceBrokerGUIDLabel]
+	brokerName, ok := plan.Labels[korifiv1alpha1.RelServiceBrokerLabel]
 	if !ok {
 		return nil, fmt.Errorf("plan %q has no broker guid label set", plan.Name)
 	}

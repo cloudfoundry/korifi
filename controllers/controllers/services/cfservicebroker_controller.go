@@ -40,10 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	ServiceBrokerGUIDLabel = "cfservicebroker"
-)
-
 // CFServiceBrokerReconciler reconciles a CFServiceInstance object
 type CFServiceBrokerReconciler struct {
 	rootNamespace string
@@ -158,13 +154,6 @@ func mapCatalogToOffering(catalogService CatalogService, cfServiceBroker *korifi
 				Raw: raw_metadata,
 			},
 		},
-		Relationships: korifiv1alpha1.ServiceOfferingRelationships{
-			Service_broker: korifiv1alpha1.ToOneRelationship{
-				Data: korifiv1alpha1.Relationship{
-					GUID: cfServiceBroker.Name,
-				},
-			},
-		},
 	}
 }
 
@@ -189,13 +178,6 @@ func mapCatalogToPlan(offeringGUID string, catalogPlan CatalogPlan, cfServiceBro
 			},
 		},
 		Schemas: catalogPlan.Schemas,
-		Relationships: korifiv1alpha1.ServicePlanRelationships{
-			Service_offering: korifiv1alpha1.ToOneRelationship{
-				Data: korifiv1alpha1.Relationship{
-					GUID: offeringGUID,
-				},
-			},
-		},
 	}
 }
 
@@ -225,7 +207,7 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 	cfOfferingsList := &korifiv1alpha1.CFServiceOfferingList{}
 	cfPlansList := &korifiv1alpha1.CFServicePlanList{}
 
-	err := r.k8sClient.List(ctx, cfOfferingsList, client.InNamespace(r.rootNamespace))
+	err := r.k8sClient.List(ctx, cfOfferingsList, client.InNamespace(r.rootNamespace), client.MatchingLabels{korifiv1alpha1.RelServiceBrokerLabel: cfServiceBroker.Name})
 	if err != nil {
 		log.Info("failed to list existing cfserviceofferings", "reason", err)
 		return ctrl.Result{}, err
@@ -234,10 +216,8 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 	idToOfferingMap := make(map[string]*korifiv1alpha1.CFServiceOffering)
 	guidToOfferingMap := make(map[string]*korifiv1alpha1.CFServiceOffering)
 	for _, offering := range cfOfferingsList.Items {
-		if offering.Spec.Relationships.Service_broker.Data.GUID == cfServiceBroker.Name {
-			idToOfferingMap[offering.Spec.Broker_catalog.Id] = &offering
-			guidToOfferingMap[offering.Name] = &offering
-		}
+		idToOfferingMap[offering.Spec.Broker_catalog.Id] = &offering
+		guidToOfferingMap[offering.Name] = &offering
 	}
 
 	err = r.k8sClient.List(ctx, cfPlansList, client.InNamespace(r.rootNamespace))
@@ -247,8 +227,10 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 	}
 
 	actualPlanMap := make(map[string]*korifiv1alpha1.CFServicePlan)
+	//Filter service plans to include only these plans related to the current broker
 	for _, plan := range cfPlansList.Items {
-		_, serviceOfferingFound := guidToOfferingMap[plan.Spec.Relationships.Service_offering.Data.GUID]
+		offeringGUID := plan.Labels[korifiv1alpha1.RelServiceOfferingLabel]
+		_, serviceOfferingFound := guidToOfferingMap[offeringGUID]
 		if serviceOfferingFound {
 			actualPlanMap[plan.Spec.Broker_catalog.Id] = &plan
 		}
@@ -282,6 +264,11 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 		log.Info("Reconcile service offering ", "offering", service.Id)
 		serviceOffering := mapCatalogToOffering(service, cfServiceBroker)
 		_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualCFServiceOffering, func() error {
+
+			if actualCFServiceOffering.Labels == nil {
+				actualCFServiceOffering.Labels = map[string]string{}
+			}
+			actualCFServiceOffering.Labels[korifiv1alpha1.RelServiceBrokerLabel] = cfServiceBroker.Name
 			actualCFServiceOffering.Spec.ServiceOffering.BrokerServiceOffering = *serviceOffering
 			return nil
 		})
@@ -317,7 +304,8 @@ func (r *CFServiceBrokerReconciler) ReconcileResource(ctx context.Context, cfSer
 				if actualCFServicePlan.Labels == nil {
 					actualCFServicePlan.Labels = map[string]string{}
 				}
-				actualCFServicePlan.Labels[ServiceBrokerGUIDLabel] = cfServiceBroker.Name
+				actualCFServicePlan.Labels[korifiv1alpha1.RelServiceBrokerLabel] = cfServiceBroker.Name
+				actualCFServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel] = offeringGUID
 				return nil
 			})
 			if err != nil {

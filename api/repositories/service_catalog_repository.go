@@ -14,6 +14,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	RelServiceBrokerLabel   = korifiv1alpha1.RelationshipsLabelPrefix + "service_broker"
+	RelServiceOfferingLabel = korifiv1alpha1.RelationshipsLabelPrefix + "service_offering"
+)
+
 type ServiceCatalogRepo struct {
 	rootNamespace     string
 	userClientFactory authorization.UserK8sClientFactory
@@ -65,20 +70,28 @@ type ServiceBindingSchemaCreate struct {
 type SchemaParameters map[string]any
 
 func toServiceOfferingResource(cfServiceOffering *korifiv1alpha1.CFServiceOffering) korifiv1alpha1.ServiceOfferingResource {
+	rels := korifiv1alpha1.ServiceOfferingRelationships{}
+	rels.Create(cfServiceOffering)
+
 	return korifiv1alpha1.ServiceOfferingResource{
 		ServiceOffering: cfServiceOffering.Spec.ServiceOffering,
 		CFResource: korifiv1alpha1.CFResource{
 			GUID: cfServiceOffering.Name,
 		},
+		Relationships: rels,
 	}
 }
 
 func toServicePlanResource(cfServicePlan *korifiv1alpha1.CFServicePlan) korifiv1alpha1.ServicePlanResource {
+	rels := korifiv1alpha1.ServicePlanRelationships{}
+	rels.Create(cfServicePlan)
+
 	return korifiv1alpha1.ServicePlanResource{
 		ServicePlan: cfServicePlan.Spec.ServicePlan,
 		CFResource: korifiv1alpha1.CFResource{
 			GUID: cfServicePlan.Name,
 		},
+		Relationships: rels,
 	}
 }
 
@@ -172,7 +185,7 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 			}
 		}
 
-		if !filterAppliesTo(p.Spec.Relationships.Service_offering.Data.GUID, offeringGuids) {
+		if !filterAppliesTo(p.Labels[RelServiceOfferingLabel], offeringGuids) {
 			continue
 		}
 

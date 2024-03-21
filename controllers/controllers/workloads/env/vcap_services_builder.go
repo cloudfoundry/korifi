@@ -157,7 +157,7 @@ func (b *VCAPServicesEnvValueBuilder) getServiceLabel(ctx context.Context, cfSer
 		return "", err
 	}
 
-	serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Spec.Relationships.Service_offering.Data.GUID)
+	serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel])
 	if err != nil {
 		return "", err
 	}
@@ -177,7 +177,7 @@ func (b *VCAPServicesEnvValueBuilder) getServiceTags(ctx context.Context, cfServ
 			return nil, err
 		}
 
-		serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Spec.Relationships.Service_offering.Data.GUID)
+		serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel])
 		if err != nil {
 			return nil, err
 		}

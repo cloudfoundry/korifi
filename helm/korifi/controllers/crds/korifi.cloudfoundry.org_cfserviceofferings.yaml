@@ -102,21 +102,6 @@ spec:
                 type: object
               name:
                 type: string
-              relationships:
-                properties:
-                  service_broker:
-                    properties:
-                      data:
-                        properties:
-                          guid:
-                            type: string
-                        required:
-                        - guid
-                        type: object
-                    type: object
-                required:
-                - service_broker
-                type: object
               required:
                 items:
                   type: string
@@ -132,7 +117,6 @@ spec:
             - broker_catalog
             - description
             - name
-            - relationships
             - shareable
             type: object
           status:

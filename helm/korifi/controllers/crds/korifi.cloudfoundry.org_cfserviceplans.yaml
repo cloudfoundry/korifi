@@ -109,31 +109,6 @@ spec:
                 type: object
               name:
                 type: string
-              relationships:
-                properties:
-                  service_offering:
-                    properties:
-                      data:
-                        properties:
-                          guid:
-                            type: string
-                        required:
-                        - guid
-                        type: object
-                    type: object
-                  space:
-                    properties:
-                      data:
-                        properties:
-                          guid:
-                            type: string
-                        required:
-                        - guid
-                        type: object
-                    type: object
-                required:
-                - service_offering
-                type: object
               schemas:
                 properties:
                   service_binding:
@@ -183,7 +158,6 @@ spec:
             - free
             - maintenance_info
             - name
-            - relationships
             - visibility_type
             type: object
           status:
