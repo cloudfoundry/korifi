@@ -312,7 +312,7 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 		desiredAppWorkload.Spec.Instances = int32(*cfProcess.Spec.DesiredInstances)
 	}
 
-	desiredAppWorkload.Spec.Env = generateEnvVars(appPorts, envVars)
+	desiredAppWorkload.Spec.Env = generateEnvVars(appPorts, envVars, cfProcess.Spec.MemoryMB)
 
 	desiredAppWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPorts)
 	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPorts)
@@ -389,7 +389,7 @@ func (r *CFProcessReconciler) getPorts(ctx context.Context, processType string, 
 	return ports, nil
 }
 
-func generateEnvVars(ports []int32, commonEnv []corev1.EnvVar) []corev1.EnvVar {
+func generateEnvVars(ports []int32, commonEnv []corev1.EnvVar, memoryMB int64) []corev1.EnvVar {
 	result := []corev1.EnvVar{
 		{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 	}
@@ -402,6 +402,10 @@ func generateEnvVars(ports []int32, commonEnv []corev1.EnvVar) []corev1.EnvVar {
 			corev1.EnvVar{Name: "PORT", Value: portString},
 		)
 	}
+
+	result = append(result,
+		corev1.EnvVar{Name: "MEMORY_LIMIT", Value: fmt.Sprintf("%dM", memoryMB)},
+	)
 
 	// Sort env vars to guarantee idempotency
 	sort.SliceStable(result, func(i, j int) bool {
