@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,7 +43,10 @@ type brokerClient struct {
 	rootNamespace string
 }
 
-func NewBrokerClient(k8sClient client.Client, rootNamespace string) BrokerClient {
+func NewBrokerClient(
+	k8sClient client.Client,
+	rootNamespace string,
+) BrokerClient {
 	return &brokerClient{
 		k8sClient:     k8sClient,
 		rootNamespace: rootNamespace,
@@ -55,11 +60,6 @@ func (c *brokerClient) ProvisionServiceInstance(ctx context.Context, cfServiceIn
 	}
 
 	offering, err := c.getServiceOffering(ctx, plan)
-	if err != nil {
-		return err
-	}
-
-	broker, err := c.getBroker(ctx, plan)
 	if err != nil {
 		return err
 	}
@@ -78,13 +78,12 @@ func (c *brokerClient) ProvisionServiceInstance(ctx context.Context, cfServiceIn
 		provisionRequest["parameters"] = paramsMap
 	}
 
-	provisionUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name)
+	provisionUrl, err := url.JoinPath("v2", "service_instances", cfServiceInstance.Name)
 	if err != nil {
 		return fmt.Errorf("failed to construct service broker provision url: %w", err)
 	}
-	provisionUrl += "?" + url.Values{"accepts_incomplete": {"true"}}.Encode()
 
-	respCode, resp, err := sendRequest(provisionUrl, http.MethodPut, provisionRequest)
+	respCode, resp, err := c.newBrokerRequester(plan).async().sendRequest(ctx, provisionUrl, http.MethodPut, provisionRequest)
 	if err != nil {
 		return fmt.Errorf("provision request failed: %w", err)
 	}
@@ -102,17 +101,12 @@ func (c *brokerClient) GetServiceInstanceLastOperation(ctx context.Context, cfSe
 		return LastOperation{}, err
 	}
 
-	broker, err := c.getBroker(ctx, plan)
-	if err != nil {
-		return LastOperation{}, err
-	}
-
-	stateUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name, "last_operation")
+	stateUrl, err := url.JoinPath("v2", "service_instances", cfServiceInstance.Name, "last_operation")
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("failed to construct service broker last operation url: %w", err)
 	}
 
-	respCode, resp, err := sendRequest(stateUrl, http.MethodGet, nil)
+	respCode, resp, err := c.newBrokerRequester(plan).sendRequest(ctx, stateUrl, http.MethodGet, nil)
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("last operation request failed: %w", err)
 	}
@@ -146,18 +140,12 @@ func (c *brokerClient) DeprovisionServiceInstance(ctx context.Context, cfService
 		return err
 	}
 
-	broker, err := c.getBroker(ctx, plan)
-	if err != nil {
-		return err
-	}
-
-	deprovisionUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name)
+	deprovisionUrl, err := url.JoinPath("v2", "service_instances", cfServiceInstance.Name)
 	if err != nil {
 		return fmt.Errorf("failed to construct service broker deprovision url: %w", err)
 	}
-	deprovisionUrl += "?" + url.Values{"accepts_incomplete": {"true"}}.Encode()
 
-	respCode, resp, err := sendRequest(deprovisionUrl, http.MethodDelete, nil)
+	respCode, resp, err := c.newBrokerRequester(plan).async().sendRequest(ctx, deprovisionUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("deprovision request failed: %w", err)
 	}
@@ -184,23 +172,17 @@ func (c *brokerClient) BindService(ctx context.Context, cfServiceBinding *korifi
 		return err
 	}
 
-	broker, err := c.getBroker(ctx, plan)
-	if err != nil {
-		return err
-	}
-
 	bindRequest := map[string]any{
 		"service_id": offering.Spec.Broker_catalog.Id,
 		"plan_id":    plan.Spec.Broker_catalog.Id,
 	}
 
-	bindUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name)
+	bindUrl, err := url.JoinPath("v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name)
 	if err != nil {
 		return fmt.Errorf("failed to construct service broker provision url: %w", err)
 	}
-	bindUrl += "?" + url.Values{"accepts_incomplete": {"true"}}.Encode()
 
-	respCode, resp, err := sendRequest(bindUrl, http.MethodPut, bindRequest)
+	respCode, resp, err := c.newBrokerRequester(plan).async().sendRequest(ctx, bindUrl, http.MethodPut, bindRequest)
 	if err != nil {
 		return fmt.Errorf("bind request failed: %w", err)
 	}
@@ -227,22 +209,17 @@ func (c *brokerClient) GetServiceBinding(ctx context.Context, cfServiceBinding *
 		return ServiceBinding{}, err
 	}
 
-	broker, err := c.getBroker(ctx, plan)
-	if err != nil {
-		return ServiceBinding{}, err
-	}
-
 	getRequest := map[string]any{
 		"service_id": offering.Spec.Broker_catalog.Id,
 		"plan_id":    plan.Spec.Broker_catalog.Id,
 	}
 
-	getUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name)
+	getUrl, err := url.JoinPath("v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name)
 	if err != nil {
 		return ServiceBinding{}, fmt.Errorf("failed to construct service broker binding url: %w", err)
 	}
 
-	respCode, resp, err := sendRequest(getUrl, http.MethodGet, getRequest)
+	respCode, resp, err := c.newBrokerRequester(plan).sendRequest(ctx, getUrl, http.MethodGet, getRequest)
 	if err != nil {
 		return ServiceBinding{}, fmt.Errorf("get binding request failed: %w", err)
 	}
@@ -270,17 +247,12 @@ func (c *brokerClient) GetServiceBindingLastOperation(ctx context.Context, cfSer
 		return LastOperation{}, err
 	}
 
-	broker, err := c.getBroker(ctx, plan)
-	if err != nil {
-		return LastOperation{}, err
-	}
-
-	stateUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name, "last_operation")
+	stateUrl, err := url.JoinPath("v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name, "last_operation")
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("failed to construct service broker last operation url: %w", err)
 	}
 
-	respCode, resp, err := sendRequest(stateUrl, http.MethodGet, nil)
+	respCode, resp, err := c.newBrokerRequester(plan).sendRequest(ctx, stateUrl, http.MethodGet, nil)
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("last operation request failed: %w", err)
 	}
@@ -319,18 +291,12 @@ func (c *brokerClient) UnbindService(ctx context.Context, cfServiceBinding *kori
 		return err
 	}
 
-	broker, err := c.getBroker(ctx, plan)
-	if err != nil {
-		return err
-	}
-
-	unbindUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name)
+	unbindUrl, err := url.JoinPath("v2", "service_instances", cfServiceInstance.Name, "service_bindings", cfServiceBinding.Name)
 	if err != nil {
 		return fmt.Errorf("failed to construct service broker unbind url: %w", err)
 	}
-	unbindUrl += "?" + url.Values{"accepts_incomplete": {"true"}}.Encode()
 
-	respCode, resp, err := sendRequest(unbindUrl, http.MethodDelete, nil)
+	respCode, resp, err := c.newBrokerRequester(plan).async().sendRequest(ctx, unbindUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("unbind request failed: %w", err)
 	}
@@ -340,35 +306,6 @@ func (c *brokerClient) UnbindService(ctx context.Context, cfServiceBinding *kori
 	}
 
 	return nil
-}
-
-func sendRequest(url string, method string, payload map[string]any) (int, []byte, error) {
-	payloadReader, err := payloadToReader(payload)
-	if err != nil {
-		return 0, nil, fmt.Errorf("failed create payload reader: %w", err)
-	}
-
-	req, err := http.NewRequest(method, url, payloadReader)
-	if err != nil {
-		return 0, nil, fmt.Errorf("failed to create new HTTP request: %w", err)
-	}
-
-	// TODO: configure whether to trust insecure brokers
-	client := &http.Client{Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}}
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, nil, fmt.Errorf("failed to execute HTTP request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, nil, fmt.Errorf("failed to read body: %w", err)
-	}
-
-	return resp.StatusCode, respBody, nil
 }
 
 func payloadToReader(payload map[string]any) (io.Reader, error) {
@@ -416,27 +353,6 @@ func (c *brokerClient) getServiceOffering(ctx context.Context, plan *korifiv1alp
 	return offering, nil
 }
 
-func (c *brokerClient) getBroker(ctx context.Context, plan *korifiv1alpha1.CFServicePlan) (*korifiv1alpha1.CFServiceBroker, error) {
-	brokerName, ok := plan.Labels[korifiv1alpha1.RelServiceBrokerLabel]
-	if !ok {
-		return nil, fmt.Errorf("plan %q has no broker guid label set", plan.Name)
-	}
-
-	broker := &korifiv1alpha1.CFServiceBroker{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: c.rootNamespace,
-			Name:      brokerName,
-		},
-	}
-
-	err := c.k8sClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get broker: %w", err)
-	}
-
-	return broker, nil
-}
-
 func (c *brokerClient) getCFServiceInstance(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*korifiv1alpha1.CFServiceInstance, error) {
 	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
@@ -451,4 +367,107 @@ func (c *brokerClient) getCFServiceInstance(ctx context.Context, cfServiceBindin
 	}
 
 	return cfServiceInstance, nil
+}
+
+type brokerRequester struct {
+	k8sClient         client.Client
+	rootNamespace     string
+	plan              *korifiv1alpha1.CFServicePlan
+	acceptsIncomplete bool
+}
+
+func (c *brokerClient) newBrokerRequester(plan *korifiv1alpha1.CFServicePlan) *brokerRequester {
+	return &brokerRequester{plan: plan, k8sClient: c.k8sClient, rootNamespace: c.rootNamespace}
+}
+
+func (r *brokerRequester) async() *brokerRequester {
+	r.acceptsIncomplete = true
+	return r
+}
+
+func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, method string, payload map[string]any) (int, []byte, error) {
+	broker, err := r.getBroker(ctx)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	requestUrl, err := url.JoinPath(broker.Spec.URL, requestPath)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to build broker requestUrl for path %q: %w", requestPath, err)
+	}
+	if r.acceptsIncomplete {
+		requestUrl += "?" + url.Values{"accepts_incomplete": {"true"}}.Encode()
+	}
+
+	payloadReader, err := payloadToReader(payload)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed create payload reader: %w", err)
+	}
+
+	req, err := http.NewRequest(method, requestUrl, payloadReader)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to create new HTTP request: %w", err)
+	}
+
+	// TODO: configure whether to trust insecure brokers
+	client := &http.Client{Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}}
+
+	userName, password, err := r.getCredentials(ctx, broker)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get credentials: %w", err)
+	}
+	authPlain := fmt.Sprintf("%s:%s", userName, password)
+	auth := base64.StdEncoding.EncodeToString([]byte(authPlain))
+	req.Header.Add("Authorization", "Basic "+auth)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to execute HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to read body: %w", err)
+	}
+
+	return resp.StatusCode, respBody, nil
+}
+
+func (r *brokerRequester) getBroker(ctx context.Context) (*korifiv1alpha1.CFServiceBroker, error) {
+	brokerName, ok := r.plan.Labels[korifiv1alpha1.RelServiceBrokerLabel]
+	if !ok {
+		return nil, fmt.Errorf("plan %q has no broker guid label set", r.plan.Name)
+	}
+
+	broker := &korifiv1alpha1.CFServiceBroker{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      brokerName,
+		},
+	}
+
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get broker: %w", err)
+	}
+
+	return broker, nil
+}
+
+func (r *brokerRequester) getCredentials(ctx context.Context, broker *korifiv1alpha1.CFServiceBroker) (string, string, error) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: broker.Namespace,
+			Name:      broker.Spec.SecretName,
+		},
+	}
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+	if err != nil {
+		return "", "", err
+	}
+
+	return string(secret.Data["username"]), string(secret.Data["password"]), nil
 }

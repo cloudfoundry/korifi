@@ -13,11 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	RelServiceBrokerLabel   = korifiv1alpha1.RelationshipsLabelPrefix + "service_broker"
-	RelServiceOfferingLabel = korifiv1alpha1.RelationshipsLabelPrefix + "service_offering"
-)
-
 type ServiceCatalogRepo struct {
 	rootNamespace     string
 	userClientFactory authorization.UserK8sClientFactory
@@ -177,7 +172,7 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 			}
 		}
 
-		if !filterAppliesTo(p.Labels[RelServiceOfferingLabel], offeringGuids) {
+		if !filterAppliesTo(p.Labels[korifiv1alpha1.RelServiceOfferingLabel], offeringGuids) {
 			continue
 		}
 
