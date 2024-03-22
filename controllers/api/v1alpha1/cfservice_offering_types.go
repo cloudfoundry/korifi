@@ -57,8 +57,8 @@ type BrokerServiceOffering struct {
 	Requires    []string `json:"required,omitempty"`
 	Shareable   bool     `json:"shareable"`
 	// +kubebuilder:validation:Optional
-	Documentation_url *string              `json:"documentationUrl"`
-	Broker_catalog    ServiceBrokerCatalog `json:"broker_catalog"`
+	DocumentationURL *string              `json:"documentation_url"`
+	Broker_catalog   ServiceBrokerCatalog `json:"broker_catalog"`
 }
 
 type ServiceOffering struct {
@@ -67,9 +67,9 @@ type ServiceOffering struct {
 }
 
 type ServiceOfferingResource struct {
-	ServiceOffering
-	CFResource
-	Relationships ServiceOfferingRelationships
+	ServiceOffering `json:",inline"`
+	CFResource      `json:",inline"`
+	Relationships   ServiceOfferingRelationships `json:"relationships"`
 }
 
 // CFServiceOfferingSpec defines the desired state of CFServiceOffering

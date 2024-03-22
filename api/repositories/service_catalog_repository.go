@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -165,13 +164,6 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 		return nil, fmt.Errorf("failed to list service offerings: %w", err)
 	}
 
-	if len(offeringGuids) != len(message.ServiceOfferingNames) {
-		return nil, apierrors.NewUnprocessableEntityError(
-			nil,
-			fmt.Sprintf("some of the following service offerings are not available: %v", message.ServiceOfferingNames),
-		)
-	}
-
 	offeringGuids = append(offeringGuids, message.ServiceOfferingGUIDs...)
 
 	for _, p := range allServicePlans.Items {
@@ -242,6 +234,7 @@ func (r *ServiceCatalogRepo) ApplyPlanVisibility(
 
 	err = k8s.PatchResource(ctx, userClient, servicePlan, func() {
 		servicePlan.Spec.Available = true
+		servicePlan.Spec.VisibilityType = visibilityMessage.Type
 	})
 	if err != nil {
 		return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to patch service plan: %w", err)

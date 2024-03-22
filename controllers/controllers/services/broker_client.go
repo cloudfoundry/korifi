@@ -70,7 +70,12 @@ func (c *brokerClient) ProvisionServiceInstance(ctx context.Context, cfServiceIn
 	}
 
 	if cfServiceInstance.Spec.Parameters != nil {
-		provisionRequest["parameters"] = cfServiceInstance.Spec.Parameters.Raw
+		paramsMap := map[string]any{}
+		err = json.Unmarshal(cfServiceInstance.Spec.Parameters.Raw, &paramsMap)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal service instance parameters: %w", err)
+		}
+		provisionRequest["parameters"] = paramsMap
 	}
 
 	provisionUrl, err := url.JoinPath(broker.Spec.URL, "v2", "service_instances", cfServiceInstance.Name)

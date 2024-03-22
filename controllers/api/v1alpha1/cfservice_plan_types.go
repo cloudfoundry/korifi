@@ -41,7 +41,7 @@ type ServicePlanFeatures struct {
 }
 
 type ServicePlanBrokerCatalog struct {
-	Id string `json:"Id"`
+	Id string `json:"id"`
 	// +kubebuilder:validation:Optional
 	Metadata *runtime.RawExtension `json:"metadata"`
 	// +kubebuilder:validation:Optional
@@ -72,7 +72,8 @@ func (rel *ServicePlanRelationships) Create(plan *CFServicePlan) {
 }
 
 type InputParameterSchema struct {
-	Parameters runtime.RawExtension `json:"parameters"`
+	// +kubebuilder:validation:Optional
+	Parameters *runtime.RawExtension `json:"parameters"`
 }
 
 type ServiceInstanceSchema struct {
@@ -90,28 +91,26 @@ type ServicePlanSchemas struct {
 }
 
 type BrokerServicePlan struct {
-	Name string `json:"name"`
-	Free bool   `json:"free"`
-	// +kubebuilder:validation:Optional
-	Description      *string                    `json:"description,omitempty"`
+	Name             string                     `json:"name"`
+	Free             bool                       `json:"free"`
+	Description      string                     `json:"description,omitempty"`
 	Maintenance_info ServicePlanMaintenanceInfo `json:"maintenance_info"`
 	Broker_catalog   ServicePlanBrokerCatalog   `json:"broker_catalog"`
-	// +kubebuilder:validation:Optional
-	Schemas *ServicePlanSchemas `json:"schemas"`
+	Schemas          ServicePlanSchemas         `json:"schemas"`
 }
 
 type ServicePlan struct {
 	BrokerServicePlan `json:",inline"`
 	// +kubebuilder:validation:Optional
-	Costs           []ServicePlanCost `json:"costs"`
-	Available       bool              `json:"available"`
-	Visibility_type string            `json:"visibility_type"`
+	Costs          []ServicePlanCost `json:"costs"`
+	Available      bool              `json:"available"`
+	VisibilityType string            `json:"visibility_type"`
 }
 
 type ServicePlanResource struct {
-	ServicePlan
-	CFResource
-	Relationships ServicePlanRelationships
+	ServicePlan   `json:",inline"`
+	CFResource    `json:",inline"`
+	Relationships ServicePlanRelationships `json:"relationships"`
 }
 
 // CFServicePlanSpec defines the desired state of CFServicePlan

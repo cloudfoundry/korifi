@@ -87,7 +87,7 @@ spec:
                 type: object
               description:
                 type: string
-              documentationUrl:
+              documentation_url:
                 type: string
               metadata:
                 properties:

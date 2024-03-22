@@ -140,7 +140,7 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 	bindingSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfServiceBinding.Namespace,
-			Name:      cfServiceBinding.Name + "-binding",
+			Name:      cfServiceBinding.Name + "-b",
 		},
 	}
 
@@ -170,7 +170,7 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfServiceBinding.Namespace,
-			Name:      cfServiceBinding.Name + "-credentials",
+			Name:      cfServiceBinding.Name + "-c",
 		},
 	}
 

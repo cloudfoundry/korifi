@@ -18,7 +18,6 @@ package services
 
 import (
 	"context"
-	"crypto/sha1"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -27,6 +26,7 @@ import (
 	"net/url"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -53,15 +53,15 @@ type InputParameterSchema struct {
 }
 
 type CatalogPlan struct {
-	Id               string                             `json:"id"`
-	Name             string                             `json:"name"`
-	Description      string                             `json:"description"`
-	Metadata         map[string]interface{}             `json:"metadata"`
-	Free             bool                               `json:"free"`
-	Bindable         bool                               `json:"bindable"`
-	BindingRotatable bool                               `json:"binding_rotatable"`
-	PlanUpdateable   bool                               `json:"plan_updateable"`
-	Schemas          *korifiv1alpha1.ServicePlanSchemas `json:"schemas"`
+	Id               string                            `json:"id"`
+	Name             string                            `json:"name"`
+	Description      string                            `json:"description"`
+	Metadata         map[string]interface{}            `json:"metadata"`
+	Free             bool                              `json:"free"`
+	Bindable         bool                              `json:"bindable"`
+	BindingRotatable bool                              `json:"binding_rotatable"`
+	PlanUpdateable   bool                              `json:"plan_updateable"`
+	Schemas          korifiv1alpha1.ServicePlanSchemas `json:"schemas"`
 }
 
 type CatalogService struct {
@@ -75,7 +75,6 @@ type CatalogService struct {
 	AllowContextUpdates  bool                   `json:"allow_context_updates"`
 	Tags                 []string               `json:"tags"`
 	Requires             []string               `json:"requires"`
-	DocumentationUrl     *string                `json:"documentation_url"`
 	Metadata             map[string]interface{} `json:"metadata"`
 	DashboardClient      struct {
 		Id          string `json:"id"`
@@ -139,13 +138,18 @@ func mapCatalogToOffering(catalogService CatalogService, cfServiceBroker *korifi
 	if catalogService.Metadata != nil {
 		raw_metadata, _ = json.Marshal(catalogService.Metadata)
 	}
+
+	var documentationUrl *string
+	if u, ok := catalogService.Metadata["documentationUrl"]; ok {
+		documentationUrl = tools.PtrTo(u.(string))
+	}
 	return korifiv1alpha1.BrokerServiceOffering{
-		Name:              catalogService.Name,
-		Description:       catalogService.Description,
-		Tags:              catalogService.Tags,
-		Requires:          catalogService.Requires,
-		Shareable:         true,
-		Documentation_url: catalogService.DocumentationUrl,
+		Name:             catalogService.Name,
+		Description:      catalogService.Description,
+		Tags:             catalogService.Tags,
+		Requires:         catalogService.Requires,
+		Shareable:        true,
+		DocumentationURL: documentationUrl,
 		Broker_catalog: korifiv1alpha1.ServiceBrokerCatalog{
 			Id: catalogService.Id,
 			Features: korifiv1alpha1.BrokerCatalogFeatures{
@@ -170,7 +174,7 @@ func mapCatalogToPlan(offeringGUID string, catalogPlan CatalogPlan, cfServiceBro
 	return korifiv1alpha1.BrokerServicePlan{
 		Name:             catalogPlan.Name,
 		Free:             catalogPlan.Free,
-		Description:      &catalogPlan.Description,
+		Description:      catalogPlan.Description,
 		Maintenance_info: korifiv1alpha1.ServicePlanMaintenanceInfo{},
 		Broker_catalog: korifiv1alpha1.ServicePlanBrokerCatalog{
 			Id: catalogPlan.Id,
@@ -279,8 +283,7 @@ func (r *CFServiceBrokerReconciler) SetupWithManager(mgr ctrl.Manager) *builder.
 }
 
 func generateBrokerObjectUid(broker *korifiv1alpha1.CFServiceBroker, objectId string) string {
-	input := fmt.Sprintf("%s::%s", broker.Name, objectId)
-	return fmt.Sprintf("sb%x", sha1.Sum([]byte(input)))
+	return tools.UUID(fmt.Sprintf("%s::%s", broker.Name, objectId))
 }
 
 func brokerNotReady(broker *korifiv1alpha1.CFServiceBroker, err error) (ctrl.Result, error) {

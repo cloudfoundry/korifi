@@ -56,8 +56,6 @@ spec:
                 type: boolean
               broker_catalog:
                 properties:
-                  Id:
-                    type: string
                   features:
                     properties:
                       bindable:
@@ -68,6 +66,8 @@ spec:
                     - bindable
                     - plan_updateable
                     type: object
+                  id:
+                    type: string
                   maximum_polling_duration:
                     format: int32
                     type: integer
@@ -75,8 +75,8 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                 required:
-                - Id
                 - features
+                - id
                 type: object
               costs:
                 items:
@@ -118,8 +118,6 @@ spec:
                           parameters:
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
-                        required:
-                        - parameters
                         type: object
                     required:
                     - create
@@ -131,16 +129,12 @@ spec:
                           parameters:
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
-                        required:
-                        - parameters
                         type: object
                       update:
                         properties:
                           parameters:
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
-                        required:
-                        - parameters
                         type: object
                     required:
                     - create
@@ -158,6 +152,7 @@ spec:
             - free
             - maintenance_info
             - name
+            - schemas
             - visibility_type
             type: object
           status:
