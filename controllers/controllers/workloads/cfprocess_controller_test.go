@@ -200,6 +200,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				// We expect this test will still continue to pass and failures will not be considered flakes, but may
 				// exhibit false positives should the required sort code be removed.
 				g.Expect(appWorkload.Spec.Env).To(HaveExactElements(
+					Equal(corev1.EnvVar{Name: "MEMORY_LIMIT", Value: "1024M"}),
 					Equal(corev1.EnvVar{Name: "PORT", Value: "8080"}),
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal("VCAP_APPLICATION"),
