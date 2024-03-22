@@ -253,6 +253,7 @@ func main() {
 			controllerConfig.CFRootNamespace,
 			mgr.GetClient(),
 			mgr.GetScheme(),
+			brokerClient,
 			ctrl.Log.WithName("controllers").WithName("CFServiceBroker"),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBroker")

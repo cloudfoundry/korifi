@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,8 @@ import (
 )
 
 type BrokerClient interface {
+	GetCatalog(context.Context, *korifiv1alpha1.CFServiceBroker) (*Catalog, error)
+
 	ProvisionServiceInstance(context.Context, *korifiv1alpha1.CFServiceInstance) error
 	GetServiceInstanceLastOperation(context.Context, *korifiv1alpha1.CFServiceInstance) (LastOperation, error)
 	DeprovisionServiceInstance(context.Context, *korifiv1alpha1.CFServiceInstance) error
@@ -26,6 +29,42 @@ type BrokerClient interface {
 	GetServiceBinding(context.Context, *korifiv1alpha1.CFServiceBinding) (ServiceBinding, error)
 	GetServiceBindingLastOperation(context.Context, *korifiv1alpha1.CFServiceBinding) (LastOperation, error)
 	UnbindService(context.Context, *korifiv1alpha1.CFServiceBinding) error
+}
+
+type Catalog struct {
+	Services []Service `json:"services"`
+}
+
+type Service struct {
+	Id                   string                 `json:"id"`
+	Name                 string                 `json:"name"`
+	Description          string                 `json:"description"`
+	Bindable             bool                   `json:"bindable"`
+	InstancesRetrievable bool                   `json:"instances_retrievable"`
+	BindingsRetrievable  bool                   `json:"bindings_retrievable"`
+	PlanUpdateable       bool                   `json:"plan_updateable"`
+	AllowContextUpdates  bool                   `json:"allow_context_updates"`
+	Tags                 []string               `json:"tags"`
+	Requires             []string               `json:"requires"`
+	Metadata             map[string]interface{} `json:"metadata"`
+	DashboardClient      struct {
+		Id          string `json:"id"`
+		Secret      string `json:"secret"`
+		RedirectUri string `json:"redirect_url"`
+	} `json:"dashboard_client"`
+	Plans []Plan `json:"plans"`
+}
+
+type Plan struct {
+	Id               string                            `json:"id"`
+	Name             string                            `json:"name"`
+	Description      string                            `json:"description"`
+	Metadata         map[string]interface{}            `json:"metadata"`
+	Free             bool                              `json:"free"`
+	Bindable         bool                              `json:"bindable"`
+	BindingRotatable bool                              `json:"binding_rotatable"`
+	PlanUpdateable   bool                              `json:"plan_updateable"`
+	Schemas          korifiv1alpha1.ServicePlanSchemas `json:"schemas"`
 }
 
 type ServiceBinding struct {
@@ -51,6 +90,25 @@ func NewBrokerClient(
 		k8sClient:     k8sClient,
 		rootNamespace: rootNamespace,
 	}
+}
+
+func (c *brokerClient) GetCatalog(ctx context.Context, broker *korifiv1alpha1.CFServiceBroker) (*Catalog, error) {
+	respCode, resp, err := c.newBrokerRequester().forBroker(broker).sendRequest(ctx, "/v2/catalog", http.MethodGet, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get catalog request failed: %w", err)
+	}
+
+	if respCode > 299 {
+		return nil, fmt.Errorf("get catalog request returned non-OK status %d: %s", respCode, string(resp))
+	}
+
+	catalog := &Catalog{}
+	err = json.Unmarshal(resp, catalog)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal catalog: %w", err)
+	}
+
+	return catalog, nil
 }
 
 func (c *brokerClient) ProvisionServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) error {
@@ -83,7 +141,7 @@ func (c *brokerClient) ProvisionServiceInstance(ctx context.Context, cfServiceIn
 		return fmt.Errorf("failed to construct service broker provision url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester(plan).async().sendRequest(ctx, provisionUrl, http.MethodPut, provisionRequest)
+	respCode, resp, err := c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, provisionUrl, http.MethodPut, provisionRequest)
 	if err != nil {
 		return fmt.Errorf("provision request failed: %w", err)
 	}
@@ -106,7 +164,7 @@ func (c *brokerClient) GetServiceInstanceLastOperation(ctx context.Context, cfSe
 		return LastOperation{}, fmt.Errorf("failed to construct service broker last operation url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester(plan).sendRequest(ctx, stateUrl, http.MethodGet, nil)
+	respCode, resp, err := c.newBrokerRequester().forPlan(plan).sendRequest(ctx, stateUrl, http.MethodGet, nil)
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("last operation request failed: %w", err)
 	}
@@ -145,7 +203,7 @@ func (c *brokerClient) DeprovisionServiceInstance(ctx context.Context, cfService
 		return fmt.Errorf("failed to construct service broker deprovision url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester(plan).async().sendRequest(ctx, deprovisionUrl, http.MethodDelete, nil)
+	respCode, resp, err := c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, deprovisionUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("deprovision request failed: %w", err)
 	}
@@ -182,7 +240,7 @@ func (c *brokerClient) BindService(ctx context.Context, cfServiceBinding *korifi
 		return fmt.Errorf("failed to construct service broker provision url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester(plan).async().sendRequest(ctx, bindUrl, http.MethodPut, bindRequest)
+	respCode, resp, err := c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, bindUrl, http.MethodPut, bindRequest)
 	if err != nil {
 		return fmt.Errorf("bind request failed: %w", err)
 	}
@@ -219,7 +277,7 @@ func (c *brokerClient) GetServiceBinding(ctx context.Context, cfServiceBinding *
 		return ServiceBinding{}, fmt.Errorf("failed to construct service broker binding url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester(plan).sendRequest(ctx, getUrl, http.MethodGet, getRequest)
+	respCode, resp, err := c.newBrokerRequester().forPlan(plan).sendRequest(ctx, getUrl, http.MethodGet, getRequest)
 	if err != nil {
 		return ServiceBinding{}, fmt.Errorf("get binding request failed: %w", err)
 	}
@@ -252,7 +310,7 @@ func (c *brokerClient) GetServiceBindingLastOperation(ctx context.Context, cfSer
 		return LastOperation{}, fmt.Errorf("failed to construct service broker last operation url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester(plan).sendRequest(ctx, stateUrl, http.MethodGet, nil)
+	respCode, resp, err := c.newBrokerRequester().forPlan(plan).sendRequest(ctx, stateUrl, http.MethodGet, nil)
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("last operation request failed: %w", err)
 	}
@@ -296,7 +354,7 @@ func (c *brokerClient) UnbindService(ctx context.Context, cfServiceBinding *kori
 		return fmt.Errorf("failed to construct service broker unbind url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester(plan).async().sendRequest(ctx, unbindUrl, http.MethodDelete, nil)
+	respCode, resp, err := c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, unbindUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("unbind request failed: %w", err)
 	}
@@ -373,11 +431,22 @@ type brokerRequester struct {
 	k8sClient         client.Client
 	rootNamespace     string
 	plan              *korifiv1alpha1.CFServicePlan
+	broker            *korifiv1alpha1.CFServiceBroker
 	acceptsIncomplete bool
 }
 
-func (c *brokerClient) newBrokerRequester(plan *korifiv1alpha1.CFServicePlan) *brokerRequester {
-	return &brokerRequester{plan: plan, k8sClient: c.k8sClient, rootNamespace: c.rootNamespace}
+func (c *brokerClient) newBrokerRequester() *brokerRequester {
+	return &brokerRequester{k8sClient: c.k8sClient, rootNamespace: c.rootNamespace}
+}
+
+func (r *brokerRequester) forPlan(plan *korifiv1alpha1.CFServicePlan) *brokerRequester {
+	r.plan = plan
+	return r
+}
+
+func (r *brokerRequester) forBroker(broker *korifiv1alpha1.CFServiceBroker) *brokerRequester {
+	r.broker = broker
+	return r
 }
 
 func (r *brokerRequester) async() *brokerRequester {
@@ -437,6 +506,14 @@ func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, m
 }
 
 func (r *brokerRequester) getBroker(ctx context.Context) (*korifiv1alpha1.CFServiceBroker, error) {
+	if r.broker != nil {
+		return r.broker, nil
+	}
+
+	if r.plan == nil {
+		return nil, errors.New("neither broker, nor plan configured")
+	}
+
 	brokerName, ok := r.plan.Labels[korifiv1alpha1.RelServiceBrokerLabel]
 	if !ok {
 		return nil, fmt.Errorf("plan %q has no broker guid label set", r.plan.Name)
