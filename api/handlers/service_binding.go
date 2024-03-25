@@ -111,21 +111,25 @@ func (h *ServiceBinding) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list "+repositories.ServiceBindingResourceType)
 	}
 
-	var appRecords []repositories.AppRecord
+	includedResources := []presenter.IncludedResources{}
 	if listFilter.Include != "" && len(serviceBindingList) > 0 {
+		includedResources = append(includedResources, presenter.IncludedResources{Type: "apps"})
 		listAppsMessage := repositories.ListAppsMessage{}
 
 		for _, serviceBinding := range serviceBindingList {
 			listAppsMessage.Guids = append(listAppsMessage.Guids, serviceBinding.AppGUID)
 		}
 
-		appRecords, err = h.appRepo.ListApps(r.Context(), authInfo, listAppsMessage)
+		appRecords, err := h.appRepo.ListApps(r.Context(), authInfo, listAppsMessage)
 		if err != nil {
 			return nil, apierrors.LogAndReturn(logger, err, "failed to list "+repositories.AppResourceType)
 		}
+		for _, app := range appRecords {
+			includedResources[0].Resources = append(includedResources[0].Resources, presenter.ForApp(app, h.serverURL))
+		}
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServiceBinding) update(r *http.Request) (*routing.Response, error) { //nolint:dupl

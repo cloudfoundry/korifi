@@ -132,7 +132,7 @@ var _ = Describe("Service Binding", func() {
 	Describe("ForServiceBindingList", func() {
 		var (
 			otherRecord repositories.ServiceBindingRecord
-			app         repositories.AppRecord
+			app         presenter.AppResponse
 			requestURL  *url.URL
 		)
 
@@ -140,7 +140,7 @@ var _ = Describe("Service Binding", func() {
 			otherRecord = record
 			otherRecord.GUID = "other-binding-guid"
 
-			app = repositories.AppRecord{
+			app = presenter.AppResponse{
 				GUID: "app-guid",
 			}
 
@@ -150,7 +150,7 @@ var _ = Describe("Service Binding", func() {
 		})
 
 		JustBeforeEach(func() {
-			response := presenter.ForServiceBindingList([]repositories.ServiceBindingRecord{record, otherRecord}, []repositories.AppRecord{app}, *baseURL, *requestURL)
+			response := presenter.ForServiceBindingList([]repositories.ServiceBindingRecord{record, otherRecord}, *baseURL, *requestURL, presenter.IncludedResources{Type: "apps", Resources: []any{app}})
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())
@@ -163,7 +163,6 @@ var _ = Describe("Service Binding", func() {
 			Expect(output).To(MatchJSONPath("$.resources[1].guid", "other-binding-guid"))
 			Expect(output).To(MatchJSONPath("$.resources[1].links.self.href", "https://api.example.org/v3/service_credential_bindings/other-binding-guid"))
 			Expect(output).To(MatchJSONPath("$.included.apps[0].guid", "app-guid"))
-			Expect(output).To(MatchJSONPath("$.included.apps[0].links.self.href", "https://api.example.org/v3/apps/app-guid"))
 		})
 	})
 })

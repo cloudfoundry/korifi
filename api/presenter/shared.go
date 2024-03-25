@@ -37,9 +37,14 @@ type Link struct {
 }
 
 type ListResponse[T any] struct {
-	PaginationData PaginationData `json:"pagination"`
-	Resources      []T            `json:"resources"`
-	Included       *IncludedData  `json:"included,omitempty"`
+	PaginationData PaginationData   `json:"pagination"`
+	Resources      []T              `json:"resources"`
+	Included       map[string][]any `json:"included,omitempty"`
+}
+
+type IncludedResources struct {
+	Type      string
+	Resources []any
 }
 
 type PaginationData struct {
@@ -51,22 +56,19 @@ type PaginationData struct {
 	Previous     *int    `json:"previous"`
 }
 
-type IncludedData struct {
-	Apps []interface{} `json:"apps"`
-}
-
 type PageRef struct {
 	HREF string `json:"href"`
 }
 
 type itemPresenter[T, S any] func(T, url.URL) S
 
-func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL) ListResponse[S] {
+func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL, includedResources ...IncludedResources) ListResponse[S] {
 	presenters := []S{}
 	for _, resource := range resources {
 		presenters = append(presenters, itemPresenter(resource, baseURL))
 	}
-	return ListResponse[S]{
+
+	resp := ListResponse[S]{
 		PaginationData: PaginationData{
 			TotalResults: len(resources),
 			TotalPages:   1,
@@ -78,7 +80,14 @@ func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL
 			},
 		},
 		Resources: presenters,
+		Included:  map[string][]any{},
 	}
+
+	for _, include := range includedResources {
+		resp.Included[include.Type] = include.Resources
+	}
+
+	return resp
 }
 
 type buildURL url.URL

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -87,10 +88,27 @@ func (h *ServiceCatalog) listPlans(r *http.Request) (*routing.Response, error) {
 
 	servicePlanList, err := h.serviceCatalogRepo.ListServicePlans(r.Context(), authInfo, listFilter.ToMessage())
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service instance")
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service plans")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanList(servicePlanList, h.serverURL, *r.URL)), nil
+	includedResources := []presenter.IncludedResources{}
+	if slices.Contains(listFilter.Include, "service_offering") {
+		var offerings []any
+		for _, plan := range servicePlanList {
+			offeringGUID := plan.Relationships.Service_offering.Data.GUID
+			offering, err := h.serviceCatalogRepo.GetServiceOffering(r.Context(), authInfo, offeringGUID)
+			if err != nil {
+				return nil, apierrors.LogAndReturn(logger, err, "Failed to get service offering", "guid", offeringGUID)
+			}
+			offerings = append(offerings, presenter.ForServiceOffering(offering, h.serverURL))
+		}
+		includedResources = append(includedResources, presenter.IncludedResources{
+			Type:      "service_offerings",
+			Resources: offerings,
+		})
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanList(servicePlanList, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServiceCatalog) getPlan(r *http.Request) (*routing.Response, error) {
@@ -142,12 +160,12 @@ func (h *ServiceCatalog) getOffering(r *http.Request) (*routing.Response, error)
 
 	offeringGUID := routing.URLParam(r, "guid")
 
-	ServiceOffering, err := h.serviceCatalogRepo.GetServiceOffering(r.Context(), authInfo, offeringGUID)
+	serviceOffering, err := h.serviceCatalogRepo.GetServiceOffering(r.Context(), authInfo, offeringGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to get service offering", "offeringGUID", offeringGUID)
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOffering(ServiceOffering, h.serverURL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOffering(serviceOffering, h.serverURL)), nil
 }
 
 func (h *ServiceCatalog) UnauthenticatedRoutes() []routing.Route {

@@ -95,10 +95,10 @@ func ForServicePlan(servicePlanResource korifiv1alpha1.ServicePlanResource, base
 	}
 }
 
-func ForServicePlanList(servicePlanResourceList []korifiv1alpha1.ServicePlanResource, baseURL, requestURL url.URL) ListResponse[ServicePlanResponse] {
+func ForServicePlanList(servicePlanResourceList []korifiv1alpha1.ServicePlanResource, baseURL, requestURL url.URL, includes ...IncludedResources) ListResponse[ServicePlanResponse] {
 	return ForList(func(servicePlanResource korifiv1alpha1.ServicePlanResource, baseURL url.URL) ServicePlanResponse {
 		return ForServicePlan(servicePlanResource, baseURL)
-	}, servicePlanResourceList, baseURL, requestURL)
+	}, servicePlanResourceList, baseURL, requestURL, includes...)
 }
 
 func ForServicePlanVisibility(servicePlanVisibilityResource korifiv1alpha1.ServicePlanVisibilityResource) ServicePlanVisibilityResponse {

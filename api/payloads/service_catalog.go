@@ -6,7 +6,9 @@ import (
 	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	jellidation "github.com/jellydator/validation"
 )
 
 type ServiceOfferingList struct {
@@ -38,6 +40,7 @@ type ServicePlanList struct {
 	SpaceGuids           string
 	ServiceOfferingNames string
 	ServiceOfferingGUIDs string
+	Include              []string
 }
 
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
@@ -60,7 +63,17 @@ func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 	l.Available, err = parseBool(values.Get("available"))
 	l.ServiceOfferingNames = values.Get("service_offering_names")
 	l.ServiceOfferingGUIDs = values.Get("service_offering_guids")
+	l.Include = parse.ArrayParam(values.Get("include"))
+
 	return err
+}
+
+func (l ServicePlanList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.Include,
+			jellidation.Each(validation.OneOf("service_offering", "space.organization")),
+		),
+	)
 }
 
 func parseBool(value string) (*bool, error) {
