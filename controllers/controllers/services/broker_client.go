@@ -93,13 +93,9 @@ func NewBrokerClient(
 }
 
 func (c *brokerClient) GetCatalog(ctx context.Context, broker *korifiv1alpha1.CFServiceBroker) (*Catalog, error) {
-	respCode, resp, err := c.newBrokerRequester().forBroker(broker).sendRequest(ctx, "/v2/catalog", http.MethodGet, nil)
+	_, resp, err := c.newBrokerRequester().forBroker(broker).sendRequest(ctx, "/v2/catalog", http.MethodGet, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get catalog request failed: %w", err)
-	}
-
-	if respCode > 299 {
-		return nil, fmt.Errorf("get catalog request returned non-OK status %d: %s", respCode, string(resp))
 	}
 
 	catalog := &Catalog{}
@@ -141,13 +137,9 @@ func (c *brokerClient) ProvisionServiceInstance(ctx context.Context, cfServiceIn
 		return fmt.Errorf("failed to construct service broker provision url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, provisionUrl, http.MethodPut, provisionRequest)
+	_, _, err = c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, provisionUrl, http.MethodPut, provisionRequest)
 	if err != nil {
 		return fmt.Errorf("provision request failed: %w", err)
-	}
-
-	if respCode > 299 {
-		return fmt.Errorf("provision request returned non-OK status %d: %s", respCode, string(resp))
 	}
 
 	return nil
@@ -164,7 +156,10 @@ func (c *brokerClient) GetServiceInstanceLastOperation(ctx context.Context, cfSe
 		return LastOperation{}, fmt.Errorf("failed to construct service broker last operation url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester().forPlan(plan).sendRequest(ctx, stateUrl, http.MethodGet, nil)
+	respCode, resp, err := c.newBrokerRequester().
+		forPlan(plan).
+		allowNotFound().
+		sendRequest(ctx, stateUrl, http.MethodGet, nil)
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("last operation request failed: %w", err)
 	}
@@ -179,10 +174,6 @@ func (c *brokerClient) GetServiceInstanceLastOperation(ctx context.Context, cfSe
 	err = json.Unmarshal(resp, &respMap)
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("failed to unmarshal last operation response: %w", err)
-	}
-
-	if respCode > 299 {
-		return LastOperation{}, fmt.Errorf("last operation request failed: status code: %d: %v", respCode, respMap)
 	}
 
 	return LastOperation{
@@ -203,13 +194,9 @@ func (c *brokerClient) DeprovisionServiceInstance(ctx context.Context, cfService
 		return fmt.Errorf("failed to construct service broker deprovision url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, deprovisionUrl, http.MethodDelete, nil)
+	_, _, err = c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, deprovisionUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("deprovision request failed: %w", err)
-	}
-
-	if respCode > 299 {
-		return fmt.Errorf("deprovision request returned non-OK status %d: %s", respCode, string(resp))
 	}
 
 	return nil
@@ -240,13 +227,9 @@ func (c *brokerClient) BindService(ctx context.Context, cfServiceBinding *korifi
 		return fmt.Errorf("failed to construct service broker provision url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, bindUrl, http.MethodPut, bindRequest)
+	_, _, err = c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, bindUrl, http.MethodPut, bindRequest)
 	if err != nil {
 		return fmt.Errorf("bind request failed: %w", err)
-	}
-
-	if respCode > 299 {
-		return fmt.Errorf("bind request returned non-OK status %d: %s", respCode, string(resp))
 	}
 
 	return nil
@@ -277,13 +260,9 @@ func (c *brokerClient) GetServiceBinding(ctx context.Context, cfServiceBinding *
 		return ServiceBinding{}, fmt.Errorf("failed to construct service broker binding url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester().forPlan(plan).sendRequest(ctx, getUrl, http.MethodGet, getRequest)
+	_, resp, err := c.newBrokerRequester().forPlan(plan).sendRequest(ctx, getUrl, http.MethodGet, getRequest)
 	if err != nil {
 		return ServiceBinding{}, fmt.Errorf("get binding request failed: %w", err)
-	}
-
-	if respCode > 299 {
-		return ServiceBinding{}, fmt.Errorf("get binding request returned non-OK status %d: %s", respCode, string(resp))
 	}
 
 	serviceBinding := ServiceBinding{}
@@ -310,7 +289,10 @@ func (c *brokerClient) GetServiceBindingLastOperation(ctx context.Context, cfSer
 		return LastOperation{}, fmt.Errorf("failed to construct service broker last operation url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester().forPlan(plan).sendRequest(ctx, stateUrl, http.MethodGet, nil)
+	respCode, resp, err := c.newBrokerRequester().
+		forPlan(plan).
+		allowNotFound().
+		sendRequest(ctx, stateUrl, http.MethodGet, nil)
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("last operation request failed: %w", err)
 	}
@@ -325,10 +307,6 @@ func (c *brokerClient) GetServiceBindingLastOperation(ctx context.Context, cfSer
 	err = json.Unmarshal(resp, &respMap)
 	if err != nil {
 		return LastOperation{}, fmt.Errorf("failed to unmarshal last operation response: %w", err)
-	}
-
-	if respCode > 299 {
-		return LastOperation{}, fmt.Errorf("last operation request failed: status code: %d: %v", respCode, respMap)
 	}
 
 	return LastOperation{
@@ -354,13 +332,9 @@ func (c *brokerClient) UnbindService(ctx context.Context, cfServiceBinding *kori
 		return fmt.Errorf("failed to construct service broker unbind url: %w", err)
 	}
 
-	respCode, resp, err := c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, unbindUrl, http.MethodDelete, nil)
+	_, _, err = c.newBrokerRequester().forPlan(plan).async().sendRequest(ctx, unbindUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("unbind request failed: %w", err)
-	}
-
-	if respCode > 299 {
-		return fmt.Errorf("unbind request returned non-OK status %d: %s", respCode, string(resp))
 	}
 
 	return nil
@@ -428,11 +402,12 @@ func (c *brokerClient) getCFServiceInstance(ctx context.Context, cfServiceBindin
 }
 
 type brokerRequester struct {
-	k8sClient         client.Client
-	rootNamespace     string
-	plan              *korifiv1alpha1.CFServicePlan
-	broker            *korifiv1alpha1.CFServiceBroker
-	acceptsIncomplete bool
+	k8sClient           client.Client
+	rootNamespace       string
+	plan                *korifiv1alpha1.CFServicePlan
+	broker              *korifiv1alpha1.CFServiceBroker
+	acceptsIncomplete   bool
+	allowNotFoundStatus bool
 }
 
 func (c *brokerClient) newBrokerRequester() *brokerRequester {
@@ -451,6 +426,11 @@ func (r *brokerRequester) forBroker(broker *korifiv1alpha1.CFServiceBroker) *bro
 
 func (r *brokerRequester) async() *brokerRequester {
 	r.acceptsIncomplete = true
+	return r
+}
+
+func (r *brokerRequester) allowNotFound() *brokerRequester {
+	r.allowNotFoundStatus = true
 	return r
 }
 
@@ -500,6 +480,14 @@ func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, m
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to read body: %w", err)
+	}
+
+	if r.allowNotFoundStatus && resp.StatusCode == http.StatusNotFound {
+		return resp.StatusCode, respBody, nil
+	}
+
+	if resp.StatusCode > 299 {
+		return resp.StatusCode, respBody, fmt.Errorf("request returned non-OK status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	return resp.StatusCode, respBody, nil
