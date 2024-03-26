@@ -420,6 +420,8 @@ func main() {
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
+			serviceBrokerRepo,
+			serviceCatalogRepo,
 			requestValidator,
 		),
 		handlers.NewServiceBinding(

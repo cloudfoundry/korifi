@@ -44,6 +44,8 @@ var _ = Describe("ServiceInstance", func() {
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
+			nil,
+			nil,
 			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)

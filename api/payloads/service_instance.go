@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"regexp"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
@@ -138,16 +137,28 @@ func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
 }
 
 type ServiceInstanceList struct {
-	Names         string
-	GUIDs         string
-	SpaceGUIDs    string
-	OrderBy       string
-	LabelSelector string
+	Names                   string
+	GUIDs                   string
+	SpaceGUIDs              string
+	OrderBy                 string
+	LabelSelector           string
+	IncludeServiceBrokers   []string
+	IncludeServiceOfferings []string
+	IncludeServicePlans     []string
 }
 
 func (l ServiceInstanceList) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "name", "updated_at")),
+		jellidation.Field(&l.IncludeServiceBrokers,
+			jellidation.Each(validation.OneOf("guid", "name")),
+		),
+		jellidation.Field(&l.IncludeServiceOfferings,
+			jellidation.Each(validation.OneOf("guid", "name", "relationships.service_broker")),
+		),
+		jellidation.Field(&l.IncludeServicePlans,
+			jellidation.Each(validation.OneOf("guid", "name", "relationships.service_offering")),
+		),
 	)
 }
 
@@ -161,11 +172,7 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "guids", "order_by", "per_page", "page", "label_selector"}
-}
-
-func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
-	return []*regexp.Regexp{regexp.MustCompile(`fields\[.+\]`)}
+	return []string{"names", "space_guids", "guids", "order_by", "per_page", "page", "label_selector", "fields[service_plan.service_offering.service_broker]", "fields[service_plan.service_offering]", "fields[service_plan]"}
 }
 
 func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
@@ -174,5 +181,8 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.GUIDs = values.Get("guids")
 	l.OrderBy = values.Get("order_by")
 	l.LabelSelector = values.Get("label_selector")
+	l.IncludeServiceBrokers = parse.ArrayParam(values.Get("fields[service_plan.service_offering.service_broker]"))
+	l.IncludeServiceOfferings = parse.ArrayParam(values.Get("fields[service_plan.service_offering]"))
+	l.IncludeServicePlans = parse.ArrayParam(values.Get("fields[service_plan]"))
 	return nil
 }
