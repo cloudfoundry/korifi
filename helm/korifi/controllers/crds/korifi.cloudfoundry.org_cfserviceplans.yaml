@@ -52,8 +52,6 @@ spec:
           spec:
             description: CFServicePlanSpec defines the desired state of CFServicePlan
             properties:
-              available:
-                type: boolean
               broker_catalog:
                 properties:
                   features:
@@ -144,16 +142,35 @@ spec:
                 - service_binding
                 - service_instance
                 type: object
-              visibility_type:
-                type: string
+              visibility:
+                properties:
+                  organizations:
+                    items:
+                      properties:
+                        guid:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - guid
+                      type: object
+                    type: array
+                  type:
+                    enum:
+                    - public
+                    - admin
+                    - organization
+                    type: string
+                required:
+                - type
+                type: object
             required:
-            - available
             - broker_catalog
             - free
             - maintenance_info
             - name
             - schemas
-            - visibility_type
+            - visibility
             type: object
           status:
             description: CFServicePlanStatus defines the observed state of CFServicePlan

@@ -34,7 +34,13 @@ type ServicePlanResponse struct {
 }
 
 type ServicePlanVisibilityResponse struct {
-	Type string `json:"type"`
+	Type          string                   `json:"type"`
+	Organizations []VisibilityOrganization `json:"organizations,omitempty"`
+}
+
+type VisibilityOrganization struct {
+	GUID string `json:"guid"`
+	Name string `json:"name"`
 }
 
 type BrokerCatalog struct {
@@ -102,7 +108,15 @@ func ForServicePlanList(servicePlanResourceList []korifiv1alpha1.ServicePlanReso
 }
 
 func ForServicePlanVisibility(servicePlanVisibilityResource korifiv1alpha1.ServicePlanVisibilityResource) ServicePlanVisibilityResponse {
+	orgs := []VisibilityOrganization{}
+	for _, org := range servicePlanVisibilityResource.Organizations {
+		orgs = append(orgs, VisibilityOrganization{
+			GUID: org.GUID,
+			Name: org.Name,
+		})
+	}
 	return ServicePlanVisibilityResponse{
-		Type: servicePlanVisibilityResource.Type,
+		Type:          servicePlanVisibilityResource.Type,
+		Organizations: orgs,
 	}
 }

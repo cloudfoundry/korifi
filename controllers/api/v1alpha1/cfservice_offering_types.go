@@ -111,7 +111,8 @@ type CFServiceOfferingList struct {
 }
 
 type ServicePlanVisibilityResource struct {
-	Type string `json:"type"`
+	Type          string                   `json:"type"`
+	Organizations []VisibilityOrganization `json:"organizations,omitempty"`
 }
 
 func init() {

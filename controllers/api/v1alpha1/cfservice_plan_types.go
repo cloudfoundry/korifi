@@ -45,7 +45,7 @@ type ServicePlanBrokerCatalog struct {
 	// +kubebuilder:validation:Optional
 	Metadata *runtime.RawExtension `json:"metadata"`
 	// +kubebuilder:validation:Optional
-	Maximum_polling_duration *int32              `json:"maximum_polling_duration"`
+	Maximum_polling_duration *int32              `json:"maximum_polling_duration,omitempty"`
 	Features                 ServicePlanFeatures `json:"features"`
 }
 
@@ -73,7 +73,7 @@ func (rel *ServicePlanRelationships) Create(plan *CFServicePlan) {
 
 type InputParameterSchema struct {
 	// +kubebuilder:validation:Optional
-	Parameters *runtime.RawExtension `json:"parameters"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 type ServiceInstanceSchema struct {
@@ -102,20 +102,32 @@ type BrokerServicePlan struct {
 type ServicePlan struct {
 	BrokerServicePlan `json:",inline"`
 	// +kubebuilder:validation:Optional
-	Costs          []ServicePlanCost `json:"costs"`
-	Available      bool              `json:"available"`
-	VisibilityType string            `json:"visibility_type"`
+	Costs []ServicePlanCost `json:"costs,omitempty"`
 }
 
 type ServicePlanResource struct {
-	ServicePlan   `json:",inline"`
-	CFResource    `json:",inline"`
-	Relationships ServicePlanRelationships `json:"relationships"`
+	ServicePlan    `json:",inline"`
+	CFResource     `json:",inline"`
+	Available      bool                     `json:"available"`
+	VisibilityType string                   `json:"visibility_type"`
+	Relationships  ServicePlanRelationships `json:"relationships"`
+}
+
+type ServicePlanVisibility struct {
+	// +kubebuilder:validation:Enum=public;admin;organization
+	Type          string                   `json:"type"`
+	Organizations []VisibilityOrganization `json:"organizations,omitempty"`
+}
+
+type VisibilityOrganization struct {
+	GUID string `json:"guid"`
+	Name string `json:"name,omitempty"`
 }
 
 // CFServicePlanSpec defines the desired state of CFServicePlan
 type CFServicePlanSpec struct {
 	ServicePlan `json:",inline"`
+	Visibility  ServicePlanVisibility `json:"visibility"`
 }
 
 // CFServicePlanStatus defines the observed state of CFServicePlan
@@ -138,6 +150,10 @@ type CFServicePlan struct {
 
 	Spec   CFServicePlanSpec   `json:"spec,omitempty"`
 	Status CFServicePlanStatus `json:"status,omitempty"`
+}
+
+func (p *CFServicePlan) IsAvailable() bool {
+	return p.Spec.Visibility.Type != "admin"
 }
 
 //+kubebuilder:object:root=true

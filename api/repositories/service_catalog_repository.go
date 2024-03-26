@@ -81,17 +81,18 @@ func toServicePlanResource(cfServicePlan *korifiv1alpha1.CFServicePlan) korifiv1
 	rels.Create(cfServicePlan)
 
 	return korifiv1alpha1.ServicePlanResource{
-		ServicePlan: cfServicePlan.Spec.ServicePlan,
-		CFResource: korifiv1alpha1.CFResource{
-			GUID: cfServicePlan.Name,
-		},
-		Relationships: rels,
+		ServicePlan:    cfServicePlan.Spec.ServicePlan,
+		CFResource:     korifiv1alpha1.CFResource{GUID: cfServicePlan.Name},
+		Available:      cfServicePlan.IsAvailable(),
+		VisibilityType: cfServicePlan.Spec.Visibility.Type,
+		Relationships:  rels,
 	}
 }
 
 type PlanVisibilityApplyMessage struct {
-	PlanGUID string
-	Type     string
+	PlanGUID      string
+	Type          string
+	Organizations []string
 }
 
 func (r *ServiceCatalogRepo) ListServiceOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]korifiv1alpha1.ServiceOfferingResource, error) {
@@ -166,10 +167,8 @@ func (r *ServiceCatalogRepo) ListServicePlans(ctx context.Context, authInfo auth
 			continue
 		}
 
-		if message.Available != nil {
-			if *message.Available != p.Spec.Available {
-				continue
-			}
+		if message.Available != nil && *message.Available != p.IsAvailable() {
+			continue
 		}
 
 		if !filterAppliesTo(p.Labels[korifiv1alpha1.RelServiceOfferingLabel], offeringGuids) {
@@ -227,15 +226,56 @@ func (r *ServiceCatalogRepo) ApplyPlanVisibility(
 		return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to get service plan: %w", err)
 	}
 
+	vilibilityOrgs := []korifiv1alpha1.VisibilityOrganization{}
+	for _, orgGUID := range visibilityMessage.Organizations {
+		org := &korifiv1alpha1.CFOrg{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      orgGUID,
+				Namespace: r.rootNamespace,
+			},
+		}
+
+		err := userClient.Get(ctx, client.ObjectKeyFromObject(org), org)
+		if err != nil {
+			return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to get org %q: %w", orgGUID, err)
+		}
+
+		vilibilityOrgs = append(vilibilityOrgs, korifiv1alpha1.VisibilityOrganization{
+			GUID: orgGUID,
+			Name: org.Spec.DisplayName,
+		})
+	}
+
 	err = k8s.PatchResource(ctx, userClient, servicePlan, func() {
-		servicePlan.Spec.Available = true
-		servicePlan.Spec.VisibilityType = visibilityMessage.Type
+		servicePlan.Spec.Visibility.Type = visibilityMessage.Type
+		servicePlan.Spec.Visibility.Organizations = vilibilityOrgs
 	})
 	if err != nil {
 		return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to patch service plan: %w", err)
 	}
 	return korifiv1alpha1.ServicePlanVisibilityResource{
 		Type: visibilityMessage.Type,
+	}, nil
+}
+
+func (r *ServiceCatalogRepo) GetPlanVisibility(
+	ctx context.Context,
+	authInfo authorization.Info,
+	planGUID string,
+) (korifiv1alpha1.ServicePlanVisibilityResource, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	servicePlan, err := r.getServicePlan(ctx, userClient, planGUID)
+	if err != nil {
+		return korifiv1alpha1.ServicePlanVisibilityResource{}, fmt.Errorf("failed to get service plan: %w", err)
+	}
+
+	return korifiv1alpha1.ServicePlanVisibilityResource{
+		Type:          servicePlan.Spec.Visibility.Type,
+		Organizations: servicePlan.Spec.Visibility.Organizations,
 	}, nil
 }
 

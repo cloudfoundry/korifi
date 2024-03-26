@@ -90,12 +90,31 @@ func parseBool(value string) (*bool, error) {
 }
 
 type PlanVisiblityApply struct {
-	Type string `json:"type"`
+	Type          string                   `json:"type"`
+	Organizations []VisibilityOrganization `json:"organizations"`
+}
+
+type VisibilityOrganization struct {
+	GUID string `json:"guid"`
+}
+
+func (v PlanVisiblityApply) Validate() error {
+	return jellidation.ValidateStruct(&v,
+		jellidation.Field(&v.Type,
+			validation.OneOf("public", "admin", "organization"),
+		),
+	)
 }
 
 func (v *PlanVisiblityApply) ToMessage(planGUID string) repositories.PlanVisibilityApplyMessage {
+	orgGUIDs := []string{}
+	for _, org := range v.Organizations {
+		orgGUIDs = append(orgGUIDs, org.GUID)
+	}
+
 	return repositories.PlanVisibilityApplyMessage{
-		PlanGUID: planGUID,
-		Type:     v.Type,
+		PlanGUID:      planGUID,
+		Type:          v.Type,
+		Organizations: orgGUIDs,
 	}
 }
