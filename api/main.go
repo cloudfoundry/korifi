@@ -441,6 +441,7 @@ func main() {
 		handlers.NewServiceCatalog(
 			*serverURL,
 			serviceCatalogRepo,
+			serviceBrokerRepo,
 			requestValidator,
 		),
 	}

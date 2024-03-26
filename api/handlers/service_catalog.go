@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-logr/logr"
+	"golang.org/x/exp/maps"
 )
 
 const (
@@ -35,17 +36,20 @@ type ServiceCatalogRepo interface {
 type ServiceCatalog struct {
 	serverURL          url.URL
 	serviceCatalogRepo ServiceCatalogRepo
+	serviceBrokerRepo  CFServiceBrokerRepository
 	requestValidator   RequestValidator
 }
 
 func NewServiceCatalog(
 	serverURL url.URL,
 	serviceCatalogRepo ServiceCatalogRepo,
+	serviceBrokerRepo CFServiceBrokerRepository,
 	requestValidator RequestValidator,
 ) *ServiceCatalog {
 	return &ServiceCatalog{
 		serverURL:          serverURL,
 		serviceCatalogRepo: serviceCatalogRepo,
+		serviceBrokerRepo:  serviceBrokerRepo,
 		requestValidator:   requestValidator,
 	}
 }
@@ -93,18 +97,47 @@ func (h *ServiceCatalog) listPlans(r *http.Request) (*routing.Response, error) {
 
 	includedResources := []presenter.IncludedResources{}
 	if slices.Contains(listFilter.Include, "service_offering") {
-		var offerings []any
+		offeringsByGUID := map[string]any{}
 		for _, plan := range servicePlanList {
 			offeringGUID := plan.Relationships.Service_offering.Data.GUID
 			offering, err := h.serviceCatalogRepo.GetServiceOffering(r.Context(), authInfo, offeringGUID)
 			if err != nil {
 				return nil, apierrors.LogAndReturn(logger, err, "Failed to get service offering", "guid", offeringGUID)
 			}
-			offerings = append(offerings, presenter.ForServiceOffering(offering, h.serverURL))
+			offeringsByGUID[offering.GUID] = presenter.ForServiceOffering(offering, h.serverURL)
 		}
 		includedResources = append(includedResources, presenter.IncludedResources{
 			Type:      "service_offerings",
-			Resources: offerings,
+			Resources: maps.Values(offeringsByGUID),
+		})
+	}
+
+	if len(listFilter.ServiceBrokerDetails) > 0 {
+		brokersByGUID := map[string]any{}
+		for _, plan := range servicePlanList {
+			offeringGUID := plan.Relationships.Service_offering.Data.GUID
+			offering, err := h.serviceCatalogRepo.GetServiceOffering(r.Context(), authInfo, offeringGUID)
+			if err != nil {
+				return nil, apierrors.LogAndReturn(logger, err, "Failed to get service offering", "guid", offeringGUID)
+			}
+			brokerGUID := offering.Relationships.Service_broker.Data.GUID
+			broker, err := h.serviceBrokerRepo.GetServiceBroker(r.Context(), authInfo, brokerGUID)
+			if err != nil {
+				return nil, apierrors.LogAndReturn(logger, err, "Failed to get service broker", "guid", brokerGUID)
+			}
+
+			brokerDetails := map[string]string{}
+			if slices.Contains(listFilter.ServiceBrokerDetails, "guid") {
+				brokerDetails["guid"] = broker.GUID
+			}
+			if slices.Contains(listFilter.ServiceBrokerDetails, "name") {
+				brokerDetails["name"] = broker.Name
+			}
+			brokersByGUID[broker.GUID] = brokerDetails
+		}
+		includedResources = append(includedResources, presenter.IncludedResources{
+			Type:      "service_brokers",
+			Resources: maps.Values(brokersByGUID),
 		})
 	}
 

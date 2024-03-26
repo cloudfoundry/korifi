@@ -41,6 +41,7 @@ type ServicePlanList struct {
 	ServiceOfferingNames string
 	ServiceOfferingGUIDs string
 	Include              []string
+	ServiceBrokerDetails []string
 }
 
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
@@ -64,6 +65,7 @@ func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 	l.ServiceOfferingNames = values.Get("service_offering_names")
 	l.ServiceOfferingGUIDs = values.Get("service_offering_guids")
 	l.Include = parse.ArrayParam(values.Get("include"))
+	l.ServiceBrokerDetails = parse.ArrayParam(values.Get("fields[service_offering.service_broker]"))
 
 	return err
 }
@@ -72,6 +74,9 @@ func (l ServicePlanList) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.Include,
 			jellidation.Each(validation.OneOf("service_offering", "space.organization")),
+		),
+		jellidation.Field(&l.ServiceBrokerDetails,
+			jellidation.Each(validation.OneOf("guid", "name")),
 		),
 	)
 }
