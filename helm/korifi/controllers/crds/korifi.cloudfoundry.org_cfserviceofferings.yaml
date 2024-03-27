@@ -52,8 +52,6 @@ spec:
           spec:
             description: CFServiceOfferingSpec defines the desired state of CFServiceOffering
             properties:
-              available:
-                type: boolean
               broker_catalog:
                 properties:
                   features:
@@ -113,7 +111,6 @@ spec:
                   type: string
                 type: array
             required:
-            - available
             - broker_catalog
             - description
             - name

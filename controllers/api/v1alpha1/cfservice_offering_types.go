@@ -63,7 +63,6 @@ type BrokerServiceOffering struct {
 
 type ServiceOffering struct {
 	BrokerServiceOffering `json:",inline"`
-	Available             bool `json:"available"`
 }
 
 type ServiceOfferingResource struct {
