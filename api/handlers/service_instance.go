@@ -89,8 +89,7 @@ func (h *ServiceInstance) create(r *http.Request) (*routing.Response, error) {
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
 	}
-
-	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL)), nil
+	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(serviceInstanceRecord.GUID, presenter.ServiceInstanceCreateOperation, h.serverURL)), nil
 }
 
 func (h *ServiceInstance) patch(r *http.Request) (*routing.Response, error) {

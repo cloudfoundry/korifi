@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
 const (
@@ -50,21 +51,28 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 	if serviceInstanceRecord.UpdatedAt == nil || serviceInstanceRecord.CreatedAt == *serviceInstanceRecord.UpdatedAt {
 		lastOperationType = "create"
 	}
+	lastOp := lastOperation{
+		CreatedAt:   formatTimestamp(&serviceInstanceRecord.CreatedAt),
+		UpdatedAt:   formatTimestamp(serviceInstanceRecord.UpdatedAt),
+		Description: "Operation succeeded",
+		State:       "succeeded",
+		Type:        lastOperationType,
+	}
+	if serviceInstanceRecord.Type == korifiv1alpha1.ManagedType {
+		if serviceInstanceRecord.State.Status == korifiv1alpha1.FailedStatus {
+			lastOp.State = "failed"
+		}
+		lastOp.Description = serviceInstanceRecord.State.Details
+	}
 
 	return ServiceInstanceResponse{
-		Name: serviceInstanceRecord.Name,
-		GUID: serviceInstanceRecord.GUID,
-		Type: serviceInstanceRecord.Type,
-		Tags: emptySliceIfNil(serviceInstanceRecord.Tags),
-		LastOperation: lastOperation{
-			CreatedAt:   formatTimestamp(&serviceInstanceRecord.CreatedAt),
-			UpdatedAt:   formatTimestamp(serviceInstanceRecord.UpdatedAt),
-			Description: "Operation succeeded",
-			State:       "succeeded",
-			Type:        lastOperationType,
-		},
-		CreatedAt: formatTimestamp(&serviceInstanceRecord.CreatedAt),
-		UpdatedAt: formatTimestamp(serviceInstanceRecord.UpdatedAt),
+		Name:          serviceInstanceRecord.Name,
+		GUID:          serviceInstanceRecord.GUID,
+		Type:          serviceInstanceRecord.Type,
+		Tags:          emptySliceIfNil(serviceInstanceRecord.Tags),
+		LastOperation: lastOp,
+		CreatedAt:     formatTimestamp(&serviceInstanceRecord.CreatedAt),
+		UpdatedAt:     formatTimestamp(serviceInstanceRecord.UpdatedAt),
 		Relationships: Relationships{
 			"space": Relationship{
 				Data: &RelationshipData{

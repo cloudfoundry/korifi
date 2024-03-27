@@ -12,21 +12,23 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/logger"
 )
 
 const (
-	JobPath                 = "/v3/jobs/{guid}"
-	syncSpaceJobType        = "space.apply_manifest"
-	AppDeleteJobType        = "app.delete"
-	OrgDeleteJobType        = "org.delete"
-	RouteDeleteJobType      = "route.delete"
-	SpaceDeleteJobType      = "space.delete"
-	DomainDeleteJobType     = "domain.delete"
-	RoleDeleteJobType       = "role.delete"
-	BrokerCreateJobType     = "service_broker.create"
-	OrgQuotaDeleteJobType   = "orgquota.delete"
-	SpaceQuotaDeleteJobType = "spacequota.delete"
+	JobPath                      = "/v3/jobs/{guid}"
+	syncSpaceJobType             = "space.apply_manifest"
+	AppDeleteJobType             = "app.delete"
+	OrgDeleteJobType             = "org.delete"
+	RouteDeleteJobType           = "route.delete"
+	SpaceDeleteJobType           = "space.delete"
+	DomainDeleteJobType          = "domain.delete"
+	RoleDeleteJobType            = "role.delete"
+	BrokerCreateJobType          = "service_broker.create"
+	ServiceInstanceCreateJobType = "service_instance.create"
+	OrgQuotaDeleteJobType        = "orgquota.delete"
+	SpaceQuotaDeleteJobType      = "spacequota.delete"
 
 	JobTimeoutDuration = 120.0
 )
@@ -39,23 +41,26 @@ type DeletionRepository interface {
 }
 
 type Job struct {
-	serverURL        url.URL
-	repositories     map[string]DeletionRepository
-	brokerRepository CFServiceBrokerRepository
-	pollingInterval  time.Duration
+	serverURL                 url.URL
+	repositories              map[string]DeletionRepository
+	brokerRepository          CFServiceBrokerRepository
+	serviceInstanceRepository CFServiceInstanceRepository
+	pollingInterval           time.Duration
 }
 
 func NewJob(
 	serverURL url.URL,
 	repositories map[string]DeletionRepository,
 	brokerRepository CFServiceBrokerRepository,
+	serviceInstanceRepository CFServiceInstanceRepository,
 	pollingInterval time.Duration,
 ) *Job {
 	return &Job{
-		serverURL:        serverURL,
-		repositories:     repositories,
-		brokerRepository: brokerRepository,
-		pollingInterval:  pollingInterval,
+		serverURL:                 serverURL,
+		repositories:              repositories,
+		brokerRepository:          brokerRepository,
+		serviceInstanceRepository: serviceInstanceRepository,
+		pollingInterval:           pollingInterval,
 	}
 }
 
@@ -77,18 +82,46 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForManifestApplyJob(job, h.serverURL)), nil
 	}
 
+	authInfo, _ := authorization.InfoFromContext(ctx)
 	if job.Type == BrokerCreateJobType {
-		authInfo, _ := authorization.InfoFromContext(ctx)
 		broker, err := h.brokerRepository.GetServiceBroker(ctx, authInfo, job.ResourceGUID)
 		if err != nil {
 			return nil, apierrors.LogAndReturn(log, err, "getting broker failed")
 		}
 
 		state := presenter.StateProcessing
-		if broker.Ready {
+		if broker.IsReady() {
 			state = presenter.StateComplete
 		}
 		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForJob(job, []presenter.JobResponseError{}, state, h.serverURL)), nil
+	}
+
+	if job.Type == ServiceInstanceCreateJobType {
+		serviceInstance, err := h.serviceInstanceRepository.GetServiceInstance(ctx, authInfo, job.ResourceGUID)
+		if err != nil {
+			return nil, apierrors.LogAndReturn(log, err, "getting service instance failed")
+		}
+
+		if serviceInstance.State == nil {
+			return routing.NewResponse(http.StatusOK).WithBody(presenter.ForJob(job, []presenter.JobResponseError{}, presenter.StateProcessing, h.serverURL)), nil
+		}
+
+		if serviceInstance.State.Status == korifiv1alpha1.FailedStatus {
+			failedResponse := presenter.ForJob(
+				job,
+				[]presenter.JobResponseError{{
+					Code:   10008,
+					Detail: fmt.Sprintf("service instance %q creation failed: %s", job.ResourceGUID, serviceInstance.State.Details),
+					Title:  "CF-UnprocessableEntity",
+				}},
+				presenter.StateFailed,
+				h.serverURL,
+			)
+			return routing.NewResponse(http.StatusOK).WithBody(failedResponse), nil
+		}
+		if serviceInstance.State.Status == korifiv1alpha1.ReadyStatus {
+			return routing.NewResponse(http.StatusOK).WithBody(presenter.ForJob(job, []presenter.JobResponseError{}, presenter.StateComplete, h.serverURL)), nil
+		}
 	}
 
 	repository, ok := h.repositories[job.Type]

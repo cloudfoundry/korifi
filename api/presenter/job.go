@@ -16,16 +16,17 @@ const (
 	StateFailed     = "FAILED"
 	StateProcessing = "PROCESSING"
 
-	AppDeleteOperation           = "app.delete"
-	OrgDeleteOperation           = "org.delete"
-	SpaceQuotaDeleteOperation    = "spacequota.delete"
-	OrgQuotaDeleteOperation      = "orgquota.delete"
-	RouteDeleteOperation         = "route.delete"
-	SpaceApplyManifestOperation  = "space.apply_manifest"
-	SpaceDeleteOperation         = "space.delete"
-	DomainDeleteOperation        = "domain.delete"
-	RoleDeleteOperation          = "role.delete"
-	ServiceBrokerCreateOperation = "service_broker.create"
+	AppDeleteOperation             = "app.delete"
+	OrgDeleteOperation             = "org.delete"
+	SpaceQuotaDeleteOperation      = "spacequota.delete"
+	OrgQuotaDeleteOperation        = "orgquota.delete"
+	RouteDeleteOperation           = "route.delete"
+	SpaceApplyManifestOperation    = "space.apply_manifest"
+	SpaceDeleteOperation           = "space.delete"
+	DomainDeleteOperation          = "domain.delete"
+	RoleDeleteOperation            = "role.delete"
+	ServiceBrokerCreateOperation   = "service_broker.create"
+	ServiceInstanceCreateOperation = "service_instance.create"
 )
 
 var (

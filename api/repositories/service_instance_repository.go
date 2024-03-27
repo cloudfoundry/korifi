@@ -11,12 +11,15 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"golang.org/x/exp/maps"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -114,6 +117,7 @@ type ServiceInstanceRecord struct {
 	CreatedAt   time.Time
 	UpdatedAt   *time.Time
 	Parameters  map[string]any
+	State       *korifiv1alpha1.CFResourceState
 }
 
 func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateServiceInstanceMessage) (ServiceInstanceRecord, error) {
@@ -440,7 +444,8 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance *korifiv1alpha1.
 			return ServiceInstanceRecord{}, fmt.Errorf("failed to unmarshal service parameters: %w", err)
 		}
 	}
-	return ServiceInstanceRecord{
+
+	record := ServiceInstanceRecord{
 		Name:        cfServiceInstance.Spec.DisplayName,
 		GUID:        cfServiceInstance.Name,
 		SpaceGUID:   cfServiceInstance.Namespace,
@@ -453,7 +458,22 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance *korifiv1alpha1.
 		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
 		UpdatedAt:   getLastUpdatedTime(cfServiceInstance),
 		Parameters:  parameters,
-	}, nil
+	}
+
+	if meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, services.ReadyCondition) {
+		record.State = tools.PtrTo(korifiv1alpha1.CFResourceState{
+			Status:  korifiv1alpha1.ReadyStatus,
+			Details: "service instance is ready",
+		})
+	}
+	if meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, services.FailedCondition) {
+		record.State = tools.PtrTo(korifiv1alpha1.CFResourceState{
+			Status:  korifiv1alpha1.FailedStatus,
+			Details: meta.FindStatusCondition(cfServiceInstance.Status.Conditions, services.FailedCondition).Message,
+		})
+	}
+
+	return record, nil
 }
 
 func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceInstance) ([]ServiceInstanceRecord, error) {

@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -154,6 +156,16 @@ type CFServicePlan struct {
 
 func (p *CFServicePlan) IsAvailable() bool {
 	return p.Spec.Visibility.Type != "admin"
+}
+
+func (p *CFServicePlan) IsVisible(orgGUID string) bool {
+	if p.Spec.Visibility.Type == "public" {
+		return true
+	}
+
+	return slices.ContainsFunc(p.Spec.Visibility.Organizations, func(org VisibilityOrganization) bool {
+		return org.GUID == orgGUID
+	})
 }
 
 //+kubebuilder:object:root=true

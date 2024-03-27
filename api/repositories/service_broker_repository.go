@@ -51,13 +51,20 @@ type ListServiceBrokerMessage struct {
 }
 
 func toServiceBrokerResource(cfServiceBroker *korifiv1alpha1.CFServiceBroker) korifiv1alpha1.ServiceBrokerResource {
-	return korifiv1alpha1.ServiceBrokerResource{
+	brokerResource := korifiv1alpha1.ServiceBrokerResource{
 		ServiceBroker: cfServiceBroker.Spec.ServiceBroker,
 		CFResource: korifiv1alpha1.CFResource{
-			GUID:  cfServiceBroker.Name,
-			Ready: meta.IsStatusConditionTrue(cfServiceBroker.Status.Conditions, "Ready"),
+			GUID: cfServiceBroker.Name,
 		},
 	}
+
+	if meta.IsStatusConditionTrue(cfServiceBroker.Status.Conditions, "Ready") {
+		brokerResource.State = &korifiv1alpha1.CFResourceState{
+			Status: korifiv1alpha1.ReadyStatus,
+		}
+	}
+
+	return brokerResource
 }
 
 func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo authorization.Info, serviceBroker korifiv1alpha1.ServiceBroker, brokerAuth korifiv1alpha1.BasicAuthentication) (korifiv1alpha1.ServiceBrokerResource, error) {

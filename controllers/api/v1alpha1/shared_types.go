@@ -138,11 +138,29 @@ func (tm *ToManyRelationship) Patch(other ToManyRelationship) {
 	tm.Data = maps.Values(guidMap)
 }
 
+type CFResourceState struct {
+	Status  string
+	Details string
+}
+
+const (
+	ReadyStatus  = "ready"
+	FailedStatus = "failed"
+)
+
 type CFResource struct {
-	GUID      string  `json:"guid"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt *string `json:"updated_at"`
-	Ready     bool    `json:"ready"`
+	GUID      string           `json:"guid"`
+	CreatedAt string           `json:"created_at"`
+	UpdatedAt *string          `json:"updated_at"`
+	State     *CFResourceState `json:"state"`
+}
+
+func (r CFResource) IsReady() bool {
+	return r.State != nil && r.State.Status == ReadyStatus
+}
+
+func (r CFResource) IsFailed() bool {
+	return r.State != nil && r.State.Status == FailedStatus
 }
 
 type BasicAuthentication struct {

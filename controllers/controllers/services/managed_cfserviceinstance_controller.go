@@ -53,20 +53,23 @@ const (
 //+kubebuilder:rbac:groups=services.cloud.sap.com,resources=servicebindings,verbs=get;list;create;update;patch;watch;delete
 
 type ManagedCFServiceInstanceReconciler struct {
-	log          logr.Logger
-	k8sClient    client.Client
-	brokerClient BrokerClient
+	log           logr.Logger
+	k8sClient     client.Client
+	brokerClient  BrokerClient
+	rootNamespace string
 }
 
 func NewManagedCFServiceInstanceReconciler(
 	log logr.Logger,
 	k8sClient client.Client,
 	brokerClient BrokerClient,
+	rootNamespace string,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance] {
 	serviceInstanceReconciler := ManagedCFServiceInstanceReconciler{
-		log:          log,
-		k8sClient:    k8sClient,
-		brokerClient: brokerClient,
+		log:           log,
+		k8sClient:     k8sClient,
+		brokerClient:  brokerClient,
+		rootNamespace: rootNamespace,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance](log, k8sClient, &serviceInstanceReconciler)
 }
@@ -103,7 +106,24 @@ func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Conte
 	}
 
 	if !meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, ProvisionRequestedCondition) {
-		err := r.brokerClient.ProvisionServiceInstance(ctx, cfServiceInstance)
+		planVisible, err := r.servicePlanVisible(ctx, cfServiceInstance)
+		if err != nil {
+			log.Error(err, "failed cheching for service plan visibility")
+			return ctrl.Result{}, err
+		}
+
+		if !planVisible {
+			meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+				Type:               FailedCondition,
+				Status:             metav1.ConditionTrue,
+				Reason:             "PlanNotAvailable",
+				Message:            "Service plan is not visible in current organization",
+				ObservedGeneration: cfServiceInstance.Generation,
+			})
+			return ctrl.Result{}, nil
+		}
+
+		err = r.brokerClient.ProvisionServiceInstance(ctx, cfServiceInstance)
 		if err != nil {
 			log.Error(err, "provisioning request failed")
 			return ctrl.Result{}, err
@@ -154,6 +174,30 @@ func (r *ManagedCFServiceInstanceReconciler) ReconcileResource(ctx context.Conte
 	}
 
 	return ctrl.Result{RequeueAfter: requeueInterval}, nil
+}
+
+func (r *ManagedCFServiceInstanceReconciler) servicePlanVisible(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (bool, error) {
+	plan := &korifiv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      cfServiceInstance.Spec.ServicePlanGUID,
+		},
+	}
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(plan), plan)
+	if err != nil {
+		return false, fmt.Errorf("failed to get service plan %q: %w", cfServiceInstance.Spec.ServicePlanGUID, err)
+	}
+
+	spaces := &korifiv1alpha1.CFSpaceList{}
+	err = r.k8sClient.List(ctx, spaces, client.MatchingFields{shared.IndexSpaceNamespaceName: cfServiceInstance.Namespace})
+	if err != nil {
+		return false, fmt.Errorf("failed to list CFSpaces: %w", err)
+	}
+	if len(spaces.Items) != 1 {
+		return false, fmt.Errorf("one CFSpace with guid %q expected, %d found", cfServiceInstance.Namespace, len(spaces.Items))
+	}
+
+	return plan.IsVisible(spaces.Items[0].Namespace), nil
 }
 
 func (r *ManagedCFServiceInstanceReconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {

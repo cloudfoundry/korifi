@@ -361,6 +361,7 @@ func main() {
 				handlers.SpaceQuotaDeleteJobType: spaceQuotaRepo,
 			},
 			serviceBrokerRepo,
+			serviceInstanceRepo,
 			500*time.Millisecond,
 		),
 		handlers.NewLogCache(
