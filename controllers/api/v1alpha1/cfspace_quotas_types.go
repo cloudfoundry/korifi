@@ -21,10 +21,8 @@ import (
 )
 
 type SpaceQuotaRelationships struct {
-	// +kubebuilder:validation:Optional
-	Organization ToOneRelationship `json:"organization"`
-	// +kubebuilder:validation:Optional
-	Spaces ToManyRelationship `json:"spaces"`
+	Organization ToOneRelationship  `json:"organization"`
+	Spaces       ToManyRelationship `json:"spaces"`
 }
 
 // CFOrgQuotaSpec defines the desired state of CFOrgQuota
@@ -36,8 +34,6 @@ type SpaceQuota struct {
 	Services *ServiceQuotas `json:"services"`
 	// +kubebuilder:validation:Optional
 	Routes *RouteQuotas `json:"routes"`
-	// +kubebuilder:validation:Optional
-	Relationships SpaceQuotaRelationships `json:"relationships"`
 }
 
 // CFOrgQuotaSpec defines the desired state of CFOrgQuota
@@ -74,8 +70,9 @@ func (sq *SpaceQuota) Patch(p SpaceQuotaPatch) {
 
 // OrgQuotaResource
 type SpaceQuotaResource struct {
-	SpaceQuota `json:",inline"`
-	CFResource `json:",inline"`
+	SpaceQuota    `json:",inline"`
+	CFResource    `json:",inline"`
+	Relationships SpaceQuotaRelationships `json:"relationships"`
 }
 
 type SpaceQuotaSpec struct {

@@ -42,13 +42,20 @@ func NewOrgQuotaRepo(
 	}
 }
 
-func toResource(cfOrgQuota *korifiv1alpha1.CFOrgQuota) korifiv1alpha1.OrgQuotaResource {
+func (r *OrgQuotaRepo) toResource(ctx context.Context, userClient client.WithWatch, cfOrgQuota *korifiv1alpha1.CFOrgQuota) (korifiv1alpha1.OrgQuotaResource, error) {
+	organizations, err := r.GetRelationshipOrgs(ctx, userClient, cfOrgQuota.Name)
+	if err != nil {
+		return korifiv1alpha1.OrgQuotaResource{}, err
+	}
 	return korifiv1alpha1.OrgQuotaResource{
 		OrgQuota: cfOrgQuota.Spec.OrgQuota,
 		CFResource: korifiv1alpha1.CFResource{
 			GUID: cfOrgQuota.Name,
 		},
-	}
+		Relationships: korifiv1alpha1.OrgQuotaRelationships{
+			Organizations: organizations,
+		},
+	}, nil
 }
 
 func (r *OrgQuotaRepo) CreateOrgQuota(ctx context.Context, info authorization.Info, orgQuota korifiv1alpha1.OrgQuota) (korifiv1alpha1.OrgQuotaResource, error) {
@@ -74,7 +81,7 @@ func (r *OrgQuotaRepo) CreateOrgQuota(ctx context.Context, info authorization.In
 		return korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to create cf org: %w", apierrors.FromK8sError(err, OrgQuotaResourceType))
 	}
 
-	return toResource(cfOrgQuota), nil
+	return r.toResource(ctx, userClient, cfOrgQuota)
 }
 
 func (r *OrgQuotaRepo) ListOrgQuotas(ctx context.Context, info authorization.Info, filter ListOrgQuotasMessage) ([]korifiv1alpha1.OrgQuotaResource, error) {
@@ -96,7 +103,11 @@ func (r *OrgQuotaRepo) ListOrgQuotas(ctx context.Context, info authorization.Inf
 
 	var orgQuotaResources []korifiv1alpha1.OrgQuotaResource
 	for _, o := range Filter(cfOrgQuotaList.Items, preds...) {
-		orgQuotaResources = append(orgQuotaResources, toResource(&o))
+		orgQuotaResource, err := r.toResource(ctx, userClient, &o)
+		if err != nil {
+			return []korifiv1alpha1.OrgQuotaResource{}, err
+		}
+		orgQuotaResources = append(orgQuotaResources, orgQuotaResource)
 	}
 	return orgQuotaResources, nil
 }
@@ -119,7 +130,7 @@ func (r *OrgQuotaRepo) GetOrgQuota(ctx context.Context, info authorization.Info,
 		return korifiv1alpha1.OrgQuotaResource{}, fmt.Errorf("failed to get org quota with id %q: %w", orgQuotaGUID, err)
 	}
 
-	return toResource(cfOrgQuota), nil
+	return r.toResource(ctx, userClient, cfOrgQuota)
 }
 
 func (r *OrgQuotaRepo) DeleteOrgQuota(ctx context.Context, info authorization.Info, orgQuotaGUID string) error {
@@ -147,19 +158,42 @@ func (r *OrgQuotaRepo) AddOrgQuotaRelationships(ctx context.Context, authInfo au
 	if err != nil {
 		return korifiv1alpha1.ToManyRelationship{}, fmt.Errorf("failed to get org quota: %w", apierrors.FromK8sError(err, OrgQuotaResourceType))
 	}
-	err = k8s.PatchResource(ctx, userClient, actualCfOrgQuota, func() {
-		actualRelationships := actualCfOrgQuota.Spec.Relationships
-		if actualRelationships == nil {
-			actualRelationships = &korifiv1alpha1.OrgQuotaRelationships{}
-			actualCfOrgQuota.Spec.Relationships = actualRelationships
+
+	for _, relOrg := range organizations.Data {
+		actualCfOrg := new(korifiv1alpha1.CFOrg)
+		err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: relOrg.GUID}, actualCfOrg)
+		if err != nil {
+			return korifiv1alpha1.ToManyRelationship{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgResourceType))
 		}
-		actualRelationships.Organizations.Patch(organizations)
+		err = k8s.PatchResource(ctx, userClient, actualCfOrg, func() {
+			if actualCfOrg.Labels == nil {
+				actualCfOrg.Labels = make(map[string]string)
+			}
+			actualCfOrg.Labels[korifiv1alpha1.RelOrgQuotaLabel] = guid
+		})
+		if err != nil {
+			return korifiv1alpha1.ToManyRelationship{}, err
+		}
+	}
+
+	return r.GetRelationshipOrgs(ctx, userClient, guid)
+}
+
+func (r *OrgQuotaRepo) GetRelationshipOrgs(ctx context.Context, userClient client.WithWatch, quotaGuid string) (korifiv1alpha1.ToManyRelationship, error) {
+	cfOrgs := new(korifiv1alpha1.CFOrgList)
+	err := userClient.List(ctx, cfOrgs, client.InNamespace(r.rootNamespace), client.MatchingLabels{
+		korifiv1alpha1.RelOrgQuotaLabel: quotaGuid,
 	})
 	if err != nil {
 		return korifiv1alpha1.ToManyRelationship{}, err
 	}
-
-	return actualCfOrgQuota.Spec.Relationships.Organizations, nil
+	rels := make([]korifiv1alpha1.Relationship, len(cfOrgs.Items))
+	for i, cfOrg := range cfOrgs.Items {
+		rels[i] = korifiv1alpha1.Relationship{GUID: cfOrg.Name}
+	}
+	return korifiv1alpha1.ToManyRelationship{
+		Data: rels,
+	}, nil
 }
 
 func (r *OrgQuotaRepo) PatchOrgQuota(ctx context.Context, authInfo authorization.Info, guid string, orgQuotaPatch korifiv1alpha1.OrgQuotaPatch) (korifiv1alpha1.OrgQuotaResource, error) {
@@ -182,7 +216,7 @@ func (r *OrgQuotaRepo) PatchOrgQuota(ctx context.Context, authInfo authorization
 		return korifiv1alpha1.OrgQuotaResource{}, apierrors.FromK8sError(err, OrgQuotaResourceType)
 	}
 
-	return toResource(actualCfOrgQuota), nil
+	return r.toResource(ctx, userClient, actualCfOrgQuota)
 }
 
 func (r *OrgQuotaRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, orgQuotaGUID string) (*time.Time, error) {

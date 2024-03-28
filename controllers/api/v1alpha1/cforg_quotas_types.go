@@ -50,8 +50,6 @@ type OrgQuota struct {
 	Routes *RouteQuotas `json:"routes"`
 	// +kubebuilder:validation:Optional
 	Domains *DomainQuotas `json:"domains"`
-	// +kubebuilder:validation:Optional
-	Relationships *OrgQuotaRelationships `json:"relationships"`
 }
 
 type OrgQuotaPatch struct {
@@ -98,8 +96,9 @@ type OrgQuotaSpec struct {
 
 // OrgQuotaResource
 type OrgQuotaResource struct {
-	OrgQuota   `json:",inline"`
-	CFResource `json:",inline"`
+	OrgQuota      `json:",inline"`
+	CFResource    `json:",inline"`
+	Relationships OrgQuotaRelationships `json:"relationships"`
 }
 
 //+kubebuilder:object:root=true

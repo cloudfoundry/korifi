@@ -65,31 +65,6 @@ spec:
                 type: object
               name:
                 type: string
-              relationships:
-                properties:
-                  organization:
-                    properties:
-                      data:
-                        properties:
-                          guid:
-                            type: string
-                        required:
-                        - guid
-                        type: object
-                    type: object
-                  spaces:
-                    properties:
-                      data:
-                        items:
-                          properties:
-                            guid:
-                              type: string
-                          required:
-                          - guid
-                          type: object
-                        type: array
-                    type: object
-                type: object
               routes:
                 properties:
                   total_reserved_ports:

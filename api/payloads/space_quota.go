@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/jellydator/validation"
 )
 
@@ -12,6 +13,18 @@ type SpaceQuotaCreate struct {
 	Name      string   `json:"name"`
 	Suspended bool     `json:"suspended"`
 	Metadata  Metadata `json:"metadata"`
+}
+
+type SpaceQuotaPayload struct {
+	korifiv1alpha1.SpaceQuota
+	Relationships korifiv1alpha1.SpaceQuotaRelationships
+}
+
+func (p SpaceQuotaPayload) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Name, validation.Required),
+		validation.Field(&p.Relationships, validation.Required),
+	)
 }
 
 func (p SpaceQuotaCreate) Validate() error {

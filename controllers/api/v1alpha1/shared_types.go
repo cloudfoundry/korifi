@@ -20,8 +20,11 @@ const (
 
 	RelationshipsLabelPrefix = "korifi.cloudfoundry.org/rel-"
 	RelSpaceLabel            = RelationshipsLabelPrefix + "space"
+	RelOrgLabel              = RelationshipsLabelPrefix + "org"
 	RelServiceBrokerLabel    = RelationshipsLabelPrefix + "service_broker"
 	RelServiceOfferingLabel  = RelationshipsLabelPrefix + "service_offering"
+	RelSpaceQuotaLabel       = RelationshipsLabelPrefix + "space_quota"
+	RelOrgQuotaLabel         = RelationshipsLabelPrefix + "org_quota"
 
 	CFBindingTypeLabelKey = "korifi.cloudfoundry.org/binding-type"
 

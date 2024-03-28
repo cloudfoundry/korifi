@@ -24,7 +24,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 type SpaceQuotaRepository interface {
-	CreateSpaceQuota(context.Context, authorization.Info, korifiv1alpha1.SpaceQuota) (korifiv1alpha1.SpaceQuotaResource, error)
+	CreateSpaceQuota(context.Context, authorization.Info, korifiv1alpha1.SpaceQuota, korifiv1alpha1.SpaceQuotaRelationships) (korifiv1alpha1.SpaceQuotaResource, error)
 	ListSpaceQuotas(context.Context, authorization.Info, repositories.ListSpaceQuotasMessage) ([]korifiv1alpha1.SpaceQuotaResource, error)
 	DeleteSpaceQuota(context.Context, authorization.Info, string) error
 	GetSpaceQuota(context.Context, authorization.Info, string) (korifiv1alpha1.SpaceQuotaResource, error)
@@ -50,14 +50,14 @@ func (h *SpaceQuota) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.spacequota.create")
 
-	var spaceQuota korifiv1alpha1.SpaceQuota
-	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &spaceQuota); err != nil {
+	var spaceQuotaPayload payloads.SpaceQuotaPayload
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &spaceQuotaPayload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "invalid-payload-for-create-space-quota")
 	}
 
-	spaceQuotaResource, err := h.spaceQuotaRepo.CreateSpaceQuota(r.Context(), authInfo, spaceQuota)
+	spaceQuotaResource, err := h.spaceQuotaRepo.CreateSpaceQuota(r.Context(), authInfo, spaceQuotaPayload.SpaceQuota, spaceQuotaPayload.Relationships)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to create space quota", "SpaceQuota Name", spaceQuota.Name)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create space quota", "SpaceQuota Name", spaceQuotaPayload.SpaceQuota.Name)
 	}
 
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForSpaceQuota(spaceQuotaResource, h.apiBaseURL)), nil

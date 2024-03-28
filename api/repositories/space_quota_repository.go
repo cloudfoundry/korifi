@@ -39,16 +39,28 @@ func NewSpaceQuotaRepo(
 	}
 }
 
-func toSpaceQuotaResource(cfSpaceQuota *korifiv1alpha1.CFSpaceQuota) korifiv1alpha1.SpaceQuotaResource {
+func (r *SpaceQuotaRepo) toSpaceQuotaResource(ctx context.Context, userClient client.WithWatch, cfSpaceQuota *korifiv1alpha1.CFSpaceQuota) (korifiv1alpha1.SpaceQuotaResource, error) {
+	spaces, err := r.GetRelationshipSpaces(ctx, userClient, cfSpaceQuota.Name)
+	if err != nil {
+		return korifiv1alpha1.SpaceQuotaResource{}, err
+	}
 	return korifiv1alpha1.SpaceQuotaResource{
 		SpaceQuota: cfSpaceQuota.Spec.SpaceQuota,
 		CFResource: korifiv1alpha1.CFResource{
 			GUID: cfSpaceQuota.Name,
 		},
-	}
+		Relationships: korifiv1alpha1.SpaceQuotaRelationships{
+			Organization: korifiv1alpha1.ToOneRelationship{
+				Data: korifiv1alpha1.Relationship{
+					GUID: cfSpaceQuota.Labels[korifiv1alpha1.RelOrgLabel],
+				},
+			},
+			Spaces: spaces,
+		},
+	}, nil
 }
 
-func (r *SpaceQuotaRepo) CreateSpaceQuota(ctx context.Context, info authorization.Info, spaceQuota korifiv1alpha1.SpaceQuota) (korifiv1alpha1.SpaceQuotaResource, error) {
+func (r *SpaceQuotaRepo) CreateSpaceQuota(ctx context.Context, info authorization.Info, spaceQuota korifiv1alpha1.SpaceQuota, relationships korifiv1alpha1.SpaceQuotaRelationships) (korifiv1alpha1.SpaceQuotaResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(info)
 	if err != nil {
 		return korifiv1alpha1.SpaceQuotaResource{}, fmt.Errorf("failed to build user client: %w", err)
@@ -60,6 +72,9 @@ func (r *SpaceQuotaRepo) CreateSpaceQuota(ctx context.Context, info authorizatio
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: r.rootNamespace,
+			Labels: map[string]string{
+				korifiv1alpha1.RelOrgLabel: relationships.Organization.Data.GUID,
+			},
 		},
 		Spec: korifiv1alpha1.SpaceQuotaSpec{
 			SpaceQuota: spaceQuota,
@@ -71,7 +86,7 @@ func (r *SpaceQuotaRepo) CreateSpaceQuota(ctx context.Context, info authorizatio
 		return korifiv1alpha1.SpaceQuotaResource{}, fmt.Errorf("failed to create cf space quota: %w", apierrors.FromK8sError(err, SpaceQuotaResourceType))
 	}
 
-	return toSpaceQuotaResource(cfSpaceQuota), nil
+	return r.toSpaceQuotaResource(ctx, userClient, cfSpaceQuota)
 }
 
 func (r *SpaceQuotaRepo) ListSpaceQuotas(ctx context.Context, info authorization.Info, filter ListSpaceQuotasMessage) ([]korifiv1alpha1.SpaceQuotaResource, error) {
@@ -93,7 +108,11 @@ func (r *SpaceQuotaRepo) ListSpaceQuotas(ctx context.Context, info authorization
 
 	var spaceQuotas []korifiv1alpha1.SpaceQuotaResource
 	for _, o := range Filter(cfSpaceQuotaList.Items, preds...) {
-		spaceQuotas = append(spaceQuotas, toSpaceQuotaResource(&o))
+		spaceQuota, err := r.toSpaceQuotaResource(ctx, userClient, &o)
+		if err != nil {
+			return []korifiv1alpha1.SpaceQuotaResource{}, err
+		}
+		spaceQuotas = append(spaceQuotas, spaceQuota)
 	}
 	return spaceQuotas, nil
 }
@@ -116,7 +135,7 @@ func (r *SpaceQuotaRepo) GetSpaceQuota(ctx context.Context, info authorization.I
 		return korifiv1alpha1.SpaceQuotaResource{}, fmt.Errorf("failed to get org quota with id %q: %w", spaceQuotaGUID, err)
 	}
 
-	return toSpaceQuotaResource(cfSpaceQuota), nil
+	return r.toSpaceQuotaResource(ctx, userClient, cfSpaceQuota)
 }
 
 func (r *SpaceQuotaRepo) DeleteSpaceQuota(ctx context.Context, info authorization.Info, spaceQuotaGUID string) error {
@@ -144,14 +163,42 @@ func (r *SpaceQuotaRepo) AddSpaceQuotaRelationships(ctx context.Context, authInf
 	if err != nil {
 		return korifiv1alpha1.ToManyRelationship{}, fmt.Errorf("failed to get space quota: %w", apierrors.FromK8sError(err, OrgQuotaResourceType))
 	}
-	err = k8s.PatchResource(ctx, userClient, actualCfSpaceQuota, func() {
-		(&actualCfSpaceQuota.Spec.Relationships.Spaces).Patch(spaces)
+	orgNamespace := actualCfSpaceQuota.Labels[korifiv1alpha1.RelOrgLabel]
+	for _, relSpace := range spaces.Data {
+		actualCfSpace := new(korifiv1alpha1.CFSpace)
+		err = userClient.Get(ctx, client.ObjectKey{Namespace: orgNamespace, Name: relSpace.GUID}, actualCfSpace)
+		if err != nil {
+			return korifiv1alpha1.ToManyRelationship{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
+		}
+		err = k8s.PatchResource(ctx, userClient, actualCfSpace, func() {
+			if actualCfSpace.Labels == nil {
+				actualCfSpace.Labels = make(map[string]string)
+			}
+			actualCfSpace.Labels[korifiv1alpha1.RelSpaceQuotaLabel] = guid
+		})
+		if err != nil {
+			return korifiv1alpha1.ToManyRelationship{}, err
+		}
+	}
+
+	return r.GetRelationshipSpaces(ctx, userClient, guid)
+}
+
+func (r *SpaceQuotaRepo) GetRelationshipSpaces(ctx context.Context, userClient client.WithWatch, quotaGuid string) (korifiv1alpha1.ToManyRelationship, error) {
+	cfSpaces := new(korifiv1alpha1.CFSpaceList)
+	err := userClient.List(ctx, cfSpaces, client.InNamespace(r.rootNamespace), client.MatchingLabels{
+		korifiv1alpha1.RelSpaceQuotaLabel: quotaGuid,
 	})
 	if err != nil {
 		return korifiv1alpha1.ToManyRelationship{}, err
 	}
-
-	return actualCfSpaceQuota.Spec.Relationships.Spaces, nil
+	rels := make([]korifiv1alpha1.Relationship, len(cfSpaces.Items))
+	for i, cfSpace := range cfSpaces.Items {
+		rels[i] = korifiv1alpha1.Relationship{GUID: cfSpace.Name}
+	}
+	return korifiv1alpha1.ToManyRelationship{
+		Data: rels,
+	}, nil
 }
 
 func (r *SpaceQuotaRepo) PatchSpaceQuota(ctx context.Context, authInfo authorization.Info, guid string, spaceQuotaPatch korifiv1alpha1.SpaceQuotaPatch) (korifiv1alpha1.SpaceQuotaResource, error) {
@@ -174,7 +221,7 @@ func (r *SpaceQuotaRepo) PatchSpaceQuota(ctx context.Context, authInfo authoriza
 		return korifiv1alpha1.SpaceQuotaResource{}, apierrors.FromK8sError(err, SpaceQuotaResourceType)
 	}
 
-	return toSpaceQuotaResource(actualCfSpaceQuota), nil
+	return r.toSpaceQuotaResource(ctx, userClient, actualCfSpaceQuota)
 }
 
 func (r *SpaceQuotaRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, spaceQuotaGUID string) (*time.Time, error) {
