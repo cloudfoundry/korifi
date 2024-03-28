@@ -10,8 +10,8 @@ directories:
       url: https://api.github.com/repos/servicebinding/runtime/releases/147142685
     path: service-binding
   - githubRelease:
-      tag: v0.7.0
-      url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/137632772
+      tag: v0.7.1
+      url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/148494528
     path: metrics-server-local
   - githubRelease:
       tag: v1.14.4
