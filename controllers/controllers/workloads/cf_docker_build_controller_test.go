@@ -19,6 +19,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	var (
 		imageSecret *corev1.Secret
 		imageConfig *v1.ConfigFile
+		imageName   string
 		imageRef    string
 
 		cfSpace       *korifiv1alpha1.CFSpace
@@ -28,7 +29,8 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	)
 
 	BeforeEach(func() {
-		imageRef = containerRegistry.ImageRef("foo/bar")
+		imageName = "foo/bar"
+		imageRef = containerRegistry.ImageRef(imageName)
 		imageConfig = &v1.ConfigFile{
 			Config: v1.Config{
 				User: "1000",
@@ -106,7 +108,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	})
 
 	JustBeforeEach(func() {
-		containerRegistry.PushImage(containerRegistry.ImageRef("foo/bar"), imageConfig)
+		containerRegistry.PushImage(containerRegistry.ImageRef(imageName), imageConfig)
 		Expect(adminClient.Create(ctx, cfBuild)).To(Succeed())
 	})
 
@@ -133,6 +135,20 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionTrue(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
 				g.Expect(cfBuild.Status.Droplet).NotTo(BeNil())
 				g.Expect(cfBuild.Status.Droplet.Ports).To(ConsistOf(int32(8888), int32(9999)))
+			}).Should(Succeed())
+		})
+	})
+
+	When("fetching the image fails", func() {
+		BeforeEach(func() {
+			imageName = "does-not/exist"
+		})
+
+		It("fails the build", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+				g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
+				g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
 			}).Should(Succeed())
 		})
 	})

@@ -112,7 +112,23 @@ func (r *dockerBuildReconciler) ReconcileBuild(
 		cfPackage.Spec.Source.Registry.Image,
 	)
 	if err != nil {
-		return ctrl.Result{}, err
+		log.Error(err, "fetching image config failed", "image", cfPackage.Spec.Source.Registry.Image)
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.StagingConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "StagingFailed",
+			Message:            fmt.Sprintf("Failed to fetch image %q", cfPackage.Spec.Source.Registry.Image),
+			ObservedGeneration: cfBuild.Generation,
+		})
+		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.SucceededConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "BuildFailed",
+			Message:            fmt.Sprintf("Failed to fetch image %q", cfPackage.Spec.Source.Registry.Image),
+			ObservedGeneration: cfBuild.Generation,
+		})
+
+		return ctrl.Result{}, nil
 	}
 
 	meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
