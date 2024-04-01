@@ -4,6 +4,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/dockercfg"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,18 +20,16 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	var (
 		imageSecret *corev1.Secret
 		imageConfig *v1.ConfigFile
-		imageName   string
 		imageRef    string
 
-		cfSpace       *korifiv1alpha1.CFSpace
-		cfApp         *korifiv1alpha1.CFApp
-		cfPackageGUID string
-		cfBuild       *korifiv1alpha1.CFBuild
+		cfSpace   *korifiv1alpha1.CFSpace
+		cfApp     *korifiv1alpha1.CFApp
+		cfPackage *korifiv1alpha1.CFPackage
+		cfBuild   *korifiv1alpha1.CFBuild
 	)
 
 	BeforeEach(func() {
-		imageName = "foo/bar"
-		imageRef = containerRegistry.ImageRef(imageName)
+		imageRef = containerRegistry.ImageRef("foo/bar")
 		imageConfig = &v1.ConfigFile{
 			Config: v1.Config{
 				User: "1000",
@@ -68,10 +67,9 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 		}
 		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 
-		cfPackageGUID = PrefixedGUID("cf-package")
-		Expect(adminClient.Create(ctx, &korifiv1alpha1.CFPackage{
+		cfPackage = &korifiv1alpha1.CFPackage{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfPackageGUID,
+				Name:      PrefixedGUID("cf-package"),
 				Namespace: cfSpace.Status.GUID,
 			},
 			Spec: korifiv1alpha1.CFPackageSpec{
@@ -86,7 +84,8 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 					},
 				},
 			},
-		})).To(Succeed())
+		}
+		Expect(adminClient.Create(ctx, cfPackage)).To(Succeed())
 
 		cfBuild = &korifiv1alpha1.CFBuild{
 			ObjectMeta: metav1.ObjectMeta{
@@ -95,7 +94,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			},
 			Spec: korifiv1alpha1.CFBuildSpec{
 				PackageRef: corev1.LocalObjectReference{
-					Name: cfPackageGUID,
+					Name: cfPackage.Name,
 				},
 				AppRef: corev1.LocalObjectReference{
 					Name: cfApp.Name,
@@ -108,7 +107,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 	})
 
 	JustBeforeEach(func() {
-		containerRegistry.PushImage(containerRegistry.ImageRef(imageName), imageConfig)
+		containerRegistry.PushImage(containerRegistry.ImageRef("foo/bar"), imageConfig)
 		Expect(adminClient.Create(ctx, cfBuild)).To(Succeed())
 	})
 
@@ -139,16 +138,24 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 		})
 	})
 
-	When("fetching the image fails", func() {
+	When("the package references an image that does not exist", func() {
 		BeforeEach(func() {
-			imageName = "does-not/exist"
+			Expect(k8s.PatchResource(ctx, adminClient, cfPackage, func() {
+				cfPackage.Spec.Source.Registry.Image = containerRegistry.ImageRef("does-not/exist")
+			})).To(Succeed())
 		})
 
 		It("fails the build", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+
 				g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)).To(BeTrue())
+				succeededConditionMessage := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType).Message
+				g.Expect(succeededConditionMessage).To(ContainSubstring("Failed to fetch image"))
+
 				g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
+				stagingConditionMessage := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType).Message
+				g.Expect(stagingConditionMessage).To(ContainSubstring("Failed to fetch image"))
 			}).Should(Succeed())
 		})
 	})
