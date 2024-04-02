@@ -21,12 +21,11 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
-	"sort"
-	"strconv"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/ports"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -45,8 +44,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type EnvBuilder interface {
-	BuildEnv(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error)
+type ProcessEnvBuilder interface {
+	Build(context.Context, *korifiv1alpha1.CFApp, *korifiv1alpha1.CFProcess) ([]corev1.EnvVar, error)
 }
 
 // CFProcessReconciler reconciles a CFProcess object
@@ -55,7 +54,7 @@ type CFProcessReconciler struct {
 	scheme           *runtime.Scheme
 	log              logr.Logger
 	controllerConfig *config.ControllerConfig
-	envBuilder       EnvBuilder
+	envBuilder       ProcessEnvBuilder
 }
 
 func NewCFProcessReconciler(
@@ -63,7 +62,7 @@ func NewCFProcessReconciler(
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	controllerConfig *config.ControllerConfig,
-	envBuilder EnvBuilder,
+	envBuilder ProcessEnvBuilder,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFProcess, *korifiv1alpha1.CFProcess] {
 	processReconciler := CFProcessReconciler{k8sClient: client, scheme: scheme, log: log, controllerConfig: controllerConfig, envBuilder: envBuilder}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFProcess, *korifiv1alpha1.CFProcess](log, client, &processReconciler)
@@ -201,13 +200,18 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 		return errors.New("no build droplet status on CFBuild")
 	}
 
-	appPorts, err := r.getPorts(ctx, cfProcess.Spec.ProcessType, cfApp)
+	var cfRoutesForProcess korifiv1alpha1.CFRouteList
+	err = r.k8sClient.List(ctx, &cfRoutesForProcess,
+		client.InNamespace(cfProcess.Namespace),
+		client.MatchingFields{shared.IndexRouteDestinationAppName: cfApp.Name},
+	)
 	if err != nil {
-		log.Info("error when trying to fetch ports for CFApp", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
 		return err
 	}
 
-	envVars, err := r.envBuilder.BuildEnv(ctx, cfApp)
+	appPorts := ports.FromRoutes(cfRoutesForProcess.Items, cfApp.Name, cfProcess.Spec.ProcessType)
+
+	envVars, err := r.envBuilder.Build(ctx, cfApp, cfProcess)
 	if err != nil {
 		log.Info("error when trying build the process environment for app", "namespace", cfProcess.Namespace, "name", cfApp.Spec.DisplayName, "reason", err)
 		return err
@@ -312,7 +316,7 @@ func (r *CFProcessReconciler) generateAppWorkload(actualAppWorkload *korifiv1alp
 		desiredAppWorkload.Spec.Instances = int32(*cfProcess.Spec.DesiredInstances)
 	}
 
-	desiredAppWorkload.Spec.Env = generateEnvVars(appPorts, envVars, cfProcess.Spec.MemoryMB)
+	desiredAppWorkload.Spec.Env = envVars
 
 	desiredAppWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPorts)
 	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPorts)
@@ -361,58 +365,6 @@ func (r *CFProcessReconciler) fetchAppWorkloadsForProcess(ctx context.Context, c
 	}
 
 	return appWorkloadsForProcess, err
-}
-
-func (r *CFProcessReconciler) getPorts(ctx context.Context, processType string, cfApp *korifiv1alpha1.CFApp) ([]int32, error) {
-	var cfRoutesForProcess korifiv1alpha1.CFRouteList
-	err := r.k8sClient.List(ctx, &cfRoutesForProcess, client.InNamespace(cfApp.GetNamespace()), client.MatchingFields{shared.IndexRouteDestinationAppName: cfApp.Name})
-	if err != nil {
-		return nil, err
-	}
-
-	// In case there are multiple routes, prefer the oldest one
-	sort.Slice(cfRoutesForProcess.Items, func(i, j int) bool {
-		return cfRoutesForProcess.Items[i].CreationTimestamp.Before(&cfRoutesForProcess.Items[j].CreationTimestamp)
-	})
-
-	ports := []int32{}
-	for _, cfRoute := range cfRoutesForProcess.Items {
-		for _, destination := range cfRoute.Status.Destinations {
-			if destination.AppRef.Name == cfApp.Name &&
-				destination.ProcessType == processType &&
-				destination.Port != nil {
-				ports = append(ports, int32(*destination.Port))
-			}
-		}
-	}
-
-	return ports, nil
-}
-
-func generateEnvVars(ports []int32, commonEnv []corev1.EnvVar, memoryMB int64) []corev1.EnvVar {
-	result := []corev1.EnvVar{
-		{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
-	}
-	result = append(result, commonEnv...)
-
-	if len(ports) != 0 {
-		portString := strconv.Itoa(int(ports[0]))
-		result = append(result,
-			corev1.EnvVar{Name: "VCAP_APP_PORT", Value: portString},
-			corev1.EnvVar{Name: "PORT", Value: portString},
-		)
-	}
-
-	result = append(result,
-		corev1.EnvVar{Name: "MEMORY_LIMIT", Value: fmt.Sprintf("%dM", memoryMB)},
-	)
-
-	// Sort env vars to guarantee idempotency
-	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].Name < result[j].Name
-	})
-
-	return result
 }
 
 func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CFApp) []string {
