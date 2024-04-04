@@ -34,6 +34,7 @@ const (
 	AppRestartPath                    = "/v3/apps/{guid}/actions/restart"
 	AppEnvVarsPath                    = "/v3/apps/{guid}/environment_variables"
 	AppEnvPath                        = "/v3/apps/{guid}/env"
+	AppFeaturePath                    = "/v3/apps/{guid}/features/{name}"
 	AppPackagesPath                   = "/v3/apps/{guid}/packages"
 	AppSSHEnabledPath                 = "/v3/apps/{guid}/ssh_enabled"
 	invalidDropletMsg                 = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
@@ -606,6 +607,26 @@ func (h *App) getSSHEnabled(r *http.Request) (*routing.Response, error) {
 	}), nil
 }
 
+func (h *App) getAppFeature(r *http.Request) (*routing.Response, error) {
+	featureName := routing.URLParam(r, "name")
+	switch featureName {
+	case "ssh":
+		return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+			"name":        "ssh",
+			"description": "Enable SSHing into the app.",
+			"enabled":     false,
+		}), nil
+	case "revisions":
+		return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+			"name":        "revisions",
+			"description": "Enable versioning of an application",
+			"enabled":     false,
+		}), nil
+	default:
+		return nil, apierrors.NewNotFoundError(nil, "Feature")
+	}
+}
+
 func (h *App) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -628,6 +649,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: AppEnvVarsPath, Handler: h.updateEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
 		{Method: "GET", Pattern: AppPackagesPath, Handler: h.getPackages},
+		{Method: "GET", Pattern: AppFeaturePath, Handler: h.getAppFeature},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSSHEnabled},
 	}
