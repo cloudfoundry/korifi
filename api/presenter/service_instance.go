@@ -58,7 +58,7 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 		State:       "succeeded",
 		Type:        lastOperationType,
 	}
-	if serviceInstanceRecord.Type == korifiv1alpha1.ManagedType {
+	if serviceInstanceRecord.Type == korifiv1alpha1.ManagedType && serviceInstanceRecord.State != nil {
 		if serviceInstanceRecord.State.Status == korifiv1alpha1.FailedStatus {
 			lastOp.State = "failed"
 		}
