@@ -73,6 +73,7 @@ func toServiceOfferingResource(cfServiceOffering *korifiv1alpha1.CFServiceOfferi
 			GUID: cfServiceOffering.Name,
 		},
 		Relationships: rels,
+		Available:     true,
 	}
 }
 

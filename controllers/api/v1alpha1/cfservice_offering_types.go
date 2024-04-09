@@ -69,6 +69,7 @@ type ServiceOfferingResource struct {
 	ServiceOffering `json:",inline"`
 	CFResource      `json:",inline"`
 	Relationships   ServiceOfferingRelationships `json:"relationships"`
+	Available       bool                         `json:"available"`
 }
 
 // CFServiceOfferingSpec defines the desired state of CFServiceOffering
