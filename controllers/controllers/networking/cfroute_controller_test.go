@@ -215,6 +215,19 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			})
 		})
 
+		When("the route's host contains upper case characters", func() {
+			BeforeEach(func() {
+				cfRoute.Spec.Host = "Test-Route"
+			})
+
+			It("uses the lowercased host in the httproute name and path match prefix", func() {
+				httpRoute := getHTTPRoute()
+				Expect(httpRoute.Spec.Hostnames).To(HaveLen(1))
+				Expect(httpRoute.Spec.Hostnames).To(HaveCap(1))
+				Expect(httpRoute.Spec.Hostnames[0]).To(Equal(gatewayv1beta1.Hostname("test-route.") + gatewayv1.Hostname(cfDomain.Spec.Name)))
+			})
+		})
+
 		It("creates a service for the destination", func() {
 			serviceName := fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[0].GUID)
 			Eventually(func(g Gomega) {
