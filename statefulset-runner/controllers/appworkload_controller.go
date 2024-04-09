@@ -109,6 +109,7 @@ func NewAppWorkloadReconciler(
 func (r *AppWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.AppWorkload{}).
+		Owns(&appsv1.StatefulSet{}).
 		Watches(
 			new(appsv1.StatefulSet),
 			handler.EnqueueRequestsFromMapFunc(r.enqueueAppWorkloadRequests),
@@ -203,6 +204,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		return ctrl.Result{}, err
 	}
 
+	appWorkload.Status.ActualInstances = updatedStatefulSet.Status.Replicas
 	meta.SetStatusCondition(&appWorkload.Status.Conditions, metav1.Condition{
 		Type:               shared.StatusConditionReady,
 		Status:             metav1.ConditionTrue,

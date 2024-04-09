@@ -25,12 +25,14 @@ func TestConditions(t *testing.T) {
 }
 
 var (
+	ctx       context.Context
 	testEnv   *envtest.Environment
 	k8sClient client.WithWatch
 	namespace string
 )
 
 var _ = BeforeSuite(func() {
+	ctx = context.Background()
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	testEnv = &envtest.Environment{
@@ -58,9 +60,9 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	namespace = "test-ns-" + uuid.NewString()[:8]
-	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})).To(Succeed())
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})).To(Succeed())
 })
 
 var _ = AfterEach(func() {
-	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})).To(Succeed())
+	Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})).To(Succeed())
 })

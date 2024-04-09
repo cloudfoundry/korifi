@@ -34,7 +34,7 @@ type CFAppSpec struct {
 	// The user-requested state of the CFApp. The currently-applied state of the CFApp is in status.ObservedDesiredState.
 	// Allowed values are "STARTED", and "STOPPED".
 	// +kubebuilder:validation:Enum=STOPPED;STARTED
-	DesiredState DesiredState `json:"desiredState"`
+	DesiredState AppState `json:"desiredState"`
 
 	// Specifies how to build images for the app
 	Lifecycle Lifecycle `json:"lifecycle"`
@@ -46,8 +46,8 @@ type CFAppSpec struct {
 	CurrentDropletRef v1.LocalObjectReference `json:"currentDropletRef,omitempty"`
 }
 
-// DesiredState defines the desired state of CFApp.
-type DesiredState string
+// AppState defines the desired state of CFApp.
+type AppState string
 
 // CFAppStatus defines the observed state of CFApp
 type CFAppStatus struct {
@@ -56,7 +56,7 @@ type CFAppStatus struct {
 
 	// Deprecated: No longer used
 	//+kubebuilder:validation:Optional
-	ObservedDesiredState DesiredState `json:"observedDesiredState"`
+	ObservedDesiredState AppState `json:"observedDesiredState"`
 
 	// VCAPServicesSecretName contains the name of the CFApp's VCAP_SERVICES Secret, which should exist in the same namespace
 	//+kubebuilder:validation:Optional
@@ -68,6 +68,9 @@ type CFAppStatus struct {
 
 	// ObservedGeneration captures the latest generation of the CFApp that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	//+kubebuilder:validation:Optional
+	ActualState AppState `json:"actualState"`
 }
 
 //+kubebuilder:object:root=true

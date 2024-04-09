@@ -1,20 +1,20 @@
 package conditions_test
 
 import (
-	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Await", func() {
+var _ = Describe("StateAwaiter", func() {
 	var (
 		awaiter     *conditions.Awaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList, *korifiv1alpha1.CFTaskList]
 		task        *korifiv1alpha1.CFTask
@@ -22,8 +22,27 @@ var _ = Describe("Await", func() {
 		awaitErr    error
 	)
 
+	asyncPatchTask := func(patchTask func(*korifiv1alpha1.CFTask)) {
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+
+			patchedTask := task.DeepCopy()
+			Expect(k8s.Patch(ctx, k8sClient, patchedTask, func() {
+				patchTask(patchedTask)
+			})).To(Succeed())
+		}()
+
+		DeferCleanup(func() {
+			wg.Wait()
+		})
+	}
+
 	BeforeEach(func() {
-		awaiter = conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](time.Second)
+		awaiter = conditions.NewStateAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](time.Second)
 		awaitedTask = nil
 		awaitErr = nil
 
@@ -34,48 +53,68 @@ var _ = Describe("Await", func() {
 			},
 		}
 
-		Expect(k8sClient.Create(context.Background(), task)).To(Succeed())
+		Expect(k8sClient.Create(ctx, task)).To(Succeed())
 	})
 
-	JustBeforeEach(func() {
-		awaitedTask, awaitErr = awaiter.AwaitCondition(context.Background(), k8sClient, task, korifiv1alpha1.TaskInitializedConditionType)
-	})
+	Describe("AwaitState", func() {
+		JustBeforeEach(func() {
+			awaitedTask, awaitErr = awaiter.AwaitState(ctx, k8sClient, task, func(actualTask *korifiv1alpha1.CFTask) error {
+				if actualTask.Status.DropletRef.Name == "" {
+					return errors.New("droplet ref not set")
+				}
 
-	It("returns an error as the condition never becomes true", func() {
-		Expect(awaitErr).To(MatchError(ContainSubstring("did not get the Initialized condition")))
-	})
+				return nil
+			})
+		})
 
-	When("the condition becomes true", func() {
-		var wg sync.WaitGroup
+		It("returns an error as the desired state is never reached", func() {
+			Expect(awaitErr).To(MatchError(ContainSubstring("droplet ref not set")))
+		})
 
-		BeforeEach(func() {
-			wg.Add(1)
-
-			go func() {
-				defer GinkgoRecover()
-				defer wg.Done()
-
-				taskCopy := task.DeepCopy()
-				meta.SetStatusCondition(&taskCopy.Status.Conditions, metav1.Condition{
-					Type:   korifiv1alpha1.TaskInitializedConditionType,
-					Status: metav1.ConditionTrue,
-					Reason: "initialized",
+		When("the desired state is reached", func() {
+			BeforeEach(func() {
+				asyncPatchTask(func(cfTask *korifiv1alpha1.CFTask) {
+					cfTask.Status.DropletRef.Name = "some-droplet"
 				})
+			})
 
-				Expect(k8sClient.Status().Patch(context.Background(), taskCopy, client.MergeFrom(task))).To(Succeed())
-			}()
+			It("succeeds and returns the updated object", func() {
+				Expect(awaitErr).NotTo(HaveOccurred())
+				Expect(awaitedTask).NotTo(BeNil())
+
+				Expect(awaitedTask.Name).To(Equal(task.Name))
+				Expect(awaitedTask.Status.DropletRef.Name).To(Equal("some-droplet"))
+			})
+		})
+	})
+
+	Describe("AwaitCondition", func() {
+		JustBeforeEach(func() {
+			awaitedTask, awaitErr = awaiter.AwaitCondition(ctx, k8sClient, task, korifiv1alpha1.TaskInitializedConditionType)
 		})
 
-		AfterEach(func() {
-			wg.Wait()
+		It("returns an error as the condition never becomes true", func() {
+			Expect(awaitErr).To(MatchError(ContainSubstring("expected the Initialized condition to be true")))
 		})
 
-		It("succeeds and returns the updated object", func() {
-			Expect(awaitErr).NotTo(HaveOccurred())
-			Expect(awaitedTask).NotTo(BeNil())
+		When("the condition becomes true", func() {
+			BeforeEach(func() {
+				asyncPatchTask(func(cfTask *korifiv1alpha1.CFTask) {
+					meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
+						Type:   korifiv1alpha1.TaskInitializedConditionType,
+						Status: metav1.ConditionTrue,
+						Reason: "initialized",
+					})
+				})
+			})
 
-			Expect(awaitedTask.Name).To(Equal(task.Name))
-			Expect(meta.IsStatusConditionTrue(awaitedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+			It("succeeds and returns the updated object", func() {
+				Expect(awaitErr).NotTo(HaveOccurred())
+				Expect(awaitedTask).NotTo(BeNil())
+
+				Expect(awaitedTask.Name).To(Equal(task.Name))
+				Expect(meta.IsStatusConditionTrue(awaitedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+			})
 		})
 	})
 })

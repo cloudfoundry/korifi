@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -31,7 +32,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		appGUID             string
 		serviceInstanceGUID string
 		bindingName         *string
-		conditionAwaiter    *FakeAwaiter[
+		conditionAwaiter    *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
@@ -40,7 +41,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		conditionAwaiter = &FakeAwaiter[
+		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
@@ -60,7 +61,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			},
 			Spec: korifiv1alpha1.CFAppSpec{
 				DisplayName:  "some-app",
-				DesiredState: korifiv1alpha1.DesiredState(repositories.StoppedState),
+				DesiredState: korifiv1alpha1.AppState(repositories.StoppedState),
 				Lifecycle: korifiv1alpha1.Lifecycle{
 					Type: "buildpack",
 					Data: korifiv1alpha1.LifecycleData{

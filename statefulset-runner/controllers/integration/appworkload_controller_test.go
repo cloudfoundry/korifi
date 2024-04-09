@@ -107,6 +107,23 @@ var _ = Describe("AppWorkloadsController", func() {
 			}).Should(Succeed())
 			Expect(*pdb.Spec.MinAvailable).To(Equal(intstr.FromString("50%")))
 		})
+
+		When("the statefulset replicas is set", func() {
+			JustBeforeEach(func() {
+				statefulset := getStatefulsetForAppWorkload(Default)
+				updatedStatefulset := statefulset.DeepCopy()
+				updatedStatefulset.Status.Replicas = 1
+
+				Expect(k8sClient.Status().Patch(ctx, updatedStatefulset, client.MergeFrom(&statefulset))).To(Succeed())
+			})
+
+			It("updates workload actual instances", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+					g.Expect(appWorkload.Status.ActualInstances).To(BeEquivalentTo(1))
+				}).Should(Succeed())
+			})
+		})
 	})
 
 	When("AppWorkload update", func() {

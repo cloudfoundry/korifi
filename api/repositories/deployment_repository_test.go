@@ -164,7 +164,7 @@ var _ = Describe("DeploymentRepository", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-				Expect(cfApp.Spec.DesiredState).To(Equal(korifiv1alpha1.DesiredState("STARTED")))
+				Expect(cfApp.Spec.DesiredState).To(Equal(korifiv1alpha1.AppState("STARTED")))
 			})
 
 			It("does not change the app droplet", func() {
