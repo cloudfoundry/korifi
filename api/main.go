@@ -129,6 +129,13 @@ func main() {
 		nsPermissions,
 		conditions.NewStateAwaiter[*korifiv1alpha1.CFOrg, korifiv1alpha1.CFOrgList](conditionTimeout),
 	)
+
+	orgQuotaRepo := repositories.NewOrgQuotaRepo(
+		cfg.RootNamespace,
+		userClientFactory,
+		nsPermissions,
+	)
+
 	spaceRepo := repositories.NewSpaceRepo(
 		namespaceRetriever,
 		orgRepo,
@@ -136,6 +143,11 @@ func main() {
 		nsPermissions,
 		conditions.NewStateAwaiter[*korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpaceList](conditionTimeout),
 	)
+	spaceQuotaRepo := repositories.NewSpaceQuotaRepo(
+		cfg.RootNamespace,
+		userClientFactory,
+	)
+
 	processRepo := repositories.NewProcessRepo(
 		namespaceRetriever,
 		userClientFactory,
@@ -172,6 +184,7 @@ func main() {
 	buildRepo := repositories.NewBuildRepo(
 		namespaceRetriever,
 		userClientFactory,
+		nsPermissions,
 	)
 	runnerInfoRepo := repositories.NewRunnerInfoRepository(
 		userClientFactory,
@@ -186,6 +199,14 @@ func main() {
 		cfg.ContainerRepositoryPrefix,
 		conditions.NewStateAwaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList](conditionTimeout),
 	)
+
+	serviceBrokerRepo := repositories.NewServiceBrokerRepo(
+		namespaceRetriever,
+		userClientFactory,
+		nsPermissions,
+		cfg.RootNamespace,
+	)
+
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
 		namespaceRetriever,
 		userClientFactory,
@@ -226,6 +247,7 @@ func main() {
 		conditions.NewStateAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](conditionTimeout),
 	)
 	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
+	serviceCatalogRepo := repositories.NewServiceCatalogRepo(userClientFactory, cfg.RootNamespace)
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
@@ -263,7 +285,7 @@ func main() {
 
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
-		handlers.NewRoot(*serverURL),
+		handlers.NewRoot(*serverURL, cfg.UaaURL),
 		handlers.NewResourceMatches(),
 		handlers.NewApp(
 			*serverURL,
@@ -274,6 +296,8 @@ func main() {
 			domainRepo,
 			spaceRepo,
 			packageRepo,
+			buildRepo,
+			processStats,
 			requestValidator,
 		),
 		handlers.NewRoute(
@@ -329,13 +353,17 @@ func main() {
 		handlers.NewJob(
 			*serverURL,
 			map[string]handlers.DeletionRepository{
-				handlers.OrgDeleteJobType:    orgRepo,
-				handlers.SpaceDeleteJobType:  spaceRepo,
-				handlers.AppDeleteJobType:    appRepo,
-				handlers.RouteDeleteJobType:  routeRepo,
-				handlers.DomainDeleteJobType: domainRepo,
-				handlers.RoleDeleteJobType:   roleRepo,
+				handlers.OrgDeleteJobType:        orgRepo,
+				handlers.SpaceDeleteJobType:      spaceRepo,
+				handlers.AppDeleteJobType:        appRepo,
+				handlers.RouteDeleteJobType:      routeRepo,
+				handlers.DomainDeleteJobType:     domainRepo,
+				handlers.RoleDeleteJobType:       roleRepo,
+				handlers.OrgQuotaDeleteJobType:   orgQuotaRepo,
+				handlers.SpaceQuotaDeleteJobType: spaceQuotaRepo,
 			},
+			serviceBrokerRepo,
+			serviceInstanceRepo,
 			500*time.Millisecond,
 		),
 		handlers.NewLogCache(
@@ -352,9 +380,19 @@ func main() {
 			cfg.GetUserCertificateDuration(),
 			cfg.DefaultDomainName,
 		),
+		handlers.NewOrgQuota(
+			*serverURL,
+			orgQuotaRepo,
+			requestValidator,
+		),
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			requestValidator,
+		),
+		handlers.NewSpaceQuota(
+			*serverURL,
+			spaceQuotaRepo,
 			requestValidator,
 		),
 		handlers.NewSpaceManifest(
@@ -375,10 +413,18 @@ func main() {
 			buildpackRepo,
 			requestValidator,
 		),
+		handlers.NewServiceBroker(
+			*serverURL,
+			serviceBrokerRepo,
+			spaceRepo,
+			requestValidator,
+		),
 		handlers.NewServiceInstance(
 			*serverURL,
 			serviceInstanceRepo,
 			spaceRepo,
+			serviceBrokerRepo,
+			serviceCatalogRepo,
 			requestValidator,
 		),
 		handlers.NewServiceBinding(
@@ -396,6 +442,12 @@ func main() {
 		),
 		handlers.NewOAuth(
 			*serverURL,
+		),
+		handlers.NewServiceCatalog(
+			*serverURL,
+			serviceCatalogRepo,
+			serviceBrokerRepo,
+			requestValidator,
 		),
 	}
 	for _, handler := range apiHandlers {

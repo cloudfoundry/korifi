@@ -5,7 +5,11 @@ metadata:
   name: korifi-workloads-ingress-cert
   namespace: {{ .Release.Namespace }}
 spec:
+  {{- if .Values.commonName }}
+  commonName: {{ .Values.commonName | quote }}
+  {{- else }}
   commonName: \*.{{ .Values.defaultAppDomainName }}
+  {{- end }}
   dnsNames:
   - \*.{{ .Values.defaultAppDomainName }}
   issuerRef:

@@ -54,6 +54,10 @@
       "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
       "type": "string"
     },
+    "commonName": {
+      "description": "Custom CN for the ingress certs. If set ingress certs will have this values as the CN and the full url as a subjext alternative domain name. Useful for urls longer than 64 characters.",
+      "type": "string"
+    },
     "reconcilers": {
       "type": "object",
       "properties": {
@@ -171,6 +175,17 @@
           },
           "required": ["url", "port", "internalPort", "timeouts"]
         },
+        "logcache": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "description": "Logcache URL.",
+              "type": "string"
+            }
+          },
+          "required": ["url"]
+        },
+
         "image": {
           "description": "Reference to the API container image.",
           "type": "string"

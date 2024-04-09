@@ -4,15 +4,18 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"golang.org/x/exp/maps"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 
@@ -20,8 +23,9 @@ import (
 )
 
 const (
-	ServiceInstancesPath = "/v3/service_instances"
-	ServiceInstancePath  = "/v3/service_instances/{guid}"
+	ServiceInstancesPath          = "/v3/service_instances"
+	ServiceInstancePath           = "/v3/service_instances/{guid}"
+	ServiceInstanceParametersPath = ServiceInstancePath + "/parameters"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
@@ -37,6 +41,8 @@ type ServiceInstance struct {
 	serverURL           url.URL
 	serviceInstanceRepo CFServiceInstanceRepository
 	spaceRepo           CFSpaceRepository
+	brokerRepo          CFServiceBrokerRepository
+	serviceCatalogRepo  ServiceCatalogRepo
 	requestValidator    RequestValidator
 }
 
@@ -44,12 +50,16 @@ func NewServiceInstance(
 	serverURL url.URL,
 	serviceInstanceRepo CFServiceInstanceRepository,
 	spaceRepo CFSpaceRepository,
+	brokerRepo CFServiceBrokerRepository,
+	serviceCatalogRepo ServiceCatalogRepo,
 	requestValidator RequestValidator,
 ) *ServiceInstance {
 	return &ServiceInstance{
 		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
 		spaceRepo:           spaceRepo,
+		brokerRepo:          brokerRepo,
+		serviceCatalogRepo:  serviceCatalogRepo,
 		requestValidator:    requestValidator,
 	}
 }
@@ -79,8 +89,7 @@ func (h *ServiceInstance) create(r *http.Request) (*routing.Response, error) {
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
 	}
-
-	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL)), nil
+	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(serviceInstanceRecord.GUID, presenter.ServiceInstanceCreateOperation, h.serverURL)), nil
 }
 
 func (h *ServiceInstance) patch(r *http.Request) (*routing.Response, error) {
@@ -125,7 +134,87 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 
 	h.sortList(serviceInstanceList, listFilter.OrderBy)
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstanceList, h.serverURL, *r.URL)), nil
+	includedBrokers := map[string]any{}
+	includedOfferings := map[string]any{}
+	includedPlans := map[string]any{}
+	for _, si := range serviceInstanceList {
+		if si.Type != korifiv1alpha1.ManagedType {
+			continue
+		}
+
+		plan, err := h.serviceCatalogRepo.GetServicePlan(r.Context(), authInfo, si.PlanGUID)
+		if err != nil {
+			return nil, apierrors.LogAndReturn(logger, err, "Failed to get service plan", "guid", si.PlanGUID)
+		}
+		planDetails := map[string]any{}
+		if slices.Contains(listFilter.IncludeServicePlans, "guid") {
+			planDetails["guid"] = plan.GUID
+		}
+		if slices.Contains(listFilter.IncludeServicePlans, "name") {
+			planDetails["name"] = plan.Name
+		}
+		if slices.Contains(listFilter.IncludeServicePlans, "relationships.service_offering") {
+			planDetails["relationships"] = map[string]any{
+				"service_offering": plan.Relationships.Service_offering,
+			}
+		}
+		includedPlans[plan.GUID] = planDetails
+
+		offering, err := h.serviceCatalogRepo.GetServiceOffering(r.Context(), authInfo, plan.Relationships.Service_offering.Data.GUID)
+		if err != nil {
+			return nil, apierrors.LogAndReturn(logger, err, "Failed to get service offering", "guid", plan.Relationships.Service_offering.Data.GUID)
+		}
+		offeringDetails := map[string]any{}
+		if slices.Contains(listFilter.IncludeServiceOfferings, "guid") {
+			offeringDetails["guid"] = offering.GUID
+		}
+		if slices.Contains(listFilter.IncludeServiceOfferings, "name") {
+			offeringDetails["name"] = offering.Name
+		}
+		if slices.Contains(listFilter.IncludeServiceOfferings, "relationships.service_broker") {
+			offeringDetails["relationships"] = map[string]any{
+				"service_broker": offering.Relationships.Service_broker,
+			}
+		}
+		includedOfferings[offering.GUID] = offeringDetails
+
+		broker, err := h.brokerRepo.GetServiceBroker(r.Context(), authInfo, offering.Relationships.Service_broker.Data.GUID)
+		if err != nil {
+			return nil, apierrors.LogAndReturn(logger, err, "Failed to get service broker", "guid", offering.Relationships.Service_broker.Data.GUID)
+		}
+		brokerDetails := map[string]any{}
+		if slices.Contains(listFilter.IncludeServiceBrokers, "guid") {
+			brokerDetails["guid"] = broker.GUID
+		}
+		if slices.Contains(listFilter.IncludeServiceBrokers, "name") {
+			brokerDetails["name"] = broker.Name
+		}
+		includedBrokers[broker.GUID] = brokerDetails
+	}
+
+	includedResources := []presenter.IncludedResources{}
+	if len(listFilter.IncludeServiceBrokers) > 0 {
+		includedResources = append(includedResources, presenter.IncludedResources{
+			Type:      "service_brokers",
+			Resources: maps.Values(includedBrokers),
+		})
+	}
+
+	if len(listFilter.IncludeServiceOfferings) > 0 {
+		includedResources = append(includedResources, presenter.IncludedResources{
+			Type:      "service_offerings",
+			Resources: maps.Values(includedOfferings),
+		})
+	}
+
+	if len(listFilter.IncludeServicePlans) > 0 {
+		includedResources = append(includedResources, presenter.IncludedResources{
+			Type:      "service_plans",
+			Resources: maps.Values(includedPlans),
+		})
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstanceList, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 // nolint:dupl
@@ -169,6 +258,20 @@ func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusNoContent), nil
 }
 
+func (h *ServiceInstance) getParameters(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.get-paramaters")
+
+	serviceInstanceGUID := routing.URLParam(r, "guid")
+
+	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstanceParameters(serviceInstance)), nil
+}
+
 func (h *ServiceInstance) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -179,5 +282,6 @@ func (h *ServiceInstance) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: ServiceInstancePath, Handler: h.patch},
 		{Method: "GET", Pattern: ServiceInstancesPath, Handler: h.list},
 		{Method: "DELETE", Pattern: ServiceInstancePath, Handler: h.delete},
+		{Method: "GET", Pattern: ServiceInstanceParametersPath, Handler: h.getParameters},
 	}
 }

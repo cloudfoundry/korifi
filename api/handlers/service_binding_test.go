@@ -290,7 +290,7 @@ var _ = Describe("ServiceBinding", func() {
 		When("an include=app query parameter is specified", func() {
 			BeforeEach(func() {
 				payload := payloads.ServiceBindingList{
-					Include: "app",
+					Include: "apps",
 				}
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
 			})

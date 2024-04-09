@@ -49,7 +49,31 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cforgquotas
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - delete
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - cfspaces
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - delete
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfspacequotas
   verbs:
   - get
   - list
@@ -112,6 +136,17 @@ rules:
   - patch
   - delete
   - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebrokers
+  verbs:
+  - get
+  - list
+  - create
+  - patch
+  - delete
 
 - apiGroups:
     - korifi.cloudfoundry.org
@@ -203,3 +238,14 @@ rules:
   - get
   - list
   - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings
+  - cfserviceplans
+  verbs:
+  - get
+  - list
+  - watch
+  - patch

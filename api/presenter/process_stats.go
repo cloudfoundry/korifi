@@ -11,12 +11,12 @@ type ProcessStatsResource struct {
 	Index            int                    `json:"index"`
 	State            string                 `json:"state"`
 	Usage            ProcessUsage           `json:"usage"`
-	Host             *string                `json:"host"`
+	Host             string                 `json:"host"`
 	InstancePorts    *[]ProcessInstancePort `json:"instance_ports,omitempty"`
-	Uptime           *int                   `json:"uptime"`
+	Uptime           int                    `json:"uptime"`
 	MemQuota         *int64                 `json:"mem_quota"`
 	DiskQuota        *int64                 `json:"disk_quota"`
-	FDSQuota         *int                   `json:"fds_quota"`
+	FDSQuota         int                    `json:"fds_quota"`
 	IsolationSegment *string                `json:"isolation_segment"`
 	Details          *ProcessDetails        `json:"details"`
 }
@@ -63,5 +63,7 @@ func statRecordToResource(record actions.PodStatsRecord) ProcessStatsResource {
 		},
 		MemQuota:  record.MemQuota,
 		DiskQuota: record.DiskQuota,
+		FDSQuota:  record.FDSQuota,
+		Host:      record.Host,
 	}
 }

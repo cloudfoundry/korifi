@@ -72,6 +72,7 @@ type ServiceBindingLastOperation struct {
 }
 
 type CreateServiceBindingMessage struct {
+	Type                string
 	Name                *string
 	ServiceInstanceGUID string
 	AppGUID             string
@@ -83,6 +84,7 @@ type DeleteServiceBindingMessage struct {
 }
 
 type ListServiceBindingsMessage struct {
+	Type                 string
 	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
 	LabelSelector        string
@@ -94,7 +96,10 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServ
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: m.SpaceGUID,
-			Labels:    map[string]string{LabelServiceBindingProvisionedService: "true"},
+			Labels: map[string]string{
+				LabelServiceBindingProvisionedService: "true",
+				korifiv1alpha1.CFBindingTypeLabelKey:  m.Type,
+			},
 		},
 		Spec: korifiv1alpha1.CFServiceBindingSpec{
 			DisplayName: m.Name,
@@ -233,7 +238,7 @@ func (r *ServiceBindingRepo) UpdateServiceBinding(ctx context.Context, authInfo 
 func cfServiceBindingToRecord(binding *korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {
 	return ServiceBindingRecord{
 		GUID:                binding.Name,
-		Type:                ServiceBindingTypeApp,
+		Type:                binding.Labels[korifiv1alpha1.CFBindingTypeLabelKey],
 		Name:                binding.Spec.DisplayName,
 		AppGUID:             binding.Spec.AppRef.Name,
 		ServiceInstanceGUID: binding.Spec.Service.Name,

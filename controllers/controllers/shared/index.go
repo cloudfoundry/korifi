@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +21,8 @@ const (
 	IndexAppTasks                             = "appTasks"
 	IndexSpaceNamespaceName                   = "spaceNamespace"
 	IndexOrgNamespaceName                     = "orgNamespace"
+	IndexServicePlanGUID                      = "servicePlanGUID"
+	IndexServiceOfferingID                    = "serviceOfferingGUID"
 
 	StatusConditionReady = "Ready"
 )
@@ -74,6 +75,22 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServiceInstance{}, IndexServiceInstanceCredentialsSecretName, func(object client.Object) []string {
 		serviceInstance := object.(*korifiv1alpha1.CFServiceInstance)
 		return []string{serviceInstance.Spec.SecretName}
+	})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServicePlan{}, IndexServicePlanGUID, func(object client.Object) []string {
+		plan := object.(*korifiv1alpha1.CFServicePlan)
+		return []string{plan.Spec.Broker_catalog.Id}
+	})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServiceOffering{}, IndexServiceOfferingID, func(object client.Object) []string {
+		offering := object.(*korifiv1alpha1.CFServiceOffering)
+		return []string{offering.Spec.Broker_catalog.Id}
 	})
 	if err != nil {
 		return err

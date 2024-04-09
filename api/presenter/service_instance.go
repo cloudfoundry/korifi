@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
 const (
@@ -27,6 +28,8 @@ type ServiceInstanceResponse struct {
 	Links         ServiceInstanceLinks `json:"links"`
 }
 
+type ServiceInstanceParametersResponse map[string]any
+
 type lastOperation struct {
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
@@ -48,25 +51,37 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 	if serviceInstanceRecord.UpdatedAt == nil || serviceInstanceRecord.CreatedAt == *serviceInstanceRecord.UpdatedAt {
 		lastOperationType = "create"
 	}
+	lastOp := lastOperation{
+		CreatedAt:   formatTimestamp(&serviceInstanceRecord.CreatedAt),
+		UpdatedAt:   formatTimestamp(serviceInstanceRecord.UpdatedAt),
+		Description: "Operation succeeded",
+		State:       "succeeded",
+		Type:        lastOperationType,
+	}
+	if serviceInstanceRecord.Type == korifiv1alpha1.ManagedType && serviceInstanceRecord.State != nil {
+		if serviceInstanceRecord.State.Status == korifiv1alpha1.FailedStatus {
+			lastOp.State = "failed"
+		}
+		lastOp.Description = serviceInstanceRecord.State.Details
+	}
 
 	return ServiceInstanceResponse{
-		Name: serviceInstanceRecord.Name,
-		GUID: serviceInstanceRecord.GUID,
-		Type: serviceInstanceRecord.Type,
-		Tags: emptySliceIfNil(serviceInstanceRecord.Tags),
-		LastOperation: lastOperation{
-			CreatedAt:   formatTimestamp(&serviceInstanceRecord.CreatedAt),
-			UpdatedAt:   formatTimestamp(serviceInstanceRecord.UpdatedAt),
-			Description: "Operation succeeded",
-			State:       "succeeded",
-			Type:        lastOperationType,
-		},
-		CreatedAt: formatTimestamp(&serviceInstanceRecord.CreatedAt),
-		UpdatedAt: formatTimestamp(serviceInstanceRecord.UpdatedAt),
+		Name:          serviceInstanceRecord.Name,
+		GUID:          serviceInstanceRecord.GUID,
+		Type:          serviceInstanceRecord.Type,
+		Tags:          emptySliceIfNil(serviceInstanceRecord.Tags),
+		LastOperation: lastOp,
+		CreatedAt:     formatTimestamp(&serviceInstanceRecord.CreatedAt),
+		UpdatedAt:     formatTimestamp(serviceInstanceRecord.UpdatedAt),
 		Relationships: Relationships{
 			"space": Relationship{
 				Data: &RelationshipData{
 					GUID: serviceInstanceRecord.SpaceGUID,
+				},
+			},
+			"service_plan": Relationship{
+				Data: &RelationshipData{
+					GUID: serviceInstanceRecord.PlanGUID,
 				},
 			},
 		},
@@ -92,4 +107,14 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 			},
 		},
 	}
+}
+
+func ForServiceInstanceList(serviceInstanceRecordList []repositories.ServiceInstanceRecord, baseURL, requestURL url.URL) ListResponse[ServiceInstanceResponse] {
+	return ForList(func(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL) ServiceInstanceResponse {
+		return ForServiceInstance(serviceInstanceRecord, baseURL)
+	}, serviceInstanceRecordList, baseURL, requestURL)
+}
+
+func ForServiceInstanceParameters(serviceInstanceRecord repositories.ServiceInstanceRecord) ServiceInstanceParametersResponse {
+	return serviceInstanceRecord.Parameters
 }

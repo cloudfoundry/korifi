@@ -14,16 +14,18 @@ const (
 
 type Root struct {
 	baseURL url.URL
+	uaaURL  string
 }
 
-func NewRoot(baseURL url.URL) *Root {
+func NewRoot(baseURL url.URL, uaaURL string) *Root {
 	return &Root{
 		baseURL: baseURL,
+		uaaURL:  uaaURL,
 	}
 }
 
 func (h *Root) get(r *http.Request) (*routing.Response, error) {
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRoot(h.baseURL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRoot(h.baseURL, h.uaaURL)), nil
 }
 
 func (h *Root) UnauthenticatedRoutes() []routing.Route {

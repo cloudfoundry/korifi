@@ -155,7 +155,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFApp"),
-			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient()),
+			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient(), controllerConfig.CFRootNamespace),
 			env.NewVCAPApplicationEnvValueBuilder(mgr.GetClient(), controllerConfig.ExtraVCAPApplicationValues),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFApp")
@@ -218,12 +218,44 @@ func main() {
 			os.Exit(1)
 		}
 
+		brokerClient := servicescontrollers.NewBrokerClient(mgr.GetClient(), controllerConfig.CFRootNamespace)
+		if err = (servicescontrollers.NewManagedCFServiceInstanceReconciler(
+			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceInstance"),
+			mgr.GetClient(),
+			brokerClient,
+			controllerConfig.CFRootNamespace,
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ManagedCFServiceInstance")
+			os.Exit(1)
+		}
+
 		if err = (servicescontrollers.NewCFServiceBindingReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
+			os.Exit(1)
+		}
+
+		if err = (servicescontrollers.NewManagedCFServiceBindingReconciler(
+			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceBinding"),
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			brokerClient,
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
+			os.Exit(1)
+		}
+
+		if err = (servicescontrollers.NewCFServiceBrokerReconciler(
+			controllerConfig.CFRootNamespace,
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			brokerClient,
+			ctrl.Log.WithName("controllers").WithName("CFServiceBroker"),
+		)).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBroker")
 			os.Exit(1)
 		}
 
@@ -244,6 +276,14 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = workloadscontrollers.NewCFOrgQuotaReconciler(
+			mgr.GetClient(),
+			ctrl.Log.WithName("controllers").WithName("CFOrgQuota"),
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFOrgQuota")
+			os.Exit(1)
+		}
+
 		if err = workloadscontrollers.NewCFSpaceReconciler(
 			mgr.GetClient(),
 			ctrl.Log.WithName("controllers").WithName("CFSpace"),
@@ -253,6 +293,14 @@ func main() {
 			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFSpace")
+			os.Exit(1)
+		}
+
+		if err = workloadscontrollers.NewCFSpaceQuotaReconciler(
+			mgr.GetClient(),
+			ctrl.Log.WithName("controllers").WithName("CFSpaceQuota"),
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CFSpaceQuota")
 			os.Exit(1)
 		}
 
@@ -393,7 +441,6 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 			os.Exit(1)
 		}
-
 	}
 
 	// Setup webhooks with manager
@@ -455,10 +502,22 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = (&korifiv1alpha1.CFServicePlan{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFServicePlan")
+			os.Exit(1)
+		}
+
 		if err = services.NewCFServiceBindingValidator(
 			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, services.ServiceBindingEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBinding")
+			os.Exit(1)
+		}
+
+		if err = services.NewCFServiceBrokerValidator(
+			webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, services.ServiceBrokerEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBroker")
 			os.Exit(1)
 		}
 

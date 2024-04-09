@@ -29,6 +29,7 @@ type (
 		ExternalPort int    `yaml:"externalPort"`
 
 		ServerURL string
+		UaaURL    string `yaml:"uaaURL"`
 
 		RootNamespace                            string                 `yaml:"rootNamespace"`
 		BuilderName                              string                 `yaml:"builderName"`

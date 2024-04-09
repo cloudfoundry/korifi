@@ -26,6 +26,9 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -35,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -63,10 +65,20 @@ func NewCFServiceInstanceReconciler(
 func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceInstance{}).
+		WithEventFilter(predicate.NewPredicateFuncs(r.isUPSI)).
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.secretToServiceInstance),
 		)
+}
+
+func (r *CFServiceInstanceReconciler) isUPSI(object client.Object) bool {
+	serviceInstance, ok := object.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		return true
+	}
+
+	return serviceInstance.Spec.Type == "user-provided"
 }
 
 func (r *CFServiceInstanceReconciler) secretToServiceInstance(ctx context.Context, o client.Object) []reconcile.Request {

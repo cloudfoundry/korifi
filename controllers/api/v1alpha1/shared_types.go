@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -16,6 +17,16 @@ const (
 	CFDomainGUIDLabelKey     = "korifi.cloudfoundry.org/domain-guid"
 	CFRouteGUIDLabelKey      = "korifi.cloudfoundry.org/route-guid"
 	CFTaskGUIDLabelKey       = "korifi.cloudfoundry.org/task-guid"
+
+	RelationshipsLabelPrefix = "korifi.cloudfoundry.org/rel-"
+	RelSpaceLabel            = RelationshipsLabelPrefix + "space"
+	RelOrgLabel              = RelationshipsLabelPrefix + "org"
+	RelServiceBrokerLabel    = RelationshipsLabelPrefix + "service_broker"
+	RelServiceOfferingLabel  = RelationshipsLabelPrefix + "service_offering"
+	RelSpaceQuotaLabel       = RelationshipsLabelPrefix + "space_quota"
+	RelOrgQuotaLabel         = RelationshipsLabelPrefix + "org_quota"
+
+	CFBindingTypeLabelKey = "korifi.cloudfoundry.org/binding-type"
 
 	StagingConditionType   = "Staging"
 	ReadyConditionType     = "Ready"
@@ -62,4 +73,105 @@ type Registry struct {
 // Unlike k8s.io/api/core/v1/LocalObjectReference, name is required.
 type RequiredLocalObjectReference struct {
 	Name string `json:"name"`
+}
+
+func PatchStringMap(sm map[string]string, p map[string]*string) {
+	for key, value := range p {
+		if value == nil {
+			delete(sm, key)
+		} else {
+			sm[key] = *value
+		}
+	}
+}
+
+type Metadata struct {
+	// +kubebuilder:validation:Optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// +kubebuilder:validation:Optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+type MetadataPatch struct {
+	Labels      map[string]*string `json:"labels,omitempty"`
+	Annotations map[string]*string `json:"annotations,omitempty"`
+}
+
+func (md *Metadata) Patch(p MetadataPatch) {
+	PatchStringMap(md.Labels, p.Labels)
+	PatchStringMap(md.Annotations, p.Annotations)
+}
+
+type Relationship struct {
+	GUID string `json:"guid"`
+}
+
+func (in *Relationship) DeepCopy() *Relationship {
+	if in == nil {
+		return nil
+	}
+	out := new(Relationship)
+	out.GUID = in.GUID
+	return out
+}
+
+func (in *Relationship) DeepCopyInto(out *Relationship) {
+	*out = *in
+	out.GUID = in.GUID
+}
+
+type ToOneRelationship struct {
+	//+kubebuilder:validation:Optional
+	Data Relationship `json:"data"`
+}
+
+type ToManyRelationship struct {
+	//+kubebuilder:validation:Optional
+	Data []Relationship `json:"data"`
+}
+
+func (tm *ToManyRelationship) Patch(other ToManyRelationship) {
+	guidMap := map[string]Relationship{}
+	for _, r := range tm.Data {
+		guidMap[r.GUID] = r
+	}
+	for _, r2 := range other.Data {
+		guidMap[r2.GUID] = r2
+	}
+	tm.Data = maps.Values(guidMap)
+}
+
+type CFResourceState struct {
+	Status  string
+	Details string
+}
+
+const (
+	ReadyStatus  = "ready"
+	FailedStatus = "failed"
+)
+
+type CFResource struct {
+	GUID      string           `json:"guid"`
+	CreatedAt string           `json:"created_at"`
+	UpdatedAt *string          `json:"updated_at"`
+	State     *CFResourceState `json:"state"`
+}
+
+func (r CFResource) IsReady() bool {
+	return r.State != nil && r.State.Status == ReadyStatus
+}
+
+func (r CFResource) IsFailed() bool {
+	return r.State != nil && r.State.Status == FailedStatus
+}
+
+type BasicAuthentication struct {
+	Type        string                         `json:"type"`
+	Credentials BasicAuthenticationCredentials `json:"credentials"`
+}
+
+type BasicAuthenticationCredentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }

@@ -69,6 +69,21 @@ type CFAppRepository struct {
 		result1 repositories.AppEnvRecord
 		result2 error
 	}
+	GetAppEnvVarsStub        func(context.Context, authorization.Info, string) (repositories.AppEnvVarsRecord, error)
+	getAppEnvVarsMutex       sync.RWMutex
+	getAppEnvVarsArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getAppEnvVarsReturns struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}
+	getAppEnvVarsReturnsOnCall map[int]struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}
 	ListAppsStub        func(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
 	listAppsMutex       sync.RWMutex
 	listAppsArgsForCall []struct {
@@ -405,6 +420,72 @@ func (fake *CFAppRepository) GetAppEnvReturnsOnCall(i int, result1 repositories.
 	}
 	fake.getAppEnvReturnsOnCall[i] = struct {
 		result1 repositories.AppEnvRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) GetAppEnvVars(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.AppEnvVarsRecord, error) {
+	fake.getAppEnvVarsMutex.Lock()
+	ret, specificReturn := fake.getAppEnvVarsReturnsOnCall[len(fake.getAppEnvVarsArgsForCall)]
+	fake.getAppEnvVarsArgsForCall = append(fake.getAppEnvVarsArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetAppEnvVarsStub
+	fakeReturns := fake.getAppEnvVarsReturns
+	fake.recordInvocation("GetAppEnvVars", []interface{}{arg1, arg2, arg3})
+	fake.getAppEnvVarsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) GetAppEnvVarsCallCount() int {
+	fake.getAppEnvVarsMutex.RLock()
+	defer fake.getAppEnvVarsMutex.RUnlock()
+	return len(fake.getAppEnvVarsArgsForCall)
+}
+
+func (fake *CFAppRepository) GetAppEnvVarsCalls(stub func(context.Context, authorization.Info, string) (repositories.AppEnvVarsRecord, error)) {
+	fake.getAppEnvVarsMutex.Lock()
+	defer fake.getAppEnvVarsMutex.Unlock()
+	fake.GetAppEnvVarsStub = stub
+}
+
+func (fake *CFAppRepository) GetAppEnvVarsArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getAppEnvVarsMutex.RLock()
+	defer fake.getAppEnvVarsMutex.RUnlock()
+	argsForCall := fake.getAppEnvVarsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) GetAppEnvVarsReturns(result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.getAppEnvVarsMutex.Lock()
+	defer fake.getAppEnvVarsMutex.Unlock()
+	fake.GetAppEnvVarsStub = nil
+	fake.getAppEnvVarsReturns = struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) GetAppEnvVarsReturnsOnCall(i int, result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.getAppEnvVarsMutex.Lock()
+	defer fake.getAppEnvVarsMutex.Unlock()
+	fake.GetAppEnvVarsStub = nil
+	if fake.getAppEnvVarsReturnsOnCall == nil {
+		fake.getAppEnvVarsReturnsOnCall = make(map[int]struct {
+			result1 repositories.AppEnvVarsRecord
+			result2 error
+		})
+	}
+	fake.getAppEnvVarsReturnsOnCall[i] = struct {
+		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}{result1, result2}
 }
@@ -750,6 +831,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.getAppMutex.RUnlock()
 	fake.getAppEnvMutex.RLock()
 	defer fake.getAppEnvMutex.RUnlock()
+	fake.getAppEnvVarsMutex.RLock()
+	defer fake.getAppEnvVarsMutex.RUnlock()
 	fake.listAppsMutex.RLock()
 	defer fake.listAppsMutex.RUnlock()
 	fake.patchAppMutex.RLock()

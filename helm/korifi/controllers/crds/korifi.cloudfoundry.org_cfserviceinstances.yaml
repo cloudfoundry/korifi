@@ -50,6 +50,9 @@ spec:
                 description: The mutable, user-friendly name of the service instance.
                   Unlike metadata.name, the user can change this field
                 type: string
+              parameters:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               secretName:
                 description: Name of a secret containing the service credentials.
                   The Secret must be in the same namespace
@@ -58,6 +61,10 @@ spec:
                 description: |-
                   Service label to use when adding this instance to VCAP_Services
                   Defaults to `user-provided` when this field is not set
+                type: string
+              servicePlanGuid:
+                description: Subscribed service plan GUID. Must be set if the type
+                  is `managed`
                 type: string
               tags:
                 description: Tags are used by apps to identify service instances
@@ -68,6 +75,7 @@ spec:
                 description: Type of the Service Instance. Must be `user-provided`
                 enum:
                 - user-provided
+                - managed
                 type: string
             required:
             - displayName

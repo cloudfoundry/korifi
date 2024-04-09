@@ -41,6 +41,7 @@ type ManifestApplication struct {
 	Processes                    []ManifestApplicationProcess `json:"processes" yaml:"processes"`
 	Routes                       []ManifestRoute              `json:"routes" yaml:"routes"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
+
 	// Deprecated: Use Buildpacks instead
 	Buildpack *string                      `json:"buildpack" yaml:"buildpack"`
 	Metadata  MetadataPatch                `json:"metadata" yaml:"metadata"`

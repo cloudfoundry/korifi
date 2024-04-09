@@ -41,6 +41,21 @@ type CFBuildRepository struct {
 		result1 repositories.BuildRecord
 		result2 error
 	}
+	ListAppBuildsStub        func(context.Context, authorization.Info, repositories.ListAppBuildsMessage) ([]repositories.BuildRecord, error)
+	listAppBuildsMutex       sync.RWMutex
+	listAppBuildsArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.ListAppBuildsMessage
+	}
+	listAppBuildsReturns struct {
+		result1 []repositories.BuildRecord
+		result2 error
+	}
+	listAppBuildsReturnsOnCall map[int]struct {
+		result1 []repositories.BuildRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -177,6 +192,72 @@ func (fake *CFBuildRepository) GetBuildReturnsOnCall(i int, result1 repositories
 	}{result1, result2}
 }
 
+func (fake *CFBuildRepository) ListAppBuilds(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListAppBuildsMessage) ([]repositories.BuildRecord, error) {
+	fake.listAppBuildsMutex.Lock()
+	ret, specificReturn := fake.listAppBuildsReturnsOnCall[len(fake.listAppBuildsArgsForCall)]
+	fake.listAppBuildsArgsForCall = append(fake.listAppBuildsArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.ListAppBuildsMessage
+	}{arg1, arg2, arg3})
+	stub := fake.ListAppBuildsStub
+	fakeReturns := fake.listAppBuildsReturns
+	fake.recordInvocation("ListAppBuilds", []interface{}{arg1, arg2, arg3})
+	fake.listAppBuildsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFBuildRepository) ListAppBuildsCallCount() int {
+	fake.listAppBuildsMutex.RLock()
+	defer fake.listAppBuildsMutex.RUnlock()
+	return len(fake.listAppBuildsArgsForCall)
+}
+
+func (fake *CFBuildRepository) ListAppBuildsCalls(stub func(context.Context, authorization.Info, repositories.ListAppBuildsMessage) ([]repositories.BuildRecord, error)) {
+	fake.listAppBuildsMutex.Lock()
+	defer fake.listAppBuildsMutex.Unlock()
+	fake.ListAppBuildsStub = stub
+}
+
+func (fake *CFBuildRepository) ListAppBuildsArgsForCall(i int) (context.Context, authorization.Info, repositories.ListAppBuildsMessage) {
+	fake.listAppBuildsMutex.RLock()
+	defer fake.listAppBuildsMutex.RUnlock()
+	argsForCall := fake.listAppBuildsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFBuildRepository) ListAppBuildsReturns(result1 []repositories.BuildRecord, result2 error) {
+	fake.listAppBuildsMutex.Lock()
+	defer fake.listAppBuildsMutex.Unlock()
+	fake.ListAppBuildsStub = nil
+	fake.listAppBuildsReturns = struct {
+		result1 []repositories.BuildRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFBuildRepository) ListAppBuildsReturnsOnCall(i int, result1 []repositories.BuildRecord, result2 error) {
+	fake.listAppBuildsMutex.Lock()
+	defer fake.listAppBuildsMutex.Unlock()
+	fake.ListAppBuildsStub = nil
+	if fake.listAppBuildsReturnsOnCall == nil {
+		fake.listAppBuildsReturnsOnCall = make(map[int]struct {
+			result1 []repositories.BuildRecord
+			result2 error
+		})
+	}
+	fake.listAppBuildsReturnsOnCall[i] = struct {
+		result1 []repositories.BuildRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFBuildRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -184,6 +265,8 @@ func (fake *CFBuildRepository) Invocations() map[string][][]interface{} {
 	defer fake.createBuildMutex.RUnlock()
 	fake.getBuildMutex.RLock()
 	defer fake.getBuildMutex.RUnlock()
+	fake.listAppBuildsMutex.RLock()
+	defer fake.listAppBuildsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

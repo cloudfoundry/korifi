@@ -26,6 +26,7 @@ var _ = Describe("BuildRepository", func() {
 		buildRepo = repositories.NewBuildRepo(
 			namespaceRetriever,
 			userClientFactory,
+			nsPerms,
 		)
 	})
 

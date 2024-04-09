@@ -18,11 +18,15 @@ import (
 const UserProvided = "user-provided"
 
 type VCAPServicesEnvValueBuilder struct {
-	k8sClient client.Client
+	k8sClient     client.Client
+	rootNamespace string
 }
 
-func NewVCAPServicesEnvValueBuilder(k8sClient client.Client) *VCAPServicesEnvValueBuilder {
-	return &VCAPServicesEnvValueBuilder{k8sClient: k8sClient}
+func NewVCAPServicesEnvValueBuilder(k8sClient client.Client, rootNamespace string) *VCAPServicesEnvValueBuilder {
+	return &VCAPServicesEnvValueBuilder{
+		k8sClient:     k8sClient,
+		rootNamespace: rootNamespace,
+	}
 }
 
 func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (map[string][]byte, error) {
@@ -48,11 +52,14 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 
 		var serviceEnv ServiceDetails
 		var serviceLabel string
-		serviceEnv, serviceLabel, err = buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
+		serviceEnv, serviceLabel, err = b.buildSingleServiceEnv(ctx, b.k8sClient, currentServiceBinding)
 		if err != nil {
 			return nil, err
 		}
 
+		if _, ok := serviceEnvs[serviceEnv.Label]; !ok {
+			serviceEnvs[serviceEnv.Label] = []ServiceDetails{}
+		}
 		serviceEnvs[serviceLabel] = append(serviceEnvs[serviceLabel], serviceEnv)
 	}
 
@@ -66,12 +73,41 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 	}, nil
 }
 
-func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, string, error) {
+func (b *VCAPServicesEnvValueBuilder) getServicePlan(ctx context.Context, servicePlanGuid string) (*korifiv1alpha1.CFServicePlan, error) {
+	servicePlan := &korifiv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: b.rootNamespace,
+			Name:      servicePlanGuid,
+		},
+	}
+
+	err := b.k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service plan :%q: %w", servicePlanGuid, err)
+	}
+
+	return servicePlan, nil
+}
+
+func (b *VCAPServicesEnvValueBuilder) getServiceOffering(ctx context.Context, serviceOfferingGuid string) (*korifiv1alpha1.CFServiceOffering, error) {
+	serviceOffering := &korifiv1alpha1.CFServiceOffering{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: b.rootNamespace,
+			Name:      serviceOfferingGuid,
+		},
+	}
+	err := b.k8sClient.Get(ctx, client.ObjectKeyFromObject(serviceOffering), serviceOffering)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service offering %q: %w", serviceOfferingGuid, err)
+	}
+
+	return serviceOffering, nil
+}
+
+func (b *VCAPServicesEnvValueBuilder) buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, string, error) {
 	if serviceBinding.Status.Credentials.Name == "" {
 		return ServiceDetails{}, "", fmt.Errorf("credentials secret name not set for service binding %q", serviceBinding.Name)
 	}
-
-	serviceLabel := UserProvided
 
 	serviceInstance := korifiv1alpha1.CFServiceInstance{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Spec.Service.Name}, &serviceInstance)
@@ -90,23 +126,75 @@ func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, service
 		return ServiceDetails{}, "", fmt.Errorf("error fetching CFServiceBinding Secret: %w", err)
 	}
 
-	if serviceInstance.Spec.ServiceLabel != nil && *serviceInstance.Spec.ServiceLabel != "" {
-		serviceLabel = *serviceInstance.Spec.ServiceLabel
-	}
-
-	serviceDetails, err := fromServiceBinding(serviceBinding, serviceInstance, credentialsSecret, serviceLabel)
+	serviceLabel, err := b.getServiceLabel(ctx, serviceInstance)
 	if err != nil {
-		return ServiceDetails{}, "", fmt.Errorf("error fetching CFServiceBinding details: %w", err)
+		return ServiceDetails{}, "", fmt.Errorf("failed to determine service label: %w", err)
 	}
 
+	tags, err := b.getServiceTags(ctx, serviceInstance)
+	if err != nil {
+		return ServiceDetails{}, "", fmt.Errorf("failed to determine service tags: %w", err)
+	}
+
+	serviceDetails, err := b.fromServiceBinding(ctx, serviceBinding, serviceInstance, credentialsSecret, serviceLabel, tags)
+	if err != nil {
+		return ServiceDetails{}, "", fmt.Errorf("error creating service details: %w", err)
+	}
 	return serviceDetails, serviceLabel, nil
 }
 
-func fromServiceBinding(
+func (b *VCAPServicesEnvValueBuilder) getServiceLabel(ctx context.Context, cfServiceInstance korifiv1alpha1.CFServiceInstance) (string, error) {
+	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
+		if cfServiceInstance.Spec.ServiceLabel != nil && *cfServiceInstance.Spec.ServiceLabel != "" {
+			return *cfServiceInstance.Spec.ServiceLabel, nil
+		}
+
+		return korifiv1alpha1.UserProvidedType, nil
+	}
+
+	servicePlan, err := b.getServicePlan(ctx, cfServiceInstance.Spec.ServicePlanGUID)
+	if err != nil {
+		return "", err
+	}
+
+	serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel])
+	if err != nil {
+		return "", err
+	}
+
+	return serviceOffering.Spec.Name, nil
+}
+
+func (b *VCAPServicesEnvValueBuilder) getServiceTags(ctx context.Context, cfServiceInstance korifiv1alpha1.CFServiceInstance) ([]string, error) {
+	tags := cfServiceInstance.Spec.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
+	if cfServiceInstance.Spec.Type == korifiv1alpha1.ManagedType {
+		servicePlan, err := b.getServicePlan(ctx, cfServiceInstance.Spec.ServicePlanGUID)
+		if err != nil {
+			return nil, err
+		}
+
+		serviceOffering, err := b.getServiceOffering(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel])
+		if err != nil {
+			return nil, err
+		}
+
+		tags = append(tags, serviceOffering.Spec.Tags...)
+	}
+
+	return tags, nil
+}
+
+func (b *VCAPServicesEnvValueBuilder) fromServiceBinding(
+	ctx context.Context,
 	serviceBinding korifiv1alpha1.CFServiceBinding,
 	serviceInstance korifiv1alpha1.CFServiceInstance,
 	credentialsSecret *corev1.Secret,
 	serviceLabel string,
+	tags []string,
 ) (ServiceDetails, error) {
 	var serviceName string
 	var bindingName *string
@@ -119,12 +207,7 @@ func fromServiceBinding(
 		bindingName = nil
 	}
 
-	tags := serviceInstance.Spec.Tags
-	if tags == nil {
-		tags = []string{}
-	}
-
-	credentials, err := credentials.GetCredentials(credentialsSecret)
+	serviceCredentials, err := credentials.GetCredentials(credentialsSecret)
 	if err != nil {
 		return ServiceDetails{}, fmt.Errorf("failed to get credentials for service binding %q: %w", serviceBinding.Name, err)
 	}
@@ -137,7 +220,7 @@ func fromServiceBinding(
 		InstanceName:   serviceInstance.Spec.DisplayName,
 		BindingGUID:    serviceBinding.Name,
 		BindingName:    bindingName,
-		Credentials:    credentials,
+		Credentials:    serviceCredentials,
 		SyslogDrainURL: nil,
 		VolumeMounts:   []string{},
 	}, nil

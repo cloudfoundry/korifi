@@ -23,10 +23,6 @@ func (l Lifecycle) Validate() error {
 			return data.ValidateDockerLifecycleData()
 		}
 
-		if l.Type == "buildpack" {
-			return data.ValidateBuildpackLifecycleData()
-		}
-
 		return nil
 	})
 
@@ -41,12 +37,6 @@ func (l Lifecycle) Validate() error {
 type LifecycleData struct {
 	Buildpacks []string `json:"buildpacks,omitempty"`
 	Stack      string   `json:"stack,omitempty"`
-}
-
-func (d LifecycleData) ValidateBuildpackLifecycleData() error {
-	return jellidation.ValidateStruct(&d,
-		jellidation.Field(&d.Stack, jellidation.Required),
-	)
 }
 
 func (d LifecycleData) ValidateDockerLifecycleData() error {

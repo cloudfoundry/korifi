@@ -18,6 +18,7 @@ type ServiceBindingCreate struct {
 func (p ServiceBindingCreate) ToMessage(spaceGUID string) repositories.CreateServiceBindingMessage {
 	return repositories.CreateServiceBindingMessage{
 		Name:                p.Name,
+		Type:                p.Type,
 		ServiceInstanceGUID: p.Relationships.ServiceInstance.Data.GUID,
 		AppGUID:             p.Relationships.App.Data.GUID,
 		SpaceGUID:           spaceGUID,
@@ -44,6 +45,7 @@ func (r ServiceBindingRelationships) Validate() error {
 }
 
 type ServiceBindingList struct {
+	Type                 string
 	AppGUIDs             string
 	ServiceInstanceGUIDs string
 	Include              string
@@ -52,6 +54,7 @@ type ServiceBindingList struct {
 
 func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage {
 	return repositories.ListServiceBindingsMessage{
+		Type:                 l.Type,
 		ServiceInstanceGUIDs: parse.ArrayParam(l.ServiceInstanceGUIDs),
 		AppGUIDs:             parse.ArrayParam(l.AppGUIDs),
 		LabelSelector:        l.LabelSelector,
@@ -63,6 +66,10 @@ func (l *ServiceBindingList) SupportedKeys() []string {
 }
 
 func (l *ServiceBindingList) DecodeFromURLValues(values url.Values) error {
+	l.Type = values.Get("type")
+	if l.Type != "key" {
+		l.Type = "app"
+	}
 	l.AppGUIDs = values.Get("app_guids")
 	l.ServiceInstanceGUIDs = values.Get("service_instance_guids")
 	l.Include = values.Get("include")

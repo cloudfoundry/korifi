@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -108,7 +109,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
 				Expect(orgRecord.Name).To(Equal(orgGUID))
-				Expect(orgRecord.GUID).To(HavePrefix("cf-org-"))
+				helpers.EnsureValidUUID(orgRecord.GUID)
 				Expect(orgRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(orgRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				Expect(orgRecord.DeletedAt).To(BeNil())

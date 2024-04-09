@@ -27,6 +27,7 @@ const (
 	AppCurrentDropletPath             = "/v3/apps/{guid}/droplets/current"
 	AppProcessesPath                  = "/v3/apps/{guid}/processes"
 	AppProcessByTypePath              = "/v3/apps/{guid}/processes/{type}"
+	AppProcessStatsByTypePath         = "/v3/apps/{guid}/processes/{type}/stats"
 	AppProcessScalePath               = "/v3/apps/{guid}/processes/{processType}/actions/scale"
 	AppRoutesPath                     = "/v3/apps/{guid}/routes"
 	AppStartPath                      = "/v3/apps/{guid}/actions/start"
@@ -37,6 +38,7 @@ const (
 	AppFeaturePath                    = "/v3/apps/{guid}/features/{name}"
 	AppPackagesPath                   = "/v3/apps/{guid}/packages"
 	AppSSHEnabledPath                 = "/v3/apps/{guid}/ssh_enabled"
+	AppBuildsPath                     = "/v3/apps/{guid}/builds"
 	invalidDropletMsg                 = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
@@ -54,6 +56,7 @@ type CFAppRepository interface {
 	SetAppDesiredState(context.Context, authorization.Info, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 	DeleteApp(context.Context, authorization.Info, repositories.DeleteAppMessage) error
 	GetAppEnv(context.Context, authorization.Info, string) (repositories.AppEnvRecord, error)
+	GetAppEnvVars(context.Context, authorization.Info, string) (repositories.AppEnvVarsRecord, error)
 	PatchApp(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
 }
 
@@ -67,6 +70,8 @@ type App struct {
 	spaceRepo        CFSpaceRepository
 	packageRepo      CFPackageRepository
 	requestValidator RequestValidator
+	buildRepo        CFBuildRepository
+	processStats     ProcessStats
 }
 
 func NewApp(
@@ -78,6 +83,8 @@ func NewApp(
 	domainRepo CFDomainRepository,
 	spaceRepo CFSpaceRepository,
 	packageRepo CFPackageRepository,
+	buildRepo CFBuildRepository,
+	processStats ProcessStats,
 	requestValidator RequestValidator,
 ) *App {
 	return &App{
@@ -89,6 +96,8 @@ func NewApp(
 		domainRepo:       domainRepo,
 		spaceRepo:        spaceRepo,
 		packageRepo:      packageRepo,
+		buildRepo:        buildRepo,
+		processStats:     processStats,
 		requestValidator: requestValidator,
 	}
 }
@@ -627,6 +636,68 @@ func (h *App) getAppFeature(r *http.Request) (*routing.Response, error) {
 	}
 }
 
+func (h *App) updateAppFeature(r *http.Request) (*routing.Response, error) {
+	featureName := routing.URLParam(r, "name")
+	return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+		"name":        featureName,
+		"description": "Description of " + featureName,
+		"enabled":     false,
+	}), nil
+}
+
+func (h *App) getEnvVars(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-env-vars")
+	appGUID := routing.URLParam(r, "guid")
+
+	appEnvVarsRecord, err := h.appRepo.GetAppEnvVars(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Error getting app environment variables")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForAppEnvVars(appEnvVarsRecord, h.serverURL)), nil
+}
+
+func (h *App) getAppBuilds(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get.builds")
+
+	appGUID := routing.URLParam(r, "guid")
+
+	builds, err := h.buildRepo.ListAppBuilds(r.Context(), authInfo, repositories.ListAppBuildsMessage{AppGUID: appGUID})
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get build from Kubernetes", "AppGUID", appGUID)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForBuildList(builds, h.serverURL, *r.URL)), nil
+}
+
+func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-process-stats")
+	appGUID := routing.URLParam(r, "guid")
+	processType := routing.URLParam(r, "type")
+
+	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+	}
+
+	process, err := h.processRepo.GetProcessByAppTypeAndSpace(r.Context(), authInfo, appGUID, processType, app.SpaceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch process from Kubernetes", "AppGUID", appGUID)
+	}
+
+	processGUID := process.GUID
+
+	records, err := h.processStats.FetchStats(r.Context(), authInfo, processGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
+}
+
 func (h *App) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -647,10 +718,14 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: AppRoutesPath, Handler: h.getRoutes},
 		{Method: "DELETE", Pattern: AppPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: AppEnvVarsPath, Handler: h.updateEnvVars},
+		{Method: "GET", Pattern: AppEnvVarsPath, Handler: h.getEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
 		{Method: "GET", Pattern: AppPackagesPath, Handler: h.getPackages},
 		{Method: "GET", Pattern: AppFeaturePath, Handler: h.getAppFeature},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSSHEnabled},
+		{Method: "PATCH", Pattern: AppFeaturePath, Handler: h.updateAppFeature},
+		{Method: "GET", Pattern: AppBuildsPath, Handler: h.getAppBuilds},
+		{Method: "GET", Pattern: AppProcessStatsByTypePath, Handler: h.getProcessStats},
 	}
 }

@@ -205,13 +205,15 @@ func validateFQDN(host, domain string) error {
 	// we only need to validate that "<host>.<domain>" is not too long and that
 	// <host> is either "*" or a valid dns label. The domain webhook already
 	// guarantees that the domain is well formed
+
 	if len(host+"."+domain) > validation.DNS1123SubdomainMaxLength {
 		return webhooks.ValidationError{
 			Type:    RouteSubdomainValidationErrorType,
 			Message: fmt.Sprintf("A valid DNS-1123 subdomain must not exceed %d characters.", validation.DNS1123SubdomainMaxLength),
 		}.ExportJSONError()
 	}
-
+	// validate host after converting it to lower case
+	host = strings.ToLower(host)
 	err := validateHost(host)
 	if err != nil {
 		return webhooks.ValidationError{

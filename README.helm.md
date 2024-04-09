@@ -29,6 +29,8 @@ Here are all the values that can be set for the chart:
   - `lifecycle`: Default lifecycle for apps.
     - `stack` (_String_): Stack.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).
+  - `logcache`:
+    - `url` (_String_): Logcache URL.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
     - `limits`: Resource limits.
@@ -38,6 +40,7 @@ Here are all the values that can be set for the chart:
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
   - `userCertificateExpirationWarningDuration` (_String_): Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
+- `commonName` (_String_): Custom CN for the ingress certs. If set ingress certs will have this values as the CN and the full url as a subjext alternative domain name. Useful for urls longer than 64 characters.
 - `containerRegistrySecret` (_String_): Deprecated in favor of containerRegistrySecrets.
 - `containerRegistrySecrets` (_Array_): List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
 - `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.

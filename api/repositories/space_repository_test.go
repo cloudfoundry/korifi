@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -133,6 +134,8 @@ var _ = Describe("SpaceRepository", func() {
 				spaceCR := new(korifiv1alpha1.CFSpace)
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: orgGUID, Name: spaceRecord.GUID}, spaceCR)).To(Succeed())
 
+				Expect(spaceRecord.Name).To(Equal(spaceName))
+				helpers.EnsureValidUUID(spaceRecord.GUID)
 				Expect(spaceRecord.Name).To(Equal(spaceName))
 				Expect(spaceRecord.GUID).To(HavePrefix("cf-space-"))
 				Expect(spaceRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))

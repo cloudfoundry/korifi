@@ -118,6 +118,27 @@ webhooks:
       service:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfserviceplan
+    failurePolicy: Fail
+    name: mcfserviceplan.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - cfserviceplans
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-controllers-finalizer
     failurePolicy: Fail
     name: mcffinalizer.korifi.cloudfoundry.org
@@ -135,6 +156,7 @@ webhooks:
           - cforgs
           - cfroutes
           - cfdomains
+          - cfserviceinstances
     sideEffects: None
   - admissionReviewVersions:
       - v1
@@ -283,6 +305,28 @@ webhooks:
           - DELETE
         resources:
           - cfservicebindings
+    sideEffects: NoneOnDryRun
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
+        path: /validate-korifi-cloudfoundry-org-v1alpha1-cfservicebroker
+    failurePolicy: Fail
+    name: vcfservicebroker.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - cfservicebrokers
     sideEffects: NoneOnDryRun
   - admissionReviewVersions:
       - v1

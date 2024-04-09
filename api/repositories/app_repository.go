@@ -538,6 +538,39 @@ func (f *AppRepo) GetAppEnv(ctx context.Context, authInfo authorization.Info, ap
 	return appEnvRecord, nil
 }
 
+func (f *AppRepo) GetAppEnvVars(ctx context.Context, authInfo authorization.Info, appGUID string) (AppEnvVarsRecord, error) {
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppEnvVarsRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	app, err := f.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return AppEnvVarsRecord{}, err
+	}
+
+	appEnvVarMap := map[string]string{}
+	if app.envSecretName != "" {
+		appEnvVarSecret := new(corev1.Secret)
+		err = userClient.Get(ctx, types.NamespacedName{Name: app.envSecretName, Namespace: app.SpaceGUID}, appEnvVarSecret)
+		if err != nil {
+			return AppEnvVarsRecord{}, fmt.Errorf("error finding environment variable Secret %q for App %q: %w",
+				app.envSecretName,
+				app.GUID,
+				apierrors.FromK8sError(err, AppEnvResourceType))
+		}
+		appEnvVarMap = convertByteSliceValuesToStrings(appEnvVarSecret.Data)
+	}
+
+	appEnvVarsRecord := AppEnvVarsRecord{
+		AppGUID:              appGUID,
+		SpaceGUID:            app.SpaceGUID,
+		EnvironmentVariables: appEnvVarMap,
+	}
+
+	return appEnvVarsRecord, nil
+}
+
 func (f *AppRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, appGUID string) (*time.Time, error) {
 	app, err := f.GetApp(ctx, authInfo, appGUID)
 	if err != nil {

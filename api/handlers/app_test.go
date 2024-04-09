@@ -62,6 +62,8 @@ var _ = Describe("App", func() {
 			domainRepo,
 			spaceRepo,
 			packageRepo,
+			new(fake.CFBuildRepository),
+			new(fake.ProcessStats),
 			requestValidator,
 		)
 

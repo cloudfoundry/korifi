@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -34,11 +35,18 @@ const (
 	stagingLogSourceType = "STG"
 )
 
+type BuildCreatedBy struct {
+	GUID  string
+	Name  string
+	Email string
+}
+
 type BuildRecord struct {
 	GUID            string
 	State           string
 	CreatedAt       time.Time
 	UpdatedAt       *time.Time
+	CreatedBy       BuildCreatedBy
 	StagingErrorMsg string
 	StagingMemoryMB int
 	StagingDiskMB   int
@@ -59,17 +67,20 @@ type LogRecord struct {
 }
 
 type BuildRepo struct {
-	namespaceRetriever NamespaceRetriever
-	userClientFactory  authorization.UserK8sClientFactory
+	namespaceRetriever   NamespaceRetriever
+	userClientFactory    authorization.UserK8sClientFactory
+	namespacePermissions *authorization.NamespacePermissions
 }
 
 func NewBuildRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserK8sClientFactory,
+	namespacePermissions *authorization.NamespacePermissions,
 ) *BuildRepo {
 	return &BuildRepo{
-		namespaceRetriever: namespaceRetriever,
-		userClientFactory:  userClientFactory,
+		namespaceRetriever:   namespaceRetriever,
+		userClientFactory:    userClientFactory,
+		namespacePermissions: namespacePermissions,
 	}
 }
 
@@ -89,7 +100,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 		return BuildRecord{}, fmt.Errorf("failed to get build: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
 
-	return b.cfBuildToBuildRecord(build), nil
+	return b.cfBuildToBuildRecord(authInfo, build), nil
 }
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
@@ -118,7 +129,7 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 
 	sortedBuilds := orderBuilds(buildList.Items)
 
-	return b.cfBuildToBuildRecord(sortedBuilds[0]), nil
+	return b.cfBuildToBuildRecord(authInfo, sortedBuilds[0]), nil
 }
 
 func orderBuilds(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
@@ -156,12 +167,17 @@ func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Inf
 	return toReturn, nil
 }
 
-func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRecord {
+func (b *BuildRepo) cfBuildToBuildRecord(authInfo authorization.Info, cfBuild korifiv1alpha1.CFBuild) BuildRecord {
 	toReturn := BuildRecord{
-		GUID:            cfBuild.Name,
-		State:           BuildStateStaging,
-		CreatedAt:       cfBuild.CreationTimestamp.Time,
-		UpdatedAt:       getLastUpdatedTime(&cfBuild),
+		GUID:      cfBuild.Name,
+		State:     BuildStateStaging,
+		CreatedAt: cfBuild.CreationTimestamp.Time,
+		UpdatedAt: getLastUpdatedTime(&cfBuild),
+		CreatedBy: BuildCreatedBy{
+			GUID:  authInfo.UserId(),
+			Name:  authInfo.UserName(),
+			Email: authInfo.Email(),
+		},
 		StagingErrorMsg: "",
 		StagingMemoryMB: cfBuild.Spec.StagingMemoryMB,
 		StagingDiskMB:   cfBuild.Spec.StagingDiskMB,
@@ -216,7 +232,60 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 
-	return b.cfBuildToBuildRecord(cfBuild), nil
+	return b.cfBuildToBuildRecord(authInfo, cfBuild), nil
+}
+
+type ListAppBuildsMessage struct {
+	AppGUID string
+}
+
+func (b *BuildRepo) ListAppBuilds(ctx context.Context, authInfo authorization.Info, message ListAppBuildsMessage) ([]BuildRecord, error) {
+	nsList, err := b.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+
+	userClient, err := b.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []BuildRecord{}, fmt.Errorf("list-app-builds: failed to build user k8s client: %w", err)
+	}
+
+	buildList := &korifiv1alpha1.CFBuildList{}
+	var matches []korifiv1alpha1.CFBuild
+	for ns := range nsList {
+		err = userClient.List(ctx, buildList, client.InNamespace(ns))
+		if k8serrors.IsForbidden(err) {
+			continue
+		}
+		if err != nil {
+			return []BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
+		}
+		allBuilds := buildList.Items
+		matches = append(matches, filterBuildsByAppGUID(allBuilds, message.AppGUID)...)
+	}
+
+	return b.returnBuilds(authInfo, matches)
+}
+
+func filterBuildsByAppGUID(builds []korifiv1alpha1.CFBuild, appGUID string) []korifiv1alpha1.CFBuild {
+	var filtered []korifiv1alpha1.CFBuild
+	for _, build := range builds {
+		if build.Spec.AppRef.Name == appGUID {
+			filtered = append(filtered, build)
+			break
+		}
+	}
+	return filtered
+}
+
+func (b *BuildRepo) returnBuilds(authInfo authorization.Info, builds []korifiv1alpha1.CFBuild) ([]BuildRecord, error) {
+	buildRecords := make([]BuildRecord, 0, len(builds))
+	for _, build := range builds {
+		buildRecord := b.cfBuildToBuildRecord(authInfo, build)
+		buildRecords = append(buildRecords, buildRecord)
+	}
+
+	return buildRecords, nil
 }
 
 type CreateBuildMessage struct {

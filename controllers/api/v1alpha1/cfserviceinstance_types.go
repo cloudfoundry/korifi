@@ -21,11 +21,16 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
-	UserProvidedType     = "user-provided"
+	UserProvidedType = "user-provided"
+	ManagedType      = "managed"
+
 	CredentialsSecretKey = "credentials"
+
+	ManagedCFServiceInstanceFinalizerName = "managed.cfServiceInstance.korifi.cloudfoundry.org"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
@@ -46,10 +51,15 @@ type CFServiceInstanceSpec struct {
 
 	// Tags are used by apps to identify service instances
 	Tags []string `json:"tags,omitempty"`
+
+	// Subscribed service plan GUID. Must be set if the type is `managed`
+	ServicePlanGUID string `json:"servicePlanGuid,omitempty"`
+
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // InstanceType defines the type of the Service Instance
-// +kubebuilder:validation:Enum=user-provided
+// +kubebuilder:validation:Enum=user-provided;managed
 type InstanceType string
 
 // CFServiceInstanceStatus defines the observed state of CFServiceInstance

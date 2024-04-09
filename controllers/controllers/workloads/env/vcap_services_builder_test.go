@@ -26,7 +26,7 @@ var _ = Describe("Builder", func() {
 	)
 
 	BeforeEach(func() {
-		builder = env.NewVCAPServicesEnvValueBuilder(controllersClient)
+		builder = env.NewVCAPServicesEnvValueBuilder(controllersClient, rootNamespace)
 
 		serviceInstance = &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{

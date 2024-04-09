@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -55,7 +56,7 @@ var _ = Describe("Spaces", func() {
 		It("creates a space", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(result.Name).To(Equal(spaceName))
-			Expect(result.GUID).To(HavePrefix("cf-space-"))
+			helpers.EnsureValidUUID(result.GUID)
 			Expect(result.GUID).NotTo(BeEmpty())
 		})
 	})
