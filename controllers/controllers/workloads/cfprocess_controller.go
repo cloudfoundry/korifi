@@ -71,6 +71,7 @@ func NewCFProcessReconciler(
 func (r *CFProcessReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFProcess{}).
+		Owns(&korifiv1alpha1.AppWorkload{}).
 		Watches(
 			&korifiv1alpha1.CFApp{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFProcessRequestsForApp),
@@ -173,7 +174,21 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 		ObservedGeneration: cfProcess.Generation,
 	})
 
+	appWorkloads, err := r.fetchAppWorkloadsForProcess(ctx, cfProcess)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	cfProcess.Status.ActualInstances = getActualInstances(appWorkloads)
 	return ctrl.Result{}, nil
+}
+
+func getActualInstances(appWorkloads []korifiv1alpha1.AppWorkload) int32 {
+	actualInstances := int32(0)
+	for _, w := range appWorkloads {
+		actualInstances += w.Status.ActualInstances
+	}
+	return actualInstances
 }
 
 func needsAppWorkload(cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess) bool {
@@ -239,7 +254,7 @@ func (r *CFProcessReconciler) createOrPatchAppWorkload(ctx context.Context, cfAp
 	return nil
 }
 
-func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.DesiredState, cfLastStopAppRev string) error {
+func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess, desiredState korifiv1alpha1.AppState, cfLastStopAppRev string) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("cleanUpAppWorkloads")
 
 	appWorkloadsForProcess, err := r.fetchAppWorkloadsForProcess(ctx, cfProcess)
@@ -261,7 +276,7 @@ func (r *CFProcessReconciler) cleanUpAppWorkloads(ctx context.Context, cfProcess
 }
 
 func needsToDeleteAppWorkload(
-	desiredState korifiv1alpha1.DesiredState,
+	desiredState korifiv1alpha1.AppState,
 	cfProcess *korifiv1alpha1.CFProcess,
 	appWorkload korifiv1alpha1.AppWorkload,
 	cfLastStopAppRev string,

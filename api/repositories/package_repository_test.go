@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -28,7 +29,7 @@ import (
 var _ = Describe("PackageRepository", func() {
 	var (
 		repoCreator      *fake.RepositoryCreator
-		conditionAwaiter *FakeAwaiter[
+		conditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFPackage,
 			korifiv1alpha1.CFPackageList,
 			*korifiv1alpha1.CFPackageList,
@@ -42,7 +43,7 @@ var _ = Describe("PackageRepository", func() {
 
 	BeforeEach(func() {
 		repoCreator = new(fake.RepositoryCreator)
-		conditionAwaiter = &FakeAwaiter[
+		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFPackage,
 			korifiv1alpha1.CFPackageList,
 			*korifiv1alpha1.CFPackageList,

@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -43,12 +44,12 @@ var _ = Describe("RoleRepository", func() {
 			"cf_user":              {Name: rootNamespaceUserRole.Name},
 			"admin":                {Name: adminRole.Name, Propagate: true},
 		}
-		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &FakeAwaiter[
+		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{})
-		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, &FakeAwaiter[
+		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFSpace,
 			korifiv1alpha1.CFSpaceList,
 			*korifiv1alpha1.CFSpaceList,

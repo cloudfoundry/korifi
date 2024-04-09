@@ -60,7 +60,7 @@ type SpaceRepo struct {
 	namespaceRetriever NamespaceRetriever
 	userClientFactory  authorization.UserK8sClientFactory
 	nsPerms            *authorization.NamespacePermissions
-	conditionAwaiter   ConditionAwaiter[*korifiv1alpha1.CFSpace]
+	conditionAwaiter   Awaiter[*korifiv1alpha1.CFSpace]
 }
 
 func NewSpaceRepo(
@@ -68,7 +68,7 @@ func NewSpaceRepo(
 	orgRepo *OrgRepo,
 	userClientFactory authorization.UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
-	conditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFSpace],
+	conditionAwaiter Awaiter[*korifiv1alpha1.CFSpace],
 ) *SpaceRepo {
 	return &SpaceRepo{
 		orgRepo:            orgRepo,

@@ -180,3 +180,38 @@ func getPodContainerLog(clientset kubernetes.Interface, pod corev1.Pod, containe
 func fullLogOnErr() bool {
 	return os.Getenv("FULL_LOG_ON_ERR") != ""
 }
+
+func PrintBuildLogs(config *rest.Config, buildGUID string) {
+	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Droplet build logs ==========\n")
+	fmt.Fprintf(ginkgo.GinkgoWriter, "DropletGUID: %q\n", buildGUID)
+	PrintPodsLogs(config, []PodContainerDescriptor{
+		{
+			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
+			LabelValue: buildGUID,
+		},
+	})
+	PrintPodEvents(config, []PodContainerDescriptor{
+		{
+			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
+			LabelValue: buildGUID,
+		},
+	})
+}
+
+func PrintKorifiLogs(config *rest.Config, correlationId string) {
+	PrintPodsLogs(config, []PodContainerDescriptor{
+		{
+			Namespace:     "korifi",
+			LabelKey:      "app",
+			LabelValue:    "korifi-api",
+			Container:     "korifi-api",
+			CorrelationId: correlationId,
+		},
+		{
+			Namespace:  "korifi",
+			LabelKey:   "app",
+			LabelValue: "korifi-controllers",
+			Container:  "manager",
+		},
+	})
+}

@@ -9,6 +9,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -29,7 +30,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	var (
 		testCtx             context.Context
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
-		conditionAwaiter    *FakeAwaiter[
+		conditionAwaiter    *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceInstance,
 			korifiv1alpha1.CFServiceInstanceList,
 			*korifiv1alpha1.CFServiceInstanceList,
@@ -42,7 +43,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	BeforeEach(func() {
 		testCtx = context.Background()
-		conditionAwaiter = &FakeAwaiter[
+		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceInstance,
 			korifiv1alpha1.CFServiceInstanceList,
 			*korifiv1alpha1.CFServiceInstanceList,

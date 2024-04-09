@@ -32,14 +32,14 @@ type ServiceBindingRepo struct {
 	userClientFactory       authorization.UserK8sClientFactory
 	namespacePermissions    *authorization.NamespacePermissions
 	namespaceRetriever      NamespaceRetriever
-	bindingConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFServiceBinding]
+	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding]
 }
 
 func NewServiceBindingRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
-	bindingConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFServiceBinding],
+	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding],
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
 		userClientFactory:       userClientFactory,

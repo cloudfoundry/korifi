@@ -40,14 +40,14 @@ type ServiceInstanceRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
-	awaiter              ConditionAwaiter[*korifiv1alpha1.CFServiceInstance]
+	awaiter              Awaiter[*korifiv1alpha1.CFServiceInstance]
 }
 
 func NewServiceInstanceRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
-	awaiter ConditionAwaiter[*korifiv1alpha1.CFServiceInstance],
+	awaiter Awaiter[*korifiv1alpha1.CFServiceInstance],
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
 		namespaceRetriever:   namespaceRetriever,
