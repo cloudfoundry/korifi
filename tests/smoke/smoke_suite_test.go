@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
-	gomegatypes "github.com/onsi/gomega/types"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -40,25 +39,15 @@ var (
 )
 
 func TestSmoke(t *testing.T) {
-	RegisterFailHandler(fail_handler.New("Smoke Tests", map[gomegatypes.GomegaMatcher]func(*rest.Config, string){
-		fail_handler.Always: func(config *rest.Config, _ string) {
-			printCfApp(config)
-			fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
-				{
-					Namespace:  "korifi",
-					LabelKey:   "app",
-					LabelValue: "korifi-api",
-					Container:  "korifi-api",
-				},
-				{
-					Namespace:  "korifi",
-					LabelKey:   "app",
-					LabelValue: "korifi-controllers",
-					Container:  "manager",
-				},
-			})
-		},
-	}))
+	RegisterFailHandler(fail_handler.New("Smoke Tests",
+		fail_handler.Hook{
+			Matcher: fail_handler.Always,
+			Hook: func(config *rest.Config, message string) {
+				printCfApp(config)
+				fail_handler.PrintKorifiLogs(config, "")
+			},
+		}).Fail)
+
 	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
 	SetDefaultEventuallyPollingInterval(helpers.EventuallyPollingInterval())
 	RunSpecs(t, "Smoke Tests Suite")
@@ -69,10 +58,6 @@ var _ = BeforeSuite(func() {
 
 	rootNamespace = helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf")
 	serviceAccountFactory = helpers.NewServiceAccountFactory(rootNamespace)
-
-	Expect(
-		helpers.Kubectl("get", "namespace/"+rootNamespace),
-	).To(Exit(0), "Could not find root namespace called %q", rootNamespace)
 
 	cfAdmin = uuid.NewString()
 	cfAdminToken := serviceAccountFactory.CreateAdminServiceAccount(cfAdmin)

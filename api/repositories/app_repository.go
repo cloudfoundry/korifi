@@ -42,20 +42,20 @@ type AppRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
-	appConditionAwaiter  ConditionAwaiter[*korifiv1alpha1.CFApp]
+	appAwaiter           Awaiter[*korifiv1alpha1.CFApp]
 }
 
 func NewAppRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserK8sClientFactory,
 	authPerms *authorization.NamespacePermissions,
-	appConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFApp],
+	appAwaiter Awaiter[*korifiv1alpha1.CFApp],
 ) *AppRepo {
 	return &AppRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
-		appConditionAwaiter:  appConditionAwaiter,
+		appAwaiter:           appAwaiter,
 	}
 }
 
@@ -431,7 +431,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 		return CurrentDropletRecord{}, fmt.Errorf("failed to set app droplet: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	_, err = f.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, shared.StatusConditionReady)
+	_, err = f.appAwaiter.AwaitCondition(ctx, userClient, cfApp, shared.StatusConditionReady)
 	if err != nil {
 		return CurrentDropletRecord{}, fmt.Errorf("failed to await the app staged condition: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
@@ -456,10 +456,20 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 	}
 
 	err = k8s.PatchResource(ctx, userClient, cfApp, func() {
-		cfApp.Spec.DesiredState = korifiv1alpha1.DesiredState(message.DesiredState)
+		cfApp.Spec.DesiredState = korifiv1alpha1.AppState(message.DesiredState)
 	})
 	if err != nil {
 		return AppRecord{}, fmt.Errorf("failed to set app desired state: %w", apierrors.FromK8sError(err, AppResourceType))
+	}
+
+	if _, err := f.appAwaiter.AwaitState(ctx, userClient, cfApp, func(actualApp *korifiv1alpha1.CFApp) error {
+		desiredState := korifiv1alpha1.AppState(message.DesiredState)
+		if (actualApp.Spec.DesiredState == desiredState) && (actualApp.Status.ActualState == desiredState) {
+			return nil
+		}
+		return fmt.Errorf("expected actual state to be %s; it is currently %s", message.DesiredState, actualApp.Status.ActualState)
+	}); err != nil {
+		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
 	return cfAppToAppRecord(*cfApp), nil
@@ -641,7 +651,7 @@ func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:   m.Name,
-			DesiredState:  korifiv1alpha1.DesiredState(m.State),
+			DesiredState:  korifiv1alpha1.AppState(m.State),
 			EnvSecretName: GenerateEnvSecretName(guid),
 			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: korifiv1alpha1.LifecycleType(m.Lifecycle.Type),

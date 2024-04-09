@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -138,44 +137,6 @@ var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 })
 
-type FakeAwaiter[T conditions.RuntimeObjectWithStatusConditions, L any, PL conditions.ObjectList[L]] struct {
-	invocations []struct {
-		obj           client.Object
-		conditionType string
-	}
-	AwaitConditionStub func(context.Context, client.WithWatch, client.Object, string) (T, error)
-}
-
-func (a *FakeAwaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
-	a.invocations = append(a.invocations, struct {
-		obj           client.Object
-		conditionType string
-	}{
-		object,
-		conditionType,
-	})
-
-	if a.AwaitConditionStub == nil {
-		return object.(T), nil
-	}
-
-	return a.AwaitConditionStub(ctx, k8sClient, object, conditionType)
-}
-
-func (a *FakeAwaiter[T, L, PL]) AwaitConditionReturns(object T, err error) {
-	a.AwaitConditionStub = func(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
-		return object.(T), err
-	}
-}
-
-func (a *FakeAwaiter[T, L, PL]) AwaitConditionCallCount() int {
-	return len(a.invocations)
-}
-
-func (a *FakeAwaiter[T, L, PL]) AwaitConditionArgsForCall(i int) (client.Object, string) {
-	return a.invocations[i].obj, a.invocations[i].conditionType
-}
-
 func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alpha1.CFOrg {
 	guid := uuid.NewString()
 	cfOrg := &korifiv1alpha1.CFOrg{
@@ -301,6 +262,8 @@ func prefixedGUID(prefix string) string {
 }
 
 func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID, spaceGUID, desiredState string) *korifiv1alpha1.CFApp {
+	GinkgoHelper()
+
 	toReturn := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
@@ -308,7 +271,7 @@ func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID,
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:  appName,
-			DesiredState: korifiv1alpha1.DesiredState(desiredState),
+			DesiredState: korifiv1alpha1.AppState(desiredState),
 			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
 				Data: korifiv1alpha1.LifecycleData{

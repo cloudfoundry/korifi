@@ -52,6 +52,7 @@ func NewCFAppReconciler(k8sClient client.Client, scheme *runtime.Scheme, log log
 func (r *CFAppReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFApp{}).
+		Owns(&korifiv1alpha1.CFProcess{}).
 		Watches(
 			&korifiv1alpha1.CFBuild{},
 			handler.EnqueueRequestsFromMapFunc(buildToApp),
@@ -132,6 +133,7 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 
 	cfApp.Status.VCAPServicesSecretName = secretName
 
+	cfApp.Status.ActualState = korifiv1alpha1.StoppedState
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
 		meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
 			Type:               shared.StatusConditionReady,
@@ -162,12 +164,26 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 		ObservedGeneration: cfApp.Generation,
 	})
 
-	err = r.startApp(ctx, cfApp, droplet)
+	reconciledProcesses, err := r.reconcileProcesses(ctx, cfApp, droplet)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	cfApp.Status.ActualState = getActualState(reconciledProcesses)
+
 	return ctrl.Result{}, nil
+}
+
+func getActualState(processes []*korifiv1alpha1.CFProcess) korifiv1alpha1.AppState {
+	processInstances := int32(0)
+	for _, p := range processes {
+		processInstances += p.Status.ActualInstances
+	}
+
+	if processInstances == 0 {
+		return korifiv1alpha1.StoppedState
+	}
+	return korifiv1alpha1.StartedState
 }
 
 func (r *CFAppReconciler) getDroplet(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.BuildDropletStatus, error) {
@@ -189,8 +205,10 @@ func (r *CFAppReconciler) getDroplet(ctx context.Context, cfApp *korifiv1alpha1.
 	return cfBuild.Status.Droplet, nil
 }
 
-func (r *CFAppReconciler) startApp(ctx context.Context, cfApp *korifiv1alpha1.CFApp, droplet *korifiv1alpha1.BuildDropletStatus) error {
+func (r *CFAppReconciler) reconcileProcesses(ctx context.Context, cfApp *korifiv1alpha1.CFApp, droplet *korifiv1alpha1.BuildDropletStatus) ([]*korifiv1alpha1.CFProcess, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("startApp")
+
+	reconciledProcess := []*korifiv1alpha1.CFProcess{}
 
 	for _, dropletProcess := range addWebIfMissing(droplet.ProcessTypes) {
 		loopLog := log.WithValues("processType", dropletProcess.Type)
@@ -199,25 +217,27 @@ func (r *CFAppReconciler) startApp(ctx context.Context, cfApp *korifiv1alpha1.CF
 		existingProcess, err := r.fetchProcessByType(ctx, cfApp.Name, cfApp.Namespace, dropletProcess.Type)
 		if err != nil {
 			loopLog.Info("error when fetching CFProcess by type", "reason", err)
-			return err
+			return nil, err
 		}
 
 		if existingProcess != nil {
 			err = r.updateCFProcess(ctx, existingProcess, dropletProcess.Command)
 			if err != nil {
 				loopLog.Info("error updating CFProcess", "reason", err)
-				return err
+				return nil, err
 			}
+			reconciledProcess = append(reconciledProcess, existingProcess)
 		} else {
-			err = r.createCFProcess(ctx, dropletProcess, cfApp)
+			createdProcess, err := r.createCFProcess(ctx, dropletProcess, cfApp)
 			if err != nil {
 				loopLog.Info("error creating CFProcess", "reason", err)
-				return err
+				return nil, err
 			}
+			reconciledProcess = append(reconciledProcess, createdProcess)
 		}
 	}
 
-	return nil
+	return reconciledProcess, nil
 }
 
 func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1.ProcessType {
@@ -236,7 +256,7 @@ func (r *CFAppReconciler) updateCFProcess(ctx context.Context, process *korifiv1
 	})
 }
 
-func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, cfApp *korifiv1alpha1.CFApp) error {
+func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1alpha1.ProcessType, cfApp *korifiv1alpha1.CFApp) (*korifiv1alpha1.CFProcess, error) {
 	desiredCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfApp.Namespace,
@@ -255,10 +275,15 @@ func (r *CFAppReconciler) createCFProcess(ctx context.Context, process korifiv1a
 
 	if err := controllerutil.SetControllerReference(cfApp, desiredCFProcess, r.scheme); err != nil {
 		err = fmt.Errorf("failed to set OwnerRef on CFProcess: %w", err)
-		return err
+		return nil, err
 	}
 
-	return r.k8sClient.Create(ctx, desiredCFProcess)
+	err := r.k8sClient.Create(ctx, desiredCFProcess)
+	if err != nil {
+		return nil, err
+	}
+
+	return desiredCFProcess, nil
 }
 
 func (r *CFAppReconciler) fetchProcessByType(ctx context.Context, appGUID, appNamespace, processType string) (*korifiv1alpha1.CFProcess, error) {

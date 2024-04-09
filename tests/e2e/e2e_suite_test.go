@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"archive/zip"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -10,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -25,7 +23,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -48,7 +45,6 @@ var (
 	appFQDN                 string
 	commonTestOrgGUID       string
 	commonTestOrgName       string
-	assetsTmpDir            string
 	defaultAppBitsFile      string
 	multiProcessAppBitsFile string
 )
@@ -282,31 +278,26 @@ type cfErr struct {
 }
 
 func TestE2E(t *testing.T) {
-	RegisterFailHandler(fail_handler.New("E2E Tests", map[types.GomegaMatcher]func(*rest.Config, string){
-		fail_handler.Always: func(config *rest.Config, _ string) {
-			fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
-				{
-					Namespace:     systemNamespace(),
-					LabelKey:      "app",
-					LabelValue:    "korifi-api",
-					Container:     "korifi-api",
-					CorrelationId: correlationId,
-				},
-				{
-					Namespace:  systemNamespace(),
-					LabelKey:   "app",
-					LabelValue: "korifi-controllers",
-					Container:  "manager",
-				},
-			})
+	RegisterFailHandler(fail_handler.New("E2E Tests",
+		fail_handler.Hook{
+			Matcher: fail_handler.Always,
+			Hook: func(config *rest.Config, _ string) {
+				fail_handler.PrintKorifiLogs(config, correlationId)
+			},
 		},
-		ContainSubstring("Droplet not found"): func(config *rest.Config, message string) {
-			printDropletNotFoundDebugInfo(config, message)
+		fail_handler.Hook{
+			Matcher: ContainSubstring("Droplet not found"),
+			Hook: func(config *rest.Config, message string) {
+				printDropletNotFoundDebugInfo(config, message)
+			},
 		},
-		ContainSubstring("404"): func(config *rest.Config, _ string) {
-			printAllRoleBindings(config)
+		fail_handler.Hook{
+			Matcher: ContainSubstring("404"),
+			Hook: func(config *rest.Config, message string) {
+				printAllRoleBindings(config)
+			},
 		},
-	}))
+	).Fail)
 	RunSpecs(t, "E2E Suite")
 }
 
@@ -330,19 +321,13 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgName = generateGUID("common-test-org")
 	commonTestOrgGUID = createOrg(commonTestOrgName)
 
-	var err error
-	assetsTmpDir, err = os.MkdirTemp("", "e2e-test-assets")
-	Expect(err).NotTo(HaveOccurred())
-
 	sharedData := sharedSetupData{
 		CommonOrgName: commonTestOrgName,
 		CommonOrgGUID: commonTestOrgGUID,
-		// Some environments where Korifi does not manage the ClusterBuilder lack a standalone Procfile buildpack
-		// The DEFAULT_APP_BITS_PATH and DEFAULT_APP_RESPONSE environment variables are a workaround to allow e2e tests to run
-		// with a different app in these environments.
-		// See https://github.com/cloudfoundry/korifi/issues/2355 for refactoring ideas
-		DefaultAppBitsFile:       zipAsset(helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi")),
-		MultiProcessAppBitsFile:  zipAsset("../assets/multi-process"),
+		DefaultAppBitsFile: helpers.ZipDirectory(
+			helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi"),
+		),
+		MultiProcessAppBitsFile:  helpers.ZipDirectory("../assets/multi-process"),
 		AdminServiceAccount:      adminServiceAccount,
 		AdminServiceAccountToken: adminServiceAccountToken,
 	}
@@ -373,7 +358,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
-	os.RemoveAll(assetsTmpDir)
 	deleteOrg(commonTestOrgGUID)
 	serviceAccountFactory.DeleteServiceAccount(adminServiceAccount)
 })
@@ -1056,68 +1040,6 @@ func commonTestSetup() {
 	serviceAccountFactory = helpers.NewServiceAccountFactory(rootNamespace)
 }
 
-func zipAsset(src string) string {
-	GinkgoHelper()
-
-	file, err := os.CreateTemp("", "*.zip")
-	if err != nil {
-		Expect(err).NotTo(HaveOccurred())
-	}
-	defer file.Close()
-
-	w := zip.NewWriter(file)
-	defer w.Close()
-
-	walker := func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		fp, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer fp.Close()
-
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-
-		fh := &zip.FileHeader{
-			Name: rel,
-		}
-		fh.SetMode(info.Mode())
-
-		f, err := w.CreateHeader(fh)
-		if err != nil {
-			return err
-		}
-
-		_, err = io.Copy(f, fp)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-	err = filepath.Walk(src, walker)
-	Expect(err).NotTo(HaveOccurred())
-
-	return file.Name()
-}
-
-func systemNamespace() string {
-	systemNS, found := os.LookupEnv("SYSTEM_NAMESPACE")
-	if found {
-		return systemNS
-	}
-
-	return "korifi"
-}
-
 func getCorrelationId() string {
 	return correlationId
 }
@@ -1125,41 +1047,13 @@ func getCorrelationId() string {
 func printDropletNotFoundDebugInfo(config *rest.Config, message string) {
 	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet not found debug log (start) ==========\n")
 
-	fmt.Fprint(GinkgoWriter, "\n========== Kpack logs ==========\n")
-	fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
-		{
-			Namespace:  "kpack",
-			LabelKey:   "app",
-			LabelValue: "kpack-controller",
-		},
-		{
-			Namespace:  "kpack",
-			LabelKey:   "app",
-			LabelValue: "kpack-webhook",
-		},
-	})
-
 	dropletGUID, err := getDropletGUID(message)
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "Failed to get droplet GUID from message %v\n", err)
 		return
 	}
 
-	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet build logs ==========\n")
-	fmt.Fprintf(GinkgoWriter, "DropletGUID: %q\n", dropletGUID)
-	fail_handler.PrintPodsLogs(config, []fail_handler.PodContainerDescriptor{
-		{
-			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
-			LabelValue: dropletGUID,
-		},
-	})
-	fail_handler.PrintPodEvents(config, []fail_handler.PodContainerDescriptor{
-		{
-			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
-			LabelValue: dropletGUID,
-		},
-	})
-
+	fail_handler.PrintBuildLogs(config, dropletGUID)
 	fmt.Fprint(GinkgoWriter, "\n\n========== Droplet not found debug log (end) ==========\n\n")
 }
 

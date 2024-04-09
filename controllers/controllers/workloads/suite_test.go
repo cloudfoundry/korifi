@@ -338,7 +338,7 @@ func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, 
 			Namespace: spaceGUID,
 		},
 	}
-	Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+	Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
 		cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
 	})).To(Succeed())
 	return cfApp

@@ -58,7 +58,7 @@ type OrgRepo struct {
 	privilegedClient  client.WithWatch
 	userClientFactory authorization.UserK8sClientFactory
 	nsPerms           *authorization.NamespacePermissions
-	conditionAwaiter  ConditionAwaiter[*korifiv1alpha1.CFOrg]
+	conditionAwaiter  Awaiter[*korifiv1alpha1.CFOrg]
 }
 
 func NewOrgRepo(
@@ -66,7 +66,7 @@ func NewOrgRepo(
 	privilegedClient client.WithWatch,
 	userClientFactory authorization.UserK8sClientFactory,
 	nsPerms *authorization.NamespacePermissions,
-	conditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFOrg],
+	conditionAwaiter Awaiter[*korifiv1alpha1.CFOrg],
 ) *OrgRepo {
 	return &OrgRepo{
 		rootNamespace:     rootNamespace,

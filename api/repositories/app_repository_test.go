@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
@@ -37,7 +38,7 @@ const (
 
 var _ = Describe("AppRepository", func() {
 	var (
-		conditionAwaiter *FakeAwaiter[
+		appAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
@@ -49,12 +50,12 @@ var _ = Describe("AppRepository", func() {
 	)
 
 	BeforeEach(func() {
-		conditionAwaiter = &FakeAwaiter[
+		appAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]{}
-		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter)
+		appRepo = NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, appAwaiter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
@@ -1115,8 +1116,8 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("awaits the ready condition", func() {
-				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
-				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+				Expect(appAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				obj, conditionType := appAwaiter.AwaitConditionArgsForCall(0)
 				Expect(obj.GetName()).To(Equal(appGUID))
 				Expect(obj.GetNamespace()).To(Equal(cfSpace.Name))
 				Expect(conditionType).To(Equal(shared.StatusConditionReady))
@@ -1139,7 +1140,7 @@ var _ = Describe("AppRepository", func() {
 
 			When("the app never becomes ready", func() {
 				BeforeEach(func() {
-					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFApp{}, errors.New("time-out-err"))
+					appAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFApp{}, errors.New("time-out-err"))
 				})
 
 				It("returns an error", func() {
@@ -1167,7 +1168,6 @@ var _ = Describe("AppRepository", func() {
 
 	Describe("SetDesiredState", func() {
 		const (
-			appName         = "some-app"
 			appStartedValue = "STARTED"
 			appStoppedValue = "STOPPED"
 		)
@@ -1186,8 +1186,10 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			appGUID = uuid.NewString()
-			_ = createAppCR(ctx, k8sClient, appName, appGUID, cfSpace.Name, initialAppState)
+			appGUID = cfApp.Name
+			Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+				cfApp.Spec.DesiredState = korifiv1alpha1.AppState(initialAppState)
+			})).To(Succeed())
 			appRecord, err := appRepo.SetAppDesiredState(ctx, authInfo, SetAppDesiredStateMessage{
 				AppGUID:      appGUID,
 				SpaceGUID:    cfSpace.Name,
@@ -1213,9 +1215,15 @@ var _ = Describe("AppRepository", func() {
 
 				It("returns the updated app record", func() {
 					Expect(returnedAppRecord.GUID).To(Equal(appGUID))
-					Expect(returnedAppRecord.Name).To(Equal(appName))
+					Expect(returnedAppRecord.Name).To(Equal(cfApp.Spec.DisplayName))
 					Expect(returnedAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
-					Expect(returnedAppRecord.State).To(Equal(DesiredState("STARTED")))
+				})
+
+				It("waits for the desired state", func() {
+					Expect(appAwaiter.AwaitStateCallCount()).To(Equal(1))
+					actualCFApp := appAwaiter.AwaitStateArgsForCall(0)
+					Expect(actualCFApp.GetName()).To(Equal(cfApp.Name))
+					Expect(actualCFApp.GetNamespace()).To(Equal(cfApp.Namespace))
 				})
 
 				It("changes the desired state of the App", func() {
@@ -1235,11 +1243,11 @@ var _ = Describe("AppRepository", func() {
 					Expect(returnedErr).ToNot(HaveOccurred())
 				})
 
-				It("returns the updated app record", func() {
-					Expect(returnedAppRecord.GUID).To(Equal(appGUID))
-					Expect(returnedAppRecord.Name).To(Equal(appName))
-					Expect(returnedAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
-					Expect(returnedAppRecord.State).To(Equal(DesiredState("STOPPED")))
+				It("waits for the desired state", func() {
+					Expect(appAwaiter.AwaitStateCallCount()).To(Equal(1))
+					actualCFApp := appAwaiter.AwaitStateArgsForCall(0)
+					Expect(actualCFApp.GetName()).To(Equal(cfApp.Name))
+					Expect(actualCFApp.GetNamespace()).To(Equal(cfApp.Namespace))
 				})
 
 				It("changes the desired state of the App", func() {

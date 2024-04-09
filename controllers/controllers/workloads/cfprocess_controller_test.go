@@ -185,6 +185,23 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
+		When("the app workload instances is set", func() {
+			BeforeEach(func() {
+				eventuallyCreatedAppWorkloadShould(cfProcess.Name, cfSpace.Status.GUID, func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(k8s.Patch(ctx, adminClient, &appWorkload, func() {
+						appWorkload.Status.ActualInstances = 3
+					})).To(Succeed())
+				})
+			})
+
+			It("updates the actual process instances", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
+					g.Expect(cfProcess.Status.ActualInstances).To(BeEquivalentTo(3))
+				}).Should(Succeed())
+			})
+		})
+
 		When("The process command field isn't set", func() {
 			BeforeEach(func() {
 				Expect(k8s.PatchResource(ctx, adminClient, cfProcess, func() {

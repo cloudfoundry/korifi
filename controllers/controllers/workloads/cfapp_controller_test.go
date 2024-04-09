@@ -363,7 +363,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 			When("the command on the web process is not empty", func() {
 				BeforeEach(func() {
-					Expect(k8s.Patch(context.Background(), adminClient, cfProcessForTypeWeb, func() {
+					Expect(k8s.PatchResource(context.Background(), adminClient, cfProcessForTypeWeb, func() {
 						cfProcessForTypeWeb.Spec.Command = "something else"
 					})).To(Succeed())
 				})

@@ -38,7 +38,6 @@ function configure_e2e_tests() {
 
 function configure_crd_tests() {
   export API_SERVER_ROOT="${API_SERVER_ROOT:-https://localhost}"
-  export NO_PARALLEL=true
 
   deploy_korifi
 }

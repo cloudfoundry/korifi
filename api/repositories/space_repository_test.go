@@ -7,6 +7,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
@@ -26,7 +27,7 @@ import (
 var _ = Describe("SpaceRepository", func() {
 	var (
 		orgRepo          *repositories.OrgRepo
-		conditionAwaiter *FakeAwaiter[
+		conditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFSpace,
 			korifiv1alpha1.CFSpaceList,
 			*korifiv1alpha1.CFSpaceList,
@@ -35,13 +36,13 @@ var _ = Describe("SpaceRepository", func() {
 	)
 
 	BeforeEach(func() {
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &FakeAwaiter[
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{})
 
-		conditionAwaiter = &FakeAwaiter[
+		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFSpace,
 			korifiv1alpha1.CFSpaceList,
 			*korifiv1alpha1.CFSpaceList,

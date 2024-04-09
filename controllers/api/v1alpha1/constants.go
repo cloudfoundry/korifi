@@ -4,8 +4,8 @@ const (
 	BuildpackLifecycle LifecycleType = "buildpack"
 	DockerPackage      PackageType   = "docker"
 
-	StartedState DesiredState = "STARTED"
-	StoppedState DesiredState = "STOPPED"
+	StartedState AppState = "STARTED"
+	StoppedState AppState = "STOPPED"
 
 	HTTPHealthCheckType    HealthCheckType = "http"
 	PortHealthCheckType    HealthCheckType = "port"

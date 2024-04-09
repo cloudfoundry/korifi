@@ -61,6 +61,9 @@ type AppWorkloadStatus struct {
 
 	// ObservedGeneration captures the latest generation of the AppWorkload that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	//+kubebuilder:validation:Optional
+	ActualInstances int32 `json:"actualInstances"`
 }
 
 //+kubebuilder:object:root=true

@@ -88,14 +88,14 @@ type TaskRepo struct {
 	userClientFactory    authorization.UserK8sClientFactory
 	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
-	taskConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFTask]
+	taskConditionAwaiter Awaiter[*korifiv1alpha1.CFTask]
 }
 
 func NewTaskRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	nsRetriever NamespaceRetriever,
 	namespacePermissions *authorization.NamespacePermissions,
-	taskConditionAwaiter ConditionAwaiter[*korifiv1alpha1.CFTask],
+	taskConditionAwaiter Awaiter[*korifiv1alpha1.CFTask],
 ) *TaskRepo {
 	return &TaskRepo{
 		userClientFactory:    userClientFactory,

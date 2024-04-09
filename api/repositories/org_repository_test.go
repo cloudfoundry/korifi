@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
@@ -26,7 +27,7 @@ import (
 
 var _ = Describe("OrgRepository", func() {
 	var (
-		conditionAwaiter *FakeAwaiter[
+		conditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
@@ -35,7 +36,7 @@ var _ = Describe("OrgRepository", func() {
 	)
 
 	BeforeEach(func() {
-		conditionAwaiter = &FakeAwaiter[
+		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,

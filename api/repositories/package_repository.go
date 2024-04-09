@@ -45,7 +45,7 @@ type PackageRepo struct {
 	namespacePermissions *authorization.NamespacePermissions
 	repositoryCreator    RepositoryCreator
 	repositoryPrefix     string
-	awaiter              ConditionAwaiter[*korifiv1alpha1.CFPackage]
+	awaiter              Awaiter[*korifiv1alpha1.CFPackage]
 }
 
 func NewPackageRepo(
@@ -54,7 +54,7 @@ func NewPackageRepo(
 	authPerms *authorization.NamespacePermissions,
 	repositoryCreator RepositoryCreator,
 	repositoryPrefix string,
-	awaiter ConditionAwaiter[*korifiv1alpha1.CFPackage],
+	awaiter Awaiter[*korifiv1alpha1.CFPackage],
 ) *PackageRepo {
 	return &PackageRepo{
 		userClientFactory:    userClientFactory,

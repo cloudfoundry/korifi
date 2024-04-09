@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -25,7 +26,7 @@ import (
 
 var _ = Describe("TaskRepository", func() {
 	var (
-		conditionAwaiter *FakeAwaiter[
+		conditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFTask,
 			korifiv1alpha1.CFTaskList,
 			*korifiv1alpha1.CFTaskList,
@@ -37,7 +38,7 @@ var _ = Describe("TaskRepository", func() {
 	)
 
 	BeforeEach(func() {
-		conditionAwaiter = &FakeAwaiter[
+		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFTask,
 			korifiv1alpha1.CFTaskList,
 			*korifiv1alpha1.CFTaskList,
