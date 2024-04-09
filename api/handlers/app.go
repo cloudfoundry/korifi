@@ -616,6 +616,26 @@ func (h *App) getSSHEnabled(r *http.Request) (*routing.Response, error) {
 	}), nil
 }
 
+func (h *App) getAppFeature(r *http.Request) (*routing.Response, error) {
+	featureName := routing.URLParam(r, "name")
+	switch featureName {
+	case "ssh":
+		return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+			"name":        "ssh",
+			"description": "Enable SSHing into the app.",
+			"enabled":     false,
+		}), nil
+	case "revisions":
+		return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+			"name":        "revisions",
+			"description": "Enable versioning of an application",
+			"enabled":     false,
+		}), nil
+	default:
+		return nil, apierrors.NewNotFoundError(nil, "Feature")
+	}
+}
+
 func (h *App) updateAppFeature(r *http.Request) (*routing.Response, error) {
 	featureName := routing.URLParam(r, "name")
 	return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
@@ -701,6 +721,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: AppEnvVarsPath, Handler: h.getEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
 		{Method: "GET", Pattern: AppPackagesPath, Handler: h.getPackages},
+		{Method: "GET", Pattern: AppFeaturePath, Handler: h.getAppFeature},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSSHEnabled},
 		{Method: "PATCH", Pattern: AppFeaturePath, Handler: h.updateAppFeature},

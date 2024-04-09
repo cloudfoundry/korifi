@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
@@ -14,12 +13,10 @@ import (
 	"github.com/cloudfoundry/cf-test-helpers/generator"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
 	gomegatypes "github.com/onsi/gomega/types"
 	"gopkg.in/yaml.v2"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -61,9 +58,6 @@ func TestSmoke(t *testing.T) {
 				},
 			})
 		},
-		ContainSubstring("Org deletion timed out"): func(config *rest.Config, _ string) {
-			printOrgNamespaces(config)
-		},
 	}))
 	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
 	SetDefaultEventuallyPollingInterval(helpers.EventuallyPollingInterval())
@@ -102,11 +96,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	if CurrentSpecReport().State.Is(types.SpecStateFailed) {
-		printAppReport(buildpackAppName)
-	}
-
-	Expect(helpers.Cf("delete-org", orgName, "-f").Wait()).To(Exit(0))
+	Expect(helpers.Cf("delete-org", orgName, "-f").Wait()).To(Exit())
 
 	serviceAccountFactory.DeleteServiceAccount(cfAdmin)
 	helpers.RemoveUserFromKubeConfig(cfAdmin)
@@ -121,33 +111,6 @@ func sessionOutput(session *Session) (string, error) {
 		)
 	}
 	return strings.TrimSpace(string(session.Out.Contents())), nil
-}
-
-func printOrgNamespaces(config *rest.Config) {
-	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
-	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to create k8s client: %v\n", err)
-		return
-	}
-
-	namespaces := &corev1.NamespaceList{}
-	if err := k8sClient.List(context.Background(), namespaces); err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to list namespaces: %v\n", err)
-		return
-	}
-
-	for _, namespace := range namespaces.Items {
-		if !strings.Contains(namespace.Name, repositories.OrgPrefix) {
-			continue
-		}
-
-		fmt.Fprintln(GinkgoWriter, "CFOrg deletion timed out! Printing all Org namespaces:")
-		if err := printObject(k8sClient, &namespace); err != nil {
-			fmt.Fprintf(GinkgoWriter, "failed printing namespace: %v\n", err)
-			return
-		}
-	}
 }
 
 func printCfApp(config *rest.Config) {

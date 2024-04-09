@@ -140,7 +140,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFBuildpackBuild"),
 		controllerConfig,
-		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
+		env.NewAppEnvBuilder(k8sManager.GetClient()),
 	)
 	err = (cfBuildpackBuildReconciler).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -160,7 +160,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFProcess"),
 		controllerConfig,
-		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
+		env.NewProcessEnvBuilder(k8sManager.GetClient()),
 	)).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -204,7 +204,7 @@ var _ = BeforeSuite(func() {
 		k8sManager.GetScheme(),
 		eventRecorder,
 		ctrl.Log.WithName("controllers").WithName("CFTask"),
-		env.NewWorkloadEnvBuilder(k8sManager.GetClient()),
+		env.NewAppEnvBuilder(k8sManager.GetClient()),
 		2*time.Second,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

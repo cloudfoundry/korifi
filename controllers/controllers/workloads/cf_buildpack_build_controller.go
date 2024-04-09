@@ -42,13 +42,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+type BuildpackEnvBuilder interface {
+	Build(context.Context, *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error)
+}
+
 func NewCFBuildpackBuildReconciler(
 	k8sClient client.Client,
 	buildCleaner build.BuildCleaner,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	controllerConfig *config.ControllerConfig,
-	envBuilder EnvBuilder,
+	envBuilder BuildpackEnvBuilder,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild] {
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](
 		log,
@@ -70,7 +74,7 @@ func NewCFBuildpackBuildReconciler(
 type buildpackBuildReconciler struct {
 	k8sClient        client.Client
 	controllerConfig *config.ControllerConfig
-	envBuilder       EnvBuilder
+	envBuilder       BuildpackEnvBuilder
 	scheme           *runtime.Scheme
 }
 
@@ -234,7 +238,7 @@ func (r *buildpackBuildReconciler) createBuildWorkload(ctx context.Context, cfBu
 	}
 	desiredWorkload.Spec.Services = buildServices
 
-	imageEnvironment, err := r.envBuilder.BuildEnv(ctx, cfApp)
+	imageEnvironment, err := r.envBuilder.Build(ctx, cfApp)
 	if err != nil {
 		log.Info("failed to build environment", "reason", err)
 		return err

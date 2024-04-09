@@ -46,13 +46,17 @@ const (
 	LifecycleLauncherPath = "/cnb/lifecycle/launcher"
 )
 
+type TaskEnvBuilder interface {
+	Build(context.Context, *korifiv1alpha1.CFApp) ([]corev1.EnvVar, error)
+}
+
 // CFTaskReconciler reconciles a CFTask object
 type CFTaskReconciler struct {
 	k8sClient       client.Client
 	scheme          *runtime.Scheme
 	recorder        record.EventRecorder
 	log             logr.Logger
-	envBuilder      EnvBuilder
+	envBuilder      TaskEnvBuilder
 	taskTTLDuration time.Duration
 }
 
@@ -61,7 +65,7 @@ func NewCFTaskReconciler(
 	scheme *runtime.Scheme,
 	recorder record.EventRecorder,
 	log logr.Logger,
-	envBuilder EnvBuilder,
+	envBuilder TaskEnvBuilder,
 	taskTTLDuration time.Duration,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask] {
 	taskReconciler := CFTaskReconciler{
@@ -131,7 +135,7 @@ func (r *CFTaskReconciler) ReconcileResource(ctx context.Context, cfTask *korifi
 		return r.reconcileResult(cfTask, err)
 	}
 
-	env, err := r.envBuilder.BuildEnv(ctx, cfApp)
+	env, err := r.envBuilder.Build(ctx, cfApp)
 	if err != nil {
 		log.Info("failed to build env", "reason", err)
 		return r.reconcileResult(cfTask, err)

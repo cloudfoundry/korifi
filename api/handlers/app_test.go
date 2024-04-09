@@ -1655,6 +1655,55 @@ var _ = Describe("App", func() {
 			)))
 		})
 	})
+
+	Describe("GET /v3/apps/GUID/features", func() {
+		When("feature ssh is called", func() {
+			BeforeEach(func() {
+				req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/features/ssh", nil)
+			})
+
+			It("returns ssh enabled false", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.name", Equal("ssh")),
+					MatchJSONPath("$.description", Equal("Enable SSHing into the app.")),
+					MatchJSONPath("$.enabled", BeFalse()),
+				)))
+			})
+		})
+		When("feature revisions is called", func() {
+			BeforeEach(func() {
+				req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/features/revisions", nil)
+			})
+
+			It("returns revisions enabled false", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.name", Equal("revisions")),
+					MatchJSONPath("$.description", Equal("Enable versioning of an application")),
+					MatchJSONPath("$.enabled", BeFalse()),
+				)))
+			})
+		})
+		When("anything else is called", func() {
+			BeforeEach(func() {
+				req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/features/anything-else", nil)
+			})
+
+			It("returns feature not found", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNotFound))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.errors", HaveLen(1)),
+					MatchJSONPath("$.errors[0].detail", Equal("Feature not found. Ensure it exists and you have access to it.")),
+					MatchJSONPath("$.errors[0].title", Equal("CF-ResourceNotFound")),
+					MatchJSONPath("$.errors[0].code", BeEquivalentTo(10010)),
+				)))
+			})
+		})
+	})
 })
 
 func createHttpRequest(method string, url string, body io.Reader) *http.Request {

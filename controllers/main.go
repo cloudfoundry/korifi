@@ -169,7 +169,7 @@ func main() {
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFBuildpackBuild"),
 			controllerConfig,
-			env.NewWorkloadEnvBuilder(mgr.GetClient()),
+			env.NewAppEnvBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFBuildpackBuild")
 			os.Exit(1)
@@ -203,7 +203,7 @@ func main() {
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFProcess"),
 			controllerConfig,
-			env.NewWorkloadEnvBuilder(mgr.GetClient()),
+			env.NewProcessEnvBuilder(mgr.GetClient()),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
 			os.Exit(1)
@@ -316,7 +316,7 @@ func main() {
 			mgr.GetScheme(),
 			mgr.GetEventRecorderFor("cftask-controller"),
 			ctrl.Log.WithName("controllers").WithName("CFTask"),
-			env.NewWorkloadEnvBuilder(mgr.GetClient()),
+			env.NewAppEnvBuilder(mgr.GetClient()),
 			taskTTL,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFTask")
