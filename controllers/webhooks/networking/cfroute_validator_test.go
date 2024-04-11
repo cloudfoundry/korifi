@@ -152,13 +152,13 @@ var _ = Describe("CFRouteValidator", func() {
 
 		When("the host is invalid", func() {
 			BeforeEach(func() {
-				cfRoute.Spec.Host = "inVAlidnAme"
+				cfRoute.Spec.Host = "inVAl!dnAme?"
 			})
 
 			It("denies the request", func() {
 				Expect(retErr).To(matchers.BeValidationError(
 					networking.RouteHostNameValidationErrorType,
-					ContainSubstring("Host \"inVAlidnAme\" is not valid"),
+					ContainSubstring("Host \"inval!dname?\" is not valid"),
 				))
 			})
 		})

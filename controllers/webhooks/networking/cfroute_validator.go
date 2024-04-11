@@ -212,6 +212,7 @@ func validateFQDN(host, domain string) error {
 		}.ExportJSONError()
 	}
 
+	host = strings.ToLower(host)
 	err := validateHost(host)
 	if err != nil {
 		return webhooks.ValidationError{
