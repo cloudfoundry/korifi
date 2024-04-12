@@ -1,0 +1,39 @@
+name: Release Workflow
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Release
+    runs-on: [ self-hosted ]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: dump release tag
+      run: echo ${{ github.ref }}
+    - name: prepare release artifacts 
+      run: scripts/create-release.sh ${{ github.ref }}
+    - name: Github release
+        uses: actions/create-release@v1
+        id: gh_release
+        with:
+          draft: true
+          prerelease: false
+          release_name: ${{ github.ref }}
+          tag_name: ${{ github.ref }}
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+    - name: upload release artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.gh_release.outputs.upload_url }}
+          asset_path: ./release-${{ githib.ref }}/values.yaml
+          asset_name: values.yaml
+          asset_content_type: yaml
