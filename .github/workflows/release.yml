@@ -34,6 +34,6 @@ jobs:
         GITHUB_TOKEN: ${{ github.token }}
       with:
         upload_url: ${{ steps.gh_release.outputs.upload_url }}
-        asset_path: ./release-${{ githib.ref }}/values.yaml
+        asset_path: ./release-${{ github.ref }}/values.yaml
         asset_name: values.yaml
         asset_content_type: yaml
