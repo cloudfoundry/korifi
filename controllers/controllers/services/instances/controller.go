@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package services
+package instances
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -160,7 +161,7 @@ func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfS
 }
 
 func (r *CFServiceInstanceReconciler) reconcileCredentials(ctx context.Context, credentialsSecret *corev1.Secret, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*corev1.Secret, error) {
-	if !strings.HasPrefix(string(credentialsSecret.Type), ServiceBindingSecretTypePrefix) {
+	if !strings.HasPrefix(string(credentialsSecret.Type), bindings.ServiceBindingSecretTypePrefix) {
 		return credentialsSecret, nil
 	}
 
