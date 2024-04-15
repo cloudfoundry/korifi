@@ -30,14 +30,6 @@ func PrefixedGUID(prefix string) string {
 	return prefix + "-" + uuid.NewString()[:8]
 }
 
-func BuildNamespaceObject(name string) *corev1.Namespace {
-	return &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
-}
-
 func BuildCFAppCRObject(appGUID string, spaceGUID string) *korifiv1alpha1.CFApp {
 	return &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
