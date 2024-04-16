@@ -18,3 +18,6 @@ kbld \
       -f "$RELEASE_DIR/korifi-kbld-release.yml" \
       -f "helm/korifi/values.yaml" \
       --images-annotation=false >$RELEASE_DIR/values.yml
+
+
+tar -czf $RELEASE_DIR/korifi-helm.tar.gz -C helm .

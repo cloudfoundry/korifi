@@ -13,27 +13,37 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: dump release tag
-      run: echo ${{ github.ref }}
+    - name: set version
+      run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+      id: version
     - name: prepare release artifacts 
-      run: scripts/create-release.sh ${{ github.ref }}
+      run: scripts/create-release.sh ${{ steps.version.outputs.version }}
     - name: Github release
       uses: actions/create-release@v1
       id: gh_release
       with:
-        draft: true
+        draft: false
         prerelease: false
-        release_name: ${{ github.ref }}
-        tag_name: ${{ github.ref }}
+        release_name: ${{ github.ref_name }}
+        tag_name: ${{ github.ref_name }}
         body_path: CHANGELOG.md
       env:
         GITHUB_TOKEN: ${{ github.token }}
-    - name: upload release artifacts
+    - name: upload release values.yaml
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ github.token }}
       with:
         upload_url: ${{ steps.gh_release.outputs.upload_url }}
-        asset_path: ./release-${{ github.ref }}/values.yaml
+        asset_path: ./release-${{ steps.version.outputs.version }}/values.yaml
         asset_name: values.yaml
         asset_content_type: yaml
+    - name: upload release helm chart
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.gh_release.outputs.upload_url }}
+        asset_path: ./release-${{ steps.version.outputs.version }}/korifi-helm.tar.gz
+        asset_name: korifi-helm.tar.gz
+        asset_content_type: application/gzip
