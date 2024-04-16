@@ -17,7 +17,7 @@ yq -i "with(.destinations[]; .newImage |= sub(\"registry\",\"$DOCKER_REGISTRY\")
 kbld \
       -f "$RELEASE_DIR/korifi-kbld-release.yml" \
       -f "helm/korifi/values.yaml" \
-      --images-annotation=false >$RELEASE_DIR/values.yml
+      --images-annotation=false >$RELEASE_DIR/values.yaml
 
 
 tar -czf $RELEASE_DIR/korifi-helm.tar.gz -C helm .
