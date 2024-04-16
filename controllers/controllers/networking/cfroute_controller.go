@@ -449,7 +449,7 @@ func generateServiceName(destination korifiv1alpha1.Destination) string {
 }
 
 func buildFQDN(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) string {
-	return fmt.Sprintf("%s.%s", strings.ToLower(cfRoute.Spec.Host), cfDomain.Spec.Name) 
+	return fmt.Sprintf("%s.%s", strings.ToLower(cfRoute.Spec.Host), cfDomain.Spec.Name)
 }
 
 func toBackendRefs(destinations []korifiv1alpha1.Destination) []gatewayv1beta1.HTTPBackendRef {

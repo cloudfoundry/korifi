@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package services_test
+package instances_test
 
 import (
 	"context"
@@ -23,13 +23,12 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/services"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,7 +50,7 @@ func TestAPIs(t *testing.T) {
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Services Controllers Integration Suite")
+	RunSpecs(t, "Services Instance Controller Integration Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -61,8 +60,7 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
-			filepath.Join("..", "..", "..", "tests", "vendor", "service-binding"),
+			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -71,21 +69,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(servicebindingv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	err = (NewCFServiceBindingReconciler(
-		k8sManager.GetClient(),
-		k8sManager.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
-	)).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = (NewCFServiceInstanceReconciler(
+	err = (instances.NewCFServiceInstanceReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),

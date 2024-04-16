@@ -28,7 +28,9 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	networkingcontrollers "code.cloudfoundry.org/korifi/controllers/controllers/networking"
-	servicescontrollers "code.cloudfoundry.org/korifi/controllers/controllers/services"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/broker"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	workloadscontrollers "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
@@ -209,7 +211,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (servicescontrollers.NewCFServiceInstanceReconciler(
+		if err = (instances.NewCFServiceInstanceReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
@@ -218,8 +220,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		brokerClient := servicescontrollers.NewBrokerClient(mgr.GetClient(), controllerConfig.CFRootNamespace)
-		if err = (servicescontrollers.NewManagedCFServiceInstanceReconciler(
+		brokerClient := broker.NewBrokerClient(mgr.GetClient(), controllerConfig.CFRootNamespace)
+		if err = (instances.NewManagedCFServiceInstanceReconciler(
 			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceInstance"),
 			mgr.GetClient(),
 			brokerClient,
@@ -229,7 +231,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (servicescontrollers.NewCFServiceBindingReconciler(
+		if err = (bindings.NewCFServiceBindingReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
@@ -238,7 +240,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (servicescontrollers.NewManagedCFServiceBindingReconciler(
+		if err = (bindings.NewManagedCFServiceBindingReconciler(
 			ctrl.Log.WithName("controllers").WithName("ManagedCFServiceBinding"),
 			mgr.GetClient(),
 			mgr.GetScheme(),
@@ -248,7 +250,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (servicescontrollers.NewCFServiceBrokerReconciler(
+		if err = (broker.NewCFServiceBrokerReconciler(
 			controllerConfig.CFRootNamespace,
 			mgr.GetClient(),
 			mgr.GetScheme(),

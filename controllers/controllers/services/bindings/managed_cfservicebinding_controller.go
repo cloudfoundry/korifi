@@ -14,15 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package services
+package bindings
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/broker"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -38,22 +39,25 @@ import (
 )
 
 const (
+	requeueInterval          = 5 * time.Second
 	BindRequestedCondition   = "BindRequested"
 	UnbindRequestedCondition = "UnbindRequested"
+	ReadyCondition           = "Ready"
+	FailedCondition          = "Failed"
 )
 
 type ManagedCFServiceBindingReconciler struct {
 	log          logr.Logger
 	k8sClient    client.Client
 	scheme       *runtime.Scheme
-	brokerClient BrokerClient
+	brokerClient broker.BrokerClient
 }
 
 func NewManagedCFServiceBindingReconciler(
 	log logr.Logger,
 	k8sClient client.Client,
 	scheme *runtime.Scheme,
-	brokerClient BrokerClient,
+	brokerClient broker.BrokerClient,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBinding, *korifiv1alpha1.CFServiceBinding] {
 	cfBindingReconciler := &ManagedCFServiceBindingReconciler{
 		log:          log,
@@ -205,7 +209,7 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 	}
 
 	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-		Type:               bindings.VCAPServicesSecretAvailableCondition,
+		Type:               VCAPServicesSecretAvailableCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "SecretFound",
 		Message:            "",

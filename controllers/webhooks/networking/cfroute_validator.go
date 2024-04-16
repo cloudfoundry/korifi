@@ -212,7 +212,7 @@ func validateFQDN(host, domain string) error {
 			Message: fmt.Sprintf("A valid DNS-1123 subdomain must not exceed %d characters.", validation.DNS1123SubdomainMaxLength),
 		}.ExportJSONError()
 	}
-	// validate host after converting it to lower case
+
 	host = strings.ToLower(host)
 	err := validateHost(host)
 	if err != nil {
