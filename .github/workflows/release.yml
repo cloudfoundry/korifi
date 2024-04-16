@@ -17,7 +17,7 @@ jobs:
       run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
       id: version
     - name: prepare release artifacts 
-      run: scripts/create-release.sh ${{ steps.version.outputs.version }}
+      run: ./scripts/create-release.sh ${{ steps.version.outputs.version }}
     - name: Github release
       uses: actions/create-release@v1
       id: gh_release
