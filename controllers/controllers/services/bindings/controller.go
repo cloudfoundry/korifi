@@ -27,8 +27,10 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -138,6 +140,16 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 
 	credentialsSecret, err := r.reconcileCredentials(ctx, cfServiceInstance, cfServiceBinding)
 	if err != nil {
+		if k8serrors.IsInvalid(err) {
+			err = r.k8sClient.Delete(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cfServiceBinding.Name,
+					Namespace: cfServiceBinding.Namespace,
+				},
+			})
+			return ctrl.Result{Requeue: true}, errors.Wrap(err, "failed to delete outdated binding secret")
+		}
+
 		log.Error(err, "failed to reconcile credentials secret")
 		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 			Type:               BindingSecretAvailableCondition,
@@ -247,7 +259,7 @@ func (r *CFServiceBindingReconciler) reconcileCredentials(ctx context.Context, c
 		return controllerutil.SetControllerReference(cfServiceBinding, bindingSecret, r.scheme)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create binding secret: %w", err)
+		return nil, errors.Wrap(err, "failed to create binding secret")
 	}
 
 	cfServiceBinding.Status.Binding.Name = bindingSecret.Name

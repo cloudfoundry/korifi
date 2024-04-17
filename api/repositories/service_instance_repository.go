@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -14,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"golang.org/x/exp/maps"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -32,8 +30,6 @@ const (
 	CFServiceInstanceGUIDLabel          = "korifi.cloudfoundry.org/service-instance-guid"
 	ServiceInstanceResourceType         = "Service Instance"
 	CredentialsSecretAvailableCondition = "CredentialSecretAvailable"
-
-	credentialsTypeKey = "type"
 )
 
 type NamespaceGetter interface {
@@ -137,23 +133,13 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 	}
 
 	if message.Type == korifiv1alpha1.UserProvidedType {
-		err = r.createCredentialsSecret(ctx, userClient, cfServiceInstance, defaultCredentialsType(message.Credentials))
+		err = r.createCredentialsSecret(ctx, userClient, cfServiceInstance, message.Credentials)
 		if err != nil {
 			return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 		}
 	}
 
 	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance)
-}
-
-func defaultCredentialsType(credentials map[string]any) map[string]any {
-	result := map[string]any{}
-	maps.Copy(result, credentials)
-	if _, hasCredentialsType := result[credentialsTypeKey]; !hasCredentialsType {
-		result[credentialsTypeKey] = korifiv1alpha1.UserProvidedType
-	}
-
-	return result
 }
 
 func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchServiceInstanceMessage) (ServiceInstanceRecord, error) {
@@ -211,9 +197,6 @@ func (r *ServiceInstanceRepo) patchCredentialsSecret(
 	cfServiceInstance *korifiv1alpha1.CFServiceInstance,
 	credentials map[string]any,
 ) error {
-	newCredentials := map[string]any{}
-	maps.Copy(newCredentials, credentials)
-
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfServiceInstance.Spec.SecretName,
@@ -226,17 +209,7 @@ func (r *ServiceInstanceRepo) patchCredentialsSecret(
 		return err
 	}
 
-	oldCredentials := fromSecretData(credentialsSecret.Data)
-	err = validateCredentialsChange(oldCredentials, newCredentials)
-	if err != nil {
-		return err
-	}
-
-	if oldCredentialType, hasCredentialsType := oldCredentials[credentialsTypeKey]; hasCredentialsType {
-		newCredentials[credentialsTypeKey] = oldCredentialType
-	}
-
-	return r.createCredentialsSecret(ctx, userClient, cfServiceInstance, newCredentials)
+	return r.createCredentialsSecret(ctx, userClient, cfServiceInstance, credentials)
 }
 
 func (r *ServiceInstanceRepo) createCredentialsSecret(
@@ -245,9 +218,6 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 	cfServiceInstance *korifiv1alpha1.CFServiceInstance,
 	credentials map[string]any,
 ) error {
-	newCredentials := map[string]any{}
-	maps.Copy(newCredentials, credentials)
-
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfServiceInstance.Spec.SecretName,
@@ -262,7 +232,7 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 		credentialsSecret.Labels[CFServiceInstanceGUIDLabel] = cfServiceInstance.Name
 
 		var err error
-		credentialsSecret.Data, err = toSecretData(newCredentials)
+		credentialsSecret.Data, err = toSecretData(credentials)
 		if err != nil {
 			return errors.New("failed to marshal credentials for service instance")
 		}
@@ -282,42 +252,6 @@ func toSecretData(credentials map[string]any) (map[string][]byte, error) {
 	return map[string][]byte{
 		korifiv1alpha1.CredentialsSecretKey: credentialBytes,
 	}, nil
-}
-
-func fromSecretData(credentialsSecretData map[string][]byte) map[string]any {
-	credentialsBytes, hasCredentials := credentialsSecretData[korifiv1alpha1.CredentialsSecretKey]
-	if !hasCredentials {
-		return nil
-	}
-
-	var credentials map[string]any
-	err := json.Unmarshal(credentialsBytes, &credentials)
-	if err != nil {
-		return nil
-	}
-
-	return credentials
-}
-
-func validateCredentialsChange(oldCredentials, newCredentials map[string]any) error {
-	oldType, hasType := oldCredentials[credentialsTypeKey]
-	if !hasType {
-		oldType = korifiv1alpha1.UserProvidedType
-	}
-
-	newType, hasType := newCredentials[credentialsTypeKey]
-	if !hasType {
-		return nil
-	}
-
-	if !reflect.DeepEqual(oldType, newType) {
-		return apierrors.NewInvalidRequestError(
-			fmt.Errorf("cannot modify credential type: currently '%v': updating to '%v'", oldType, newType),
-			"Cannot change credential type. Consider creating a new Service Instance.",
-		)
-	}
-
-	return nil
 }
 
 // nolint:dupl

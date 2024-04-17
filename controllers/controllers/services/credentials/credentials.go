@@ -37,6 +37,10 @@ func GetServiceBindingIOSecretData(credentialsSecret *corev1.Secret) (map[string
 		}
 	}
 
+	if _, hasType := secretData["type"]; !hasType {
+		secretData["type"] = []byte("user-provided")
+	}
+
 	return secretData, err
 }
 
