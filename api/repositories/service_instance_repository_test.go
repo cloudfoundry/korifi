@@ -68,7 +68,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		BeforeEach(func() {
 			serviceInstanceTags = []string{"foo", "bar"}
 			serviceInstanceCredentials = map[string]any{
-				"type":   "my-type",
 				"object": map[string]any{"a": "b"},
 			}
 
@@ -112,24 +111,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(json.Unmarshal(createdSecret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
 				Expect(credentials).To(Equal(serviceInstanceCredentials))
 			})
-
-			When("ServiceInstance credential type is not provided", func() {
-				BeforeEach(func() {
-					serviceInstanceCreateMessage.Credentials = map[string]any{
-						"a": "b",
-					}
-				})
-
-				It("defaults the credential type", func() {
-					Expect(createdSecret.Data).To(MatchAllKeys(Keys{korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty())}))
-					credentials := map[string]any{}
-					Expect(json.Unmarshal(createdSecret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
-					Expect(credentials).To(MatchAllKeys(Keys{
-						"type": Equal("user-provided"),
-						"a":    Equal("b"),
-					}))
-				})
-			})
 		})
 
 		When("user does not have permissions to create ServiceInstances", func() {
@@ -163,7 +144,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Namespace: space.Name,
 				},
 				StringData: map[string]string{
-					korifiv1alpha1.CredentialsSecretKey: `{"type":"database","a": "b"}`,
+					korifiv1alpha1.CredentialsSecretKey: `{"a": "b"}`,
 				},
 			}
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
@@ -259,8 +240,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					credentials := map[string]any{}
 					g.Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
 					g.Expect(credentials).To(MatchAllKeys(Keys{
-						"a":    Equal("b"),
-						"type": Equal("database"),
+						"a": Equal("b"),
 					}))
 				}).Should(Succeed())
 			})
@@ -268,7 +248,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			When("ServiceInstance credentials are provided", func() {
 				BeforeEach(func() {
 					patchMessage.Credentials = &map[string]any{
-						"type":   "database",
 						"object": map[string]any{"c": "d"},
 					}
 				})
@@ -289,7 +268,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						credentials := map[string]any{}
 						Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
 						Expect(credentials).To(MatchAllKeys(Keys{
-							"type":   Equal("database"),
 							"object": MatchAllKeys(Keys{"c": Equal("d")}),
 						}))
 					}).Should(Succeed())
@@ -302,79 +280,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 					It("returns an error", func() {
 						Expect(err).To(MatchError(ContainSubstring("timed-out")))
-					})
-				})
-
-				When("the instance credentials modify the type", func() {
-					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]any{
-							"type": "mysql",
-						}
-					})
-
-					It("disallows changing type", func() {
-						Expect(err).To(MatchError(ContainSubstring("cannot modify credential")))
-					})
-
-					When("the current secret does not have a type", func() {
-						BeforeEach(func() {
-							Expect(k8s.Patch(ctx, k8sClient, secret, func() {
-								secret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte{}
-							})).To(Succeed())
-						})
-
-						It("disallows changing the default type", func() {
-							Expect(err).To(MatchError(ContainSubstring("cannot modify credential")))
-						})
-					})
-				})
-
-				When("the instance credentials don't specify a type", func() {
-					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]any{
-							"cred-one": "val-one",
-							"cred-two": "val-two",
-						}
-					})
-
-					It("updates the creds and keeps the existing type", func() {
-						Expect(err).NotTo(HaveOccurred())
-						Eventually(func(g Gomega) {
-							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-							g.Expect(secret.Data).To(HaveKey(korifiv1alpha1.CredentialsSecretKey))
-							credentials := map[string]any{}
-							g.Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
-							g.Expect(credentials).To(MatchAllKeys(Keys{
-								"type":     BeEquivalentTo("database"),
-								"cred-one": BeEquivalentTo("val-one"),
-								"cred-two": BeEquivalentTo("val-two"),
-							}))
-						}).Should(Succeed())
-					})
-				})
-
-				When("the instance credentials pass the old type unchanged", func() {
-					BeforeEach(func() {
-						patchMessage.Credentials = &map[string]any{
-							"type":     "database",
-							"cred-one": "val-one",
-							"cred-two": "val-two",
-						}
-					})
-
-					It("updates the creds and keeps the existing type", func() {
-						Expect(err).NotTo(HaveOccurred())
-						Eventually(func(g Gomega) {
-							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-							g.Expect(secret.Data).To(HaveKey(korifiv1alpha1.CredentialsSecretKey))
-							credentials := map[string]any{}
-							g.Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
-							g.Expect(credentials).To(MatchAllKeys(Keys{
-								"type":     BeEquivalentTo("database"),
-								"cred-one": BeEquivalentTo("val-one"),
-								"cred-two": BeEquivalentTo("val-two"),
-							}))
-						}).Should(Succeed())
 					})
 				})
 
