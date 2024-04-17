@@ -106,13 +106,28 @@ var _ = Describe("Credentials", func() {
 
 		JustBeforeEach(func() {
 			bindingSecretData, err = credentials.GetServiceBindingIOSecretData(credentialsSecret)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("converts the credentials into a flat strings map", func() {
-			Expect(err).NotTo(HaveOccurred())
 			Expect(bindingSecretData).To(MatchAllKeys(Keys{
-				"foo": Equal([]byte(`{"bar":"baz"}`)),
+				"type": BeEquivalentTo("user-provided"),
+				"foo":  BeEquivalentTo(`{"bar":"baz"}`),
 			}))
+		})
+
+		When("the credentials secrets has a 'type' attribute specified", func() {
+			BeforeEach(func() {
+				credentialsSecret.Data = map[string][]byte{
+					korifiv1alpha1.CredentialsSecretKey: []byte(`{"type": "my-type"}`),
+				}
+			})
+
+			It("overrides the default type", func() {
+				Expect(bindingSecretData).To(MatchAllKeys(Keys{
+					"type": BeEquivalentTo("my-type"),
+				}))
+			})
 		})
 	})
 })

@@ -217,7 +217,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			It("updates the VCAP_SERVICES secret", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(vcapServicesSecret), vcapServicesSecret)).To(Succeed())
-					g.Expect(vcapServicesSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", Equal([]byte("{}"))))
+					g.Expect(vcapServicesSecret.Data).To(HaveKeyWithValue("VCAP_SERVICES", BeEquivalentTo("{}")))
 				}).Should(Succeed())
 			})
 		})
