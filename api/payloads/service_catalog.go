@@ -22,7 +22,7 @@ func (l *ServiceOfferingList) ToMessage() repositories.ListServiceOfferingMessag
 }
 
 func (l *ServiceOfferingList) SupportedKeys() []string {
-	return []string{"names", "page", "space_guids"}
+	return []string{"names", "page", "space_guids", "service_broker", "per_page"}
 }
 
 func (l *ServiceOfferingList) IgnoredKeys() []*regexp.Regexp {
