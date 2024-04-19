@@ -379,9 +379,16 @@ var _ = Describe("CFServiceBinding", func() {
 				instance.Status.Credentials.Name = instance.Name
 			})).To(Succeed())
 
-			Expect(k8s.Patch(ctx, adminClient, binding, func() {
-				binding.Status.Binding.Name = instance.Name
-			})).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(k8s.Patch(ctx, adminClient, binding, func() {
+					binding.Status.Binding.Name = instance.Name
+				})).To(Succeed())
+
+				// Ensure that the binding controller has observed the patch operation above
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Generation).To(Equal(binding.Status.ObservedGeneration))
+				g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))
+			}).Should(Succeed())
 		})
 
 		It("sets credentials secret not available condition", func() {
@@ -406,10 +413,6 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 
 			It("does not update the binding status", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))
-				}).Should(Succeed())
 				Consistently(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 					g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))
