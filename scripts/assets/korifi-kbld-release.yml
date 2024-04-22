@@ -16,6 +16,6 @@ sources:
 
 destinations:
 - image: cloudfoundry/korifi-api:latest
-  newImage: registry/trinity/korifi-api
+  newImage: registry/trinity/korifi-api-vrelease
 - image: cloudfoundry/korifi-controllers:latest
-  newImage: registry/trinity/korifi-controllers
+  newImage: registry/trinity/korifi-controllers-vrelease

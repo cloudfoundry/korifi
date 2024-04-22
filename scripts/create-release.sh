@@ -13,6 +13,7 @@ cp $SCRIPT_DIR/assets/korifi-kbld-release.yml $RELEASE_DIR/
 
 yq -i "with(.destinations[]; .tags=[\"latest\", \"$VERSION\"])" "$RELEASE_DIR/korifi-kbld-release.yml"
 yq -i "with(.destinations[]; .newImage |= sub(\"registry\",\"$DOCKER_REGISTRY\"))" "$RELEASE_DIR/korifi-kbld-release.yml"
+yq -i "with(.destinations[]; .newImage |= sub(\"vrelease\",\"$VERSION\"))" "$RELEASE_DIR/korifi-kbld-release.yml"
 
 kbld \
       -f "$RELEASE_DIR/korifi-kbld-release.yml" \
