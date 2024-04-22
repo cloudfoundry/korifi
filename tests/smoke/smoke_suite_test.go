@@ -42,9 +42,10 @@ func TestSmoke(t *testing.T) {
 	RegisterFailHandler(fail_handler.New("Smoke Tests",
 		fail_handler.Hook{
 			Matcher: fail_handler.Always,
-			Hook: func(config *rest.Config, message string) {
+			Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
 				printCfApp(config)
-				fail_handler.PrintKorifiLogs(config, "")
+				fail_handler.PrintKorifiLogs(config, "", failure.StartTime)
+				printBuildLogs(config, spaceName)
 			},
 		}).Fail)
 
@@ -141,4 +142,13 @@ func printObject(k8sClient client.Client, obj client.Object) error {
 	}
 	fmt.Fprintln(GinkgoWriter, string(objBytes))
 	return nil
+}
+
+func printBuildLogs(config *rest.Config, spaceName string) {
+	spaceGUID, err := sessionOutput(helpers.Cf("space", spaceName, "--guid").Wait())
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to get space guid: %v\n", err)
+		return
+	}
+	fail_handler.PrintAllBuildLogs(config, spaceGUID)
 }

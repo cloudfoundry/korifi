@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/onsi/ginkgo/v2"
@@ -17,23 +18,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type PodContainerDescriptor struct {
+type PodDescriptor struct {
 	Namespace     string
 	LabelKey      string
 	LabelValue    string
-	Container     string
 	CorrelationId string
+	Since         *metav1.Time
 }
 
-func PrintPodsLogs(config *rest.Config, podContainerDescriptors []PodContainerDescriptor) {
+func PrintPodsLogs(config *rest.Config, podDescriptors []PodDescriptor) {
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		fmt.Fprintf(ginkgo.GinkgoWriter, "failed to create clientset: %v\n", err)
 		return
 	}
 
-	for _, desc := range podContainerDescriptors {
-		pods, err := getPods(clientset, desc.Namespace, desc.LabelKey, desc.LabelValue)
+	for _, desc := range podDescriptors {
+		pods, err := getPods(clientset, desc)
 		if err != nil {
 			fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get pods with label %s=%s: %v\n", desc.LabelKey, desc.LabelValue, err)
 			continue
@@ -45,22 +46,20 @@ func PrintPodsLogs(config *rest.Config, podContainerDescriptors []PodContainerDe
 		}
 
 		for _, pod := range pods {
-			for _, container := range selectContainers(pod, desc.Container) {
-				printPodContainerLogs(clientset, pod, container, desc.CorrelationId)
-			}
+			printPodLogs(clientset, pod, desc)
 		}
 	}
 }
 
-func PrintPodEvents(config *rest.Config, podContainerDescriptors []PodContainerDescriptor) {
+func PrintPodEvents(config *rest.Config, podDescriptors []PodDescriptor) {
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		fmt.Fprintf(ginkgo.GinkgoWriter, "failed to create clientset: %v\n", err)
 		return
 	}
 
-	for _, desc := range podContainerDescriptors {
-		pods, err := getPods(clientset, desc.Namespace, desc.LabelKey, desc.LabelValue)
+	for _, desc := range podDescriptors {
+		pods, err := getPods(clientset, desc)
 		if err != nil {
 			fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get pods with label %s=%s: %v\n", desc.LabelKey, desc.LabelValue, err)
 			continue
@@ -94,9 +93,14 @@ func printEvents(clientset kubernetes.Interface, obj client.Object) {
 	}
 }
 
-func getPods(clientset kubernetes.Interface, namespace, labelKey, labelValue string) ([]corev1.Pod, error) {
-	pods, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", labelKey, labelValue),
+func getPods(clientset kubernetes.Interface, desc PodDescriptor) ([]corev1.Pod, error) {
+	labelSelector := fmt.Sprintf("%s=%s", desc.LabelKey, desc.LabelValue)
+	if desc.LabelValue == "" {
+		labelSelector = desc.LabelKey
+	}
+
+	pods, err := clientset.CoreV1().Pods(desc.Namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: labelSelector,
 	})
 	if err != nil {
 		return nil, err
@@ -105,11 +109,7 @@ func getPods(clientset kubernetes.Interface, namespace, labelKey, labelValue str
 	return pods.Items, nil
 }
 
-func selectContainers(pod corev1.Pod, container string) []string {
-	if container != "" {
-		return []string{container}
-	}
-
+func podContainers(pod corev1.Pod) []string {
 	result := []string{}
 	for _, initC := range pod.Spec.InitContainers {
 		result = append(result, initC.Name)
@@ -121,40 +121,42 @@ func selectContainers(pod corev1.Pod, container string) []string {
 	return result
 }
 
-func printPodContainerLogs(clientset kubernetes.Interface, pod corev1.Pod, container, correlationId string) {
-	log, err := getPodContainerLog(clientset, pod, container, correlationId)
-	if err != nil {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get logs for pod %q, container %q: %v\n", pod.Name, container, err)
-		return
+func printPodLogs(clientset kubernetes.Interface, pod corev1.Pod, desc PodDescriptor) {
+	for _, container := range podContainers(pod) {
+		log, err := getContainerLog(clientset, pod, desc, container)
+		if err != nil {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to get logs for pod %q: %v\n", pod.Name, err)
+			return
 
-	}
-	if log == "" {
-		log = "No relevant logs found"
-	}
+		}
+		if log == "" {
+			log = "No relevant logs found"
+		}
 
-	logHeader := fmt.Sprintf(
-		"Logs for pod %q, container %q",
-		pod.Name,
-		container,
-	)
-	if !fullLogOnErr() && correlationId != "" {
-		logHeader = fmt.Sprintf(
-			"Logs for pod %q, container %q with correlation ID %q",
+		logHeader := fmt.Sprintf(
+			"Logs for pod %q, container %q",
 			pod.Name,
 			container,
-			correlationId,
 		)
-	}
+		if !fullLogOnErr() && desc.CorrelationId != "" {
+			logHeader = fmt.Sprintf(
+				"Logs for pod %q with correlation ID %q, container %q",
+				pod.Name,
+				desc.CorrelationId,
+				container,
+			)
+		}
 
-	fmt.Fprintf(ginkgo.GinkgoWriter,
-		"\n\n===== %s =====\n%s\n==============================================\n\n",
-		logHeader,
-		log)
+		fmt.Fprintf(ginkgo.GinkgoWriter,
+			"\n\n===== %s =====\n%s\n==============================================\n\n",
+			logHeader,
+			log)
+	}
 }
 
-func getPodContainerLog(clientset kubernetes.Interface, pod corev1.Pod, container, correlationId string) (string, error) {
+func getContainerLog(clientset kubernetes.Interface, pod corev1.Pod, desc PodDescriptor, container string) (string, error) {
 	podLogOpts := corev1.PodLogOptions{
-		SinceTime: tools.PtrTo(metav1.NewTime(ginkgo.CurrentSpecReport().StartTime)),
+		SinceTime: desc.Since,
 		Container: container,
 	}
 	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
@@ -169,7 +171,7 @@ func getPodContainerLog(clientset kubernetes.Interface, pod corev1.Pod, containe
 	logScanner := bufio.NewScanner(logStream)
 
 	for logScanner.Scan() {
-		if fullLogOnErr() || strings.Contains(logScanner.Text(), correlationId) {
+		if fullLogOnErr() || strings.Contains(logScanner.Text(), desc.CorrelationId) {
 			logBuf.WriteString(logScanner.Text() + "\n")
 		}
 	}
@@ -184,13 +186,13 @@ func fullLogOnErr() bool {
 func PrintBuildLogs(config *rest.Config, buildGUID string) {
 	fmt.Fprint(ginkgo.GinkgoWriter, "\n\n========== Droplet build logs ==========\n")
 	fmt.Fprintf(ginkgo.GinkgoWriter, "DropletGUID: %q\n", buildGUID)
-	PrintPodsLogs(config, []PodContainerDescriptor{
+	PrintPodsLogs(config, []PodDescriptor{
 		{
 			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
 			LabelValue: buildGUID,
 		},
 	})
-	PrintPodEvents(config, []PodContainerDescriptor{
+	PrintPodEvents(config, []PodDescriptor{
 		{
 			LabelKey:   "korifi.cloudfoundry.org/build-workload-name",
 			LabelValue: buildGUID,
@@ -198,20 +200,29 @@ func PrintBuildLogs(config *rest.Config, buildGUID string) {
 	})
 }
 
-func PrintKorifiLogs(config *rest.Config, correlationId string) {
-	PrintPodsLogs(config, []PodContainerDescriptor{
+func PrintKorifiLogs(config *rest.Config, correlationId string, since time.Time) {
+	PrintPodsLogs(config, []PodDescriptor{
 		{
 			Namespace:     "korifi",
 			LabelKey:      "app",
 			LabelValue:    "korifi-api",
-			Container:     "korifi-api",
 			CorrelationId: correlationId,
+			Since:         tools.PtrTo(metav1.NewTime(since)),
 		},
 		{
 			Namespace:  "korifi",
 			LabelKey:   "app",
 			LabelValue: "korifi-controllers",
-			Container:  "manager",
+			Since:      tools.PtrTo(metav1.NewTime(since)),
+		},
+	})
+}
+
+func PrintAllBuildLogs(config *rest.Config, namespace string) {
+	PrintPodsLogs(config, []PodDescriptor{
+		{
+			Namespace: namespace,
+			LabelKey:  "kpack.io/build",
 		},
 	})
 }

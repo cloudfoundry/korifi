@@ -33,8 +33,9 @@ func init() {
 func TestCrds(t *testing.T) {
 	failHandler = fail_handler.New("CRDs Tests", fail_handler.Hook{
 		Matcher: fail_handler.Always,
-		Hook: func(config *rest.Config, message string) {
-			fail_handler.PrintKorifiLogs(config, "")
+		Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
+			fail_handler.PrintKorifiLogs(config, "", failure.StartTime)
+			printBuildLogs(config)
 		},
 	})
 	RegisterFailHandler(failHandler.Fail)
@@ -58,6 +59,18 @@ var (
 	testOrg   *korifiv1alpha1.CFOrg
 	testSpace *korifiv1alpha1.CFSpace
 )
+
+func printBuildLogs(config *rest.Config) {
+	if testSpace == nil {
+		return
+	}
+
+	if testSpace.Status.GUID == "" {
+		return
+	}
+
+	fail_handler.PrintAllBuildLogs(config, testSpace.Status.GUID)
+}
 
 type sharedSetupData struct {
 	DefaultAppBitsFile string
