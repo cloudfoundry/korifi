@@ -139,7 +139,7 @@ func pushApp() *korifiv1alpha1.CFApp {
 
 	failHandler.RegisterFailHandler(fail_handler.Hook{
 		Matcher: fail_handler.Always,
-		Hook: func(config *rest.Config, message string) {
+		Hook: func(config *rest.Config, _ fail_handler.TestFailure) {
 			fail_handler.PrintBuildLogs(config, build.Name)
 		},
 	})
