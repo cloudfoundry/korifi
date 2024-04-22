@@ -206,7 +206,8 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 
 	builderReadyCondition, err := r.getBuilderReadyCondition(ctx, log, buildWorkload, kpackImage)
 	if err != nil {
-		return ctrl.Result{}, ignoreDoNotRetryError(fmt.Errorf("failed getting builder readiness condition"))
+		log.Info("failed getting builder readiness condition", "reason", err)
+		return ctrl.Result{}, ignoreDoNotRetryError(err)
 	}
 
 	if !builderReadyCondition.IsTrue() {
