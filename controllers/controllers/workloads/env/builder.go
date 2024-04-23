@@ -138,9 +138,11 @@ func (b *ProcessEnvBuilder) buildPortEnv(ctx context.Context, cfApp *korifiv1alp
 	processPorts := ports.FromRoutes(cfRoutesForProcess.Items, cfApp.Name, cfProcess.Spec.ProcessType)
 	if len(processPorts) > 0 {
 		portString := strconv.FormatInt(int64(processPorts[0]), 10)
+		cfInstancePorts := fmt.Sprintf("[{\"internal\":%s}]", portString)
 		return []corev1.EnvVar{
 			{Name: "VCAP_APP_PORT", Value: portString},
 			{Name: "PORT", Value: portString},
+			{Name: "CF_INSTANCE_PORTS", Value: cfInstancePorts},
 		}, nil
 	}
 
