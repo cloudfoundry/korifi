@@ -264,7 +264,7 @@ func (s ManifestApplicationService) Validate() error {
 	return validation.ValidateStruct(&s, validation.Field(&s.Name, validation.Required))
 }
 
-var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|MB|G|GB|T|TB)$`)
+var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|m|MB|mb|G|g|GB|gb|T|t|TB|tb)$`)
 
 func validateAmountWithUnit(value any) error {
 	v, isNil := validation.Indirect(value)
@@ -273,7 +273,7 @@ func validateAmountWithUnit(value any) error {
 	}
 
 	if !unitAmount.MatchString(v.(string)) {
-		return errors.New("must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+		return errors.New("must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 	}
 
 	mbs, err := bytefmt.ToMegabytes(v.(string))
