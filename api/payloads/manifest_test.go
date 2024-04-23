@@ -44,7 +44,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					expectUnprocessableEntityError(validateErr, "applications[0].memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+					expectUnprocessableEntityError(validateErr, "applications[0].memory must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 				})
 
 				When("there is more than one error", func() {
@@ -53,8 +53,8 @@ var _ = Describe("Manifest payload", func() {
 					})
 
 					It("returns both errors", func() {
-						expectUnprocessableEntityError(validateErr, "applications[0].disk_quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
-						expectUnprocessableEntityError(validateErr, "applications[0].memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+						expectUnprocessableEntityError(validateErr, "applications[0].disk_quota must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
+						expectUnprocessableEntityError(validateErr, "applications[0].memory must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 					})
 				})
 			})
@@ -109,7 +109,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					expectUnprocessableEntityError(validateErr, "disk_quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+					expectUnprocessableEntityError(validateErr, "disk_quota must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 				})
 			})
 
@@ -129,7 +129,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					expectUnprocessableEntityError(validateErr, "disk-quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+					expectUnprocessableEntityError(validateErr, "disk-quota must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 				})
 			})
 
@@ -190,7 +190,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					expectUnprocessableEntityError(validateErr, "memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+					expectUnprocessableEntityError(validateErr, "memory must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 				})
 			})
 
@@ -422,7 +422,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					expectUnprocessableEntityError(validateErr, "disk_quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+					expectUnprocessableEntityError(validateErr, "disk_quota must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 				})
 			})
 
@@ -442,7 +442,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					expectUnprocessableEntityError(validateErr, "disk-quota must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+					expectUnprocessableEntityError(validateErr, "disk-quota must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 				})
 			})
 
@@ -503,7 +503,7 @@ var _ = Describe("Manifest payload", func() {
 				})
 
 				It("returns a validation error", func() {
-					expectUnprocessableEntityError(validateErr, "memory must use a supported unit (B, K, KB, M, MB, G, GB, T, or TB)")
+					expectUnprocessableEntityError(validateErr, "memory must use a supported unit (B, K, KB, M, m, MB, mb, G, g, GB, gb, T, t, TB or tb)")
 				})
 			})
 
