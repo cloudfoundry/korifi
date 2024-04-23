@@ -162,7 +162,7 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-	Expect(k8sClient.Delete(ctx, testOrg, &client.DeleteOptions{
+	Expect(k8sClient.Delete(ctx, testOrg.DeepCopy(), &client.DeleteOptions{
 		PropagationPolicy: tools.PtrTo(metav1.DeletePropagationBackground),
 	})).To(Succeed())
 })
