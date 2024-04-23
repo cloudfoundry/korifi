@@ -350,9 +350,12 @@ var _ = Describe("EnvBuilder", func() {
 						"Name":  Equal("PORT"),
 						"Value": Equal("1234"),
 					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":  Equal("CF_INSTANCE_PORTS"),
+						"Value": MatchJSON("[{\"internal\":1234}]"),
+					}),
 				))
 			})
-
 			When("the route does not have destinations", func() {
 				BeforeEach(func() {
 					ensurePatch(cfRoute, func(cfRoute *korifiv1alpha1.CFRoute) {

@@ -181,6 +181,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 					MatchFields(IgnoreExtras, Fields{"Name": Equal("VCAP_APP_PORT")}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal("VCAP_SERVICES")}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal("env-key")}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("CF_INSTANCE_PORTS")}),
 				))
 			})
 		})
