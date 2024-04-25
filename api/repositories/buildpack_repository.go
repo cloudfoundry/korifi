@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,7 +41,7 @@ func NewBuildpackRepository(builderName string, userClientFactory authorization.
 }
 
 func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo authorization.Info) ([]BuildpackRecord, error) {
-	var builderInfo v1alpha1.BuilderInfo
+	var builderInfo korifiv1alpha1.BuilderInfo
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -64,10 +64,10 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 		return nil, apierrors.FromK8sError(err, BuildpackResourceType)
 	}
 
-	if !meta.IsStatusConditionTrue(builderInfo.Status.Conditions, StatusConditionReady) {
+	if !meta.IsStatusConditionTrue(builderInfo.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
 		var conditionNotReadyMessage string
 
-		readyCondition := meta.FindStatusCondition(builderInfo.Status.Conditions, StatusConditionReady)
+		readyCondition := meta.FindStatusCondition(builderInfo.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 		if readyCondition != nil {
 			conditionNotReadyMessage = readyCondition.Message
 		}
@@ -82,7 +82,7 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 	return builderInfoToBuildpackRecords(builderInfo), nil
 }
 
-func builderInfoToBuildpackRecords(info v1alpha1.BuilderInfo) []BuildpackRecord {
+func builderInfoToBuildpackRecords(info korifiv1alpha1.BuilderInfo) []BuildpackRecord {
 	buildpackRecords := make([]BuildpackRecord, 0, len(info.Status.Buildpacks))
 
 	for i := range info.Status.Buildpacks {

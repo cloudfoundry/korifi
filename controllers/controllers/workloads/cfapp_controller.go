@@ -107,6 +107,14 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 	cfApp.Status.ObservedGeneration = cfApp.Generation
 	log.V(1).Info("set observed generation", "generation", cfApp.Status.ObservedGeneration)
 
+	cfApp.Status.ActualState = korifiv1alpha1.StoppedState
+
+	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfApp)
+	defer func() {
+		meta.SetStatusCondition(&cfApp.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
+
 	if !cfApp.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFApp(ctx, cfApp)
 	}
@@ -119,7 +127,7 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 	}
 
 	secretName := cfApp.Name + "-vcap-application"
-	err := r.reconcileVCAPSecret(ctx, cfApp, secretName, r.vcapApplicationEnvBuilder)
+	err = r.reconcileVCAPSecret(ctx, cfApp, secretName, r.vcapApplicationEnvBuilder)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -133,36 +141,16 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 
 	cfApp.Status.VCAPServicesSecretName = secretName
 
-	cfApp.Status.ActualState = korifiv1alpha1.StoppedState
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
-		meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-			Type:               shared.StatusConditionReady,
-			Status:             metav1.ConditionFalse,
-			Reason:             "DropletNotAssigned",
-			ObservedGeneration: cfApp.Generation,
-		})
-
+		readyConditionBuilder.WithReason("DropletNotAssigned")
 		return ctrl.Result{}, nil
 	}
 
 	droplet, err := r.getDroplet(ctx, cfApp)
 	if err != nil {
-		meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-			Type:               shared.StatusConditionReady,
-			Status:             metav1.ConditionFalse,
-			Reason:             "CannotResolveCurrentDropletRef",
-			ObservedGeneration: cfApp.Generation,
-		})
-
+		readyConditionBuilder.WithReason("CannotResolveCurrentDropletRef")
 		return ctrl.Result{}, err
 	}
-
-	meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-		Type:               shared.StatusConditionReady,
-		Status:             metav1.ConditionTrue,
-		Reason:             "DropletAssigned",
-		ObservedGeneration: cfApp.Generation,
-	})
 
 	reconciledProcesses, err := r.reconcileProcesses(ctx, cfApp, droplet)
 	if err != nil {
@@ -171,6 +159,7 @@ func (r *CFAppReconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1
 
 	cfApp.Status.ActualState = getActualState(reconciledProcesses)
 
+	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

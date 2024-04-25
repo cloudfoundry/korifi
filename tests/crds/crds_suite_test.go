@@ -8,7 +8,6 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 	"code.cloudfoundry.org/korifi/tools"
@@ -141,7 +140,7 @@ var _ = BeforeEach(func() {
 	Expect(k8sClient.Create(ctx, testOrg)).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testOrg), testOrg)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(testOrg.StatusConditions(), shared.StatusConditionReady)).To(BeTrue())
+		g.Expect(meta.IsStatusConditionTrue(testOrg.StatusConditions(), korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 
 	testSpace = &korifiv1alpha1.CFSpace{
@@ -157,7 +156,7 @@ var _ = BeforeEach(func() {
 	Expect(k8sClient.Create(ctx, testSpace)).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testSpace), testSpace)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(testSpace.StatusConditions(), shared.StatusConditionReady)).To(BeTrue())
+		g.Expect(meta.IsStatusConditionTrue(testSpace.StatusConditions(), korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 })
 

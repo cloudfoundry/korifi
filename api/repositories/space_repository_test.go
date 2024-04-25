@@ -9,7 +9,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -124,7 +123,7 @@ var _ = Describe("SpaceRepository", func() {
 				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
 				Expect(obj.GetName()).To(Equal(cfSpace.Name))
 				Expect(obj.GetNamespace()).To(Equal(orgGUID))
-				Expect(conditionType).To(Equal(shared.StatusConditionReady))
+				Expect(conditionType).To(Equal(korifiv1alpha1.StatusConditionReady))
 			})
 
 			It("creates a CFSpace resource in the org namespace", func() {

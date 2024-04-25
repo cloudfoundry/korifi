@@ -5,11 +5,11 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -123,9 +123,8 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		It("sets the last-stop-app-rev annotation to the value of the app-rev annotation", func() {
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(createdCFApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("42"))
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+				g.Expect(cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("42"))
 			}).Should(Succeed())
 		})
 
@@ -136,9 +135,8 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 			It("doesn't set it", func() {
 				Consistently(func(g Gomega) {
-					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(createdCFApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("2"))
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					g.Expect(cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("2"))
 				}, "1s").Should(Succeed())
 			})
 		})
@@ -147,10 +145,9 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			var createdSecret corev1.Secret
 
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 
-				vcapApplicationSecretName := createdCFApp.Status.VCAPApplicationSecretName
+				vcapApplicationSecretName := cfApp.Status.VCAPApplicationSecretName
 				g.Expect(vcapApplicationSecretName).NotTo(BeEmpty())
 
 				vcapApplicationSecretLookupKey := types.NamespacedName{Name: vcapApplicationSecretName, Namespace: cfSpace.Status.GUID}
@@ -165,10 +162,9 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		getVCAPServicesSecret := func() *corev1.Secret {
 			secret := new(corev1.Secret)
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 
-				vcapServicesSecretName := createdCFApp.Status.VCAPServicesSecretName
+				vcapServicesSecretName := cfApp.Status.VCAPServicesSecretName
 				g.Expect(vcapServicesSecretName).NotTo(BeEmpty())
 
 				vcapServicesSecretLookupKey := types.NamespacedName{Name: vcapServicesSecretName, Namespace: cfSpace.Status.GUID}
@@ -188,21 +184,19 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		It("sets its status conditions", func() {
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-				g.Expect(err).NotTo(HaveOccurred())
-				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+				readyStatusCondition := meta.FindStatusCondition(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 				g.Expect(readyStatusCondition).NotTo(BeNil())
 				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(readyStatusCondition.Reason).To(Equal("DropletNotAssigned"))
-				g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
+				g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(cfApp.Generation))
 			}).Should(Succeed())
 		})
 
 		It("sets the ObservedGeneration status field", func() {
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(createdCFApp.Status.ObservedGeneration).To(Equal(createdCFApp.Generation))
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+				g.Expect(cfApp.Status.ObservedGeneration).To(Equal(cfApp.Generation))
 			}).Should(Succeed())
 		})
 
@@ -241,13 +235,12 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		It("sets the ready condition to false", func() {
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-				g.Expect(err).NotTo(HaveOccurred())
-				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+				readyStatusCondition := meta.FindStatusCondition(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 				g.Expect(readyStatusCondition).NotTo(BeNil())
 				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(readyStatusCondition.Reason).To(Equal("CannotResolveCurrentDropletRef"))
-				g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
+				g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(cfApp.Generation))
 			}).Should(Succeed())
 		})
 	})
@@ -436,38 +429,33 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 		It("sets the ready condition to true", func() {
 			Eventually(func(g Gomega) {
-				createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-				g.Expect(err).NotTo(HaveOccurred())
-				readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+				readyStatusCondition := meta.FindStatusCondition(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 				g.Expect(readyStatusCondition).NotTo(BeNil())
 				g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(readyStatusCondition.Reason).To(Equal("DropletAssigned"))
-				g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
 			}).Should(Succeed())
 		})
 
 		When("the droplet disappears", func() {
 			JustBeforeEach(func() {
 				Eventually(func(g Gomega) {
-					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-					g.Expect(err).NotTo(HaveOccurred())
-					readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
-					g.Expect(readyStatusCondition).NotTo(BeNil())
-					g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionTrue))
-					g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					g.Expect(cfApp.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionTrue)),
+					)))
 				}).Should(Succeed())
 				Expect(adminClient.Delete(context.Background(), cfBuild)).To(Succeed())
 			})
 
 			It("sets the ready condition to false", func() {
 				Eventually(func(g Gomega) {
-					createdCFApp, err := getApp(cfSpace.Status.GUID, cfAppGUID)
-					g.Expect(err).NotTo(HaveOccurred())
-					readyStatusCondition := meta.FindStatusCondition(createdCFApp.Status.Conditions, shared.StatusConditionReady)
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					readyStatusCondition := meta.FindStatusCondition(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 					g.Expect(readyStatusCondition).NotTo(BeNil())
 					g.Expect(readyStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(readyStatusCondition.Reason).To(Equal("CannotResolveCurrentDropletRef"))
-					g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(createdCFApp.Generation))
+					g.Expect(readyStatusCondition.ObservedGeneration).To(Equal(cfApp.Generation))
 				}).Should(Succeed())
 			})
 		})
@@ -562,13 +550,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		})
 	})
 })
-
-func getApp(nsGUID, appGUID string) (*korifiv1alpha1.CFApp, error) {
-	cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: nsGUID}
-	createdCFApp := &korifiv1alpha1.CFApp{}
-	err := adminClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
-	return createdCFApp, err
-}
 
 func findProcessWithType(cfApp *korifiv1alpha1.CFApp, processType string) *korifiv1alpha1.CFProcess {
 	cfProcessList := &korifiv1alpha1.CFProcessList{}

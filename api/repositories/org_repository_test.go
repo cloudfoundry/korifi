@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -137,7 +136,7 @@ var _ = Describe("OrgRepository", func() {
 				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
 				Expect(obj.GetName()).To(Equal(cfOrg.Name))
 				Expect(obj.GetNamespace()).To(Equal(rootNamespace))
-				Expect(conditionType).To(Equal(shared.StatusConditionReady))
+				Expect(conditionType).To(Equal(korifiv1alpha1.StatusConditionReady))
 			})
 
 			When("the org does not become ready", func() {

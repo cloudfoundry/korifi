@@ -9,7 +9,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"code.cloudfoundry.org/korifi/version"
 	"github.com/go-logr/logr"
@@ -155,7 +154,7 @@ func appToDeploymentRecord(cfApp *korifiv1alpha1.CFApp) DeploymentRecord {
 		},
 	}
 
-	if meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady) {
+	if meta.IsStatusConditionTrue(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
 		deploymentRecord.Status = DeploymentStatus{
 			Value:  DeploymentStatusValueFinalized,
 			Reason: DeploymentStatusReasonDeployed,

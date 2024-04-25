@@ -89,7 +89,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(k8s.Patch(ctx, k8sClient, cfServiceBinding, func() {
 					cfServiceBinding.Status.Binding.Name = "service-secret-name"
 					meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-						Type:    repositories.VCAPServicesSecretAvailableCondition,
+						Type:    korifiv1alpha1.StatusConditionReady,
 						Status:  metav1.ConditionTrue,
 						Reason:  "blah",
 						Message: "blah",
@@ -169,7 +169,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
 				Expect(obj.GetName()).To(Equal(cfServiceBinding.Name))
 				Expect(obj.GetNamespace()).To(Equal(space.Name))
-				Expect(conditionType).To(Equal(repositories.VCAPServicesSecretAvailableCondition))
+				Expect(conditionType).To(Equal(korifiv1alpha1.StatusConditionReady))
 			})
 
 			When("the vcap services secret available condition is never met", func() {

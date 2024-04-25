@@ -168,9 +168,9 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 	}
 
 	meta.SetStatusCondition(&cfProcess.Status.Conditions, metav1.Condition{
-		Type:               shared.StatusConditionReady,
+		Type:               korifiv1alpha1.StatusConditionReady,
 		Status:             metav1.ConditionTrue,
-		Reason:             shared.StatusConditionReady,
+		Reason:             korifiv1alpha1.StatusConditionReady,
 		ObservedGeneration: cfProcess.Generation,
 	})
 

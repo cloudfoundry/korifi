@@ -44,11 +44,9 @@ import (
 )
 
 const (
-	BindingSecretAvailableCondition      = "BindingSecretAvailable"
-	VCAPServicesSecretAvailableCondition = "VCAPServicesSecretAvailable"
-	ServiceBindingGUIDLabel              = "korifi.cloudfoundry.org/service-binding-guid"
-	ServiceCredentialBindingTypeLabel    = "korifi.cloudfoundry.org/service-credential-binding-type"
-	ServiceBindingSecretTypePrefix       = "servicebinding.io/"
+	ServiceBindingGUIDLabel           = "korifi.cloudfoundry.org/service-binding-guid"
+	ServiceCredentialBindingTypeLabel = "korifi.cloudfoundry.org/service-credential-binding-type"
+	ServiceBindingSecretTypePrefix    = "servicebinding.io/"
 )
 
 // CFServiceBindingReconciler reconciles a CFServiceBinding object
@@ -70,9 +68,14 @@ func NewCFServiceBindingReconciler(
 func (r *CFServiceBindingReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceBinding{}).
+		Owns(&servicebindingv1beta1.ServiceBinding{}).
 		Watches(
 			&korifiv1alpha1.CFServiceInstance{},
 			handler.EnqueueRequestsFromMapFunc(r.serviceInstanceToServiceBindings),
+		).
+		Watches(
+			&korifiv1alpha1.CFApp{},
+			handler.EnqueueRequestsFromMapFunc(r.appToServiceBindings),
 		)
 }
 
@@ -100,6 +103,31 @@ func (r *CFServiceBindingReconciler) serviceInstanceToServiceBindings(ctx contex
 	return requests
 }
 
+func (r *CFServiceBindingReconciler) appToServiceBindings(ctx context.Context, o client.Object) []reconcile.Request {
+	cfApp := o.(*korifiv1alpha1.CFApp)
+
+	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
+
+	if err := r.k8sClient.List(ctx, serviceBindings,
+		client.InNamespace(cfApp.Namespace),
+		client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name},
+	); err != nil {
+		return []reconcile.Request{}
+	}
+
+	requests := []reconcile.Request{}
+	for _, sb := range serviceBindings.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      sb.Name,
+				Namespace: sb.Namespace,
+			},
+		})
+	}
+
+	return requests
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=servicebinding.io,resources=servicebindings,verbs=get;list;create;update;patch;watch
@@ -110,9 +138,16 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 	cfServiceBinding.Status.ObservedGeneration = cfServiceBinding.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceBinding.Status.ObservedGeneration)
 
+	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfServiceBinding)
+	defer func() {
+		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
+
 	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
 	if err != nil {
+		log.Info("service instance not found", "service-instance", cfServiceBinding.Spec.Service.Name, "error", err)
 		return ctrl.Result{}, err
 	}
 
@@ -123,13 +158,9 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 	}
 
 	if cfServiceInstance.Status.Credentials.Name == "" {
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-			Type:               BindingSecretAvailableCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             "CredentialsSecretNotAvailable",
-			Message:            "Service instance credentials not available yet",
-			ObservedGeneration: cfServiceBinding.Generation,
-		})
+		readyConditionBuilder.
+			WithReason("CredentialsSecretNotAvailable").
+			WithMessage("Service instance credentials not available yet")
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -146,13 +177,6 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		}
 
 		log.Error(err, "failed to reconcile credentials secret")
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-			Type:               BindingSecretAvailableCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             "FailedReconcilingCredentialsSecret",
-			Message:            err.Error(),
-			ObservedGeneration: cfServiceBinding.Generation,
-		})
 		return ctrl.Result{}, err
 	}
 
@@ -165,41 +189,37 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 
 	if cfApp.Status.VCAPServicesSecretName == "" {
 		log.V(1).Info("did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-			Type:               VCAPServicesSecretAvailableCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             "SecretNotFound",
-			Message:            "VCAPServicesSecret name absent from status of CFApp",
-			ObservedGeneration: cfServiceBinding.Generation,
-		})
+		readyConditionBuilder.WithReason("VcapServicesSecretNotAvailable")
 
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
-	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-		Type:               VCAPServicesSecretAvailableCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             "SecretFound",
-		Message:            "",
-		ObservedGeneration: cfServiceBinding.Generation,
-	})
-
-	actualSBServiceBinding := servicebindingv1beta1.ServiceBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("cf-binding-%s", cfServiceBinding.Name),
-			Namespace: cfServiceBinding.Namespace,
-		},
-	}
-
-	desiredSBServiceBinding := generateDesiredServiceBinding(&actualSBServiceBinding, cfServiceBinding, cfApp, credentialsSecret)
-
-	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, &actualSBServiceBinding, sbServiceBindingMutateFn(&actualSBServiceBinding, desiredSBServiceBinding))
+	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding, credentialsSecret)
 	if err != nil {
-		log.Info("error calling Create on servicebinding.io ServiceBinding", "reason", err)
+		log.Info("error creating/updating servicebinding.io servicebinding", "reason", err)
 		return ctrl.Result{}, err
 	}
 
+	if !isSbServiceBindingReady(sbServiceBinding) {
+		readyConditionBuilder.WithReason("ServiceBindingNotReady")
+		return ctrl.Result{}, nil
+	}
+
+	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
+}
+
+func isSbServiceBindingReady(sbServiceBinding *servicebindingv1beta1.ServiceBinding) bool {
+	readyCondition := meta.FindStatusCondition(sbServiceBinding.Status.Conditions, "Ready")
+	if readyCondition == nil {
+		return false
+	}
+
+	if readyCondition.Status != metav1.ConditionTrue {
+		return false
+	}
+
+	return sbServiceBinding.Generation == sbServiceBinding.Status.ObservedGeneration
 }
 
 func (r *CFServiceBindingReconciler) reconcileCredentials(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*corev1.Secret, error) {
@@ -258,13 +278,6 @@ func (r *CFServiceBindingReconciler) reconcileCredentials(ctx context.Context, c
 	}
 
 	cfServiceBinding.Status.Binding.Name = bindingSecret.Name
-	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-		Type:               BindingSecretAvailableCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             "SecretAvailable",
-		Message:            "",
-		ObservedGeneration: cfServiceBinding.Generation,
-	})
 
 	return bindingSecret, nil
 }
@@ -281,65 +294,65 @@ func isLegacyServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding, c
 	return cfServiceInstance.Name == cfServiceBinding.Status.Binding.Name && cfServiceInstance.Spec.SecretName == cfServiceBinding.Status.Binding.Name
 }
 
-func sbServiceBindingMutateFn(actualSBServiceBinding, desiredSBServiceBinding *servicebindingv1beta1.ServiceBinding) controllerutil.MutateFn {
-	return func() error {
-		actualSBServiceBinding.Labels = desiredSBServiceBinding.Labels
-		actualSBServiceBinding.OwnerReferences = desiredSBServiceBinding.OwnerReferences
-		actualSBServiceBinding.Spec = desiredSBServiceBinding.Spec
-		return nil
+func (r *CFServiceBindingReconciler) reconcileSBServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, credentialsSecret *corev1.Secret) (*servicebindingv1beta1.ServiceBinding, error) {
+	sbServiceBinding := r.toSBServiceBinding(cfServiceBinding)
+
+	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, sbServiceBinding, func() error {
+		sbServiceBinding.Spec.Name = getSBServiceBindingName(cfServiceBinding)
+
+		secretType, hasType := credentialsSecret.Data["type"]
+		if hasType && len(secretType) > 0 {
+			sbServiceBinding.Spec.Type = string(secretType)
+		}
+
+		secretProvider, hasProvider := credentialsSecret.Data["provider"]
+		if hasProvider {
+			sbServiceBinding.Spec.Provider = string(secretProvider)
+		}
+		return controllerutil.SetControllerReference(cfServiceBinding, sbServiceBinding, r.scheme)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return sbServiceBinding, nil
+}
+
+func (r *CFServiceBindingReconciler) toSBServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding) *servicebindingv1beta1.ServiceBinding {
+	return &servicebindingv1beta1.ServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("cf-binding-%s", cfServiceBinding.Name),
+			Namespace: cfServiceBinding.Namespace,
+			Labels: map[string]string{
+				ServiceBindingGUIDLabel:           cfServiceBinding.Name,
+				korifiv1alpha1.CFAppGUIDLabelKey:  cfServiceBinding.Spec.AppRef.Name,
+				ServiceCredentialBindingTypeLabel: "app",
+			},
+		},
+		Spec: servicebindingv1beta1.ServiceBindingSpec{
+			Type: "user-provided",
+			Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
+				APIVersion: "apps/v1",
+				Kind:       "StatefulSet",
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						korifiv1alpha1.CFAppGUIDLabelKey: cfServiceBinding.Spec.AppRef.Name,
+					},
+				},
+			},
+			Service: servicebindingv1beta1.ServiceBindingServiceReference{
+				APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+				Kind:       "CFServiceBinding",
+				Name:       cfServiceBinding.Name,
+			},
+		},
 	}
 }
 
-func generateDesiredServiceBinding(actualServiceBinding *servicebindingv1beta1.ServiceBinding, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfApp *korifiv1alpha1.CFApp, secret *corev1.Secret) *servicebindingv1beta1.ServiceBinding {
-	var desiredServiceBinding servicebindingv1beta1.ServiceBinding
-	actualServiceBinding.DeepCopyInto(&desiredServiceBinding)
-	desiredServiceBinding.Labels = map[string]string{
-		ServiceBindingGUIDLabel:           cfServiceBinding.Name,
-		korifiv1alpha1.CFAppGUIDLabelKey:  cfApp.Name,
-		ServiceCredentialBindingTypeLabel: "app",
-	}
-	desiredServiceBinding.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-			Kind:       "CFServiceBinding",
-			Name:       cfServiceBinding.Name,
-			UID:        cfServiceBinding.UID,
-		},
-	}
-
-	bindingName := secret.Name
+func getSBServiceBindingName(cfServiceBinding *korifiv1alpha1.CFServiceBinding) string {
 	if cfServiceBinding.Spec.DisplayName != nil {
-		bindingName = *cfServiceBinding.Spec.DisplayName
+		return *cfServiceBinding.Spec.DisplayName
 	}
 
-	desiredServiceBinding.Spec = servicebindingv1beta1.ServiceBindingSpec{
-		Name: bindingName,
-		Type: "user-provided",
-		Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
-			APIVersion: "apps/v1",
-			Kind:       "StatefulSet",
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					korifiv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
-				},
-			},
-		},
-		Service: servicebindingv1beta1.ServiceBindingServiceReference{
-			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-			Kind:       "CFServiceBinding",
-			Name:       cfServiceBinding.Name,
-		},
-	}
-
-	secretType, ok := secret.Data["type"]
-	if ok && len(secretType) > 0 {
-		desiredServiceBinding.Spec.Type = string(secretType)
-	}
-
-	secretProvider, ok := secret.Data["provider"]
-	if ok {
-		desiredServiceBinding.Spec.Provider = string(secretProvider)
-	}
-
-	return &desiredServiceBinding
+	return cfServiceBinding.Status.Binding.Name
 }
