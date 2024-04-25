@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
@@ -59,8 +58,8 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 			Expect(meta.FindStatusCondition(createdCFPackage.Status.Conditions, workloads.InitializedConditionType).ObservedGeneration).To(Equal(createdCFPackage.Generation))
 
-			Expect(meta.IsStatusConditionFalse(createdCFPackage.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
-			Expect(meta.FindStatusCondition(createdCFPackage.Status.Conditions, shared.StatusConditionReady).ObservedGeneration).To(Equal(createdCFPackage.Generation))
+			Expect(meta.IsStatusConditionFalse(createdCFPackage.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+			Expect(meta.FindStatusCondition(createdCFPackage.Status.Conditions, korifiv1alpha1.StatusConditionReady).ObservedGeneration).To(Equal(createdCFPackage.Generation))
 
 			Expect(createdCFPackage.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
 				APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
@@ -112,7 +111,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 			It("sets the ready condition to true", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
-					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
+					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 				}).Should(Succeed())
 			})
 		})

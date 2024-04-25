@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -58,7 +57,7 @@ func (c PackageCleaner) Clean(ctx context.Context, app types.NamespacedName) err
 		if cfPackage.Name == currentPackage {
 			continue
 		}
-		if !meta.IsStatusConditionTrue(cfPackage.Status.Conditions, shared.StatusConditionReady) {
+		if !meta.IsStatusConditionTrue(cfPackage.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
 			continue
 		}
 		deletablePackages = append(deletablePackages, cfPackage)

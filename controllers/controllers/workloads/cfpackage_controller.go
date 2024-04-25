@@ -20,7 +20,6 @@ import (
 	"context"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -125,7 +124,7 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 		readyReason = "SourceImageSet"
 	}
 	meta.SetStatusCondition(&cfPackage.Status.Conditions, metav1.Condition{
-		Type:               shared.StatusConditionReady,
+		Type:               korifiv1alpha1.StatusConditionReady,
 		Status:             readyCondition,
 		Reason:             readyReason,
 		ObservedGeneration: cfPackage.Generation,

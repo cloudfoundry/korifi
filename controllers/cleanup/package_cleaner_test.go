@@ -5,7 +5,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 
@@ -132,7 +131,7 @@ func createPackage(namespace, appGUID, name string) *korifiv1alpha1.CFPackage {
 func createReadyPackage(namespace, appGUID, name string) *korifiv1alpha1.CFPackage {
 	pkg := createPackage(namespace, appGUID, name)
 	meta.SetStatusCondition(&pkg.Status.Conditions, metav1.Condition{
-		Type:   shared.StatusConditionReady,
+		Type:   korifiv1alpha1.StatusConditionReady,
 		Status: metav1.ConditionTrue,
 		Reason: "SourceImageSet",
 	})

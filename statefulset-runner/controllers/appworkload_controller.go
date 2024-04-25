@@ -206,9 +206,9 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 
 	appWorkload.Status.ActualInstances = updatedStatefulSet.Status.Replicas
 	meta.SetStatusCondition(&appWorkload.Status.Conditions, metav1.Condition{
-		Type:               shared.StatusConditionReady,
+		Type:               korifiv1alpha1.StatusConditionReady,
 		Status:             metav1.ConditionTrue,
-		Reason:             shared.StatusConditionReady,
+		Reason:             korifiv1alpha1.StatusConditionReady,
 		ObservedGeneration: appWorkload.Generation,
 	})
 

@@ -100,7 +100,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 		return OrgRecord{}, fmt.Errorf("failed to create cf org: %w", apierrors.FromK8sError(err, OrgResourceType))
 	}
 
-	cfOrg, err = r.conditionAwaiter.AwaitCondition(ctx, userClient, cfOrg, StatusConditionReady)
+	cfOrg, err = r.conditionAwaiter.AwaitCondition(ctx, userClient, cfOrg, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
 	}
@@ -130,7 +130,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 			return authorizedNamespaces[o.Name]
 		},
 		func(o korifiv1alpha1.CFOrg) bool {
-			return meta.IsStatusConditionTrue(o.Status.Conditions, StatusConditionReady)
+			return meta.IsStatusConditionTrue(o.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 		},
 		SetPredicate(filter.GUIDs, func(s korifiv1alpha1.CFOrg) string { return s.Name }),
 		SetPredicate(filter.Names, func(s korifiv1alpha1.CFOrg) string { return s.Spec.DisplayName }),

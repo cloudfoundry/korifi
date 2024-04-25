@@ -20,7 +20,6 @@ import (
 	"context"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/k8sns"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -129,9 +128,9 @@ func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1
 	}
 
 	meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
-		Type:               shared.StatusConditionReady,
+		Type:               korifiv1alpha1.StatusConditionReady,
 		Status:             metav1.ConditionTrue,
-		Reason:             shared.StatusConditionReady,
+		Reason:             korifiv1alpha1.StatusConditionReady,
 		ObservedGeneration: cfOrg.Generation,
 	})
 

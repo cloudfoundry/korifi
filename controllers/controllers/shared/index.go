@@ -22,8 +22,6 @@ const (
 	IndexAppTasks                             = "appTasks"
 	IndexSpaceNamespaceName                   = "spaceNamespace"
 	IndexOrgNamespaceName                     = "orgNamespace"
-
-	StatusConditionReady = "Ready"
 )
 
 func SetupIndexWithManager(mgr manager.Manager) error {

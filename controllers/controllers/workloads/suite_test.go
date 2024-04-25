@@ -357,7 +357,7 @@ func createOrg(rootNamespace string) *korifiv1alpha1.CFOrg {
 	Expect(adminClient.Create(ctx, org)).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(org), org)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(org.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
+		g.Expect(meta.IsStatusConditionTrue(org.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 	return org
 }
@@ -375,7 +375,7 @@ func createSpace(org *korifiv1alpha1.CFOrg) *korifiv1alpha1.CFSpace {
 	Expect(adminClient.Create(ctx, cfSpace)).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
+		g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 	return cfSpace
 }

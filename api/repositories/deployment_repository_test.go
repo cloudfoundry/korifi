@@ -6,7 +6,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"code.cloudfoundry.org/korifi/version"
@@ -88,7 +87,7 @@ var _ = Describe("DeploymentRepository", func() {
 				BeforeEach(func() {
 					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-							Type:   shared.StatusConditionReady,
+							Type:   korifiv1alpha1.StatusConditionReady,
 							Status: metav1.ConditionTrue,
 							Reason: "ready",
 						})
@@ -179,7 +178,7 @@ var _ = Describe("DeploymentRepository", func() {
 				BeforeEach(func() {
 					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-							Type:   shared.StatusConditionReady,
+							Type:   korifiv1alpha1.StatusConditionReady,
 							Status: metav1.ConditionTrue,
 							Reason: "ready",
 						})
