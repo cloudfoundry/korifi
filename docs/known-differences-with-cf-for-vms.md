@@ -31,3 +31,7 @@ CF manages for every app instance unique certificates which are known as [instan
 ### SSH Access
 
 The CF CLI supports [ssh log in](https://docs.cloudfoundry.org/devguide/deploy-apps/ssh-apps.html) to running CF app instances.
+
+### Setting app current droplet
+
+When the app current droplet is set, this causes statefulset pod restart, effectively picking up the new droplet immediately (see https://github.com/cloudfoundry/korifi/issues/3234 for details)
