@@ -8,7 +8,6 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 	"code.cloudfoundry.org/korifi/tools"
@@ -33,8 +32,9 @@ func init() {
 func TestCrds(t *testing.T) {
 	failHandler = fail_handler.New("CRDs Tests", fail_handler.Hook{
 		Matcher: fail_handler.Always,
-		Hook: func(config *rest.Config, message string) {
-			fail_handler.PrintKorifiLogs(config, "")
+		Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
+			fail_handler.PrintKorifiLogs(config, "", failure.StartTime)
+			printBuildLogs(config)
 		},
 	})
 	RegisterFailHandler(failHandler.Fail)
@@ -58,6 +58,18 @@ var (
 	testOrg   *korifiv1alpha1.CFOrg
 	testSpace *korifiv1alpha1.CFSpace
 )
+
+func printBuildLogs(config *rest.Config) {
+	if testSpace == nil {
+		return
+	}
+
+	if testSpace.Status.GUID == "" {
+		return
+	}
+
+	fail_handler.PrintAllBuildLogs(config, testSpace.Status.GUID)
+}
 
 type sharedSetupData struct {
 	DefaultAppBitsFile string
@@ -128,7 +140,7 @@ var _ = BeforeEach(func() {
 	Expect(k8sClient.Create(ctx, testOrg)).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testOrg), testOrg)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(testOrg.StatusConditions(), shared.StatusConditionReady)).To(BeTrue())
+		g.Expect(meta.IsStatusConditionTrue(testOrg.StatusConditions(), korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 
 	testSpace = &korifiv1alpha1.CFSpace{
@@ -144,12 +156,12 @@ var _ = BeforeEach(func() {
 	Expect(k8sClient.Create(ctx, testSpace)).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testSpace), testSpace)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(testSpace.StatusConditions(), shared.StatusConditionReady)).To(BeTrue())
+		g.Expect(meta.IsStatusConditionTrue(testSpace.StatusConditions(), korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 })
 
 var _ = AfterEach(func() {
-	Expect(k8sClient.Delete(ctx, testOrg, &client.DeleteOptions{
+	Expect(k8sClient.Delete(ctx, testOrg.DeepCopy(), &client.DeleteOptions{
 		PropagationPolicy: tools.PtrTo(metav1.DeletePropagationBackground),
 	})).To(Succeed())
 })

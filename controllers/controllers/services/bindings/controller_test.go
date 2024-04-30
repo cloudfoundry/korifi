@@ -6,11 +6,10 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,16 +38,22 @@ var _ = Describe("CFServiceBinding", func() {
 			},
 		})).To(Succeed())
 
-		cfApp = BuildCFAppCRObject(uuid.NewString(), testNamespace)
+		cfApp = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      uuid.NewString(),
+				Namespace: testNamespace,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName:  uuid.NewString(),
+				DesiredState: korifiv1alpha1.StartedState,
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "docker",
+				},
+			},
+		}
 		Expect(
 			adminClient.Create(ctx, cfApp),
 		).To(Succeed())
-
-		Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-			cfApp.Status = korifiv1alpha1.CFAppStatus{
-				VCAPServicesSecretName: "foo",
-			}
-		})).To(Succeed())
 
 		credentialsBytes, err := json.Marshal(map[string]any{
 			"obj": map[string]any{
@@ -119,13 +124,6 @@ var _ = Describe("CFServiceBinding", func() {
 		}).Should(Succeed())
 	})
 
-	It("sets the BindingSecretAvailable condition to true", func() {
-		Eventually(func(g Gomega) {
-			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-			g.Expect(meta.IsStatusConditionTrue(binding.Status.Conditions, bindings.BindingSecretAvailableCondition)).To(BeTrue())
-		}).Should(Succeed())
-	})
-
 	It("sets the binding status credentials name to the instance credentials secret", func() {
 		Eventually(func(g Gomega) {
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
@@ -150,6 +148,17 @@ var _ = Describe("CFServiceBinding", func() {
 				"type": BeEquivalentTo("user-provided"),
 				"obj":  BeEquivalentTo(`{"foo":"bar"}`),
 			}))
+		}).Should(Succeed())
+	})
+
+	It("sets the binding Ready status condition to false", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+			g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+				HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+				HasStatus(Equal(metav1.ConditionFalse)),
+				HasReason(Equal("ServiceBindingNotReady")),
+			)))
 		}).Should(Succeed())
 	})
 
@@ -194,6 +203,136 @@ var _ = Describe("CFServiceBinding", func() {
 				"Name":       Equal(binding.Name),
 			}))
 		}).Should(Succeed())
+	})
+
+	It("sets the binding status binding name to the binding secret name", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+			g.Expect(binding.Status.Binding.Name).To(Equal(binding.Name))
+		}).Should(Succeed())
+	})
+
+	When("the CFServiceBinding has a displayName set", func() {
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, adminClient, binding, func() {
+				binding.Spec.DisplayName = tools.PtrTo("a-custom-binding-name")
+			})).To(Succeed())
+		})
+
+		It("sets the displayName as the name on the servicebinding.io ServiceBinding", func() {
+			Eventually(func(g Gomega) {
+				sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
+					},
+				}
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
+				g.Expect(sbServiceBinding.Spec.Name).To(Equal("a-custom-binding-name"))
+			}).Should(Succeed())
+		})
+	})
+
+	When("the servicebinding.io binding is ready", func() {
+		BeforeEach(func() {
+			Eventually(func(g Gomega) {
+				sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
+					},
+				}
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
+				g.Expect(k8s.Patch(ctx, adminClient, sbServiceBinding, func() {
+					meta.SetStatusCondition(&sbServiceBinding.Status.Conditions, metav1.Condition{
+						Type:    "Ready",
+						Status:  metav1.ConditionTrue,
+						Reason:  "whatever",
+						Message: "",
+					})
+					sbServiceBinding.Status.ObservedGeneration = sbServiceBinding.Generation
+				})).To(Succeed())
+			}).Should(Succeed())
+		})
+
+		It("sets the binding Ready status condition to true", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+					HasStatus(Equal(metav1.ConditionTrue)),
+				)))
+			}).Should(Succeed())
+		})
+
+		When("the servicebinding.io binding ready status is outdated", func() {
+			BeforeEach(func() {
+				Eventually(func(g Gomega) {
+					sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: testNamespace,
+							Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
+						},
+					}
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
+					g.Expect(k8s.Patch(ctx, adminClient, sbServiceBinding, func() {
+						sbServiceBinding.Status.ObservedGeneration = sbServiceBinding.Generation - 1
+					})).To(Succeed())
+				}).Should(Succeed())
+			})
+
+			It("sets the binding Ready status condition to false", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("ServiceBindingNotReady")),
+					)))
+				}).Should(Succeed())
+				Consistently(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("ServiceBindingNotReady")),
+					)))
+				}).Should(Succeed())
+			})
+		})
+	})
+
+	When("the servicebinding.io binding is not ready", func() {
+		BeforeEach(func() {
+			Eventually(func(g Gomega) {
+				sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
+					},
+				}
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
+				g.Expect(k8s.Patch(ctx, adminClient, sbServiceBinding, func() {
+					meta.SetStatusCondition(&sbServiceBinding.Status.Conditions, metav1.Condition{
+						Type:    "Ready",
+						Status:  metav1.ConditionFalse,
+						Reason:  "whatever",
+						Message: "",
+					})
+				})).To(Succeed())
+			}).Should(Succeed())
+		})
+
+		It("sets the binding Ready status condition to false", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+					HasStatus(Equal(metav1.ConditionFalse)),
+					HasReason(Equal("ServiceBindingNotReady")),
+				)))
+			}).Should(Succeed())
+		})
 	})
 
 	When("the credentials secret has its 'type' attribute set", func() {
@@ -266,6 +405,7 @@ var _ = Describe("CFServiceBinding", func() {
 					},
 				}
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
+				fmt.Fprintf(GinkgoWriter, "servicebinding.io: %+v\n", sbServiceBinding)
 				g.Expect(sbServiceBinding.Spec.Type).To(Equal("my-type"))
 			}).Should(Succeed())
 		})
@@ -325,11 +465,20 @@ var _ = Describe("CFServiceBinding", func() {
 		})
 	})
 
-	It("sets the binding status binding name to the binding secret name", func() {
-		Eventually(func(g Gomega) {
-			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-			g.Expect(binding.Status.Binding.Name).To(Equal(binding.Name))
-		}).Should(Succeed())
+	When("the service instance is not available", func() {
+		BeforeEach(func() {
+			Expect(adminClient.Delete(ctx, instance)).To(Succeed())
+		})
+
+		It("sets not ready status", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+					HasStatus(Equal(metav1.ConditionFalse)),
+				)))
+			}).Should(Succeed())
+		})
 	})
 
 	When("the credentials secret is not available", func() {
@@ -339,35 +488,29 @@ var _ = Describe("CFServiceBinding", func() {
 			})).To(Succeed())
 		})
 
-		It("sets the BindingSecretAvailable condition to false", func() {
+		It("sets the Ready condition to false", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(bindings.BindingSecretAvailableCondition)),
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionFalse)),
-					HasReason(Equal("CredentialsSecretNotAvailable")),
 				)))
 			}).Should(Succeed())
 		})
 	})
 
-	When("the CFServiceBinding has a displayName set", func() {
+	When("the CFApp is not available", func() {
 		BeforeEach(func() {
-			Expect(k8s.PatchResource(ctx, adminClient, binding, func() {
-				binding.Spec.DisplayName = tools.PtrTo("a-custom-binding-name")
-			})).To(Succeed())
+			Expect(adminClient.Delete(ctx, cfApp)).To(Succeed())
 		})
 
-		It("sets the displayName as the name on the servicebinding.io ServiceBinding", func() {
+		It("sets the Ready condition to false", func() {
 			Eventually(func(g Gomega) {
-				sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: testNamespace,
-						Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
-					},
-				}
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
-				g.Expect(sbServiceBinding.Spec.Name).To(Equal("a-custom-binding-name"))
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+					HasStatus(Equal(metav1.ConditionFalse)),
+				)))
 			}).Should(Succeed())
 		})
 	})
@@ -379,18 +522,24 @@ var _ = Describe("CFServiceBinding", func() {
 				instance.Status.Credentials.Name = instance.Name
 			})).To(Succeed())
 
-			Expect(k8s.Patch(ctx, adminClient, binding, func() {
-				binding.Status.Binding.Name = instance.Name
-			})).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(k8s.Patch(ctx, adminClient, binding, func() {
+					binding.Status.Binding.Name = instance.Name
+				})).To(Succeed())
+
+				// Ensure that the binding controller has observed the patch operation above
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Generation).To(Equal(binding.Status.ObservedGeneration))
+				g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))
+			}).Should(Succeed())
 		})
 
-		It("sets credentials secret not available condition", func() {
+		It("sets the binding Ready status condition to false", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(bindings.BindingSecretAvailableCondition)),
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionFalse)),
-					HasReason(Equal("FailedReconcilingCredentialsSecret")),
 				)))
 			}).Should(Succeed())
 		})
@@ -406,10 +555,6 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 
 			It("does not update the binding status", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))
-				}).Should(Succeed())
 				Consistently(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 					g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))

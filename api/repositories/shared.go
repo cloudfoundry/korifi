@@ -10,11 +10,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	StatusConditionReady                 = "Ready"
-	VCAPServicesSecretAvailableCondition = "VCAPServicesSecretAvailable"
-)
-
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 //counterfeiter:generate -o fake -fake-name RepositoryCreator . RepositoryCreator
@@ -23,7 +18,6 @@ type RepositoryCreator interface {
 }
 
 type Awaiter[T runtime.Object] interface {
-	AwaitState(context.Context, client.WithWatch, client.Object, func(T) error) (T, error)
 	AwaitCondition(context.Context, client.WithWatch, client.Object, string) (T, error)
 }
 

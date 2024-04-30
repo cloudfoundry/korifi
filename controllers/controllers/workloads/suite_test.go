@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/apps"
 	buildfake "code.cloudfoundry.org/korifi/controllers/controllers/workloads/build/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/fake"
@@ -27,7 +28,6 @@ import (
 	"code.cloudfoundry.org/korifi/tests/helpers/oci"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -125,13 +125,13 @@ var _ = BeforeSuite(func() {
 
 	eventRecorder = new(controllerfake.EventRecorder)
 
-	err = (NewCFAppReconciler(
+	err = apps.NewReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFApp"),
 		env.NewVCAPServicesEnvValueBuilder(k8sManager.GetClient(), cfRootNamespace),
 		env.NewVCAPApplicationEnvValueBuilder(k8sManager.GetClient(), nil),
-	)).SetupWithManager(k8sManager)
+	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	cfBuildpackBuildReconciler := NewCFBuildpackBuildReconciler(
@@ -271,6 +271,7 @@ func createBuildWithDroplet(ctx context.Context, k8sClient client.Client, cfBuil
 	Expect(
 		k8sClient.Create(ctx, cfBuild),
 	).To(Succeed())
+
 	patchedCFBuild := cfBuild.DeepCopy()
 	patchedCFBuild.Status.Droplet = droplet
 	Expect(
@@ -331,19 +332,6 @@ func createServiceAccount(ctx context.Context, serviceAccountName, namespace str
 	return serviceAccount
 }
 
-func patchAppWithDroplet(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID, buildGUID string) *korifiv1alpha1.CFApp {
-	cfApp := &korifiv1alpha1.CFApp{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      appGUID,
-			Namespace: spaceGUID,
-		},
-	}
-	Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-		cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
-	})).To(Succeed())
-	return cfApp
-}
-
 func createOrg(rootNamespace string) *korifiv1alpha1.CFOrg {
 	org := &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
@@ -357,7 +345,7 @@ func createOrg(rootNamespace string) *korifiv1alpha1.CFOrg {
 	Expect(adminClient.Create(ctx, org)).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(org), org)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(org.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
+		g.Expect(meta.IsStatusConditionTrue(org.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 	return org
 }
@@ -375,7 +363,7 @@ func createSpace(org *korifiv1alpha1.CFOrg) *korifiv1alpha1.CFSpace {
 	Expect(adminClient.Create(ctx, cfSpace)).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
+		g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 	}).Should(Succeed())
 	return cfSpace
 }

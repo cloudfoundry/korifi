@@ -10,4 +10,6 @@ const (
 	HTTPHealthCheckType    HealthCheckType = "http"
 	PortHealthCheckType    HealthCheckType = "port"
 	ProcessHealthCheckType HealthCheckType = "process"
+
+	StatusConditionReady = "Ready"
 )

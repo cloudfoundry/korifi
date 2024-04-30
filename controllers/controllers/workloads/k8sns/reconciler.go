@@ -143,7 +143,7 @@ func (r *Reconciler[T, NS]) setNotReady(log logr.Logger, obj NS, err error, reas
 	log.Info("not ready yet", "reason", reason, "error", err)
 
 	meta.SetStatusCondition(obj.GetStatus().GetConditions(), metav1.Condition{
-		Type:               shared.StatusConditionReady,
+		Type:               korifiv1alpha1.StatusConditionReady,
 		Status:             metav1.ConditionFalse,
 		Reason:             reason,
 		Message:            err.Error(),

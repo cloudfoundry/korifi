@@ -24,13 +24,13 @@ type Awaiter[T RuntimeObjectWithStatusConditions, L any, PL ObjectList[L]] struc
 	timeout time.Duration
 }
 
-func NewStateAwaiter[T RuntimeObjectWithStatusConditions, L any, PL ObjectList[L]](timeout time.Duration) *Awaiter[T, L, PL] {
+func NewConditionAwaiter[T RuntimeObjectWithStatusConditions, L any, PL ObjectList[L]](timeout time.Duration) *Awaiter[T, L, PL] {
 	return &Awaiter[T, L, PL]{
 		timeout: timeout,
 	}
 }
 
-func (a *Awaiter[T, L, PL]) AwaitState(ctx context.Context, k8sClient client.WithWatch, object client.Object, checkState func(T) error) (T, error) {
+func (a *Awaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
 	var empty T
 	objList := PL(new(L))
 
@@ -47,29 +47,37 @@ func (a *Awaiter[T, L, PL]) AwaitState(ctx context.Context, k8sClient client.Wit
 	}
 	defer watch.Stop()
 
-	var stateCheckErr error
+	var conditionCheckErr error
 	for e := range watch.ResultChan() {
 		obj, ok := e.Object.(T)
 		if !ok {
 			continue
 		}
 
-		stateCheckErr = checkState(obj)
-		if stateCheckErr == nil {
+		conditionCheckErr = checkConditionIsTrue(ctx, obj, conditionType)
+		if conditionCheckErr == nil {
 			return obj, nil
 		}
 	}
 
-	return empty, fmt.Errorf("object %s/%s did not match desired state within %d ms: %s",
-		object.GetNamespace(), object.GetName(), a.timeout.Milliseconds(), stateCheckErr.Error(),
+	return empty, fmt.Errorf("object %s/%s status condition %s did not become true in %.2f s: %s",
+		object.GetNamespace(), object.GetName(), conditionType, a.timeout.Seconds(), conditionCheckErr.Error(),
 	)
 }
 
-func (a *Awaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
-	return a.AwaitState(ctx, k8sClient, object, func(obj T) error {
-		if meta.IsStatusConditionTrue(obj.StatusConditions(), conditionType) {
-			return nil
-		}
-		return fmt.Errorf("expected the %s condition to be true", conditionType)
-	})
+func checkConditionIsTrue[T RuntimeObjectWithStatusConditions](ctx context.Context, obj T, conditionType string) error {
+	condition := meta.FindStatusCondition(obj.StatusConditions(), conditionType)
+
+	if condition == nil {
+		return fmt.Errorf("condition %s not set yet", conditionType)
+	}
+
+	if condition.ObservedGeneration != obj.GetGeneration() {
+		return fmt.Errorf("condition %s is outdated", conditionType)
+	}
+
+	if condition.Status == metav1.ConditionTrue {
+		return nil
+	}
+	return fmt.Errorf("expected the %s condition to be true", conditionType)
 }

@@ -2,6 +2,7 @@ package fail_handler
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -14,12 +15,18 @@ var Always types.GomegaMatcher = gomega.ContainSubstring("")
 
 type Hook struct {
 	Matcher types.GomegaMatcher
-	Hook    func(config *rest.Config, message string)
+	Hook    func(config *rest.Config, failure TestFailure)
+}
+
+type TestFailure struct {
+	StartTime time.Time
+	Message   string
 }
 
 type Handler struct {
-	name  string
-	hooks []Hook
+	startTime time.Time
+	name      string
+	hooks     []Hook
 }
 
 func (h *Handler) RegisterFailHandler(hook Hook) {
@@ -54,14 +61,18 @@ func (h *Handler) Fail(message string, callerSkip ...int) {
 		}
 
 		if matchingMessage {
-			hook.Hook(config, message)
+			hook.Hook(config, TestFailure{
+				StartTime: h.startTime,
+				Message:   message,
+			})
 		}
 	}
 }
 
 func New(name string, hooks ...Hook) *Handler {
 	return &Handler{
-		name:  name,
-		hooks: hooks,
+		startTime: time.Now(),
+		name:      name,
+		hooks:     hooks,
 	}
 }

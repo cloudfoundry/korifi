@@ -281,19 +281,19 @@ func TestE2E(t *testing.T) {
 	RegisterFailHandler(fail_handler.New("E2E Tests",
 		fail_handler.Hook{
 			Matcher: fail_handler.Always,
-			Hook: func(config *rest.Config, _ string) {
-				fail_handler.PrintKorifiLogs(config, correlationId)
+			Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
+				fail_handler.PrintKorifiLogs(config, correlationId, failure.StartTime)
 			},
 		},
 		fail_handler.Hook{
 			Matcher: ContainSubstring("Droplet not found"),
-			Hook: func(config *rest.Config, message string) {
-				printDropletNotFoundDebugInfo(config, message)
+			Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
+				printDropletNotFoundDebugInfo(config, failure.Message)
 			},
 		},
 		fail_handler.Hook{
 			Matcher: ContainSubstring("404"),
-			Hook: func(config *rest.Config, message string) {
+			Hook: func(config *rest.Config, _ fail_handler.TestFailure) {
 				printAllRoleBindings(config)
 			},
 		},

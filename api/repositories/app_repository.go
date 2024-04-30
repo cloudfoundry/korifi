@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -431,7 +430,7 @@ func (f *AppRepo) SetCurrentDroplet(ctx context.Context, authInfo authorization.
 		return CurrentDropletRecord{}, fmt.Errorf("failed to set app droplet: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	_, err = f.appAwaiter.AwaitCondition(ctx, userClient, cfApp, shared.StatusConditionReady)
+	_, err = f.appAwaiter.AwaitCondition(ctx, userClient, cfApp, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return CurrentDropletRecord{}, fmt.Errorf("failed to await the app staged condition: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
@@ -462,13 +461,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 		return AppRecord{}, fmt.Errorf("failed to set app desired state: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	if _, err := f.appAwaiter.AwaitState(ctx, userClient, cfApp, func(actualApp *korifiv1alpha1.CFApp) error {
-		desiredState := korifiv1alpha1.AppState(message.DesiredState)
-		if (actualApp.Spec.DesiredState == desiredState) && (actualApp.Status.ActualState == desiredState) {
-			return nil
-		}
-		return fmt.Errorf("expected actual state to be %s; it is currently %s", message.DesiredState, actualApp.Status.ActualState)
-	}); err != nil {
+	if _, err := f.appAwaiter.AwaitCondition(ctx, userClient, cfApp, korifiv1alpha1.ReadyConditionType); err != nil {
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
@@ -707,7 +700,7 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 		CreatedAt:             cfApp.CreationTimestamp.Time,
 		UpdatedAt:             getLastUpdatedTime(&cfApp),
 		DeletedAt:             golangTime(cfApp.DeletionTimestamp),
-		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady),
+		IsStaged:              meta.IsStatusConditionTrue(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady),
 		envSecretName:         cfApp.Spec.EnvSecretName,
 		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,
 		vcapAppSecretName:     cfApp.Status.VCAPApplicationSecretName,

@@ -33,6 +33,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	workloadscontrollers "code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/apps"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
@@ -153,13 +154,13 @@ func main() {
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
 		imageClient := image.NewClient(k8sClient)
 
-		if err = (workloadscontrollers.NewCFAppReconciler(
+		if err = apps.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFApp"),
 			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient(), controllerConfig.CFRootNamespace),
 			env.NewVCAPApplicationEnvValueBuilder(mgr.GetClient(), controllerConfig.ExtraVCAPApplicationValues),
-		)).SetupWithManager(mgr); err != nil {
+		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 			os.Exit(1)
 		}
@@ -211,7 +212,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (instances.NewCFServiceInstanceReconciler(
+		if err = (instances.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
@@ -231,7 +232,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (bindings.NewCFServiceBindingReconciler(
+		if err = (bindings.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),

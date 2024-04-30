@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -394,16 +393,16 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance *korifiv1alpha1.
 		Parameters:  parameters,
 	}
 
-	if meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, services.ReadyCondition) {
+	if meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, "Ready") {
 		record.State = tools.PtrTo(korifiv1alpha1.CFResourceState{
 			Status:  korifiv1alpha1.ReadyStatus,
 			Details: "service instance is ready",
 		})
 	}
-	if meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, services.FailedCondition) {
+	if meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, "Failed") {
 		record.State = tools.PtrTo(korifiv1alpha1.CFResourceState{
 			Status:  korifiv1alpha1.FailedStatus,
-			Details: meta.FindStatusCondition(cfServiceInstance.Status.Conditions, services.FailedCondition).Message,
+			Details: meta.FindStatusCondition(cfServiceInstance.Status.Conditions, "Failed").Message,
 		})
 	}
 

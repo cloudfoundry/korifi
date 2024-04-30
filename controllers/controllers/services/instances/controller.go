@@ -47,23 +47,22 @@ import (
 
 const CredentialsSecretAvailableCondition = "CredentialSecretAvailable"
 
-// CFServiceInstanceReconciler reconciles a CFServiceInstance object
-type CFServiceInstanceReconciler struct {
+type Reconciler struct {
 	k8sClient client.Client
 	scheme    *runtime.Scheme
 	log       logr.Logger
 }
 
-func NewCFServiceInstanceReconciler(
+func NewReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance] {
-	serviceInstanceReconciler := CFServiceInstanceReconciler{k8sClient: client, scheme: scheme, log: log}
+	serviceInstanceReconciler := Reconciler{k8sClient: client, scheme: scheme, log: log}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance](log, client, &serviceInstanceReconciler)
 }
 
-func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceInstance{}).
 		WithEventFilter(predicate.NewPredicateFuncs(r.isUPSI)).
@@ -73,7 +72,7 @@ func (r *CFServiceInstanceReconciler) SetupWithManager(mgr ctrl.Manager) *builde
 		)
 }
 
-func (r *CFServiceInstanceReconciler) isUPSI(object client.Object) bool {
+func (r *Reconciler) isUPSI(object client.Object) bool {
 	serviceInstance, ok := object.(*korifiv1alpha1.CFServiceInstance)
 	if !ok {
 		return true
@@ -82,7 +81,7 @@ func (r *CFServiceInstanceReconciler) isUPSI(object client.Object) bool {
 	return serviceInstance.Spec.Type == "user-provided"
 }
 
-func (r *CFServiceInstanceReconciler) secretToServiceInstance(ctx context.Context, o client.Object) []reconcile.Request {
+func (r *Reconciler) secretToServiceInstance(ctx context.Context, o client.Object) []reconcile.Request {
 	serviceInstances := korifiv1alpha1.CFServiceInstanceList{}
 	if err := r.k8sClient.List(ctx, &serviceInstances,
 		client.InNamespace(o.GetNamespace()),
@@ -109,7 +108,7 @@ func (r *CFServiceInstanceReconciler) secretToServiceInstance(ctx context.Contex
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
 
-func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
 	cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
@@ -172,7 +171,7 @@ func (r *CFServiceInstanceReconciler) ReconcileResource(ctx context.Context, cfS
 	return ctrl.Result{}, nil
 }
 
-func (r *CFServiceInstanceReconciler) reconcileCredentials(ctx context.Context, credentialsSecret *corev1.Secret, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*corev1.Secret, error) {
+func (r *Reconciler) reconcileCredentials(ctx context.Context, credentialsSecret *corev1.Secret, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*corev1.Secret, error) {
 	if !strings.HasPrefix(string(credentialsSecret.Type), bindings.ServiceBindingSecretTypePrefix) {
 		return credentialsSecret, nil
 	}
@@ -212,7 +211,7 @@ func (r *CFServiceInstanceReconciler) reconcileCredentials(ctx context.Context, 
 	return migratedSecret, nil
 }
 
-func (r *CFServiceInstanceReconciler) validateCredentials(ctx context.Context, credentialsSecret *corev1.Secret) error {
+func (r *Reconciler) validateCredentials(ctx context.Context, credentialsSecret *corev1.Secret) error {
 	return errors.Wrapf(
 		json.Unmarshal(credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey], &map[string]any{}),
 		"invalid credentials secret %q",

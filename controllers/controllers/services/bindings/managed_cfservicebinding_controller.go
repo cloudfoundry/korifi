@@ -209,14 +209,6 @@ func (r *ManagedCFServiceBindingReconciler) ReconcileResource(ctx context.Contex
 	}
 
 	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
-		Type:               VCAPServicesSecretAvailableCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             "SecretFound",
-		Message:            "",
-		ObservedGeneration: cfServiceBinding.Generation,
-	})
-
-	meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 		Type:               ReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "Ready",

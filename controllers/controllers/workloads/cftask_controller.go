@@ -23,7 +23,6 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -184,7 +183,7 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CF
 		return nil, err
 	}
 
-	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, shared.StatusConditionReady) {
+	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
 		log.Info("CFApp not staged", "appNamespace", cfApp.Namespace, "appName", cfApp.Name)
 		r.recorder.Eventf(cfTask, "Warning", "AppNotStaged", "App %s:%s is not staged", cfApp.Namespace, cfApp.Name)
 		return nil, errors.New("app not staged")

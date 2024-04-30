@@ -152,7 +152,7 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 		log.Info("not ready yet", "reason", "error propagating service accounts", "error", err)
 
 		meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
-			Type:               shared.StatusConditionReady,
+			Type:               korifiv1alpha1.StatusConditionReady,
 			Status:             metav1.ConditionFalse,
 			Reason:             "ServiceAccountPropagation",
 			Message:            err.Error(),
@@ -163,9 +163,9 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 	}
 
 	meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
-		Type:               shared.StatusConditionReady,
+		Type:               korifiv1alpha1.StatusConditionReady,
 		Status:             metav1.ConditionTrue,
-		Reason:             shared.StatusConditionReady,
+		Reason:             korifiv1alpha1.StatusConditionReady,
 		ObservedGeneration: cfSpace.Generation,
 	})
 

@@ -13,7 +13,6 @@ import (
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tests/matchers"
@@ -108,7 +107,7 @@ var _ = Describe("AppRepository", func() {
 			When("the app has staged condition true", func() {
 				BeforeEach(func() {
 					cfApp.Status.Conditions = []metav1.Condition{{
-						Type:               shared.StatusConditionReady,
+						Type:               korifiv1alpha1.StatusConditionReady,
 						Status:             metav1.ConditionTrue,
 						LastTransitionTime: metav1.Now(),
 						Reason:             "staged",
@@ -131,7 +130,7 @@ var _ = Describe("AppRepository", func() {
 			When("the app has staged condition false", func() {
 				BeforeEach(func() {
 					meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-						Type:    shared.StatusConditionReady,
+						Type:    korifiv1alpha1.StatusConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "appStaged",
 						Message: "",
@@ -140,7 +139,7 @@ var _ = Describe("AppRepository", func() {
 					Eventually(func(g Gomega) {
 						app := korifiv1alpha1.CFApp{}
 						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
-						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, shared.StatusConditionReady)).To(BeTrue())
+						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 					}).Should(Succeed())
 				})
 
@@ -1120,7 +1119,7 @@ var _ = Describe("AppRepository", func() {
 				obj, conditionType := appAwaiter.AwaitConditionArgsForCall(0)
 				Expect(obj.GetName()).To(Equal(appGUID))
 				Expect(obj.GetNamespace()).To(Equal(cfSpace.Name))
-				Expect(conditionType).To(Equal(shared.StatusConditionReady))
+				Expect(conditionType).To(Equal(korifiv1alpha1.StatusConditionReady))
 			})
 
 			It("returns a CurrentDroplet record", func() {
@@ -1219,11 +1218,12 @@ var _ = Describe("AppRepository", func() {
 					Expect(returnedAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
 				})
 
-				It("waits for the desired state", func() {
-					Expect(appAwaiter.AwaitStateCallCount()).To(Equal(1))
-					actualCFApp := appAwaiter.AwaitStateArgsForCall(0)
+				It("waits for the app ready condition", func() {
+					Expect(appAwaiter.AwaitConditionCallCount()).To(Equal(1))
+					actualCFApp, actualCondition := appAwaiter.AwaitConditionArgsForCall(0)
 					Expect(actualCFApp.GetName()).To(Equal(cfApp.Name))
 					Expect(actualCFApp.GetNamespace()).To(Equal(cfApp.Namespace))
+					Expect(actualCondition).To(Equal(korifiv1alpha1.ReadyConditionType))
 				})
 
 				It("changes the desired state of the App", func() {
@@ -1243,11 +1243,12 @@ var _ = Describe("AppRepository", func() {
 					Expect(returnedErr).ToNot(HaveOccurred())
 				})
 
-				It("waits for the desired state", func() {
-					Expect(appAwaiter.AwaitStateCallCount()).To(Equal(1))
-					actualCFApp := appAwaiter.AwaitStateArgsForCall(0)
+				It("waits for the app ready condition", func() {
+					Expect(appAwaiter.AwaitConditionCallCount()).To(Equal(1))
+					actualCFApp, actualCondition := appAwaiter.AwaitConditionArgsForCall(0)
 					Expect(actualCFApp.GetName()).To(Equal(cfApp.Name))
 					Expect(actualCFApp.GetNamespace()).To(Equal(cfApp.Namespace))
+					Expect(actualCondition).To(Equal(korifiv1alpha1.ReadyConditionType))
 				})
 
 				It("changes the desired state of the App", func() {

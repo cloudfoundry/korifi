@@ -104,7 +104,7 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
-	cfSpace, err = r.conditionAwaiter.AwaitCondition(ctx, userClient, cfSpace, StatusConditionReady)
+	cfSpace, err = r.conditionAwaiter.AwaitCondition(ctx, userClient, cfSpace, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
@@ -133,7 +133,7 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 	preds := []func(korifiv1alpha1.CFSpace) bool{
 		func(s korifiv1alpha1.CFSpace) bool { return authorizedSpaceNamespaces[s.Name] },
 		func(s korifiv1alpha1.CFSpace) bool {
-			return meta.IsStatusConditionTrue(s.Status.Conditions, StatusConditionReady)
+			return meta.IsStatusConditionTrue(s.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 		},
 		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFSpace) string { return s.Name }),
 		SetPredicate(message.Names, func(s korifiv1alpha1.CFSpace) string { return s.Spec.DisplayName }),
