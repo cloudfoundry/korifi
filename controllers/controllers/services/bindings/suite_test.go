@@ -78,11 +78,11 @@ var _ = BeforeSuite(func() {
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	err = (bindings.NewCFServiceBindingReconciler(
+	err = bindings.NewReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
-	)).SetupWithManager(k8sManager)
+	).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	stopManager = helpers.StartK8sManager(k8sManager)

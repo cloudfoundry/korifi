@@ -18,7 +18,6 @@ type RepositoryCreator interface {
 }
 
 type Awaiter[T runtime.Object] interface {
-	AwaitState(context.Context, client.WithWatch, client.Object, func(T) error) (T, error)
 	AwaitCondition(context.Context, client.WithWatch, client.Object, string) (T, error)
 }
 

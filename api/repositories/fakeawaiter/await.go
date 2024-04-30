@@ -8,33 +8,11 @@ import (
 )
 
 type FakeAwaiter[T conditions.RuntimeObjectWithStatusConditions, L any, PL conditions.ObjectList[L]] struct {
-	awaitStateCalls []struct {
-		obj client.Object
-	}
 	awaitConditionCalls []struct {
 		obj           client.Object
 		conditionType string
 	}
-	AwaitStateStub     func(context.Context, client.WithWatch, client.Object, func(T) error) (T, error)
 	AwaitConditionStub func(context.Context, client.WithWatch, client.Object, string) (T, error)
-}
-
-func (a *FakeAwaiter[T, L, PL]) AwaitState(ctx context.Context, k8sClient client.WithWatch, object client.Object, checkState func(T) error) (T, error) {
-	a.awaitStateCalls = append(a.awaitStateCalls, struct {
-		obj client.Object
-	}{
-		object,
-	})
-
-	return object.(T), nil
-}
-
-func (a *FakeAwaiter[T, L, PL]) AwaitStateCallCount() int {
-	return len(a.awaitStateCalls)
-}
-
-func (a *FakeAwaiter[T, L, PL]) AwaitStateArgsForCall(i int) client.Object {
-	return a.awaitStateCalls[i].obj
 }
 
 func (a *FakeAwaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {

@@ -55,12 +55,6 @@ var _ = Describe("CFServiceBinding", func() {
 			adminClient.Create(ctx, cfApp),
 		).To(Succeed())
 
-		Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-			cfApp.Status = korifiv1alpha1.CFAppStatus{
-				VCAPServicesSecretName: "foo",
-			}
-		})).To(Succeed())
-
 		credentialsBytes, err := json.Marshal(map[string]any{
 			"obj": map[string]any{
 				"foo": "bar",
@@ -516,25 +510,6 @@ var _ = Describe("CFServiceBinding", func() {
 				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionFalse)),
-				)))
-			}).Should(Succeed())
-		})
-	})
-
-	When("the app VCAP_SERVICES secret is not set in the CFApp status", func() {
-		BeforeEach(func() {
-			Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-				cfApp.Status.VCAPServicesSecretName = ""
-			})).To(Succeed())
-		})
-
-		It("sets the Ready condition to false", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-					HasStatus(Equal(metav1.ConditionFalse)),
-					HasReason(Equal("VcapServicesSecretNotAvailable")),
 				)))
 			}).Should(Succeed())
 		})
