@@ -396,7 +396,7 @@ var _ = Describe("Apps", func() {
 			})
 		})
 
-		Describe("Restart an app", func() {
+		Describe("started apps", func() {
 			var result map[string]interface{}
 
 			BeforeEach(func() {
@@ -408,37 +408,19 @@ var _ = Describe("Apps", func() {
 				Expect(result).To(HaveKeyWithValue("state", "STARTED"))
 			})
 
-			JustBeforeEach(func() {
-				var err error
-				resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			It("succeeds", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result).To(HaveKeyWithValue("state", "STARTED"))
-			})
-
-			It("sets the app rev to 1", func() {
-				Eventually(func(g Gomega) {
-					var err error
-					resp, err = adminClient.R().
-						SetResult(&result).
-						Get("/v3/apps/" + appGUID)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-					g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "1"))))
-				}).Should(Succeed())
-			})
-
-			When("the app is restarted again", func() {
+			Describe("Restart an app", func() {
 				JustBeforeEach(func() {
 					var err error
 					resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("sets the app rev to 2", func() {
+				It("succeeds", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					Expect(result).To(HaveKeyWithValue("state", "STARTED"))
+				})
+
+				It("sets the app rev to 1", func() {
 					Eventually(func(g Gomega) {
 						var err error
 						resp, err = adminClient.R().
@@ -446,36 +428,56 @@ var _ = Describe("Apps", func() {
 							Get("/v3/apps/" + appGUID)
 						g.Expect(err).NotTo(HaveOccurred())
 						g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-						g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "2"))))
+						g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "1"))))
 					}).Should(Succeed())
 				})
-			})
 
-			When("app environment has been changed", func() {
-				BeforeEach(func() {
-					setEnv(appGUID, map[string]interface{}{
-						"foo": "var",
+				When("the app is restarted again", func() {
+					JustBeforeEach(func() {
+						var err error
+						resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("sets the app rev to 2", func() {
+						Eventually(func(g Gomega) {
+							var err error
+							resp, err = adminClient.R().
+								SetResult(&result).
+								Get("/v3/apps/" + appGUID)
+							g.Expect(err).NotTo(HaveOccurred())
+							g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+							g.Expect(result).To(HaveKeyWithValue("metadata", HaveKeyWithValue("annotations", HaveKeyWithValue("korifi.cloudfoundry.org/app-rev", "2"))))
+						}).Should(Succeed())
 					})
 				})
 
-				It("sets the new env var to the app environment", func() {
-					Expect(getAppEnv(appGUID)).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
+				When("app environment has been changed", func() {
+					BeforeEach(func() {
+						setEnv(appGUID, map[string]interface{}{
+							"foo": "var",
+						})
+					})
+
+					It("sets the new env var to the app environment", func() {
+						Expect(getAppEnv(appGUID)).To(HaveKeyWithValue("environment_variables", HaveKeyWithValue("foo", "var")))
+					})
 				})
 			})
-		})
 
-		Describe("Stop an app", func() {
-			var result appResource
+			Describe("Stop an app", func() {
+				var result appResource
 
-			JustBeforeEach(func() {
-				var err error
-				resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/stop")
-				Expect(err).NotTo(HaveOccurred())
-			})
+				JustBeforeEach(func() {
+					var err error
+					resp, err = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/stop")
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-			It("succeeds", func() {
-				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(result.State).To(Equal("STOPPED"))
+				It("succeeds", func() {
+					Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+					Expect(result.State).To(Equal("STOPPED"))
+				})
 			})
 		})
 	})

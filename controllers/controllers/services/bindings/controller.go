@@ -49,23 +49,22 @@ const (
 	ServiceBindingSecretTypePrefix    = "servicebinding.io/"
 )
 
-// CFServiceBindingReconciler reconciles a CFServiceBinding object
-type CFServiceBindingReconciler struct {
+type Reconciler struct {
 	k8sClient client.Client
 	scheme    *runtime.Scheme
 	log       logr.Logger
 }
 
-func NewCFServiceBindingReconciler(
+func NewReconciler(
 	k8sClient client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBinding, *korifiv1alpha1.CFServiceBinding] {
-	cfBindingReconciler := &CFServiceBindingReconciler{k8sClient: k8sClient, scheme: scheme, log: log}
+	cfBindingReconciler := &Reconciler{k8sClient: k8sClient, scheme: scheme, log: log}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFServiceBinding, *korifiv1alpha1.CFServiceBinding](log, k8sClient, cfBindingReconciler)
 }
 
-func (r *CFServiceBindingReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceBinding{}).
 		Owns(&servicebindingv1beta1.ServiceBinding{}).
@@ -79,7 +78,7 @@ func (r *CFServiceBindingReconciler) SetupWithManager(mgr ctrl.Manager) *builder
 		)
 }
 
-func (r *CFServiceBindingReconciler) serviceInstanceToServiceBindings(ctx context.Context, o client.Object) []reconcile.Request {
+func (r *Reconciler) serviceInstanceToServiceBindings(ctx context.Context, o client.Object) []reconcile.Request {
 	serviceInstance := o.(*korifiv1alpha1.CFServiceInstance)
 
 	serviceBindings := korifiv1alpha1.CFServiceBindingList{}
@@ -103,7 +102,7 @@ func (r *CFServiceBindingReconciler) serviceInstanceToServiceBindings(ctx contex
 	return requests
 }
 
-func (r *CFServiceBindingReconciler) appToServiceBindings(ctx context.Context, o client.Object) []reconcile.Request {
+func (r *Reconciler) appToServiceBindings(ctx context.Context, o client.Object) []reconcile.Request {
 	cfApp := o.(*korifiv1alpha1.CFApp)
 
 	serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
@@ -132,7 +131,7 @@ func (r *CFServiceBindingReconciler) appToServiceBindings(ctx context.Context, o
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=servicebinding.io,resources=servicebindings,verbs=get;list;create;update;patch;watch
 
-func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
 	cfServiceBinding.Status.ObservedGeneration = cfServiceBinding.Generation
@@ -187,13 +186,6 @@ func (r *CFServiceBindingReconciler) ReconcileResource(ctx context.Context, cfSe
 		return ctrl.Result{}, err
 	}
 
-	if cfApp.Status.VCAPServicesSecretName == "" {
-		log.V(1).Info("did not find VCAPServiceSecret name on status of CFApp", "CFServiceBinding", cfServiceBinding.Name)
-		readyConditionBuilder.WithReason("VcapServicesSecretNotAvailable")
-
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-
 	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding, credentialsSecret)
 	if err != nil {
 		log.Info("error creating/updating servicebinding.io servicebinding", "reason", err)
@@ -222,7 +214,7 @@ func isSbServiceBindingReady(sbServiceBinding *servicebindingv1beta1.ServiceBind
 	return sbServiceBinding.Generation == sbServiceBinding.Status.ObservedGeneration
 }
 
-func (r *CFServiceBindingReconciler) reconcileCredentials(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*corev1.Secret, error) {
+func (r *Reconciler) reconcileCredentials(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*corev1.Secret, error) {
 	cfServiceBinding.Status.Credentials.Name = cfServiceInstance.Status.Credentials.Name
 
 	if isLegacyServiceBinding(cfServiceBinding, cfServiceInstance) {
@@ -294,7 +286,7 @@ func isLegacyServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding, c
 	return cfServiceInstance.Name == cfServiceBinding.Status.Binding.Name && cfServiceInstance.Spec.SecretName == cfServiceBinding.Status.Binding.Name
 }
 
-func (r *CFServiceBindingReconciler) reconcileSBServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, credentialsSecret *corev1.Secret) (*servicebindingv1beta1.ServiceBinding, error) {
+func (r *Reconciler) reconcileSBServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, credentialsSecret *corev1.Secret) (*servicebindingv1beta1.ServiceBinding, error) {
 	sbServiceBinding := r.toSBServiceBinding(cfServiceBinding)
 
 	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, sbServiceBinding, func() error {
@@ -318,7 +310,7 @@ func (r *CFServiceBindingReconciler) reconcileSBServiceBinding(ctx context.Conte
 	return sbServiceBinding, nil
 }
 
-func (r *CFServiceBindingReconciler) toSBServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding) *servicebindingv1beta1.ServiceBinding {
+func (r *Reconciler) toSBServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding) *servicebindingv1beta1.ServiceBinding {
 	return &servicebindingv1beta1.ServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("cf-binding-%s", cfServiceBinding.Name),
