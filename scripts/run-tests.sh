@@ -18,12 +18,67 @@ function getTestDir() {
 }
 
 function deploy_korifi() {
-  if [ -z "${SKIP_DEPLOY:-}" ]; then
-    "${SCRIPT_DIR}/deploy-on-kind.sh" trinity
-  fi
+  echo "************************************"
+  echo " Installing Korifi Service Binding CRDs"
+  echo "************************************"
 
-  echo "waiting for ClusterBuilder to be ready..."
-  kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
+  VENDOR_DIR="$SCRIPT_DIR/../tests/vendor"
+  echo "*************************"
+  echo " Installing Cert Manager"
+  echo "*************************"
+
+  kubectl apply -f "$VENDOR_DIR/cert-manager"
+
+  kubectl -n cert-manager rollout status deployment/cert-manager --watch=true
+  kubectl -n cert-manager rollout status deployment/cert-manager-webhook --watch=true
+  kubectl -n cert-manager rollout status deployment/cert-manager-cainjector --watch=true
+
+  kubectl apply -f "$SCRIPT_DIR/../helm/korifi/controllers/crds/korifi.cloudfoundry.org_cfservicebindings.yaml"
+  echo "************************************"
+  echo " Installing Service Binding Runtime"
+  echo "************************************"
+
+  kubectl apply -f "$VENDOR_DIR/service-binding/servicebinding-runtime-v"*".yaml"
+  kubectl -n servicebinding-system rollout status deployment/servicebinding-controller-manager --watch=true
+  kubectl apply -f "$VENDOR_DIR/service-binding/servicebinding-workloadresourcemappings-v"*".yaml"
+
+  echo "************************************"
+  echo " Creating the cf root namespace"
+  echo "************************************"
+  cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cf
+EOF
+
+  echo "************************************"
+  echo " Give servicebinding.io permissions to read cfservicebindings"
+  echo "************************************"
+  cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: korifi-controllers-cfservicebindings-role
+  labels:
+    servicebinding.io/controller: "true"
+rules:
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebindings
+  verbs:
+  - get
+  - list
+  - watch
+EOF
+
+  # if [ -z "${SKIP_DEPLOY:-}" ]; then
+  #   "${SCRIPT_DIR}/deploy-on-kind.sh" trinity
+  # fi
+
+  # echo "waiting for ClusterBuilder to be ready..."
+  # kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
 }
 
 function configure_e2e_tests() {

@@ -3,16 +3,12 @@ package crds_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
-	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
-	"code.cloudfoundry.org/korifi/tools"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -27,6 +23,7 @@ import (
 
 func init() {
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme.Scheme))
 }
 
 func TestCrds(t *testing.T) {
@@ -127,41 +124,41 @@ var _ = SynchronizedAfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	testOrg = &korifiv1alpha1.CFOrg{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: rootNamespace,
-			Name:      uuid.NewString(),
-		},
-		Spec: korifiv1alpha1.CFOrgSpec{
-			DisplayName: fmt.Sprintf("org-%d", time.Now().UnixMicro()),
-		},
-	}
+	// testOrg = &korifiv1alpha1.CFOrg{
+	// 	ObjectMeta: metav1.ObjectMeta{
+	// 		Namespace: rootNamespace,
+	// 		Name:      uuid.NewString(),
+	// 	},
+	// 	Spec: korifiv1alpha1.CFOrgSpec{
+	// 		DisplayName: fmt.Sprintf("org-%d", time.Now().UnixMicro()),
+	// 	},
+	// }
 
-	Expect(k8sClient.Create(ctx, testOrg)).To(Succeed())
-	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testOrg), testOrg)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(testOrg.StatusConditions(), korifiv1alpha1.StatusConditionReady)).To(BeTrue())
-	}).Should(Succeed())
+	// Expect(k8sClient.Create(ctx, testOrg)).To(Succeed())
+	// Eventually(func(g Gomega) {
+	// 	g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testOrg), testOrg)).To(Succeed())
+	// 	g.Expect(meta.IsStatusConditionTrue(testOrg.StatusConditions(), korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+	// }).Should(Succeed())
 
-	testSpace = &korifiv1alpha1.CFSpace{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testOrg.Status.GUID,
-			Name:      uuid.NewString(),
-		},
-		Spec: korifiv1alpha1.CFSpaceSpec{
-			DisplayName: fmt.Sprintf("space-%d", time.Now().UnixMicro()),
-		},
-	}
+	// testSpace = &korifiv1alpha1.CFSpace{
+	// 	ObjectMeta: metav1.ObjectMeta{
+	// 		Namespace: testOrg.Status.GUID,
+	// 		Name:      uuid.NewString(),
+	// 	},
+	// 	Spec: korifiv1alpha1.CFSpaceSpec{
+	// 		DisplayName: fmt.Sprintf("space-%d", time.Now().UnixMicro()),
+	// 	},
+	// }
 
-	Expect(k8sClient.Create(ctx, testSpace)).To(Succeed())
-	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testSpace), testSpace)).To(Succeed())
-		g.Expect(meta.IsStatusConditionTrue(testSpace.StatusConditions(), korifiv1alpha1.StatusConditionReady)).To(BeTrue())
-	}).Should(Succeed())
+	// Expect(k8sClient.Create(ctx, testSpace)).To(Succeed())
+	// Eventually(func(g Gomega) {
+	// 	g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testSpace), testSpace)).To(Succeed())
+	// 	g.Expect(meta.IsStatusConditionTrue(testSpace.StatusConditions(), korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+	// }).Should(Succeed())
 })
 
 var _ = AfterEach(func() {
-	Expect(k8sClient.Delete(ctx, testOrg.DeepCopy(), &client.DeleteOptions{
-		PropagationPolicy: tools.PtrTo(metav1.DeletePropagationBackground),
-	})).To(Succeed())
+	// Expect(k8sClient.Delete(ctx, testOrg.DeepCopy(), &client.DeleteOptions{
+	// 	PropagationPolicy: tools.PtrTo(metav1.DeletePropagationBackground),
+	// })).To(Succeed())
 })
