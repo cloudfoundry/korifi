@@ -80,7 +80,7 @@ func (r *Reconciler[T, NS]) ReconcileResource(ctx context.Context, obj NS) (ctrl
 		return r.finalizer.Finalize(ctx, obj)
 	}
 
-	shared.GetConditionOrSetAsUnknown(obj.GetStatus().GetConditions(), korifiv1alpha1.ReadyConditionType, obj.GetGeneration())
+	shared.GetConditionOrSetAsUnknown(obj.GetStatus().GetConditions(), korifiv1alpha1.StatusConditionReady, obj.GetGeneration())
 
 	obj.GetStatus().SetGUID(obj.GetName())
 

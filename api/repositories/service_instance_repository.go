@@ -23,9 +23,8 @@ import (
 )
 
 const (
-	CFServiceInstanceGUIDLabel          = "korifi.cloudfoundry.org/service-instance-guid"
-	ServiceInstanceResourceType         = "Service Instance"
-	CredentialsSecretAvailableCondition = "CredentialSecretAvailable"
+	CFServiceInstanceGUIDLabel  = "korifi.cloudfoundry.org/service-instance-guid"
+	ServiceInstanceResourceType = "Service Instance"
 )
 
 type NamespaceGetter interface {
@@ -163,7 +162,7 @@ func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo
 }
 
 func (r *ServiceInstanceRepo) migrateLegacyCredentials(ctx context.Context, userClient client.WithWatch, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*korifiv1alpha1.CFServiceInstance, error) {
-	cfServiceInstance, err := r.awaiter.AwaitCondition(ctx, userClient, cfServiceInstance, CredentialsSecretAvailableCondition)
+	cfServiceInstance, err := r.awaiter.AwaitCondition(ctx, userClient, cfServiceInstance, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return nil, err
 	}

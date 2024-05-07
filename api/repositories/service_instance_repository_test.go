@@ -257,7 +257,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
 					Expect(obj.GetName()).To(Equal(cfServiceInstance.Name))
 					Expect(obj.GetNamespace()).To(Equal(cfServiceInstance.Namespace))
-					Expect(conditionType).To(Equal(repositories.CredentialsSecretAvailableCondition))
+					Expect(conditionType).To(Equal(korifiv1alpha1.StatusConditionReady))
 				})
 
 				It("updates the creds", func() {

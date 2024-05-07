@@ -131,7 +131,7 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 	cfProcess.Status.ObservedGeneration = cfProcess.Generation
 	log.V(1).Info("set observed generation", "generation", cfProcess.Status.ObservedGeneration)
 
-	shared.GetConditionOrSetAsUnknown(&cfProcess.Status.Conditions, korifiv1alpha1.ReadyConditionType, cfProcess.Generation)
+	shared.GetConditionOrSetAsUnknown(&cfProcess.Status.Conditions, korifiv1alpha1.StatusConditionReady, cfProcess.Generation)
 
 	cfApp := new(korifiv1alpha1.CFApp)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)

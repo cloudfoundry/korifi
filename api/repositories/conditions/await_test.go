@@ -57,18 +57,18 @@ var _ = Describe("ConditionAwaiter", func() {
 	})
 
 	JustBeforeEach(func() {
-		awaitedTask, awaitErr = awaiter.AwaitCondition(ctx, k8sClient, task, korifiv1alpha1.TaskInitializedConditionType)
+		awaitedTask, awaitErr = awaiter.AwaitCondition(ctx, k8sClient, task, korifiv1alpha1.StatusConditionReady)
 	})
 
 	It("returns an error", func() {
-		Expect(awaitErr).To(MatchError(ContainSubstring("condition Initialized not set yet")))
+		Expect(awaitErr).To(MatchError(ContainSubstring("condition Ready not set yet")))
 	})
 
 	When("the condition becomes false", func() {
 		BeforeEach(func() {
 			asyncPatchTask(func(cfTask *korifiv1alpha1.CFTask) {
 				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-					Type:               korifiv1alpha1.TaskInitializedConditionType,
+					Type:               korifiv1alpha1.StatusConditionReady,
 					Status:             metav1.ConditionFalse,
 					Reason:             "initialized",
 					ObservedGeneration: task.Generation,
@@ -77,7 +77,7 @@ var _ = Describe("ConditionAwaiter", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(awaitErr).To(MatchError(ContainSubstring("expected the Initialized condition to be true")))
+			Expect(awaitErr).To(MatchError(ContainSubstring("expected the Ready condition to be true")))
 		})
 	})
 
@@ -85,7 +85,7 @@ var _ = Describe("ConditionAwaiter", func() {
 		BeforeEach(func() {
 			asyncPatchTask(func(cfTask *korifiv1alpha1.CFTask) {
 				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-					Type:               korifiv1alpha1.TaskInitializedConditionType,
+					Type:               korifiv1alpha1.StatusConditionReady,
 					Status:             metav1.ConditionTrue,
 					Reason:             "initialized",
 					ObservedGeneration: task.Generation,
@@ -98,7 +98,7 @@ var _ = Describe("ConditionAwaiter", func() {
 			Expect(awaitedTask).NotTo(BeNil())
 
 			Expect(awaitedTask.Name).To(Equal(task.Name))
-			Expect(meta.IsStatusConditionTrue(awaitedTask.Status.Conditions, korifiv1alpha1.TaskInitializedConditionType)).To(BeTrue())
+			Expect(meta.IsStatusConditionTrue(awaitedTask.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 		})
 	})
 
@@ -107,7 +107,7 @@ var _ = Describe("ConditionAwaiter", func() {
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(task), task)).To(Succeed())
 			asyncPatchTask(func(cfTask *korifiv1alpha1.CFTask) {
 				meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
-					Type:               korifiv1alpha1.TaskInitializedConditionType,
+					Type:               korifiv1alpha1.StatusConditionReady,
 					Status:             metav1.ConditionTrue,
 					Reason:             "initialized",
 					ObservedGeneration: task.Generation - 1,
@@ -116,7 +116,7 @@ var _ = Describe("ConditionAwaiter", func() {
 		})
 
 		It("returns an error", func() {
-			Expect(awaitErr).To(MatchError(ContainSubstring("condition Initialized is outdated")))
+			Expect(awaitErr).To(MatchError(ContainSubstring("condition Ready is outdated")))
 		})
 	})
 })

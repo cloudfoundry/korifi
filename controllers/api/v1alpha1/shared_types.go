@@ -18,7 +18,6 @@ const (
 	CFTaskGUIDLabelKey       = "korifi.cloudfoundry.org/task-guid"
 
 	StagingConditionType   = "Staging"
-	ReadyConditionType     = "Ready"
 	SucceededConditionType = "Succeeded"
 
 	PropagateRoleBindingAnnotation    = "cloudfoundry.org/propagate-cf-role"

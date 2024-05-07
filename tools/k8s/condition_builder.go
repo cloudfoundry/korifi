@@ -48,11 +48,11 @@ func (b *ReadyConditionBuilder) WithError(err error) *ReadyConditionBuilder {
 }
 
 func (b *ReadyConditionBuilder) Ready() *ReadyConditionBuilder {
-	return b.WithStatus(metav1.ConditionTrue).WithReason("Ready")
+	return b.WithStatus(metav1.ConditionTrue)
 }
 
 func (b *ReadyConditionBuilder) Build() metav1.Condition {
-	return metav1.Condition{
+	result := metav1.Condition{
 		Type:               korifiv1alpha1.StatusConditionReady,
 		Status:             b.status,
 		ObservedGeneration: b.observedGeneration,
@@ -60,4 +60,11 @@ func (b *ReadyConditionBuilder) Build() metav1.Condition {
 		Reason:             b.reason,
 		Message:            b.message,
 	}
+
+	if b.status == metav1.ConditionTrue {
+		result.Reason = "Ready"
+		result.Message = "Ready"
+	}
+
+	return result
 }

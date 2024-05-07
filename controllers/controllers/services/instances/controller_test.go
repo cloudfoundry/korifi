@@ -8,7 +8,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
@@ -56,7 +55,7 @@ var _ = Describe("CFServiceInstance", func() {
 		Eventually(func(g Gomega) {
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 			g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-				HasType(Equal(instances.CredentialsSecretAvailableCondition)),
+				HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 				HasStatus(Equal(metav1.ConditionFalse)),
 				HasReason(Equal("CredentialsSecretNotAvailable")),
 			)))
@@ -87,7 +86,7 @@ var _ = Describe("CFServiceInstance", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(instances.CredentialsSecretAvailableCondition)),
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionTrue)),
 				)))
 			}).Should(Succeed())
@@ -112,7 +111,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(instances.CredentialsSecretAvailableCondition)),
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
 						HasReason(Equal("SecretInvalid")),
 					)))
@@ -127,7 +126,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(instances.CredentialsSecretAvailableCondition)),
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionTrue)),
 					)))
 					secretVersion = instance.Status.CredentialsObservedVersion
@@ -153,7 +152,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(instances.CredentialsSecretAvailableCondition)),
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionTrue)),
 					)))
 					lastObservedVersion = instance.Status.CredentialsObservedVersion
@@ -269,7 +268,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(instances.CredentialsSecretAvailableCondition)),
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
 						HasReason(Equal("FailedReconcilingCredentialsSecret")),
 					)))
