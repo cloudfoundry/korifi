@@ -184,9 +184,12 @@ func (r *CFTaskReconciler) getApp(ctx context.Context, cfTask *korifiv1alpha1.CF
 	}
 
 	if !meta.IsStatusConditionTrue(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
-		log.Info("CFApp not staged", "appNamespace", cfApp.Namespace, "appName", cfApp.Name)
-		r.recorder.Eventf(cfTask, "Warning", "AppNotStaged", "App %s:%s is not staged", cfApp.Namespace, cfApp.Name)
-		return nil, errors.New("app not staged")
+		log.Info("CFApp not ready",
+			"appNamespace", cfApp.Namespace,
+			"appName", cfApp.Name,
+			"readyCondition", fmt.Sprintf("%+v", meta.FindStatusCondition(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady)))
+		r.recorder.Eventf(cfTask, "Warning", "AppNotReady", "App %s:%s is not ready", cfApp.Namespace, cfApp.Name)
+		return nil, errors.New("app not ready")
 	}
 
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
