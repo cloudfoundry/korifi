@@ -97,6 +97,19 @@ var _ = Describe("ReadyConditionBuilder", func() {
 		It("sets ready status and reason", func() {
 			Expect(condition.Status).To(Equal(metav1.ConditionTrue))
 			Expect(condition.Reason).To(Equal("Ready"))
+			Expect(condition.Message).To(Equal("Ready"))
+		})
+
+		When("error is set", func() {
+			BeforeEach(func() {
+				builder.WithError(errors.New("foo"))
+			})
+
+			It("ignores the error and returns ready condition", func() {
+				Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+				Expect(condition.Reason).To(Equal("Ready"))
+				Expect(condition.Message).To(Equal("Ready"))
+			})
 		})
 	})
 })

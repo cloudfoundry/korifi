@@ -159,7 +159,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 	appWorkload.Status.ObservedGeneration = appWorkload.Generation
 	log.V(1).Info("set observed generation", "generation", appWorkload.Status.ObservedGeneration)
 
-	shared.GetConditionOrSetAsUnknown(&appWorkload.Status.Conditions, korifiv1alpha1.ReadyConditionType, appWorkload.Generation)
+	shared.GetConditionOrSetAsUnknown(&appWorkload.Status.Conditions, korifiv1alpha1.StatusConditionReady, appWorkload.Generation)
 
 	statefulSet, err := r.workloadsToStSet.Convert(appWorkload)
 	// Not clear what errors this would produce, but we may use it later

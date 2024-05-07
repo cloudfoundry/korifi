@@ -1223,7 +1223,7 @@ var _ = Describe("AppRepository", func() {
 					actualCFApp, actualCondition := appAwaiter.AwaitConditionArgsForCall(0)
 					Expect(actualCFApp.GetName()).To(Equal(cfApp.Name))
 					Expect(actualCFApp.GetNamespace()).To(Equal(cfApp.Namespace))
-					Expect(actualCondition).To(Equal(korifiv1alpha1.ReadyConditionType))
+					Expect(actualCondition).To(Equal(korifiv1alpha1.StatusConditionReady))
 				})
 
 				It("changes the desired state of the App", func() {
@@ -1248,7 +1248,7 @@ var _ = Describe("AppRepository", func() {
 					actualCFApp, actualCondition := appAwaiter.AwaitConditionArgsForCall(0)
 					Expect(actualCFApp.GetName()).To(Equal(cfApp.Name))
 					Expect(actualCFApp.GetNamespace()).To(Equal(cfApp.Namespace))
-					Expect(actualCondition).To(Equal(korifiv1alpha1.ReadyConditionType))
+					Expect(actualCondition).To(Equal(korifiv1alpha1.StatusConditionReady))
 				})
 
 				It("changes the desired state of the App", func() {

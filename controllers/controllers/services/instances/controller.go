@@ -43,8 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const CredentialsSecretAvailableCondition = "CredentialSecretAvailable"
-
 type Reconciler struct {
 	k8sClient client.Client
 	scheme    *runtime.Scheme
@@ -102,21 +100,21 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 	cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
 
+	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfServiceInstance)
+	defer func() {
+		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
+
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfServiceInstance.Namespace,
 			Name:      cfServiceInstance.Spec.SecretName,
 		},
 	}
-	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
+	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
 	if err != nil {
-		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
-			Type:               CredentialsSecretAvailableCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             "CredentialsSecretNotAvailable",
-			Message:            "Error occurred while fetching secret: " + err.Error(),
-			ObservedGeneration: cfServiceInstance.Generation,
-		})
+		readyConditionBuilder.WithReason("CredentialsSecretNotAvailable")
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
@@ -125,37 +123,20 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 
 	credentialsSecret, err = r.reconcileCredentials(ctx, credentialsSecret, cfServiceInstance)
 	if err != nil {
-		log.Error(err, "failed to reconcile credentials secret")
-		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
-			Type:               CredentialsSecretAvailableCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             "FailedReconcilingCredentialsSecret",
-			Message:            err.Error(),
-			ObservedGeneration: cfServiceInstance.Generation,
-		})
+		readyConditionBuilder.WithReason("FailedReconcilingCredentialsSecret")
 		return ctrl.Result{}, err
 	}
 
 	if err = r.validateCredentials(ctx, credentialsSecret); err != nil {
-		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
-			Type:               CredentialsSecretAvailableCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             "SecretInvalid",
-			Message:            err.Error(),
-			ObservedGeneration: cfServiceInstance.Generation,
-		})
+		readyConditionBuilder.WithReason("SecretInvalid")
 		return ctrl.Result{}, err
 	}
 
 	log.V(1).Info("credentials secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
-	meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
-		Type:               CredentialsSecretAvailableCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             "SecretFound",
-		ObservedGeneration: cfServiceInstance.Generation,
-	})
 	cfServiceInstance.Status.Credentials = corev1.LocalObjectReference{Name: credentialsSecret.Name}
 	cfServiceInstance.Status.CredentialsObservedVersion = credentialsSecret.ResourceVersion
+
+	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 
