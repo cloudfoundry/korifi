@@ -74,6 +74,18 @@ cp "$VENDOR_DIR/contour/contour-gateway.yaml" "$DEP_DIR/contour/contour-gateway.
 kubectl apply -k "$DEP_DIR/contour"
 
 kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: contour
+  namespace: projectcontour
+data:
+  contour.yaml: |
+    gateway:
+      gatewayRef:
+        name: korifi
+        namespace: korifi-gateway
+---
 kind: GatewayClass
 apiVersion: gateway.networking.k8s.io/v1beta1
 metadata:
@@ -81,6 +93,8 @@ metadata:
 spec:
   controllerName: projectcontour.io/gateway-controller
 EOF
+
+kubectl -n projectcontour rollout status deployment/contour --watch=true
 
 echo "************************************"
 echo " Installing Service Binding Runtime"
