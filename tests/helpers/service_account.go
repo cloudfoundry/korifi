@@ -3,7 +3,6 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -103,7 +102,7 @@ func (f *ServiceAccountFactory) createServiceAccount(name string) (*corev1.Servi
 			serviceAccountSecret,
 		)).To(Succeed())
 		g.Expect(serviceAccountSecret.Data).To(HaveKey(corev1.ServiceAccountTokenKey))
-	}).WithTimeout(10 * time.Second).Should(Succeed())
+	}).Should(Succeed())
 
 	return serviceAccount, string(serviceAccountSecret.Data[corev1.ServiceAccountTokenKey])
 }
