@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
 )
@@ -13,17 +14,19 @@ const (
 )
 
 type InfoV3 struct {
-	baseURL url.URL
+	baseURL    url.URL
+	infoConfig config.InfoConfig
 }
 
-func NewInfoV3(baseURL url.URL) *InfoV3 {
+func NewInfoV3(baseURL url.URL, infoConfig config.InfoConfig) *InfoV3 {
 	return &InfoV3{
-		baseURL: baseURL,
+		baseURL:    baseURL,
+		infoConfig: infoConfig,
 	}
 }
 
 func (h *InfoV3) get(r *http.Request) (*routing.Response, error) {
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForInfoV3(h.baseURL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForInfoV3(h.baseURL, h.infoConfig)), nil
 }
 
 func (h *InfoV3) UnauthenticatedRoutes() []routing.Route {

@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
@@ -10,10 +11,16 @@ import (
 )
 
 var _ = Describe("InfoV3", func() {
-	var req *http.Request
+	var (
+		req        *http.Request
+		infoConfig config.InfoConfig
+	)
 
 	BeforeEach(func() {
-		apiHandler := handlers.NewInfoV3(*serverURL)
+		apiHandler := handlers.NewInfoV3(
+			*serverURL,
+			infoConfig,
+		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 

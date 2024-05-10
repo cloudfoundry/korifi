@@ -44,6 +44,14 @@ api:
       idle: 900
       readHeader: 10
 
+  infoConfig:
+    name: "korifi"
+    description: "Korifi Cloud Foundry Environment"
+    minCLIVersion: ""
+    recommendedCLIVersion: ""
+    custom: {}
+    supportAddress: "https://www.cloudfoundry.org/technology/korifi/"
+
   lifecycle:
     type: buildpack
     stack: cflinuxfs3
