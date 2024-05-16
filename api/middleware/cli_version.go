@@ -11,7 +11,7 @@ import (
 	"github.com/mileusna/useragent"
 )
 
-const minSupportedVersion = ">= 8.5.0"
+const minSupportedVersion = ">= 8.5.0-0"
 
 func CFCliVersion(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

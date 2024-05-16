@@ -72,6 +72,16 @@ var _ = Describe("CliVersionMiddleware", func() {
 			})
 		})
 
+		When("the cf cli version is a valid pre-release", func() {
+			BeforeEach(func() {
+				requestHeaders["User-Agent"] = []string{"cf/9.0.0-beta+334489f01.2024-05-14 (go1.22.2; arm64 darwin)"}
+			})
+
+			It("delegates to the next handler", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
+			})
+		})
+
 		When("there are  multiple UserAgent header values", func() {
 			BeforeEach(func() {
 				requestHeaders["User-Agent"] = []string{
