@@ -111,6 +111,12 @@ No query parameters are supported.
 
 Updating `image` is not supported.
 
+## [Info](https://v3-apidocs.cloudfoundry.org/#info)
+
+### [Get platform info](https://v3-apidocs.cloudfoundry.org/#get-platform-info)
+
+This endpoint is fully supported.
+
 ## [Jobs](https://v3-apidocs.cloudfoundry.org/#jobs)
 
 ### [Get a job](https://v3-apidocs.cloudfoundry.org/#get-a-job)
