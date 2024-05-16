@@ -30,6 +30,8 @@ type (
 
 		ServerURL string
 
+		InfoConfig InfoConfig `yaml:"infoConfig"`
+
 		RootNamespace                            string                 `yaml:"rootNamespace"`
 		BuilderName                              string                 `yaml:"builderName"`
 		RunnerName                               string                 `yaml:"runnerName"`
@@ -60,6 +62,15 @@ type (
 		Type            string `yaml:"type"`
 		Stack           string `yaml:"stack"`
 		StagingMemoryMB int    `yaml:"stagingMemoryMB"`
+	}
+
+	InfoConfig struct {
+		Description           string                 `yaml:"description"`
+		Name                  string                 `yaml:"name"`
+		MinCLIVersion         string                 `yaml:"minCLIVersion"`
+		RecommendedCLIVersion string                 `yaml:"recommendedCLIVersion"`
+		Custom                map[string]interface{} `yaml:"custom"`
+		SupportAddress        string                 `yaml:"supportAddress"`
 	}
 )
 

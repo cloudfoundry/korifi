@@ -12,6 +12,16 @@ data:
     readTimeout: {{ .Values.api.apiServer.timeouts.read }}
     readHeaderTimeout: {{ .Values.api.apiServer.timeouts.readHeader }}
     writeTimeout: {{ .Values.api.apiServer.timeouts.write }}
+    infoConfig:
+      description: {{ .Values.api.infoConfig.description }}
+      name: {{ .Values.api.infoConfig.name }}
+      minCLIVersion: {{ .Values.api.infoConfig.minCLIVersion }}
+      recommendedCLIVersion: {{ .Values.api.infoConfig.recommendedCLIVersion }}
+    {{- with .Values.api.infoConfig.custom }}
+      custom:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      supportAddress: {{ .Values.api.infoConfig.supportAddress }}
     rootNamespace: {{ .Values.rootNamespace }}
     builderName: {{ .Values.reconcilers.build }}
     runnerName: {{ .Values.reconcilers.run }}

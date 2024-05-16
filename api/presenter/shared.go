@@ -107,9 +107,9 @@ func (u buildURL) build() string {
 	return nativeP.String()
 }
 
-func emptyMapIfNil(m map[string]string) map[string]string {
+func emptyMapIfNil[V any](m map[string]V) map[string]V {
 	if m == nil {
-		return map[string]string{}
+		return map[string]V{}
 	}
 	return m
 }

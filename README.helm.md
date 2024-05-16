@@ -26,6 +26,13 @@ Here are all the values that can be set for the chart:
     - `host` (_String_): Must be a host string, a host:port pair, or a URL to the base of the apiserver.
   - `image` (_String_): Reference to the API container image.
   - `include` (_Boolean_): Deploy the API component.
+  - `infoConfig`: The /v3/info endpoint configuration.
+    - `custom`: `custom` attribute in the /v3/info endpoint
+    - `description` (_String_): `description` attribute in the /v3/info endpoint
+    - `minCLIVersion` (_String_): `minimum` CLI version attribute in the /v3/info endpoint
+    - `name` (_String_): `name` attribute in the /v3/info endpoint
+    - `recommendedCLIVersion` (_String_): `recommended` CLI version attribute in the /v3/info endpoint
+    - `supportAddress` (_String_): `support` attribute in the /v3/info endpoint
   - `lifecycle`: Default lifecycle for apps.
     - `stack` (_String_): Stack.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).

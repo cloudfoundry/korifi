@@ -175,6 +175,38 @@
           "description": "Reference to the API container image.",
           "type": "string"
         },
+        "infoConfig": {
+          "type": "object",
+          "description": "The /v3/info endpoint configuration.",
+          "properties": {
+            "description": {
+              "description": "`description` attribute in the /v3/info endpoint",
+              "type": "string"
+            },
+            "name": {
+              "description": "`name` attribute in the /v3/info endpoint",
+              "type": "string"
+            },
+            "minCLIVersion": {
+              "description": "`minimum` CLI version attribute in the /v3/info endpoint",
+              "type": "string"
+            },
+            "recommendedCLIVersion": {
+              "description": "`recommended` CLI version attribute in the /v3/info endpoint",
+              "type": "string"
+            },
+            "custom": {
+              "description": "`custom` attribute in the /v3/info endpoint",
+              "type": "object",
+              "properties": {}
+            },
+            "supportAddress": {
+              "description": "`support` attribute in the /v3/info endpoint",
+              "type": "string"
+            }
+          },
+          "required": ["description", "name", "minCLIVersion", "recommendedCLIVersion", "custom", "supportAddress"]
+        },
         "lifecycle": {
           "type": "object",
           "description": "Default lifecycle for apps.",
