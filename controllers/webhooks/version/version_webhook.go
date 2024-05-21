@@ -18,7 +18,7 @@ import (
 
 type VersionWebhook struct {
 	version string
-	decoder *admission.Decoder
+	decoder admission.Decoder
 }
 
 func NewVersionWebhook(version string) *VersionWebhook {
