@@ -845,6 +845,24 @@ func setCurrentDroplet(appGUID, dropletGUID string) {
 	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
+func waitAppStaged(appGUID string) {
+	var currentDroplet struct {
+		GUID  string `json:"guid"`
+		State string `json:"state"`
+	}
+
+	Eventually(func(g Gomega) {
+		resp, err := adminClient.R().
+			SetResult(&currentDroplet).
+			Get("/v3/apps/" + appGUID + "/droplets/current")
+		Expect(err).NotTo(HaveOccurred())
+		g.Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+		fmt.Fprintf(GinkgoWriter, "currentDroplet = %+v\n", currentDroplet)
+		g.Expect(currentDroplet.GUID).NotTo(BeEmpty())
+		g.Expect(currentDroplet.State).To(Equal("STAGED"))
+	}).Should(Succeed())
+}
+
 func startApp(appGUID string) {
 	GinkgoHelper()
 
@@ -914,6 +932,7 @@ func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
 	buildGUID := createBuild(pkgGUID)
 	waitForDroplet(buildGUID)
 	setCurrentDroplet(appGUID, buildGUID)
+	waitAppStaged(appGUID)
 	startApp(appGUID)
 
 	return appGUID
