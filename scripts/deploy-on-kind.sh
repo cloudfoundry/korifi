@@ -131,6 +131,37 @@ function install_dependencies() {
   popd >/dev/null
 }
 
+function configure_contour() {
+  kubectl -n korifi-gateway patch gateway korifi --type='json' -p='[{"op": "replace", "path": "/spec/listeners/0/port", "value":32080}]'
+  kubectl -n korifi-gateway patch gateway korifi --type='json' -p='[{"op": "replace", "path": "/spec/listeners/1/port", "value":32443}]'
+  kubectl -n korifi-gateway patch gateway korifi --type='json' -p='[{"op": "replace", "path": "/spec/listeners/2/port", "value":32443}]'
+
+  kubectl apply -f - <<EOF
+kind: GatewayClass
+apiVersion: gateway.networking.k8s.io/v1beta1
+metadata:
+  name: contour
+spec:
+  controllerName: projectcontour.io/gateway-controller
+  parametersRef:
+    kind: ContourDeployment
+    group: projectcontour.io
+    name: contour-nodeport-params
+    namespace: projectcontour
+
+---
+kind: ContourDeployment
+apiVersion: projectcontour.io/v1alpha1
+metadata:
+  namespace: projectcontour
+  name: contour-nodeport-params
+spec:
+  envoy:
+    networkPublishing:
+      type: NodePortService
+EOF
+}
+
 function deploy_korifi() {
   pushd "${ROOT_DIR}" >/dev/null
   {
@@ -227,6 +258,7 @@ function main() {
   create_namespaces
   create_registry_secret
   deploy_korifi
+  configure_contour
 }
 
 main "$@"

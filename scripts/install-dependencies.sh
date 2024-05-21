@@ -69,9 +69,7 @@ echo "********************"
 echo " Installing Contour"
 echo "********************"
 
-TEMP_FILES+=("$DEP_DIR/contour/contour-gateway.yaml")
-cp "$VENDOR_DIR/contour/contour-gateway.yaml" "$DEP_DIR/contour/contour-gateway.yaml"
-kubectl apply -k "$DEP_DIR/contour"
+kubectl apply -f "$VENDOR_DIR/contour/contour-gateway-provisioner.yaml"
 
 kubectl apply -f - <<EOF
 kind: GatewayClass
