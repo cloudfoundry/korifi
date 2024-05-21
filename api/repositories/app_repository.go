@@ -461,7 +461,19 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 		return AppRecord{}, fmt.Errorf("failed to set app desired state: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	if _, err := f.appAwaiter.AwaitCondition(ctx, userClient, cfApp, korifiv1alpha1.StatusConditionReady); err != nil {
+	_, err = f.appAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+		if _, readyConditionErr := f.appAwaiter.AwaitCondition(ctx, userClient, a, korifiv1alpha1.StatusConditionReady); err != nil {
+			return readyConditionErr
+		}
+
+		if a.Spec.DesiredState != korifiv1alpha1.AppState(message.DesiredState) ||
+			a.Status.ActualState != korifiv1alpha1.AppState(message.DesiredState) {
+			return fmt.Errorf("desired state %q not reached; actual state: %q", message.DesiredState, a.Status.ActualState)
+		}
+
+		return nil
+	})
+	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 

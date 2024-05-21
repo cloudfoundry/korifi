@@ -31,6 +31,12 @@ func NewConditionAwaiter[T RuntimeObjectWithStatusConditions, L any, PL ObjectLi
 }
 
 func (a *Awaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
+	return a.AwaitState(ctx, k8sClient, object, func(o T) error {
+		return checkConditionIsTrue(o, conditionType)
+	})
+}
+
+func (a *Awaiter[T, L, PL]) AwaitState(ctx context.Context, k8sClient client.WithWatch, object client.Object, checkState func(T) error) (T, error) {
 	var empty T
 	objList := PL(new(L))
 
@@ -47,25 +53,25 @@ func (a *Awaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client
 	}
 	defer watch.Stop()
 
-	var conditionCheckErr error
+	var checkStateErr error
 	for e := range watch.ResultChan() {
 		obj, ok := e.Object.(T)
 		if !ok {
 			continue
 		}
 
-		conditionCheckErr = checkConditionIsTrue(ctx, obj, conditionType)
-		if conditionCheckErr == nil {
+		checkStateErr = checkState(obj)
+		if checkStateErr == nil {
 			return obj, nil
 		}
 	}
 
-	return empty, fmt.Errorf("object %s/%s status condition %s did not become true in %.2f s: %s",
-		object.GetNamespace(), object.GetName(), conditionType, a.timeout.Seconds(), conditionCheckErr.Error(),
+	return empty, fmt.Errorf("object %s/%s state has not been met in %.2f s: %s",
+		object.GetNamespace(), object.GetName(), a.timeout.Seconds(), checkStateErr.Error(),
 	)
 }
 
-func checkConditionIsTrue[T RuntimeObjectWithStatusConditions](ctx context.Context, obj T, conditionType string) error {
+func checkConditionIsTrue[T RuntimeObjectWithStatusConditions](obj T, conditionType string) error {
 	condition := meta.FindStatusCondition(obj.StatusConditions(), conditionType)
 
 	if condition == nil {
