@@ -18,7 +18,7 @@ import (
 // need to access both oldObject and (new)Object to determine the actual state
 // change. So we use the lower-level admission.Handler interface
 type AppRevWebhook struct {
-	decoder *admission.Decoder
+	decoder admission.Decoder
 }
 
 var apprevlog = logf.Log.WithName("apprev-webhook")

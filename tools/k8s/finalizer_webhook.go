@@ -25,7 +25,7 @@ func Always(_ unstructured.Unstructured) bool {
 }
 
 type FinalizerWebhook struct {
-	decoder                             *admission.Decoder
+	decoder                             admission.Decoder
 	resourceTypeToFinalizerNameRegistry map[string]FinalizerDescriptor
 }
 
