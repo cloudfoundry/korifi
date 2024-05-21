@@ -1218,12 +1218,26 @@ var _ = Describe("AppRepository", func() {
 					Expect(returnedAppRecord.SpaceGUID).To(Equal(cfSpace.Name))
 				})
 
-				It("waits for the app ready condition", func() {
-					Expect(appAwaiter.AwaitConditionCallCount()).To(Equal(1))
-					actualCFApp, actualCondition := appAwaiter.AwaitConditionArgsForCall(0)
+				It("waits for the started app state", func() {
+					Expect(appAwaiter.AwaitStateCallCount()).To(Equal(1))
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+
+					actualCFApp, actualStateCheck := appAwaiter.AwaitStateArgsForCall(0)
 					Expect(actualCFApp.GetName()).To(Equal(cfApp.Name))
 					Expect(actualCFApp.GetNamespace()).To(Equal(cfApp.Namespace))
-					Expect(actualCondition).To(Equal(korifiv1alpha1.StatusConditionReady))
+					Expect(actualStateCheck(&korifiv1alpha1.CFApp{
+						Spec: korifiv1alpha1.CFAppSpec{
+							DesiredState: korifiv1alpha1.AppState(desiredAppState),
+						},
+						Status: korifiv1alpha1.CFAppStatus{
+							Conditions: []metav1.Condition{{
+								Type:               korifiv1alpha1.StatusConditionReady,
+								Status:             metav1.ConditionTrue,
+								ObservedGeneration: cfApp.Generation,
+							}},
+							ActualState: korifiv1alpha1.AppState(desiredAppState),
+						},
+					})).To(Succeed())
 				})
 
 				It("changes the desired state of the App", func() {
@@ -1243,12 +1257,26 @@ var _ = Describe("AppRepository", func() {
 					Expect(returnedErr).ToNot(HaveOccurred())
 				})
 
-				It("waits for the app ready condition", func() {
-					Expect(appAwaiter.AwaitConditionCallCount()).To(Equal(1))
-					actualCFApp, actualCondition := appAwaiter.AwaitConditionArgsForCall(0)
+				It("waits for the stopped app state", func() {
+					Expect(appAwaiter.AwaitStateCallCount()).To(Equal(1))
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+
+					actualCFApp, actualStateCheck := appAwaiter.AwaitStateArgsForCall(0)
 					Expect(actualCFApp.GetName()).To(Equal(cfApp.Name))
 					Expect(actualCFApp.GetNamespace()).To(Equal(cfApp.Namespace))
-					Expect(actualCondition).To(Equal(korifiv1alpha1.StatusConditionReady))
+					Expect(actualStateCheck(&korifiv1alpha1.CFApp{
+						Spec: korifiv1alpha1.CFAppSpec{
+							DesiredState: korifiv1alpha1.AppState(desiredAppState),
+						},
+						Status: korifiv1alpha1.CFAppStatus{
+							Conditions: []metav1.Condition{{
+								Type:               korifiv1alpha1.StatusConditionReady,
+								Status:             metav1.ConditionTrue,
+								ObservedGeneration: cfApp.Generation,
+							}},
+							ActualState: korifiv1alpha1.AppState(desiredAppState),
+						},
+					})).To(Succeed())
 				})
 
 				It("changes the desired state of the App", func() {
