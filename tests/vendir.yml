@@ -34,7 +34,7 @@ directories:
         semver:
           constraints: ">=1.27.0"
     includePaths:
-      - examples/render/contour-gateway.yaml
+      - examples/render/contour-gateway-provisioner.yaml
     newRootPath: examples/render
   - path: gateway-api
     githubRelease:

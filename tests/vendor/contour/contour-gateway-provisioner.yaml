@@ -1,231 +1,20 @@
-# This file is generated from the individual YAML files by generate-gateway-deployment.sh. Do not
+# This file is generated from the individual YAML files by generate-provisioner-deployment.sh. Do not
 # edit this file directly but instead edit the source files and re-render.
 #
 # Generated from:
-#       examples/contour/00-common.yaml
-#       examples/contour/01-contour-config.yaml
 #       examples/contour/01-crds.yaml
-#       examples/contour/02-job-certgen.yaml
-#       examples/contour/02-rbac.yaml
-#       examples/contour/02-role-contour.yaml
-#       examples/contour/02-service-contour.yaml
-#       examples/contour/02-service-envoy.yaml
-#       examples/contour/03-contour.yaml
-#       examples/contour/03-envoy.yaml
 #       examples/gateway/00-crds.yaml
-#       examples/gateway/03-gatewayclass.yaml
-#       examples/gateway/04-gateway.yaml
-
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: projectcontour
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: contour
-  namespace: projectcontour
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: envoy
-  namespace: projectcontour
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: contour
-  namespace: projectcontour
-data:
-  contour.yaml: |
-    #
-    # server:
-    #   determine which XDS Server implementation to utilize in Contour.
-    #   xds-server-type: contour
-    #
-    # Specify the Gateway API configuration.
-    gateway:
-      controllerName: projectcontour.io/gateway-controller
-    #
-    # should contour expect to be running inside a k8s cluster
-    # incluster: true
-    #
-    # path to kubeconfig (if not running inside a k8s cluster)
-    # kubeconfig: /path/to/.kube/config
-    #
-    # Disable RFC-compliant behavior to strip "Content-Length" header if
-    # "Tranfer-Encoding: chunked" is also set.
-    # disableAllowChunkedLength: false
-    #
-    # Disable Envoy's non-standard merge_slashes path transformation option
-    # that strips duplicate slashes from request URLs.
-    # disableMergeSlashes: false
-    #
-    # Disable HTTPProxy permitInsecure field
-    disablePermitInsecure: false
-    tls:
-    # minimum TLS version that Contour will negotiate
-    # minimum-protocol-version: "1.2"
-    # TLS ciphers to be supported by Envoy TLS listeners when negotiating
-    # TLS 1.2.
-    # cipher-suites:
-    # - '[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]'
-    # - '[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]'
-    # - 'ECDHE-ECDSA-AES256-GCM-SHA384'
-    # - 'ECDHE-RSA-AES256-GCM-SHA384'
-    # Defines the Kubernetes name/namespace matching a secret to use
-    # as the fallback certificate when requests which don't match the
-    # SNI defined for a vhost.
-      fallback-certificate:
-    #   name: fallback-secret-name
-    #   namespace: projectcontour
-      envoy-client-certificate:
-    #   name: envoy-client-cert-secret-name
-    #   namespace: projectcontour
-    ####
-    # ExternalName Services are disabled by default due to CVE-2021-XXXXX
-    # You can re-enable them by setting this setting to `true`.
-    # This is not recommended without understanding the security implications.
-    # Please see the advisory at https://github.com/projectcontour/contour/security/advisories/GHSA-5ph6-qq5x-7jwc for the details.
-    # enableExternalNameService: false
-    ##
-    # Address to be placed in status.loadbalancer field of Ingress objects.
-    # May be either a literal IP address or a host name.
-    # The value will be placed directly into the relevant field inside the status.loadBalancer struct.
-    # ingress-status-address: local.projectcontour.io
-    ### Logging options
-    # Default setting
-    accesslog-format: envoy
-    # The default access log format is defined by Envoy but it can be customized by setting following variable.
-    # accesslog-format-string: "...\n"
-    # To enable JSON logging in Envoy
-    # accesslog-format: json
-    # accesslog-level: info
-    # The default fields that will be logged are specified below.
-    # To customise this list, just add or remove entries.
-    # The canonical list is available at
-    # https://godoc.org/github.com/projectcontour/contour/internal/envoy#JSONFields
-    # json-fields:
-    #   - "@timestamp"
-    #   - "authority"
-    #   - "bytes_received"
-    #   - "bytes_sent"
-    #   - "downstream_local_address"
-    #   - "downstream_remote_address"
-    #   - "duration"
-    #   - "method"
-    #   - "path"
-    #   - "protocol"
-    #   - "request_id"
-    #   - "requested_server_name"
-    #   - "response_code"
-    #   - "response_flags"
-    #   - "uber_trace_id"
-    #   - "upstream_cluster"
-    #   - "upstream_host"
-    #   - "upstream_local_address"
-    #   - "upstream_service_time"
-    #   - "user_agent"
-    #   - "x_forwarded_for"
-    #   - "grpc_status"
-    #   - "grpc_status_number"
-    #
-    # default-http-versions:
-    # - "HTTP/2"
-    # - "HTTP/1.1"
-    #
-    # The following shows the default proxy timeout settings.
-    # timeouts:
-    #   request-timeout: infinity
-    #   connection-idle-timeout: 60s
-    #   stream-idle-timeout: 5m
-    #   max-connection-duration: infinity
-    #   delayed-close-timeout: 1s
-    #   connection-shutdown-grace-period: 5s
-    #   connect-timeout: 2s
-    #
-    # Envoy cluster settings.
-    # cluster:
-    #   configure the cluster dns lookup family
-    #   valid options are: auto (default), v4, v6
-    #   dns-lookup-family: auto
-    #
-    # Envoy network settings.
-    # network:
-    #   Configure the number of additional ingress proxy hops from the
-    #   right side of the x-forwarded-for HTTP header to trust.
-    #   num-trusted-hops: 0
-    #   Configure the port used to access the Envoy Admin interface.
-    #   admin-port: 9001
-    #
-    # Configure an optional global rate limit service.
-    # rateLimitService:
-    #   Identifies the extension service defining the rate limit service,
-    #   formatted as <namespace>/<name>.
-    #   extensionService: projectcontour/ratelimit
-    #   Defines the rate limit domain to pass to the rate limit service.
-    #   Acts as a container for a set of rate limit definitions within
-    #   the RLS.
-    #   domain: contour
-    #   Defines whether to allow requests to proceed when the rate limit
-    #   service fails to respond with a valid rate limit decision within
-    #   the timeout defined on the extension service.
-    #   failOpen: false
-    #   Defines whether to include the X-RateLimit headers X-RateLimit-Limit,
-    #   X-RateLimit-Remaining, and X-RateLimit-Reset (as defined by the IETF
-    #   Internet-Draft linked below), on responses to clients when the Rate
-    #   Limit Service is consulted for a request.
-    #   ref. https://tools.ietf.org/id/draft-polli-ratelimit-headers-03.html
-    #   enableXRateLimitHeaders: false
-    #   Defines whether to translate status code 429 to grpc code RESOURCE_EXHAUSTED
-    #   instead of the default UNAVAILABLE
-    #   enableResourceExhaustedCode: false
-    #
-    # Global Policy settings.
-    # policy:
-    #   # Default headers to set on all requests (unless set/removed on the HTTPProxy object itself)
-    #   request-headers:
-    #     set:
-    #       # example: the hostname of the Envoy instance that proxied the request
-    #       X-Envoy-Hostname: %HOSTNAME%
-    #       # example: add a l5d-dst-override header to instruct Linkerd what service the request is destined for
-    #       l5d-dst-override: %CONTOUR_SERVICE_NAME%.%CONTOUR_NAMESPACE%.svc.cluster.local:%CONTOUR_SERVICE_PORT%
-    #   # default headers to set on all responses (unless set/removed on the HTTPProxy object itself)
-    #   response-headers:
-    #     set:
-    #       # example: Envoy flags that provide additional details about the response or connection
-    #       X-Envoy-Response-Flags: %RESPONSE_FLAGS%
-    #
-    # metrics:
-    #  contour:
-    #    address: 0.0.0.0
-    #    port: 8000
-    #    server-certificate-path: /path/to/server-cert.pem
-    #    server-key-path: /path/to/server-private-key.pem
-    #    ca-certificate-path: /path/to/root-ca-for-client-validation.pem
-    #  envoy:
-    #    address: 0.0.0.0
-    #    port: 8002
-    #    server-certificate-path: /path/to/server-cert.pem
-    #    server-key-path: /path/to/server-private-key.pem
-    #    ca-certificate-path: /path/to/root-ca-for-client-validation.pem
-    #
-    # listener:
-    #  connection-balancer: exact
-    #  socket-options:
-    #    tos: 64
-    #    traffic-class: 64
+#       examples/gateway-provisioner/00-common.yaml
+#       examples/gateway-provisioner/01-roles.yaml
+#       examples/gateway-provisioner/02-rolebindings.yaml
+#       examples/gateway-provisioner/03-gateway-provisioner.yaml
 
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: contourconfigurations.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -822,9 +611,9 @@ spec:
                 description: |-
                   FeatureFlags defines toggle to enable new contour features.
                   Available toggles are:
-                  useEndpointSlices - configures contour to fetch endpoint data
-                  from k8s endpoint slices. defaults to false and reading endpoint
-                  data from the k8s endpoints.
+                  useEndpointSlices - Configures contour to fetch endpoint data
+                  from k8s endpoint slices. defaults to true,
+                  If false then reads endpoint data from the k8s endpoints.
                 items:
                   type: string
                 type: array
@@ -833,22 +622,10 @@ spec:
                   Gateway contains parameters for the gateway-api Gateway that Contour
                   is configured to serve traffic.
                 properties:
-                  controllerName:
-                    description: |-
-                      ControllerName is used to determine whether Contour should reconcile a
-                      GatewayClass. The string takes the form of "projectcontour.io/<namespace>/contour".
-                      If unset, the gatewayclass controller will not be started.
-                      Exactly one of ControllerName or GatewayRef must be set.
-                      Deprecated: users should use GatewayRef, or the Gateway provisioner,
-                      in place of this field. This field will be removed in a future release.
-                    type: string
                   gatewayRef:
                     description: |-
-                      GatewayRef defines a specific Gateway that this Contour
-                      instance corresponds to. If set, Contour will reconcile
-                      only this gateway, and will not reconcile any gateway
-                      classes.
-                      Exactly one of ControllerName or GatewayRef must be set.
+                      GatewayRef defines the specific Gateway that this Contour
+                      instance corresponds to.
                     properties:
                       name:
                         type: string
@@ -858,6 +635,8 @@ spec:
                     - name
                     - namespace
                     type: object
+                required:
+                - gatewayRef
                 type: object
               globalExtAuth:
                 description: |-
@@ -1373,7 +1152,7 @@ spec:
                   type:
                     description: |-
                       Defines the XDSServer to use for `contour serve`.
-                      Values: `contour` (default), `envoy`.
+                      Values: `envoy` (default), `contour (deprecated)`.
                       Other values will produce an error.
                     type: string
                 type: object
@@ -1592,7 +1371,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: contourdeployments.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -2046,6 +1825,8 @@ spec:
                             to container and the other way around.
                             When not set, MountPropagationNone is used.
                             This field is beta in 1.10.
+                            When RecursiveReadOnly is set to IfPossible or to Enabled, MountPropagation must be None or unspecified
+                            (which defaults to None).
                           type: string
                         name:
                           description: This must match the Name of a Volume.
@@ -2055,6 +1836,21 @@ spec:
                             Mounted read-only if true, read-write otherwise (false or unspecified).
                             Defaults to false.
                           type: boolean
+                        recursiveReadOnly:
+                          description: |-
+                            RecursiveReadOnly specifies whether read-only mounts should be handled
+                            recursively.
+                            If ReadOnly is false, this field has no meaning and must be unspecified.
+                            If ReadOnly is true, and this field is set to Disabled, the mount is not made
+                            recursively read-only.  If this field is set to IfPossible, the mount is made
+                            recursively read-only, if it is supported by the container runtime.  If this
+                            field is set to Enabled, the mount is made recursively read-only if it is
+                            supported by the container runtime, otherwise the pod will not be started and
+                            an error will be generated to indicate the reason.
+                            If this field is set to IfPossible or Enabled, MountPropagation must be set to
+                            None (or be unspecified, which defaults to None).
+                            If this field is not specified, it is treated as an equivalent of Disabled.
+                          type: string
                         subPath:
                           description: |-
                             Path within the volume from which the container's volume should be mounted.
@@ -2182,6 +1978,7 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                             path:
                               description: 'path is Optional: Used as the mounted
                                 root, rather than the full Ceph tree, default is /'
@@ -2310,6 +2107,7 @@ spec:
                                 - path
                                 type: object
                               type: array
+                              x-kubernetes-list-type: atomic
                             name:
                               description: |-
                                 Name of the referent.
@@ -2394,8 +2192,8 @@ spec:
                                 properties:
                                   fieldRef:
                                     description: 'Required: Selects a field of the
-                                      pod: only annotations, labels, name and namespace
-                                      are supported.'
+                                      pod: only annotations, labels, name, namespace
+                                      and uid are supported.'
                                     properties:
                                       apiVersion:
                                         description: Version of the schema the FieldPath
@@ -2454,6 +2252,7 @@ spec:
                                 - path
                                 type: object
                               type: array
+                              x-kubernetes-list-type: atomic
                           type: object
                         emptyDir:
                           description: |-
@@ -2545,6 +2344,7 @@ spec:
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     dataSource:
                                       description: |-
                                         dataSource field can be used to specify either:
@@ -2689,11 +2489,13 @@ spec:
                                                 items:
                                                   type: string
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                             required:
                                             - key
                                             - operator
                                             type: object
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                         matchLabels:
                                           additionalProperties:
                                             type: string
@@ -2721,7 +2523,7 @@ spec:
                                         If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                                         set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                         exists.
-                                        More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
+                                        More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
                                         (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
                                       type: string
                                     volumeMode:
@@ -2765,6 +2567,7 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                             wwids:
                               description: |-
                                 wwids Optional: FC volume world wide identifiers (wwids)
@@ -2772,6 +2575,7 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                           type: object
                         flexVolume:
                           description: |-
@@ -2992,6 +2796,7 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                             readOnly:
                               description: |-
                                 readOnly here will force the ReadOnly setting in VolumeMounts.
@@ -3176,11 +2981,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -3259,6 +3066,7 @@ spec:
                                           - path
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       name:
                                         description: |-
                                           Name of the referent.
@@ -3286,7 +3094,7 @@ spec:
                                             fieldRef:
                                               description: 'Required: Selects a field
                                                 of the pod: only annotations, labels,
-                                                name and namespace are supported.'
+                                                name, namespace and uid are supported.'
                                               properties:
                                                 apiVersion:
                                                   description: Version of the schema
@@ -3350,6 +3158,7 @@ spec:
                                           - path
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     type: object
                                   secret:
                                     description: secret information about the secret
@@ -3393,6 +3202,7 @@ spec:
                                           - path
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       name:
                                         description: |-
                                           Name of the referent.
@@ -3436,6 +3246,7 @@ spec:
                                     type: object
                                 type: object
                               type: array
+                              x-kubernetes-list-type: atomic
                           type: object
                         quobyte:
                           description: quobyte represents a Quobyte mount on the host
@@ -3506,6 +3317,7 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                             pool:
                               description: |-
                                 pool is the rados pool name.
@@ -3661,6 +3473,7 @@ spec:
                                 - path
                                 type: object
                               type: array
+                              x-kubernetes-list-type: atomic
                             optional:
                               description: optional field specify whether the Secret
                                 or its keys must be defined
@@ -4517,9 +4330,9 @@ spec:
                     description: |-
                       FeatureFlags defines toggle to enable new contour features.
                       Available toggles are:
-                      useEndpointSlices - configures contour to fetch endpoint data
-                      from k8s endpoint slices. defaults to false and reading endpoint
-                      data from the k8s endpoints.
+                      useEndpointSlices - Configures contour to fetch endpoint data
+                      from k8s endpoint slices. defaults to true,
+                      If false then reads endpoint data from the k8s endpoints.
                     items:
                       type: string
                     type: array
@@ -4528,22 +4341,10 @@ spec:
                       Gateway contains parameters for the gateway-api Gateway that Contour
                       is configured to serve traffic.
                     properties:
-                      controllerName:
-                        description: |-
-                          ControllerName is used to determine whether Contour should reconcile a
-                          GatewayClass. The string takes the form of "projectcontour.io/<namespace>/contour".
-                          If unset, the gatewayclass controller will not be started.
-                          Exactly one of ControllerName or GatewayRef must be set.
-                          Deprecated: users should use GatewayRef, or the Gateway provisioner,
-                          in place of this field. This field will be removed in a future release.
-                        type: string
                       gatewayRef:
                         description: |-
-                          GatewayRef defines a specific Gateway that this Contour
-                          instance corresponds to. If set, Contour will reconcile
-                          only this gateway, and will not reconcile any gateway
-                          classes.
-                          Exactly one of ControllerName or GatewayRef must be set.
+                          GatewayRef defines the specific Gateway that this Contour
+                          instance corresponds to.
                         properties:
                           name:
                             type: string
@@ -4553,6 +4354,8 @@ spec:
                         - name
                         - namespace
                         type: object
+                    required:
+                    - gatewayRef
                     type: object
                   globalExtAuth:
                     description: |-
@@ -5070,7 +4873,7 @@ spec:
                       type:
                         description: |-
                           Defines the XDSServer to use for `contour serve`.
-                          Values: `contour` (default), `envoy`.
+                          Values: `envoy` (default), `contour (deprecated)`.
                           Other values will produce an error.
                         type: string
                     type: object
@@ -5165,7 +4968,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: extensionservices.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -5613,7 +5416,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: httpproxies.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -8468,6 +8271,7 @@ spec:
                           x-kubernetes-list-type: atomic
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                 type: object
             type: object
         required:
@@ -8483,7 +8287,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: tlscertificatedelegations.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -8767,513 +8571,6 @@ spec:
     storage: true
     subresources:
       status: {}
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: contour-certgen
-  namespace: projectcontour
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: contour
-  namespace: projectcontour
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: contour-certgen
-subjects:
-- kind: ServiceAccount
-  name: contour-certgen
-  namespace: projectcontour
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: contour-certgen
-  namespace: projectcontour
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - create
-  - update
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: contour-certgen-v1-28-3
-  namespace: projectcontour
-spec:
-  template:
-    metadata:
-      labels:
-        app: "contour-certgen"
-    spec:
-      containers:
-      - name: contour
-        image: ghcr.io/projectcontour/contour:v1.28.3
-        imagePullPolicy: IfNotPresent
-        command:
-        - contour
-        - certgen
-        - --kube
-        - --incluster
-        - --overwrite
-        - --secrets-format=compact
-        - --namespace=$(CONTOUR_NAMESPACE)
-        env:
-        - name: CONTOUR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-      restartPolicy: Never
-      serviceAccountName: contour-certgen
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 65534
-        runAsGroup: 65534
-  parallelism: 1
-  completions: 1
-  backoffLimit: 1
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: contour
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: contour
-subjects:
-- kind: ServiceAccount
-  name: contour
-  namespace: projectcontour
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: contour-rolebinding
-  namespace: projectcontour
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: contour
-subjects:
-- kind: ServiceAccount
-  name: contour
-  namespace: projectcontour
-
-# The following ClusterRole and Role are generated from kubebuilder RBAC tags by
-# generate-rbac.sh. Do not edit this file directly but instead edit the source
-# files and re-render.
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: contour
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - endpoints
-  - namespaces
-  - secrets
-  - services
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - discovery.k8s.io
-  resources:
-  - endpointslices
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - gateway.networking.k8s.io
-  resources:
-  - backendtlspolicies
-  - gatewayclasses
-  - gateways
-  - grpcroutes
-  - httproutes
-  - referencegrants
-  - tcproutes
-  - tlsroutes
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - gateway.networking.k8s.io
-  resources:
-  - backendtlspolicies/status
-  - gatewayclasses/status
-  - gateways/status
-  - grpcroutes/status
-  - httproutes/status
-  - tcproutes/status
-  - tlsroutes/status
-  verbs:
-  - update
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - ingresses
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - ingresses/status
-  verbs:
-  - create
-  - get
-  - update
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - contourconfigurations
-  - extensionservices
-  - httpproxies
-  - tlscertificatedelegations
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - contourconfigurations/status
-  - extensionservices/status
-  - httpproxies/status
-  verbs:
-  - create
-  - get
-  - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: contour
-  namespace: projectcontour
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - get
-  - update
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - get
-  - update
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: contour
-  namespace: projectcontour
-spec:
-  ports:
-  - port: 8001
-    name: xds
-    protocol: TCP
-    targetPort: 8001
-  selector:
-    app: contour
-  type: ClusterIP
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: envoy
-  namespace: projectcontour
-  annotations:
-    # This annotation puts the AWS ELB into "TCP" mode so that it does not
-    # do HTTP negotiation for HTTPS connections at the ELB edge.
-    # The downside of this is the remote IP address of all connections will
-    # appear to be the internal address of the ELB. See docs/proxy-proto.md
-    # for information about enabling the PROXY protocol on the ELB to recover
-    # the original remote IP address.
-    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
-spec:
-  externalTrafficPolicy: Local
-  ports:
-  - port: 80
-    name: http
-    protocol: TCP
-    targetPort: 8080
-  - port: 443
-    name: https
-    protocol: TCP
-    targetPort: 8443
-  selector:
-    app: envoy
-  type: LoadBalancer
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: contour
-  name: contour
-  namespace: projectcontour
-spec:
-  replicas: 2
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      # This value of maxSurge means that during a rolling update
-      # the new ReplicaSet will be created first.
-      maxSurge: 50%
-  selector:
-    matchLabels:
-      app: contour
-  template:
-    metadata:
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
-      labels:
-        app: contour
-    spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app: contour
-              topologyKey: kubernetes.io/hostname
-            weight: 100
-      containers:
-      - args:
-        - serve
-        - --incluster
-        - --xds-address=0.0.0.0
-        - --xds-port=8001
-        - --contour-cafile=/certs/ca.crt
-        - --contour-cert-file=/certs/tls.crt
-        - --contour-key-file=/certs/tls.key
-        - --config-path=/config/contour.yaml
-        command: ["contour"]
-        image: ghcr.io/projectcontour/contour:v1.28.3
-        imagePullPolicy: IfNotPresent
-        name: contour
-        ports:
-        - containerPort: 8001
-          name: xds
-          protocol: TCP
-        - containerPort: 8000
-          name: metrics
-          protocol: TCP
-        - containerPort: 6060
-          name: debug
-          protocol: TCP
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8000
-        readinessProbe:
-          tcpSocket:
-            port: 8001
-          periodSeconds: 10
-        volumeMounts:
-          - name: contourcert
-            mountPath: /certs
-            readOnly: true
-          - name: contour-config
-            mountPath: /config
-            readOnly: true
-        env:
-        - name: CONTOUR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-      dnsPolicy: ClusterFirst
-      serviceAccountName: contour
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 65534
-        runAsGroup: 65534
-      volumes:
-        - name: contourcert
-          secret:
-            secretName: contourcert
-        - name: contour-config
-          configMap:
-            name: contour
-            defaultMode: 0644
-            items:
-            - key: contour.yaml
-              path: contour.yaml
-
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  labels:
-    app: envoy
-  name: envoy
-  namespace: projectcontour
-spec:
-  updateStrategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 10%
-  selector:
-    matchLabels:
-      app: envoy
-  template:
-    metadata:
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8002"
-        prometheus.io/path: "/stats/prometheus"
-      labels:
-        app: envoy
-    spec:
-      containers:
-      - command:
-        - /bin/contour
-        args:
-          - envoy
-          - shutdown-manager
-        image: ghcr.io/projectcontour/contour:v1.28.3
-        imagePullPolicy: IfNotPresent
-        lifecycle:
-          preStop:
-            exec:
-              command:
-                - /bin/contour
-                - envoy
-                - shutdown
-        name: shutdown-manager
-        volumeMounts:
-          - name: envoy-admin
-            mountPath: /admin
-      - args:
-        - -c
-        - /config/envoy.json
-        - --service-cluster $(CONTOUR_NAMESPACE)
-        - --service-node $(ENVOY_POD_NAME)
-        - --log-level info
-        command:
-        - envoy
-        image: docker.io/envoyproxy/envoy:v1.29.3
-        imagePullPolicy: IfNotPresent
-        name: envoy
-        env:
-        - name: CONTOUR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: ENVOY_POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        ports:
-        - containerPort: 8080
-          hostPort: 80
-          name: http
-          protocol: TCP
-        - containerPort: 8443
-          hostPort: 443
-          name: https
-          protocol: TCP
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8002
-          initialDelaySeconds: 3
-          periodSeconds: 4
-        volumeMounts:
-          - name: envoy-config
-            mountPath: /config
-            readOnly: true
-          - name: envoycert
-            mountPath: /certs
-            readOnly: true
-          - name: envoy-admin
-            mountPath: /admin
-        lifecycle:
-          preStop:
-            httpGet:
-              path: /shutdown
-              port: 8090
-              scheme: HTTP
-      initContainers:
-      - args:
-        - bootstrap
-        - /config/envoy.json
-        - --xds-address=contour
-        - --xds-port=8001
-        - --xds-resource-version=v3
-        - --resources-dir=/config/resources
-        - --envoy-cafile=/certs/ca.crt
-        - --envoy-cert-file=/certs/tls.crt
-        - --envoy-key-file=/certs/tls.key
-        command:
-        - contour
-        image: ghcr.io/projectcontour/contour:v1.28.3
-        imagePullPolicy: IfNotPresent
-        name: envoy-initconfig
-        volumeMounts:
-        - name: envoy-config
-          mountPath: /config
-        - name: envoycert
-          mountPath: /certs
-          readOnly: true
-        env:
-        - name: CONTOUR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-      automountServiceAccountToken: false
-      serviceAccountName: envoy
-      terminationGracePeriodSeconds: 300
-      volumes:
-        - name: envoy-admin
-          emptyDir: {}
-        - name: envoy-config
-          emptyDir: {}
-        - name: envoycert
-          secret:
-            secretName: envoycert
-      restartPolicy: Always
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 65534
-        runAsGroup: 65534
 
 ---
 # Copyright 2023 The Kubernetes Authors.
@@ -21041,25 +20338,296 @@ status:
   storedVersions: null
 
 ---
-kind: GatewayClass
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: v1
+kind: Namespace
 metadata:
-  name: example
-spec:
-  controllerName: projectcontour.io/gateway-controller
+  name: projectcontour
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: contour-gateway-provisioner
+  namespace: projectcontour
+
+# The following ClusterRole and Role are generated from kubebuilder RBAC tags by
+# generate-rbac.sh. Do not edit this file directly but instead edit the source
+# files and re-render.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: contour-gateway-provisioner
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - namespaces
+  - secrets
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - backendtlspolicies
+  - gatewayclasses
+  - gateways
+  - grpcroutes
+  - httproutes
+  - referencegrants
+  - tcproutes
+  - tlsroutes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - backendtlspolicies/status
+  - gatewayclasses/status
+  - gateways/status
+  - grpcroutes/status
+  - httproutes/status
+  - tcproutes/status
+  - tlsroutes/status
+  verbs:
+  - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  - gateways
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses/status
+  - gateways/status
+  verbs:
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses/status
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - contourconfigurations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - contourconfigurations
+  - extensionservices
+  - httpproxies
+  - tlscertificatedelegations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - contourconfigurations/status
+  - extensionservices/status
+  - httpproxies/status
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - contourdeployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: contour-gateway-provisioner
+  namespace: projectcontour
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - update
 
 ---
-kind: Gateway
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
 metadata:
-  name: contour
+  name: contour-gateway-provisioner-leader-election
+  namespace: projectcontour
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: contour-gateway-provisioner
+subjects:
+- kind: ServiceAccount
+  name: contour-gateway-provisioner
+  namespace: projectcontour
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: contour-gateway-provisioner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: contour-gateway-provisioner
+subjects:
+- kind: ServiceAccount
+  name: contour-gateway-provisioner
+  namespace: projectcontour
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: contour-gateway-provisioner
+  name: contour-gateway-provisioner
   namespace: projectcontour
 spec:
-  gatewayClassName: example
-  listeners:
-    - name: http
-      protocol: HTTP
-      port: 80
-      allowedRoutes:
-        namespaces:
-          from: All
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: contour-gateway-provisioner
+  template:
+    metadata:
+      labels:
+        control-plane: contour-gateway-provisioner
+    spec:
+      containers:
+      - args:
+        - gateway-provisioner
+        - --metrics-addr=127.0.0.1:8080
+        - --enable-leader-election
+        command: ["contour"]
+        image: ghcr.io/projectcontour/contour:v1.29.0
+        imagePullPolicy: IfNotPresent
+        name: contour-gateway-provisioner
+        resources:
+          requests:
+            cpu: 100m
+            memory: 70Mi
+        env:
+        - name: CONTOUR_PROVISIONER_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      serviceAccountName: contour-gateway-provisioner
+      terminationGracePeriodSeconds: 10
