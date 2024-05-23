@@ -81,7 +81,7 @@ var (
 func init() {
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(gatewayv1beta1.AddToScheme(scheme))
+	utilruntime.Must(gatewayv1beta1.Install(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
