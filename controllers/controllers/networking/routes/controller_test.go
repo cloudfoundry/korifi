@@ -1,12 +1,10 @@
-package networking_test
+package routes_test
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -19,81 +17,49 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	var (
-		ctx context.Context
-
-		testNamespace  string
-		testDomainGUID string
-		testRouteGUID  string
-		testAppGUID    string
-
 		ns *corev1.Namespace
 
 		cfDomain *korifiv1alpha1.CFDomain
 		cfRoute  *korifiv1alpha1.CFRoute
-		cfApp    *korifiv1alpha1.CFApp
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
-
-		testNamespace = GenerateGUID()
-
 		ns = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: testNamespace,
+				Name: uuid.NewString(),
 			},
 		}
 		Expect(adminClient.Create(ctx, ns)).To(Succeed())
 
-		testDomainGUID = GenerateGUID()
-		testRouteGUID = GenerateGUID()
-		testAppGUID = GenerateGUID()
-
 		cfDomain = &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      testDomainGUID,
-				Namespace: testNamespace,
+				Name:      uuid.NewString(),
+				Namespace: ns.Name,
 			},
 			Spec: korifiv1alpha1.CFDomainSpec{
-				Name: "a" + GenerateGUID() + ".com",
+				Name: "a" + uuid.NewString() + ".com",
 			},
 		}
 		Expect(adminClient.Create(ctx, cfDomain)).To(Succeed())
 
-		cfApp = &korifiv1alpha1.CFApp{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
-				Name:      testAppGUID,
-			},
-			Spec: korifiv1alpha1.CFAppSpec{
-				Lifecycle: korifiv1alpha1.Lifecycle{
-					Type: "buildpack",
-				},
-				DesiredState: "STARTED",
-				DisplayName:  testAppGUID,
-			},
-		}
-		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
-
 		cfRoute = &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      testRouteGUID,
-				Namespace: testNamespace,
+				Name:      uuid.NewString(),
+				Namespace: ns.Name,
 			},
 			Spec: korifiv1alpha1.CFRouteSpec{
 				Host:     "test-route-host",
 				Path:     "/hello",
 				Protocol: "http",
 				DomainRef: corev1.ObjectReference{
-					Name:      testDomainGUID,
-					Namespace: testNamespace,
+					Name:      cfDomain.Name,
+					Namespace: ns.Name,
 				},
 			},
 		}
@@ -118,10 +84,6 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		return httpRoute
 	}
 
-	AfterEach(func() {
-		Expect(client.IgnoreNotFound(adminClient.Delete(ctx, ns))).To(Succeed())
-	})
-
 	JustBeforeEach(func() {
 		Expect(adminClient.Create(ctx, cfRoute)).To(Succeed())
 	})
@@ -129,14 +91,14 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	It("does not create a HTTPRoute (as there are no destinations)", func() {
 		Consistently(func(g Gomega) {
 			httpRoutes := &gatewayv1beta1.HTTPRouteList{}
-			g.Expect(adminClient.List(ctx, httpRoutes, client.InNamespace(testNamespace))).To(Succeed())
+			g.Expect(adminClient.List(ctx, httpRoutes, client.InNamespace(ns.Name))).To(Succeed())
 			g.Expect(httpRoutes.Items).To(BeEmpty())
 		}).Should(Succeed())
 	})
 
 	It("sets a valid status on the cfroute", func() {
 		Eventually(func(g Gomega) {
-			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)).To(Succeed())
 			g.Expect(cfRoute.Status.CurrentStatus).To(Equal(korifiv1alpha1.ValidStatus))
 			g.Expect(cfRoute.Status.FQDN).To(Equal(getCfRouteFQDN()))
 			g.Expect(cfRoute.Status.URI).To(Equal(getCfRouteFQDN() + "/hello"))
@@ -146,12 +108,29 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 	})
 
 	When("the CFRoute includes destinations", func() {
+		var cfApp *korifiv1alpha1.CFApp
+
 		BeforeEach(func() {
+			cfApp = &korifiv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: ns.Name,
+					Name:      uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFAppSpec{
+					Lifecycle: korifiv1alpha1.Lifecycle{
+						Type: "buildpack",
+					},
+					DesiredState: "STARTED",
+					DisplayName:  uuid.NewString(),
+				},
+			}
+			Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
+
 			cfRoute.Spec.Destinations = []korifiv1alpha1.Destination{
 				{
-					GUID: GenerateGUID(),
+					GUID: uuid.NewString(),
 					AppRef: corev1.LocalObjectReference{
-						Name: testAppGUID,
+						Name: cfApp.Name,
 					},
 					ProcessType: "web",
 					Port:        tools.PtrTo(80),
@@ -233,14 +212,14 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				var svc corev1.Service
 
-				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &svc)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: ns.Name}, &svc)).To(Succeed())
 				g.Expect(svc.Labels).To(SatisfyAll(
 					HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", cfRoute.Spec.Destinations[0].AppRef.Name),
 					HaveKeyWithValue("korifi.cloudfoundry.org/route-guid", cfRoute.Name),
 				))
 				g.Expect(svc.Spec.Selector).To(SatisfyAll(
 					HaveLen(2),
-					HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", testAppGUID),
+					HaveKeyWithValue("korifi.cloudfoundry.org/app-guid", cfApp.Name),
 					HaveKeyWithValue("korifi.cloudfoundry.org/process-type", "web"),
 				))
 				g.Expect(svc.ObjectMeta.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
@@ -256,7 +235,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 		It("sets effective destinations to the cfroute status", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: testRouteGUID, Namespace: testNamespace}, cfRoute)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)).To(Succeed())
 				g.Expect(cfRoute.Status.Destinations).To(ConsistOf(korifiv1alpha1.Destination{
 					GUID:        cfRoute.Spec.Destinations[0].GUID,
 					Port:        tools.PtrTo(80),
@@ -305,7 +284,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			It("does not create a service", func() {
 				serviceName := fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[0].GUID)
 				Consistently(func(g Gomega) {
-					err := adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, &corev1.Service{})
+					err := adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: ns.Name}, &corev1.Service{})
 					g.Expect(err).To(MatchError(ContainSubstring("not found")))
 				}).Should(Succeed())
 			})
@@ -313,7 +292,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			It("does not create a HTTPRoute", func() {
 				Consistently(func(g Gomega) {
 					httpRoutes := &gatewayv1beta1.HTTPRouteList{}
-					g.Expect(adminClient.List(ctx, httpRoutes, client.InNamespace(testNamespace))).To(Succeed())
+					g.Expect(adminClient.List(ctx, httpRoutes, client.InNamespace(ns.Name))).To(Succeed())
 					g.Expect(httpRoutes.Items).To(BeEmpty())
 				}).Should(Succeed())
 			})
@@ -338,7 +317,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				JustBeforeEach(func() {
 					cfBuild = &korifiv1alpha1.CFBuild{
 						ObjectMeta: metav1.ObjectMeta{
-							Namespace: testNamespace,
+							Namespace: ns.Name,
 							Name:      uuid.NewString(),
 						},
 						Spec: korifiv1alpha1.CFBuildSpec{
@@ -347,7 +326,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 								Data: korifiv1alpha1.LifecycleData{},
 							},
 							AppRef: corev1.LocalObjectReference{
-								Name: testAppGUID,
+								Name: cfApp.Name,
 							},
 						},
 					}
@@ -430,7 +409,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 			It("deletes the corresponding service", func() {
 				Eventually(func(g Gomega) {
-					err := adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: testNamespace}, new(corev1.Service))
+					err := adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: ns.Name}, new(corev1.Service))
 					g.Expect(errors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
 			})
@@ -439,7 +418,9 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 
 	When("a legacy route has a finalizer", func() {
 		BeforeEach(func() {
-			Expect(controllerutil.AddFinalizer(cfRoute, korifiv1alpha1.CFRouteFinalizerName)).To(BeTrue())
+			cfRoute.Finalizers = []string{
+				korifiv1alpha1.CFRouteFinalizerName,
+			}
 		})
 
 		JustBeforeEach(func() {
