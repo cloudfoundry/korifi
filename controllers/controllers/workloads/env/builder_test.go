@@ -332,9 +332,8 @@ var _ = Describe("EnvBuilder", func() {
 					},
 				}
 				ensureCreate(cfRoute)
+
 				ensurePatch(cfRoute, func(cfRoute *korifiv1alpha1.CFRoute) {
-					cfRoute.Status.CurrentStatus = "valid"
-					cfRoute.Status.Description = "some-description"
 					cfRoute.Status.Destinations = destinations
 				})
 			})

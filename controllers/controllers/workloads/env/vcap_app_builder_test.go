@@ -96,8 +96,6 @@ var _ = Describe("VCAP_APPLICATION env value builder", func() {
 				routeUri = cfApp.Name + ".mydomain.platform.com"
 
 				ensurePatch(appRoute, func(appRoute *korifiv1alpha1.CFRoute) {
-					appRoute.Status.CurrentStatus = "valid"
-					appRoute.Status.Description = "test patch status"
 					appRoute.Status.URI = routeUri
 				})
 			})

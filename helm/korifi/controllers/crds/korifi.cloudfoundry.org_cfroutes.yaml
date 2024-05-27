@@ -230,15 +230,6 @@ spec:
                   - type
                   type: object
                 type: array
-              currentStatus:
-                description: CurrentStatus declares whether the CFRoute is currently
-                  valid or invalid
-                enum:
-                - valid
-                - invalid
-                type: string
-              description:
-                type: string
               destinations:
                 description: The observed state of the destinations. This is mainly
                   used to record the target port of the underlying service
@@ -299,9 +290,6 @@ spec:
               uri:
                 description: The URI (FQDN + path) for the route
                 type: string
-            required:
-            - currentStatus
-            - description
             type: object
         type: object
     served: true

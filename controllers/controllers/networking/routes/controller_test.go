@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -96,14 +97,13 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		}).Should(Succeed())
 	})
 
-	It("sets a valid status on the cfroute", func() {
+	It("sets a ready condition on the cfroute", func() {
 		Eventually(func(g Gomega) {
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)).To(Succeed())
-			g.Expect(cfRoute.Status.CurrentStatus).To(Equal(korifiv1alpha1.ValidStatus))
+			g.Expect(meta.IsStatusConditionTrue(cfRoute.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 			g.Expect(cfRoute.Status.FQDN).To(Equal(getCfRouteFQDN()))
 			g.Expect(cfRoute.Status.URI).To(Equal(getCfRouteFQDN() + "/hello"))
 			g.Expect(cfRoute.Status.Destinations).To(BeEmpty())
-			g.Expect(cfRoute.Status.ObservedGeneration).To(Equal(cfRoute.Generation))
 		}).Should(Succeed())
 	})
 
@@ -416,7 +416,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 		})
 	})
 
-	When("a legacy route has a finalizer", func() {
+	When("a route has a legacy finalizer", func() {
 		BeforeEach(func() {
 			cfRoute.Finalizers = []string{
 				korifiv1alpha1.CFRouteFinalizerName,

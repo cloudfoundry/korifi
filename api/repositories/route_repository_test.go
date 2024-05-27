@@ -160,8 +160,6 @@ var _ = Describe("RouteRepository", func() {
 					BeforeEach(func() {
 						Expect(k8s.Patch(ctx, k8sClient, cfRoute, func() {
 							cfRoute.Status = korifiv1alpha1.CFRouteStatus{
-								CurrentStatus: "valid",
-								Description:   "ok",
 								Destinations: []korifiv1alpha1.Destination{{
 									GUID: "destination-guid",
 									AppRef: corev1.LocalObjectReference{
