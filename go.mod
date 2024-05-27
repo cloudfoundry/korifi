@@ -30,7 +30,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/pivotal/kpack v0.13.3
-	github.com/servicebinding/runtime v0.8.0
+	github.com/servicebinding/runtime v0.9.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 	golang.org/x/text v0.15.0
 	gopkg.in/square/go-jose.v2 v2.6.0
