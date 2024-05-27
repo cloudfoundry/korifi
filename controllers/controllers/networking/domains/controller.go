@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package networking
+package domains
 
 import (
 	"context"
@@ -26,7 +26,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -34,22 +33,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type CFDomainReconciler struct {
+type Reconciler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	log    logr.Logger
 }
 
-func NewCFDomainReconciler(
+func NewReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFDomain, *korifiv1alpha1.CFDomain] {
-	routeReconciler := CFDomainReconciler{client: client, scheme: scheme, log: log}
+	routeReconciler := Reconciler{client: client, scheme: scheme, log: log}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFDomain, *korifiv1alpha1.CFDomain](log, client, &routeReconciler)
 }
 
-func (r *CFDomainReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFDomain{})
 }
@@ -58,8 +57,14 @@ func (r *CFDomainReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/status,verbs=patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfdomains/finalizers,verbs=update
 
-func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
+func (r *Reconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
+
+	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfDomain)
+	defer func() {
+		meta.SetStatusCondition(&cfDomain.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
 
 	if !cfDomain.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFDomain(ctx, cfDomain)
@@ -68,18 +73,11 @@ func (r *CFDomainReconciler) ReconcileResource(ctx context.Context, cfDomain *ko
 	cfDomain.Status.ObservedGeneration = cfDomain.Generation
 	log.V(1).Info("set observed generation", "generation", cfDomain.Status.ObservedGeneration)
 
-	meta.SetStatusCondition(&cfDomain.Status.Conditions, metav1.Condition{
-		Type:               "Valid",
-		Status:             metav1.ConditionTrue,
-		Reason:             "Valid",
-		Message:            "Valid Domain",
-		ObservedGeneration: cfDomain.Generation,
-	})
-
+	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 
-func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
+func (r *Reconciler) finalizeCFDomain(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFDomain")
 
 	if !controllerutil.ContainsFinalizer(cfDomain, korifiv1alpha1.CFDomainFinalizerName) {
@@ -91,6 +89,8 @@ func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, cfDomain *kor
 		log.Info("failed to list CFRoutes", "reason", err)
 		return ctrl.Result{}, err
 	}
+
+	log.Info("routes", "len", len(domainRoutes))
 
 	if len(domainRoutes) == 0 {
 		if controllerutil.RemoveFinalizer(cfDomain, korifiv1alpha1.CFDomainFinalizerName) {
@@ -111,7 +111,7 @@ func (r *CFDomainReconciler) finalizeCFDomain(ctx context.Context, cfDomain *kor
 	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
-func (r *CFDomainReconciler) listRoutesForDomain(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) ([]korifiv1alpha1.CFRoute, error) {
+func (r *Reconciler) listRoutesForDomain(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) ([]korifiv1alpha1.CFRoute, error) {
 	routesList := korifiv1alpha1.CFRouteList{}
 	err := r.client.List(ctx, &routesList, client.MatchingFields{shared.IndexRouteDomainQualifiedName: cfDomain.Namespace + "." + cfDomain.Name})
 	if err != nil {

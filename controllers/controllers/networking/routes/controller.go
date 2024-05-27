@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package networking
+package routes
 
 import (
 	"context"
@@ -45,25 +45,24 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-// CFRouteReconciler reconciles a CFRoute object to create Contour resources
-type CFRouteReconciler struct {
+type Reconciler struct {
 	client           client.Client
 	scheme           *runtime.Scheme
 	log              logr.Logger
 	controllerConfig *config.ControllerConfig
 }
 
-func NewCFRouteReconciler(
+func NewReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	controllerConfig *config.ControllerConfig,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute] {
-	routeReconciler := CFRouteReconciler{client: client, scheme: scheme, log: log, controllerConfig: controllerConfig}
+	routeReconciler := Reconciler{client: client, scheme: scheme, log: log, controllerConfig: controllerConfig}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute](log, client, &routeReconciler)
 }
 
-func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFRoute{}).
 		Watches(
@@ -72,7 +71,7 @@ func (r *CFRouteReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder 
 		)
 }
 
-func (r *CFRouteReconciler) enqueueCFAppRequests(ctx context.Context, o client.Object) []reconcile.Request {
+func (r *Reconciler) enqueueCFAppRequests(ctx context.Context, o client.Object) []reconcile.Request {
 	var requests []reconcile.Request
 
 	cfApp, ok := o.(*korifiv1alpha1.CFApp)
@@ -112,7 +111,7 @@ func (r *CFRouteReconciler) enqueueCFAppRequests(ctx context.Context, o client.O
 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
-func (r *CFRouteReconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
+func (r *Reconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
 	var err error
@@ -206,7 +205,7 @@ func setInvalidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, des
 	return ctrl.Result{}, err
 }
 
-func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+func (r *Reconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCRRoute")
 
 	if !controllerutil.ContainsFinalizer(cfRoute, korifiv1alpha1.CFRouteFinalizerName) {
@@ -220,7 +219,7 @@ func (r *CFRouteReconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifi
 	return nil
 }
 
-func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+func (r *Reconciler) createOrPatchServices(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchServices")
 
 	for _, destination := range cfRoute.Status.Destinations {
@@ -272,7 +271,7 @@ func (r *CFRouteReconciler) createOrPatchServices(ctx context.Context, cfRoute *
 	return nil
 }
 
-func (r *CFRouteReconciler) buildEffectiveDestinations(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) ([]korifiv1alpha1.Destination, error) {
+func (r *Reconciler) buildEffectiveDestinations(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) ([]korifiv1alpha1.Destination, error) {
 	effectiveDestinations := []korifiv1alpha1.Destination{}
 
 	for _, dest := range cfRoute.Spec.Destinations {
@@ -304,7 +303,7 @@ func (r *CFRouteReconciler) buildEffectiveDestinations(ctx context.Context, cfRo
 	return effectiveDestinations, nil
 }
 
-func (r *CFRouteReconciler) getAppCurrentDroplet(ctx context.Context, appNamespace, appName string) (*korifiv1alpha1.BuildDropletStatus, error) {
+func (r *Reconciler) getAppCurrentDroplet(ctx context.Context, appNamespace, appName string) (*korifiv1alpha1.BuildDropletStatus, error) {
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: appNamespace,
@@ -334,7 +333,7 @@ func (r *CFRouteReconciler) getAppCurrentDroplet(ctx context.Context, appNamespa
 	return cfBuild.Status.Droplet, nil
 }
 
-func (r *CFRouteReconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
+func (r *Reconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomain) error {
 	fqdn := buildFQDN(cfRoute, cfDomain)
 	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchHTTPRoute").WithValues("fqdn", fqdn, "path", cfRoute.Spec.Path)
 
@@ -389,7 +388,7 @@ func (r *CFRouteReconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *kor
 	return nil
 }
 
-func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
+func (r *Reconciler) deleteOrphanedServices(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("deleteOrphanedServices")
 
 	matchingLabelSet := map[string]string{
@@ -425,7 +424,7 @@ func (r *CFRouteReconciler) deleteOrphanedServices(ctx context.Context, cfRoute 
 	return nil
 }
 
-func (r *CFRouteReconciler) fetchServicesByMatchingLabels(ctx context.Context, labelSet map[string]string, namespace string) (*corev1.ServiceList, error) {
+func (r *Reconciler) fetchServicesByMatchingLabels(ctx context.Context, labelSet map[string]string, namespace string) (*corev1.ServiceList, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("fetchServicesByMatchingLabels")
 
 	selector, err := labels.ValidatedSelectorFromSet(labelSet)

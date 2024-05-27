@@ -27,7 +27,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	networkingcontrollers "code.cloudfoundry.org/korifi/controllers/controllers/networking"
+	"code.cloudfoundry.org/korifi/controllers/controllers/networking/domains"
+	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -277,11 +278,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (networkingcontrollers.NewCFDomainReconciler(
+		if err = domains.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFDomain"),
-		)).SetupWithManager(mgr); err != nil {
+		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
 			os.Exit(1)
 		}
@@ -386,12 +387,12 @@ func main() {
 			}
 		}
 
-		if err = (networkingcontrollers.NewCFRouteReconciler(
+		if err = routes.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			ctrl.Log.WithName("controllers").WithName("CFRoute"),
 			controllerConfig,
-		)).SetupWithManager(mgr); err != nil {
+		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
 			os.Exit(1)
 		}
