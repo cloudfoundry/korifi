@@ -29,7 +29,6 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -115,6 +114,14 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alp
 	log := logr.FromContextOrDiscard(ctx)
 
 	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfRoute)
+	defer func() {
+		meta.SetStatusCondition(&cfRoute.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
+
+	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
+
+	cfRoute.Status.ObservedGeneration = cfRoute.Generation
 
 	if !cfRoute.GetDeletionTimestamp().IsZero() {
 		err = r.finalizeCFRoute(ctx, cfRoute)
@@ -127,82 +134,43 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alp
 	cfDomain := &korifiv1alpha1.CFDomain{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return setInvalidRouteStatus(log, cfRoute, "CFDomain not found", "InvalidDomainRef", err)
-		}
-		return setInvalidRouteStatus(log, cfRoute, "Error fetching domain reference", "FetchDomainRef", err)
+		readyConditionBuilder.WithReason("InvalidDomainRef")
+		return ctrl.Result{}, err
 	}
-
-	effectiveDestinations, err := r.buildEffectiveDestinations(ctx, cfRoute)
-	if err != nil {
-		return setInvalidRouteStatus(log, cfRoute, "Error building effective destinations", "BuildEffectiveDestinations", err)
-	}
-
-	setValidRouteStatus(log, cfRoute, cfDomain, effectiveDestinations, "Valid CFRoute", "Valid", "Valid CFRoute")
 
 	err = r.createOrPatchServices(ctx, cfRoute)
 	if err != nil {
-		return setInvalidRouteStatus(log, cfRoute, "Error creating/patching services", "CreatePatchServices", err)
+		readyConditionBuilder.WithReason("CreatePatchServices")
+		return ctrl.Result{}, err
 	}
 
 	err = r.reconcileHTTPRoute(ctx, cfRoute, cfDomain)
 	if err != nil {
-		return setInvalidRouteStatus(log, cfRoute, "Error reconciling HTTPRoute", "ReconcileHTTPRoute", err)
-	}
-
-	err = r.deleteOrphanedServices(ctx, cfRoute)
-	if err != nil {
-		// technically, failing to delete the orphaned services does not make the CFRoute invalid so we don't mess with the cfRoute status here
+		readyConditionBuilder.WithReason("ReconcileHTTPRoute")
 		return ctrl.Result{}, err
 	}
-
-	return ctrl.Result{}, nil
-}
-
-func setValidRouteStatus(
-	log logr.Logger,
-	cfRoute *korifiv1alpha1.CFRoute,
-	cfDomain *korifiv1alpha1.CFDomain,
-	destinations []korifiv1alpha1.Destination,
-	description string,
-	reason string,
-	message string,
-) {
-	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
 	fqdn := buildFQDN(cfRoute, cfDomain)
 	cfRoute.Status.FQDN = fqdn
 	cfRoute.Status.URI = fqdn + cfRoute.Spec.Path
-	cfRoute.Status.Destinations = destinations
-	cfRoute.Status.CurrentStatus = korifiv1alpha1.ValidStatus
-	cfRoute.Status.Description = description
-	cfRoute.Status.ObservedGeneration = cfRoute.Generation
 
-	meta.SetStatusCondition(&cfRoute.Status.Conditions, metav1.Condition{
-		Type:               "Valid",
-		Status:             metav1.ConditionTrue,
-		Reason:             reason,
-		Message:            message,
-		ObservedGeneration: cfRoute.Generation,
-	})
-}
+	effectiveDestinations, err := r.buildEffectiveDestinations(ctx, cfRoute)
+	if err != nil {
+		readyConditionBuilder.WithReason("BuildEffectiveDestinations")
+		return ctrl.Result{}, err
+	}
+	cfRoute.Status.Destinations = effectiveDestinations
 
-func setInvalidRouteStatus(log logr.Logger, cfRoute *korifiv1alpha1.CFRoute, description, reason string, err error) (ctrl.Result, error) {
-	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
+	readyConditionBuilder.Ready()
 
-	cfRoute.Status.CurrentStatus = korifiv1alpha1.InvalidStatus
-	cfRoute.Status.Description = description
-	cfRoute.Status.ObservedGeneration = cfRoute.Generation
+	if cleanupErr := r.deleteOrphanedServices(ctx, cfRoute); cleanupErr != nil {
+		// technically, failing to delete the orphaned services does not make
+		// the CFRoute invalid or not ready so we don't mess with the cfRoute
+		// ready status condition here
+		return ctrl.Result{}, cleanupErr
+	}
 
-	meta.SetStatusCondition(&cfRoute.Status.Conditions, metav1.Condition{
-		Type:               "Valid",
-		Status:             metav1.ConditionFalse,
-		Reason:             reason,
-		Message:            err.Error(),
-		ObservedGeneration: cfRoute.Generation,
-	})
-
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
 func (r *Reconciler) finalizeCFRoute(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) error {

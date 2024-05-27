@@ -120,9 +120,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		Expect(adminClient.Create(ctx, cfRoute)).To(Succeed())
 		Expect(k8s.Patch(ctx, adminClient, cfRoute, func() {
 			cfRoute.Status = korifiv1alpha1.CFRouteStatus{
-				Destinations:  []korifiv1alpha1.Destination{destination},
-				CurrentStatus: korifiv1alpha1.ValidStatus,
-				Description:   "ok",
+				Destinations: []korifiv1alpha1.Destination{destination},
 			}
 		})).To(Succeed())
 	})

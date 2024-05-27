@@ -27,9 +27,6 @@ import (
 const (
 	// Deprecated. Used for removing leftover finalizers
 	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
-
-	ValidStatus   CurrentStatus = "valid"
-	InvalidStatus CurrentStatus = "invalid"
 )
 
 // Destination defines a target for a CFRoute, does not carry meaning outside of a CF context
@@ -72,8 +69,6 @@ type CFRouteSpec struct {
 
 // CFRouteStatus defines the observed state of CFRoute
 type CFRouteStatus struct {
-	CurrentStatus CurrentStatus `json:"currentStatus"`
-	Description   string        `json:"description"`
 	// The fully-qualified domain name for the route
 	FQDN string `json:"fqdn,omitempty"`
 
@@ -89,10 +84,6 @@ type CFRouteStatus struct {
 	// ObservedGeneration captures the latest generation of the CFRoute that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
-
-// CurrentStatus declares whether the CFRoute is currently valid or invalid
-// +kubebuilder:validation:Enum=valid;invalid
-type CurrentStatus string
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
