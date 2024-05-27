@@ -67,7 +67,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(k8s.Patch(ctx, k8sClient, cfOrg, func() {
 					cfOrg.Status.GUID = cfOrg.Name
 					meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
-						Type:    "Ready",
+						Type:    korifiv1alpha1.StatusConditionReady,
 						Status:  conditionStatus,
 						Reason:  "blah",
 						Message: conditionMessage,
@@ -199,7 +199,7 @@ var _ = Describe("OrgRepository", func() {
 		When("the org is not ready", func() {
 			BeforeEach(func() {
 				meta.SetStatusCondition(&(cfOrg1.Status.Conditions), metav1.Condition{
-					Type:    "Ready",
+					Type:    korifiv1alpha1.StatusConditionReady,
 					Status:  metav1.ConditionFalse,
 					Reason:  "because",
 					Message: "because",
@@ -207,7 +207,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(k8sClient.Status().Update(ctx, cfOrg1)).To(Succeed())
 
 				meta.SetStatusCondition(&(cfOrg2.Status.Conditions), metav1.Condition{
-					Type:    "Ready",
+					Type:    korifiv1alpha1.StatusConditionReady,
 					Status:  metav1.ConditionUnknown,
 					Reason:  "because",
 					Message: "because",

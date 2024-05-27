@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,9 +30,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	BeforeEach(func() {
 		cfSpace = createSpace(testOrg)
 
-		appGUID := GenerateGUID()
-		buildGUID := GenerateGUID()
-		packageGUID := GenerateGUID()
+		appGUID := uuid.NewString()
+		buildGUID := uuid.NewString()
+		packageGUID := uuid.NewString()
 
 		// Technically the app controller should be creating this process based
 		// on CFApp and CFBuild, but we want to drive testing with a specific
@@ -43,12 +42,35 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		cfProcess = BuildCFProcessCRObject(GenerateGUID(), cfSpace.Status.GUID, appGUID, korifiv1alpha1.ProcessTypeWeb, "process command", "detected-command")
 		Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
 
-		cfApp = BuildCFAppCRObject(appGUID, cfSpace.Status.GUID)
-		cfApp.Spec.EnvSecretName = cfApp.Name + "-env"
-		cfApp.Spec.CurrentDropletRef = corev1.LocalObjectReference{Name: buildGUID}
+		cfApp = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      appGUID,
+				Namespace: cfSpace.Status.GUID,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName:  "test-app-name",
+				DesiredState: "STOPPED",
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+				},
+				EnvSecretName:     appGUID + "-env",
+				CurrentDropletRef: corev1.LocalObjectReference{Name: buildGUID},
+			},
+		}
 		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 
-		cfPackage := BuildCFPackageCRObject(packageGUID, cfSpace.Status.GUID, cfApp.Name, "ref")
+		cfPackage := &korifiv1alpha1.CFPackage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      packageGUID,
+				Namespace: cfSpace.Status.GUID,
+			},
+			Spec: korifiv1alpha1.CFPackageSpec{
+				Type: "bits",
+				AppRef: corev1.LocalObjectReference{
+					Name: appGUID,
+				},
+			},
+		}
 		Expect(adminClient.Create(ctx, cfPackage)).To(Succeed())
 
 		cfBuild = BuildCFBuildObject(buildGUID, cfSpace.Status.GUID, packageGUID, cfApp.Name)
@@ -121,10 +143,8 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 	It("sets the ObservedGeneration status field", func() {
 		Eventually(func(g Gomega) {
-			var createdCFProcess korifiv1alpha1.CFProcess
-			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: cfProcess.Name, Namespace: cfSpace.Status.GUID}, &createdCFProcess)).To(Succeed())
-
-			g.Expect(createdCFProcess.Status.ObservedGeneration).To(Equal(createdCFProcess.Generation))
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
+			g.Expect(cfProcess.Status.ObservedGeneration).To(Equal(cfProcess.Generation))
 		}).Should(Succeed())
 	})
 
@@ -341,12 +361,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	})
 
 	When("the CFProcess has an http health check", func() {
-		const (
-			healthCheckEndpoint                 = "/healthy"
-			healthCheckTimeoutSeconds           = 9
-			healthCheckInvocationTimeoutSeconds = 3
-		)
-
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
@@ -356,9 +370,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
 					Type: "http",
 					Data: korifiv1alpha1.HealthCheckData{
-						HTTPEndpoint:             healthCheckEndpoint,
-						InvocationTimeoutSeconds: healthCheckInvocationTimeoutSeconds,
-						TimeoutSeconds:           healthCheckTimeoutSeconds,
+						HTTPEndpoint:             "/healthy",
+						InvocationTimeoutSeconds: 3,
+						TimeoutSeconds:           9,
 					},
 				}
 			})).To(Succeed())
@@ -385,11 +399,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	})
 
 	When("the CFProcess has a port health check", func() {
-		const (
-			healthCheckTimeoutSeconds           = 9
-			healthCheckInvocationTimeoutSeconds = 3
-		)
-
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
@@ -399,8 +408,8 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
 					Type: "port",
 					Data: korifiv1alpha1.HealthCheckData{
-						InvocationTimeoutSeconds: healthCheckInvocationTimeoutSeconds,
-						TimeoutSeconds:           healthCheckTimeoutSeconds,
+						InvocationTimeoutSeconds: 3,
+						TimeoutSeconds:           9,
 					},
 				}
 			})).To(Succeed())

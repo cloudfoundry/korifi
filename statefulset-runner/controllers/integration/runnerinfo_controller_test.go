@@ -5,8 +5,10 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	//+kubebuilder:scaffold:imports
@@ -25,9 +27,13 @@ var _ = Describe("RunnerInfosController", func() {
 
 		BeforeEach(func() {
 			ctx = context.Background()
-			namespaceName = prefixedGUID("ns")
 			runnerInfoName = "statefulset-runner"
-			createNamespace(ctx, k8sClient, namespaceName)
+			namespaceName = uuid.NewString()
+			Expect(k8sClient.Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespaceName,
+				},
+			})).To(Succeed())
 
 			runnerInfo = &korifiv1alpha1.RunnerInfo{
 				ObjectMeta: metav1.ObjectMeta{
@@ -64,9 +70,13 @@ var _ = Describe("RunnerInfosController", func() {
 
 		BeforeEach(func() {
 			ctx = context.Background()
-			namespaceName = prefixedGUID("ns")
 			runnerInfoName = "foobrizzle-runner"
-			createNamespace(ctx, k8sClient, namespaceName)
+			namespaceName = uuid.NewString()
+			Expect(k8sClient.Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespaceName,
+				},
+			})).To(Succeed())
 
 			runnerInfo = &korifiv1alpha1.RunnerInfo{
 				ObjectMeta: metav1.ObjectMeta{

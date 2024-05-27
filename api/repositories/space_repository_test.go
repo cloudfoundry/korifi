@@ -74,7 +74,7 @@ var _ = Describe("SpaceRepository", func() {
 				Expect(k8s.Patch(ctx, k8sClient, cfSpace, func() {
 					cfSpace.Status.GUID = cfSpace.Name
 					meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
-						Type:    "Ready",
+						Type:    korifiv1alpha1.StatusConditionReady,
 						Status:  conditionStatus,
 						Reason:  "blah",
 						Message: conditionMessage,
@@ -227,7 +227,7 @@ var _ = Describe("SpaceRepository", func() {
 		When("the space anchor is not ready", func() {
 			BeforeEach(func() {
 				meta.SetStatusCondition(&(space11.Status.Conditions), metav1.Condition{
-					Type:    "Ready",
+					Type:    korifiv1alpha1.StatusConditionReady,
 					Status:  metav1.ConditionFalse,
 					Reason:  "cus",
 					Message: "cus",

@@ -90,6 +90,12 @@ func (r *CFPackageReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builde
 func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfPackage)
+	defer func() {
+		meta.SetStatusCondition(&cfPackage.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
+
 	cfPackage.Status.ObservedGeneration = cfPackage.Generation
 	log.V(1).Info("set observed generation", "generation", cfPackage.Status.ObservedGeneration)
 
@@ -98,7 +104,7 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 	}
 
 	var cfApp korifiv1alpha1.CFApp
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
 	if err != nil {
 		log.Info("error when fetching CFApp", "reason", err)
 		return ctrl.Result{}, err
@@ -117,25 +123,22 @@ func (r *CFPackageReconciler) ReconcileResource(ctx context.Context, cfPackage *
 		ObservedGeneration: cfPackage.Generation,
 	})
 
-	readyCondition := metav1.ConditionFalse
-	readyReason := "Initialized"
-	if cfPackage.Spec.Source.Registry.Image != "" {
-		readyCondition = metav1.ConditionTrue
-		readyReason = "SourceImageSet"
-	}
-	meta.SetStatusCondition(&cfPackage.Status.Conditions, metav1.Condition{
-		Type:               korifiv1alpha1.StatusConditionReady,
-		Status:             readyCondition,
-		Reason:             readyReason,
-		ObservedGeneration: cfPackage.Generation,
-	})
+	defer func() {
+		if err = r.packageCleaner.Clean(ctx, types.NamespacedName{
+			Namespace: cfPackage.Namespace,
+			Name:      cfPackage.Spec.AppRef.Name,
+		}); err != nil {
+			log.Info("failed deleting older packages", "reason", err)
+		}
+	}()
 
-	if err = r.packageCleaner.Clean(ctx, types.NamespacedName{
-		Namespace: cfPackage.Namespace,
-		Name:      cfPackage.Spec.AppRef.Name,
-	}); err != nil {
-		log.Info("failed deleting older packages", "reason", err)
+	if cfPackage.Spec.Source.Registry.Image == "" {
+		readyConditionBuilder.WithReason("Initialized")
+		return ctrl.Result{}, nil
 	}
+
+	readyConditionBuilder.WithReason("SourceImageSet")
+	readyConditionBuilder.Ready()
 
 	return ctrl.Result{}, nil
 }

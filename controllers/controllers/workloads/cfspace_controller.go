@@ -140,6 +140,12 @@ func (r *CFSpaceReconciler) enqueueCFSpaceRequestsForServiceAccount(ctx context.
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;patch;delete
 
 func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) (ctrl.Result, error) {
+	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfSpace)
+	defer func() {
+		meta.SetStatusCondition(&cfSpace.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
+
 	nsReconcileResult, err := r.namespaceReconciler.ReconcileResource(ctx, cfSpace)
 	if (nsReconcileResult != ctrl.Result{}) || (err != nil) {
 		return nsReconcileResult, err
@@ -151,24 +157,11 @@ func (r *CFSpaceReconciler) ReconcileResource(ctx context.Context, cfSpace *kori
 	if err != nil {
 		log.Info("not ready yet", "reason", "error propagating service accounts", "error", err)
 
-		meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
-			Type:               korifiv1alpha1.StatusConditionReady,
-			Status:             metav1.ConditionFalse,
-			Reason:             "ServiceAccountPropagation",
-			Message:            err.Error(),
-			ObservedGeneration: cfSpace.Generation,
-		})
-
+		readyConditionBuilder.WithReason("ServiceAccountPropagation")
 		return ctrl.Result{}, err
 	}
 
-	meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
-		Type:               korifiv1alpha1.StatusConditionReady,
-		Status:             metav1.ConditionTrue,
-		Reason:             korifiv1alpha1.StatusConditionReady,
-		ObservedGeneration: cfSpace.Generation,
-	})
-
+	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

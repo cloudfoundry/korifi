@@ -396,8 +396,8 @@ var _ = Describe("PackageRepository", func() {
 					BeforeEach(func() {
 						Expect(k8s.Patch(ctx, k8sClient, cfPackage, func() {
 							meta.SetStatusCondition(&cfPackage.Status.Conditions, metav1.Condition{
-								Type:               "Ready",
-								Status:             "True",
+								Type:               korifiv1alpha1.StatusConditionReady,
+								Status:             metav1.ConditionTrue,
 								Reason:             "Ready",
 								ObservedGeneration: cfPackage.Generation,
 							})
@@ -507,8 +507,8 @@ var _ = Describe("PackageRepository", func() {
 				Expect(k8sClient.Create(ctx, cfPackage)).To(Succeed())
 				Expect(k8s.Patch(ctx, k8sClient, cfPackage, func() {
 					meta.SetStatusCondition(&cfPackage.Status.Conditions, metav1.Condition{
-						Type:               "Ready",
-						Status:             "True",
+						Type:               korifiv1alpha1.StatusConditionReady,
+						Status:             metav1.ConditionTrue,
 						Reason:             "Ready",
 						ObservedGeneration: cfPackage.Generation,
 					})

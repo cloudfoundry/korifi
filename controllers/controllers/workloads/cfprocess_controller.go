@@ -128,13 +128,19 @@ func (r *CFProcessReconciler) enqueueCFProcessRequestsForRoute(ctx context.Conte
 func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfProcess)
+	defer func() {
+		meta.SetStatusCondition(&cfProcess.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
+
 	cfProcess.Status.ObservedGeneration = cfProcess.Generation
 	log.V(1).Info("set observed generation", "generation", cfProcess.Status.ObservedGeneration)
 
 	shared.GetConditionOrSetAsUnknown(&cfProcess.Status.Conditions, korifiv1alpha1.StatusConditionReady, cfProcess.Generation)
 
 	cfApp := new(korifiv1alpha1.CFApp)
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
+	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfProcess.Spec.AppRef.Name, Namespace: cfProcess.Namespace}, cfApp)
 	if err != nil {
 		log.Info("error when trying to fetch CFApp", "namespace", cfProcess.Namespace, "name", cfProcess.Spec.AppRef.Name, "reason", err)
 		return ctrl.Result{}, err
@@ -167,19 +173,14 @@ func (r *CFProcessReconciler) ReconcileResource(ctx context.Context, cfProcess *
 		return ctrl.Result{}, err
 	}
 
-	meta.SetStatusCondition(&cfProcess.Status.Conditions, metav1.Condition{
-		Type:               korifiv1alpha1.StatusConditionReady,
-		Status:             metav1.ConditionTrue,
-		Reason:             korifiv1alpha1.StatusConditionReady,
-		ObservedGeneration: cfProcess.Generation,
-	})
-
 	appWorkloads, err := r.fetchAppWorkloadsForProcess(ctx, cfProcess)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	cfProcess.Status.ActualInstances = getActualInstances(appWorkloads)
+
+	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

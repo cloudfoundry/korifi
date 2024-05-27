@@ -7,7 +7,9 @@ import (
 	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -23,14 +25,10 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 	)
 
 	var (
-		cfSpace           *korifiv1alpha1.CFSpace
-		cfAppGUID         string
-		cfPackageGUID     string
-		cfBuildGUID       string
-		desiredCFApp      *korifiv1alpha1.CFApp
-		desiredCFPackage  *korifiv1alpha1.CFPackage
-		desiredCFBuild    *korifiv1alpha1.CFBuild
-		desiredBuildpacks []string
+		cfSpace   *korifiv1alpha1.CFSpace
+		cfApp     *korifiv1alpha1.CFApp
+		cfPackage *korifiv1alpha1.CFPackage
+		cfBuild   *korifiv1alpha1.CFBuild
 	)
 
 	eventuallyBuildWorkloadShould := func(assertion func(*korifiv1alpha1.BuildWorkload, Gomega)) {
@@ -38,7 +36,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 
 		Eventually(func(g Gomega) {
 			workload := new(korifiv1alpha1.BuildWorkload)
-			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
+			lookupKey := types.NamespacedName{Name: cfBuild.Name, Namespace: cfSpace.Status.GUID}
 			g.Expect(adminClient.Get(context.Background(), lookupKey, workload)).To(Succeed())
 			assertion(workload, g)
 		}).Should(Succeed())
@@ -46,64 +44,79 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 
 	BeforeEach(func() {
 		cfSpace = createSpace(testOrg)
-		cfAppGUID = PrefixedGUID("cf-app")
-		cfPackageGUID = PrefixedGUID("cf-package")
 
-		beforeCtx := context.Background()
-
-		desiredCFApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
-		Expect(adminClient.Create(beforeCtx, desiredCFApp)).To(Succeed())
+		cfAppGUID := uuid.NewString()
+		cfApp = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfAppGUID,
+				Namespace: cfSpace.Status.GUID,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName:  "test-app-name",
+				DesiredState: "STOPPED",
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+				},
+				EnvSecretName: cfAppGUID + "-env",
+			},
+		}
+		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 
 		Eventually(func(g Gomega) {
-			actualCFApp := &korifiv1alpha1.CFApp{}
-			g.Expect(adminClient.Get(beforeCtx, types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, actualCFApp)).To(Succeed())
-			g.Expect(actualCFApp.Status.VCAPServicesSecretName).NotTo(BeEmpty())
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+			g.Expect(cfApp.Status.VCAPServicesSecretName).NotTo(BeEmpty())
 		}).Should(Succeed())
 
-		envVarSecret := BuildCFAppEnvVarsSecret(desiredCFApp.Name, cfSpace.Status.GUID, map[string]string{
+		envVarSecret := BuildCFAppEnvVarsSecret(cfApp.Name, cfSpace.Status.GUID, map[string]string{
 			"a_key": "a-val",
 			"b_key": "b-val",
 		})
 		Expect(adminClient.Create(context.Background(), envVarSecret)).To(Succeed())
 
 		dockerRegistrySecret := BuildDockerRegistrySecret(wellFormedRegistryCredentialsSecret, cfSpace.Status.GUID)
-		Expect(adminClient.Create(beforeCtx, dockerRegistrySecret)).To(Succeed())
+		Expect(adminClient.Create(ctx, dockerRegistrySecret)).To(Succeed())
 
 		registryServiceAccountName := "kpack-service-account"
 		registryServiceAccount := BuildServiceAccount(registryServiceAccountName, cfSpace.Status.GUID, wellFormedRegistryCredentialsSecret)
-		Expect(adminClient.Create(beforeCtx, registryServiceAccount)).To(Succeed())
+		Expect(adminClient.Create(ctx, registryServiceAccount)).To(Succeed())
 
-		desiredBuildpacks = []string{"first-buildpack", "second-buildpack"}
-
-		desiredCFPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
-		Expect(adminClient.Create(ctx, desiredCFPackage)).To(Succeed())
+		cfPackage = &korifiv1alpha1.CFPackage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      uuid.NewString(),
+				Namespace: cfSpace.Status.GUID,
+			},
+			Spec: korifiv1alpha1.CFPackageSpec{
+				Type: "bits",
+				AppRef: corev1.LocalObjectReference{
+					Name: cfAppGUID,
+				},
+			},
+		}
+		Expect(adminClient.Create(ctx, cfPackage)).To(Succeed())
 
 		kpackSecret := BuildDockerRegistrySecret("source-registry-image-pull-secret", cfSpace.Status.GUID)
 		Expect(adminClient.Create(ctx, kpackSecret)).To(Succeed())
-
-		cfBuildGUID = PrefixedGUID("cf-build")
 	})
 
 	JustBeforeEach(func() {
-		desiredCFBuild = BuildCFBuildObject(cfBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
-		desiredCFBuild.Spec.Lifecycle.Data.Buildpacks = desiredBuildpacks
-		Expect(adminClient.Create(context.Background(), desiredCFBuild)).To(Succeed())
+		cfBuild = BuildCFBuildObject(uuid.NewString(), cfSpace.Status.GUID, cfPackage.Name, cfApp.Name)
+		cfBuild.Spec.Lifecycle.Data.Buildpacks = []string{"first-buildpack", "second-buildpack"}
+		Expect(adminClient.Create(context.Background(), cfBuild)).To(Succeed())
 	})
 
 	It("creates a BuildWorkload with the buildRef, source, env, and buildpacks set", func() {
-		createdCFApp := &korifiv1alpha1.CFApp{}
-		Expect(adminClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, createdCFApp)).To(Succeed())
+		Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 
 		eventuallyBuildWorkloadShould(func(workload *korifiv1alpha1.BuildWorkload, g Gomega) {
-			g.Expect(workload.Spec.BuildRef.Name).To(Equal(cfBuildGUID))
-			g.Expect(workload.Spec.Source).To(Equal(desiredCFPackage.Spec.Source))
+			g.Expect(workload.Spec.BuildRef.Name).To(Equal(cfBuild.Name))
+			g.Expect(workload.Spec.Source).To(Equal(cfPackage.Spec.Source))
 			g.Expect(workload.Spec.Env).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Name": Equal("a_key"),
 					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
 						"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
 							"LocalObjectReference": MatchFields(IgnoreExtras, Fields{
-								"Name": Equal(createdCFApp.Spec.EnvSecretName),
+								"Name": Equal(cfApp.Spec.EnvSecretName),
 							}),
 							"Key": Equal("a_key"),
 						})),
@@ -114,7 +127,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
 						"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
 							"LocalObjectReference": MatchFields(IgnoreExtras, Fields{
-								"Name": Equal(createdCFApp.Spec.EnvSecretName),
+								"Name": Equal(cfApp.Spec.EnvSecretName),
 							}),
 							"Key": Equal("b_key"),
 						})),
@@ -125,7 +138,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
 						"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
 							"LocalObjectReference": MatchFields(IgnoreExtras, Fields{
-								"Name": Equal(createdCFApp.Status.VCAPServicesSecretName),
+								"Name": Equal(cfApp.Status.VCAPServicesSecretName),
 							}),
 							"Key": Equal("VCAP_SERVICES"),
 						})),
@@ -136,19 +149,19 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 					"ValueFrom": PointTo(MatchFields(IgnoreExtras, Fields{
 						"SecretKeyRef": PointTo(MatchFields(IgnoreExtras, Fields{
 							"LocalObjectReference": MatchFields(IgnoreExtras, Fields{
-								"Name": Equal(createdCFApp.Status.VCAPApplicationSecretName),
+								"Name": Equal(cfApp.Status.VCAPApplicationSecretName),
 							}),
 							"Key": Equal("VCAP_APPLICATION"),
 						})),
 					})),
 				}),
 			))
-			g.Expect(workload.Spec.Buildpacks).To(Equal(desiredBuildpacks))
+			g.Expect(workload.Spec.Buildpacks).To(ConsistOf("first-buildpack", "second-buildpack"))
 			g.Expect(workload.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
-				UID:                desiredCFBuild.UID,
+				UID:                cfBuild.UID,
 				Kind:               "CFBuild",
 				APIVersion:         "korifi.cloudfoundry.org/v1alpha1",
-				Name:               desiredCFBuild.Name,
+				Name:               cfBuild.Name,
 				Controller:         tools.PtrTo(true),
 				BlockOwnerDeletion: tools.PtrTo(true),
 			}))
@@ -156,7 +169,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 	})
 
 	It("sets the 'build-running' status conditions on CFBuild", func() {
-		lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
+		lookupKey := types.NamespacedName{Name: cfBuild.Name, Namespace: cfSpace.Status.GUID}
 		Eventually(func(g Gomega) {
 			createdCFBuild := new(korifiv1alpha1.CFBuild)
 			g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
@@ -199,7 +212,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 					Name:      "service-binding-guid",
 					Namespace: cfSpace.Status.GUID,
 					Labels: map[string]string{
-						korifiv1alpha1.CFAppGUIDLabelKey: desiredCFApp.Name,
+						korifiv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -208,7 +221,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 						Name: "service-instance-guid",
 					},
 					AppRef: corev1.LocalObjectReference{
-						Name: desiredCFApp.Name,
+						Name: cfApp.Name,
 					},
 				},
 			}
@@ -239,7 +252,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 
 		It("sets the VCAP_SERVICES env var in the image", func() {
 			createdCFApp := &korifiv1alpha1.CFApp{}
-			Expect(adminClient.Get(context.Background(), types.NamespacedName{Name: cfAppGUID, Namespace: cfSpace.Status.GUID}, createdCFApp)).To(Succeed())
+			Expect(adminClient.Get(context.Background(), types.NamespacedName{Name: cfApp.Name, Namespace: cfSpace.Status.GUID}, createdCFApp)).To(Succeed())
 
 			eventuallyBuildWorkloadShould(func(workload *korifiv1alpha1.BuildWorkload, g Gomega) {
 				g.Expect(workload.Spec.Env).To(ContainElements(
@@ -282,7 +295,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 					},
 				},
 			}
-			newCFBuild = BuildCFBuildObject(newCFBuildGUID, cfSpace.Status.GUID, cfPackageGUID, cfAppGUID)
+			newCFBuild = BuildCFBuildObject(newCFBuildGUID, cfSpace.Status.GUID, cfPackage.Name, cfApp.Name)
 
 			Expect(adminClient.Create(ctx, existingBuildWorkload)).To(Succeed())
 			Expect(adminClient.Create(ctx, newCFBuild)).To(Succeed())
@@ -311,7 +324,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 	When("the BuildWorkload failed", func() {
 		JustBeforeEach(func() {
 			testCtx := context.Background()
-			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
+			lookupKey := types.NamespacedName{Name: cfBuild.Name, Namespace: cfSpace.Status.GUID}
 			Eventually(func(g Gomega) {
 				workload := new(korifiv1alpha1.BuildWorkload)
 				g.Expect(adminClient.Get(testCtx, lookupKey, workload)).To(Succeed())
@@ -326,7 +339,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 		})
 
 		It("sets the CFBuild status condition Succeeded = False", func() {
-			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
+			lookupKey := types.NamespacedName{Name: cfBuild.Name, Namespace: cfSpace.Status.GUID}
 			createdCFBuild := new(korifiv1alpha1.CFBuild)
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
@@ -353,13 +366,9 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 			buildStack          = "cflinuxfs3"
 		)
 
-		var (
-			returnedProcessTypes []korifiv1alpha1.ProcessType
-			returnedPorts        []int32
-		)
+		var returnedProcessTypes []korifiv1alpha1.ProcessType
 
 		JustBeforeEach(func() {
-			returnedPorts = []int32{42}
 			returnedProcessTypes = []korifiv1alpha1.ProcessType{
 				{
 					Type:    "web",
@@ -367,7 +376,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 				},
 			}
 
-			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
+			lookupKey := types.NamespacedName{Name: cfBuild.Name, Namespace: cfSpace.Status.GUID}
 			Eventually(func(g Gomega) {
 				workload := new(korifiv1alpha1.BuildWorkload)
 				g.Expect(adminClient.Get(ctx, lookupKey, workload)).To(Succeed())
@@ -383,7 +392,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 							ImagePullSecrets: []corev1.LocalObjectReference{{Name: imagePullSecretName}},
 						},
 						Stack:        buildStack,
-						Ports:        returnedPorts,
+						Ports:        []int32{42},
 						ProcessTypes: returnedProcessTypes,
 					}
 				})).To(Succeed())
@@ -391,36 +400,31 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 		})
 
 		It("sets the CFBuild status condition Succeeded = True", func() {
-			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
-			createdCFBuild := new(korifiv1alpha1.CFBuild)
-
 			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
-				stagingStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+				stagingStatusCondition := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)
 				g.Expect(stagingStatusCondition).NotTo(BeNil())
 				g.Expect(stagingStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(stagingStatusCondition.Reason).To(Equal("BuildNotRunning"))
-				g.Expect(stagingStatusCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
+				g.Expect(stagingStatusCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
 
-				succeededStatusCondition := meta.FindStatusCondition(createdCFBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+				succeededStatusCondition := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
 				g.Expect(succeededStatusCondition).NotTo(BeNil())
 				g.Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(succeededStatusCondition.Reason).To(Equal("BuildSucceeded"))
-				g.Expect(succeededStatusCondition.ObservedGeneration).To(Equal(createdCFBuild.Generation))
+				g.Expect(succeededStatusCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
 			}).Should(Succeed())
 		})
 
 		It("sets CFBuild.status.droplet", func() {
-			lookupKey := types.NamespacedName{Name: cfBuildGUID, Namespace: cfSpace.Status.GUID}
 			Eventually(func(g Gomega) {
-				createdCFBuild := new(korifiv1alpha1.CFBuild)
-				g.Expect(adminClient.Get(context.Background(), lookupKey, createdCFBuild)).To(Succeed())
-				g.Expect(createdCFBuild.Status.Droplet).NotTo(BeNil())
-				g.Expect(createdCFBuild.Status.Droplet.Registry.Image).To(Equal(buildImageRef))
-				g.Expect(createdCFBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imagePullSecretName}))
-				g.Expect(createdCFBuild.Status.Droplet.Stack).To(Equal(buildStack))
-				g.Expect(createdCFBuild.Status.Droplet.ProcessTypes).To(Equal(returnedProcessTypes))
-				g.Expect(createdCFBuild.Status.Droplet.Ports).To(Equal(returnedPorts))
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+				g.Expect(cfBuild.Status.Droplet).NotTo(BeNil())
+				g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal(buildImageRef))
+				g.Expect(cfBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imagePullSecretName}))
+				g.Expect(cfBuild.Status.Droplet.Stack).To(Equal(buildStack))
+				g.Expect(cfBuild.Status.Droplet.ProcessTypes).To(Equal(returnedProcessTypes))
+				g.Expect(cfBuild.Status.Droplet.Ports).To(ConsistOf(BeEquivalentTo(42)))
 			}).Should(Succeed())
 		})
 	})

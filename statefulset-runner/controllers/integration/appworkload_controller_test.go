@@ -7,12 +7,14 @@ import (
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,39 +31,27 @@ var _ = Describe("AppWorkloadsController", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		namespaceName = prefixedGUID("ns")
-		createNamespace(ctx, k8sClient, namespaceName)
+		namespaceName = uuid.NewString()
+		Expect(k8sClient.Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespaceName,
+			},
+		})).To(Succeed())
 
 		appWorkload = &korifiv1alpha1.AppWorkload{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      prefixedGUID("rw"),
+				Name:      uuid.NewString(),
 				Namespace: namespaceName,
 			},
 			Spec: korifiv1alpha1.AppWorkloadSpec{
-				GUID:    prefixedGUID("process"),
-				Version: "1",
-				AppGUID: "my-app",
+				GUID:    uuid.NewString(),
+				Version: uuid.NewString(),
+				AppGUID: uuid.NewString(),
 
-				ProcessType:      "web",
-				Image:            "my-image",
-				Command:          []string{"do-it", "with", "args"},
-				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "something"}},
-				Env:              []corev1.EnvVar{},
-				LivenessProbe:    &corev1.Probe{},
-				StartupProbe:     &corev1.Probe{},
-				Ports:            []int32{8080},
-				Instances:        5,
-				RunnerName:       "statefulset-runner",
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceEphemeralStorage: resource.MustParse("100Mi"),
-						corev1.ResourceMemory:           resource.MustParse("5Mi"),
-					},
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("5m"),
-						corev1.ResourceMemory: resource.MustParse("5Mi"),
-					},
-				},
+				ProcessType: uuid.NewString(),
+				Image:       uuid.NewString(),
+				Instances:   5,
+				RunnerName:  "statefulset-runner",
 			},
 		}
 	})
@@ -69,10 +59,9 @@ var _ = Describe("AppWorkloadsController", func() {
 	getStatefulsetForAppWorkload := func(g Gomega) appsv1.StatefulSet {
 		stsetList := appsv1.StatefulSetList{}
 		g.Eventually(func(g Gomega) {
-			err := k8sClient.List(context.Background(), &stsetList, client.MatchingLabels{
+			g.Expect(k8sClient.List(ctx, &stsetList, client.MatchingLabels{
 				controllers.LabelGUID: appWorkload.Spec.GUID,
-			})
-			g.Expect(err).NotTo(HaveOccurred())
+			})).To(Succeed())
 			g.Expect(stsetList.Items).To(HaveLen(1))
 		}).Should(Succeed())
 
@@ -124,6 +113,25 @@ var _ = Describe("AppWorkloadsController", func() {
 				}).Should(Succeed())
 			})
 		})
+
+		When("the appworkload runner name is not 'statefulset-runner'", func() {
+			BeforeEach(func() {
+				appWorkload.Spec.RunnerName = "another-runner"
+			})
+
+			It("does not reconcile it", func() {
+				Consistently(func(g Gomega) {
+					stsetList := appsv1.StatefulSetList{}
+					g.Expect(k8sClient.List(ctx, &stsetList, client.MatchingLabels{
+						controllers.LabelGUID: appWorkload.Spec.GUID,
+					})).To(Succeed())
+					g.Expect(stsetList.Items).To(BeEmpty())
+
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+					g.Expect(meta.FindStatusCondition(appWorkload.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeNil())
+				}).Should(Succeed())
+			})
+		})
 	})
 
 	When("AppWorkload update", func() {
@@ -132,11 +140,15 @@ var _ = Describe("AppWorkloadsController", func() {
 		})
 
 		JustBeforeEach(func() {
-			Expect(k8s.Patch(context.Background(), k8sClient, appWorkload, func() {
+			Expect(k8s.Patch(ctx, k8sClient, appWorkload, func() {
 				appWorkload.Spec.Instances = 2
-				appWorkload.Spec.Resources.Requests[corev1.ResourceCPU] = resource.MustParse("1024m")
-				appWorkload.Spec.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("10Mi")
-				appWorkload.Spec.Resources.Limits[corev1.ResourceMemory] = resource.MustParse("10Mi")
+				appWorkload.Spec.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1024m"),
+					corev1.ResourceMemory: resource.MustParse("10Mi"),
+				}
+				appWorkload.Spec.Resources.Limits = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("10Mi"),
+				}
 			})).To(Succeed())
 		})
 

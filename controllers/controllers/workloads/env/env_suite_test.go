@@ -140,7 +140,7 @@ var _ = BeforeEach(func() {
 			VCAPApplicationSecretName: "app-guid-vcap-application",
 		}
 		meta.SetStatusCondition(&app.Status.Conditions, metav1.Condition{
-			Type:               "Ready",
+			Type:               korifiv1alpha1.StatusConditionReady,
 			Status:             metav1.ConditionTrue,
 			Reason:             "testing",
 			LastTransitionTime: metav1.Date(2023, 2, 15, 12, 0, 0, 0, time.FixedZone("", 0)),

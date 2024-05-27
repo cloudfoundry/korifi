@@ -6,35 +6,43 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("CFPackageReconciler Integration Tests", func() {
 	var (
-		cfSpace       *korifiv1alpha1.CFSpace
-		cfApp         *korifiv1alpha1.CFApp
-		cfAppGUID     string
-		cfPackage     *korifiv1alpha1.CFPackage
-		cfPackageGUID string
+		cfSpace   *korifiv1alpha1.CFSpace
+		cfApp     *korifiv1alpha1.CFApp
+		cfPackage *korifiv1alpha1.CFPackage
 	)
 
 	BeforeEach(func() {
 		cfSpace = createSpace(testOrg)
-		cfAppGUID = GenerateGUID()
-		cfPackageGUID = GenerateGUID()
 
-		cfApp = BuildCFAppCRObject(cfAppGUID, cfSpace.Status.GUID)
-
+		cfApp = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      uuid.NewString(),
+				Namespace: cfSpace.Status.GUID,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName:  "test-app-name",
+				DesiredState: "STOPPED",
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+				},
+			},
+		}
 		Expect(adminClient.Create(context.Background(), cfApp)).To(Succeed())
 	})
 
@@ -44,8 +52,18 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			cleanCallCount = packageCleaner.CleanCallCount()
 
-			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, "ref")
-			cfPackage.Spec.Source = korifiv1alpha1.PackageSource{}
+			cfPackage = &korifiv1alpha1.CFPackage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: cfSpace.Status.GUID,
+				},
+				Spec: korifiv1alpha1.CFPackageSpec{
+					Type: "bits",
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp.Name,
+					},
+				},
+			}
 			Expect(adminClient.Create(context.Background(), cfPackage)).To(Succeed())
 		})
 
@@ -77,55 +95,65 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 
 				var cleanedApps []types.NamespacedName
 				for currCall := cleanCallCount; currCall < packageCleaner.CleanCallCount(); currCall++ {
-					cleanedApps = append(cleanedApps, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfAppGUID})
+					cleanedApps = append(cleanedApps, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfApp.Name})
 				}
 				g.Expect(cleanedApps).To(ContainElement(types.NamespacedName{Namespace: cfApp.Namespace, Name: cfApp.Name}))
 			}).Should(Succeed())
 		})
 
 		It("sets the ObservedGeneration status field", func() {
-			var createdCFPackage korifiv1alpha1.CFPackage
 			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
-
-				g.Expect(createdCFPackage.Status.ObservedGeneration).To(Equal(createdCFPackage.Generation))
+				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
+				g.Expect(cfPackage.Status.ObservedGeneration).To(Equal(cfPackage.Generation))
 			}).Should(Succeed())
 		})
 
 		When("the package is updated with its source image", func() {
-			var createdCFPackage korifiv1alpha1.CFPackage
-
 			BeforeEach(func() {
 				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
-					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, workloads.InitializedConditionType)).To(BeTrue())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(cfPackage.Status.Conditions, workloads.InitializedConditionType)).To(BeTrue())
 				}).Should(Succeed())
 			})
 
 			JustBeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, adminClient, &createdCFPackage, func() {
-					createdCFPackage.Spec.Source.Registry.Image = "hello"
+				Expect(k8s.PatchResource(ctx, adminClient, cfPackage, func() {
+					cfPackage.Spec.Source.Registry.Image = "hello"
 				})).To(Succeed())
 			})
 
 			It("sets the ready condition to true", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), &createdCFPackage)).To(Succeed())
-					g.Expect(meta.IsStatusConditionTrue(createdCFPackage.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(cfPackage.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 				}).Should(Succeed())
 			})
 		})
 	})
 
 	When("a CFPackage is deleted", func() {
-		var (
-			deleteCount int
-			imageRef    string
-		)
+		var deleteCount int
 
 		BeforeEach(func() {
-			imageRef = GenerateGUID()
-			cfPackage = BuildCFPackageCRObject(cfPackageGUID, cfSpace.Status.GUID, cfAppGUID, imageRef)
+			cfPackage = &korifiv1alpha1.CFPackage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: cfSpace.Status.GUID,
+				},
+				Spec: korifiv1alpha1.CFPackageSpec{
+					Type: "bits",
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp.Name,
+					},
+					Source: korifiv1alpha1.PackageSource{
+						Registry: korifiv1alpha1.Registry{
+							Image:            uuid.NewString(),
+							ImagePullSecrets: []corev1.LocalObjectReference{{Name: "source-registry-image-pull-secret"}},
+						},
+					},
+				},
+			}
+
 			deleteCount = imageDeleter.DeleteCallCount()
 		})
 
@@ -147,7 +175,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 				_, creds, ref, tagsToDelete := imageDeleter.DeleteArgsForCall(deleteCount)
 				g.Expect(creds.Namespace).To(Equal(cfSpace.Status.GUID))
 				g.Expect(creds.SecretNames).To(ConsistOf("package-repo-secret-name"))
-				g.Expect(ref).To(Equal(imageRef))
+				g.Expect(ref).To(Equal(cfPackage.Spec.Source.Registry.Image))
 				g.Expect(tagsToDelete).To(ConsistOf(cfPackage.Name))
 			}).Should(Succeed())
 

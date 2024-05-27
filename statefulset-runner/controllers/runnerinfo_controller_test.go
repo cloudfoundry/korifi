@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,10 +15,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	testNamespace = "test-ns"
 )
 
 var _ = Describe("RunnerInfo Reconcile", func() {
@@ -37,7 +34,7 @@ var _ = Describe("RunnerInfo Reconcile", func() {
 		runnerInfo = &korifiv1alpha1.RunnerInfo{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      runnerName,
-				Namespace: testNamespace,
+				Namespace: uuid.NewString(),
 			},
 			Spec: korifiv1alpha1.RunnerInfoSpec{
 				RunnerName: runnerName,
