@@ -8,7 +8,7 @@ DEP_DIR="$TEST_DIR/dependencies"
 VENDOR_DIR="$TEST_DIR/vendor"
 
 TEMP_FILES=()
-trap 'for file in ${TEMP_FILES[@]}; do rm -rf $file; done' EXIT
+trap 'for file in ${TEMP_FILES[@]-}; do rm -rf $file; done' EXIT
 
 function usage_text() {
   cat <<EOF
