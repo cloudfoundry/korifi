@@ -104,6 +104,7 @@ Here are all the values that can be set for the chart:
 - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
 - `networking`: Networking configuration
   - `gatewayClass` (_String_): The name of the GatewayClass Korifi Gateway references
+- `nodeSelector`: Node labels for korifi-api and korifi-controllers pod assignment.
 - `reconcilers`:
   - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
   - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Defaults to `kpack-image-builder`.
@@ -124,3 +125,4 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `temporarySetPodSeccompProfile` (_Boolean_): Sets the pod .spec.securityContext.seccompProfile to RuntimeDefault. Setting this flag to true will cause a restart of all previously running pods.
 - `systemImagePullSecrets` (_Array_): List of `Secret` names to be used when pulling Korifi system images from private registries
+- `tolerations` (_Array_): Pod tolerations for taints.

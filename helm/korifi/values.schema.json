@@ -86,6 +86,25 @@
       },
       "required": ["memoryMB", "diskMB", "buildCacheMB"]
     },
+    "nodeSelector": {
+      "description": "Node labels for korifi-api and korifi-controllers pod assignment.",
+      "type": "object",
+      "properties": {}
+    },
+    "tolerations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "operator": { "type": "string" },
+          "value": { "type": "string" },
+          "effect": { "type": "string" }
+        },
+        "required": ["key", "operator", "effect"]
+      },
+      "description": "Pod tolerations for taints."
+    }, 
     "api": {
       "properties": {
         "include": {
