@@ -9,6 +9,8 @@ containerRegistrySecrets:
 eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
+tolerations: []
+nodeSelector: {}
 
 reconcilers:
   build: kpack-image-builder
