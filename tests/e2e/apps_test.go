@@ -245,6 +245,40 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
+	Describe("Get app process stats by type", func() {
+		var processStats resourceList[statsResource]
+
+		BeforeEach(func() {
+			appGUID, _ = pushTestApp(space1GUID, defaultAppBitsFile)
+		})
+
+		JustBeforeEach(func() {
+			Eventually(func(g Gomega) {
+				var err error
+				resp, err = adminClient.R().
+					SetResult(&processStats).
+					Get("/v3/apps/" + appGUID + "/processes/web/stats")
+				g.Expect(err).NotTo(HaveOccurred())
+
+				// no 'g.' here - we require all calls to return 200
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				g.Expect(processStats.Resources).ToNot(BeEmpty())
+				g.Expect(processStats.Resources[0].Usage).ToNot(BeZero())
+			}).Should(Succeed())
+		})
+
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(processStats.Resources).To(HaveLen(1))
+
+			Expect(processStats.Resources[0].Usage).To(MatchFields(IgnoreExtras, Fields{
+				"Mem":  Not(BeNil()),
+				"CPU":  Not(BeNil()),
+				"Time": Not(BeNil()),
+			}))
+		})
+	})
+
 	Describe("List app packages", func() {
 		var (
 			result  resourceList[typedResource]

@@ -274,6 +274,7 @@ func main() {
 			appRepo,
 			dropletRepo,
 			processRepo,
+			processStats,
 			routeRepo,
 			domainRepo,
 			spaceRepo,
