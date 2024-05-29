@@ -158,12 +158,8 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		BeforeEach(func() {
 			task = &korifiv1alpha1.CFTask{}
 			Eventually(func(g Gomega) {
-				app := new(korifiv1alpha1.CFApp)
-				g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: cfSpace.Status.GUID, Name: cfApp.Name}, app)).To(Succeed())
-
-				readyCondition := meta.FindStatusCondition(app.Status.Conditions, "Ready")
-				g.Expect(readyCondition).NotTo(BeNil())
-				g.Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue), "App is not staged")
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 			}).Should(Succeed())
 
 			eventCallCount = eventRecorder.EventfCallCount()

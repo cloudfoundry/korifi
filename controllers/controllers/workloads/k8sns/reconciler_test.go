@@ -178,10 +178,9 @@ var _ = Describe("K8S NS Reconciler Integration Tests", func() {
 			It("sets the NSObj's Ready condition to 'False'", func() {
 				Expect(reconcileErr).To(MatchError(ContainSubstring("error fetching secret")))
 
-				Expect(meta.IsStatusConditionTrue(nsObj.Status.Conditions, "Ready")).To(BeFalse())
-
-				readyCondition := meta.FindStatusCondition(nsObj.Status.Conditions, "Ready")
+				readyCondition := meta.FindStatusCondition(nsObj.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 				Expect(readyCondition).NotTo(BeNil())
+				Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 				Expect(readyCondition.Message).To(ContainSubstring(fmt.Sprintf(
 					"error fetching secret %q from namespace %q",
 					"i-do-not-exist",

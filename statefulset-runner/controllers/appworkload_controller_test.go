@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/apps/v1"
@@ -21,10 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	testAppWorkloadGUID = "test-appworkload-guid"
 )
 
 var _ = Describe("AppWorkload Reconcile", func() {
@@ -44,12 +41,17 @@ var _ = Describe("AppWorkload Reconcile", func() {
 	)
 
 	BeforeEach(func() {
-		Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-		appWorkload = createAppWorkload("some-namespace", "guid_1234")
+		appWorkload = &korifiv1alpha1.AppWorkload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      uuid.NewString(),
+				Namespace: uuid.NewString(),
+			},
+		}
+
 		statefulSet = &v1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "converted-stset",
-				Namespace: testNamespace,
+				Name:      uuid.NewString(),
+				Namespace: appWorkload.Namespace,
 			},
 		}
 
@@ -61,8 +63,8 @@ var _ = Describe("AppWorkload Reconcile", func() {
 		ctx = context.Background()
 		req = ctrl.Request{
 			NamespacedName: types.NamespacedName{
-				Name:      testAppWorkloadGUID,
-				Namespace: testNamespace,
+				Name:      uuid.NewString(),
+				Namespace: appWorkload.Namespace,
 			},
 		}
 
@@ -153,16 +155,6 @@ var _ = Describe("AppWorkload Reconcile", func() {
 
 			It("returns an error", func() {
 				Expect(reconcileErr).To(MatchError("big sad"))
-			})
-		})
-
-		When("reconciler name on the AppWorkload is not statefulset-runner", func() {
-			BeforeEach(func() {
-				appWorkload.Spec.RunnerName = "MyCustomReconciler"
-			})
-
-			It("does not create/patch statefulset", func() {
-				Expect(fakeClient.CreateCallCount()).To(Equal(0), "Client.Create call count mismatch")
 			})
 		})
 	})

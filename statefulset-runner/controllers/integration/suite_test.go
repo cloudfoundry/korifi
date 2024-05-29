@@ -25,12 +25,10 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"go.uber.org/zap/zapcore"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +54,9 @@ func TestAppWorkloadsController(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.DebugLevel)))
+
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -68,28 +68,25 @@ var _ = BeforeSuite(func() {
 	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "statefulset-runner", "role.yaml"))
 	k8sClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	logger := ctrl.Log.WithName("statefulset-runner").WithName("AppWorkload")
 	appWorkloadReconciler := NewAppWorkloadReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		NewAppWorkloadToStatefulsetConverter(k8sManager.GetScheme(), false),
 		NewPDBUpdater(k8sManager.GetClient()),
-		logger,
+		ctrl.Log.WithName("statefulset-runner").WithName("AppWorkload"),
 	)
-	err = (appWorkloadReconciler).SetupWithManager(k8sManager)
+	err = appWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	runnerInfoReconciler := NewRunnerInfoReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
-		logger,
+		ctrl.Log.WithName("statefulset-runner").WithName("RunnerInfo"),
 	)
-	err = (runnerInfoReconciler).SetupWithManager(k8sManager)
+	err = runnerInfoReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
@@ -100,18 +97,3 @@ var _ = AfterSuite(func() {
 	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })
-
-func prefixedGUID(prefix string) string {
-	return prefix + "-" + uuid.NewString()[:8]
-}
-
-func createNamespace(ctx context.Context, k8sClient client.Client, name string) *corev1.Namespace {
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
-	Expect(
-		k8sClient.Create(ctx, ns)).To(Succeed())
-	return ns
-}

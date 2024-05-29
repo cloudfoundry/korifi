@@ -22,16 +22,12 @@ import (
 )
 
 var _ = Describe("CFSpaceReconciler Integration Tests", func() {
-	var (
-		spaceGUID string
-		cfSpace   *korifiv1alpha1.CFSpace
-	)
+	var cfSpace *korifiv1alpha1.CFSpace
 
 	BeforeEach(func() {
-		spaceGUID = PrefixedGUID("cf-space")
 		cfSpace = &korifiv1alpha1.CFSpace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      spaceGUID,
+				Name:      uuid.NewString(),
 				Namespace: testOrg.Status.GUID,
 			},
 			Spec: korifiv1alpha1.CFSpaceSpec{
@@ -44,11 +40,11 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 	It("creates a namespace and sets labels", func() {
 		Eventually(func(g Gomega) {
 			var ns corev1.Namespace
-			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: spaceGUID}, &ns)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: cfSpace.Name}, &ns)).To(Succeed())
 
 			g.Expect(ns.Labels).To(SatisfyAll(
 				HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, korifiv1alpha1.OrgSpaceDeprecatedName),
-				HaveKeyWithValue(korifiv1alpha1.SpaceGUIDKey, spaceGUID),
+				HaveKeyWithValue(korifiv1alpha1.SpaceGUIDKey, cfSpace.Name),
 				HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)),
 			))
 			g.Expect(ns.Annotations).To(HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, cfSpace.Spec.DisplayName))
@@ -74,7 +70,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 			g.Expect(cfSpace.Status.GUID).To(Equal(cfSpace.Name))
 			g.Expect(cfSpace.Status.ObservedGeneration).To(Equal(cfSpace.Generation))
-			g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, "Ready")).To(BeTrue())
+			g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 		}).Should(Succeed())
 	})
 
@@ -82,7 +78,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 		var serviceAccount *corev1.ServiceAccount
 
 		BeforeEach(func() {
-			serviceAccountName := PrefixedGUID("service-account")
+			serviceAccountName := uuid.NewString()
 			serviceAccount = &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
@@ -108,7 +104,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			Expect(adminClient.Create(ctx, serviceAccount)).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
-				g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, "Ready")).To(BeTrue())
+				g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 		})
 
@@ -162,10 +158,10 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 			It("removes all secret references other than the package registry secret from the propagated service account", func() {
 				Eventually(func(g Gomega) {
-					var createdServiceAccounts corev1.ServiceAccountList
-					g.Expect(adminClient.List(ctx, &createdServiceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
+					var serviceAccounts corev1.ServiceAccountList
+					g.Expect(adminClient.List(ctx, &serviceAccounts, client.InNamespace(cfSpace.Name))).To(Succeed())
 
-					g.Expect(createdServiceAccounts.Items).To(ContainElements(
+					g.Expect(serviceAccounts.Items).To(ContainElements(
 						MatchFields(IgnoreExtras, Fields{
 							"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 								"Name": Equal(serviceAccount.Name),
@@ -188,9 +184,13 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 				})
 
 				It("deletes the corresponding service account in CFSpace", func() {
-					Eventually(func() bool {
-						return apierrors.IsNotFound(adminClient.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name}, new(corev1.ServiceAccount)))
-					}).Should(BeTrue(), "timed out waiting for service account to be deleted")
+					Eventually(func(g Gomega) {
+						g.Expect(apierrors.IsNotFound(adminClient.Get(
+							ctx,
+							types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name},
+							new(corev1.ServiceAccount),
+						))).To(BeTrue())
+					}).Should(Succeed())
 				})
 
 				When("the service account is annotated not to propagate deletions", func() {
@@ -199,9 +199,13 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 					})
 
 					It("doesn't delete the corresponding service account in the CFSpace", func() {
-						Consistently(func() bool {
-							return apierrors.IsNotFound(adminClient.Get(ctx, types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name}, new(corev1.ServiceAccount)))
-						}).Should(BeFalse(), "space's copy of service account was deleted and shouldn't have been")
+						Consistently(func(g Gomega) {
+							g.Expect(apierrors.IsNotFound(adminClient.Get(
+								ctx,
+								types.NamespacedName{Name: serviceAccount.Name, Namespace: cfSpace.Name},
+								new(corev1.ServiceAccount),
+							))).To(BeFalse())
+						}).Should(Succeed())
 					})
 				})
 			})
@@ -218,15 +222,14 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 		BeforeEach(func() {
 			Eventually(func(g Gomega) {
-				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: testOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
-				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
 			rootServiceAccount = createServiceAccount(ctx, PrefixedGUID("existing-service-account"), cfRootNamespace, map[string]string{"cloudfoundry.org/propagate-service-account": "true"})
 			// Ensure that the service account is propagated into the CFSpace namespace
-			Eventually(func() error {
-				return adminClient.Get(ctx, types.NamespacedName{Name: rootServiceAccount.Name, Namespace: cfSpace.Name}, &propagatedServiceAccount)
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: rootServiceAccount.Name, Namespace: cfSpace.Name}, &propagatedServiceAccount)).To(Succeed())
 			}).Should(Succeed())
 
 			// Simulate k8s adding a token secret to the propagated service account AND the propagated service account having a stale image registry credential secret
@@ -245,17 +248,16 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 		It("updates the secrets on the propagated service account", func() {
 			Eventually(func(g Gomega) {
-				var updatedPropagatedServiceAccount corev1.ServiceAccount
 				g.Expect(
-					adminClient.Get(ctx, client.ObjectKeyFromObject(&propagatedServiceAccount), &updatedPropagatedServiceAccount),
+					adminClient.Get(ctx, client.ObjectKeyFromObject(&propagatedServiceAccount), &propagatedServiceAccount),
 				).To(Succeed())
-				g.Expect(updatedPropagatedServiceAccount.Secrets).To(ConsistOf(
+				g.Expect(propagatedServiceAccount.Secrets).To(ConsistOf(
 					corev1.ObjectReference{Name: tokenSecretName},
 					corev1.ObjectReference{Name: dockercfgSecretName},
 					corev1.ObjectReference{Name: packageRegistrySecretName},
 				))
 
-				g.Expect(updatedPropagatedServiceAccount.ImagePullSecrets).To(ConsistOf(
+				g.Expect(propagatedServiceAccount.ImagePullSecrets).To(ConsistOf(
 					corev1.LocalObjectReference{Name: dockercfgSecretName},
 					corev1.LocalObjectReference{Name: packageRegistrySecretName},
 				))
@@ -273,9 +275,8 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 		BeforeEach(func() {
 			Eventually(func(g Gomega) {
-				var createdSpace korifiv1alpha1.CFSpace
-				g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: testOrg.Status.GUID, Name: spaceGUID}, &createdSpace)).To(Succeed())
-				g.Expect(meta.IsStatusConditionTrue(createdSpace.Status.Conditions, "Ready")).To(BeTrue())
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), cfSpace)).To(Succeed())
+				g.Expect(meta.IsStatusConditionTrue(cfSpace.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 			}, 20*time.Second).Should(Succeed())
 
 			rootServiceAccount = &corev1.ServiceAccount{
@@ -310,16 +311,15 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 		It("is also added to the space's copy of the service account", func() {
 			Eventually(func(g Gomega) {
-				var updatedPropagatedServiceAccount corev1.ServiceAccount
 				g.Expect(
-					adminClient.Get(ctx, client.ObjectKeyFromObject(&propagatedServiceAccount), &updatedPropagatedServiceAccount),
+					adminClient.Get(ctx, client.ObjectKeyFromObject(&propagatedServiceAccount), &propagatedServiceAccount),
 				).To(Succeed())
-				g.Expect(updatedPropagatedServiceAccount.Secrets).To(ConsistOf(
+				g.Expect(propagatedServiceAccount.Secrets).To(ConsistOf(
 					corev1.ObjectReference{Name: tokenSecretName},
 					corev1.ObjectReference{Name: dockercfgSecretName},
 					corev1.ObjectReference{Name: packageRegistrySecretName},
 				))
-				g.Expect(updatedPropagatedServiceAccount.ImagePullSecrets).To(ConsistOf(
+				g.Expect(propagatedServiceAccount.ImagePullSecrets).To(ConsistOf(
 					corev1.LocalObjectReference{Name: dockercfgSecretName},
 					corev1.LocalObjectReference{Name: packageRegistrySecretName},
 				))

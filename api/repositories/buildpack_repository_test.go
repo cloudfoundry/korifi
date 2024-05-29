@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -83,7 +83,7 @@ var _ = Describe("BuildpackRepository", func() {
 		})
 
 		When("the BuilderInfo resource with the configured BuilderName is not ready", func() {
-			var builderInfo *v1alpha1.BuilderInfo
+			var builderInfo *korifiv1alpha1.BuilderInfo
 
 			BeforeEach(func() {
 				builderInfo = createBuilderInfoWithCleanup(ctx, builderName, "io.buildpacks.stacks.bionic", []buildpackInfo{
@@ -96,7 +96,7 @@ var _ = Describe("BuildpackRepository", func() {
 			When("there is a ready condition with a message", func() {
 				BeforeEach(func() {
 					meta.SetStatusCondition(&builderInfo.Status.Conditions, metav1.Condition{
-						Type:    "Ready",
+						Type:    korifiv1alpha1.StatusConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "testing",
 						Message: "this is a test",
@@ -113,7 +113,7 @@ var _ = Describe("BuildpackRepository", func() {
 			When("there is a ready condition with an empty message", func() {
 				BeforeEach(func() {
 					meta.SetStatusCondition(&builderInfo.Status.Conditions, metav1.Condition{
-						Type:    "Ready",
+						Type:    korifiv1alpha1.StatusConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "testing",
 						Message: "",
@@ -135,8 +135,8 @@ type buildpackInfo struct {
 	version string
 }
 
-func createBuilderInfoWithCleanup(ctx context.Context, name, stack string, buildpacks []buildpackInfo) *v1alpha1.BuilderInfo {
-	builderInfo := &v1alpha1.BuilderInfo{
+func createBuilderInfoWithCleanup(ctx context.Context, name, stack string, buildpacks []buildpackInfo) *korifiv1alpha1.BuilderInfo {
+	builderInfo := &korifiv1alpha1.BuilderInfo{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: rootNamespace,
@@ -150,7 +150,7 @@ func createBuilderInfoWithCleanup(ctx context.Context, name, stack string, build
 	creationTimestamp := metav1.Time{Time: time.Now().Add(-24 * time.Hour)}
 	updatedTimestamp := metav1.Time{Time: time.Now().Add(-30 * time.Second)}
 
-	builderInfo.Status.Stacks = []v1alpha1.BuilderInfoStatusStack{
+	builderInfo.Status.Stacks = []korifiv1alpha1.BuilderInfoStatusStack{
 		{
 			Name:              stack,
 			CreationTimestamp: metav1.Time{Time: time.Now()},
@@ -158,7 +158,7 @@ func createBuilderInfoWithCleanup(ctx context.Context, name, stack string, build
 		},
 	}
 	for _, b := range buildpacks {
-		builderInfo.Status.Buildpacks = append(builderInfo.Status.Buildpacks, v1alpha1.BuilderInfoStatusBuildpack{
+		builderInfo.Status.Buildpacks = append(builderInfo.Status.Buildpacks, korifiv1alpha1.BuilderInfoStatusBuildpack{
 			Name:              b.name,
 			Version:           b.version,
 			Stack:             stack,
@@ -168,7 +168,7 @@ func createBuilderInfoWithCleanup(ctx context.Context, name, stack string, build
 	}
 
 	meta.SetStatusCondition(&builderInfo.Status.Conditions, metav1.Condition{
-		Type:   "Ready",
+		Type:   korifiv1alpha1.StatusConditionReady,
 		Status: metav1.ConditionTrue,
 		Reason: "testing",
 	})

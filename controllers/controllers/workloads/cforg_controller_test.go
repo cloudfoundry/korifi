@@ -2,7 +2,6 @@ package workloads_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -16,16 +15,12 @@ import (
 )
 
 var _ = Describe("CFOrgReconciler Integration Tests", func() {
-	var (
-		orgGUID string
-		cfOrg   *korifiv1alpha1.CFOrg
-	)
+	var cfOrg *korifiv1alpha1.CFOrg
 
 	BeforeEach(func() {
-		orgGUID = PrefixedGUID("cf-org")
 		cfOrg = &korifiv1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      orgGUID,
+				Name:      uuid.NewString(),
 				Namespace: cfRootNamespace,
 			},
 			Spec: korifiv1alpha1.CFOrgSpec{
@@ -38,11 +33,11 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 	It("creates an org namespace and sets labels", func() {
 		Eventually(func(g Gomega) {
 			var orgNamespace corev1.Namespace
-			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: orgGUID}, &orgNamespace)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: cfOrg.Name}, &orgNamespace)).To(Succeed())
 
 			g.Expect(orgNamespace.Labels).To(SatisfyAll(
 				HaveKeyWithValue(korifiv1alpha1.OrgNameKey, korifiv1alpha1.OrgSpaceDeprecatedName),
-				HaveKeyWithValue(korifiv1alpha1.OrgGUIDKey, orgGUID),
+				HaveKeyWithValue(korifiv1alpha1.OrgGUIDKey, cfOrg.Name),
 				HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)),
 			))
 			g.Expect(orgNamespace.Annotations).To(HaveKeyWithValue(korifiv1alpha1.OrgNameKey, cfOrg.Spec.DisplayName))
@@ -64,19 +59,18 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 
 	It("sets the ready status on the CFOrg", func() {
 		Eventually(func(g Gomega) {
-			var createdOrg korifiv1alpha1.CFOrg
-			g.Expect(adminClient.Get(ctx, types.NamespacedName{Namespace: cfRootNamespace, Name: orgGUID}, &createdOrg)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), cfOrg)).To(Succeed())
 
-			g.Expect(createdOrg.Status.GUID).To(Equal(orgGUID))
-			g.Expect(createdOrg.Status.ObservedGeneration).To(Equal(createdOrg.Generation))
-			g.Expect(meta.IsStatusConditionTrue(createdOrg.Status.Conditions, "Ready")).To(BeTrue())
+			g.Expect(cfOrg.Status.GUID).To(Equal(cfOrg.Name))
+			g.Expect(cfOrg.Status.ObservedGeneration).To(Equal(cfOrg.Generation))
+			g.Expect(meta.IsStatusConditionTrue(cfOrg.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 		}).Should(Succeed())
 	})
 
 	It("sets restricted pod security labels on the namespace", func() {
 		Eventually(func(g Gomega) {
 			var ns corev1.Namespace
-			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: orgGUID}, &ns)).To(Succeed())
+			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: cfOrg.Name}, &ns)).To(Succeed())
 			g.Expect(ns.Labels).To(HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)))
 		}).Should(Succeed())
 	})

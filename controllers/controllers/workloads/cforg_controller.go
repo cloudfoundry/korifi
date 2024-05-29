@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -122,18 +121,18 @@ func (r *CFOrgReconciler) enqueueCFOrgRequests(ctx context.Context, object clien
 //+kubebuilder:rbac:groups="policy",resources=podsecuritypolicies,verbs=use
 
 func (r *CFOrgReconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
+	var err error
+	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfOrg)
+	defer func() {
+		meta.SetStatusCondition(&cfOrg.Status.Conditions, readyConditionBuilder.WithError(err).Build())
+	}()
+
 	nsReconcileResult, err := r.namespaceReconciler.ReconcileResource(ctx, cfOrg)
 	if (nsReconcileResult != ctrl.Result{}) || (err != nil) {
 		return nsReconcileResult, err
 	}
 
-	meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
-		Type:               korifiv1alpha1.StatusConditionReady,
-		Status:             metav1.ConditionTrue,
-		Reason:             korifiv1alpha1.StatusConditionReady,
-		ObservedGeneration: cfOrg.Generation,
-	})
-
+	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

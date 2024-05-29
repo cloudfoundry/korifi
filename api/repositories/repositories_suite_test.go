@@ -151,7 +151,7 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
 	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
-		Type:    "Ready",
+		Type:    korifiv1alpha1.StatusConditionReady,
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",
 		Message: "cus",
@@ -191,7 +191,7 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 
 	cfSpace.Status.GUID = cfSpace.Name
 	meta.SetStatusCondition(&(cfSpace.Status.Conditions), metav1.Condition{
-		Type:    "Ready",
+		Type:    korifiv1alpha1.StatusConditionReady,
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",
 		Message: "cus",
