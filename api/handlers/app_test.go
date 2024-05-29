@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/actions"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
@@ -33,6 +34,7 @@ var _ = Describe("App", func() {
 		appRepo          *fake.CFAppRepository
 		dropletRepo      *fake.CFDropletRepository
 		processRepo      *fake.CFProcessRepository
+		processStats     *fake.ProcessStats
 		routeRepo        *fake.CFRouteRepository
 		domainRepo       *fake.CFDomainRepository
 		spaceRepo        *fake.CFSpaceRepository
@@ -47,6 +49,7 @@ var _ = Describe("App", func() {
 		appRepo = new(fake.CFAppRepository)
 		dropletRepo = new(fake.CFDropletRepository)
 		processRepo = new(fake.CFProcessRepository)
+		processStats = new(fake.ProcessStats)
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		spaceRepo = new(fake.CFSpaceRepository)
@@ -58,6 +61,7 @@ var _ = Describe("App", func() {
 			appRepo,
 			dropletRepo,
 			processRepo,
+			processStats,
 			routeRepo,
 			domainRepo,
 			spaceRepo,
@@ -982,6 +986,72 @@ var _ = Describe("App", func() {
 			})
 
 			It("return a process unknown error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("GET /v3/apps/:guid/processes/{type}/stats", func() {
+		BeforeEach(func() {
+			processStats.FetchStatsReturns([]actions.PodStatsRecord{
+				{
+					Type:     "web",
+					Index:    0,
+					MemQuota: tools.PtrTo(int64(1024)),
+				},
+				{
+					Type:     "web",
+					Index:    1,
+					MemQuota: tools.PtrTo(int64(512)),
+				},
+			}, nil)
+
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes/web/stats", nil)
+		})
+
+		It("returns the process stats", func() {
+			Expect(processStats.FetchStatsCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := processStats.FetchStatsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.resources", HaveLen(2)),
+				MatchJSONPath("$.resources[0].type", "web"),
+				MatchJSONPath("$.resources[0].index", BeEquivalentTo(0)),
+				MatchJSONPath("$.resources[1].type", "web"),
+				MatchJSONPath("$.resources[1].mem_quota", BeEquivalentTo(512)),
+			)))
+		})
+
+		When("getting the app fails", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is an error fetching the process", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, errors.New("some-error"))
+			})
+
+			It("return a process unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("fetching the process stats errors", func() {
+			BeforeEach(func() {
+				processStats.FetchStatsReturns(nil, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
 				expectUnknownError()
 			})
 		})
