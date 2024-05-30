@@ -86,30 +86,30 @@
       },
       "required": ["memoryMB", "diskMB", "buildCacheMB"]
     },
-    "nodeSelector": {
-      "description": "Node labels for korifi-api and korifi-controllers pod assignment.",
-      "type": "object",
-      "properties": {}
-    },
-    "tolerations": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "key": { "type": "string" },
-          "operator": { "type": "string" },
-          "value": { "type": "string" },
-          "effect": { "type": "string" }
-        },
-        "required": ["key", "operator", "effect"]
-      },
-      "description": "Pod tolerations for taints."
-    }, 
     "api": {
       "properties": {
         "include": {
           "description": "Deploy the API component.",
           "type": "boolean"
+        },
+        "nodeSelector": {
+          "description": "Node labels for korifi-api pod assignment.",
+          "type": "object",
+          "properties": {}
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "operator": { "type": "string" },
+              "value": { "type": "string" },
+              "effect": { "type": "string" }
+            },
+            "required": ["key", "operator", "effect"]
+          },
+          "description": "Korifi-api pod tolerations for taints."
         },
         "replicas": {
           "description": "Number of replicas.",
@@ -275,6 +275,25 @@
         "replicas": {
           "description": "Number of replicas.",
           "type": "integer"
+        },
+        "nodeSelector": {
+          "description": "Node labels for korifi-controllers pod assignment.",
+          "type": "object",
+          "properties": {}
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "operator": { "type": "string" },
+              "value": { "type": "string" },
+              "effect": { "type": "string" }
+            },
+            "required": ["key", "operator", "effect"]
+          },
+          "description": "Korifi-controllers pod tolerations for taints."
         },
         "resources": {
           "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
