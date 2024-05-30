@@ -36,6 +36,7 @@ Here are all the values that can be set for the chart:
   - `lifecycle`: Default lifecycle for apps.
     - `stack` (_String_): Stack.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).
+  - `nodeSelector`: Node labels for korifi-api pod assignment.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
     - `limits`: Resource limits.
@@ -44,6 +45,7 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
+  - `tolerations` (_Array_): Korifi-api pod tolerations for taints.
   - `userCertificateExpirationWarningDuration` (_String_): Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
 - `containerRegistrySecret` (_String_): Deprecated in favor of containerRegistrySecrets.
 - `containerRegistrySecrets` (_Array_): List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
@@ -54,6 +56,7 @@ Here are all the values that can be set for the chart:
   - `maxRetainedBuildsPerApp` (_Integer_): How many staged builds to keep, excluding the app's current droplet. Older staged builds will be deleted, along with their corresponding container images.
   - `maxRetainedPackagesPerApp` (_Integer_): How many 'ready' packages to keep, excluding the package associated with the app's current droplet. Older 'ready' packages will be deleted, along with their corresponding container images.
   - `namespaceLabels`: Key-value pairs that are going to be set as labels on the namespaces created by Korifi.
+  - `nodeSelector`: Node labels for korifi-controllers pod assignment.
   - `processDefaults`:
     - `diskQuotaMB` (_Integer_): Default disk quota for the `web` process.
     - `memoryMB` (_Integer_): Default memory limit for the `web` process.
@@ -66,6 +69,7 @@ Here are all the values that can be set for the chart:
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
   - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
+  - `tolerations` (_Array_): Korifi-controllers pod tolerations for taints.
   - `workloadsTLSSecret` (_String_): TLS secret used when setting up an app routes.
 - `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).
 - `defaultAppDomainName` (_String_): Base domain name for application URLs.
@@ -104,7 +108,6 @@ Here are all the values that can be set for the chart:
 - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
 - `networking`: Networking configuration
   - `gatewayClass` (_String_): The name of the GatewayClass Korifi Gateway references
-- `nodeSelector`: Node labels for korifi-api and korifi-controllers pod assignment.
 - `reconcilers`:
   - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
   - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Defaults to `kpack-image-builder`.
@@ -125,4 +128,3 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `temporarySetPodSeccompProfile` (_Boolean_): Sets the pod .spec.securityContext.seccompProfile to RuntimeDefault. Setting this flag to true will cause a restart of all previously running pods.
 - `systemImagePullSecrets` (_Array_): List of `Secret` names to be used when pulling Korifi system images from private registries
-- `tolerations` (_Array_): Pod tolerations for taints.

@@ -76,13 +76,13 @@ spec:
           readOnly: true
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-controllers-controller-manager
-{{- if .Values.nodeSelector }}
+{{- if .Values.controllers.nodeSelector }}
       nodeSelector:
-      {{ toYaml .Values.nodeSelector | indent 8 }}
+      {{ toYaml .Values.controllers.nodeSelector | indent 8 }}
 {{- end }}
-{{- if .Values.tolerations }}
+{{- if .Values.controllers.tolerations }}
       tolerations:
-      {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- toYaml .Values.controllers.tolerations | nindent 8 }}
 {{- end }}
       terminationGracePeriodSeconds: 10
       volumes:

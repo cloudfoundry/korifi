@@ -57,13 +57,13 @@ spec:
 {{- end }}
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-api-system-serviceaccount
-{{- if .Values.nodeSelector }}
+{{- if .Values.api.nodeSelector }}
       nodeSelector:
-      {{ toYaml .Values.nodeSelector | indent 8 }}
+      {{ toYaml .Values.api.nodeSelector | indent 8 }}
 {{- end }}
-{{- if .Values.tolerations }}
+{{- if .Values.api.tolerations }}
       tolerations:
-      {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- toYaml .Values.api.tolerations | nindent 8 }}
 {{- end }}
       volumes:
       - configMap:

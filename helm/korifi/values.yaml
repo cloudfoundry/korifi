@@ -9,8 +9,6 @@ containerRegistrySecrets:
 eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
-tolerations: []
-nodeSelector: {}
 
 reconcilers:
   build: kpack-image-builder
@@ -25,7 +23,9 @@ api:
   include: true
 
   image: cloudfoundry/korifi-api:latest
-
+  
+  nodeSelector: {}
+  tolerations: []
   replicas: 1
   resources:
     requests:
@@ -66,7 +66,9 @@ api:
 
 controllers:
   image: cloudfoundry/korifi-controllers:latest
-
+  
+  nodeSelector: {}
+  tolerations: []
   replicas: 1
   resources:
     limits:
