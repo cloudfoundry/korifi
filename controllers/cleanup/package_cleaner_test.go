@@ -5,9 +5,9 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -29,15 +29,15 @@ var _ = Describe("PackageCleaner", func() {
 	BeforeEach(func() {
 		cleaner = cleanup.NewPackageCleaner(controllersClient, 1)
 
-		namespace = GenerateGUID()
+		namespace = uuid.NewString()
 		Expect(k8sClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
 		})).To(Succeed())
 
-		appGUID = GenerateGUID()
-		buildGUID := GenerateGUID()
+		appGUID = uuid.NewString()
+		buildGUID := uuid.NewString()
 
 		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{

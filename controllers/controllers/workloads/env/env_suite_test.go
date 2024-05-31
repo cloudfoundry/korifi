@@ -11,9 +11,9 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
@@ -84,20 +84,20 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	ctx = context.Background()
-	rootNamespace = testutils.PrefixedGUID("root-namespace")
+	rootNamespace = uuid.NewString()
 	createNamespace(rootNamespace)
 
 	cfOrg = &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      testutils.PrefixedGUID("org"),
+			Name:      uuid.NewString(),
 			Namespace: rootNamespace,
 		},
 		Spec: korifiv1alpha1.CFOrgSpec{
-			DisplayName: testutils.PrefixedGUID("org"),
+			DisplayName: uuid.NewString(),
 		},
 	}
 	ensureCreate(cfOrg)
-	orgNSName := testutils.PrefixedGUID("org")
+	orgNSName := uuid.NewString()
 	ensurePatch(cfOrg, func(cfOrg *korifiv1alpha1.CFOrg) {
 		cfOrg.Status.GUID = orgNSName
 	})
@@ -105,15 +105,15 @@ var _ = BeforeEach(func() {
 
 	cfSpace = &korifiv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      testutils.PrefixedGUID("space"),
+			Name:      uuid.NewString(),
 			Namespace: cfOrg.Status.GUID,
 		},
 		Spec: korifiv1alpha1.CFSpaceSpec{
-			DisplayName: testutils.PrefixedGUID("space"),
+			DisplayName: uuid.NewString(),
 		},
 	}
 	ensureCreate(cfSpace)
-	cfNSName := testutils.PrefixedGUID("space")
+	cfNSName := uuid.NewString()
 	ensurePatch(cfSpace, func(cfSpace *korifiv1alpha1.CFSpace) {
 		cfSpace.Status.GUID = cfNSName
 	})

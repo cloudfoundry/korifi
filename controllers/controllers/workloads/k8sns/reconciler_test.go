@@ -7,7 +7,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/k8sns"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"golang.org/x/exp/maps"
@@ -69,7 +68,7 @@ var _ = Describe("K8S NS Reconciler Integration Tests", func() {
 		}
 		reconciler = k8sns.NewReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](controllersClient, finalizer, metadataCompiler, []string{})
 
-		orgGUID = PrefixedGUID("cf-org")
+		orgGUID = uuid.NewString()
 		nsObj = &korifiv1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       orgGUID,

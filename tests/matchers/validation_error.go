@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	//. "github.com/onsi/gomega"
@@ -23,7 +23,7 @@ func BeValidationError(expectedErrorType string, messageMatcher types.GomegaMatc
 	return &beValidationErrorMatcher{
 		matcher: &matchers.AndMatcher{
 			Matchers: []types.GomegaMatcher{
-				gomega.BeAssignableToTypeOf(webhooks.ValidationError{}),
+				gomega.BeAssignableToTypeOf(validation.ValidationError{}),
 				gstruct.MatchAllFields(gstruct.Fields{
 					"Type":    gomega.Equal(expectedErrorType),
 					"Message": messageMatcher,
@@ -57,16 +57,16 @@ func (m *beValidationErrorMatcher) NegatedFailureMessage(actual interface{}) (me
 	return m.matcher.NegatedFailureMessage(validationErr)
 }
 
-func toValidationError(actual interface{}) (webhooks.ValidationError, error) {
+func toValidationError(actual interface{}) (validation.ValidationError, error) {
 	actualErr, ok := actual.(*k8serrors.StatusError)
 	if !ok {
-		return webhooks.ValidationError{}, fmt.Errorf("%v is not a status error", actual)
+		return validation.ValidationError{}, fmt.Errorf("%v is not a status error", actual)
 	}
 
-	var validationErr webhooks.ValidationError
+	var validationErr validation.ValidationError
 	err := json.Unmarshal([]byte(actualErr.Status().Reason), &validationErr)
 	if err != nil {
-		return webhooks.ValidationError{}, fmt.Errorf("%v is not a validation error: %w", actualErr.Error(), err)
+		return validation.ValidationError{}, fmt.Errorf("%v is not a validation error: %w", actualErr.Error(), err)
 	}
 
 	return validationErr, nil

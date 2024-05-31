@@ -3,10 +3,10 @@ package image_test
 import (
 	"os"
 
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tests/helpers/oci"
 	"code.cloudfoundry.org/korifi/tools/image"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -317,7 +317,7 @@ var _ = Describe("Client", func() {
 				tagsToDelete = []string{"jim", "bob"}
 				pushRef = reg.RepoName
 				if pushRef == "" {
-					repoName = testutils.GenerateGUID()
+					repoName = uuid.NewString()
 					pushRef = reg.PathPrefix + "/" + repoName
 				}
 				var err error
